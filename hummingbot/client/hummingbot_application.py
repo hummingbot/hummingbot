@@ -15,8 +15,8 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.market.binance.binance_market import BinanceMarket
 from hummingbot.market.bittrex.bittrex_market import BittrexMarket
+from hummingbot.market.kucoin.kucoin_market import KucoinMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
-from hummingbot.market.ddex.ddex_market import DDEXMarket
 from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.liquid.liquid_market import LiquidMarket
 from hummingbot.market.market_base import MarketBase
@@ -39,7 +39,6 @@ from hummingbot.client.errors import InvalidCommandError, ArgumentParserError
 from hummingbot.client.config.in_memory_config_map import in_memory_config_map
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import get_erc20_token_addresses
-from hummingbot.logger.report_aggregator import ReportAggregator
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
 
@@ -57,7 +56,6 @@ MARKET_CLASSES = {
     "bamboo_relay": BambooRelayMarket,
     "binance": BinanceMarket,
     "coinbase_pro": CoinbaseProMarket,
-    "ddex": DDEXMarket,
     "huobi": HuobiMarket,
     "liquid": LiquidMarket,
     "idex": IDEXMarket,
@@ -65,6 +63,7 @@ MARKET_CLASSES = {
     "dolomite": DolomiteMarket,
     "bittrex": BittrexMarket,
     "bitcoin_com": BitcoinComMarket,
+    "kucoin": KucoinMarket,
     "hitbtc": HitBTCMarket
 }
 
@@ -112,7 +111,6 @@ class HummingbotApplication(*commands):
         self.starting_balances = {}
         self.placeholder_mode = False
         self.log_queue_listener: Optional[logging.handlers.QueueListener] = None
-        self.reporting_module: Optional[ReportAggregator] = None
         self.data_feed: Optional[DataFeedBase] = None
         self.notifiers: List[NotifierBase] = []
         self.kill_switch: Optional[KillSwitch] = None
@@ -121,15 +119,6 @@ class HummingbotApplication(*commands):
 
         self.trade_fill_db: SQLConnectionManager = SQLConnectionManager.get_trade_fills_instance()
         self.markets_recorder: Optional[MarketsRecorder] = None
-
-    def init_reporting_module(self):
-        if not self.reporting_module:
-            self.reporting_module = ReportAggregator(
-                self,
-                report_aggregation_interval=global_config_map["reporting_aggregation_interval"].value,
-                log_report_interval=global_config_map["reporting_log_interval"].value,
-            )
-        self.reporting_module.start()
 
     def _notify(self, msg: str):
         self.app.log(msg)
@@ -142,7 +131,6 @@ class HummingbotApplication(*commands):
             if self.placeholder_mode:
                 pass
             else:
-                logging.getLogger("hummingbot.command_history").info(raw_command)
                 args = self.parser.parse_args(args=raw_command.split())
                 kwargs = vars(args)
                 if not hasattr(args, "func"):
@@ -250,16 +238,6 @@ class HummingbotApplication(*commands):
                 for asset, balance in paper_trade_account_balance:
                     market.set_balance(asset, balance)
 
-            elif market_name == "ddex":
-                assert self.wallet is not None
-                market = DDEXMarket(
-                    wallet=self.wallet,
-                    ethereum_rpc_url=ethereum_rpc_url,
-                    order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                    trading_pairs=trading_pairs,
-                    trading_required=self._trading_required,
-                )
-
             elif market_name == "idex":
                 assert self.wallet is not None
                 idex_api_key: str = global_config_map.get("idex_api_key").value
@@ -355,6 +333,16 @@ class HummingbotApplication(*commands):
                                        order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                        trading_pairs=trading_pairs,
                                        trading_required=self._trading_required)
+            elif market_name == "kucoin":
+                kucoin_api_key = global_config_map.get("kucoin_api_key").value
+                kucoin_secret_key = global_config_map.get("kucoin_secret_key").value
+                kucoin_passphrase = global_config_map.get("kucoin_passphrase").value
+                market = KucoinMarket(kucoin_api_key,
+                                      kucoin_passphrase,
+                                      kucoin_secret_key,
+                                      order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                                      trading_pairs=trading_pairs,
+                                      trading_required=self._trading_required)
             elif market_name == "bitcoin_com":
                 bitcoin_com_api_key = global_config_map.get("bitcoin_com_api_key").value
                 bitcoin_com_secret_key = global_config_map.get("bitcoin_com_secret_key").value

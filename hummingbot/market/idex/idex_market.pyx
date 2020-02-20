@@ -333,12 +333,24 @@ cdef class IDEXMarket(MarketBase):
 
         for order_update, tracked_limit_order in zip(results, tracked_orders):
             if isinstance(order_update, Exception):
-                self.logger().network(
-                    f"Error fetching status update for the order {tracked_limit_order.client_order_id}: "
-                    f"{order_update}.",
-                    app_warning_msg=f"Failed to fetch status update for the order {tracked_limit_order.client_order_id}. "
-                                    f"Check Ethereum wallet and network connection."
-                )
+                if "order not found" in str(order_update).lower():
+                    # The order does not exist. So we should not be tracking it.
+                    self.logger().info(
+                        f"The tracked order {tracked_limit_order.client_order_id} does not exist on IDEX."
+                        f"Order removed from tracking."
+                    )
+                    self.c_expire_order(tracked_limit_order.client_order_id)
+                    self.c_trigger_event(
+                        self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                        OrderCancelledEvent(self._current_timestamp, tracked_limit_order.client_order_id)
+                    )
+                else:
+                    self.logger().network(
+                        f"Error fetching status update for the order {tracked_limit_order.client_order_id}: "
+                        f"{order_update}.",
+                        app_warning_msg=f"Failed to fetch status update for the order {tracked_limit_order.client_order_id}. "
+                                        f"Check Ethereum wallet and network connection."
+                    )
                 continue
 
             previous_is_done = tracked_limit_order.is_done
@@ -666,9 +678,15 @@ cdef class IDEXMarket(MarketBase):
         response_data = await self.post_cancel_order(cancel_order_request)
         if isinstance(response_data, dict) and response_data.get("success"):
             self.logger().info(f"Successfully cancelled order {exchange_order_id}.")
-            self.c_expire_order(client_order_id)
-            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                 OrderCancelledEvent(self._current_timestamp, client_order_id))
+        elif isinstance(response_data, Exception) and "order not found" in str(response_data).lower():
+            self.logger().info(f"The order {exchange_order_id} does not exist on IDEX. No cancellation needed.")
+        else:
+            return response_data
+
+        self.c_expire_order(client_order_id)
+        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                             OrderCancelledEvent(self._current_timestamp, client_order_id))
+
         return response_data
 
     async def post_market_order(self, market_order_request: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -977,7 +995,11 @@ cdef class IDEXMarket(MarketBase):
                 cancellation_results = await safe_gather(*tasks, return_exceptions=True)
                 for cid, cr in zip(client_order_ids, cancellation_results):
                     if isinstance(cr, Exception):
-                        continue
+                        if "order not found" in str(cr).lower():
+                            order_id_set.remove(cid)
+                            successful_cancellations.append(CancellationResult(cid, True))
+                        else:
+                            continue
                     if isinstance(cr, dict) and cr.get("success") == 1:
                         order_id_set.remove(cid)
                         successful_cancellations.append(CancellationResult(cid, True))

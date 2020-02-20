@@ -17,10 +17,14 @@ from typing import (
     Tuple,
     NamedTuple
 )
-from decimal import Decimal
+from decimal import (
+    ROUND_FLOOR,
+    Decimal
+)
 from eth_utils import remove_0x_prefix
 from libc.stdint cimport int64_t
 from web3 import Web3
+from web3.exceptions import TransactionNotFound
 
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -37,7 +41,8 @@ from hummingbot.core.event.events import (
     OrderCancelledEvent,
     MarketOrderFailureEvent,
     TradeType,
-    TradeFee
+    TradeFee,
+    ZeroExFillEvent
 )
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
@@ -342,6 +347,17 @@ cdef class BambooRelayMarket(MarketBase):
                 key: BambooRelayInFlightOrder.from_json(value)
                 for key, value in saved_states["limit_orders"].items()
             })
+
+            # if completed/cancelled orders are restored they should become untracked
+            if len(self._in_flight_limit_orders) >= 0:
+                for order in list(self._in_flight_limit_orders.values()):
+                    if (order.is_cancelled or
+                        order.has_been_cancelled or
+                        order.is_expired or
+                        order.is_failure or
+                        order.is_done or
+                        order.expires < self._current_timestamp):
+                        del self._in_flight_limit_orders[order.client_order_id]
         except Exception:
             self.logger().error(f"Error restoring tracking states.", exc_info=True)
 
@@ -496,6 +512,11 @@ cdef class BambooRelayMarket(MarketBase):
                 self.logger().error(f"Error parsing the trading_pair {trading_pair}. Skipping.", exc_info=True)
         return retval
 
+    async def get_account_orders(self) -> List[Dict[str, Any]]:
+        return await self._api_request(http_method="get",
+                                       url=f"{BAMBOO_RELAY_REST_ENDPOINT}{self._api_prefix}/accounts/{self._wallet.address.lower()}/orders",
+                                       headers={"User-Agent": "hummingbot"})
+
     async def get_orders(self, order_hashes: List[str]) -> Dict[str, Dict[str, Any]]:
         return await self._api_request("post",
                                        url=f"{self._api_endpoint}{self._api_prefix}/orders/hashes",
@@ -505,15 +526,25 @@ cdef class BambooRelayMarket(MarketBase):
     async def _get_order_updates(self, tracked_limit_orders: List[BambooRelayInFlightOrder]) -> List[Dict[str, Any]]:
         cdef:
             BambooRelayInFlightOrder tracked_limit_order
+            list account_orders_list = []
             list order_updates = []
             list hashes = []
             dict hash_index = {}
+            dict account_orders_map = {}
+
+        # Fetch cached account endpoint
+        account_orders_list = await self.get_account_orders()
+        for account_order in account_orders_list:
+            account_orders_map[account_order["orderHash"]] = account_order
 
         for i, tracked_order in enumerate(tracked_limit_orders):
             order_hash = tracked_order.exchange_order_id
-            hashes.append(tracked_order.exchange_order_id)
-            hash_index[order_hash] = i
-            order_updates.append(None)
+            if not order_hash in account_orders_map:
+                hashes.append(tracked_order.exchange_order_id)
+                hash_index[order_hash] = i
+                order_updates.append(None)
+            else:
+                order_updates.append(account_orders_map[order_hash])
 
         if len(hashes):
             # Grab all of the orders details at once by hash
@@ -523,9 +554,111 @@ cdef class BambooRelayMarket(MarketBase):
 
         return order_updates
 
+    # Single order update, i.e. via RPC logs instead of market API
+    def _update_single_limit_order(self, fill_event: ZeroExFillEvent):
+        cdef:
+            double current_timestamp = self._current_timestamp
+            object order_remaining_base_token_amount
+            object order_filled_base_token_amount
+            object order_filled_quote_token_amount
+            int base_asset_decimals
+            int quote_asset_decimals
+            BambooRelayInFlightOrder tracked_limit_order
+
+        tracked_limit_orders = list(self._in_flight_limit_orders.values())
+
+        for tracked_limit_order in tracked_limit_orders:
+            if tracked_limit_order.exchange_order_id == fill_event.order_hash:
+                previous_is_done = tracked_limit_order.is_done
+
+                if not previous_is_done:
+                    order_remaining_base_token_amount = tracked_limit_order.available_amount_base
+
+                    trading_pair_rules = self.trading_rules.get(tracked_limit_order.trading_pair)
+                    base_asset_decimals = -int(math.ceil(math.log10(float(trading_pair_rules.min_base_amount_increment))))
+                    quote_asset_decimals = -int(math.ceil(math.log10(float(trading_pair_rules.min_quote_amount_increment))))
+
+                    order_filled_base_token_amount = s_decimal_0
+                    order_filled_quote_token_amount = s_decimal_0
+
+                    # Each update has a list of fills, we only process these once
+                    if not fill_event.tx_hash in tracked_limit_order.recorded_fills:
+                        if tracked_limit_order.trade_type is TradeType.BUY:
+                            order_filled_base_token_amount = fill_event.taker_asset_filled_amount / Decimal(f"1e{base_asset_decimals}")
+                            order_filled_quote_token_amount = fill_event.maker_asset_filled_amount / Decimal(f"1e{quote_asset_decimals}")
+                        else:
+                            order_filled_base_token_amount = fill_event.maker_asset_filled_amount / Decimal(f"1e{base_asset_decimals}")
+                            order_filled_quote_token_amount = fill_event.taker_asset_filled_amount / Decimal(f"1e{quote_asset_decimals}")
+
+                        if order_filled_base_token_amount > 0:
+                            tracked_limit_order.recorded_fills.append(fill_event.tx_hash)
+
+                    tracked_limit_order.available_amount_base = order_remaining_base_token_amount - order_filled_base_token_amount
+
+                    if tracked_limit_order.available_amount_base < 0:
+                        tracked_limit_order.available_amount_base = 0
+                    
+                    if order_filled_base_token_amount > 0:
+                        tracked_limit_order.executed_amount_base = tracked_limit_order.executed_amount_base + order_filled_base_token_amount
+                        tracked_limit_order.executed_amount_quote = tracked_limit_order.executed_amount_quote + order_filled_quote_token_amount
+                        self.logger().info(f"Filled {order_filled_base_token_amount} out of {tracked_limit_order.amount} of the "
+                                           f"limit order {tracked_limit_order.client_order_id} according to the RPC transaction logs.")
+                        self.c_trigger_event(
+                            self.MARKET_ORDER_FILLED_EVENT_TAG,
+                            OrderFilledEvent(
+                                current_timestamp,
+                                tracked_limit_order.client_order_id,
+                                tracked_limit_order.trading_pair,
+                                tracked_limit_order.trade_type,
+                                OrderType.LIMIT,
+                                tracked_limit_order.price,
+                                order_filled_base_token_amount,
+                                TradeFee(0.0),  # no fee for limit order fills
+                                tracked_limit_order.exchange_order_id,  # Use order hash for limit order validation
+                            )
+                        )
+                    if tracked_limit_order.available_amount_base == 0:
+                        tracked_limit_order.last_state = "FILLED"
+                        self.c_expire_order(tracked_limit_order.client_order_id, 60)
+                        # Remove from log tracking
+                        safe_ensure_future(self._wallet.current_backend.zeroex_fill_watcher.unwatch_order_hash(tracked_limit_order.exchange_order_id))
+                        if tracked_limit_order.trade_type is TradeType.BUY:
+                            self.logger().info(f"The limit buy order {tracked_limit_order.client_order_id} "
+                                               f"has completed according to the RPC transaction logs.")
+                            self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
+                                                 BuyOrderCompletedEvent(current_timestamp,
+                                                                        tracked_limit_order.client_order_id,
+                                                                        tracked_limit_order.base_asset,
+                                                                        tracked_limit_order.quote_asset,
+                                                                        tracked_limit_order.quote_asset,
+                                                                        tracked_limit_order.executed_amount_base,
+                                                                        tracked_limit_order.executed_amount_quote,
+                                                                        tracked_limit_order.protocol_fee_amount,
+                                                                        OrderType.LIMIT))
+                        else:
+                            self.logger().info(f"The limit sell order {tracked_limit_order.client_order_id} "
+                                               f"has completed according to the RPC transaction logs.")
+                            self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
+                                                 SellOrderCompletedEvent(current_timestamp,
+                                                                         tracked_limit_order.client_order_id,
+                                                                         tracked_limit_order.base_asset,
+                                                                         tracked_limit_order.quote_asset,
+                                                                         tracked_limit_order.quote_asset,
+                                                                         tracked_limit_order.executed_amount_base,
+                                                                         tracked_limit_order.executed_amount_quote,
+                                                                         tracked_limit_order.protocol_fee_amount,
+                                                                         OrderType.LIMIT))
+                return
+
     async def _update_limit_order_status(self):
         cdef:
             double current_timestamp = self._current_timestamp
+            int order_timestamp_diff
+            object order_remaining_base_token_amount
+            object fill_base_token_amount
+            object order_filled_base_token_amount
+            object order_filled_quote_token_amount
+            object previous_amount_available
 
         if current_timestamp - self._last_update_limit_order_timestamp <= self.UPDATE_OPEN_LIMIT_ORDERS_INTERVAL:
             return
@@ -536,6 +669,8 @@ cdef class BambooRelayMarket(MarketBase):
         if len(self._in_flight_limit_orders) > 0:
             tracked_limit_orders = list(self._in_flight_limit_orders.values())
             order_updates = await self._get_order_updates(tracked_limit_orders)
+            # Every limit order update happens on this tick, so use the current timestamp
+            current_timestamp = self._current_timestamp
             for order_update, tracked_limit_order in zip(order_updates, tracked_limit_orders):
                 if order_update is None:
                     # 404 handling
@@ -545,10 +680,10 @@ cdef class BambooRelayMarket(MarketBase):
                         # soft cancel this order if we are using the coordinator just to be safe
                         if tracked_limit_order.is_coordinated:
                             self.c_cancel("", tracked_limit_order.client_order_id)
-                        self.c_expire_order_fast(tracked_limit_order.client_order_id)
+                        self.c_expire_order(tracked_limit_order.client_order_id, 10)
                         self.c_trigger_event(
                             self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                            OrderCancelledEvent(self._current_timestamp, tracked_limit_order.client_order_id)
+                            OrderCancelledEvent(current_timestamp, tracked_limit_order.client_order_id)
                         )
                         tracked_limit_order.last_state = "CANCELED"
                     continue
@@ -566,9 +701,12 @@ cdef class BambooRelayMarket(MarketBase):
                 # Each update has a list of fills, we only process these once
                 for fill in order_update["fills"]:
                     if not fill["transactionHash"] in tracked_limit_order.recorded_fills:
-                        order_filled_base_token_amount += Decimal(fill["filledBaseTokenAmount"])
-                        order_filled_quote_token_amount += Decimal(fill["filledQuoteTokenAmount"])
-                        tracked_limit_order.recorded_fills.append(fill["transactionHash"])
+                        fill_base_token_amount = Decimal(fill["filledBaseTokenAmount"])
+                        # Pending fills have a 0 blocknumer, pending status, or 0 fill amount
+                        if fill_base_token_amount > 0 and fill["blockNumber"] > 0 and fill["status"] == "COMPLETED":
+                            order_filled_base_token_amount += fill_base_token_amount
+                            order_filled_quote_token_amount += Decimal(fill["filledQuoteTokenAmount"])
+                            tracked_limit_order.recorded_fills.append(fill["transactionHash"])
 
                 previous_amount_available = tracked_limit_order.available_amount_base
 
@@ -579,11 +717,11 @@ cdef class BambooRelayMarket(MarketBase):
                     tracked_limit_order.executed_amount_base = tracked_limit_order.executed_amount_base + order_filled_base_token_amount
                     tracked_limit_order.executed_amount_quote = tracked_limit_order.executed_amount_quote + order_filled_quote_token_amount
                     self.logger().info(f"Filled {order_filled_base_token_amount} out of {tracked_limit_order.amount} of the "
-                                       f"limit order {tracked_limit_order.client_order_id}.")
+                                       f"limit order {tracked_limit_order.client_order_id} according to order status API.")
                     self.c_trigger_event(
                         self.MARKET_ORDER_FILLED_EVENT_TAG,
                         OrderFilledEvent(
-                            self._current_timestamp,
+                            current_timestamp,
                             tracked_limit_order.client_order_id,
                             tracked_limit_order.trading_pair,
                             tracked_limit_order.trade_type,
@@ -597,7 +735,7 @@ cdef class BambooRelayMarket(MarketBase):
                 elif order_remaining_base_token_amount < (previous_amount_available + order_filled_base_token_amount):
                     # i.e. user was running a bot on Bamboo and Radar, or two instances of the bot at the same time
                     self.logger().info(f"The limit order {tracked_limit_order.client_order_id} has had it's available amount "
-                                       f"reduced to {order_remaining_base_token_amount}.")
+                                       f"reduced to {order_remaining_base_token_amount} according to order status API.")
 
                 # Has been soft cancelled already according to the Coordinator Server or 
                 # a mined Cancel transaction was completed
@@ -607,43 +745,55 @@ cdef class BambooRelayMarket(MarketBase):
                 # do not retrigger order events if order was already in that state previously
                 if not previous_is_cancelled and tracked_limit_order.is_cancelled:
                     if (self._in_flight_cancels.get(tracked_limit_order.client_order_id, 0) >
-                            self._current_timestamp - self.CANCEL_EXPIRY_TIME):
+                            current_timestamp - self.CANCEL_EXPIRY_TIME):
                         # This cancel was originated from this connector, and the cancel event should have been
                         # emitted in the cancel_order() call already.
                         del self._in_flight_cancels[tracked_limit_order.client_order_id]
                     else:
                         self.logger().info(f"The limit order {tracked_limit_order.client_order_id} has cancelled according "
                                            f"to order status API.")
-                        self.c_expire_order(tracked_limit_order.client_order_id)
+                        if tracked_limit_order.is_coordinated:
+                            # Maximum fill time for a coordinated order is 90 seconds or the order expiry
+                            order_timestamp_diff = abs(tracked_limit_order.expires - int(current_timestamp))
+                            self.c_expire_order(tracked_limit_order.client_order_id, min(order_timestamp_diff, 130))
+                        else:
+                            self.c_expire_order(tracked_limit_order.client_order_id, 10)
                         self.c_trigger_event(
                             self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                            OrderCancelledEvent(self._current_timestamp, tracked_limit_order.client_order_id)
+                            OrderCancelledEvent(current_timestamp, tracked_limit_order.client_order_id)
                         )
                 elif not previous_is_expired and tracked_limit_order.is_expired:
                     self.logger().info(f"The limit order {tracked_limit_order.client_order_id} has expired according "
                                        f"to order status API.")
-                    self.c_expire_order(tracked_limit_order.client_order_id)
+                    if tracked_limit_order.is_coordinated:
+                        # Maximum fill time for a coordinated order is 90 seconds or the order expiry
+                        order_timestamp_diff = abs(tracked_limit_order.expires - int(current_timestamp))
+                        self.c_expire_order(tracked_limit_order.client_order_id, min(order_timestamp_diff, 130))
+                    else:
+                        self.c_expire_order(tracked_limit_order.client_order_id, 30)
                     self.c_trigger_event(
                         self.MARKET_ORDER_EXPIRED_EVENT_TAG,
-                        OrderExpiredEvent(self._current_timestamp, tracked_limit_order.client_order_id)
+                        OrderExpiredEvent(current_timestamp, tracked_limit_order.client_order_id)
                     )
                 elif not previous_is_failure and tracked_limit_order.is_failure:
                     self.logger().info(f"The limit order {tracked_limit_order.client_order_id} has failed "
                                        f"according to order status API.")
-                    self.c_expire_order(tracked_limit_order.client_order_id)
+                    self.c_expire_order(tracked_limit_order.client_order_id, 30)
                     self.c_trigger_event(
                         self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                        MarketOrderFailureEvent(self._current_timestamp,
+                        MarketOrderFailureEvent(current_timestamp,
                                                 tracked_limit_order.client_order_id,
                                                 OrderType.LIMIT)
                     )
                 elif not previous_is_done and tracked_limit_order.is_done:
-                    self.c_expire_order(tracked_limit_order.client_order_id)
+                    self.c_expire_order(tracked_limit_order.client_order_id, 60)
+                    # Remove from log tracking
+                    await self._wallet.current_backend.zeroex_fill_watcher.unwatch_order_hash(tracked_limit_order.exchange_order_id)
                     if tracked_limit_order.trade_type is TradeType.BUY:
-                        self.logger().info(f"The limit buy order {tracked_limit_order.client_order_id}"
+                        self.logger().info(f"The limit buy order {tracked_limit_order.client_order_id} "
                                            f"has completed according to order status API.")
                         self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
-                                             BuyOrderCompletedEvent(self._current_timestamp,
+                                             BuyOrderCompletedEvent(current_timestamp,
                                                                     tracked_limit_order.client_order_id,
                                                                     tracked_limit_order.base_asset,
                                                                     tracked_limit_order.quote_asset,
@@ -653,10 +803,10 @@ cdef class BambooRelayMarket(MarketBase):
                                                                     tracked_limit_order.protocol_fee_amount,
                                                                     OrderType.LIMIT))
                     else:
-                        self.logger().info(f"The limit sell order {tracked_limit_order.client_order_id}"
+                        self.logger().info(f"The limit sell order {tracked_limit_order.client_order_id} "
                                            f"has completed according to order status API.")
                         self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
-                                             SellOrderCompletedEvent(self._current_timestamp,
+                                             SellOrderCompletedEvent(current_timestamp,
                                                                      tracked_limit_order.client_order_id,
                                                                      tracked_limit_order.base_asset,
                                                                      tracked_limit_order.quote_asset,
@@ -693,7 +843,8 @@ cdef class BambooRelayMarket(MarketBase):
             tracked_market_orders = list(self._in_flight_market_orders.values())
             for tracked_market_order in tracked_market_orders:
                 receipt = self.get_tx_hash_receipt(tracked_market_order.tx_hash)
-                if receipt is None:
+                # Receipt exists and has been mined
+                if receipt is None or receipt["blockNumber"] is None:
                     continue
                 if receipt["status"] == 0:
                     err_msg = (f"The market order {tracked_market_order.client_order_id}"
@@ -769,9 +920,11 @@ cdef class BambooRelayMarket(MarketBase):
             try:
                 if len(self._pending_approval_tx_hashes) > 0:
                     for tx_hash in list(self._pending_approval_tx_hashes):
-                        receipt = self._w3.eth.getTransactionReceipt(tx_hash)
-                        if receipt is not None:
+                        try:
+                            receipt = self._w3.eth.getTransactionReceipt(tx_hash)
                             self._pending_approval_tx_hashes.remove(tx_hash)
+                        except TransactionNotFound:
+                            pass
             except Exception:
                 self.logger().network(
                     "Unexpected error while fetching approval transactions.",
@@ -845,6 +998,8 @@ cdef class BambooRelayMarket(MarketBase):
                     # Market orders don't care about price
                     if not price.is_nan() and current_price > price:
                         raise StopIteration
+                    if current_price not in active_asks:
+                        continue
                     for order_hash in active_asks[current_price]:
                         if order_hash in self._filled_order_hashes:
                             continue
@@ -861,6 +1016,8 @@ cdef class BambooRelayMarket(MarketBase):
                     # Market orders don't care about price
                     if not price.is_nan() and current_price < price:
                         raise StopIteration
+                    if current_price not in active_bids:
+                        continue
                     for order_hash in active_bids[current_price]:
                         if order_hash in self._filled_order_hashes:
                             continue
@@ -925,20 +1082,20 @@ cdef class BambooRelayMarket(MarketBase):
                 if amount > remaining_base_token_amount:
                     total_base_token_amount = remaining_base_token_amount
                     total_quote_token_amount = remaining_quote_token_amount
-                    taker_asset_fill_amount = remaining_quote_token_amount * Decimal(f"1e{quote_asset_decimals}")
+                    taker_asset_fill_amount = (remaining_quote_token_amount * Decimal(f"1e{quote_asset_decimals}")).to_integral_exact(rounding=ROUND_FLOOR)
                 else:
                     total_base_token_amount = amount
                     total_quote_token_amount = amount * calculated_price
-                    taker_asset_fill_amount = total_quote_token_amount * Decimal(f"1e{quote_asset_decimals}")
+                    taker_asset_fill_amount = (total_quote_token_amount * Decimal(f"1e{quote_asset_decimals}")).to_integral_exact(rounding=ROUND_FLOOR)
             else:
                 if amount > remaining_base_token_amount:
                     total_base_token_amount = remaining_base_token_amount
                     total_quote_token_amount = remaining_quote_token_amount
-                    taker_asset_fill_amount = remaining_base_token_amount * Decimal(f"1e{base_asset_decimals}")
+                    taker_asset_fill_amount = (remaining_base_token_amount * Decimal(f"1e{base_asset_decimals}")).to_integral_exact(rounding=ROUND_FLOOR)
                 else:
                     total_base_token_amount = amount
                     total_quote_token_amount = amount * calculated_price
-                    taker_asset_fill_amount = max_base_amount_with_decimals
+                    taker_asset_fill_amount = max_base_amount_with_decimals.to_integral_exact(rounding=ROUND_FLOOR)
             if amount >= remaining_base_token_amount:
                 self._filled_order_hashes.append(apiOrder["orderHash"])
 
@@ -966,16 +1123,16 @@ cdef class BambooRelayMarket(MarketBase):
 
             # This would overfill the last order
             if remaining_base_token_amount + total_base_token_amount > amount:
-                order_price = remaining_base_token_amount / remaining_quote_token_amount
+                order_price = remaining_quote_token_amount / remaining_base_token_amount
                 remaining_base_token_amount = amount - total_base_token_amount
-                remaining_quote_token_amount = remaining_base_token_amount * order_price                
+                remaining_quote_token_amount = remaining_base_token_amount * order_price          
             else:
                 self._filled_order_hashes.append(apiOrder["orderHash"])
             
             if trade_type is TradeType.BUY:
-                taker_asset_fill_amounts.append(remaining_quote_token_amount * Decimal(f"1e{quote_asset_decimals}"))
+                taker_asset_fill_amounts.append((remaining_quote_token_amount * Decimal(f"1e{quote_asset_decimals}")).to_integral_exact(rounding=ROUND_FLOOR))
             else:
-                taker_asset_fill_amounts.append(remaining_base_token_amount * Decimal(f"1e{base_asset_decimals}"))
+                taker_asset_fill_amounts.append((remaining_base_token_amount * Decimal(f"1e{base_asset_decimals}")).to_integral_exact(rounding=ROUND_FLOOR))
 
             total_base_token_amount += remaining_base_token_amount
             total_quote_token_amount += remaining_quote_token_amount
@@ -1119,6 +1276,10 @@ cdef class BambooRelayMarket(MarketBase):
         safe_ensure_future(self.cancel_order(client_order_id))
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+        cdef:
+            int order_timestamp_diff
+            double current_timestamp
+
         in_flight_limit_orders = self._in_flight_limit_orders.values()
         incomplete_order_ids = []
         incomplete_orders = []
@@ -1129,6 +1290,7 @@ cdef class BambooRelayMarket(MarketBase):
                     order.is_cancelled or
                     order.is_expired or
                     order.is_failure or
+                    order.has_been_cancelled or
                     order.client_order_id in self._in_flight_cancels or
                     order.client_order_id in self._in_flight_pending_cancels):
                 incomplete_order_ids.append(order.client_order_id)
@@ -1143,14 +1305,18 @@ cdef class BambooRelayMarket(MarketBase):
             try:
                 soft_cancel_result = await self._coordinator.batch_soft_cancel_orders(orders)
 
+                # if the market is force stopped then _current_timestamp is NaN
+                current_timestamp = math.isnan(self._current_timestamp) if time.time() else self._current_timestamp
                 # Flag
                 order_ids = ""
                 for order in incomplete_orders:
                     order.has_been_cancelled = True
-                    self.c_expire_order(order.client_order_id)
+                    # Maximum fill time for a coordinated order is 90 seconds or the order expiry
+                    order_timestamp_diff = abs(order.expires - int(current_timestamp))
+                    self.c_expire_order(order.client_order_id, min(order_timestamp_diff, 130))
                     self.c_trigger_event(
                         self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                        OrderCancelledEvent(self._current_timestamp, order.client_order_id)
+                        OrderCancelledEvent(current_timestamp, order.client_order_id)
                     )
                     order_ids = order_ids + order.client_order_id + " "
 
@@ -1170,21 +1336,24 @@ cdef class BambooRelayMarket(MarketBase):
             receipt = None
             try:
                 async with timeout(timeout_seconds):
-                    while receipt is None:
+                    while receipt is None or receipt["blockNumber"] is None:
                         receipt = self.get_tx_hash_receipt(tx_hash)
-                        if receipt is None:
+                        # Receipt exists and has been mined
+                        if receipt is None or receipt["blockNumber"] is None:
                             await asyncio.sleep(6.0)
                             continue
                         if receipt["status"] == 0:
                             return [CancellationResult(oid, False) for oid in incomplete_order_ids]
                         elif receipt["status"] == 1:
                             order_ids = ""
+                            # if the market is force stopped then _current_timestamp is NaN
+                            current_timestamp = math.isnan(self._current_timestamp) if time.time() else self._current_timestamp
                             for order in incomplete_orders:
                                 order.has_been_cancelled = True
-                                self.c_expire_order(order.client_order_id)
+                                self.c_expire_order(order.client_order_id, 10)
                                 self.c_trigger_event(
                                     self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                    OrderCancelledEvent(self._current_timestamp, order.client_order_id)
+                                    OrderCancelledEvent(current_timestamp, order.client_order_id)
                                 )
                                 order_ids = order_ids + order.client_order_id + " "
 
@@ -1322,6 +1491,8 @@ cdef class BambooRelayMarket(MarketBase):
         expires = kwargs.get("expiration_ts", None)
         if expires is not None:
             expires = int(expires)
+        else:
+            expires = int(current_timestamp) + 120
         if order_type is OrderType.LIMIT:
             # Don't spam the server endpoint if a order placement failed recently
             if current_timestamp - self._last_failed_limit_order_timestamp <= self.ORDER_CREATION_BACKOFF_TIME:
@@ -1350,6 +1521,8 @@ cdef class BambooRelayMarket(MarketBase):
         expires = kwargs.get("expiration_ts", None)
         if expires is not None:
             expires = int(expires)
+        else:
+            expires = int(current_timestamp) + 120
         if order_type is OrderType.LIMIT:
             # Don't spam the server endpoint if a order placement failed recently
             if current_timestamp - self._last_failed_limit_order_timestamp <= self.ORDER_CREATION_BACKOFF_TIME:
@@ -1368,9 +1541,17 @@ cdef class BambooRelayMarket(MarketBase):
     async def cancel_order(self, client_order_id: str) -> CancellationResult:
         cdef:
             BambooRelayInFlightOrder order = self._in_flight_limit_orders.get(client_order_id)
+            int order_timestamp_diff
+            double current_timestamp
 
         if not order:
             self.logger().info(f"Failed to cancel order {client_order_id}. Order not found in tracked orders.")
+            if client_order_id in self._in_flight_cancels:
+                del self._in_flight_cancels[client_order_id]
+            return {}
+
+        # Previously cancelled
+        if order.is_cancelled or order.has_been_cancelled:
             if client_order_id in self._in_flight_cancels:
                 del self._in_flight_cancels[client_order_id]
             return {}
@@ -1383,10 +1564,13 @@ cdef class BambooRelayMarket(MarketBase):
 
             self.logger().info(f"The limit order {order.client_order_id} has been soft cancelled according "
                                f"to the Coordinator server.")
-            self.c_expire_order(order.client_order_id)
+            # Maximum fill time for a coordinated order is 90 seconds or the order expiry
+            current_timestamp = math.isnan(self._current_timestamp) if time.time() else self._current_timestamp
+            order_timestamp_diff = abs(order.expires - int(current_timestamp))
+            self.c_expire_order(order.client_order_id, min(order_timestamp_diff, 130))
             self.c_trigger_event(
                 self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                OrderCancelledEvent(self._current_timestamp, order.client_order_id)
+                OrderCancelledEvent(current_timestamp, order.client_order_id)
             )
 
             return CancellationResult(client_order_id, True)
@@ -1395,9 +1579,9 @@ cdef class BambooRelayMarket(MarketBase):
 
             receipt = None
             try:
-                while receipt is None:
+                while receipt is None or receipt["blockNumber"] is None:
                     receipt = self.get_tx_hash_receipt(tx_hash)
-                    if receipt is None:
+                    if receipt is None or receipt["blockNumber"] is None:
                         await asyncio.sleep(6.0)
                         continue
                     if receipt["status"] == 0:
@@ -1405,13 +1589,13 @@ cdef class BambooRelayMarket(MarketBase):
                     elif receipt["status"] == 1:
                         # Flag
                         order.has_been_cancelled = True
-
+                        current_timestamp = math.isnan(self._current_timestamp) if time.time() else self._current_timestamp
                         self.logger().info(f"The limit order {order.client_order_id} has been hard cancelled according "
                                            f"to transaction hash {tx_hash}.")
-                        self.c_expire_order(order.client_order_id)
+                        self.c_expire_order(order.client_order_id, 10)
                         self.c_trigger_event(
                             self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                            OrderCancelledEvent(self._current_timestamp, order.client_order_id)
+                            OrderCancelledEvent(current_timestamp, order.client_order_id)
                         )
 
                         return CancellationResult(client_order_id, True)
@@ -1427,7 +1611,11 @@ cdef class BambooRelayMarket(MarketBase):
         return self.c_get_price(trading_pair, is_buy)
 
     def get_tx_hash_receipt(self, tx_hash: str) -> Dict[str, Any]:
-        return self._w3.eth.getTransactionReceipt(tx_hash)
+        try: 
+            tx_hash_receipt = self._w3.eth.getTransactionReceipt(tx_hash)
+            return tx_hash_receipt
+        except TransactionNotFound:
+            return None
 
     async def list_account_orders(self) -> List[Dict[str, Any]]:
         url = f"{self._api_endpoint}{self._api_prefix}/accounts/{self._wallet.address.lower()}/orders"
@@ -1525,6 +1713,8 @@ cdef class BambooRelayMarket(MarketBase):
             tx_hash=None,
             zero_ex_order=zero_ex_order
         )
+        # Watch for Fill events for this order hash
+        safe_ensure_future(self._wallet.current_backend.zeroex_fill_watcher.watch_order_hash(exchange_order_id, self._update_single_limit_order))
 
     cdef c_start_tracking_market_order(self,
                                        str order_id,
@@ -1550,11 +1740,8 @@ cdef class BambooRelayMarket(MarketBase):
             protocol_fee_amount=protocol_fee_amount
         )
 
-    cdef c_expire_order(self, str order_id):
-        self._order_expiry_queue.append((self._current_timestamp + self.ORDER_EXPIRY_TIME, order_id))
-
-    cdef c_expire_order_fast(self, str order_id):
-        self._order_expiry_queue.append((self._current_timestamp + 10, order_id))
+    cdef c_expire_order(self, str order_id, int seconds):
+        self._order_expiry_queue.append((self._current_timestamp + seconds, order_id))
 
     cdef c_check_and_remove_expired_orders(self):
         cdef:
@@ -1567,6 +1754,8 @@ cdef class BambooRelayMarket(MarketBase):
 
     cdef c_stop_tracking_order(self, str order_id):
         if order_id in self._in_flight_limit_orders:
+            # Unwatch this order hash from Fill events
+            safe_ensure_future(self._wallet.current_backend.zeroex_fill_watcher.unwatch_order_hash(self._in_flight_limit_orders[order_id].exchange_order_id))
             del self._in_flight_limit_orders[order_id]
         elif order_id in self._in_flight_market_orders:
             del self._in_flight_market_orders[order_id]

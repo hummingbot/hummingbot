@@ -35,9 +35,6 @@ class StopCommand:
                 # Only erase markets when cancellation has been successful
                 self.markets = {}
 
-        if self.reporting_module:
-            self.reporting_module.stop()
-
         if self.strategy_task is not None and not self.strategy_task.cancelled():
             self.strategy_task.cancel()
 

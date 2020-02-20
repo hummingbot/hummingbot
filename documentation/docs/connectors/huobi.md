@@ -17,7 +17,7 @@ Enter your Huobi secret key >>>
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
 !!! tip "Copying and pasting into Hummingbot"
-    See [this page](https://docs.hummingbot.io/support/how-to/#how-do-i-copy-and-paste-in-docker-toolbox-windows) for more instructions in our Get Help section.
+    See [this page](https://docs.hummingbot.io/support/how-to/#paste-items-from-clipboard-in-putty) for more instructions in our Get Help section.
 
 
 ### Creating Huobi API Keys
@@ -52,9 +52,9 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 ### Minimum Order Sizes
 
-You may refer to [this page](https://support.huobi.so/hc/en-us/articles/360000400491-Trade-Limits) for the minimum order size per trading pair.
+You may refer to [this page](https://huobiglobal.zendesk.com/hc/en-us/articles/360000304441-Trade-Limits) for the minimum order size per trading pair.
 
-## Transaction Fees
+### Transaction Fees
 
 Huobi charges 0.2% on both maker and taker for most pairs. However, Huobi VIP users can also enjoy fees at discounted rate.
 

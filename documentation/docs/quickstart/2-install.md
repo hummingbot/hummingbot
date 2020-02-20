@@ -1,79 +1,34 @@
 # [Quickstart] Install Hummingbot
 
-Below, we show you how to easily install Hummingbot using our installation scripts for each supported platform.
+**For new Hummingbot users:** We recommend that you download and run the installer package, which is available for Windows and macOS. The videos show you how to easily install Hummingbot for each supported platform. 
 
-For more detailed instructions, refer to our [User Manual](/installation/index). For developers who would like to install from source:
+**For experienced Hummingbot users or developers**: We recommend that you install and run Hummingbot on an cloud instance to maximize performance and reliability.
 
-- [Linux Source Installation](/installation/from-source.linux)
-- [macOS Source Installation](installation/from-source/macOS)
-- [Windows Source Installation](installation/from-source/windows)
+For more detailed instructions, please refer to [Installation](https://docs.hummingbot.io/installation/) in the User Manual.
 
-## Linux/Cloud
+## Windows
 
-For Linux we highlight the Docker image method for new users since it contains all necessary dependencies.
+This video shows you how to download and install Hummingbot on Windows:
+<iframe width="616" height="347" src="https://www.youtube.com/embed/9TsZ_xjExXs"    frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
+</iframe>
 
-### Step 1: Install Docker
+If you need assistance, please see this step-by-step guide: [Installing Hummingbot on Windows](/installation/from-binary/windows)
 
-Docker is an open source containerization product that pre-packages all dependencies into a single container, greatly simplifying the installation process.
+## macOS
 
-```bash
-# 1) Download Docker install script
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-docker/install-docker-ubuntu.sh
+This video shows you how to download and install Hummingbot on macOS:
+<iframe width="616" height="347" src="https://www.youtube.com/embed/klN-ToclwW4" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
+</iframe>
 
-# 2) Enable script permissions
-chmod a+x install-docker-ubuntu.sh
+If you need assistance, please see this step-by-step guide: [Installing Hummingbot on macOS](/installation/from-binary/macos)
 
-# 3) Run installation
-./install-docker-ubuntu.sh
-```
+## Linux and Advanced Users
 
-!!! warning "Restart Terminal"
-    The above commands will close your terminal/bash window in order to enable the correct permissions for the `docker` command. Close and restart your bash/terminal window if it did not close automatically.
+For Linux users or developers, it is recommended to refer to below instructions.
 
-We also have instructions for installing Docker on [Debian](/installation/via-docker/linux/#debian) and [CentOS](/installation/via-docker/linux/#centos).
+- [Set up cloud server](/installation/cloud)
+- [Install via Docker (Linux)](/installation/via-docker/linux)
+- [Install via Source (Linux)](/installation/from-source/linux/)
 
-
-### Step 2: Install Hummingbot
-
-We have created automated docker scripts that simplify the process of installing and running Hummingbot with Docker:
-
-* `create.sh`: Creates a new instance of Hummingbot
-* `start.sh`: Starts a stopped Hummingbot instance
-* `update.sh`: Updates Hummingbot
-
-The scripts help you install an instance of Hummingbot and set up folders to house your logs, configuration files and trades/orders database file:
-```
-hummingbot_files       # Default name of top level folder for hummingbot-related files
-├── hummingbot_conf    # Maps to hummingbot's conf/ folder, which stores configuration files
-├── hummingbot_logs    # Maps to hummingbot's logs/ folder, which stores log files
-└── hummingbot_data    # Maps to hummingbot's data/ folder, which stores the SQLite database file
-```
-
-To download the scripts and create a Hummingbot instance, run the following commands:
-
-```bash
-# 1) Download hummingbot helper scripts
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh
-
-# 2) Enable script permissions
-chmod a+x *.sh
-
-# 3) Run create.sh script to create hummingbot instance
-./create.sh
-```
-
-Afterwards, you should see the Hummingbot client interface. Proceed to [Configure a Bot](/quickstart/3-configure-bot).
-
-
-## Windows and macOS
-
-Setup and install package to install on local computer can be downloaded from our official website:
-
-- [Download the Hummingbot client](https://hummingbot.io/download/)
-
-You may also refer to our User Manual for more information.
-
-- [Windows Binary Installation](/installation/from-binary/windows)
-- [macOS Binary Installation](installation/from-binary/macos)
+---
+# Next: [Configure a Bot](/quickstart/3-configure-bot)

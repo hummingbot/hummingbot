@@ -17,7 +17,7 @@ Enter your Liquid secret key >>>
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
 !!! tip "Copying and pasting into Hummingbot"
-    See [this page](https://docs.hummingbot.io/support/how-to/#how-do-i-copy-and-paste-in-docker-toolbox-windows) for more instructions in our Get Help section.
+    See [this page](https://docs.hummingbot.io/support/how-to/#paste-items-from-clipboard-in-putty) for more instructions in our Get Help section.
 
 
 ### Creating Liquid API keys
@@ -32,11 +32,49 @@ This article below in their website under API information shows step-by-step ins
 
 ## Miscellaneous Info
 
+### Exchange Status
+
+Users can go to https://status.liquid.com/ to check the status of the exchange and review past or ongoing incidents.
+
+Developers can query the current status using the API, see documentation in https://status.liquid.com/api/.
+
+
 ### Minimum Order Sizes
 
 There is no minimum order quantity for trading fiat currency. See [this page](https://help.liquid.com/en/articles/3339119-minimum-order-quantity) for minimum order sizes on crypto trading pairs.
 
-## Transaction Fees
+If the token or trading pair isn't listed in the article, you can also get this information through their public API.
+
+```
+https://api.liquid.com/currencies
+```
+
+The minimum order size is the value next to `minimum_order_quantity`. For example, let's say you're trading ETH-BTC and ETH which is your **base currency** is not listed in the article above. Liquid's public API shows the minimum order size of ETH currency is `0.01`.
+
+```
+"currency_type": "crypto",
+"currency": "ETH",
+"symbol": "Ξ",
+"assets_precision": 18,
+"quoting_precision": 8,
+"minimum_withdrawal": 0.02,
+"withdrawal_fee": 0.0,
+"minimum_fee": null,
+"minimum_order_quantity": 0.01,
+"display_precision": 5,
+"depositable": true,
+"withdrawable": true,
+"discount_fee": 0.5,
+"lendable": true,
+"position_fundable": true,
+"has_memo": false
+```
+
+!!! tip
+    See troubleshooting section on how to [Get REST API data using Postman](/support/how-to/#get-rest-api-data-using-postman).
+
+
+### Transaction Fees
 
 Generally, Liquid charges 0.10% on both maker and taker while a user can get 50% discount on trading fees if paid in QASH. QASH is an ERC20 token designed to be used services on the Quione and Liquid platform. Effecive April 1 2019, high-volume traders can also get rebates on trading fees.
 

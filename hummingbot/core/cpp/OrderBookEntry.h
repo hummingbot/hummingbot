@@ -16,11 +16,13 @@ class OrderBookEntry {
         OrderBookEntry(const OrderBookEntry &other);
         OrderBookEntry &operator=(const OrderBookEntry &other);
         friend bool operator<(OrderBookEntry const &a, OrderBookEntry const &b);
-        friend void truncateOverlapEntries(std::set<OrderBookEntry> &bidBook, std::set<OrderBookEntry> &askBook);
+        friend void truncateOverlapEntries(std::set<OrderBookEntry> &bidBook, std::set<OrderBookEntry> &askBook, const int &dex);
+        friend void truncateOverlapEntriesDex(std::set<OrderBookEntry> &bidBook, std::set<OrderBookEntry> &askBook);
+        friend void truncateOverlapEntriesCentralised(std::set<OrderBookEntry> &bidBook, std::set<OrderBookEntry> &askBook);
 
-        double getPrice();
-        double getAmount();
-        int64_t getUpdateId();
+        double getPrice() const;
+        double getAmount() const;
+        int64_t getUpdateId() const;
 };
 
 #endif
