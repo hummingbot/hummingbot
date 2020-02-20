@@ -31,10 +31,10 @@ from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversio
 
 TRADING_PAIR_FILTER = re.compile(r"(WETH|DAI)$")
 
-REST_BASE_URL = "https://api.radarrelay.com/v2"
+REST_BASE_URL = "https://api.radarrelay.com/v3"
 TOKENS_URL = f"{REST_BASE_URL}/tokens"
 MARKETS_URL = f"{REST_BASE_URL}/markets"
-WS_URL = "wss://ws.radarrelay.com/v2"
+WS_URL = "wss://ws.radarrelay.com/v3"
 
 
 class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -54,6 +54,7 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def __init__(self, trading_pairs: Optional[List[str]] = None):
         super().__init__()
         self._trading_pairs: Optional[List[str]] = trading_pairs
+        self.order_book_create_function = lambda: RadarRelayOrderBook()
 
     @classmethod
     def http_client(cls) -> aiohttp.ClientSession:

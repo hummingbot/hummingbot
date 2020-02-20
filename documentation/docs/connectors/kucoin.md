@@ -1,14 +1,11 @@
 # KuCoin Connector
 
-!!! Note "As of 01/22/2020"
-    This connector is currently available in development version only and will be in the upcoming 0.23.0 release.
-
 
 ## About KuCoin
 
-KuCoin is a centralized exchange based in Hong Kong that opened for cryptocurrency trading in September 2017. Nicknamed the "People's Exchange"​, Kucoin is easy to use for novice investors and in-depth enough for crypto enthusiasts. 
+KuCoin is a centralized exchange based in Hong Kong that opened for cryptocurrency trading in September 2017. Nicknamed the "People's Exchange"​, Kucoin is claimed to be easy to use for novice investors while being in-depth enough for crypto enthusiasts.
 
-It has one of the world’s most impressive trading pair selections, a wide range of alt coins with more than 300 trading pairs and are adding new ones regularly. The exchange has its own cryptocurrency, KuCoin Shares (KCS).
+KuCoin claims to have one of the world’s most impressive trading pair selections, a wide range of alt coins with more than 300 trading pairs, and is regularly adding new pairs. The exchange also has its own cryptocurrency, [KuCoin Shares (KCS)](https://coinmarketcap.com/currencies/kucoin-shares/).
 
 
 ## Using the Connector

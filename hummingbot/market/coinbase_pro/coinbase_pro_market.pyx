@@ -54,6 +54,7 @@ from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.market.coinbase_pro.coinbase_pro_in_flight_order import CoinbaseProInFlightOrder
 from hummingbot.market.coinbase_pro.coinbase_pro_in_flight_order cimport CoinbaseProInFlightOrder
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 
 s_logger = None
 s_decimal_0 = Decimal("0.0")
@@ -371,6 +372,10 @@ cdef class CoinbaseProMarket(MarketBase):
         cdef:
             object maker_fee = self._maker_fee_percentage
             object taker_fee = self._taker_fee_percentage
+        if order_type is OrderType.LIMIT and fee_overrides_config_map["coinbase_pro_maker_fee"].value is not None:
+            return TradeFee(percent=fee_overrides_config_map["coinbase_pro_maker_fee"].value)
+        if order_type is OrderType.MARKET and fee_overrides_config_map["coinbase_pro_taker_fee"].value is not None:
+            return TradeFee(percent=fee_overrides_config_map["coinbase_pro_taker_fee"].value)
         return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
 
     async def _update_fee_percentage(self):
@@ -602,7 +607,8 @@ cdef class CoinbaseProMarket(MarketBase):
                                       content.get("taker_order_id")]
 
                 tracked_order = None
-                for order in self._in_flight_orders.values():
+                for order in list(self._in_flight_orders.values()):
+                    await order.get_exchange_order_id()
                     if order.exchange_order_id in exchange_order_ids:
                         tracked_order = order
                         break
@@ -639,9 +645,6 @@ cdef class CoinbaseProMarket(MarketBase):
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"{order_type_description} order {tracked_order.client_order_id}")
                     exchange_order_id = tracked_order.exchange_order_id
-
-                    if exchange_order_id is None:
-                        exchange_order_id = await tracked_order.get_exchange_order_id()
 
                     self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
                                          OrderFilledEvent(
@@ -982,6 +985,8 @@ cdef class CoinbaseProMarket(MarketBase):
         :returns: json response
         """
         order = self._in_flight_orders.get(client_order_id)
+        if order is None:
+            return None
         exchange_order_id = await order.get_exchange_order_id()
         path_url = f"/orders/{exchange_order_id}"
         result = await self._api_request("get", path_url=path_url)
