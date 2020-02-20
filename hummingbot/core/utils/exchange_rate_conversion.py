@@ -274,6 +274,7 @@ class ExchangeRateConversion:
         if self._fetch_exchange_rate_task and not self._fetch_exchange_rate_task.done():
             self._fetch_exchange_rate_task.cancel()
         self._started = False
+        self._ready_notifier.clear()
 
     @property
     def ready(self) -> bool:
