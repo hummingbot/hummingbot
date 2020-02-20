@@ -27,6 +27,7 @@ from typing import (
 )
 
 import conf
+from hummingbot.core.utils.asyncio_throttle import Throttler
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -191,6 +192,7 @@ cdef class BinanceMarket(MarketBase):
         self._trading_rules_polling_task = None
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._last_poll_timestamp = 0
+        self._throttler = Throttler((10.0, 1.0))
 
     @staticmethod
     def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
@@ -286,18 +288,21 @@ cdef class BinanceMarket(MarketBase):
             func,
             *args,
             app_warning_msg: str = "Binance API call failed. Check API key and network connection.",
+            request_weight: int = 1,
             **kwargs) -> Dict[str, any]:
-        return await self._async_scheduler.call_async(partial(func, *args, **kwargs),
-                                                      timeout_seconds=self.API_CALL_TIMEOUT,
-                                                      app_warning_msg=app_warning_msg)
+        async with self._throttler.weighted_task(request_weight=request_weight):
+            return await self._async_scheduler.call_async(partial(func, *args, **kwargs),
+                                                          timeout_seconds=self.API_CALL_TIMEOUT,
+                                                          app_warning_msg=app_warning_msg)
 
-    async def query_url(self, url) -> any:
-        async with aiohttp.ClientSession() as client:
-            async with client.get(url, timeout=self.API_CALL_TIMEOUT) as response:
-                if response.status != 200:
-                    raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
-                data = await response.json()
-                return data
+    async def query_url(self, url, request_weight: int = 1) -> any:
+        async with self._throttler.weighted_task(request_weight=request_weight):
+            async with aiohttp.ClientSession() as client:
+                async with client.get(url, timeout=self.API_CALL_TIMEOUT) as response:
+                    if response.status != 200:
+                        raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
+                    data = await response.json()
+                    return data
 
     async def _update_balances(self):
         cdef:
