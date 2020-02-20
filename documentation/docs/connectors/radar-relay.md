@@ -21,7 +21,7 @@ Each trading pair has a unique minimum order size denominated in the *base curre
 https://api.radarrelay.com/v2/markets/{marketId}
 ```
 
-For example, for `ZRX-WETH`, navigate to: [https://api.radarrelay.com/v2/markets/**`ZRX-WETH`**](https://api.radarrelay.com/v2/markets/ZRX-WETH).
+For example, for `ZRX-WETH`, navigate to: [https://api.radarrelay.com/v3/markets/**`ZRX-WETH`**](https://api.radarrelay.com/v3/markets/ZRX-WETH).
 
 Sample output:
 
