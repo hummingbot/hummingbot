@@ -16,17 +16,17 @@ We send out updates and announcements through our [Discord channel](https://disc
 
 ### Why are you making Hummingbot available to the general public rather than just running it in-house?
 
-- **Mission alignment**: We founded CoinAlpha, the company behind Hummingbot, because we believe that blockchain technology empowers individuals to compete on a level playing field with large financial institutions. Releasing Hummingbot as open source software available to the general public furthers this mission.
+- **Expand liquidity miners**: We make money by providing a service to token issuers and exchanges that enables them to source liquidity from a decentralized network of users running Hummingbot (aka [Liquidity Mining](/liquidity-mining)). The more people who use Hummingbot, the more valuable this decentralized approach to market making will be to our customers.
 
 - **Decentralized market making**: There are hundreds of fragmented digital asset exchanges in need of liquidity that are underserved by the relatively scarce number of dedicated, professional market makers. At the same time, market making requires dedicated inventory held in reserve on each market served. Given near-infinite combinations of markets, it would be impossible for a single market maker to serve the entire market. A decentralized, community-driven approach allows each market maker to serve the markets where they have comparative advantage. This is a more optimal long-term solution to the crypto industry's [liquidity problem](https://www.hummingbot.io/blog/2019-01-thin-crust-of-liquidity/).
 
-- **Regulatory limitations**: Regulations on cryptocurrencies are still evolving and unclear, which creates particular challenges for trading on an institutional/company basis.  As a technology company, we want to focus on building technology and not spend our time on navigating and monitoring the ever-changing regulations.  
+- **Mission alignment**: We founded CoinAlpha, the company behind Hummingbot, because we believe that blockchain technology empowers individuals to compete on a level playing field with large financial institutions. Releasing Hummingbot as open source software available to the general public furthers this mission.
 
 ### Why are you making Hummingbot open source?
 
-- **Transparency**: In order to use Hummingbot, users must provide their private keys and exchange API keys.  In a similar way as wallet software, we want users to know how this sensitive information is being used and give them comfort when using Hummingbot; aka, open kimono.
+- **Trust and Transparency**: In order to use Hummingbot, users must provide their private keys and exchange API keys.  In a similar way as wallet software, we want users to know how this sensitive information is being used and give them comfort when using Hummingbot; aka, open kimono.
 
-- **Community**: Decentralization, blockchain technology, and cryptocurrencies are built on the idea of community by passionate technologists.  We welcome developers to study the code, suggest improvements, add cool new features, or help identify bugs or any other problems.
+- **Community**: Decentralization, blockchain technology, and cryptocurrencies are built on the idea of community by passionate technologists. We welcome developers to study the code, suggest improvements, add cool new features, or help identify bugs or any other problems.
 
 ### What open source license does Hummingbot use?
 
@@ -60,12 +60,7 @@ Transactions from Hummingbot are normal transactions conducted on exchanges; the
 
 ### What data do you collect when I use Hummingbot?
 
-Users have full control over how much data they choose to send us. Depending on what users select, this may include:
-
-- Ethereum wallet address
-- Aggregate, anonymized trade and order volume
-- Commands entered in the client interface
-- Log entries for errors, notifications, and trade events
+Hummingbot has the ability to send error logs to us.
 
 !!! note
     Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
@@ -74,12 +69,16 @@ Users have full control over how much data they choose to send us. Depending on 
 
 - **Get better support**: Granting access to your logs and client commands enables us to diagnose your issue more quickly and provide better support.
 
-- **Participate in partner incentive programs**: Some of our exchange partners will compensate us based on aggregate volume. We plan to share this with participating users.
-
 - **Help us improve the product**: We are committed to making Hummingbot the best open source software for crypto algorithmic trading. Understanding how users use the product will help us improve it more rapidly.
 
 We only utilize user data for the purposes listed above. CoinAlpha and our employees are strictly prohibited from utilizing any user data for trading-related purposes.
 
-### Can I opt-out of sharing my usage data?
+## How do I opt-in to or opt-out of data sharing?
 
-Absolutely - the logger configuration file is fully editable. In addition, we maintain [templates](https://github.com/coinalpha/hummingbot/blob/master/hummingbot/templates) that users can use to override the default configuration settings.
+When configuring Hummingbot, you will be asked the following question:
+
+```
+Would you like to send error logs to hummingbot? (Yes/No) >>>
+```
+
+Enter `Yes` to opt-in; enter `No` to opt-out.

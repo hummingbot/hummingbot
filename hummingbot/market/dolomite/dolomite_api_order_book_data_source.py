@@ -51,6 +51,7 @@ class DolomiteAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self.REST_URL = rest_api_url
         self.WS_URL = websocket_url
         self._get_tracking_pair_done_event: asyncio.Event = asyncio.Event()
+        self.order_book_create_function = lambda: DolomiteOrderBook()
 
     @classmethod
     @async_ttl_cache(ttl=60 * 30, maxsize=1)

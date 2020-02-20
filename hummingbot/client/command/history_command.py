@@ -87,6 +87,7 @@ class HistoryCommand:
             current_strategy_name,
             self.market_trading_pair_tuples,
             raw_queried_trades,
+            self.starting_balances
         )
         return trade_performance_stats, market_trading_pair_stats
 

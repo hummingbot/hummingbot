@@ -16,6 +16,7 @@ import logging
 from decimal import *
 from libc.stdint cimport int64_t
 from web3 import Web3
+from web3.exceptions import TransactionNotFound
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
@@ -697,9 +698,11 @@ cdef class DolomiteMarket(MarketBase):
         if len(self._pending_approval_tx_hashes) > 0:
             try:
                 for tx_hash in list(self._pending_approval_tx_hashes):
-                    receipt = self._web3.eth.getTransactionReceipt(tx_hash)
-                    if receipt is not None:
+                    try:
+                        receipt = self._web3.eth.getTransactionReceipt(tx_hash)
                         self._pending_approval_tx_hashes.remove(tx_hash)
+                    except TransactionNotFound:
+                        pass
             except Exception as e:
                 self.logger().warn("Could not get token approval status. Check Ethereum wallet and network connection.")
                 self.logger().debug(e)
