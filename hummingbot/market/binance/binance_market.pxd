@@ -26,6 +26,7 @@ cdef class BinanceMarket(MarketBase):
         public object _trading_rules_polling_task
         object _async_scheduler
         object _set_server_time_offset_task
+        object _throttler
 
     cdef c_did_timeout_tx(self, str tracking_id)
     cdef c_start_tracking_order(self,
