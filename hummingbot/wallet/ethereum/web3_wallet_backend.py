@@ -156,7 +156,7 @@ class Web3WalletBackend(PubSub):
 
         :return: Gas price in wei
         """
-        remote_nonce: int = self._w3.eth.getTransactionCount(self.address, block_identifier="pending")
+        remote_nonce: int = self.get_remote_nonce()
         retval: int = max(remote_nonce, self._local_nonce)
         self._local_nonce = retval
         return retval
@@ -223,7 +223,7 @@ class Web3WalletBackend(PubSub):
 
             # Fetch blockchain data.
             self._local_nonce = await async_scheduler.call_async(
-                lambda: self._w3.eth.getTransactionCount(self.address, block_identifier="pending")
+                lambda: self.get_remote_nonce()
             )
 
             # Create event watchers.
@@ -655,3 +655,10 @@ class Web3WalletBackend(PubSub):
         async_scheduler: AsyncCallScheduler = AsyncCallScheduler.shared_instance()
         new_gas_price: int = await async_scheduler.call_async(getattr, self._w3.eth, "gasPrice")
         self._gas_price = new_gas_price
+    
+    def get_remote_nonce(self):
+        try:
+            remote_nonce = self._w3.eth.getTransactionCount(self.address, block_identifier="pending")
+            return remote_nonce
+        except BlockNotFound:
+            return None

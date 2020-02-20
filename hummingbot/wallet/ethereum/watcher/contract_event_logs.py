@@ -13,9 +13,13 @@ from typing import (
 )
 from web3 import Web3
 from web3.datastructures import AttributeDict
-from web3.utils.contracts import find_matching_event_abi
-from web3.utils.events import get_event_data
-from web3.utils.filters import construct_event_filter_params
+from web3._utils.contracts import find_matching_event_abi
+from web3._utils.events import get_event_data
+from web3._utils.filters import construct_event_filter_params
+from eth_abi.codec import (
+    ABICodec,
+)
+from eth_abi.registry import registry
 
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.utils.async_utils import safe_gather
@@ -66,7 +70,8 @@ class ContractEventLogger:
             self._event_abi_map[event_name] = event_abi
 
         _, event_filter_params = construct_event_filter_params(event_abi,
-                                                               contract_address=self._address)
+                                                               contract_address=self._address,
+                                                               abi_codec=ABICodec(registry))
         tasks = []
         for block in blocks:
             block_bloom_filter = BloomFilter(int.from_bytes(block["logsBloom"], byteorder='big'))
@@ -84,7 +89,7 @@ class ContractEventLogger:
             raw_logs = await safe_gather(*tasks, return_exceptions=True)
             logs: List[any] = list(cytoolz.concat(raw_logs))
             for log in logs:
-                event_data: AttributeDict = get_event_data(event_abi, log)
+                event_data: AttributeDict = get_event_data(ABICodec(registry), event_abi, log)
                 event_data_block_number: int = event_data["blockNumber"]
                 event_data_tx_hash: HexBytes = event_data["transactionHash"]
                 if event_data_tx_hash not in self._event_cache:
