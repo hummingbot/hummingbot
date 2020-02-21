@@ -533,8 +533,8 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
     def test_server_time_offset(self):
         time_obj: BinanceTime = binance_client_module.time
-        old_check_interval: float = time_obj.SERVER_TIME_OFFSET_CHECK_INTERVAL
-        time_obj.SERVER_TIME_OFFSET_CHECK_INTERVAL = 1.0
+        old_check_interval: float = time_obj._server_time_offset_check_interval
+        time_obj._server_time_offset_check_interval = 1.0
         time_obj.stop()
         time_obj.start()
 
@@ -549,7 +549,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
                 self.assertTrue(time_offset > 10000)
                 self.assertTrue(abs(time_offset - 30.0 * 1e3) < 1.5 * 1e3)
         finally:
-            time_obj.SERVER_TIME_OFFSET_CHECK_INTERVAL = old_check_interval
+            time_obj._server_time_offset_check_interval = old_check_interval
             time_obj.stop()
             time_obj.start()
 

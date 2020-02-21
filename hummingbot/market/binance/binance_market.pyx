@@ -291,9 +291,18 @@ cdef class BinanceMarket(MarketBase):
             request_weight: int = 1,
             **kwargs) -> Dict[str, any]:
         async with self._throttler.weighted_task(request_weight=request_weight):
-            return await self._async_scheduler.call_async(partial(func, *args, **kwargs),
-                                                          timeout_seconds=self.API_CALL_TIMEOUT,
-                                                          app_warning_msg=app_warning_msg)
+            try:
+                return await self._async_scheduler.call_async(partial(func, *args, **kwargs),
+                                                              timeout_seconds=self.API_CALL_TIMEOUT,
+                                                              app_warning_msg=app_warning_msg)
+            except Exception as ex:
+                if "Timestamp for this request was 1000ms ahead of the server" in str(ex):
+                    self.logger().warning("Got Binance timestamp error. "
+                                          "Going to force update Binance server time offset...")
+                    binance_time = BinanceTime.get_instance()
+                    binance_time.clear_time_offset_ms_samples()
+                    await binance_time.update_server_time_offset()
+                raise ex
 
     async def query_url(self, url, request_weight: int = 1) -> any:
         async with self._throttler.weighted_task(request_weight=request_weight):
