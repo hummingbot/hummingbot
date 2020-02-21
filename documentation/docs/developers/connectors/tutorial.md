@@ -430,7 +430,7 @@ async def fetch_all(self):
 - `hummingbot/logger/report_aggregator.py`
 ```python
 MARKET = {
-    "ddex": DDEXMarket,
+    "idex": IDEXMarket,
     .
     .
     .
