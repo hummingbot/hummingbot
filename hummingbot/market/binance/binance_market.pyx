@@ -296,7 +296,7 @@ cdef class BinanceMarket(MarketBase):
                                                               timeout_seconds=self.API_CALL_TIMEOUT,
                                                               app_warning_msg=app_warning_msg)
             except Exception as ex:
-                if "Timestamp for this request was 1000ms ahead of the server" in str(ex):
+                if "Timestamp for this request" in str(ex):
                     self.logger().warning("Got Binance timestamp error. "
                                           "Going to force update Binance server time offset...")
                     binance_time = BinanceTime.get_instance()

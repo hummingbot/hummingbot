@@ -45,7 +45,7 @@ class BinanceTime:
     @property
     def time_offset_ms(self) -> float:
         if not self._time_offset_ms:
-            return time.time() - time.perf_counter()
+            return (time.time() - time.perf_counter()) * 1e3
         return statistics.median(self._time_offset_ms)
 
     def add_time_offset_ms_sample(self, offset: float):
