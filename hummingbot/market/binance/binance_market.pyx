@@ -301,7 +301,7 @@ cdef class BinanceMarket(MarketBase):
                                           "Going to force update Binance server time offset...")
                     binance_time = BinanceTime.get_instance()
                     binance_time.clear_time_offset_ms_samples()
-                    await binance_time.update_server_time_offset()
+                    await binance_time.schedule_update_server_time_offset()
                 raise ex
 
     async def query_url(self, url, request_weight: int = 1) -> any:
