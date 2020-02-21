@@ -37,9 +37,9 @@ def using_bamboo_coordinator_mode() -> bool:
 
 
 MIN_QUOTE_ORDER_AMOUNTS = [["BTC", 0.0011],
-                           ["ETH", 0.011],
+                           ["ETH", 0.05],
                            ["USD", 11],
-                           ["BNB", 0.11]]
+                           ["BNB", 0.5]]
 
 # Main global config store
 global_config_map = {

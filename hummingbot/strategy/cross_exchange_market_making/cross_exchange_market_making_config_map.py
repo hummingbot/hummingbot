@@ -6,8 +6,7 @@ from hummingbot.client.config.config_validators import (
 from hummingbot.client.settings import required_exchanges, EXAMPLE_PAIRS
 from decimal import Decimal
 from hummingbot.client.config.config_helpers import (
-    minimum_order_amount,
-    default_min_quote
+    minimum_order_amount
 )
 
 
@@ -41,13 +40,18 @@ def is_valid_taker_market_trading_pair(value: str) -> bool:
 
 
 def order_amount_prompt() -> str:
-    maker_market = cross_exchange_market_making_config_map.get("maker_market").value
     trading_pair = cross_exchange_market_making_config_map["maker_market_trading_pair"].value
     base_asset, quote_asset = trading_pair.split("-")
-    default_quote_asset, default_amount = default_min_quote(quote_asset)
-    return f"What is your preferred quantity per order? " \
-           f"(minimum size for {base_asset}/{quote_asset} on {maker_market} " \
-           f"is {default_amount} {default_quote_asset} / {base_asset}) >>> "
+    min_amount = minimum_order_amount(trading_pair)
+    return f"What is the amount of {base_asset} per order? (minimum {min_amount}) >>> "
+
+
+def is_valid_order_amount(value: str) -> bool:
+    try:
+        trading_pair = cross_exchange_market_making_config_map["maker_market_trading_pair"].value
+        return Decimal(value) >= minimum_order_amount(trading_pair)
+    except Exception:
+        return False
 
 
 cross_exchange_market_making_config_map = {
@@ -81,11 +85,8 @@ cross_exchange_market_making_config_map = {
     "order_amount": ConfigVar(
         key="order_amount",
         prompt=order_amount_prompt,
-        default=lambda: minimum_order_amount(
-            cross_exchange_market_making_config_map["maker_market_trading_pair"].value),
         type_str="decimal",
-        validator=lambda v: Decimal(v) >= minimum_order_amount(
-            cross_exchange_market_making_config_map["maker_market_trading_pair"].value)
+        validator=is_valid_order_amount,
     ),
     "adjust_order_enabled": ConfigVar(
         key="adjust_order_enabled",
