@@ -22,6 +22,7 @@ from hummingbot import (
 )
 from hummingbot.client.ui.stdout_redirection import patch_stdout
 from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 
 
 def detect_available_port(starting_port: int) -> int:
@@ -47,6 +48,7 @@ async def main():
     init_logging("hummingbot_logs.yml")
 
     read_configs_from_yml()
+    ExchangeRateConversion.get_instance().start()
 
     hb = HummingbotApplication.main_application()
 
