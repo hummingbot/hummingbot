@@ -5,7 +5,6 @@ from typing import (
     Optional,
     Any,
 )
-
 from hummingbot.core.utils.wallet_setup import (
     create_and_save_wallet,
     import_and_save_wallet,
@@ -33,6 +32,7 @@ from hummingbot.client.config.config_crypt import (
     get_encrypted_config_path,
     encrypt_n_save_config_value
 )
+from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from os import unlink
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -239,7 +239,8 @@ class ConfigCommand:
         else:
             self._notify('Invalid choice. Please enter "create" or "import".')
             strategy_path = await self._import_or_create_strategy_config()
-
+        self.app.change_prompt(prompt=">>> ")
+        await ExchangeRateConversion.get_instance().wait_till_ready()
         return strategy_path
 
     async def _one_password_config(self,  # type: HummingbotApplication
