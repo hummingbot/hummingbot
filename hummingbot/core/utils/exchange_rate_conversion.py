@@ -234,7 +234,7 @@ class ExchangeRateConversion:
             self.logger().warning(f"Error getting data from {source_name} data feed.", exc_info=True)
             raise
 
-    async def wait_till_ready(self):
+    async def wait_for_data_feeds(self):
         for data_feed in self._data_feeds:
             try:
                 self.logger().debug(f"Waiting for {data_feed.name} to get ready.")
@@ -244,10 +244,13 @@ class ExchangeRateConversion:
                     self.logger().warning(f"Error initializing data feed - {data_feed.name}.")
                     self._show_wait_till_ready_errors = False
 
+    async def wait_till_ready(self):
+        await self._ready_notifier.wait()
+
     async def request_loop(self):
         while True:
             try:
-                await self.wait_till_ready()
+                await self.wait_for_data_feeds()
                 await self.update_exchange_rates_from_data_feeds()
                 self._ready_notifier.set()
             except asyncio.CancelledError:
@@ -271,6 +274,7 @@ class ExchangeRateConversion:
         if self._fetch_exchange_rate_task and not self._fetch_exchange_rate_task.done():
             self._fetch_exchange_rate_task.cancel()
         self._started = False
+        self._ready_notifier.clear()
 
     @property
     def ready(self) -> bool:
