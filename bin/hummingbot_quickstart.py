@@ -31,6 +31,7 @@ from bin.hummingbot import (
     main as normal_start,
 )
 from hummingbot.client.config.config_helpers import write_config_to_yml
+from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 
 
 class CmdlineParser(ThrowingArgumentParser):
@@ -67,6 +68,8 @@ async def quick_start():
         await create_yml_files()
         init_logging("hummingbot_logs.yml")
         read_configs_from_yml()
+        ExchangeRateConversion.get_instance().start()
+        await ExchangeRateConversion.get_instance().wait_till_ready()
         hb = HummingbotApplication.main_application()
 
         in_memory_config_map.get("password").value = password
