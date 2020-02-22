@@ -42,17 +42,24 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._trading_pairs = trading_pairs
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
+        self._last_recv_time: float = 0
         super().__init__()
 
     @property
     def order_book_class(self):
         return BittrexOrderBook
 
+    @property
+    def last_recv_time(self) -> float:
+        return self._last_recv_time
+
     async def _socket_user_stream(self, conn: signalr_aio.Connection) -> AsyncIterable[str]:
         try:
             while True:
                 async with timeout(MESSAGE_TIMEOUT):
-                    yield await conn.msg_queue.get()
+                    msg = await conn.msg_queue.get()
+                    self._last_recv_time = time.time()
+                    yield msg
         except asyncio.TimeoutError:
             self.logger().warning(f"Message recv() timed out. Reconnecting to Bittrex SignalR WebSocket... ")
 
