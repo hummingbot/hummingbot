@@ -533,23 +533,25 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
     def test_server_time_offset(self):
         time_obj: BinanceTime = binance_client_module.time
-        old_check_interval: float = time_obj.SERVER_TIME_OFFSET_CHECK_INTERVAL
-        time_obj.SERVER_TIME_OFFSET_CHECK_INTERVAL = 1.0
+        old_check_interval: float = time_obj._server_time_offset_check_interval
+        time_obj._server_time_offset_check_interval = 1.0
         time_obj.stop()
         time_obj.start()
 
         try:
+            local_time_offset = (time.time() - time.perf_counter()) * 1e3
             with patch("hummingbot.market.binance.binance_time.time") as market_time:
                 def delayed_time():
-                    return time.time() - 30.0
-                market_time.time = delayed_time
+                    return time.perf_counter() - 30.0
+                market_time.perf_counter = delayed_time
                 self.run_parallel(asyncio.sleep(3.0))
-                time_offset = BinanceTime.get_instance().time_offset_ms
+                raw_time_offset = BinanceTime.get_instance().time_offset_ms
+                time_offset_diff = raw_time_offset - local_time_offset
                 # check if it is less than 5% off
-                self.assertTrue(time_offset > 10000)
-                self.assertTrue(abs(time_offset - 30.0 * 1e3) < 1.5 * 1e3)
+                self.assertTrue(time_offset_diff > 10000)
+                self.assertTrue(abs(time_offset_diff - 30.0 * 1e3) < 1.5 * 1e3)
         finally:
-            time_obj.SERVER_TIME_OFFSET_CHECK_INTERVAL = old_check_interval
+            time_obj._server_time_offset_check_interval = old_check_interval
             time_obj.stop()
             time_obj.start()
 
