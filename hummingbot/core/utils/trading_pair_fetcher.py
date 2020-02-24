@@ -17,7 +17,6 @@ BINANCE_ENDPOINT = "https://api.binance.com/api/v1/exchangeInfo"
 RADAR_RELAY_ENDPOINT = "https://api.radarrelay.com/v2/markets"
 BAMBOO_RELAY_ENDPOINT = "https://rest.bamboorelay.com/main/0x/markets"
 COINBASE_PRO_ENDPOINT = "https://api.pro.coinbase.com/products/"
-IDEX_REST_ENDPOINT = "https://api.idex.market/returnTicker"
 HUOBI_ENDPOINT = "https://api.huobi.pro/v1/common/symbols"
 LIQUID_ENDPOINT = "https://api.liquid.com/products"
 BITTREX_ENDPOINT = "https://api.bittrex.com/v3/markets"
@@ -180,32 +179,6 @@ class TradingPairFetcher:
 
         return []
 
-    async def fetch_idex_trading_pairs(self) -> List[str]:
-        try:
-            from hummingbot.market.idex.idex_market import IDEXMarket
-
-            client: aiohttp.ClientSession = self.http_client()
-            async with client.get(IDEX_REST_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
-                if response.status == 200:
-
-                    market: Dict[Any] = await response.json()
-                    raw_trading_pairs: List[str] = list(market.keys())
-                    trading_pair_list: List[str] = []
-                    for raw_trading_pair in raw_trading_pairs:
-                        converted_trading_pair: Optional[str] = \
-                            IDEXMarket.convert_from_exchange_trading_pair(raw_trading_pair)
-                        if converted_trading_pair is not None:
-                            trading_pair_list.append(converted_trading_pair)
-                        else:
-                            self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
-                    return trading_pair_list
-
-        except Exception:
-            # Do nothing if the request fails -- there will be no autocomplete for idex trading pairs
-            pass
-
-        return []
-
     async def fetch_huobi_trading_pairs(self) -> List[str]:
         try:
             from hummingbot.market.huobi.huobi_market import HuobiMarket
@@ -343,14 +316,12 @@ class TradingPairFetcher:
         dolomite_trading_pairs = await self.fetch_dolomite_trading_pairs()
         huobi_trading_pairs = await self.fetch_huobi_trading_pairs()
         liquid_trading_pairs = await self.fetch_liquid_trading_pairs()
-        idex_trading_pairs = await self.fetch_idex_trading_pairs()
         bittrex_trading_pairs = await self.fetch_bittrex_trading_pairs()
         kucoin_trading_pairs = await self.fetch_kucoin_trading_pairs()
         bitcoin_com_trading_pairs = await self.fetch_bitcoin_com_trading_pairs()
         self.trading_pairs = {
             "binance": binance_trading_pairs,
             "dolomite": dolomite_trading_pairs,
-            "idex": idex_trading_pairs,
             # "radar_relay": radar_relay_trading_pairs,
             "bamboo_relay": bamboo_relay_trading_pairs,
             "coinbase_pro": coinbase_pro_trading_pairs,
