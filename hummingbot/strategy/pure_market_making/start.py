@@ -47,6 +47,8 @@ def start(self):
         external_pricing_source = pure_market_making_config_map.get("external_pricing_source").value
         external_price_source_type = pure_market_making_config_map.get("external_price_source_type").value
         external_price_source_exchange = pure_market_making_config_map.get("external_price_source_exchange").value
+        external_price_source_exchange_trading_pair = pure_market_making_config_map.get(
+            "external_price_source_exchange_trading_pair").value
         external_price_source_feed_base_asset = pure_market_making_config_map.get(
             "external_price_source_feed_base_asset").value
         external_price_source_feed_quote_asset = pure_market_making_config_map.get(
@@ -96,7 +98,7 @@ def start(self):
         if external_pricing_source:
             if external_price_source_type == "exchange":
                 asset_trading_pair: str = self._convert_to_exchange_trading_pair(
-                    external_price_source_exchange, [raw_maker_trading_pair])[0]
+                    external_price_source_exchange, [external_price_source_exchange_trading_pair])[0]
                 ext_market = create_paper_trade_market(external_price_source_exchange, [asset_trading_pair])
                 self.markets[external_price_source_exchange]: MarketBase = ext_market
                 asset_price_delegate = OrderBookAssetPriceDelegate(ext_market, asset_trading_pair)
