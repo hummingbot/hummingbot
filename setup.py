@@ -19,7 +19,7 @@ if is_posix:
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20200213.1"
+    version = "20200225"
     packages = [
         "hummingbot",
         "hummingbot.client",
