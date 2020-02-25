@@ -118,7 +118,7 @@ How far away from the mid price do you want to place the first ask order? (Enter
 How often do you want to cancel and replace bids and asks (in seconds)? >>>
 60.0
 
-What is your preferred quantity per order? (Denominated in the base asset) >>>
+What is the amount of [base_asset] per order? (minimum [min_amount]) >>>
 0.2
 
 Would you like to proceed with advanced configuration? (Yes/No) >>>
