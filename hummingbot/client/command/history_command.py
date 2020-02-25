@@ -15,7 +15,6 @@ from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversio
 from hummingbot.market.market_base import MarketBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
-ERC = ExchangeRateConversion.get_instance()
 s_float_0 = float(0)
 
 
@@ -37,7 +36,7 @@ class HistoryCommand:
         self.trade_performance_report()
 
     def balance_snapshot(self,  # type: HummingbotApplication
-                         ) -> Dict[str, Dict[str, float]]:
+                         ) -> Dict[str, Dict[str, Decimal]]:
         snapshot: Dict[str, Any] = {}
         for market_name in self.markets:
             balance_dict = self.markets[market_name].get_all_balances()
@@ -48,9 +47,9 @@ class HistoryCommand:
                 if asset not in snapshot:
                     snapshot[asset] = {}
                 if asset in balance_dict:
-                    snapshot[asset][market_name] = balance_dict[asset]
+                    snapshot[asset][market_name] = Decimal(balance_dict[asset])
                 else:
-                    snapshot[asset][market_name] = 0.0
+                    snapshot[asset][market_name] = Decimal("0")
         return snapshot
 
     def balance_comparison_data_frame(self,  # type: HummingbotApplication
@@ -63,17 +62,17 @@ class HistoryCommand:
         for market_trading_pair_tuple in self.market_trading_pair_tuples:
             market: MarketBase = market_trading_pair_tuple.market
             for asset in set(a.upper() for a in self.assets):
-                asset_delta: Dict[str, float] = market_trading_pair_stats[market_trading_pair_tuple]["asset"].get(
-                    asset, {"delta": s_float_0})
+                asset_delta: Dict[str, Decimal] = market_trading_pair_stats[market_trading_pair_tuple]["asset"].get(
+                    asset, {"delta": Decimal("0")})
                 starting_balance = self.starting_balances.get(asset).get(market.name)
                 current_balance = self.balance_snapshot().get(asset).get(market.name)
                 rows.append([market.display_name,
                              asset,
-                             float(starting_balance),
-                             float(current_balance),
-                             float(current_balance - starting_balance),
-                             float(asset_delta["delta"]),
-                             ERC.adjust_token_rate(asset, Decimal(1))])
+                             f"{starting_balance:.4f}",
+                             f"{current_balance:.4f}",
+                             f"{current_balance - starting_balance:.4f}",
+                             f"{asset_delta['delta']:.4f}",
+                             f"{ExchangeRateConversion.get_instance().adjust_token_rate(asset, Decimal(1)):.4f}"])
         df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Net_Delta",
                                                      "Trade_Delta", "Conversion_Rate"])
         return df
@@ -87,6 +86,7 @@ class HistoryCommand:
             current_strategy_name,
             self.market_trading_pair_tuples,
             raw_queried_trades,
+            self.starting_balances
         )
         return trade_performance_stats, market_trading_pair_stats
 
@@ -114,7 +114,7 @@ class HistoryCommand:
             primary_quote_asset: str = self.market_trading_pair_tuples[0].quote_asset.upper()
 
             trade_performance_status_line = []
-            market_df_data: Set[Tuple[str, str, float, float, str, str]] = set()
+            market_df_data: Set[Tuple[str, str, Decimal, Decimal, str, str]] = set()
             market_df_columns = ["Market", "Trading_Pair", "Start_Price", "End_Price",
                                  "Total_Value_Delta", "Profit"]
 
@@ -122,10 +122,10 @@ class HistoryCommand:
                 market_df_data.add((
                     market_trading_pair_tuple.market.display_name,
                     market_trading_pair_tuple.trading_pair.upper(),
-                    float(trading_pair_stats["starting_quote_rate"]),
-                    float(trading_pair_stats["end_quote_rate"]),
+                    trading_pair_stats["starting_quote_rate"],
+                    trading_pair_stats["end_quote_rate"],
                     f"{trading_pair_stats['trading_pair_delta']:.8f} {primary_quote_asset}",
-                    f"{trading_pair_stats['trading_pair_delta_percentage']:.3f} %"
+                    f"{trading_pair_stats['trading_pair_delta_percentage']:.4f} %"
                 ))
 
             inventory_df: pd.DataFrame = self.balance_comparison_data_frame(market_trading_pair_stats)
@@ -141,7 +141,7 @@ class HistoryCommand:
             trade_performance_status_line.extend(
                 ["", "  Portfolio Performance:"] +
                 [f"    Quote Value Delta: {portfolio_delta:.7g} {primary_quote_asset}"] +
-                [f"    Delta Percentage: {portfolio_delta_percentage:.3f} %"])
+                [f"    Delta Percentage: {portfolio_delta_percentage:.4f} %"])
 
             self._notify("\n".join(trade_performance_status_line))
 

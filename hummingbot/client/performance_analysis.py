@@ -12,7 +12,6 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-ERC = ExchangeRateConversion.get_instance()
 s_float_nan = float("nan")
 s_float_0 = float(0)
 s_decimal_0 = Decimal(0)
@@ -194,16 +193,21 @@ class PerformanceAnalysis:
     def calculate_trade_performance(self,
                                     current_strategy_name: str,
                                     market_trading_pair_tuples: List[MarketTradingPairTuple],
-                                    raw_queried_trades: List[TradeFill]) -> Tuple[Dict, Dict]:
+                                    raw_queried_trades: List[TradeFill],
+                                    starting_balances: Dict[str, Dict[str, Decimal]]) \
+            -> Tuple[Dict, Dict]:
         """
         Calculate total spent and acquired amount for the whole portfolio in quote value.
 
         :param current_strategy_name: Name of the currently configured strategy
         :param market_trading_pair_tuples: Current MarketTradingPairTuple
         :param raw_queried_trades: List of queried trades
+        :param starting_balances: Dictionary of starting asset balance for each market, as balance_snapshot on
+        history command.
         :return: Dictionary consisting of total spent and acquired across whole portfolio in quote value,
                  as well as individual assets
         """
+        ERC = ExchangeRateConversion.get_instance()
         trade_performance_stats: Dict[str, Decimal] = {}
         # The final stats will be in primary quote unit
         primary_quote_asset: str = market_trading_pair_tuples[0].quote_asset
@@ -239,6 +243,18 @@ class PerformanceAnalysis:
             combined_spent: Decimal = spent_base_quote_value + asset_stats[quote_asset]["spent"]
             combined_acquired: Decimal = acquired_base_quote_value + asset_stats[quote_asset]["acquired"]
 
+            market_name = market_trading_pair_tuple.market.name
+            if base_asset in starting_balances and market_name in starting_balances[base_asset]:
+                starting_base = Decimal(starting_balances[base_asset][market_name])
+            else:
+                starting_base = Decimal("0")
+            if quote_asset in starting_balances and market_name in starting_balances[quote_asset]:
+                starting_quote = Decimal(starting_balances[quote_asset][market_name])
+            else:
+                starting_quote = Decimal("0")
+            if starting_base + starting_quote == 0:
+                raise ValueError("Starting balances must be supplied.")
+            starting_total = starting_quote + (starting_base * quote_rate)
             # Convert trading pair's spent and acquired amount into primary quote asset value
             # (primary quote asset is the quote asset of the first trading pair)
             trading_pair_stats["acquired_quote_value"] = ERC.convert_token_value_decimal(
@@ -247,24 +263,30 @@ class PerformanceAnalysis:
             trading_pair_stats["spent_quote_value"] = ERC.convert_token_value_decimal(
                 combined_spent, quote_asset, primary_quote_asset, source="default"
             )
+            trading_pair_stats["starting_quote_value"] = ERC.convert_token_value_decimal(
+                starting_total, quote_asset, primary_quote_asset, source="default"
+            )
+
             trading_pair_stats["trading_pair_delta"] = combined_acquired - combined_spent
 
             if combined_acquired == s_decimal_0 or combined_spent == s_decimal_0:
                 trading_pair_stats["trading_pair_delta_percentage"] = s_decimal_0
                 continue
             trading_pair_stats["trading_pair_delta_percentage"] = \
-                ((combined_acquired / combined_spent) - Decimal("1")) * Decimal("100")
+                ((combined_acquired - combined_spent) / starting_total) * Decimal("100")
 
         portfolio_acquired_quote_value: Decimal = sum(
             s["acquired_quote_value"] for s in market_trading_pair_stats.values())
         portfolio_spent_quote_value: Decimal = sum(
             s["spent_quote_value"] for s in market_trading_pair_stats.values())
+        portfolio_starting_quote_value: Decimal = sum(
+            s["starting_quote_value"] for s in market_trading_pair_stats.values())
 
         if portfolio_acquired_quote_value == s_decimal_0 or portfolio_spent_quote_value == s_decimal_0:
             portfolio_delta_percentage: Decimal = s_decimal_0
         else:
-            portfolio_delta_percentage: Decimal = \
-                ((portfolio_acquired_quote_value / portfolio_spent_quote_value) - Decimal("1")) * Decimal("100")
+            portfolio_delta_percentage: Decimal = ((portfolio_acquired_quote_value - portfolio_spent_quote_value)
+                                                   / portfolio_starting_quote_value) * Decimal("100")
 
         trade_performance_stats["portfolio_acquired_quote_value"] = portfolio_acquired_quote_value
         trade_performance_stats["portfolio_spent_quote_value"] = portfolio_spent_quote_value

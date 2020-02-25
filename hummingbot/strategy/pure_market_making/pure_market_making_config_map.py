@@ -12,11 +12,13 @@ from hummingbot.client.settings import (
 )
 from hummingbot.client.config.global_config_map import (
     using_bamboo_coordinator_mode,
-    using_exchange,
+    using_exchange
 )
 from hummingbot.client.config.config_helpers import (
-    parse_cvar_value
+    parse_cvar_value,
+    minimum_order_amount
 )
+from decimal import Decimal
 
 
 def maker_trading_pair_prompt():
@@ -43,6 +45,21 @@ def assign_values_advanced_mode_switch(advanced_mode):
 def is_valid_maker_market_trading_pair(value: str) -> bool:
     maker_market = pure_market_making_config_map.get("maker_market").value
     return is_valid_market_trading_pair(maker_market, value)
+
+
+def order_amount_prompt() -> str:
+    trading_pair = pure_market_making_config_map["maker_market_trading_pair"].value
+    base_asset, quote_asset = trading_pair.split("-")
+    min_amount = minimum_order_amount(trading_pair)
+    return f"What is the amount of {base_asset} per order? (minimum {min_amount}) >>> "
+
+
+def is_valid_order_amount(value: str) -> bool:
+    try:
+        trading_pair = pure_market_making_config_map["maker_market_trading_pair"].value
+        return Decimal(value) >= minimum_order_amount(trading_pair)
+    except Exception:
+        return False
 
 
 pure_market_making_config_map = {
@@ -79,10 +96,9 @@ pure_market_making_config_map = {
                   type_str="float"),
     "order_amount":
         ConfigVar(key="order_amount",
-                  prompt="What is your preferred quantity per order? (Denominated in "
-                         "the base asset) >>> ",
-                  default=1.0,
-                  type_str="decimal"),
+                  prompt=order_amount_prompt,
+                  type_str="decimal",
+                  validator=is_valid_order_amount),
     "advanced_mode":
         ConfigVar(key="advanced_mode",
                   prompt="Would you like to proceed with advanced configuration? (Yes/No) >>> ",

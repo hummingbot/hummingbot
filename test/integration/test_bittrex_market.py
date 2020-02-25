@@ -43,6 +43,7 @@ from hummingbot.model.sql_connection_manager import (
     SQLConnectionType
 )
 from hummingbot.model.trade_fill import TradeFill
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
@@ -131,6 +132,24 @@ class BittrexMarketUnitTest(unittest.TestCase):
         market_fee: TradeFee = self.market.get_fee("XRP", "BTC", OrderType.MARKET, TradeType.BUY, 1)
         self.assertGreater(market_fee.percent, 0)
         self.assertEqual(len(market_fee.flat_fees), 0)
+
+    def test_fee_overrides_config(self):
+        fee_overrides_config_map["bittrex_taker_fee"].value = None
+        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.0025"), taker_fee.percent)
+        fee_overrides_config_map["bittrex_taker_fee"].value = Decimal('0.002')
+        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.002"), taker_fee.percent)
+        fee_overrides_config_map["bittrex_maker_fee"].value = None
+        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.0025"), maker_fee.percent)
+        fee_overrides_config_map["bittrex_maker_fee"].value = Decimal('0.005')
+        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
 
     def test_limit_buy(self):
         self.assertGreater(self.market.get_balance("BTC"), 0.001)

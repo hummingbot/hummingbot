@@ -44,6 +44,6 @@ class ConfigVar:
         assert callable(self._validator)
         assert callable(self._on_validated)
         valid = self._validator(value)
-        if valid:
+        if valid and self._validator is not None:
             self._on_validated(value)
         return valid

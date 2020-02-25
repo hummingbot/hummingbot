@@ -35,7 +35,7 @@ Here are some of the exposed properties you can access from the debug console:
 
 ## Sample Ways to Use the Console
 
-Below is an example where a developer queries the currently active bids/asks under the strategy, and the current best ask price on DDEX.
+Below is an example where a developer queries the currently active bids/asks under the strategy, and the current best ask price on Binance.
 
 ![Example](/assets/img/debug5.png)
 
