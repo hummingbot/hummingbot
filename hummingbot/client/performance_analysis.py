@@ -12,7 +12,6 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-ERC = ExchangeRateConversion.get_instance()
 s_float_nan = float("nan")
 s_float_0 = float(0)
 s_decimal_0 = Decimal(0)
@@ -208,6 +207,7 @@ class PerformanceAnalysis:
         :return: Dictionary consisting of total spent and acquired across whole portfolio in quote value,
                  as well as individual assets
         """
+        ERC = ExchangeRateConversion.get_instance()
         trade_performance_stats: Dict[str, Decimal] = {}
         # The final stats will be in primary quote unit
         primary_quote_asset: str = market_trading_pair_tuples[0].quote_asset

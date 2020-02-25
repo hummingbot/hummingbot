@@ -9,8 +9,7 @@ cdef class BinanceMarket(MarketBase):
         object _ev_loop
         object _poll_notifier
         double _last_timestamp
-        double _poll_interval
-        double _last_pull_timestamp
+        double _last_poll_timestamp
         dict _in_flight_deposits
         dict _in_flight_orders
         dict _order_not_found_records
@@ -27,7 +26,7 @@ cdef class BinanceMarket(MarketBase):
         public object _trading_rules_polling_task
         object _async_scheduler
         object _set_server_time_offset_task
-
+        object _throttler
 
     cdef c_did_timeout_tx(self, str tracking_id)
     cdef c_start_tracking_order(self,

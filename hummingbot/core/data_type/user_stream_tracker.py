@@ -37,6 +37,10 @@ class UserStreamTracker(ABC):
     def data_source(self) -> UserStreamTrackerDataSource:
         raise NotImplementedError
 
+    @property
+    def last_recv_time(self) -> float:
+        return self.data_source.last_recv_time
+
     @abstractmethod
     async def start(self):
         raise NotImplementedError
