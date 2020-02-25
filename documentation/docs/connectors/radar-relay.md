@@ -18,10 +18,10 @@ Because Radar Relay is a decentralized exchange, you will need an independent cr
 Each trading pair has a unique minimum order size denominated in the *base currency*.  You can access the minimum order size for a specific token pair using [Radar Relay's API](https://developers.radarrelay.com/api/feed-api/markets), at the following URL:
 
 ```
-https://api.radarrelay.com/v2/markets/{marketId}
+https://api.radarrelay.com/v3/markets/{marketId}
 ```
 
-For example, for `ZRX-WETH`, navigate to: [https://api.radarrelay.com/v2/markets/**`ZRX-WETH`**](https://api.radarrelay.com/v2/markets/ZRX-WETH).
+For example, for `ZRX-WETH`, navigate to: [https://api.radarrelay.com/v3/markets/**`ZRX-WETH`**](https://api.radarrelay.com/v3/markets/ZRX-WETH).
 
 Sample output:
 

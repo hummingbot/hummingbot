@@ -21,8 +21,10 @@ import shutil
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.client.settings import (
     GLOBAL_CONFIG_PATH,
+    TRADE_FEES_CONFIG_PATH,
     TEMPLATE_PATH,
     CONF_FILE_PATH,
     CONF_POSTFIX,
@@ -34,6 +36,7 @@ from hummingbot.client.config.config_crypt import (
     encrypt_n_save_config_value,
     encrypted_config_file_exists
 )
+from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 
 # Use ruamel.yaml to preserve order and comments in .yml file
 yaml_parser = ruamel.yaml.YAML()
@@ -69,27 +72,27 @@ def parse_cvar_value(cvar: ConfigVar, value: Any) -> Any:
         try:
             return float(value)
         except Exception:
-            logging.getLogger().error(f"\"{value}\" is not an integer.", exc_info=True)
-            return 0.0
+            logging.getLogger().error(f"\"{value}\" is not valid float.", exc_info=True)
+            return value
     elif cvar.type == 'decimal':
         try:
             return Decimal(str(value))
         except Exception:
             logging.getLogger().error(f"\"{value}\" is not valid decimal.", exc_info=True)
-            return Decimal(0)
+            return value
     elif cvar.type == 'int':
         try:
             return int(value)
         except Exception:
             logging.getLogger().error(f"\"{value}\" is not an integer.", exc_info=True)
-            return 0
+            return value
     elif cvar.type == 'bool':
         if isinstance(value, str) and value.lower() in ["true", "yes", "y"]:
             return True
         elif isinstance(value, str) and value.lower() in ["false", "no", "n"]:
             return False
         else:
-            return bool(value)
+            return value
     else:
         raise TypeError
 
@@ -100,11 +103,16 @@ def parse_cvar_default_value_prompt(cvar: ConfigVar) -> str:
     :return: text for default value prompt
     """
     if cvar.default is None:
-        return ""
+        default = ""
+    elif callable(cvar.default):
+        default = cvar.default()
     elif cvar.type == 'bool' and isinstance(cvar.prompt, str) and "Yes/No" in cvar.prompt:
-        return "Yes" if cvar.default else "No"
+        default = "Yes" if cvar.default else "No"
     else:
-        return str(cvar.default)
+        default = str(cvar.default)
+    if isinstance(default, Decimal):
+        default = "{0:.4f}".format(default)
+    return default
 
 
 async def copy_strategy_template(strategy: str) -> str:
@@ -240,7 +248,7 @@ def read_configs_from_yml(strategy_file_path: Optional[str] = None):
                     cvar.value = cvar.migration_default
                 else:
                     cvar.value = parse_cvar_value(cvar, val_in_file)
-                if val_in_file is not None and not cvar.validate(str(cvar.value)):
+                if cvar.value is not None and not cvar.validate(str(cvar.value)):
                     # Instead of raising an exception, simply skip over this variable and wait till the user is prompted
                     logging.getLogger().error("Invalid value %s for config variable %s" % (val_in_file, cvar.key))
                     cvar.value = None
@@ -258,6 +266,8 @@ def read_configs_from_yml(strategy_file_path: Optional[str] = None):
                                       exc_info=True)
 
     load_yml_into_cm(GLOBAL_CONFIG_PATH, join(TEMPLATE_PATH, "conf_global_TEMPLATE.yml"), global_config_map)
+    load_yml_into_cm(TRADE_FEES_CONFIG_PATH, join(TEMPLATE_PATH, "conf_fee_overrides_TEMPLATE.yml"),
+                     fee_overrides_config_map)
 
     if strategy_file_path:
         strategy_template_path = get_strategy_template_path(current_strategy)
@@ -332,3 +342,22 @@ async def create_yml_files():
                         pass
                 if conf_version < template_version:
                     shutil.copy(template_path, conf_path)
+
+
+def default_min_quote(quote_asset):
+    global_quote_amount = []
+    if global_config_map["min_quote_order_amount"].value is not None:
+        global_quote_amount = [[b, m] for b, m in global_config_map["min_quote_order_amount"].value if b == quote_asset]
+    default_quote_asset, default_amount = "USD", 11
+    if len(global_quote_amount) > 0:
+        default_quote_asset, default_amount = global_quote_amount[0]
+    return default_quote_asset, default_amount
+
+
+def minimum_order_amount(trading_pair):
+    base_asset, quote_asset = trading_pair.split("-")
+    default_quote_asset, default_amount = default_min_quote(quote_asset)
+    quote_amount = ExchangeRateConversion.get_instance().convert_token_value_decimal(default_amount,
+                                                                                     default_quote_asset,
+                                                                                     base_asset)
+    return round(quote_amount, 4)

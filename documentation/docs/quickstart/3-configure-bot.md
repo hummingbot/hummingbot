@@ -15,7 +15,6 @@ First, let's walk through the design of the Hummingbot client interface:
 **Enter `help` to see a list of commands:**
 
 ```
-bounty              Participate in hummingbot's liquidity bounty programs 
 config              Add your personal credentials e.g. exchange API keys  
 exit                Securely exit the command line                        
 export_private_key  Print your account private key                        
@@ -119,7 +118,7 @@ How far away from the mid price do you want to place the first ask order? (Enter
 How often do you want to cancel and replace bids and asks (in seconds)? >>>
 60.0
 
-What is your preferred quantity per order? (Denominated in the base asset) >>>
+What is the amount of [base_asset] per order? (minimum [min_amount]) >>>
 0.2
 
 Would you like to proceed with advanced configuration? (Yes/No) >>>
@@ -129,22 +128,7 @@ No
 A more detailed explanation of each prompt for pure market making strategy are explained [here](/strategies/pure-market-making/#configuration-walkthrough) in the User Manual.
 
 
-#### e) Enable inventory skew
-
-This function allows you to set a target base/quote inventory ratio. For example, you are trading ZRX-WETH pair while your current asset inventory consists of 80% ZRX and 20% WETH. Setting this to 0.5 will allow the bot to automatically adjust the order amount on both sides, selling more and buying less ZRX until you get a 50%-50% ratio.
-
-```
-Would you like to enable inventory skew? (Yes/No) >>>
-Yes
-
-What is your target base asset inventory percentage? (Enter 0.01 to indicate 1%) >>>
-0.5
-```
-
-Here's an [inventory skew calculator](https://docs.google.com/spreadsheets/d/16oCExZyM8Wo8d0aRPmT_j7oXCzea3knQ5mmm0LlPGbU/edit#gid=690135600) that shows how it adjusts order sizes.
-
-
-#### f) Enter API keys / Ethereum wallet and node
+#### e) Enter API keys / Ethereum wallet and node
 
 Now that you have set up how your market making bot will behave, it's time to provide it with the necessary API keys (for centralized exchanges) or wallet/node info (for decentralized exchanges) that it needs to operate.
 
@@ -158,12 +142,12 @@ Enter your Binance API secret >>>
 ```
 For more information on how to find your API keys, please see [API Keys](/installation/api-keys).
 
-!!! note "Copying and Pasting"
-    Our Get Help section contains answers to some of the common how-to questions like [How to copy and paste in Docker Toolbox (Windows)](/support/how-to/#how-to-copy-and-paste-in-docker-toolbox-windows) and [Paste items from clipboard in PuTTY](/support/how-to/#paste-items-from-clipboard-in-putty)
+!!! tip "Tip: Copying and Pasting"
+    Users have reported not being able to copy and paste their API keys on some platforms. Our help articles such as [How to copy and paste in Docker Toolbox (Windows)](/support/how-to/#how-to-copy-and-paste-in-docker-toolbox-windows) and [Paste items from clipboard in PuTTY](/support/how-to/#paste-items-from-clipboard-in-putty) may help, and our 24/7 support team can help you if you join our [Discord](https://discord.hummingbot.io).
 
 ---
 
-Alternatively, if you selected a decentralized exchange like IDEX, DDEX, Bamboo Relay, or Radar Relay in Step 3c:
+Alternatively, if you selected a decentralized exchange like IDEX, Bamboo Relay, or Radar Relay in Step 3c:
 
 ```
 Would you like to import an existing wallet or create a new wallet? (import/create) >>>
@@ -176,7 +160,7 @@ Your wallet private key >>>
 More information in User Manual about [Ethereum wallet](/installation/wallet) and [Ethereum node](/installation/node/node).
 
 
-#### g) Configure kill switch
+#### f) Configure kill switch
 
 [Kill switch](/utilities/kill-switch/) automatically stops the bot after a certain performance threshold, which can be either positive or negative.
 
@@ -193,11 +177,32 @@ At what profit/loss rate would you like the bot to stop? (e.g. -0.05 equals 5% l
 Hummingbot comes with other useful utilities that help you run the bot such as [exchange rates](/utilities/exchange-rates/) and [Telegram integration](/utilities/telegram/). For more information on these utilities, see the Utilities section in the [User Manual](/manual).
 
 
-## Step 4: Adjusting Parameters
+#### g) Sending error logs
 
-If you want to reconfigure the bot from the beginning, type `config` and reply `y` to the question `Would you like to reconfigure the bot? (Yes/No) >>>?`. This will prompt all questions during initial set up.
+Hummingbot requests error logs for the sole purpose of debugging and continuously improving our software. We'll never share the data with a third party.
 
-Alternatively, the command `list configs` will show your current bot parameters both global and the strategy configs.
+Enter `Yes` to allow sending error logs to Hummingbot or enter `No` to disable this feature so no data will be collected.
+
+```
+Would you like to send error logs to hummingbot? (Yes/No) >>> Yes
+```
+
+---
+
+Congratulations! You have successfully set up your first market making bot. You should now see:
+```
+Config process complete. Enter "start" to start market making.
+
+>>> start
+```
+
+## (Optional) Adjusting Parameters
+
+### From the Hummingbot client
+
+If you want to reconfigure the bot from the beginning, type `config` and reply `y` to the question `Would you like to reconfigure the bot? (Yes/No) >>>?`. This will prompt all questions during initial setup.
+
+Alternatively, the command `list configs` will show your current bot's configuration.
 
 ```
 >>> list configs
@@ -217,7 +222,9 @@ order_amount                    0.2
 
 ```
 
-You can specify which parameter you want to configure by doing `config $parameter_name`. As an example, we want to widen the `bid_place_threshold` to 0.02. This tells the bot to place buy order 2% lower than the mid price, rather than 1%.
+You can change a parameter by with the command `config [parameter_name]`.
+
+For example, let's widen the `bid_place_threshold` to 0.02. This tells the bot to place buy order 2% lower than the mid price, rather than 1%:
 
 ```
 >>> config bid_place_threshold
@@ -232,17 +239,23 @@ bid_place_threshold: 0.02
 
 ```
 
-You can also exit the bot with `exit` and edit the automatically generated configuration file `conf_pure_market_making_0.yml`. This file is saved in the directory `hummingbot_files/hummingbot_conf/` in your root. For more information, see [Troubleshooting](/support/how-to/#how-do-i-edit-the-conf-files-or-access-the-log-files-used-by-my-docker-instance).
+### From the command line
 
+When you configure a bot, Hummingbot automatically saves the configuration file so that you can import it the next time you run Hummingbot. If you go to the Hummingbot root folder, you can edit these configuration files directly.
 
----
-If you completed the steps above successfully, you should see the message:
+#### Root folder location
+
+* **Windows**: `%localappdata%\hummingbot.io\Hummingbot`
+* **macOS**: `~/Library/Application\ Support/Hummingbot`
+* **Docker installations**: Please see [this article](/support/how-to/#how-to-find-out-where-the-config-and-log-files-are-on-hummingbot-installed-via-docker)
+
+#### Root folder layout
 ```
-Config process complete. Enter "start" to start market making.
-
->>> start
+Hummingbot/
+└── conf/   # configuration files
+└── logs/   # log files
+└── data/   # database of executed trades
 ```
-
 
 ---
 # Next: [Run Your First Trading Bot](/quickstart/4-run-bot)

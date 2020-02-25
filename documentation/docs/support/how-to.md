@@ -147,11 +147,20 @@ For security reasons, Hummingbot does not store your password anywhere so there'
 
 If using Linux, copy the commands below and run in your terminal to delete the files. You will be prompted to confirm before proceeding.
 
+**Docker build**
+
 ```
 rm hummingbot_files/hummingbot_conf/encrypted* hummingbot_files/hummingbot_conf/key_file*
 ```
 
-If Hummingbot is installed on Windows, simply delete these files found in `%localappdata%\hummingbot.io\Hummingbot`.
+**Source build**
+
+```
+rm hummingbot/conf/encrypted* hummingbot/conf/key_file*
+```
+
+
+If Hummingbot is installed on Windows, simply delete these files found in `%localappdata%\hummingbot.io\Hummingbot\conf`.
 
 !!! warning
     Be careful when deleting the local wallet key file created through Hummingbot, i.e, a wallet that was not imported from Metamask; deleting the key file will result in a permanent loss of access to that wallet and any assets it may contain.
@@ -160,8 +169,8 @@ If Hummingbot is installed on Windows, simply delete these files found in `%loca
 
 
 #### Transfer files from/to Windows Subsystem for Linux and local computer
-
-Execute command `explorer.exe .` (make sure to include the dot) in WSL to launch a file explorer window of your current directory. Then you will be able to move, copy and delete files like you normally would on a Windows computer.
+1. Execute command `explorer.exe .` (make sure to include the dot) in WSL to launch a file explorer window of your current directory. Then you will be able to move, copy and delete files like you normally would on a Windows computer.
+2. If command `explorer.exe .` fails to open your hummingbot directory, you need to [disable and enable WSL using powershell](https://www.tenforums.com/tutorials/46769-enable-disable-windows-subsystem-linux-wsl-windows-10-a.html)
 
 
 #### Download a previous version of Hummingbot in Windows
@@ -173,3 +182,49 @@ Execute command `explorer.exe .` (make sure to include the dot) in WSL to launch
 For example, enter the URL</br>
 https://hummingbot-distribution.s3.amazonaws.com/hummingbot_v0.20.0_setup.exe
 </br>on your web browser to start downloading the installer for Hummingbot version 0.20.0.
+
+#### Alternate method to locate Hummingbot data files if you use a binary installer
+
+##### Windows Computer
+
+1. Open File Explorer, select This PC and open local disc (C:\)
+2. Browse to the Users folder, and open your profile folder.
+3. Locate and open **AppData** folder
+4. Open **Local** folder then **Hummingbot.io** folder. You may see another folder named **Hummingbot**, open it and you will see the data files folder.
+
+!!! tip
+    In case the AppData folder is not visible, on the menu bar found above your folder, go to **View** and tick the checkbox for Hidden items.
+	 
+##### Mac Computer
+
+1. Open Finder
+2. On the top menu bar, click **Go**
+3. After clicking the **Go** menu, press the Option button on your keyboard.
+4. Additional **Library** option should appear after that. 
+5. Click **Library** 
+6. Find and open **Application Support** folder and you will see **Hummingbot** folder.
+
+!!! note
+    Mac has multiple library folders, make sure that the library folder you're trying to open is the Library folder under your user profile.
+ 
+
+#### How to check the status of multiple bot simultaneously?
+1. As of the moment, you can only check the status of each bot one at a time. 
+2. A workaround is to integrate telegram on all your hummingbot instances and use a single telegram_chat_ID.
+
+!!! note
+    Read through [Telegram integration](https://docs.hummingbot.io/utilities/telegram/) for more information.
+
+#### How to add paper trade balance settings inside Hummingbot CLI?
+1. Stop the bot first if its running since parameter is part of the global settings
+2. Type in `config paper_trade_account_balance`
+3. Enter the token symbol and amount with the same format given on the input window. </br>
+    ![cli_add_balance](/assets/img/cli_add_balance.gif)</br>
+4. Press Enter to add and save the new token symbol.
+
+!!! note
+    1. Adding a new token balance should be done upon starting your bot (before importing or creating strategy) to avoid error.
+    2. Default paper_trade tokens and amounts will be removed upon adding a new token pair. Don't forget to add all the tokens you need.
+
+#### How to refresh Hummingbot Window Panes?
+When resizing the window of your Hummingbot, text becomes unclear or at the same location as the previous size of the window. To do a refresh to the new window size, while inside Hummingbot press `CTRL + L` and it will refresh Hummingbot window panes. These command applies to all Hummingbot build.
