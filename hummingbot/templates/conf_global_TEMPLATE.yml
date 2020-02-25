@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 5
+template_version: 6
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -92,4 +92,12 @@ log_file_path: logs/
 on_chain_cancel_on_exit: false
 
 # Minimum default order amount (in quote currency), this is used for when prompting a new order_amount.
-min_quote_order_amount: null
+min_quote_order_amount:
+- - BTC
+  - 0.0011
+- - ETH
+  - 0.05
+- - USD
+  - 11
+- - BNB
+  - 0.5
