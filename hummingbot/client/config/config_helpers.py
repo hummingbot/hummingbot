@@ -345,7 +345,9 @@ async def create_yml_files():
 
 
 def default_min_quote(quote_asset):
-    global_quote_amount = [[b, m] for b, m in global_config_map.get("min_quote_order_amount").value if b == quote_asset]
+    global_quote_amount = []
+    if global_config_map["min_quote_order_amount"].value is not None:
+        global_quote_amount = [[b, m] for b, m in global_config_map["min_quote_order_amount"].value if b == quote_asset]
     default_quote_asset, default_amount = "USD", 11
     if len(global_quote_amount) > 0:
         default_quote_asset, default_amount = global_quote_amount[0]
