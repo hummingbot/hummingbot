@@ -50,6 +50,7 @@ from hummingbot.market.market_base import (
     OrderType,
 )
 from hummingbot.market.bitfinex.bitfinex_auth import BitfinexAuth
+from hummingbot.market.bitfinex.bitfinex_websocket import BitfinexWebsocket
 from hummingbot.market.bitfinex.bitfinex_in_flight_order cimport BitfinexInFlightOrder
 from hummingbot.market.bitfinex.bitfinex_order_book_tracker import \
     BitfinexOrderBookTracker
@@ -144,7 +145,8 @@ cdef class BitfinexMarket(MarketBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._shared_client = None
-        self._waiting = False
+        self._pending_requests = []
+        self._ws = BitfinexWebsocket(self._bitfinex_auth)
 
     @property
     def name(self) -> str:
@@ -211,6 +213,25 @@ cdef class BitfinexMarket(MarketBase):
                 len(self._trading_rules) > 0 if self._trading_required else True
         }
 
+    async def get_ws(self):
+        if self._ws._client is not None and self._ws._client.open is True:
+            yield self._ws
+            return
+
+        await self._ws.connect()
+
+        async for authMsg in self._ws.authenticate(keepAlive=False):
+            async for calcMsg in self._ws.request([
+                0,
+                "calc",
+                None,
+                [
+                    ["balance"]
+                ]
+            ]):
+                yield self._ws
+                return
+
     cdef object c_get_fee(self,
                           str base_currency,
                           str quote_currency,
@@ -232,6 +253,7 @@ cdef class BitfinexMarket(MarketBase):
         return TradeFee(
             percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
 
+    # TODO: should rely no WS
     async def _update_balances(self):
         """
         Pulls the API for updated balances
@@ -385,6 +407,7 @@ cdef class BitfinexMarket(MarketBase):
                 )
                 await asyncio.sleep(0.5)
 
+    # TODO: we *have* to use websocket due to reply attack protection
     async def _api_balance(self):
         path_url = "auth/r/wallets"
         account_balances = await self._api_private("post", path_url=path_url, data={})
@@ -591,20 +614,31 @@ cdef class BitfinexMarket(MarketBase):
         Async wrapper for placing orders through the rest API.
         :returns: json response from the API
         """
-        path_url = "auth/w/order/submit"
-        data = {
-            "type": {
-                OrderType.LIMIT.name: "EXCHANGE LIMIT",
-                OrderType.MARKET.name: "MARKET",
-            }[order_type.name],  # LIMIT, EXCHANGE
-            "symbol": f't{trading_pair}',
-            "price": str(price),
-            "amount": str(amount),
-            "flags": 0,
-        }
+        data = [
+            0,
+            "on",
+            None,
+            {
+                "type": {
+                    OrderType.LIMIT.name: "EXCHANGE LIMIT",
+                    OrderType.MARKET.name: "MARKET",
+                }[order_type.name],
+                "symbol": f't{trading_pair}',
+                "price": str(price),
+                "amount": str(amount),
+            }
+        ]
 
-        order_result = await self._api_private("post", path_url=path_url, data=data)
-        return order_result
+        def onDone(msg):
+            return msg[1] == "on"
+
+        response = None
+        async for ws in self.get_ws():
+            async for _response in ws.request(data, condition=onDone):
+                response = _response
+                break
+
+        return response
 
     cdef c_start_tracking_order(self,
                                 str client_order_id,
@@ -668,8 +702,8 @@ cdef class BitfinexMarket(MarketBase):
                                                   decimal_amount, True, order_type,
                                                   decimal_price)
 
-            exchange_order = SubmitOrder.parse(order_result[4][0])
-            exchange_order_id = exchange_order.oid
+            # TODO: order_result needs to be ID
+            exchange_order_id = str(order_result[2][0])
 
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
@@ -750,8 +784,8 @@ cdef class BitfinexMarket(MarketBase):
             self.c_start_tracking_order(order_id, trading_pair, order_type, TradeType.SELL, decimal_price, decimal_amount)
             order_result = await self.place_order(order_id, trading_pair, decimal_amount, False, order_type, decimal_price)
 
-            exchange_order = SubmitOrder.parse(order_result[4][0])
-            exchange_order_id = exchange_order.oid
+            # TODO: order_result needs to be ID
+            exchange_order_id = str(order_result[2][0])
 
             tracked_order = self._in_flight_orders.get(order_id)
 
@@ -787,14 +821,25 @@ cdef class BitfinexMarket(MarketBase):
         """
         try:
             exchange_order_id = await self._in_flight_orders.get(order_id).get_exchange_order_id()
-            path_url = "auth/w/order/cancel"
 
-            data = {
-                "id": int(exchange_order_id)
-            }
+            data = [
+                0,
+                "oc",
+                None,
+                {
+                    "id": int(exchange_order_id)
+                }
+            ]
 
-            cancel_result = await self._api_private("post", path_url=path_url, data=data)
-            # return order_id
+            def onDone(msg):
+                return msg[1] == "oc"
+
+            response = None
+            async for ws in self.get_ws():
+                async for _response in ws.request(data, condition=onDone):
+                    response = _response
+                    break
+
             self.logger().info(f"Successfully cancelled order {order_id}.")
             self.c_stop_tracking_order(order_id)
             self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
@@ -997,19 +1042,25 @@ cdef class BitfinexMarket(MarketBase):
         try:
             order_ids = list(map(lambda order: order.client_order_id, self._in_flight_orders.values()))
 
-            path_url = "auth/w/order/cancel/multi"
-            data = {
-                "all": 1
-            }
+            data = [
+                0,
+                "oc_multi",
+                None,
+                {
+                    "all": 1
+                }
+            ]
 
-            async with timeout(timeout_seconds):
-                cancel_all_results = await self._api_private(
-                    "post",
-                    path_url=path_url,
-                    data=data,
-                )
+            def onDone(msg):
+                return msg[1] == "n" and msg[2][1] == "oc_multi-req"
 
-                return list(map(lambda client_order_id: CancellationResult(client_order_id, True), order_ids))
+            response = None
+            async for ws in self.get_ws():
+                async for _response in ws.request(data, condition=onDone):
+                    response = _response
+                    break
+
+            return list(map(lambda client_order_id: CancellationResult(client_order_id, True), order_ids))
         except Exception as e:
             self.logger().network(
                 f"Failed to cancel all orders: {order_ids}",
@@ -1061,7 +1112,8 @@ cdef class BitfinexMarket(MarketBase):
             for key, value in saved_states.items()
         })
 
-    # orders status
+    # list of active orders
+    # TODO: avoid using rest
     async def list_orders(self) -> List[OrderRetrieved]:
         """
         Gets a list of the user's active orders via rest API
@@ -1072,6 +1124,7 @@ cdef class BitfinexMarket(MarketBase):
         orders = [OrderRetrieved._make(res[:18]) for res in result]
         return orders
 
+    # history list of orders, TODO: avoid using rest
     async def list_orders_history(self) -> List[OrderRetrieved]:
         """
         Gets a list of the user's active orders via rest API
@@ -1091,6 +1144,7 @@ cdef class BitfinexMarket(MarketBase):
             fee = price * abs(amount) * fee_percent
         return fee
 
+    # TODO: check how often this is called
     async def _update_order_status(self):
         """
         Pulls the rest API for for latest order statuses and update local order statuses.

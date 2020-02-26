@@ -1,18 +1,13 @@
 import asyncio
-import json
 import logging
 import time
 from typing import Optional, List
-
-import ujson
-import websockets
-from websockets.exceptions import ConnectionClosed
 
 from hummingbot.core.data_type.user_stream_tracker_data_source import \
     UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.bitfinex.bitfinex_order_book import BitfinexOrderBook
-from hummingbot.market.bitfinex import BITFINEX_WS_URI
+from hummingbot.market.bitfinex.bitfinex_websocket import BitfinexWebsocket
 from hummingbot.market.bitfinex.bitfinex_auth import BitfinexAuth
 from hummingbot.market.bitfinex.bitfinex_order_book_message import \
     BitfinexOrderBookMessage
@@ -45,16 +40,18 @@ class BitfinexAPIUserStreamDataSource(UserStreamTrackerDataSource):
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                ws: websockets.WebSocketClientProtocol
-                async with websockets.connect(BITFINEX_WS_URI) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
-                    payload = self._bitfinex_auth.generate_auth_payload()
-                    await ws.send(json.dumps(payload))
+                ws = BitfinexWebsocket(self._bitfinex_auth)
+                await ws.connect()
 
-                    async for raw_msg in self._get_response(ws):
-                        transformed_msg: BitfinexOrderBookMessage = self._transform_message_from_exchange(raw_msg)
-                        if transformed_msg:
-                            output.put_nowait(transformed_msg)
+                async for msg in ws.authenticate(keepAlive=True):
+                    transformed_msg: BitfinexOrderBookMessage = self._transform_message_from_exchange(msg)
+
+                    if transformed_msg is None:
+                        continue
+                    elif transformed_msg.event_wallet:
+                        print(transformed_msg.content)
+                    else:
+                        output.put_nowait(transformed_msg)
 
             except asyncio.CancelledError:
                 raise
@@ -65,30 +62,14 @@ class BitfinexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 )
                 await asyncio.sleep(self.MESSAGE_TIMEOUT)
 
-    def _transform_message_from_exchange(self, raw_msg) -> Optional[BitfinexOrderBookMessage]:
-        msg = ujson.loads(raw_msg)
+    def _transform_message_from_exchange(self, msg) -> Optional[BitfinexOrderBookMessage]:
         order_book_message: BitfinexOrderBookMessage = BitfinexOrderBook.diff_message_from_exchange(msg, time.time())
         if any([
             order_book_message.type_heartbeat,
             order_book_message.event_auth,
             order_book_message.event_info,
+            order_book_message.event_wallet,
         ]):
             # skip unneeded events and types
             return
         return order_book_message
-
-    async def _get_response(self, ws: websockets.WebSocketClientProtocol):
-        try:
-            while True:
-                try:
-                    msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
-                    yield msg
-                except asyncio.TimeoutError:
-                    raise
-        except asyncio.TimeoutError:
-            self.logger().warning("WebSocket ping timed out. Going to reconnect...")
-            return
-        except ConnectionClosed:
-            return
-        finally:
-            await ws.close()
