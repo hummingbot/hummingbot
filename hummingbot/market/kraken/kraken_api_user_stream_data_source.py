@@ -9,6 +9,7 @@ from typing import (
     Optional,
     Any
 )
+import time
 import ujson
 import websockets
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -21,11 +22,11 @@ KRAKEN_WS_URL = "wss://ws-auth.kraken.com/"
 KRAKEN_ROOT_API = "https://api.kraken.com"
 GET_TOKEN_URI = "/0/private/GetWebSocketsToken"
 
+MESSAGE_TIMEOUT = 3.0
+PING_TIMEOUT = 5.0
+
 
 class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
-
-    MESSAGE_TIMEOUT = 3.0
-    PING_TIMEOUT = 5.0
 
     _krausds_logger: Optional[HummingbotLogger] = None
 
@@ -39,20 +40,27 @@ class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._kraken_auth: KrakenAuth = kraken_auth
         self._shared_client: Optional[aiohttp.ClientSession] = None
         self._current_auth_token: Optional[str] = None
+        self._last_recv_time: float = 0
         super().__init__()
-    
+
     @property
     def order_book_class(self):
         return KrakenOrderBook
 
+    @property
+    def last_recv_time(self):
+        return self._last_recv_time
+
     async def get_auth_token(self) -> str:
         api_auth: Dict[str, Any] = self._kraken_auth.generate_auth_dict(uri=GET_TOKEN_URI)
+
+        url: str = KRAKEN_ROOT_API + GET_TOKEN_URI
 
         client: aiohttp.ClientSession = await self._http_client()
 
         response_coro = client.request(
-            method=method.upper(),
-            url=KRAKEN_ROOT_API + GET_TOKEN_URI,
+            method="POST",
+            url=url,
             headers=api_auth["headers"],
             data=api_auth["postDict"],
             timeout=100
@@ -89,6 +97,8 @@ class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         await ws.send(ujson.dumps(subscribe_request))
 
                     async for raw_msg in self._inner_messages(ws):
+                        self._last_recv_time = time.time()
+
                         diff_msg = ujson.loads(raw_msg)
                         output.put_nowait(diff_msg)
             except asyncio.CancelledError:
@@ -100,7 +110,7 @@ class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 await asyncio.sleep(30.0)
 
     async def _http_client(self) -> aiohttp.ClientSession:
-        if self._shared_client is None:
+        if self._shared_client is None or self._shared_client.closed:
             self._shared_client = aiohttp.ClientSession()
         return self._shared_client
 
@@ -128,3 +138,7 @@ class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
             return
         finally:
             await ws.close()
+
+    async def stop(self):
+        if self._shared_client is not None and not self._shared_client.closed:
+            await self._shared_client.close()

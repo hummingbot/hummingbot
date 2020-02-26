@@ -18,7 +18,6 @@ from websockets.exceptions import ConnectionClosed
 from itertools import chain
 
 from hummingbot.core.utils import async_ttl_cache
-from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
@@ -68,9 +67,10 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             trading_pairs_data: Dict[str, Any] = await trading_pairs_response.json()
 
-            trading_pairs: Dict[str, Any] = {pair: {f"{k}Asset": trading_pairs_data["result"][pair][k] for k in ["base", "quote"]}
-                                            for pair in trading_pairs_data["result"]}
-            
+            trading_pairs: Dict[str, Any] = {pair: {**{f"{k}Asset": trading_pairs_data["result"][pair][k] for k in ["base", "quote"]},
+                                                    "wsname": trading_pairs_data["result"][pair].get("wsname")}
+                                             for pair in trading_pairs_data["result"]}
+
             trading_pairs_str: str = ','.join(trading_pairs.keys())
 
             market_response = await client.get(f"{TICKER_URL}?pair={trading_pairs_str}")
@@ -83,8 +83,8 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
             market_data = await market_response.json()
 
             market_data: List[Dict[str, Any]] = [{"pair": pair, **market_data["result"][pair], **trading_pairs[pair]}
-                                                for pair in market_data["result"]
-                                                if pair in trading_pairs]
+                                                 for pair in market_data["result"]
+                                                 if pair in trading_pairs]
 
             # Build the data frame.
             all_markets: pd.DataFrame = pd.DataFrame.from_records(data=market_data, index="pair")
@@ -99,11 +99,11 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
             for quote in quotes["usdt"]:
                 price[quote] = float(all_markets.loc[f"{quote}USDT"].lastPrice)
             for quote in quotes["usdt_r"]:
-                price[quote] = 1./float(all_markets.loc[f"USDT{quote}"].lastPrice)
+                price[quote] = 1. / float(all_markets.loc[f"USDT{quote}"].lastPrice)
             for quote in quotes["eth_r"]:
-                price[quote] = price["ETH"]/float(all_markets.loc[f"ETH{quote}"].lastPrice)
+                price[quote] = price["ETH"] / float(all_markets.loc[f"ETH{quote}"].lastPrice)
             for quote in quotes["xeth_r"]:
-                price[quote] = price["ETH"]/float(all_markets.loc[f"XETH{quote}"].lastPrice)
+                price[quote] = price["ETH"] / float(all_markets.loc[f"XETH{quote}"].lastPrice)
             usd_volume: float = [
                 (
                     quoteVolume * price[quote] if trading_pair[-3:] in quotes_all else
@@ -139,9 +139,12 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 raise IOError(f"Error fetching Kraken market snapshot for {trading_pair}. "
                               f"HTTP status is {response.status}.")
             response_json = await response.json()
+            if len(response_json["error"]) > 0:
+                raise IOError(f"Error fetching Kraken market snapshot for {trading_pair}. "
+                              f"Error is {response_json['error']}.")
             data: Dict[str, Any] = response_json["result"][trading_pair]
             data = {"trading_pair": trading_pair, **data}
-            data["latest_update"] = max([*map(lambda x: x[2], data["bids"] + data["asks"])])
+            data["latest_update"] = max([*map(lambda x: x[2], data["bids"] + data["asks"])], default=0.)
 
             # Need to add the symbol into the snapshot message for the Kafka message queue.
             # Because otherwise, there'd be no way for the receiver to know which market the
@@ -184,7 +187,9 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
             while True:
                 try:
                     msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
-                    if msg != "{\"event\":\"heartbeat\"}":
+                    if ((msg != "{\"event\":\"heartbeat\"}" and
+                         "\"event\":\"systemStatus\"" not in msg and
+                         "\"event\":\"subscriptionStatus\"" not in msg)):
                         yield msg
                 except asyncio.TimeoutError:
                     try:
@@ -205,7 +210,7 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 ws_message: str = await self.get_ws_subscription_message("trade")
 
-                async with websockets.connect(stream_url) as ws:
+                async with websockets.connect(DIFF_STREAM_URL) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     await ws.send(ws_message)
                     async for raw_msg in self._inner_messages(ws):
@@ -226,8 +231,9 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 ws_message: str = await self.get_ws_subscription_message("book")
 
-                async with websockets.connect(stream_url) as ws:
+                async with websockets.connect(DIFF_STREAM_URL) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
+                    await ws.send(ws_message)
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
                         order_book_message: OrderBookMessage = KrakenOrderBook.diff_message_from_exchange(
@@ -249,7 +255,7 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         try:
                             snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
                             snapshot_timestamp: float = time.time()
-                            snapshot_msg: OrderBookMessage = BinanceOrderBook.snapshot_message_from_exchange(
+                            snapshot_msg: OrderBookMessage = KrakenOrderBook.snapshot_message_from_exchange(
                                 snapshot,
                                 snapshot_timestamp,
                                 metadata={"trading_pair": trading_pair}
@@ -274,14 +280,11 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def get_ws_subscription_message(self, subscription_type: str):
         market: pd.DataFrame = await self.get_active_exchange_markets()
-        trading_pairs: List[str] = market[["base", "quote"]].agg("/".join, axis=1).tolist()
-        stream_url: str = f"{DIFF_STREAM_URL}"
+        trading_pairs: List[str] = market.wsname.tolist()
 
-        ws_message_dict: Dict[str, Any] = {
-                                        "event": "subscribe",
-                                        "pair": trading_pairs,
-                                        "subscription": {"name": subscription_type}
-                                        }
+        ws_message_dict: Dict[str, Any] = {"event": "subscribe",
+                                           "pair": trading_pairs,
+                                           "subscription": {"name": subscription_type}}
 
         ws_message: str = ujson.dumps(ws_message_dict)
 

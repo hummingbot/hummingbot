@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-import math
-import time
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
@@ -12,8 +10,10 @@ import logging
 from typing import (
     Dict,
     Optional,
+    Any,
     List,
 )
+import pandas as pd
 import unittest
 
 
@@ -21,7 +21,7 @@ class KrakenAPIOrderBookDataSourceUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        cls.order_book_data_source: KrakenAPIOrderBookDataSource = KrakenAPIOrderBookDataSource()
+        cls.order_book_data_source: KrakenAPIOrderBookDataSource = KrakenAPIOrderBookDataSource(["ETHUSDC", "XBTUSDC", "ETHDAI"])
 
     def run_async(self, task):
         return self.ev_loop.run_until_complete(task)
@@ -41,16 +41,17 @@ class KrakenAPIOrderBookDataSourceUnitTest(unittest.TestCase):
             try:
                 snapshot: Dict[str, Any] = await self.order_book_data_source.get_snapshot(client, trading_pair, 1000)
                 return snapshot
-            except Exception as e:
-                return e
+            except Exception:
+                return None
 
     def test_get_snapshot(self):
-        snapshot: Dict[str, Any] = self.run_async(self.get_snapshot())
+        snapshot: Optional[Dict[str, Any]] = self.run_async(self.get_snapshot())
+        self.assertIsNotNone(snapshot)
         self.assertIn(snapshot["trading_pair"], self.run_async(self.order_book_data_source.get_trading_pairs()))
-    
+
     def test_get_tracking_pairs(self):
-        return None
         tracking_pairs: Dict[str, OrderBookTrackerEntry] = self.run_async(self.order_book_data_source.get_tracking_pairs())
+        self.assertIsInstance(tracking_pairs["ETHDAI"], OrderBookTrackerEntry)
 
 
 def main():
