@@ -357,7 +357,10 @@ def default_min_quote(quote_asset):
 def minimum_order_amount(trading_pair):
     base_asset, quote_asset = trading_pair.split("-")
     default_quote_asset, default_amount = default_min_quote(quote_asset)
-    quote_amount = ExchangeRateConversion.get_instance().convert_token_value_decimal(default_amount,
-                                                                                     default_quote_asset,
-                                                                                     base_asset)
+    try:
+        quote_amount = ExchangeRateConversion.get_instance().convert_token_value_decimal(default_amount,
+                                                                                         default_quote_asset,
+                                                                                         base_asset)
+    except Exception:
+        quote_amount = Decimal('0')
     return round(quote_amount, 4)
