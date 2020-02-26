@@ -14,7 +14,6 @@ from .async_utils import safe_ensure_future
 from .ssl_client_request import SSLClientRequest
 
 BINANCE_ENDPOINT = "https://api.binance.com/api/v1/exchangeInfo"
-DDEX_ENDPOINT = "https://api.ddex.io/v3/markets"
 RADAR_RELAY_ENDPOINT = "https://api.radarrelay.com/v2/markets"
 BAMBOO_RELAY_ENDPOINT = "https://rest.bamboorelay.com/main/0x/markets"
 COINBASE_PRO_ENDPOINT = "https://api.pro.coinbase.com/products/"
@@ -86,31 +85,6 @@ class TradingPairFetcher:
 
         except Exception:
             # Do nothing if the request fails -- there will be no autocomplete for binance trading pairs
-            pass
-
-        return []
-
-    async def fetch_ddex_trading_pairs(self) -> List[str]:
-        try:
-            from hummingbot.market.ddex.ddex_market import DDEXMarket
-            client: aiohttp.ClientSession = self.http_client()
-            async with client.get(DDEX_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
-                if response.status == 200:
-                    response = await response.json()
-                    markets = response.get("data").get("markets")
-                    raw_trading_pairs = list(map(lambda details: details.get('id'), markets))
-                    trading_pair_list: List[str] = []
-                    for raw_trading_pair in raw_trading_pairs:
-                        converted_trading_pair: Optional[str] = \
-                            DDEXMarket.convert_from_exchange_trading_pair(raw_trading_pair)
-                        if converted_trading_pair is not None:
-                            trading_pair_list.append(converted_trading_pair)
-                        else:
-                            self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
-                    return trading_pair_list
-
-        except Exception:
-            # Do nothing if the request fails -- there will be no autocomplete for ddex trading pairs
             pass
 
         return []
@@ -386,7 +360,6 @@ class TradingPairFetcher:
 
     async def fetch_all(self):
         binance_trading_pairs = await self.fetch_binance_trading_pairs()
-        ddex_trading_pairs = await self.fetch_ddex_trading_pairs()
         # Radar Relay has not yet been migrated to a new version
         # Endpoint needs to be updated after migration
         # radar_relay_trading_pairs = await self.fetch_radar_relay_trading_pairs()
@@ -404,7 +377,6 @@ class TradingPairFetcher:
             "binance": binance_trading_pairs,
             "dolomite": dolomite_trading_pairs,
             "idex": idex_trading_pairs,
-            "ddex": ddex_trading_pairs,
             # "radar_relay": radar_relay_trading_pairs,
             "bamboo_relay": bamboo_relay_trading_pairs,
             "coinbase_pro": coinbase_pro_trading_pairs,

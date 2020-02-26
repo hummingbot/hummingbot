@@ -1,15 +1,7 @@
 # Step 1: Sign Up
 
-## About Hummingbot Miner
-
-[Hummingbot Miner](https://miners.hummingbot.io/) is the **official Liquidity Mining app** where users can get real-time information on liquidity mining campaigns.
-
-Use Hummingbot Miner to sign up for liquidity mining, connect the app to your exchange accounts to enable rewards, and track your liquidity mining activity and earnings.
-
-!!! tip "Mobile support"
-    Currently, Hummingbot Miner is only optimized for desktop/laptop devices. We plan to add mobile/tablet support shortly.
-
----
+<iframe width="616" height="347" src="https://www.youtube.com/embed/c08QTUVG0AE"    frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
+</iframe>
 
 ## 1a. Connect Ethereum wallet
 
@@ -17,7 +9,12 @@ Go to the [Hummingbot Miner](https://miners.hummingbot.io/) web app.
 
 Click the **Connect Wallet** button to register using your Ethereum wallet. We use the Ethereum blockchain to instantaneously transmit weekly payments to anyone in the world.
 
+*(To find out more, click here: [FAQ: Why do I need to connect my wallet?](/liquidity-mining/faq/#why-do-i-need-to-connect-my-wallet))*
+
 ![](../../assets/img/lm-setup1.png)
+
+<small><em>Note: figures above are for illustration only and do not represent current campaign terms; navigate to [Hummingbot Miners](https://miners.hummingbot.io) for current campaign details.</em></small>
+
 
 Note that this may require you to install the Metamask browser extension (see note below).
 

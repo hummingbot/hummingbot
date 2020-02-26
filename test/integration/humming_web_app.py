@@ -57,10 +57,8 @@ class HummingWebApp:
         path = req_path[req_path.find("/"):]
         resps = [x for x in self._stock_responses if x.method == method and x.host == host and x.path == path]
         if len(resps) > 1:
-            if method == "GET":
-                params = dict(request.query)
-            else:
-                params = dict(await request.post())
+            params = dict(request.query)
+            params.update(dict(await request.post()))
             resps = [x for x in resps if x.params is not None and all(k in params and str(v) == params[k]
                                                                       for k, v in x.params.items())]
         if not resps:
@@ -134,6 +132,10 @@ class HummingWebApp:
         except Exception:
             logging.error("oops!", exc_info=True)
 
+    def _wait_til_started(self):
+        future = asyncio.run_coroutine_threadsafe(self.wait_til_started(), self._ev_loop)
+        return future.result()
+
     async def wait_til_started(self):
         while not self._started:
             await asyncio.sleep(0.1)
@@ -151,7 +153,7 @@ class HummingWebApp:
     def _start_web_app(self):
         self._ev_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._ev_loop)
-        asyncio.ensure_future(self._start())
+        self._ev_loop.run_until_complete(self._start())
         self._ev_loop.run_forever()
 
     def start(self):

@@ -58,6 +58,8 @@ from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.market.market_base import (
     MarketBase,
     NaN)
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 
 km_logger = None
 s_decimal_0 = Decimal(0)
@@ -265,11 +267,15 @@ cdef class KucoinMarket(MarketBase):
                            path_url,
                            params: Optional[Dict[str, Any]] = None,
                            data=None,
-                           is_auth_required: bool = False) -> Dict[str, Any]:
+                           is_auth_required: bool = False,
+                           is_partner_required: bool = False) -> Dict[str, Any]:
         url = KUCOIN_ROOT_API + path_url
         client = await self._http_client()
         if is_auth_required:
-            headers = self._kucoin_auth.add_auth_to_params(method, path_url, params)
+            if is_partner_required:
+                headers = self._kucoin_auth.add_auth_to_params(method, path_url, params, partner_header=True)
+            else:
+                headers = self._kucoin_auth.add_auth_to_params(method, path_url, params)
         else:
             headers = {"Content-Type": "application/json"}
 
@@ -340,6 +346,10 @@ cdef class KucoinMarket(MarketBase):
                           object price):
         # There is no API for checking user's fee tier
         # Fee info from https://www.kucoin.com/vip/fee
+        if order_type is OrderType.LIMIT and fee_overrides_config_map["kucoin_maker_fee"].value is not None:
+            return TradeFee(percent=fee_overrides_config_map["kucoin_maker_fee"].value)
+        if order_type is OrderType.MARKET and fee_overrides_config_map["kucoin_taker_fee"].value is not None:
+            return TradeFee(percent=fee_overrides_config_map["kucoin_taker_fee"].value)
         return TradeFee(percent=Decimal("0.001"))
 
     async def _update_trading_rules(self):
@@ -550,7 +560,8 @@ cdef class KucoinMarket(MarketBase):
             path_url=path_url,
             params=params,
             data=params,
-            is_auth_required=True
+            is_auth_required=True,
+            is_partner_required=True
         )
         return str(exchange_order_id["data"]["orderId"])
 
@@ -622,7 +633,7 @@ cdef class KucoinMarket(MarketBase):
                    object price = s_decimal_0,
                    dict kwargs = {}):
         cdef:
-            int64_t tracking_nonce = <int64_t > (time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = f"buy-{trading_pair}-{tracking_nonce}"
 
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
@@ -694,7 +705,7 @@ cdef class KucoinMarket(MarketBase):
                     object price = s_decimal_0,
                     dict kwargs = {}):
         cdef:
-            int64_t tracking_nonce = <int64_t > (time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = f"sell-{trading_pair}-{tracking_nonce}"
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id

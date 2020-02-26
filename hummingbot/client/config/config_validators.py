@@ -50,4 +50,3 @@ def is_valid_market_trading_pair(market: str, value: str) -> bool:
 
 def is_valid_bool(value: str) -> bool:
     return value.lower() in ('true', 'yes', 'y', 'false', 'no', 'n')
-

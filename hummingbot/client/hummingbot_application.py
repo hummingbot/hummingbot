@@ -18,7 +18,6 @@ from hummingbot.market.bitfinex.bitfinex_market import BitfinexMarket
 from hummingbot.market.bittrex.bittrex_market import BittrexMarket
 from hummingbot.market.kucoin.kucoin_market import KucoinMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
-from hummingbot.market.ddex.ddex_market import DDEXMarket
 from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.liquid.liquid_market import LiquidMarket
 from hummingbot.market.market_base import MarketBase
@@ -57,7 +56,6 @@ MARKET_CLASSES = {
     "bamboo_relay": BambooRelayMarket,
     "binance": BinanceMarket,
     "coinbase_pro": CoinbaseProMarket,
-    "ddex": DDEXMarket,
     "huobi": HuobiMarket,
     "liquid": LiquidMarket,
     "idex": IDEXMarket,
@@ -239,16 +237,6 @@ class HummingbotApplication(*commands):
                 paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
                 for asset, balance in paper_trade_account_balance:
                     market.set_balance(asset, balance)
-
-            elif market_name == "ddex":
-                assert self.wallet is not None
-                market = DDEXMarket(
-                    wallet=self.wallet,
-                    ethereum_rpc_url=ethereum_rpc_url,
-                    order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                    trading_pairs=trading_pairs,
-                    trading_required=self._trading_required,
-                )
 
             elif market_name == "idex":
                 assert self.wallet is not None
