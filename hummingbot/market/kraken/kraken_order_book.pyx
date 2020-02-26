@@ -40,7 +40,7 @@ cdef class KrakenOrderBook(OrderBook):
             "update_id": msg["latest_update"],
             "bids": msg["bids"],
             "asks": msg["asks"]
-        }, timestamp=timestamp)
+        }, timestamp=timestamp * 1e-3)
 
     @classmethod
     def diff_message_from_exchange(cls,
@@ -52,9 +52,9 @@ cdef class KrakenOrderBook(OrderBook):
         return OrderBookMessage(OrderBookMessageType.DIFF, {
             "trading_pair": msg["s"].replace('/', ''),
             "update_id": msg["u"],
-            "bids": msg["b"],
-            "asks": msg["a"]
-        }, timestamp=timestamp)
+            "bids": msg["bs"],
+            "asks": msg["as"]
+        }, timestamp=timestamp * 1e-3)
 
     @classmethod
     def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
@@ -124,7 +124,7 @@ cdef class KrakenOrderBook(OrderBook):
     def trade_message_from_exchange(cls, msg: Dict[str, any], metadata: Optional[Dict] = None):
         if metadata:
             msg.update(metadata)
-        ts = msg["trade"][2]
+        ts = float(msg["trade"][2])
         return OrderBookMessage(OrderBookMessageType.TRADE, {
             "trading_pair": msg["pair"].replace('/', ''),
             "trade_type": float(TradeType.SELL.value) if msg["trade"][3] == "s" else float(TradeType.BUY.value),

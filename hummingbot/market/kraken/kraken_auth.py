@@ -1,11 +1,12 @@
-import base64
-
 from typing import (
     Optional,
     Dict,
     Any
 )
-import time, base64, hashlib, hmac
+import time
+import base64
+import hashlib
+import hmac
 
 
 class KrakenAuth:
@@ -24,7 +25,7 @@ class KrakenAuth:
 
         # Variables (API method, nonce, and POST data)
         api_path: bytes = bytes(uri, 'utf-8')
-        api_nonce: str = str(int(time.time()*1000))
+        api_nonce: str = str(int(time.time() * 1000))
         api_post: str = "nonce=" + api_nonce
 
         if data is not None:
@@ -44,5 +45,5 @@ class KrakenAuth:
                 "API-Sign": str(api_signature, 'utf-8')
             },
             "post": api_post,
-            "postDict": {"nonce": api_nonce, **data}
+            "postDict": {"nonce": api_nonce, **data} if data is not None else {"nonce": api_nonce}
         }
