@@ -31,11 +31,16 @@ class BitfinexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._trading_pairs = trading_pairs
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
+        self._last_recv_time: float = 0
         super().__init__()
 
     @property
     def order_book_class(self):
         return BitfinexOrderBook
+
+    @property
+    def last_recv_time(self) -> float:
+        return self._last_recv_time
 
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:

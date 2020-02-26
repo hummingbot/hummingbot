@@ -1,11 +1,11 @@
 # Overview
 
-!!! info "Not Investment, Financial, Legal, or Tax Advice"
-    The content of this Site does not constitute investment, financial, legal, or tax advice.<br>None of the information contained on this Site constitutes a recommendation, solicitation, or offer to buy or sell any digital assets, securities, options, or other financial instruments or other assets, or to provide any investment advice or service.<br>
+!!! info "Important Disclaimer"
+    <small><ul><li>The content of this Site does not constitute investment, financial, legal, or tax advice, nor does any of the information contained on this Site constitute a recommendation, solicitation, or offer to buy or sell any digital assets, securities, options, or other financial instruments or other assets, or to provide any investment advice or service.<li>There is no guarantee of profit for participating in liquidity mining.<li>Participation is subject to eligiblity requirements.</ul></small>
     **Please review the [Liquidity Mining Policy](https://hummingbot.io/liquidity-mining-policy/) for the full disclaimer.**
 
 !!! warning "Terms Subject to Change"
-    Please check this page for the most up-to-date terms.  We will notify participants of changes, if any, through email (for registered users) and on our [Discord](https://discord.hummingobt.io).
+    Please check this page for the most up-to-date terms.  We will notify participants of changes, if any, through email (for registered users) and on our [Discord](https://discord.hummingbot.io).
 
 ## Active Campaigns
 
@@ -15,6 +15,7 @@ After the commencement of **production launch**, we will pay mainnet Ethereum to
 
 * **Open beta**: 12:00am February 4, 2020 UTC time
 * **Production launch**: *(subject to change)* 12:00am March 3, 2020 UTC time
+* **Campaign duration**: each campaign will initially run for a period of 12 weeks
 
 
 ### [Binance.com](https://binance.com)
@@ -52,22 +53,22 @@ After the commencement of **production launch**, we will pay mainnet Ethereum to
       <td rowspan="4"><a href="/liquidity-mining/campaigns/sponsors/#iexec">iExec</a></td>
       <td>RLC/BTC</td>
       <td>1%</td>
-      <td>USDC 93.75</td>
+      <td>USDC 187.50</td>
     </tr>
     <tr>
       <td>RLC/USDT</td>
       <td>1%</td>
-      <td>USDC 93.75</td>
+      <td>USDC 187.50</td>
     </tr>
     <tr>
       <td>RLC/BNB</td>
       <td>1%</td>
-      <td>USDC 93.75</td>
+      <td>USDC 187.50</td>
     </tr>
     <tr>
-      <td>RLC/USDC</td>
+      <td>RLC/ETH</td>
       <td>1%</td>
-      <td>USDC 93.75</td>
+      <td>USDC 187.50</td>
     </tr>
     <tr>
       <td rowspan="2"><a href="/liquidity-mining/campaigns/sponsors/#zcoin">Zcoin</a></td>
@@ -95,31 +96,6 @@ After the commencement of **production launch**, we will pay mainnet Ethereum to
       <td>ZIL/BNB</td>
       <td>1%</td>
       <td>USDC 666</td>
-    </tr>
-  </tbody>
-</table>
-
-### [Bamboo Relay](https://bamboorelay.com/)
-
-<table>
-  <thead>
-    <th>Sponsor</th>
-    <th>Eligible pair</th>
-    <th>Maximum spread</th>
-    <th>Weekly rewards</th>
-  </thead>
-  <tbody>
-    <tr>
-      <td><a href="/liquidity-mining/campaigns/sponsors/#0x">0x</a></td>
-      <td>WETH/DAI</td>
-      <td>0.60%</td>
-      <td>USDC 2,000</td>
-    </tr>
-    <tr>
-      <td><a href="/liquidity-mining/campaigns/sponsors/#iexec">iExec</a></td>
-      <td>RLC/WETH</td>
-      <td>1.00%</td>
-      <td>USDC 375</td>
     </tr>
   </tbody>
 </table>
