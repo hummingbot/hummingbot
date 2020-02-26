@@ -995,24 +995,12 @@ cdef class BitfinexMarket(MarketBase):
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         try:
-            open_orders = [o for o in self._in_flight_orders.values() if o.is_open]
-
-            if len(open_orders) == 0:
-                return []
-
-            cancel_order_ids = list(
-                map(
-                    lambda id: int(id),
-                    filter(
-                        lambda id: id is not None,
-                        [o.exchange_order_id for o in open_orders]
-                    )
-                )
-            )
+            order_ids = list(map(lambda order: order.client_order_id, self._in_flight_orders.values()))
 
             path_url = "auth/w/order/cancel/multi"
-            data = {"id": cancel_order_ids}
-            cancellation_results = []
+            data = {
+                "all": 1
+            }
 
             async with timeout(timeout_seconds):
                 cancel_all_results = await self._api_private(
@@ -1020,29 +1008,15 @@ cdef class BitfinexMarket(MarketBase):
                     path_url=path_url,
                     data=data,
                 )
-                # Example.
-                # [1568711312683,"oc_multi-req",null,null,[
-                #   [31123704044,null,1568711144715,"tBTCUSD",1568711147000,1568711147000,
-                #   0.001,0.001,"LIMIT",null,null,null,0,"ACTIVE",null,null,15,0,0,0,null,
-                #   null,null,0,0,null,null,null,"API>BFX",null,null,null],
-                #   [31123725368,null,1568711155664,"tBTCUSD",1568711158000,1568711158000,
-                #   0.001,0.001,"LIMIT",null,null,null,0,"ACTIVE",null,null,15,0,0,0,null,
-                #   null,null,0,0,null,null,null,"API>BFX",null,null,null]
-                # ],
-                # null,"SUCCESS","Submitting 2 order cancellations."]
-                status = True
-                result_status = cancel_all_results[-2: -1][0]
-                if result_status != "SUCCESS":
-                    status = False
-                for result in cancel_all_results[4]:
-                    cancellation_results.append(CancellationResult(result[0], status))
+
+                return list(map(lambda client_order_id: CancellationResult(client_order_id, True), order_ids))
         except Exception as e:
             self.logger().network(
-                f"Failed to cancel all orders: {cancel_order_ids}",
+                f"Failed to cancel all orders: {order_ids}",
                 exc_info=True,
                 app_warning_msg=f"Failed to cancel all orders on Bitfinex. Check API key and network connection."
             )
-        return cancellation_results
+            return list(map(lambda client_order_id: CancellationResult(client_order_id, False), order_ids))
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         """
