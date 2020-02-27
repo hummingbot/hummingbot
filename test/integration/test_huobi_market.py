@@ -235,7 +235,8 @@ class HuobiMarketUnitTest(unittest.TestCase):
 
     def test_limit_buy(self):
         trading_pair = "ethusdt"
-        amount: Decimal = Decimal("0.02")
+
+        amount: Decimal = Decimal("0.04")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         current_bid_price: Decimal = self.market.get_price(trading_pair, True)
@@ -266,7 +267,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
 
     def test_limit_sell(self):
         trading_pair = "ethusdt"
-        amount: Decimal = Decimal("0.02")
+        amount: Decimal = Decimal("0.04")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         current_ask_price: Decimal = self.market.get_price(trading_pair, False)
@@ -297,7 +298,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
 
     def test_market_buy(self):
         trading_pair = "ethusdt"
-        amount: Decimal = Decimal("0.02")
+        amount: Decimal = Decimal("0.04")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.MARKET, 0, 10001,
@@ -324,7 +325,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
 
     def test_market_sell(self):
         trading_pair = "ethusdt"
-        amount: Decimal = Decimal("0.02")
+        amount: Decimal = Decimal("0.04")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         order_id, _ = self.place_order(False, trading_pair, amount, OrderType.MARKET, 0, 10001,
@@ -353,7 +354,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
         trading_pair = "ethusdt"
 
         current_bid_price: Decimal = self.market.get_price(trading_pair, True)
-        amount: Decimal = Decimal("0.02")
+        amount: Decimal = Decimal("0.04")
 
         bid_price: Decimal = current_bid_price - Decimal("0.1") * current_bid_price
         quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
@@ -377,8 +378,8 @@ class HuobiMarketUnitTest(unittest.TestCase):
         quantized_amount: Decimal = self.market_2.quantize_order_amount(trading_pair, amount)
 
         # Intentionally setting invalid price to prevent getting filled
-        quantize_bid_price: Decimal = self.market_2.quantize_order_price(trading_pair, bid_price * Decimal("0.7"))
-        quantize_ask_price: Decimal = self.market_2.quantize_order_price(trading_pair, ask_price * Decimal("1.5"))
+        quantize_bid_price: Decimal = self.market_2.quantize_order_price(trading_pair, bid_price * Decimal("0.9"))
+        quantize_ask_price: Decimal = self.market_2.quantize_order_price(trading_pair, ask_price * Decimal("1.1"))
 
         _, exch_order_id1 = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price,
                                              1001, FixtureHuobi.ORDER_GET_LIMIT_BUY_UNFILLED, self.market_2)
@@ -410,7 +411,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
             bid_price: Decimal = current_bid_price * Decimal("0.8")
             quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
 
-            amount: Decimal = Decimal("0.02")
+            amount: Decimal = Decimal("0.04")
             quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
             order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT,
@@ -484,7 +485,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
 
         try:
             # Try to buy 0.04 ETH from the exchange, and watch for completion event.
-            amount: Decimal = Decimal("0.02")
+            amount: Decimal = Decimal("0.04")
             order_id, _ = self.place_order(True, trading_pair, amount, OrderType.MARKET, 0, 10001,
                                            FixtureHuobi.ORDER_GET_MARKET_BUY)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
