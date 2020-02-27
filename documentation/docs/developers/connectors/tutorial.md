@@ -427,17 +427,6 @@ async def fetch_all(self):
         "new_market": new_market_trading_pairs,
 ```
 
-- `hummingbot/logger/report_aggregator.py`
-```python
-MARKET = {
-    "idex": IDEXMarket,
-    .
-    .
-    .
-    "new_market": NewMarket,
-}
-```
-
 ## Additional: Debugging & Testing
 
 This section will breakdown some of the ways to debug and test the code. You are not entirely required to use the options during your development process.
