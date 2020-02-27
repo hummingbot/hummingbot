@@ -7,7 +7,7 @@ import hummingbot.market.hitbtc.hitbtc_constants as constants
 from collections import defaultdict, deque
 from typing import Optional, Dict, List, Deque
 # from typing import Optional, Dict, List, Deque, Set
-from hummingbot.core.data_type.order_book_message import HitBTCOrderBookMessage
+from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -41,7 +41,7 @@ class HitBTCOrderBookTracker(OrderBookTracker):
         self._process_msg_deque_task: Optional[asyncio.Task] = None
         self._past_diffs_windows: Dict[str, Deque] = {}
         self._order_books: Dict[str, HitBTCOrderBook] = {}
-        self._saved_message_queues: Dict[str, Deque[HitBTCOrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
+        self._saved_message_queues: Dict[str, Deque[OrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
         self._active_order_trackers: Dict[str, HitBTCActiveOrderTracker] = defaultdict(HitBTCActiveOrderTracker)
         self._trading_pairs: Optional[List[str]] = trading_pairs
         self._order_book_stream_listener_task: Optional[asyncio.Task] = None

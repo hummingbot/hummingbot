@@ -12,7 +12,7 @@ from typing import Optional, List, Dict, Any
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry, HitBTCOrderBookTrackerEntry
+from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -158,15 +158,14 @@ class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         metadata={"trading_pair": trading_pair}
                     )
                     order_book: OrderBook = self.order_book_create_function()
-                    active_order_tracker: HitBTCActiveOrderTracker = HitBTCActiveOrderTracker()
+                    active_order_tracker: HitBTCActiveOrderTracker = HitBTCActiveOrderTracker() # TODO: evaluate, is this required?
                     bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
                     order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
 
-                    tracking_pairs[trading_pair] = HitBTCOrderBookTrackerEntry(
+                    tracking_pairs[trading_pair] = OrderBookTrackerEntry(
                         trading_pair,
                         snapshot_timestamp,
-                        order_book,
-                        active_order_tracker
+                        order_book
                     )
                     self.logger().info(f"Initialized order book for {trading_pair}. "
                                        f"{index+1}/{number_of_pairs} completed.")

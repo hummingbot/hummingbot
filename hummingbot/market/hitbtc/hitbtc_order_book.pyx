@@ -15,7 +15,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessage, OrderBookMessageType, HitBTCOrderBookMessage
+    OrderBookMessage, OrderBookMessageType
 )
 
 _hbaot_logger = None
@@ -37,7 +37,7 @@ cdef class HitBTCOrderBook(OrderBook):
         Convert json snapshot data into standard OrderBookMessage format
         :param msg: json snapshot data from live web socket stream
         :param timestamp: timestamp attached to incoming data
-        :return: HitBTCOrderBookMessage
+        :return: OrderBookMessage
         """
         if metadata:
             msg.update(metadata)
@@ -52,7 +52,7 @@ cdef class HitBTCOrderBook(OrderBook):
             "asks": asks
         }
 
-        return HitBTCOrderBookMessage(
+        return OrderBookMessage(
             message_type=OrderBookMessageType.SNAPSHOT,
             content=content,
             timestamp=timestamp
@@ -64,9 +64,9 @@ cdef class HitBTCOrderBook(OrderBook):
         *used for backtesting
         Convert a row of snapshot data into standard OrderBookMessage format
         :param record: a row of snapshot data from the database
-        :return: HitBTCOrderBookMessage
+        :return: OrderBookMessage
         """
-        return HitBTCOrderBookMessage(
+        return OrderBookMessage(
             message_type=OrderBookMessageType.SNAPSHOT,
             content=record.json,
             timestamp=record.timestamp
@@ -81,7 +81,7 @@ cdef class HitBTCOrderBook(OrderBook):
         Convert json diff data into standard OrderBookMessage format
         :param msg: json diff data from live web socket stream
         :param timestamp: timestamp attached to incoming data
-        :return: HitBTCOrderBookMessage
+        :return: OrderBookMessage
         """
         bids = [list(item.values()) for item in msg['bid']]
         asks = [list(item.values()) for item in msg['ask']]
@@ -95,7 +95,7 @@ cdef class HitBTCOrderBook(OrderBook):
 
         if metadata:
             msg.update(metadata)
-        return HitBTCOrderBookMessage(
+        return OrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
             content=content,
             timestamp=timestamp
@@ -107,9 +107,9 @@ cdef class HitBTCOrderBook(OrderBook):
         *used for backtesting
         Convert a row of diff data into standard OrderBookMessage format
         :param record: a row of diff data from the database
-        :return: HitBTCOrderBookMessage
+        :return: OrderBookMessage
         """
-        return HitBTCOrderBookMessage(
+        return OrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
             content=record.json,
             timestamp=record.timestamp
@@ -124,7 +124,7 @@ cdef class HitBTCOrderBook(OrderBook):
         *used for backtesting
         Convert a trade data into standard OrderBookMessage format
         :param record: a trade data from the database
-        :return: HitBTCOrderBookMessage
+        :return: OrderBookMessage
         """
 
         content = {
@@ -138,7 +138,7 @@ cdef class HitBTCOrderBook(OrderBook):
 
         if metadata:
             msg.update(metadata)
-        return HitBTCOrderBookMessage(
+        return OrderBookMessage(
             message_type=OrderBookMessageType.TRADE,
             content=content,
             timestamp=timestamp
@@ -150,9 +150,9 @@ cdef class HitBTCOrderBook(OrderBook):
         *used for backtesting
         Convert a row of trade data into standard OrderBookMessage format
         :param record: a row of trade data from the database
-        :return: HitBTCOrderBookMessage
+        :return: OrderBookMessage
         """
-        return HitBTCOrderBookMessage(
+        return OrderBookMessage(
             message_type=OrderBookMessageType.TRADE,
             content=record.json,
             timestamp=record.timestamp

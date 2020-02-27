@@ -803,7 +803,7 @@ cdef class HitBTCMarket(MarketBase):
                     app_warning_msg=f"Failed to cancel all orders on HitBTC. Check API key and network connection."
                 )
         for order in open_orders:
-            cancellation_results.append(CancellationResult(order['clientOrderId'], False))
+            cancellation_results.append(CancellationResult(order.client_order_id, False))
         return cancellation_results
 
     cdef OrderBook c_get_order_book(self, str trading_pair):
