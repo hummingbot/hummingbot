@@ -97,7 +97,6 @@ nav:
         - Troubleshooting:
           - General: support/troubleshooting/general.md
           - Binance Errors: support/troubleshooting/binance.md
-          - IDEX Errors: support/troubleshooting/idex.md
           - Dolomite Errors: support/troubleshooting/dolomite.md
         - Common 'How To' Questions: support/how-to.md
         - Contact and Support: support/index.md
@@ -138,7 +137,6 @@ nav:
         - Bittrex Global: connectors/bittrex.md
         - Liquid: connectors/liquid.md
         - KuCoin: connectors/kucoin.md
-        - IDEX: connectors/idex.md
         - Radar Relay: connectors/radar-relay.md
         - Bamboo Relay: connectors/bamboo-relay.md
         - Dolomite: connectors/dolomite.md
