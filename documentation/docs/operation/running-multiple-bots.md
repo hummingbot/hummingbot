@@ -8,7 +8,7 @@ Create multiple instances using `./create.sh` script. More information can be fo
 
 Press keys `Ctrl+P` then `Ctrl+Q` in sequence to detach from Docker i.e. return to command line. This exits out of Hummingbot without shutting down the container instance.
 
-Restart or connect to a running instance using `./start.sh` command. Refer to [Restarting Hummingbot after Shutdown Closing the Window](/commands/docker/#restarting-hummingbot-after-shutdown-or-closing-the-window).
+Restart or connect to a running instance using `./start.sh` command.
 
 
 ## Multiple bots from source

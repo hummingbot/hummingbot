@@ -2,7 +2,7 @@
 
 ## Step 1. Install Docker
 
-You can install Docker by [downloading an installer](https://docs.docker.com/v17.12/docker-for-mac/install/) from the official page. After you have downloaded and installed Docker, restart your system if necessary.
+You can install Docker by [downloading an installer](https://docs.docker.com/docker-for-mac/install/) from the official page. After you have downloaded and installed Docker, restart your system if necessary.
 
 ## Step 2. Install Hummingbot
 
