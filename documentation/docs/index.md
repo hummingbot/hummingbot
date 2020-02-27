@@ -23,8 +23,7 @@ New to Hummingbot? Here are some helpful links to get you started!
 * [Whitepaper](/whitepaper): Overview about Hummingbot, its strategies, and the technical architecture
 * [Quickstart](/quickstart): Guide that walks you through how to install and run Hummingbot
 
-## Get help
-* [Cheatsheets](/cheatsheets): Quick reference for common Hummingbot commands
-* [Support](/support): Various ways to get support in using Hummingbot
-* [Troubleshooting](/support/troubleshooting/general): Common issues and how to resolve them
+## Resources
+* [Commands](/commands/client): Quick reference for common commands and keyboard shortcuts
+* [Support](/support/troubleshooting): Troubleshooting, frequently asked support questions, and how to get support
 * [中文 Github repo](https://github.com/coinalpha/hummingbot_chinese): General information about Hummingbot, translated into Mandarin Chinese

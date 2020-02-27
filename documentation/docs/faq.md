@@ -1,6 +1,6 @@
 # FAQ
 
-Below is a summary of frequently asked questions regarding Hummingbot.  If you have additional questions or need support, please join the official [Hummingbot Discord server](https://discord.hummingbot.io) or email us at [contact@hummingbot.io](mailto:contact@hummingbot.io).
+Below is a summary of frequently asked questions regarding Hummingbot.  If you have additional questions or need support, please join the official [Hummingbot Discord server](https://discord.hummingbot.io) or email us at [support@hummingbot.io](mailto:support@hummingbot.io).
 
 ## General
 
@@ -48,7 +48,7 @@ Always use caution and make sure the computer you are running Hummingbot on is s
 
 You can use Hummingbot to create bots that trade on a centralized exchange, a decentralized exchange (DEX), or both. For Ethereum-based DEXs, you need access to an Ethereum node.
 
-We describe [various ways](/installation/node/node) that you can get access to a node.
+We describe [various ways](/installation/node/) that you can get access to a node.
 
 ### What does it cost for me to run Hummingbot?
 

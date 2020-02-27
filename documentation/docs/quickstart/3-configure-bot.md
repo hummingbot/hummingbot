@@ -143,7 +143,9 @@ Enter your Binance API secret >>>
 For more information on how to find your API keys, please see [API Keys](/installation/api-keys).
 
 !!! tip "Tip: Copying and Pasting"
-    Users have reported not being able to copy and paste their API keys on some platforms. Our help articles such as [How to copy and paste in Docker Toolbox (Windows)](/support/questions/#how-to-copy-and-paste-in-docker-toolbox-windows) and [Paste items from clipboard in PuTTY](/support/questions/#paste-items-from-clipboard-in-putty) may help, and our 24/7 support team can help you if you join our [Discord](https://discord.hummingbot.io).
+    Users have reported not being able to copy and paste their API keys on some platforms. Our help articles such as [Paste items from clipboard in PuTTY](/support/questions/#paste-items-from-clipboard-in-putty) and [Other ways to copy and paste](/support/questions/#other-ways-to-copy-and-paste) may help.
+    
+    Users can also [Contact Support](/support/contact-us) to get assistance from the support team.
 
 ---
 
@@ -157,7 +159,7 @@ Your wallet private key >>>
 ******************************
 ```
 
-More information in User Manual about [Ethereum wallet](/installation/wallet) and [Ethereum node](/installation/node/node).
+More information in User Manual about [Ethereum wallet](/installation/wallet) and [Ethereum node](/installation/node).
 
 
 #### f) Configure kill switch
@@ -247,7 +249,7 @@ When you configure a bot, Hummingbot automatically saves the configuration file 
 
 * **Windows**: `%localappdata%\hummingbot.io\Hummingbot`
 * **macOS**: `~/Library/Application\ Support/Hummingbot`
-* **Docker installations**: Please see [this article](/support/questions/#how-to-find-out-where-the-config-and-log-files-are-on-hummingbot-installed-via-docker)
+* **Docker installations**: Please see [this article](/support/questions/#where-are-the-config-and-log-files-on-hummingbot-installed-via-docker)
 
 #### Root folder layout
 ```
