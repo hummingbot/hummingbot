@@ -3,6 +3,7 @@ import collections
 import json
 import logging
 import time
+import uuid
 from decimal import Decimal
 from typing import Optional, List, Dict, Any, AsyncIterable, Tuple
 
@@ -456,17 +457,20 @@ cdef class BitfinexMarket(MarketBase):
                            path_url,
                            data: Optional[Dict[Any]] = None) -> Dict[Any]:
 
-        while (self._waiting is True):
+        # TODO: stop using this workaround and switch to websocket
+        id = uuid.uuid4()
+        self._pending_requests.append(id)
+
+        while (self._pending_requests[0] != id):
             # print("gotta wait")
             await asyncio.sleep(0.01)
 
         try:
-            self._waiting = True
             return await self._api_private_fn(http_method, path_url, data)
         except Exception:
             raise
         finally:
-            self._waiting = False
+            self._pending_requests.pop(0)
 
     async def _api_do_request(self,
                               http_method: str,
@@ -873,13 +877,12 @@ cdef class BitfinexMarket(MarketBase):
         safe_ensure_future(self.execute_cancel(trading_pair, order_id))
         return order_id
 
-    # streamer
     @staticmethod
     def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
         try:
-            # from exchange trading-pair is ETHUSD, split by regex
             m = TRADING_PAIR_SPLITTER.match(trading_pair)
             return m.group(1), m.group(2)
+        # exceptions are now logged as warnings in trading pair fetcher
         except Exception as e:
             return None
 
@@ -887,8 +890,14 @@ cdef class BitfinexMarket(MarketBase):
     def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
         if BitfinexMarket.split_trading_pair(exchange_trading_pair) is None:
             return None
+        # exchange does not split BASEQUOTE (BTCUSDT)
         base_asset, quote_asset = BitfinexMarket.split_trading_pair(exchange_trading_pair)
-        return f"{base_asset}{quote_asset}"
+        return f"{base_asset}-{quote_asset}"
+
+    @staticmethod
+    def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
+        # exchange does not split BASEQUOTE (BTCUSDT)
+        return hb_trading_pair.replace("-", "")
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, Any]]:
         """
