@@ -1,7 +1,7 @@
 import asyncio
 import unittest
-
 import conf
+
 from hummingbot.market.bitfinex.bitfinex_auth import BitfinexAuth
 from hummingbot.market.bitfinex.bitfinex_user_stream_tracker import \
     BitfinexUserStreamTracker

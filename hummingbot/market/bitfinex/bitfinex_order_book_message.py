@@ -56,9 +56,10 @@ class BitfinexOrderBookMessage(OrderBookMessage):
 
     @property
     def type_heartbeat(self):
-        return self.content[1] == ContentEventType.HEART_BEAT if isinstance(self.content, list) else None
+        if isinstance(self.content, list):
+            return self.content[1] == ContentEventType.HEART_BEAT
 
     @property
     def event_wallet(self):
-        if isinstance(self.content, dict):
-            return self.content["event"] == ContentEventType.WALLET_SNAPSHOT or self.content["event"] == ContentEventType.WALLET_UPDATE
+        if isinstance(self.content, list):
+            return self.content[1] == ContentEventType.WALLET_SNAPSHOT or self.content[1] == ContentEventType.WALLET_UPDATE
