@@ -24,6 +24,5 @@ Below are the requirements when running the tests for each market.
 | Coinbase Pro | N | Y | Y | ETH | 0.1 | USDC | 20 | USD | 20 | NA | NA | NA | NA | NA | Requires 0.02 ETH worth of USDC and USD. Based on calculation, 0.1 ETH worth of both tokens is recommended. |
 | Huobi | N | Y | Y | ETH | 0.2 | USDT | 40 | NA | NA | NA | NA | NA | NA | NA | Requires 0.1 ETH. |
 | Bittrex | N | Y | Y | ETH | 0.1 | LTC | 10 | XRP | 10 | NA | NA | NA | NA | NA | Requires 10 LTC, 10 XRP and 0.1 ETH. |
-| IDEX | Y | Y | N | ETH | 0.36 | QNT | 10 | NA | NA | NA | NA | 0x4a220E6096B25EADb88358cb44068A3248254675 | 0x4a220E6096B25EADb88358cb44068A3248254675 | 0x4a220E6096B25EADb88358cb44068A3248254675 | Requires 0.18 ETH and 5 QNT. IDEX requires API key and an account. |
 | Radar Relay | Y | N | N | ETH | 0.1 | WETH | 0.2 | ZRX | 20 | NA | NA | 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 | 0xE41d2489571d322189246DaFA5ebDe1F4699F498 | 0xE41d2489571d322189246DaFA5ebDe1F4699F498 | Requires 10 ZRX, 0.05 ETH and 0.1 WETH. |
 | Bamboo Relay | Y | N | N | WETH | 0.1 | DAI | 20 | NA | NA | NA | NA | 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 | 0x89d24A6b4CcB1B6fAA2625fE562bDD9a23260359 | 0xE41d2489571d322189246DaFA5ebDe1F4699F498 | Requires 0.1 WETH and 20 DAI. |
