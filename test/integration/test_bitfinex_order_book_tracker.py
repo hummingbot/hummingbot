@@ -115,8 +115,6 @@ class BitfinexOrderBookTrackerUnitTest(unittest.TestCase):
     def test_tracker_integrity(self):
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
         sut_book: OrderBook = order_books[self.trading_pairs[0]]
-        print("Book: ")
-        print(sut_book.snapshot)
 
         # # 1 - test that best bid is less than best ask
         # self.assertGreater(sut_book.get_price(False), sut_book.get_price(True))

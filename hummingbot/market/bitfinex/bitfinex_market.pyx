@@ -222,16 +222,8 @@ cdef class BitfinexMarket(MarketBase):
         await self._ws.connect()
 
         async for authMsg in self._ws.authenticate(keepAlive=False):
-            async for calcMsg in self._ws.request([
-                0,
-                "calc",
-                None,
-                [
-                    ["balance"]
-                ]
-            ]):
-                yield self._ws
-                return
+            yield self._ws
+            return
 
     cdef object c_get_fee(self,
                           str base_currency,
@@ -254,69 +246,84 @@ cdef class BitfinexMarket(MarketBase):
         return TradeFee(
             percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
 
-    # TODO: should rely no WS
+    async def _request_calc(self, currencies):
+        await self._ws._emit([
+            0,
+            "calc",
+            None,
+            list(map(
+                lambda currency: [f"wallet_exchange_{currency}"],
+                currencies
+            ))
+        ])
+
+    # TODO: should rely only on WS due to reply attack limitation
     async def _update_balances(self):
         """
         Pulls the API for updated balances
         """
-        cdef:
-            dict account_info
-            list balances
-            str asset_name
-            set local_asset_names = set(self._account_balances.keys())
-            set remote_asset_names = set()
-            set asset_names_to_remove
 
-        account_balances = await self._api_balance()
-        active_markets = await self.get_active_exchange_markets()
-        markets = active_markets.to_dict(orient='records')
+        # currencies = list(self._account_balances.keys())
+        # await self._request_calc(currencies)
 
-        # push trading-pairs-info, that set in config
-        for balance_entry in account_balances:
-            # TODO: need more info about other types: exchange, margin, funding.
-            #  Now work only with EXCHANGE
-            if balance_entry.wallet_type != "exchange":
-                continue
+        # cdef:
+        #     dict account_info
+        #     list balances
+        #     str asset_name
+        #     set local_asset_names = set(self._account_balances.keys())
+        #     set remote_asset_names = set()
+        #     set asset_names_to_remove
 
-            asset_name = balance_entry.currency
+        # account_balances = await self._api_balance()
+        # active_markets = await self.get_active_exchange_markets()
+        # markets = active_markets.to_dict(orient='records')
 
-            # find a pair we can use to retrieve available balance
-            valid_markets = list(
-                filter(
-                    lambda m: m["baseAsset"] == asset_name or m["quoteAsset"] == asset_name,
-                    markets
-                )
-            )
-            market = valid_markets[0] if valid_markets is not None and len(valid_markets) > 0 else None
-            trading_pair = {
-                "symbol": market["display_name"],
-                "dir": -1 if market["baseAsset"] == asset_name else 1
-            } if market is not None else None
+        # # push trading-pairs-info, that set in config
+        # for balance_entry in account_balances:
+        #     # TODO: need more info about other types: exchange, margin, funding.
+        #     #  Now work only with EXCHANGE
+        #     if balance_entry.wallet_type != "exchange":
+        #         continue
 
-            # bitfinex doesn't return 'BALANCE_AVAILABLE'
-            # we must use https://docs.bitfinex.com/reference#rest-auth-calc-order-avail
-            available_balance_result = await self._api_private(
-                "post",
-                path_url="auth/calc/order/avail",
-                data={
-                    "symbol": f"t{trading_pair['symbol']}",
-                    "dir": trading_pair['dir'],
-                    "rate": 1,
-                    "type": "EXCHANGE"
-                }
-            ) if trading_pair is not None else None
+        #     asset_name = balance_entry.currency
 
-            # None or 0
-            self._account_balances[asset_name] = Decimal(balance_entry.balance or 0)
-            self._account_available_balances[asset_name] = Decimal(
-                abs(available_balance_result[0]) if available_balance_result is not None else 0
-            )
-            remote_asset_names.add(asset_name)
+        #     # find a pair we can use to retrieve available balance
+        #     valid_markets = list(
+        #         filter(
+        #             lambda m: m["baseAsset"] == asset_name or m["quoteAsset"] == asset_name,
+        #             markets
+        #         )
+        #     )
+        #     market = valid_markets[0] if valid_markets is not None and len(valid_markets) > 0 else None
+        #     trading_pair = {
+        #         "symbol": market["display_name"],
+        #         "dir": -1 if market["baseAsset"] == asset_name else 1
+        #     } if market is not None else None
 
-        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-        for asset_name in asset_names_to_remove:
-            del self._account_available_balances[asset_name]
-            del self._account_balances[asset_name]
+        #     # bitfinex doesn't return 'BALANCE_AVAILABLE'
+        #     # we must use https://docs.bitfinex.com/reference#rest-auth-calc-order-avail
+        #     available_balance_result = await self._api_private(
+        #         "post",
+        #         path_url="auth/calc/order/avail",
+        #         data={
+        #             "symbol": f"t{trading_pair['symbol']}",
+        #             "dir": trading_pair['dir'],
+        #             "rate": 1,
+        #             "type": "EXCHANGE"
+        #         }
+        #     ) if trading_pair is not None else None
+
+        #     # None or 0
+        #     self._account_balances[asset_name] = Decimal(balance_entry.balance or 0)
+        #     self._account_available_balances[asset_name] = Decimal(
+        #         abs(available_balance_result[0]) if available_balance_result is not None else 0
+        #     )
+        #     remote_asset_names.add(asset_name)
+
+        # asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+        # for asset_name in asset_names_to_remove:
+        #     del self._account_available_balances[asset_name]
+        #     del self._account_balances[asset_name]
 
     async def check_network(self) -> NetworkStatus:
         """
@@ -951,95 +958,143 @@ cdef class BitfinexMarket(MarketBase):
         """
         async for event_message in self._iter_user_event_queue():
             try:
-                content = self.parse_message_content(*event_message.content)
-                if not content:
-                    continue
-                event_type = content.get("type")
-                # str - because from exchange come int; order.exchange_order_id is str
-                exchange_order_ids = [str(content.get("order_id")),
-                                      str(content.get("maker_order_id")),
-                                      str(content.get("taker_order_id"))]
+                isWallet = event_message.event_wallet
 
-                tracked_order = None
-                for order in self._in_flight_orders.values():
-                    if order.exchange_order_id in exchange_order_ids:
-                        tracked_order = order
-                        break
-                if tracked_order is None:
-                    continue
+                # update balances
+                if isWallet:
+                    local_asset_names = set(self._account_balances.keys())
+                    remote_asset_names = set()
+                    asset_names_to_remove = set()
 
-                order_type_description = tracked_order.order_type_description
-                execute_price = Decimal(content.get("price", 0.0))
-                execute_amount_diff = s_decimal_0
+                    event_type = event_message.content[1]
+                    content = event_message.content[2]
+                    wallets = content if event_type == ContentEventType.WALLET_SNAPSHOT else [content]
 
-                # trade update is like rollup state. each event increment
-                # amount and price. When amount is 0, it will meant order fill.
-                if event_type in [ContentEventType.TRADE_UPDATE]:
-                    # amount_come - negative is sell, positive - buy.
-                    # for checking that order is fill
-                    amount_come = Decimal(content["amount"]).quantize(Decimal('1e-8'))
-                    execute_amount_diff = (abs(tracked_order.amount) - abs(amount_come)).quantize(Decimal('1e-8'))
-                    tracked_order.executed_amount_base += abs(amount_come)
-                    tracked_order.executed_amount_quote += abs(amount_come) * execute_price
+                    for wallet in wallets:
+                        wallet_type = wallet[0]
+                        if (wallet_type != "exchange"):
+                            continue
 
-                if execute_amount_diff == s_decimal_0.quantize(Decimal('1e-8')) \
-                        and event_type in [ContentEventType.TRADE_UPDATE]:
-                    self.logger().info(f"Order filled {execute_amount_diff} out of {tracked_order.amount} of the "
-                                       f"{order_type_description} order {tracked_order.client_order_id}")
-                    self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
-                                         OrderFilledEvent(
-                                             self._current_timestamp,
-                                             tracked_order.client_order_id,
-                                             tracked_order.trading_pair,
-                                             tracked_order.trade_type,
-                                             tracked_order.order_type,
-                                             execute_price,
-                                             tracked_order.executed_amount_base,
-                                             self.c_get_fee(
-                                                 tracked_order.base_asset,
-                                                 tracked_order.quote_asset,
-                                                 tracked_order.order_type,
-                                                 tracked_order.trade_type,
-                                                 execute_price,
-                                                 execute_amount_diff,
-                                             ),
-                                             exchange_trade_id=tracked_order.exchange_order_id
-                                         ))
-                    # buy
-                    if content["maker_order_id"]:
-                        if tracked_order.trade_type == TradeType.BUY:
-                            self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
-                                               f"according to Bitfinex user stream.")
-                            self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
-                                                 BuyOrderCompletedEvent(self._current_timestamp,
-                                                                        tracked_order.client_order_id,
-                                                                        tracked_order.quote_asset,
-                                                                        tracked_order.base_asset,
-                                                                        (tracked_order.fee_asset
-                                                                         or tracked_order.base_asset),
-                                                                        tracked_order.executed_amount_base,
-                                                                        tracked_order.executed_amount_quote,
-                                                                        tracked_order.fee_paid,
-                                                                        tracked_order.order_type))
-                        self.c_stop_tracking_order(tracked_order.client_order_id)
-                    # sell
-                    if content["taker_order_id"]:
-                        if tracked_order.trade_type == TradeType.SELL:
-                            self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
-                                               f"according to Bitfinex user stream.")
+                        asset_name = wallet[1]
+                        balance = wallet[2]
+                        balance_available = wallet[4]
 
-                            self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
-                                                 SellOrderCompletedEvent(self._current_timestamp,
-                                                                         tracked_order.client_order_id,
-                                                                         tracked_order.base_asset,
-                                                                         tracked_order.quote_asset,
-                                                                         (tracked_order.fee_asset
-                                                                          or tracked_order.quote_asset),
-                                                                         tracked_order.executed_amount_base,
-                                                                         tracked_order.executed_amount_quote,
-                                                                         tracked_order.fee_paid,
-                                                                         tracked_order.order_type))
-                        self.c_stop_tracking_order(tracked_order.client_order_id)
+                        self._account_balances[asset_name] = Decimal(balance or 0)
+                        self._account_available_balances[asset_name] = Decimal(balance_available or 0)
+                        # remote_asset_names.add(asset_name)
+
+                    # asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+                    # for asset_name in asset_names_to_remove:
+                    #     del self._account_available_balances[asset_name]
+                    #     del self._account_balances[asset_name]
+
+                # else (previous author)
+                else:
+                    content = self.parse_message_content(*event_message.content)
+                    if not content:
+                        continue
+                    event_type = content.get("type")
+                    # str - because from exchange come int; order.exchange_order_id is str
+                    exchange_order_ids = [
+                        str(content.get("order_id")),
+                        str(content.get("maker_order_id")),
+                        str(content.get("taker_order_id"))
+                    ]
+
+                    tracked_order = None
+                    for order in self._in_flight_orders.values():
+                        if order.exchange_order_id in exchange_order_ids:
+                            tracked_order = order
+                            break
+                    if tracked_order is None:
+                        continue
+
+                    order_type_description = tracked_order.order_type_description
+                    execute_price = Decimal(content.get("price", 0.0))
+                    execute_amount_diff = s_decimal_0
+
+                    # trade update is like rollup state. each event increment
+                    # amount and price. When amount is 0, it will meant order fill.
+                    if event_type in [ContentEventType.TRADE_UPDATE]:
+                        # amount_come - negative is sell, positive - buy.
+                        # for checking that order is fill
+                        amount_come = Decimal(content["amount"]).quantize(Decimal('1e-8'))
+                        execute_amount_diff = (abs(tracked_order.amount) - abs(amount_come)).quantize(Decimal('1e-8'))
+                        tracked_order.executed_amount_base += abs(amount_come)
+                        tracked_order.executed_amount_quote += abs(amount_come) * execute_price
+
+                    if execute_amount_diff == s_decimal_0.quantize(Decimal('1e-8')) \
+                            and event_type in [ContentEventType.TRADE_UPDATE]:
+                        self.logger().info(
+                            f"Order filled {execute_amount_diff} out of {tracked_order.amount} of the "
+                            f"{order_type_description} order {tracked_order.client_order_id}"
+                        )
+                        self.c_trigger_event(
+                            self.MARKET_ORDER_FILLED_EVENT_TAG,
+                            OrderFilledEvent(
+                                self._current_timestamp,
+                                tracked_order.client_order_id,
+                                tracked_order.trading_pair,
+                                tracked_order.trade_type,
+                                tracked_order.order_type,
+                                execute_price,
+                                tracked_order.executed_amount_base,
+                                self.c_get_fee(
+                                    tracked_order.base_asset,
+                                    tracked_order.quote_asset,
+                                    tracked_order.order_type,
+                                    tracked_order.trade_type,
+                                    execute_price,
+                                    execute_amount_diff,
+                                ),
+                                exchange_trade_id=tracked_order.exchange_order_id
+                            )
+                        )
+                        # buy
+                        if content["maker_order_id"]:
+                            if tracked_order.trade_type == TradeType.BUY:
+                                self.logger().info(
+                                    f"The market buy order {tracked_order.client_order_id} has completed "
+                                    f"according to Bitfinex user stream."
+                                )
+                                self.c_trigger_event(
+                                    self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
+                                    BuyOrderCompletedEvent(
+                                        self._current_timestamp,
+                                        tracked_order.client_order_id,
+                                        tracked_order.quote_asset,
+                                        tracked_order.base_asset,
+                                        (tracked_order.fee_asset or tracked_order.base_asset),
+                                        tracked_order.executed_amount_base,
+                                        tracked_order.executed_amount_quote,
+                                        tracked_order.fee_paid,
+                                        tracked_order.order_type
+                                    )
+                                )
+                            self.c_stop_tracking_order(tracked_order.client_order_id)
+                        # sell
+                        if content["taker_order_id"]:
+                            if tracked_order.trade_type == TradeType.SELL:
+                                self.logger().info(
+                                    f"The market sell order {tracked_order.client_order_id} has completed "
+                                    f"according to Bitfinex user stream."
+                                )
+
+                                self.c_trigger_event(
+                                    self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
+                                    SellOrderCompletedEvent(
+                                        self._current_timestamp,
+                                        tracked_order.client_order_id,
+                                        tracked_order.base_asset,
+                                        tracked_order.quote_asset,
+                                        (tracked_order.fee_asset or tracked_order.quote_asset),
+                                        tracked_order.executed_amount_base,
+                                        tracked_order.executed_amount_quote,
+                                        tracked_order.fee_paid,
+                                        tracked_order.order_type
+                                    )
+                                )
+                            self.c_stop_tracking_order(tracked_order.client_order_id)
 
             except asyncio.CancelledError:
                 raise

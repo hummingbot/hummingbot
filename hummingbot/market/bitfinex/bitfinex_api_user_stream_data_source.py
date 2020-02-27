@@ -53,8 +53,6 @@ class BitfinexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
                     if transformed_msg is None:
                         continue
-                    elif transformed_msg.event_wallet:
-                        print(transformed_msg.content)
                     else:
                         output.put_nowait(transformed_msg)
 
@@ -73,7 +71,6 @@ class BitfinexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             order_book_message.type_heartbeat,
             order_book_message.event_auth,
             order_book_message.event_info,
-            order_book_message.event_wallet,
         ]):
             # skip unneeded events and types
             return
