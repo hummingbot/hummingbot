@@ -89,12 +89,8 @@ nav:
         - Docker Commands: commands/docker.md
         - Keyboard Shortcuts: commands/keyboard-shortcuts.md
       - Support:
-        - Troubleshooting:
-          - General: support/troubleshooting/general.md
-          - Binance Errors: support/troubleshooting/binance.md
-          - IDEX Errors: support/troubleshooting/idex.md
-          - Dolomite Errors: support/troubleshooting/dolomite.md
-        - Common Support Questions: support/how-to.md
+        - Troubleshooting: support/troubleshooting.md
+        - Common Support Questions: support/questions.md
         - Contact Support: support/contact-us.md
       - Helpful Resources:
         - GitHub: https://github.com/coinalpha/hummingbot
