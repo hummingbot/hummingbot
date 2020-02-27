@@ -342,7 +342,10 @@ class TradingPairFetcher:
             async with client.get(BITFINEX_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                 if response.status == 200:
                     data = await response.json()
-                    raw_trading_pairs: List[Dict[str, any]] = data[0]
+                    raw_trading_pairs: List[Dict[str, any]] = list((filter(
+                        lambda trading_pair: True if ":" not in trading_pair else False,
+                        data[0]
+                    )))
                     trading_pair_list: List[str] = []
                     for raw_trading_pair in raw_trading_pairs:
                         converted_trading_pair: Optional[str] = \
