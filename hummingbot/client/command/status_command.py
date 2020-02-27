@@ -86,17 +86,9 @@ class StatusCommand:
                     if has_minimum_eth:
                         self._notify("   - ETH wallet check: Minimum ETH requirement satisfied")
                     else:
-                        for market_name, market_instance in self.markets.items():
-                            # Don't display warning for IDEX since no transactions are initiated from the wallet
-                            if hasattr(market_instance, "wallet") \
-                                    and market_instance.wallet is self.wallet \
-                                    and market_instance.display_name == "idex":
-                                continue
-                            else:
-                                self._notify("   x ETH wallet check: Not enough ETH in wallet. "
-                                             "A small amount of Ether is required for sending transactions on "
-                                             "Decentralized Exchanges")
-                                break
+                        self._notify("   x ETH wallet check: Not enough ETH in wallet. "
+                                     "A small amount of Ether is required for sending transactions on "
+                                     "Decentralized Exchanges")
             else:
                 self._notify("   x ETH wallet check: ETH wallet is not connected.")
 

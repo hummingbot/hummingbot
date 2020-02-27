@@ -54,8 +54,3 @@ Add more paper trade assets by editing `conf_global.yml` using a text editor. **
 - Dolomite
 - Liquid
 - KuCoin
-
-### Not yet supported
-
-- IDEX
-

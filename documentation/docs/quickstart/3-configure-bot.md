@@ -147,7 +147,7 @@ For more information on how to find your API keys, please see [API Keys](/instal
 
 ---
 
-Alternatively, if you selected a decentralized exchange like IDEX, Bamboo Relay, or Radar Relay in Step 3c:
+Alternatively, if you selected a decentralized exchange like Bamboo Relay, or Radar Relay in Step 3c:
 
 ```
 Would you like to import an existing wallet or create a new wallet? (import/create) >>>
