@@ -95,9 +95,6 @@ import
 Enter path to your strategy file (e.g. "conf_pure_market_making_strategy_0.yml") >>>
 conf_pure_market_making_strategy_0.yml
 
-# This question appears only if you are trading on a decentralized exchange
-Would you like to unlock your previously saved wallet? (Yes/No) >>>
-
 Config process complete. Enter "start" to start market making.
 ```
 
@@ -116,6 +113,6 @@ Congratulations on successfully completing the Hummingbot quickstart guide!
 
 To get the most out of Hummingbot, consult the following resources:
 
-* [Cheatsheets](/cheatsheets) for quick reference on useful commands
+* [Commands](/commands/client) for quick reference on useful commands
 * [User Manual](/manual) for in-depth reference on all Hummingbot features
 * [Video Tutorials](https://hummingbot.io/videos/) for tips and tricks in running trading bots
