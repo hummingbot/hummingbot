@@ -236,8 +236,13 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     await ws.send(ws_message)
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
+                        msg_dict = {"trading_pair": msg[-1],
+                                    "asks": msg[1].get("a") or msg[1].get("as") or [],
+                                    "bids": msg[1].get("b") or msg[1].get("bs") or []}
+                        msg_dict["update_id"] = max([*map(lambda x: float(x[2]), msg_dict["bids"] + msg_dict["asks"])],
+                                                    default=0.)
                         order_book_message: OrderBookMessage = KrakenOrderBook.diff_message_from_exchange(
-                            msg, time.time())
+                            msg_dict, time.time())
                         output.put_nowait(order_book_message)
             except asyncio.CancelledError:
                 raise
