@@ -15,18 +15,18 @@ First, let's walk through the design of the Hummingbot client interface:
 **Enter `help` to see a list of commands:**
 
 ```
-config              Add your personal credentials e.g. exchange API keys  
-exit                Securely exit the command line                        
-export_private_key  Print your account private key                        
-export_trades       Export your trades to a csv file                      
-get_balance         Print balance of a certain currency                   
-help                Print a list of commands                              
-history             Get your bot's past trades and performance analytics  
-list                List global objects                                   
-paper_trade         Enable / Disable paper trade mode.                    
-start               Start market making with Hummingbot                   
-status              Get current bot status                                
-stop                Stop the bot's active strategy
+config              Create a new bot or import an existing configuration
+help                List the commands and get help on each one          
+start               Start your currently configured bot                 
+stop                Stop your currently configured bot                  
+status              Get the status of a running bot                     
+history             List your bot's past trades and analyze performance 
+exit                Exit and cancel all outstanding orders              
+list                List global objects like exchanges and trades       
+paper_trade         Toggle paper trade mode                             
+export_trades       Export your bot's trades to a CSV file              
+export_private_key  Export your Ethereum wallet private key             
+get_balance         Query your balance in an exchange or wallet         
 ```
 
 ## Step 2: Enable Paper Trading Mode (Optional)
