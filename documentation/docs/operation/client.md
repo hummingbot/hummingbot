@@ -14,7 +14,7 @@ To run a previously created, stopped container where $NAME is the name of your i
 docker start $NAME && docker attach $NAME
 ```
 
-For additional information on useful commands, see the [cheatsheet](/commands/docker) to running Hummingbot on Docker.
+For additional information on useful commands, see the [commands](/commands/docker) to running Hummingbot on Docker.
 
 ### Installed from Source
 
