@@ -62,6 +62,16 @@ def is_valid_order_amount(value: str) -> bool:
         return False
 
 
+def external_market_trading_pair_prompt():
+    external_market = pure_market_making_config_map.get("external_price_source_exchange").value
+    return f'Enter the token trading pair on {external_market} >>> '
+
+
+def is_valid_external_market_trading_pair(value: str) -> bool:
+    market = pure_market_making_config_map.get("external_price_source_exchange").value
+    return is_valid_market_trading_pair(market, value)
+
+
 pure_market_making_config_map = {
     "maker_market":
         ConfigVar(key="maker_market",
@@ -89,10 +99,8 @@ pure_market_making_config_map = {
                   prompt="How often do you want to cancel and replace bids and asks "
                          "(in seconds)? >>> ",
                   default=60.0,
-                  required_if=lambda: not (
-                      using_exchange("radar_relay")()
-                      or (using_exchange("bamboo_relay")() and not using_bamboo_coordinator_mode())
-                  ),
+                  required_if=lambda: not (using_exchange("radar_relay")() or
+                                           (using_exchange("bamboo_relay")() and not using_bamboo_coordinator_mode())),
                   type_str="float"),
     "order_amount":
         ConfigVar(key="order_amount",
@@ -112,8 +120,8 @@ pure_market_making_config_map = {
                   prompt="How long should your limit orders remain valid until they "
                          "expire and are replaced? (Minimum / Default is 130 seconds) >>> ",
                   default=130.0,
-                  required_if=lambda: using_exchange("radar_relay")() or
-                  (using_exchange("bamboo_relay")() and not using_bamboo_coordinator_mode()),
+                  required_if=lambda: using_exchange("radar_relay")() or (using_exchange("bamboo_relay")() and
+                                                                          not using_bamboo_coordinator_mode()),
                   type_str="float",
                   validator=is_valid_expiration),
     "mode":
@@ -215,6 +223,12 @@ pure_market_making_config_map = {
                                                 type_str="str",
                                                 validator=lambda s: s != pure_market_making_config_map.get(
                                                     "maker_market").value and is_exchange(s)),
+    "external_price_source_exchange_trading_pair": ConfigVar(key="external_price_source_exchange_trading_pair",
+                                                             prompt=external_market_trading_pair_prompt,
+                                                             required_if=lambda: pure_market_making_config_map.get(
+                                                                 "external_price_source_type").value == "exchange",
+                                                             type_str="str",
+                                                             validator=is_valid_external_market_trading_pair),
     "external_price_source_feed_base_asset": ConfigVar(key="external_price_source_feed_base_asset",
                                                        prompt="Reference base asset from data feed? (e.g. ETH) >>> ",
                                                        required_if=lambda: pure_market_making_config_map.get(
