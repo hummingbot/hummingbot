@@ -23,7 +23,6 @@ Connectors are packages of code that link Hummingbot's internal trading algorith
 
 ### Decentralized Exchanges
 
-* [IDEX](/connectors/IDEX)
 * [Radar Relay](/connectors/radar-relay)
 * [0x Relayers](/connectors/0x)
 
