@@ -15,7 +15,7 @@ import time
 import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
-from itertools import chain
+from collections import defaultdict
 
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -24,6 +24,7 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.kraken.kraken_order_book import KrakenOrderBook
+import hummingbot.market.kraken.kraken_constants as constants
 
 
 SNAPSHOT_REST_URL = "https://api.kraken.com/0/public/Depth"
@@ -88,34 +89,49 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             # Build the data frame.
             all_markets: pd.DataFrame = pd.DataFrame.from_records(data=market_data, index="pair")
-            all_markets["lastPrice"] = all_markets.c.map(lambda x: x[0])
-            quotes: Dict[str, List[str]] = {}
-            quotes["usdt"] = ["ETH", "XBT", "DAI", "USDC"]
-            quotes["usdt_r"] = ["ZUSD", "EUR", "CAD", "GBP"]
-            quotes["xeth_r"] = ["ZJPY"]
-            quotes["eth_r"] = ["CHF"]
-            quotes_all: List[str] = chain([quotes[currency] for currency in quotes])
-            price: Dict[str, float] = {}
-            for quote in quotes["usdt"]:
-                price[quote] = float(all_markets.loc[f"{quote}USDT"].lastPrice)
-            for quote in quotes["usdt_r"]:
-                price[quote] = 1. / float(all_markets.loc[f"USDT{quote}"].lastPrice)
-            for quote in quotes["eth_r"]:
-                price[quote] = price["ETH"] / float(all_markets.loc[f"ETH{quote}"].lastPrice)
-            for quote in quotes["xeth_r"]:
-                price[quote] = price["ETH"] / float(all_markets.loc[f"XETH{quote}"].lastPrice)
+            all_markets["lastPrice"] = all_markets.c.map(lambda x: x[0]).astype("float")
+            all_markets.loc[:, "volume"] = all_markets.v.map(lambda x: x[1]).astype("float")
+
+            price_dict: Dict[str, float] = await cls.get_prices_from_df(all_markets)
+
             usd_volume: float = [
                 (
-                    quoteVolume * price[quote] if trading_pair[-3:] in quotes_all else
-                    quoteVolume * price[quote] if trading_pair[-4:] in quotes_all else
-                    quoteVolume
+                    baseVolume * price_dict[baseAsset] if baseAsset in price_dict else -1
                 )
-                for trading_pair, quoteVolume in zip(all_markets.index,
-                                                     all_markets.v.map(lambda x: x[1]).astype("float"))]
+                for baseAsset, baseVolume in zip(all_markets.baseAsset,
+                                                 all_markets.volume)]
             all_markets.loc[:, "USDVolume"] = usd_volume
-            all_markets.loc[:, "volume"] = all_markets.v.map(lambda x: x[1])
 
             return all_markets.sort_values("USDVolume", ascending=False)
+
+    @staticmethod
+    async def get_prices_from_df(df: pd.DataFrame) -> Dict[str, float]:
+        row_dict: Dict[str, Dict[str, pd.Series]] = defaultdict(dict)
+        for (i, row) in df.iterrows():
+            row_dict[row.baseAsset][row.quoteAsset] = row
+
+        price_dict: Dict[str, float] = {base: None for base in row_dict}
+
+        quote_prices: Dict[str, float] = {
+            quote: row_dict[quote]["ZUSD"].lastPrice for quote in constants.CRYPTO_QUOTES
+        }
+
+        def get_price(base, depth=0) -> float:
+            if price_dict.get(base) is not None:
+                return price_dict[base]
+            elif base == "ZUSD":
+                return 1.
+            elif "ZUSD" in row_dict[base]:
+                return row_dict[base]["ZUSD"].lastPrice
+            else:
+                for quote in row_dict[base]:
+                    if quote in quote_prices:
+                        return quote_prices[quote] * row_dict[base][quote].lastPrice
+
+        for base in price_dict:
+            price_dict[base] = get_price(base)
+
+        return price_dict
 
     async def get_trading_pairs(self) -> Optional[List[str]]:
         if not self._trading_pairs:
