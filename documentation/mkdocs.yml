@@ -84,24 +84,27 @@ nav:
         - 2. Install Hummingbot: quickstart/2-install.md
         - 3. Configure a Bot: quickstart/3-configure-bot.md
         - 4. Run a Bot: quickstart/4-run-bot.md
-      - Cheatsheets:
-        - Cheatsheets Overview: cheatsheets/index.md
-        - Docker Commands: cheatsheets/docker.md
-        - Source Commands: cheatsheets/source.md
-        - Client Commands: cheatsheets/client.md
-      - Bounties:
-        - Bug Bounty Program: support/bug-bounty-program.md
-        - Developer Bounty Program: bounties/developer-bounty.md
-      - Get Help:
-        - Frequently Asked Questions: support/faq.md
+      - Commands:
+        - Hummingbot Commands: commands/client.md
+        - Docker Commands: commands/docker.md
+        - Keyboard Shortcuts: commands/keyboard-shortcuts.md
+      - Support:
         - Troubleshooting:
           - General: support/troubleshooting/general.md
           - Binance Errors: support/troubleshooting/binance.md
           - IDEX Errors: support/troubleshooting/idex.md
           - Dolomite Errors: support/troubleshooting/dolomite.md
-        - Common 'How To' Questions: support/how-to.md
-        - Contact and Support: support/index.md
+        - Common Support Questions: support/how-to.md
+        - Contact Support: support/contact-us.md
+      - Helpful Resources:
+        - GitHub: https://github.com/coinalpha/hummingbot
+        - Hummingbot Blog: https://hummingbot.io/blog/#tags
+        - Developer Forum: https://forum.hummingbot.io/t/welcome-to-the-hummingbot-devforum/7
+        - YouTube Channel: https://www.youtube.com/channel/UCxzzdEnDRbylLMWmaMjywOA
         - 中文 Github repo: https://github.com/coinalpha/hummingbot_chinese
+      - Bounties:
+        - Bug Bounty Program: support/bug-bounty-program.md
+        - Developer Bounty Program: bounties/developer-bounty.md
     - User Manual:
       - Intro: manual.md
       - Installation:
