@@ -50,10 +50,10 @@ cdef class KrakenOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "trading_pair": msg["s"].replace('/', ''),
-            "update_id": msg["u"],
-            "bids": msg["bs"],
-            "asks": msg["as"]
+            "trading_pair": msg["trading_pair"].replace('/', ''),
+            "update_id": msg["update_id"],
+            "bids": msg["bids"],
+            "asks": msg["asks"]
         }, timestamp=timestamp * 1e-3)
 
     @classmethod
