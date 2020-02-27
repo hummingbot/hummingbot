@@ -1,4 +1,3 @@
-# **********************WORK IN PROGRESS************************
 from decimal import Decimal
 from typing import Optional, Dict, Any
 
