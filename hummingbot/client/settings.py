@@ -62,7 +62,7 @@ EXAMPLE_PAIRS = {
     "huobi": "ETH-USDT",
     "liquid": "ETH-USD",
     "radar_relay": "ZRX-WETH",
-    "hitbtc": "ETH-USD"
+    "hitbtc": "USD-IDRT"
 }
 
 EXAMPLE_ASSETS = {
@@ -76,7 +76,7 @@ EXAMPLE_ASSETS = {
     "huobi": "eth",
     "liquid": "ETH",
     "radar_relay": "ZRX",
-    "hitbtc": "ETH"
+    "hitbtc": "IDRT"
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
