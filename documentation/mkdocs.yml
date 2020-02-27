@@ -101,9 +101,10 @@ nav:
         - Hummingbot Blog: https://hummingbot.io/blog/#tags
         - Developer Forum: https://forum.hummingbot.io/t/welcome-to-the-hummingbot-devforum/7
         - YouTube Channel: https://www.youtube.com/channel/UCxzzdEnDRbylLMWmaMjywOA
+        - Meetup: https://www.meetup.com/BayCrypto/
         - 中文 Github repo: https://github.com/coinalpha/hummingbot_chinese
       - Bounties:
-        - Bug Bounty Program: support/bug-bounty-program.md
+        - Bug Bounty Program: bounties/bug-bounty-program.md
         - Developer Bounty Program: bounties/developer-bounty.md
     - User Manual:
       - Intro: manual.md
