@@ -63,7 +63,7 @@ When creating a new strategy or executing `config` command, the following walks 
 | `How far away from the mid price do you want to place the first bid order? (Enter 0.01 to indicate 1%) >>>` | This sets `bid_place_threshold` ([definition](#configuration-parameters)). |
 | `How far away from the mid price do you want to place the first ask order? (Enter 0.01 to indicate 1%) >>>` | This sets `ask_place_threshold` ([definition](#configuration-parameters)). |
 | `How often do you want to cancel and replace bids and asks (in seconds)? >>>` | This sets the `cancel_order_wait_time` ([definition](#configuration-parameters)). |
-| `What is your preferred quantity per order? (Denominated in the base asset) >>> ` | This sets `order_amount` ([definition](#configuration-parameters)). |
+| `What is the amount of [base_asset] per order? (minimum [min_amount]) >>> ` | This sets `order_amount` ([definition](#configuration-parameters)). |
 
 
 ## Advanced Mode

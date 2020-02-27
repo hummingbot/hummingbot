@@ -345,7 +345,9 @@ async def create_yml_files():
 
 
 def default_min_quote(quote_asset):
-    global_quote_amount = [[b, m] for b, m in global_config_map.get("min_quote_order_amount").value if b == quote_asset]
+    global_quote_amount = []
+    if global_config_map["min_quote_order_amount"].value is not None:
+        global_quote_amount = [[b, m] for b, m in global_config_map["min_quote_order_amount"].value if b == quote_asset]
     default_quote_asset, default_amount = "USD", 11
     if len(global_quote_amount) > 0:
         default_quote_asset, default_amount = global_quote_amount[0]
@@ -355,7 +357,10 @@ def default_min_quote(quote_asset):
 def minimum_order_amount(trading_pair):
     base_asset, quote_asset = trading_pair.split("-")
     default_quote_asset, default_amount = default_min_quote(quote_asset)
-    quote_amount = ExchangeRateConversion.get_instance().convert_token_value_decimal(default_amount,
-                                                                                     default_quote_asset,
-                                                                                     base_asset)
+    try:
+        quote_amount = ExchangeRateConversion.get_instance().convert_token_value_decimal(default_amount,
+                                                                                         default_quote_asset,
+                                                                                         base_asset)
+    except Exception:
+        quote_amount = Decimal('0')
     return round(quote_amount, 4)
