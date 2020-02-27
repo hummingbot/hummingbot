@@ -46,11 +46,6 @@ coinbase_pro_api_key = os.getenv("COINBASE_PRO_API_KEY")
 coinbase_pro_secret_key = os.getenv("COINBASE_PRO_SECRET_KEY")
 coinbase_pro_passphrase = os.getenv("COINBASE_PRO_PASSPHRASE")
 
-# IDEX Tests
-idex_api_key = os.getenv("IDEX_API_KEY")
-test_idex_erc20_token_address_1 = os.getenv("IDEX_TOKEN_ADDRESS_1")
-test_idex_erc20_token_address_2 = os.getenv("IDEX_TOKEN_ADDRESS_2")
-web3_test_private_key_idex = os.getenv("IDEX_WALLET_PRIVATE_KEY")
 
 # Huobi Tests
 huobi_api_key = os.getenv("HUOBI_API_KEY")

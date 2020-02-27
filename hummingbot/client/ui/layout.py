@@ -70,7 +70,7 @@ high-frequency trading (HFT) bots.
 
 * Get 24/7 support: https://discord.hummingbot.io
 * Documentation and guides: https://docs.hummingbot.io
-* Earn passive income via liquidity mining: https://hummingbot.io
+* Earn token rewards via liquidity mining: https://hummingbot.io
 
 Enter "config" to create a bot or "help" to see a list of commands.
 """
