@@ -13,7 +13,7 @@ The bounty program applies to issues found within the public, open source [Hummi
 We will pay bug reporters 0.1 ETH for any bug reported that meets the following criteria:
 
 * It has a different root cause than any other bug reported by other users or discovered by the Hummingbot team
-* Reporter follows the submission guidelines below (see [Submission](/support/bug-bounty-program/#submission))
+* Reporter follows the submission guidelines below (see [Submission](/bounties/bug-bounty-program/#submission))
 * We decide to fix the bug
 
 In addition, we may add a discretionary bonus to bugs that entail security vulnerabilities, depending on the severity of the vulnerability.
