@@ -60,7 +60,6 @@ class BitfinexWebsocket():
                         try:
                             if (condition(msg) is True):
                                 yield msg
-                                return
                         except Exception:
                             pass
 
