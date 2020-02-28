@@ -643,13 +643,9 @@ cdef class BitfinexMarket(MarketBase):
         def onDone(msg):
             return msg[1] == "on"
 
-        response = None
         async for ws in self.get_ws():
-            async for _response in ws.request(data, condition=onDone):
-                response = _response
-                break
-
-        return response
+            async for response in ws.request(data, condition=onDone):
+                return response
 
     cdef c_start_tracking_order(self,
                                 str client_order_id,
