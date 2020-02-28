@@ -21,7 +21,7 @@ from hummingbot.client.settings import ENCYPTED_CONF_PREFIX, ENCYPTED_CONF_POSTF
 
 def list_encrypted_file_paths():
     file_paths = []
-    for f in os.listdir(get_key_file_path()):
+    for f in sorted(os.listdir(get_key_file_path())):
         f_path = os.path.join(get_key_file_path(), f)
         if os.path.isfile(f_path) and f.startswith(ENCYPTED_CONF_PREFIX) and f.endswith(ENCYPTED_CONF_POSTFIX):
             file_paths.append(f_path)
