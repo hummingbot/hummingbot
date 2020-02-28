@@ -126,7 +126,10 @@ class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
             while True:
                 try:
                     msg: str = await asyncio.wait_for(ws.recv(), timeout=MESSAGE_TIMEOUT)
-                    yield msg
+                    if (("heartbeat" not in msg and
+                         "systemStatus" not in msg and
+                         "subscriptionStatus" not in msg)):
+                        yield msg
                 except asyncio.TimeoutError:
                     try:
                         pong_waiter = await ws.ping()

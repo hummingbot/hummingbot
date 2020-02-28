@@ -23,7 +23,7 @@ class KrakenUserStreamTrackerUnitTest(unittest.TestCase):
         return self.ev_loop.run_until_complete(task)
     
     def test_user_stream(self):
-        self.ev_loop.run_until_complete(asyncio.sleep(120.0))
+        self.ev_loop.run_until_complete(asyncio.sleep(20.0))
         print(self.user_stream_tracker.user_stream)
 
 

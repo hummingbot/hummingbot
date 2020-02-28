@@ -62,7 +62,7 @@ MARKET_CLASSES = {
     "bittrex": BittrexMarket,
     "kucoin": KucoinMarket,
     "bitcoin_com": BitcoinComMarket,
-    "kraken": KrakenMarket
+    "kraken": KrakenMarket,
 }
 
 
@@ -337,7 +337,7 @@ class HummingbotApplication(*commands):
                                       kraken_secret_key,
                                       order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                       trading_pairs=trading_pairs,
-                                      trading_required=self._trading_required))
+                                      trading_required=self._trading_required)
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")
 

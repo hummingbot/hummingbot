@@ -3,6 +3,7 @@
 import asyncio
 from collections import deque, defaultdict
 import logging
+import time
 from typing import (
     Deque,
     Dict,
@@ -19,6 +20,7 @@ from hummingbot.core.data_type.remote_api_order_book_data_source import RemoteAP
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.market.kraken.kraken_api_order_book_data_source import KrakenAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.order_book import OrderBook
 
 
 class KrakenOrderBookTracker(OrderBookTracker):
@@ -78,3 +80,45 @@ class KrakenOrderBookTracker(OrderBookTracker):
         self._order_book_snapshot_router_task = safe_ensure_future(
             self._order_book_snapshot_router()
         )
+
+    async def _order_book_diff_router(self):
+        """
+        Route the real-time order book diff messages to the correct order book.
+        """
+        last_message_timestamp: float = time.time()
+        messages_accepted: int = 0
+        messages_rejected: int = 0
+
+        while True:
+            try:
+                ob_message: OrderBookMessage = await self._order_book_diff_stream.get()
+                trading_pair: str = ob_message.trading_pair
+
+                if trading_pair not in self._tracking_message_queues:
+                    messages_rejected += 1
+                    continue
+                message_queue: asyncio.Queue = self._tracking_message_queues[trading_pair]
+                # Check the order book's initial update ID. If it's larger, don't bother.
+                order_book: OrderBook = self._order_books[trading_pair]
+
+                if order_book.snapshot_uid > ob_message.update_id:
+                    messages_rejected += 1
+                    continue
+                await message_queue.put(ob_message)
+                messages_accepted += 1
+
+                # Log some statistics.
+                now: float = time.time()
+                if int(now / 60.0) > int(last_message_timestamp / 60.0):
+                    self.logger().debug("Diff messages processed: %d, rejected: %d",
+                                       messages_accepted,
+                                       messages_rejected)
+                    messages_accepted = 0
+                    messages_rejected = 0
+
+                last_message_timestamp = now
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error("Unknown error. Retrying after 5 seconds.", exc_info=True)
+                await asyncio.sleep(5.0)
