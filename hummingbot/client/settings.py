@@ -60,7 +60,7 @@ EXAMPLE_PAIRS = {
     "huobi": "ETH-USDT",
     "liquid": "ETH-USD",
     "radar_relay": "ZRX-WETH",
-    "kraken": "ETH-USDT"
+    "kraken": "XETH-USDC"
 }
 
 EXAMPLE_ASSETS = {
@@ -74,7 +74,7 @@ EXAMPLE_ASSETS = {
     "huobi": "eth",
     "liquid": "ETH",
     "radar_relay": "ZRX",
-    "kraken": "ETH"
+    "kraken": "XETH"
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
