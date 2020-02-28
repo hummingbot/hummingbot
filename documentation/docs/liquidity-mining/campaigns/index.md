@@ -29,46 +29,36 @@ After the commencement of **production launch**, we will pay mainnet Ethereum to
   </thead>
   <tbody>
     <tr>
-      <td rowspan="4"><a href="/liquidity-mining/campaigns/sponsors/#harmony">Harmony</a></td>
+      <td rowspan="3"><a href="/liquidity-mining/campaigns/sponsors/#harmony">Harmony</a><br></td>
       <td>ONE/BTC</td>
       <td>1%</td>
-      <td>USDC 500</td>
+      <td>USDC 300</td>
     </tr>
     <tr>
       <td>ONE/USDT</td>
       <td>1%</td>
-      <td>USDC 500</td>
+      <td>USDC 300</td>
     </tr>
     <tr>
       <td>ONE/BNB</td>
       <td>1%</td>
-      <td>USDC 500</td>
+      <td>USDC 150</td>
     </tr>
     <tr>
-      <td>ONE/USDC</td>
-      <td>1%</td>
-      <td>USDC 500</td>
-    </tr>
-    <tr>
-      <td rowspan="4"><a href="/liquidity-mining/campaigns/sponsors/#iexec">iExec</a></td>
+      <td rowspan="3"><a href="/liquidity-mining/campaigns/sponsors/#iexec">iExec</a><br></td>
       <td>RLC/BTC</td>
       <td>1%</td>
-      <td>USDC 187.50</td>
+      <td>USDC 250</td>
     </tr>
     <tr>
       <td>RLC/USDT</td>
       <td>1%</td>
-      <td>USDC 187.50</td>
-    </tr>
-    <tr>
-      <td>RLC/BNB</td>
-      <td>1%</td>
-      <td>USDC 187.50</td>
+      <td>USDC 250</td>
     </tr>
     <tr>
       <td>RLC/ETH</td>
       <td>1%</td>
-      <td>USDC 187.50</td>
+      <td>USDC 250</td>
     </tr>
     <tr>
       <td rowspan="2"><a href="/liquidity-mining/campaigns/sponsors/#zcoin">Zcoin</a></td>
@@ -82,20 +72,20 @@ After the commencement of **production launch**, we will pay mainnet Ethereum to
       <td>USDC 187.50</td>
     </tr>
     <tr>
-      <td rowspan="3"><a href="/liquidity-mining/campaigns/sponsors/#zilliqa">Zilliqa</a><br><small><em>Note: ZIL/BTC is excluded</em><small></td>
+      <td rowspan="3"><a href="/liquidity-mining/campaigns/sponsors/#zilliqa">Zilliqa</a><br></td>
       <td>ZIL/USDT</td>
       <td>1%</td>
-      <td>USDC 667</td>
+      <td>USDC 250</td>
     </tr>
     <tr>
       <td>ZIL/ETH</td>
       <td>1%</td>
-      <td>USDC 667</td>
+      <td>USDC 250</td>
     </tr>
     <tr>
       <td>ZIL/BNB</td>
       <td>1%</td>
-      <td>USDC 666</td>
+      <td>USDC 250</td>
     </tr>
   </tbody>
 </table>
