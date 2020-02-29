@@ -15,7 +15,7 @@ The timeline below shows the past milestones we have completed, along with the f
 
 ## Q2 2019
 * Public beta release (April 4, 2019)
-* Released connectors for [Coinbase Pro](/connectors/coinbase) and [IDEX](/connectors/idex)
+* Released connectors for [Coinbase Pro](/connectors/coinbase)
 * First community contributed connector for [Bamboo Relay](https://bamboorelay.com/)
 * Released [pure market making strategy](/strategies/pure-market-making)
 * Released [Telegram Integration](/utilities/telegram)

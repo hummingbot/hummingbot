@@ -23,7 +23,6 @@ from hummingbot.market.market_base import MarketBase
 from hummingbot.market.paper_trade import create_paper_trade_market
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
-from hummingbot.market.idex.idex_market import IDEXMarket
 from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
 from hummingbot.market.bitcoin_com.bitcoin_com_market import BitcoinComMarket
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
@@ -57,7 +56,6 @@ MARKET_CLASSES = {
     "coinbase_pro": CoinbaseProMarket,
     "huobi": HuobiMarket,
     "liquid": LiquidMarket,
-    "idex": IDEXMarket,
     "radar_relay": RadarRelayMarket,
     "dolomite": DolomiteMarket,
     "bittrex": BittrexMarket,
@@ -68,7 +66,6 @@ MARKET_CLASSES = {
 
 class HummingbotApplication(*commands):
     KILL_TIMEOUT = 10.0
-    IDEX_KILL_TIMEOUT = 30.0
     APP_WARNING_EXPIRY_DURATION = 3600.0
     APP_WARNING_STATUS_LIMIT = 6
 
@@ -154,9 +151,6 @@ class HummingbotApplication(*commands):
             self._notify("Cancelling outstanding orders...")
 
             for market_name, market in self.markets.items():
-                if market_name == "idex":
-                    self._notify(f"IDEX cancellations may take up to {int(self.IDEX_KILL_TIMEOUT)} seconds...")
-                    kill_timeout = self.IDEX_KILL_TIMEOUT
                 # By default, the bot does not cancel orders on exit on Radar Relay or Bamboo Relay,
                 # since all open orders will expire in a short window
                 if not on_chain_cancel_on_exit and (market_name == "radar_relay" or (market_name == "bamboo_relay" and not bamboo_relay_use_coordinator)):
@@ -235,21 +229,6 @@ class HummingbotApplication(*commands):
                 paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
                 for asset, balance in paper_trade_account_balance:
                     market.set_balance(asset, balance)
-
-            elif market_name == "idex":
-                assert self.wallet is not None
-                idex_api_key: str = global_config_map.get("idex_api_key").value
-                try:
-                    market = IDEXMarket(
-                        idex_api_key=idex_api_key,
-                        wallet=self.wallet,
-                        ethereum_rpc_url=ethereum_rpc_url,
-                        order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                        trading_pairs=trading_pairs,
-                        trading_required=self._trading_required,
-                    )
-                except Exception as e:
-                    self.logger().error(str(e))
 
             elif market_name == "binance":
                 binance_api_key = global_config_map.get("binance_api_key").value
