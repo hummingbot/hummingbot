@@ -32,7 +32,14 @@ During the **open beta**, we track real exchange order books for real user-submi
 - [Announcement blog post](https://hummingbot.io/blog/2019-11-liquidity-mining/)
 - [How rewards are calculated](https://hummingbot.io/blog/2019-12-liquidity-mining-rewards/)
 
-## Hummingbot Miners Dashboard
+## Hummingbot Miner
+
+[Hummingbot Miner](https://miners.hummingbot.io/) is the **official Liquidity Mining app** where users can get real-time information on liquidity mining campaigns.
+
+Use Hummingbot Miner to sign up for liquidity mining, connect the app to your exchange accounts to enable rewards, and track your liquidity mining activity and earnings. **Note that you will still need to run Hummingbot or another market making bot in order to earn liquidity mining rewards.**
+
+!!! note "Mobile support"
+    Currently, Hummingbot Miner is only optimized for desktop/laptop devices. We plan to add mobile/tablet support shortly.
 
 ### What are the tabs on the dashboard?
 

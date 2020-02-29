@@ -5,7 +5,6 @@ from hummingbot.market.binance.binance_order_book_tracker import BinanceOrderBoo
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
 from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.huobi.huobi_order_book_tracker import HuobiOrderBookTracker
-# from hummingbot.market.idex.idex_order_book_tracker import IDEXOrderBookTracker
 from hummingbot.market.paper_trade.market_config import MarketConfig
 from hummingbot.market.paper_trade.paper_trade_market import PaperTradeMarket
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
@@ -16,7 +15,6 @@ from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.binance.binance_market import BinanceMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
-# from hummingbot.market.idex.idex_market import IDEXMarket
 
 from hummingbot.market.bittrex.bittrex_market import BittrexOrderBookTracker, BittrexMarket
 from hummingbot.market.bitcoin_com.bitcoin_com_market import BitcoinComOrderBookTracker, BitcoinComMarket
