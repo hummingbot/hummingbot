@@ -74,72 +74,74 @@ markdown_extensions:
 nav:
   - General:
     - Overview: index.md
-    - FAQ: faq.md
-    - Cheatsheet: cheatsheet.md
+    - Liquidity Mining: liquidity-mining.md
+    - FAQs:
+      - Overview: faq/index.md
+      - Hummingbot FAQs: faq/hummingbot.md
+      - Market Making FAQs: faq/market-making.md
+      - Liquidity Mining FAQs: faq/liquidity-mining.md
+      - Troubleshooting FAQs: faq/troubleshooting.md
     - Quickstart:
       - Install: quickstart/index.md
       - Install-temp: quickstart/2-install.md
       - Configure: quickstart/3-configure-bot.md
       - Run: quickstart/4-run-bot.md
-      - Intro: liquidity-mining/guide/index.md
-      - 1. Sign up: liquidity-mining/guide/1-sign-up.md
-      - 2. Connect exchanges: liquidity-mining/guide/2-connect-exchanges.md
-      - 3. Run Hummingbot: liquidity-mining/guide/3-run-bot.md
-      - 4. Track earnings: liquidity-mining/guide/4-track-earnings.md
+      - LM-Sign up: quickstart/1-sign-up.md
+      - LM-Connect exchanges: quickstart/2-connect-exchanges.md
+      - LM-Run Hummingbot: quickstart/3-run-bot.md
+      - LM-Track earnings: quickstart/4-track-earnings.md
     - Support:
-      - Troubleshooting: support/troubleshooting.md
-      - Contact Support: support/contact-us.md
-    - User Manual:
-      - Installation:
-        - Overview: installation/index.md
-        - Setup a Cloud Server: installation/cloud.md
-        - Install via Binary:
-          - Windows: installation/from-binary/windows.md
-          - macOS: installation/from-binary/macos.md
-        - Install via Docker:
-          - Linux: installation/via-docker/linux.md
-          - macOS: installation/via-docker/macOS.md
-          - Windows: installation/via-docker/windows.md
-        - Install from Source:
-          - Linux: installation/from-source/linux.md
-          - macOS: installation/from-source/macOS.md
-          - Windows: installation/from-source/windows.md
+      - Overview: support/index.md
+      - Commands: support/commands.md
+    - Installation:
+      - Overview: installation/index.md
+      - Setup a Cloud Server: installation/cloud.md
+      - Install via Binary:
+        - Windows: installation/from-binary/windows.md
+        - macOS: installation/from-binary/macos.md
+      - Install via Docker:
+        - Linux: installation/via-docker/linux.md
+        - macOS: installation/via-docker/macOS.md
+        - Windows: installation/via-docker/windows.md
+      - Install from Source:
+        - Linux: installation/from-source/linux.md
+        - macOS: installation/from-source/macOS.md
+        - Windows: installation/from-source/windows.md
       - Updating Hummingbot: installation/updating.md
-      - Running Hummingbot:
-        - Using the Client: operation/client.md
-        - Running Trading Bots: operation/running-bots.md
-        - Trading Strategy Autostart: operation/autostart.md
-        - Running Multiple Bots: operation/running-multiple-bots.md
-        - Configuring Hummingbot: operation/configuration.md
-        - API Keys: installation/api-keys.md
-        - Ethereum Wallet: installation/wallet.md
-        - Ethereum Node: installation/node/index.md
-        - Get a Free Ethereum Node: installation/node/infura.md
-      - Strategies:
-        - Strategies Overview: strategies/index.md
-        - Pure Market Making: strategies/pure-market-making.md
-        - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
-        - Arbitrage: strategies/arbitrage.md
-        - Discovery: strategies/discovery.md
-      - Connectors:
-        - Connectors Overview: connectors/index.md
-        - Binance: connectors/binance.md
-        - Coinbase Pro: connectors/coinbase.md
-        - Huobi Global: connectors/huobi.md
-        - Bittrex Global: connectors/bittrex.md
-        - Liquid: connectors/liquid.md
-        - KuCoin: connectors/kucoin.md
-        - Radar Relay: connectors/radar-relay.md
-          - Bamboo Relay: connectors/bamboo-relay.md
+    - Operation:
+      - Overview: operation/index.md
+      - Configuring Hummingbot: operation/configuration.md
+      - Performance Analysis: operation/performance-analysis.md
+      - Paper Trading Mode: operation/paper-trade.md
+      - Running Trading Bots: operation/running-bots.md
+    - Strategies:
+      - Overview: strategies/index.md
+      - Pure Market Making: strategies/pure-market-making.md
+      - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
+      - Arbitrage: strategies/arbitrage.md
+      - Discovery: strategies/discovery.md
+    - Connectors:
+      - Overview: connectors/index.md
+      - Binance: connectors/binance.md
+      - Coinbase Pro: connectors/coinbase.md
+      - Huobi Global: connectors/huobi.md
+      - Bittrex Global: connectors/bittrex.md
+      - Liquid: connectors/liquid.md
+      - KuCoin: connectors/kucoin.md
+      - Radar Relay: connectors/radar-relay.md
+      - Community Connectors:
+        - Bamboo Relay: connectors/bamboo-relay.md
         - Dolomite: connectors/dolomite.md
-        - 0x Relayers: connectors/0x.md
-      - Utilities:
-        - Performance Analysis: utilities/performance-analysis.md
-        - Paper Trading Mode: utilities/paper-trade.md
-        - Kill Switch: utilities/kill-switch.md
-        - Logs and Logging: utilities/logging.md
-        - Using Exchange Rates: utilities/exchange-rates.md
-        - Integrating Telegram: utilities/telegram.md
+    - Advanced:
+      - Running Multiple Bots: advanced/running-multiple-bots.md
+      - Trading Strategy Autostart: advanced/autostart.md
+      - Kill Switch: advanced/kill-switch.md
+      - Logs and Logging: advanced/logging.md
+      - Using Exchange Rates: advanced/exchange-rates.md
+      - Integrating Telegram: advanced/telegram.md
+      - Ethereum Wallet: advanced/wallet.md
+      - Ethereum Node: advanced/node/index.md
+      - Get a Free Ethereum Node: advanced/node/infura.md
   - Developer Manual:
       - Intro: developers/index.md
       - Getting Started:
