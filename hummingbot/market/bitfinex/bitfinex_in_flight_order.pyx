@@ -66,10 +66,20 @@ cdef class BitfinexInFlightOrder(InFlightOrderBase):
         return f"{order_type} {side}"
 
     def set_status(self, order_status: str):
-        # ACTIVE, CANCELLED, PARTIALLY FILLED@128.86(0.04975707)
-        self.last_state = order_status
-        if order_status.startswith("PARTIALLY"):
-            self.last_state = OrderStatus.PARTIALLY
+        statuses = list(filter(
+            lambda s: order_status.startswith(s),
+            [
+                OrderStatus.ACTIVE,
+                OrderStatus.CANCELED,
+                OrderStatus.PARTIALLY,
+                OrderStatus.EXECUTED,
+            ]
+        ))
+
+        if (len(statuses) < 1):
+            raise Exception(f"status not found for order_status {order_status}")
+
+        self.last_state = statuses[0]
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:

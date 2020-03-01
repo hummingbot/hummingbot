@@ -28,6 +28,7 @@ cdef class BitfinexMarket(MarketBase):
         public object _shared_client
         public list _pending_requests
         public object _ws
+        public object _ws_task
 
     cdef c_start_tracking_order(self,
                                 str order_id,
