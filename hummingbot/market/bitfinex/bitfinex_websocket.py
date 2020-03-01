@@ -70,8 +70,7 @@ class BitfinexWebsocket():
 
     # receive & parse messages
     async def messages(self, condition: Optional[Any] = None) -> AsyncIterable[Any]:
-        hasCondition: bool = condition is not None
-        useTimeout: bool = hasCondition
+        useTimeout: bool = condition is not None
 
         if useTimeout:
             async with timeout(self.PING_TIMEOUT):
@@ -106,7 +105,6 @@ class BitfinexWebsocket():
     async def request(self, data: Any, condition: Optional[Any] = None) -> AsyncIterable[Any]:
         await self.emit(data)
 
-        # TODO: handle timeout
         async for msg in self.messages(condition):
             yield msg
 
