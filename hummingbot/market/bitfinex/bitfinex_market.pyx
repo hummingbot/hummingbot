@@ -257,7 +257,8 @@ cdef class BitfinexMarket(MarketBase):
             ))
         ])
 
-    # TODO: should rely only on WS due to reply attack limitation
+    # NOTICE: we only use WS to get balance data due to replay attack protection
+    # TODO: reduce '_update_balances' timer and re-enable it
     async def _update_balances(self):
         """
         Pulls the API for updated balances
@@ -415,7 +416,6 @@ cdef class BitfinexMarket(MarketBase):
                 )
                 await asyncio.sleep(0.5)
 
-    # TODO: we *have* to use websocket due to reply attack protection
     async def _api_balance(self):
         path_url = "auth/r/wallets"
         account_balances = await self._api_private("post", path_url=path_url, data={})
@@ -459,17 +459,16 @@ cdef class BitfinexMarket(MarketBase):
                                          data_str=data)
         return req
 
+    # here we queue authenticated rest api calls due to reply attack protection
     async def _api_private(self,
                            http_method: str,
                            path_url,
                            data: Optional[Dict[Any]] = None) -> Dict[Any]:
 
-        # TODO: stop using this workaround and switch to websocket
         id = uuid.uuid4()
         self._pending_requests.append(id)
 
         while (self._pending_requests[0] != id):
-            # print("gotta wait")
             await asyncio.sleep(0.01)
 
         try:
@@ -760,7 +759,6 @@ cdef class BitfinexMarket(MarketBase):
         Synchronous wrapper that generates a client-side order ID and schedules the sell order.
         """
         cdef:
-            # TODO: в доках используют time.time() надо разобратсья почему тут умножение
             int64_t tracking_nonce = <int64_t > (time.time() * 1e6)
             str order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
@@ -1173,7 +1171,6 @@ cdef class BitfinexMarket(MarketBase):
         })
 
     # list of active orders
-    # TODO: avoid using rest
     async def list_orders(self) -> List[OrderRetrieved]:
         """
         Gets a list of the user's active orders via rest API
@@ -1184,7 +1181,7 @@ cdef class BitfinexMarket(MarketBase):
         orders = [OrderRetrieved._make(res[:18]) for res in result]
         return orders
 
-    # history list of orders, TODO: avoid using rest
+    # history list of orders
     async def list_orders_history(self) -> List[OrderRetrieved]:
         """
         Gets a list of the user's active orders via rest API
@@ -1204,7 +1201,6 @@ cdef class BitfinexMarket(MarketBase):
             fee = price * abs(amount) * fee_percent
         return fee
 
-    # TODO: check how often this is called
     async def _update_order_status(self):
         """
         Pulls the rest API for for latest order statuses and update local order statuses.
