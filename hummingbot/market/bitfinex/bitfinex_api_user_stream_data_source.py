@@ -45,10 +45,10 @@ class BitfinexAPIUserStreamDataSource(UserStreamTrackerDataSource):
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                ws = BitfinexWebsocket(self._bitfinex_auth)
-                await ws.connect()
+                ws = await BitfinexWebsocket(self._bitfinex_auth).connect()
+                await ws.authenticate()
 
-                async for msg in ws.authenticate(keepAlive=True):
+                async for msg in ws.messages():
                     transformed_msg: BitfinexOrderBookMessage = self._transform_message_from_exchange(msg)
 
                     if transformed_msg is None:

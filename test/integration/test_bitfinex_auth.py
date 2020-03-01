@@ -26,7 +26,7 @@ class TestAuth(unittest.TestCase):
     async def con_auth(self):
         async with websockets.connect(BITFINEX_WS_AUTH_URI) as ws:
             ws: websockets.WebSocketClientProtocol = ws
-            payload = self.auth.generate_auth_payload()
+            payload = self.auth.generate_auth_payload('AUTH{nonce}'.format(nonce=self.auth.get_nonce()))
             await ws.send(json.dumps(payload))
             msg = await asyncio.wait_for(ws.recv(), timeout=30)  # response
             return msg

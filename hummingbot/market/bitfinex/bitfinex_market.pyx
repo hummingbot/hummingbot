@@ -148,6 +148,7 @@ cdef class BitfinexMarket(MarketBase):
         self._shared_client = None
         self._pending_requests = []
         self._ws = BitfinexWebsocket(self._bitfinex_auth)
+        self._ws_task = None
 
     @property
     def name(self) -> str:
@@ -215,15 +216,11 @@ cdef class BitfinexMarket(MarketBase):
         }
 
     async def get_ws(self):
-        if self._ws._client is not None and self._ws._client.open is True:
-            yield self._ws
-            return
+        if self._ws._client is None or self._ws._client.open is False:
+            await self._ws.connect()
+            await self._ws.authenticate()
 
-        await self._ws.connect()
-
-        async for authMsg in self._ws.authenticate(keepAlive=False):
-            yield self._ws
-            return
+        return self._ws
 
     cdef object c_get_fee(self,
                           str base_currency,
@@ -349,6 +346,7 @@ cdef class BitfinexMarket(MarketBase):
         # when exchange is online start streams
         self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
         if self._trading_required:
+            self._ws_task = safe_ensure_future(self._ws_message_listener())
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
@@ -375,6 +373,26 @@ cdef class BitfinexMarket(MarketBase):
             self._user_stream_event_listener_task.cancel()
         self._order_tracker_task = self._status_polling_task = self._user_stream_tracker_task = \
             self._user_stream_event_listener_task = None
+        if self._ws_task is not None:
+            self._ws_task.cancel()
+
+    async def _ws_message_listener(self):
+        while True:
+            try:
+                await self._ws.connect()
+                await self._ws.authenticate()
+
+                async for msg in self._ws.messages():
+                    pass
+
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().network(
+                    "Unexpected error while listeneing to messages.",
+                    exc_info=True,
+                    app_warning_msg=f"Could not listen to Bitfinex messages. "
+                )
 
     async def _status_polling_loop(self):
         """
@@ -612,7 +630,6 @@ cdef class BitfinexMarket(MarketBase):
                     exc_info=True)
         return retval
 
-    #  buy func
     async def place_order(self,
                           order_id: str,
                           trading_pair: str,
@@ -636,15 +653,24 @@ cdef class BitfinexMarket(MarketBase):
                 "symbol": f't{trading_pair}',
                 "price": str(price),
                 "amount": str(amount),
+                "meta": {
+                    "order_id": order_id
+                }
             }
         ]
 
-        def onDone(msg):
-            return msg[1] == "on"
+        def waitFor(msg):
+            isN = msg[1] == "n"
+            okEvent = msg[2][1] == "on-req"
+            okOrderId = msg[2][4][31]["order_id"] == order_id
 
-        async for ws in self.get_ws():
-            async for response in ws.request(data, condition=onDone):
-                return response
+            return isN and okEvent and okOrderId
+
+        ws = await self.get_ws()
+        await ws.emit(data)
+
+        async for response in ws.messages(waitFor=waitFor):
+            return response
 
     cdef c_start_tracking_order(self,
                                 str client_order_id,
@@ -709,7 +735,7 @@ cdef class BitfinexMarket(MarketBase):
                                                   decimal_price)
 
             # TODO: order_result needs to be ID
-            exchange_order_id = str(order_result[2][0])
+            exchange_order_id = str(order_result[2][4][0])
 
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
@@ -790,7 +816,7 @@ cdef class BitfinexMarket(MarketBase):
             order_result = await self.place_order(order_id, trading_pair, decimal_amount, False, order_type, decimal_price)
 
             # TODO: order_result needs to be ID
-            exchange_order_id = str(order_result[2][0])
+            exchange_order_id = str(order_result[2][4][0])
 
             tracked_order = self._in_flight_orders.get(order_id)
 
@@ -836,14 +862,19 @@ cdef class BitfinexMarket(MarketBase):
                 }
             ]
 
-            def onDone(msg):
-                return msg[1] == "oc"
+            def waitFor(msg):
+                okEvent = msg[1] == "oc"
+                okOrderId = msg[2][31]["order_id"] == order_id
+
+                return okEvent and okOrderId
+
+            ws = await self.get_ws()
+            await ws.emit(data)
 
             response = None
-            async for ws in self.get_ws():
-                async for _response in ws.request(data, condition=onDone):
-                    response = _response
-                    break
+            async for _response in ws.messages(waitFor=waitFor):
+                response = _response
+                break
 
             self.logger().info(f"Successfully cancelled order {order_id}.")
             self.c_stop_tracking_order(order_id)
@@ -1109,14 +1140,16 @@ cdef class BitfinexMarket(MarketBase):
                 }
             ]
 
-            def onDone(msg):
+            def waitFor(msg):
                 return msg[1] == "n" and msg[2][1] == "oc_multi-req"
 
+            ws = await self.get_ws()
+            await ws.emit(data)
+
             response = None
-            async for ws in self.get_ws():
-                async for _response in ws.request(data, condition=onDone):
-                    response = _response
-                    break
+            async for _response in ws.messages(waitFor=waitFor):
+                response = _response
+                break
 
             return list(map(lambda client_order_id: CancellationResult(client_order_id, True), order_ids))
         except Exception as e:
@@ -1187,7 +1220,7 @@ cdef class BitfinexMarket(MarketBase):
         Gets a list of the user's active orders via rest API
         :returns: json response
         """
-        path_url = "auth/r/orders/hist?limit=100"
+        path_url = "auth/r/orders/hist"
         result = await self._api_private("post", path_url=path_url, data={})
         orders = [OrderRetrieved._make(res[:18]) for res in result]
         return orders
@@ -1198,7 +1231,7 @@ cdef class BitfinexMarket(MarketBase):
         if _type == TradeType.BUY:
             fee = price * fee_percent
         else:
-            fee = price * abs(amount) * fee_percent
+            fee = price * Decimal(abs(amount)) * fee_percent
         return fee
 
     async def _update_order_status(self):
@@ -1213,27 +1246,22 @@ cdef class BitfinexMarket(MarketBase):
             return
         tracked_orders = list(self._in_flight_orders.values())
         active_orders = await self.list_orders()
-        # inactive_orders = await self.list_orders_history()
-        all_orders = active_orders
-        # all_orders = active_orders + inactive_orders
+        inactive_orders = await self.list_orders_history()
+        all_orders = active_orders + inactive_orders
         order_dict = dict((str(order.id), order) for order in all_orders)
 
         for tracked_order in tracked_orders:
-            exchange_order_id = await tracked_order.get_exchange_order_id()
+            client_order_id = tracked_order.client_order_id
+            exchange_order_id = tracked_order.exchange_order_id
             order_update = order_dict.get(str(exchange_order_id))
 
             # TODO: we should check history
             if order_update is None:
-                # self.logger().network(
-                #     f"Error fetching status update for the order {tracked_order.client_order_id}: "
-                #     f"{order_update}.",
-                #     app_warning_msg=f"Could not fetch updates for the order {tracked_order.client_order_id}. "
-                #                     f"Check API key and network connection."
-                # )
-
-                self.logger().info(
-                    f"The market order {tracked_order.client_order_id} has failed/been cancelled "
-                    f"according to order status API."
+                self.logger().network(
+                    f"Error fetching status update for the order {tracked_order.client_order_id}: "
+                    f"{order_update}.",
+                    app_warning_msg=f"Could not fetch updates for the order {tracked_order.client_order_id}. "
+                                    f"Check API key and network connection."
                 )
                 self.c_trigger_event(
                     self.MARKET_ORDER_CANCELLED_EVENT_TAG,

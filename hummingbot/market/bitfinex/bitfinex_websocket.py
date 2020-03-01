@@ -3,6 +3,7 @@ import asyncio
 import logging
 import websockets
 import ujson
+import uuid
 
 from typing import Optional, AsyncIterable, Any
 from websockets.exceptions import ConnectionClosed
@@ -10,7 +11,6 @@ from async_timeout import timeout
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.bitfinex import BITFINEX_WS_URI
 from hummingbot.market.bitfinex.bitfinex_auth import BitfinexAuth
-from hummingbot.market.bitfinex.bitfinex_utils import merge_dicts
 
 
 # reusable websocket class
@@ -29,12 +29,14 @@ class BitfinexWebsocket():
     def __init__(self, auth: Optional[BitfinexAuth]):
         self._client = None
         self._auth = auth
+        self._consumers = dict()
+        self._listening = False
 
     # connect to exchange
     async def connect(self):
         try:
             self._client = await websockets.connect(BITFINEX_WS_URI)
-            return self._client
+            return self
         except Exception as e:
             self.logger().error(f"Websocket error: '{str(e)}'")
 
@@ -45,13 +47,21 @@ class BitfinexWebsocket():
 
         self._client.close()
 
-    # yeild new incoming messages
-    async def _yield_messages(self) -> AsyncIterable[Any]:
+    # listen for new websocket messages and add them to queue
+    async def _listen_to_ws(self) -> AsyncIterable[Any]:
+        if self._listening:
+            raise AssertionError("cannot listen twice")
+
+        self._listening = True
+
         try:
             while True:
                 try:
                     msg_str: str = await asyncio.wait_for(self._client.recv(), timeout=self.MESSAGE_TIMEOUT)
                     msg = ujson.loads(msg_str)
+
+                    for queue in self._consumers.values():
+                        await queue.put(msg)
 
                     yield msg
                 except asyncio.TimeoutError:
@@ -66,60 +76,75 @@ class BitfinexWebsocket():
         except ConnectionClosed:
             return
         finally:
+            self._listening = False
             await self.disconnect()
 
-    # receive & parse messages
-    async def messages(self, condition: Optional[Any] = None) -> AsyncIterable[Any]:
-        useTimeout: bool = condition is not None
+    # listen to consumer's queue updates
+    async def _listen_to_queue(self, consumer_id: str) -> AsyncIterable[Any]:
+        try:
+            msg = self._consumers[consumer_id].get_nowait()
+            yield msg
+        except asyncio.QueueEmpty:
+            yield None
+        except Exception as e:
+            self.logger().error(f"_listen_to_queue error {str(e)}", exc_info=True)
+            raise e
 
-        if useTimeout:
-            async with timeout(self.PING_TIMEOUT):
-                async for msg in self._yield_messages():
-                    try:
-                        if (condition(msg) is True):
+    async def _listen(self, consumer_id: str) -> AsyncIterable[Any]:
+        try:
+            while True:
+                if self._listening:
+                    async for msg in self._listen_to_queue(consumer_id):
+                        if msg is not None:
                             yield msg
-                    except Exception:
-                        pass
-        else:
-            async for msg in self._yield_messages():
-                yield msg
+
+                    await asyncio.sleep(0.5)
+                else:
+                    async for msg in self._listen_to_ws():
+                        yield msg
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            raise e
+
+    async def messages(self, waitFor: Optional[Any] = None) -> AsyncIterable[Any]:
+        consumer_id = uuid.uuid4()
+        self._consumers[consumer_id] = asyncio.Queue()
+
+        try:
+            async for msg in self._listen(consumer_id):
+                if waitFor is None:
+                    yield msg
+                else:
+                    async with timeout(self.PING_TIMEOUT):
+                        try:
+                            if (waitFor(msg) is True):
+                                yield msg
+                        except Exception:
+                            pass
+        except Exception as e:
+            self.logger().error(f"_listen error {str(e)}", exc_info=True)
+            raise e
+        finally:
+            self._consumers.pop(consumer_id, None)
 
     # emit messages
     async def emit(self, data):
         await self._client.send(ujson.dumps(data))
 
-    # subscribe: emit and yield results
-    async def subscribe(self, channel: str, data: Any) -> AsyncIterable[Any]:
-        await self.emit(merge_dicts(
-            {
-                "event": 'subscribe',
-                "channel": channel
-            },
-            data
-        ))
-
-        async for msg in self.messages():
-            yield msg
-
-    # request: emit and wait for result once condition is met
-    async def request(self, data: Any, condition: Optional[Any] = None) -> AsyncIterable[Any]:
-        await self.emit(data)
-
-        async for msg in self.messages(condition):
-            yield msg
-
-    # authenticate: authenticate session and optionally yield updates
-    async def authenticate(self, keepAlive: bool = False) -> AsyncIterable[Any]:
+    # authenticate: authenticate session
+    async def authenticate(self):
         if self._auth is None:
             raise "auth not provided"
 
         payload = self._auth.generate_auth_payload('AUTH{nonce}'.format(nonce=self._auth.get_nonce()))
 
-        def condition(msg):
+        def waitFor(msg):
             isAuthEvent = msg.get("event", None) == "auth"
             isStatusOk = msg.get("status", None) == "OK"
-
             return isAuthEvent and isStatusOk
 
-        async for msg in self.request(payload, None if keepAlive else condition):
-            yield msg
+        await self.emit(payload)
+
+        async for msg in self.messages(waitFor):
+            return msg
