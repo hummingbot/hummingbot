@@ -6,14 +6,14 @@ import ujson
 
 from typing import Optional, AsyncIterable, Any
 from websockets.exceptions import ConnectionClosed
+from async_timeout import timeout
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.bitfinex import BITFINEX_WS_URI
 from hummingbot.market.bitfinex.bitfinex_auth import BitfinexAuth
 from hummingbot.market.bitfinex.bitfinex_utils import merge_dicts
 
+
 # reusable websocket class
-
-
 class BitfinexWebsocket():
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
@@ -45,24 +45,15 @@ class BitfinexWebsocket():
 
         self._client.close()
 
-    # receive & parse messages
-    async def _messages(self, condition: Optional[Any] = None) -> AsyncIterable[Any]:
+    # yeild new incoming messages
+    async def _yield_messages(self) -> AsyncIterable[Any]:
         try:
             while True:
                 try:
                     msg_str: str = await asyncio.wait_for(self._client.recv(), timeout=self.MESSAGE_TIMEOUT)
                     msg = ujson.loads(msg_str)
 
-                    if (condition is None):
-                        yield msg
-                    # filter incoming messages
-                    else:
-                        try:
-                            if (condition(msg) is True):
-                                yield msg
-                        except Exception:
-                            pass
-
+                    yield msg
                 except asyncio.TimeoutError:
                     try:
                         pong_waiter = await self._client.ping()
@@ -77,13 +68,30 @@ class BitfinexWebsocket():
         finally:
             await self.disconnect()
 
+    # receive & parse messages
+    async def messages(self, condition: Optional[Any] = None) -> AsyncIterable[Any]:
+        hasCondition: bool = condition is not None
+        useTimeout: bool = hasCondition
+
+        if useTimeout:
+            async with timeout(self.PING_TIMEOUT):
+                async for msg in self._yield_messages():
+                    try:
+                        if (condition(msg) is True):
+                            yield msg
+                    except Exception:
+                        pass
+        else:
+            async for msg in self._yield_messages():
+                yield msg
+
     # emit messages
-    async def _emit(self, data):
+    async def emit(self, data):
         await self._client.send(ujson.dumps(data))
 
     # subscribe: emit and yield results
     async def subscribe(self, channel: str, data: Any) -> AsyncIterable[Any]:
-        await self._emit(merge_dicts(
+        await self.emit(merge_dicts(
             {
                 "event": 'subscribe',
                 "channel": channel
@@ -91,15 +99,15 @@ class BitfinexWebsocket():
             data
         ))
 
-        async for msg in self._messages():
+        async for msg in self.messages():
             yield msg
 
     # request: emit and wait for result once condition is met
     async def request(self, data: Any, condition: Optional[Any] = None) -> AsyncIterable[Any]:
-        await self._emit(data)
+        await self.emit(data)
 
         # TODO: handle timeout
-        async for msg in self._messages(condition):
+        async for msg in self.messages(condition):
             yield msg
 
     # authenticate: authenticate session and optionally yield updates

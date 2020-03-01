@@ -170,8 +170,8 @@ cdef class BitfinexMarket(MarketBase):
         This function is called frequently with every clock tick
         """
         cdef:
-            int64_t last_tick = <int64_t> (self._last_timestamp / self._poll_interval)
-            int64_t current_tick = <int64_t> (timestamp / self._poll_interval)
+            int64_t last_tick = <int64_t > (self._last_timestamp / self._poll_interval)
+            int64_t current_tick = <int64_t > (timestamp / self._poll_interval)
 
         MarketBase.c_tick(self, timestamp)
         if current_tick > last_tick:
@@ -247,7 +247,7 @@ cdef class BitfinexMarket(MarketBase):
             percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
 
     async def _request_calc(self, currencies):
-        await self._ws._emit([
+        await self._ws.emit([
             0,
             "calc",
             None,
@@ -580,8 +580,8 @@ cdef class BitfinexMarket(MarketBase):
         """
         cdef:
             # The poll interval for withdraw rules is 60 seconds.
-            int64_t last_tick = <int64_t> (self._last_timestamp / 60.0)
-            int64_t current_tick = <int64_t> (self._current_timestamp / 60.0)
+            int64_t last_tick = <int64_t > (self._last_timestamp / 60.0)
+            int64_t current_tick = <int64_t > (self._current_timestamp / 60.0)
 
         if current_tick > last_tick or len(self._trading_rules) <= 0:
             info = await self._api_platform_config_pair_info()
@@ -675,7 +675,7 @@ cdef class BitfinexMarket(MarketBase):
         Synchronous wrapper that generates a client-side order ID and schedules the buy order.
         """
         cdef:
-            int64_t tracking_nonce = <int64_t> (time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t > (time.time() * 1e6)
             str order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
 
         safe_ensure_future(
@@ -761,7 +761,7 @@ cdef class BitfinexMarket(MarketBase):
         """
         cdef:
             # TODO: в доках используют time.time() надо разобратсья почему тут умножение
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t > (time.time() * 1e6)
             str order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id
