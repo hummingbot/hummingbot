@@ -15,7 +15,7 @@ The timeline below shows the past milestones we have completed, along with the f
 
 ## Q2 2019
 * Public beta release (April 4, 2019)
-* Released connectors for [Coinbase Pro](/connectors/coinbase) and [IDEX](/connectors/idex)
+* Released connectors for [Coinbase Pro](/connectors/coinbase)
 * First community contributed connector for [Bamboo Relay](https://bamboorelay.com/)
 * Released [pure market making strategy](/strategies/pure-market-making)
 * Released [Telegram Integration](/utilities/telegram)
@@ -38,14 +38,14 @@ The timeline below shows the past milestones we have completed, along with the f
 
 ## Q1 2020
 * Liquidity mining open beta launch (February 3, 2020)
-* Liquidity mining on Binance and 0x/Bamboo Relay (early March)
+* Launch of liquidity mining on Binance (March 3, 2020)
 * Released connector for [KuCoin](/connectors/kucoin)
 * More connectors for centralized exchanges: [Bitfinex](https://www.bitfinex.com/), [HitBTC](https://hitbtc.com/), [gate.io](https://www.gate.io/)
 * Improve maintenance of exchange connectors
 * Mock connector testing framework
 
 ## Q2 2020
-* Liquidity mining for [Liquid.com](https://www.liquid.com/) and [KuCoin](https://www.kucoin.com/)
+* Liquidity mining for [Liquid.com](https://www.liquid.com/), [KuCoin](https://www.kucoin.com/), and 0x/Bamboo Relay
 * Scale liquidity mining
 * Publish real-time liquidity metrics
 * Refactor codebase for easier Hummingbot development
@@ -53,7 +53,7 @@ The timeline below shows the past milestones we have completed, along with the f
 * Triangular arbitrage strategy
 * Connector certification program
 
-## 1H 2020
+## 2H 2020
 * Graphical user interface
 * Support more market types
 * Support data science workflows

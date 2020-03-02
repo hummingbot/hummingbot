@@ -225,3 +225,6 @@ https://hummingbot-distribution.s3.amazonaws.com/hummingbot_v0.20.0_setup.exe
 !!! note
     1. Adding a new token balance should be done upon starting your bot (before importing or creating strategy) to avoid error.
     2. Default paper_trade tokens and amounts will be removed upon adding a new token pair. Don't forget to add all the tokens you need.
+
+#### How to refresh Hummingbot Window Panes?
+When resizing the window of your Hummingbot, text becomes unclear or at the same location as the previous size of the window. To do a refresh to the new window size, while inside Hummingbot press `CTRL + L` and it will refresh Hummingbot window panes. These command applies to all Hummingbot build.

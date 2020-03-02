@@ -36,6 +36,11 @@ def using_bamboo_coordinator_mode() -> bool:
     return global_config_map.get("bamboo_relay_use_coordinator").value
 
 
+MIN_QUOTE_ORDER_AMOUNTS = [["BTC", 0.0011],
+                           ["ETH", 0.05],
+                           ["USD", 11],
+                           ["BNB", 0.5]]
+
 # Main global config store
 global_config_map = {
     # The variables below are usually not prompted during setup process
@@ -149,11 +154,6 @@ global_config_map = {
         ConfigVar(key="liquid_secret_key",
                   prompt="Enter your Liquid secret key >>> ",
                   required_if=using_exchange("liquid"),
-                  is_secure=True),
-    "idex_api_key":
-        ConfigVar(key="idex_api_key",
-                  prompt="Enter your IDEX API key >>> ",
-                  required_if=using_exchange("idex"),
                   is_secure=True),
     "bamboo_relay_use_coordinator":
         ConfigVar(key="bamboo_relay_use_coordinator",
@@ -287,4 +287,11 @@ global_config_map = {
                   prompt="Would you like to send error logs to hummingbot? (Yes/No) >>> ",
                   type_str="bool",
                   default=True),
+    "min_quote_order_amount":
+        ConfigVar(key="min_quote_order_amount",
+                  prompt=None,
+                  required_if=lambda: False,
+                  type_str="json",
+                  default=MIN_QUOTE_ORDER_AMOUNTS,
+                  migration_default=MIN_QUOTE_ORDER_AMOUNTS),
 }

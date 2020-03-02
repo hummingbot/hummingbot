@@ -2,7 +2,7 @@
 ###       Pure market making strategy config         ###
 ########################################################
 
-template_version: 7
+template_version: 8
 
 ############  Basic configuration section  ############
 
@@ -83,6 +83,9 @@ external_price_source_type: null
 
 # An external exchange name (for external exchange pricing source).
 external_price_source_exchange: null
+
+# A trading pair for the external exchange (for external exchange pricing source).
+external_price_source_exchange_trading_pair: null
 
 # A base asset, e.g. ETH (for external feed pricing source).
 external_price_source_feed_base_asset: null
