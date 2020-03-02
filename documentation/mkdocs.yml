@@ -82,14 +82,10 @@ nav:
       - Liquidity Mining FAQs: faq/liquidity-mining.md
       - Troubleshooting FAQs: faq/troubleshooting.md
     - Quickstart:
-      - Install: quickstart/index.md
-      - Install-temp: quickstart/2-install.md
-      - Configure: quickstart/3-configure-bot.md
-      - Run: quickstart/4-run-bot.md
-      - LM-Sign up: quickstart/1-sign-up.md
-      - LM-Connect exchanges: quickstart/2-connect-exchanges.md
-      - LM-Run Hummingbot: quickstart/3-run-bot.md
-      - LM-Track earnings: quickstart/4-track-earnings.md
+      - Overview: quickstart/index.md
+      - Install: quickstart/install.md
+      - Configure: quickstart/configure.md
+      - Run: quickstart/run-bot.md
     - Support:
       - Overview: support/index.md
       - Commands: support/commands.md
