@@ -1255,20 +1255,12 @@ cdef class BitfinexMarket(MarketBase):
             exchange_order_id = tracked_order.exchange_order_id
             order_update = order_dict.get(str(exchange_order_id))
 
-            # TODO: we should check history
             if order_update is None:
                 self.logger().network(
                     f"Error fetching status update for the order {tracked_order.client_order_id}: "
                     f"{order_update}.",
                     app_warning_msg=f"Could not fetch updates for the order {tracked_order.client_order_id} {tracked_order.exchange_order_id}. "
                                     f"Check API key and network connection."
-                )
-                self.c_trigger_event(
-                    self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                    OrderCancelledEvent(
-                        self._current_timestamp,
-                        tracked_order.client_order_id
-                    )
                 )
                 continue
 
@@ -1353,5 +1345,6 @@ cdef class BitfinexMarket(MarketBase):
                                              self._current_timestamp,
                                              tracked_order.client_order_id
                                          ))
+
                 self.c_stop_tracking_order(tracked_order.client_order_id)
         self._last_order_update_timestamp = current_timestamp
