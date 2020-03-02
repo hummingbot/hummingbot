@@ -4,45 +4,64 @@ from threading import Thread
 import websockets
 from test.integration.humming_web_app import get_open_port
 import json
+from urllib.parse import urlparse
 
 
 class HummingWsServerFactory:
     _orig_ws_connect = websockets.connect
     _ws_servers = {}
     host = "127.0.0.1"
+    # url_host_only is used for creating one HummingWSServer to handle all websockets requests and responses for
+    # a given url host.
+    url_host_only = False
+
+    @staticmethod
+    def get_ws_server(url):
+        if HummingWsServerFactory.url_host_only:
+            url = urlparse(url).netloc
+        return HummingWsServerFactory._ws_servers.get(url)
 
     @staticmethod
     def start_new_server(url):
         port = get_open_port()
         ws_server = HummingWsServer(HummingWsServerFactory.host, port)
+        if HummingWsServerFactory.url_host_only:
+            url = urlparse(url).netloc
         HummingWsServerFactory._ws_servers[url] = ws_server
         ws_server.start()
         return ws_server
 
     @staticmethod
     def reroute_ws_connect(url, **kwargs):
-        print(f"reroute {url}")
-        if url not in HummingWsServerFactory._ws_servers:
+        ws_server = HummingWsServerFactory.get_ws_server(url)
+        if ws_server is None:
             return HummingWsServerFactory._orig_ws_connect(url, **kwargs)
-        ws_server = HummingWsServerFactory._ws_servers[url]
+        kwargs.clear()
         return HummingWsServerFactory._orig_ws_connect(f"ws://{ws_server.host}:{ws_server.port}", **kwargs)
 
     @staticmethod
-    async def send_str(url, message):
-        ws_server = HummingWsServerFactory._ws_servers[url]
+    async def send_str(url, message, delay=0):
+        if delay > 0:
+            await asyncio.sleep(delay)
+        ws_server = HummingWsServerFactory.get_ws_server(url)
         await ws_server.websocket.send(message)
+
+    @staticmethod
+    def send_str_threadsafe(url, msg, delay=0):
+        ws_server = HummingWsServerFactory.get_ws_server(url)
+        asyncio.run_coroutine_threadsafe(HummingWsServerFactory.send_str(url, msg, delay), ws_server.ev_loop)
 
     @staticmethod
     async def send_json(url, data, delay=0):
         if delay > 0:
             await asyncio.sleep(delay)
-        ws_server = HummingWsServerFactory._ws_servers[url]
+        ws_server = HummingWsServerFactory.get_ws_server(url)
         await ws_server.websocket.send(json.dumps(data))
 
     @staticmethod
     def send_json_threadsafe(url, data, delay=0):
-        asyncio.run_coroutine_threadsafe(HummingWsServerFactory.send_json(url, data, delay),
-                                         HummingWsServerFactory._ws_servers[url].ev_loop)
+        ws_server = HummingWsServerFactory.get_ws_server(url)
+        asyncio.run_coroutine_threadsafe(HummingWsServerFactory.send_json(url, data, delay), ws_server.ev_loop)
 
 
 class HummingWsServer:
@@ -53,11 +72,17 @@ class HummingWsServer:
         self.host = host
         self.port = port
         self.websocket = None
+        self.stock_responses = {}
+
+    def add_stock_response(self, request, json_response):
+        self.stock_responses[request] = json_response
 
     async def _handler(self, websocket, path):
         self.websocket = websocket
         async for msg in self.websocket:
-            pass
+            stock_responses = [v for k, v in self.stock_responses.items() if k in msg]
+            if len(stock_responses) > 0:
+                await websocket.send(json.dumps(stock_responses[0]))
         print('websocket connection closed')
         return self.websocket
 

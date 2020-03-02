@@ -33,7 +33,6 @@ EXCHANGES = {
     "coinbase_pro",
     "huobi",
     "liquid",
-    "idex",
     "radar_relay",
     "dolomite",
     "bittrex",
@@ -43,7 +42,6 @@ EXCHANGES = {
 
 DEXES = {
     "bamboo_relay",
-    "idex",
     "radar_relay",
     "dolomite"
 }
@@ -59,7 +57,6 @@ EXAMPLE_PAIRS = {
     "coinbase_pro": "ETH-USDC",
     "dolomite": "WETH-DAI",
     "huobi": "ETH-USDT",
-    "idex": "ZRX-ETH",
     "liquid": "ETH-USD",
     "radar_relay": "ZRX-WETH",
 }
@@ -73,7 +70,6 @@ EXAMPLE_ASSETS = {
     "coinbase_pro": "ETH",
     "dolomite": "LRC",
     "huobi": "eth",
-    "idex": "ETH",
     "liquid": "ETH",
     "radar_relay": "ZRX",
 }
