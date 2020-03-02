@@ -1,13 +1,23 @@
 # Quickstart - Overview
 
 0. Overview
-1. Install Hummingbot
-2. Configure a market making bot
-3. Run the bot
+1. [Install Hummingbot](install)
+2. [Configure a market making bot](configure)
+3. [Run the bot in paper trading mode](run-bot)
 
 ---
 
+## Overview
+
+This guide shows you how to install Hummingbot and start running a market making bot in approximately 10 minutes. You'll learn how to:
+
+* Install the open source Hummingbot client (~3 minutes)
+* Configure a market making bot (~5 minutes)
+* Run the bot in paper trading mode (~2 minutes)
+
 ## What you'll need
+
+Since we'll be running the bot in *paper trading mode*, you don't need any crypto inventory. However, you will need an account with one of our [supported exchanges](/connectors) to create API keys.
 
 ### System Requirements
 
@@ -30,4 +40,5 @@ To grant Hummingbot access to your assets, you will need to enter the exchange A
 See [API Keys](/installation/api-keys) for instructions on creating API keys for each supported exchange.
 
 ---
-# Next: [Install Hummingbot](/quickstart/2-install)
+
+**Ready to get started?** Proceed to the first step: [Install Hummingbot](install)

@@ -16,6 +16,36 @@ Liquidity mining is similar to "*mining*" as used in the broader cryptocurrency 
 
 In addition, a collective pool of participants are working together for a common goal - in this case to provide liquidity for a specific token and exchange.  In return, miners are paid out rewards corresponding to their “*work*”.  The rules that govern rewards distributions are also clearly and algorithmically defined.
 
+### What are the tabs on the Hummingbot Miners dashboard?
+
+Tab | Description
+---|---
+**Markets** | Displays the currently available liquidity mining campaigns: eligible token pairs, exchanges, and recent participation and reward metrics
+**Activity** | Displays a miner's currently accrued rewards, recent history of rewards earned, as well as payout history.
+**Settings** | Configuration tab for setting up exchange APIs to enable participation in liquidity mining campaigns.
+
+### What do the figures on the Markets tab mean?
+
+The figures on the Markets tab show a summary of aggregated data across all campaigns and across all miners, as well as aggregated data for each token pair.
+
+![](../assets/img/hummingbot-miners-dashboard.png)
+
+<small><em>Note: figures above are for illustration only and do not represent current campaign terms; navigate to [Hummingbot Miners](https://miners.hummingbot.io) for current campaign details.</em></small>
+
+### Why do I need an Ethereum wallet to sign up?
+
+![](../assets/img/hummingbot-miners-connect_wallet.png)
+
+<small><em>Note: figures above are for illustration only and do not represent current campaign terms; navigate to [Hummingbot Miners](https://miners.hummingbot.io) for current campaign details.</em></small>
+
+The Hummingbot Miners app uses your Ethereum wallet address to:
+
+1. **assign you a unique user ID**.  The Hummingbot miners app associates your configurations (e.g. email address, API configurations), as well as activity.  This allows the miners app to display your user-specific information such as rewards earned and payout history.
+2. **send you token payouts**: mining rewards payouts will be sent to this address
+
+!!! note "Wallet not used for trading"
+    Since it is only used for the purposes mentioned above, you do not need deposit assets into or trade using this wallet.
+
 ### What strategies can a liquidity miner use?
 Liquidity mining rewards are determined based on limit orders created ("maker" orders).  Currently, the Hummingbot client has two strategies that create maker orders:
 

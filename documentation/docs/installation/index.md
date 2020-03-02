@@ -17,29 +17,28 @@ For new users, we recommending installing Hummingbot on a desktop or laptop comp
 
 Windows and macOS users can download the installer, while Linux users can install Hummingbot via Docker.
 
-* Windows: [Download Hummingbot](https://hummingbot.io/download) | [How to install](download/windows)
-* macOS: [Download Hummingbot](https://hummingbot.io/download) | [How to install](from-binary/macos)
-* Linux: [Install via Docker](via-docker/linux/)
+* **Windows**: [Download Hummingbot](https://hummingbot.io/download) | [Installation Guide](download/windows)
+* **macOS**: [Download Hummingbot](https://hummingbot.io/download) | [Installation Guide](from-binary/macos)
+* **Linux**: [Install via Docker](docker/linux/)
 
 ## For experienced users and developers
 
- and installing Hummingbot. from source or via Docker:
+For experienced and technical users, we recommend setting up a cloud instance and installing the Docker version or from source. This enables Hummingbot to run 24/7. 
 
-### Set up cloud server
-
-For experienced and technical users, we recommend setting up a cloud instance on AWS, Google Cloud or another provider. 
-
-See our [Cloud Server guide](cloud) for how to set up a server on the major platforms.
+See our [Cloud Server guide](cloud) for how to set up a server on the top cloud platforms (AWS, Google Cloud, and Azure).
 
 ### Install via Docker
-* [Linux](via-docker/linux/)
-* [Windows](via-docker/windows)
-* [macOS](via-docker/macOS)
+* [Linux](docker/linux/)
+* [Windows](docker/windows)
+* [macOS](docker/macOS)
 
 ### Install from source
-* [Linux](from-source/linux)
-* [Windows](from-source/windows)
-* [macOS](from-source/macOS)
+* [Linux](source/linux)
+* [Windows](source/windows)
+* [macOS](source/macOS)
 
 ## Updating Hummingbot
-[Updating Hummingbot](updating.md)
+
+We publish a new release of Hummingbot approximately once every month. 
+
+See this article for instructions on keeping Hummingbot updated: [Updating Hummingbot](updating.md)

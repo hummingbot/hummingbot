@@ -75,6 +75,7 @@ nav:
   - General:
     - Overview: index.md
     - Liquidity Mining: liquidity-mining.md
+    - Get Support: support.md
     - FAQs:
       - Overview: faq/index.md
       - Hummingbot FAQs: faq/hummingbot.md
@@ -86,27 +87,25 @@ nav:
       - Install: quickstart/install.md
       - Configure: quickstart/configure.md
       - Run: quickstart/run-bot.md
-    - Support:
-      - Overview: support/index.md
-      - Commands: support/commands.md
     - Installation:
       - Overview: installation/index.md
-      - Setup a Cloud Server: installation/cloud.md
-      - Install via Binary:
-        - Windows: installation/from-binary/windows.md
-        - macOS: installation/from-binary/macos.md
-      - Install via Docker:
-        - Linux: installation/via-docker/linux.md
-        - macOS: installation/via-docker/macOS.md
-        - Windows: installation/via-docker/windows.md
-      - Install from Source:
-        - Linux: installation/from-source/linux.md
-        - macOS: installation/from-source/macOS.md
-        - Windows: installation/from-source/windows.md
+      - Download:
+        - Windows: installation/download/windows.md
+        - macOS: installation/download/macos.md
+      - Docker:
+        - Linux: installation/docker/linux.md
+        - macOS: installation/docker/macOS.md
+        - Windows: installation/docker/windows.md
+      - Source:
+        - Linux: installation/source/linux.md
+        - macOS: installation/source/macOS.md
+        - Windows: installation/source/windows.md
+      - Cloud Server Guide: installation/cloud.md
       - Updating Hummingbot: installation/updating.md
     - Operation:
-      - Overview: operation/index.md
+      - Hummingbot Client: operation/client.md
       - Configuring Hummingbot: operation/configuration.md
+      - Command Reference: operation/commands.md
       - Performance Analysis: operation/performance-analysis.md
       - Paper Trading Mode: operation/paper-trade.md
       - Running Trading Bots: operation/running-bots.md
@@ -129,15 +128,14 @@ nav:
         - Bamboo Relay: connectors/bamboo-relay.md
         - Dolomite: connectors/dolomite.md
     - Advanced:
-      - Running Multiple Bots: advanced/running-multiple-bots.md
+      - Multiple Bots: advanced/running-multiple-bots.md
       - Trading Strategy Autostart: advanced/autostart.md
       - Kill Switch: advanced/kill-switch.md
       - Logs and Logging: advanced/logging.md
-      - Using Exchange Rates: advanced/exchange-rates.md
-      - Integrating Telegram: advanced/telegram.md
+      - Exchange Rates: advanced/exchange-rates.md
+      - Telegram: advanced/telegram.md
       - Ethereum Wallet: advanced/wallet.md
-      - Ethereum Node: advanced/node/index.md
-      - Get a Free Ethereum Node: advanced/node/infura.md
+      - Ethereum Node: resources/node.md
   - Developer Manual:
       - Intro: developers/index.md
       - Getting Started:
