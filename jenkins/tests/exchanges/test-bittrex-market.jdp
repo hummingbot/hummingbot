@@ -1,5 +1,5 @@
 node {
-    def testName = "idex exchange connector"
+    def testName = "bittrex exchange connector"
     def path = "/root/miniconda/bin"
     def envPath = "/root/miniconda/envs/hummingbot/bin"
 
@@ -25,15 +25,15 @@ node {
       }
 
       stage("Run tests") {
-        sh "${envPath}/nosetests -v test/integration/test_idex_market.py"
+        sh "${envPath}/nosetests -v test/integration/test_bittrex_market.py"
       }
 
     } catch (c) {
       // If there was an exception thrown, the tests failed
       sh "echo 'catch: '${c}"
- 
+
       currentBuild.result = "FAILED"
-      throw e      
+      throw e
     } finally {
       // Success or failure, always send notifications
       notifyBuild(currentBuild.result, testName)
@@ -43,7 +43,7 @@ node {
 def notifyBuild(String buildStatus = "STARTED", String testName = "not defined") {
   // build status of null means successful
   buildStatus =  buildStatus ?: 'SUCCESSFUL'
-  
+
   // Default values
   def result = "FAILURE"
 
