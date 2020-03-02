@@ -61,3 +61,5 @@ Huobi charges 0.2% on both maker and taker for most pairs. However, Huobi VIP us
 No maker and taker fees for trading on stablecoins with HUSD (PAX/HUSD, USDC/HUSD, TUSD/HUSD, USDT/HUSD).
 
 See [this page](https://www.hbg.com/en-us/about/fee/) for more information about their fees.
+
+Users can override the default fees by editing [`conf_fee_overrides.yml`](https://docs.hummingbot.io/utilities/fee-overrides/).
