@@ -156,6 +156,7 @@ nav:
         - Logs and Logging: utilities/logging.md
         - Using Exchange Rates: utilities/exchange-rates.md
         - Integrating Telegram: utilities/telegram.md
+        - Fee Override: utilities/fee-overrides.md
     - Liquidity Mining:
       - Overview: liquidity-mining/index.md
       - FAQ: liquidity-mining/faq.md
