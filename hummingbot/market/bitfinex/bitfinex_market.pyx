@@ -487,7 +487,7 @@ cdef class BitfinexMarket(MarketBase):
         self._pending_requests.append(id)
 
         while (self._pending_requests[0] != id):
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.1)
 
         try:
             return await self._api_private_fn(http_method, path_url, data)
@@ -1260,7 +1260,7 @@ cdef class BitfinexMarket(MarketBase):
                 self.logger().network(
                     f"Error fetching status update for the order {tracked_order.client_order_id}: "
                     f"{order_update}.",
-                    app_warning_msg=f"Could not fetch updates for the order {tracked_order.client_order_id}. "
+                    app_warning_msg=f"Could not fetch updates for the order {tracked_order.client_order_id} {tracked_order.exchange_order_id}. "
                                     f"Check API key and network connection."
                 )
                 self.c_trigger_event(
@@ -1282,10 +1282,6 @@ cdef class BitfinexMarket(MarketBase):
             order_type_description = tracked_order.order_type_description
             order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
 
-            # order no changed, it means is active now, skip
-            if base_execute_amount_diff == s_decimal_0:
-                self.logger().info(f"Order {client_order_id} not updated yet")
-                continue
             # Emit event if executed amount is greater than 0.
             if base_execute_amount_diff > s_decimal_0:
                 order_filled_event = OrderFilledEvent(
