@@ -4,7 +4,14 @@ This feature overrides trading fees (maker and taker) from corresponding market 
 
 ### How to configure fee override?
 
-Edit `conf_fee_overrides.yml` file using a text editor which is located in the `conf/` directory.
+Edit `conf_fee_overrides.yml` file using a text editor which is located in the `/conf` directory. Specific path or location may vary depending on the environment and how Hummingbot was installed.
+
+- Installed from source: `hummingbot/conf`
+- Installed via Docker: `hummingbot_files/hummingbot_conf`
+    - `hummingbot_files` is the default name of the parent directory. This can be different depending on the setup 
+    when the instance was created.
+- Installed via Binary (Windows): `%localappdata%\hummingbot.io\Hummingbot\conf`
+- Installed via Binary (MacOS): `~/Library/Application\ Support/Hummingbot/Conf`
 
 ### Fee override configuration by default
 
