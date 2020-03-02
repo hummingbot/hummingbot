@@ -155,11 +155,6 @@ global_config_map = {
                   prompt="Enter your Liquid secret key >>> ",
                   required_if=using_exchange("liquid"),
                   is_secure=True),
-    "idex_api_key":
-        ConfigVar(key="idex_api_key",
-                  prompt="Enter your IDEX API key >>> ",
-                  required_if=using_exchange("idex"),
-                  is_secure=True),
     "bamboo_relay_use_coordinator":
         ConfigVar(key="bamboo_relay_use_coordinator",
                   prompt="Would you like to use the Bamboo Relay Coordinator? (Yes/No) >>> ",

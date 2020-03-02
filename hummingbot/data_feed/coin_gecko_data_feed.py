@@ -82,6 +82,9 @@ class CoinGeckoDataFeed(DataFeedBase):
                     # Make BUSD map to Binance Usd
                     if asset['symbol'] == "busd" and asset['id'] != "binance-usd":
                         continue
+                    # Make ONE map to Harmony
+                    if asset["symbol"] == "one" and asset["id"] != "harmony":
+                        continue
                     asset_map[asset['id']] = asset['symbol'].upper()
                 return asset_map
         except Exception:

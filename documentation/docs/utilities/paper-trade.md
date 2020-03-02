@@ -55,8 +55,3 @@ Add more paper trade assets by editing `conf_global.yml` using a text editor. **
 - Liquid
 - Bitfinex
 - KuCoin
-
-### Not yet supported
-
-- IDEX
-
