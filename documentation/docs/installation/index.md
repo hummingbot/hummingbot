@@ -18,7 +18,7 @@ For new users, we recommending installing Hummingbot on a desktop or laptop comp
 Windows and macOS users can download the installer, while Linux users can install Hummingbot via Docker.
 
 * **Windows**: [Download Hummingbot](https://hummingbot.io/download) | [Installation Guide](download/windows)
-* **macOS**: [Download Hummingbot](https://hummingbot.io/download) | [Installation Guide](from-binary/macos)
+* **macOS**: [Download Hummingbot](https://hummingbot.io/download) | [Installation Guide](download/macos)
 * **Linux**: [Install via Docker](docker/linux/)
 
 ## For experienced users and developers

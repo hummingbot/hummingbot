@@ -1,9 +1,9 @@
 # Quickstart - Configure a market making bot
 
-0. [Overview](index)
-1. [Install Hummingbot](install)
+0. [Overview](index.md)
+1. [Install Hummingbot](install.md)
 2. Configure a market making bot
-3. [Run the bot in paper trading mode](run-bot)
+3. [Run the bot in paper trading mode](run-bot.md)
 
 ---
 
@@ -238,7 +238,7 @@ When you configure a bot, Hummingbot automatically saves the configuration file 
 
 * **Windows**: `%localappdata%\hummingbot.io\Hummingbot`
 * **macOS**: `~/Library/Application\ Support/Hummingbot`
-* **Docker installations**: Please see [this article](/support/questions/#where-are-the-config-and-log-files-on-hummingbot-installed-via-docker)
+* **Docker installations**: Please see [this article](/faq/troubleshooting/#where-are-the-config-and-log-files-on-hummingbot-installed-docker)
 
 #### Root folder layout
 ```

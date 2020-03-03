@@ -5,7 +5,7 @@ Using Hummingbot as a long running service can be achieved with the help of clou
 Below, we show you how to set up a new Virtual Machine Instance on each major cloud platform.
 
 !!! tip "Tip: Access Cloud Instances on your Phone"
-    Use Hummingbot's [Telegram Integration](/utilities/telegram) to connect to your cloud instance without a computer. Note that this has limited functionality and remains a work in progress.
+    Use Hummingbot's [Telegram Integration](/advanced/telegram) to connect to your cloud instance without a computer. Note that this has limited functionality and remains a work in progress.
 
 ## Google Cloud Platform
 
@@ -89,4 +89,4 @@ Below, we show you how to set up a new Virtual Machine Instance on each major cl
    ![Connect to Azure Instance](/assets/img/azure7.png)
 
 ---
-# Next: [Install Hummingbot for Linux](/installation/via-docker/linux)
+# Next: [Install Hummingbot for Linux](/installation/docker/linux)
