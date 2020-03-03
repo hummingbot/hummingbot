@@ -49,7 +49,19 @@ from hummingbot.model.sql_connection_manager import (
     SQLConnectionType
 )
 from hummingbot.model.trade_fill import TradeFill
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
+from test.integration.humming_web_app import HummingWebApp
+from test.integration.assets.mock_data.fixture_coinbase_pro import FixtureCoinbasePro
+from unittest import mock
+from test.integration.humming_ws_server import HummingWsServerFactory
 
+# API_SECRET length must be multiple of 4 otherwise base64.b64decode will fail
+API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
+API_KEY = "XXXX" if API_MOCK_ENABLED else conf.coinbase_pro_api_key
+API_SECRET = "YYYY" if API_MOCK_ENABLED else conf.coinbase_pro_secret_key
+API_PASSPHRASE = "ZZZZ" if API_MOCK_ENABLED else conf.coinbase_pro_passphrase
+API_BASE_URL = "api.pro.coinbase.com"
+WS_BASE_URL = "wss://ws-feed.pro.coinbase.com"
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
@@ -74,15 +86,36 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls.ev_loop = asyncio.get_event_loop()
+        trading_pair = "ETH-USDC"
+        if API_MOCK_ENABLED:
+            cls.web_app = HummingWebApp.get_instance()
+            cls.web_app.add_host_to_mock(API_BASE_URL, ["/time", "/products", f"/products/{trading_pair}/book"])
+            cls.web_app.start()
+            cls.ev_loop.run_until_complete(cls.web_app.wait_til_started())
+            cls._patcher = mock.patch("aiohttp.client.URL")
+            cls._url_mock = cls._patcher.start()
+            cls._url_mock.side_effect = cls.web_app.reroute_local
+            cls.web_app.update_response("get", API_BASE_URL, "/accounts", FixtureCoinbasePro.ACCOUNTS_GET)
+            cls.web_app.update_response("get", API_BASE_URL, "/fees", FixtureCoinbasePro.FEES_GET)
+            cls.web_app.update_response("get", API_BASE_URL, "/orders", FixtureCoinbasePro.ORDERS_STATUS)
+
+            HummingWsServerFactory.start_new_server(WS_BASE_URL)
+            cls._ws_patcher = unittest.mock.patch("websockets.connect", autospec=True)
+            cls._ws_mock = cls._ws_patcher.start()
+            cls._ws_mock.side_effect = HummingWsServerFactory.reroute_ws_connect
+
+            cls._t_nonce_patcher = unittest.mock.patch(
+                "hummingbot.market.coinbase_pro.coinbase_pro_market.get_tracking_nonce")
+            cls._t_nonce_mock = cls._t_nonce_patcher.start()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: CoinbaseProMarket = CoinbaseProMarket(
-            conf.coinbase_pro_api_key,
-            conf.coinbase_pro_secret_key,
-            conf.coinbase_pro_passphrase,
-            trading_pairs=["ETH-USDC"]
+            API_KEY,
+            API_SECRET,
+            API_PASSPHRASE,
+            trading_pairs=[trading_pair]
         )
         print("Initializing Coinbase Pro market... this will take about a minute.")
-        cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.market)
         cls.stack = contextlib.ExitStack()
         cls._clock = cls.stack.enter_context(cls.clock)
@@ -92,6 +125,10 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.stack.close()
+        if API_MOCK_ENABLED:
+            cls.web_app.stop()
+            cls._patcher.stop()
+            cls._t_nonce_patcher.stop()
 
     @classmethod
     async def wait_til_ready(cls):
@@ -139,6 +176,53 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         self.assertGreater(market_fee.percent, 0)
         self.assertEqual(len(market_fee.flat_fees), 0)
 
+    def test_fee_overrides_config(self):
+        fee_overrides_config_map["coinbase_pro_taker_fee"].value = None
+        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.005"), taker_fee.percent)
+        fee_overrides_config_map["coinbase_pro_taker_fee"].value = Decimal('0.002')
+        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.002"), taker_fee.percent)
+        fee_overrides_config_map["coinbase_pro_maker_fee"].value = None
+        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
+        fee_overrides_config_map["coinbase_pro_maker_fee"].value = Decimal('0.0075')
+        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.0075"), maker_fee.percent)
+
+    def place_order(self, is_buy, trading_pair, amount, order_type, price, nonce, fixture_resp, fixture_ws):
+        order_id, exch_order_id = None, None
+        if API_MOCK_ENABLED:
+            self._t_nonce_mock.return_value = nonce
+            side = 'buy' if is_buy else 'sell'
+            resp = fixture_resp.copy()
+            exch_order_id = resp["id"]
+            resp["side"] = side
+            self.web_app.update_response("post", API_BASE_URL, "/orders", resp)
+        if is_buy:
+            order_id = self.market.buy(trading_pair, amount, order_type, price)
+        else:
+            order_id = self.market.sell(trading_pair, amount, order_type, price)
+        if API_MOCK_ENABLED:
+            resp = fixture_ws.copy()
+            resp["order_id"] = exch_order_id
+            resp["side"] = side
+            HummingWsServerFactory.send_json_threadsafe(WS_BASE_URL, resp, delay=0.1)
+        return order_id, exch_order_id
+
+    def cancel_order(self, trading_pair, order_id, exchange_order_id, fixture_ws):
+        if API_MOCK_ENABLED:
+            self.web_app.update_response("delete", API_BASE_URL, f"/orders/{exchange_order_id}", exchange_order_id)
+        self.market.cancel(trading_pair, order_id)
+        if API_MOCK_ENABLED:
+            resp = fixture_ws.copy()
+            resp["order_id"] = exchange_order_id
+            HummingWsServerFactory.send_json_threadsafe(WS_BASE_URL, resp, delay=0.1)
+
     def test_limit_buy(self):
         self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
         trading_pair = "ETH-USDC"
@@ -149,7 +233,8 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         bid_price: Decimal = current_bid_price + Decimal("0.05") * current_bid_price
         quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
 
-        order_id = self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
+        order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price,
+                                       10001, FixtureCoinbasePro.ORDERS_LIMIT, FixtureCoinbasePro.WS_ORDER_FILLED)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -177,7 +262,8 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         ask_price: Decimal = current_ask_price - Decimal("0.05") * current_ask_price
         quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price)
 
-        order_id = self.market.sell(trading_pair, amount, OrderType.LIMIT, quantize_ask_price)
+        order_id, _ = self.place_order(False, trading_pair, amount, OrderType.LIMIT, quantize_ask_price, 10001,
+                                       FixtureCoinbasePro.ORDERS_LIMIT, FixtureCoinbasePro.WS_ORDER_FILLED)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         trade_events = [t for t in self.market_logger.event_log if isinstance(t, OrderFilledEvent)]
@@ -203,7 +289,8 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         amount: Decimal = Decimal("0.02")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        order_id = self.market.buy(trading_pair, quantized_amount, OrderType.MARKET)
+        order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.MARKET, Decimal("nan"), 10001,
+                                       FixtureCoinbasePro.ORDERS_MARKET, FixtureCoinbasePro.WS_MARKET_FILLED)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -229,7 +316,8 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         amount: Decimal = Decimal("0.02")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        order_id = self.market.sell(trading_pair, amount, OrderType.MARKET)
+        order_id, _ = self.place_order(False, trading_pair, quantized_amount, OrderType.MARKET, Decimal("nan"), 10001,
+                                       FixtureCoinbasePro.ORDERS_MARKET, FixtureCoinbasePro.WS_MARKET_FILLED)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         trade_events = [t for t in self.market_logger.event_log if isinstance(t, OrderFilledEvent)]
@@ -252,18 +340,21 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         trading_pair = "ETH-USDC"
 
         current_bid_price: Decimal = self.market.get_price(trading_pair, True)
-        amount: Decimal = 10 / current_bid_price
+        amount: Decimal = Decimal("0.2")
         self.assertGreater(self.market.get_balance("ETH"), amount)
 
         bid_price: Decimal = current_bid_price - Decimal("0.1") * current_bid_price
         quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        client_order_id = self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
-        self.market.cancel(trading_pair, client_order_id)
+        order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT,
+                                                   quantize_bid_price, 10001, FixtureCoinbasePro.ORDERS_LIMIT,
+                                                   FixtureCoinbasePro.WS_ORDER_OPEN)
+
+        self.cancel_order(trading_pair, order_id, exch_order_id, FixtureCoinbasePro.WS_ORDER_CANCELLED)
         [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
         order_cancelled_event: OrderCancelledEvent = order_cancelled_event
-        self.assertEqual(order_cancelled_event.order_id, client_order_id)
+        self.assertEqual(order_cancelled_event.order_id, order_id)
 
     def test_cancel_all(self):
         trading_pair = "ETH-USDC"
@@ -276,10 +367,24 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price * Decimal("0.7"))
         quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price * Decimal("1.5"))
 
-        self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
-        self.market.sell(trading_pair, quantized_amount, OrderType.LIMIT, quantize_ask_price)
+        _, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price,
+                                            10001, FixtureCoinbasePro.ORDERS_LIMIT, FixtureCoinbasePro.WS_ORDER_OPEN)
+        _, exch_order_id_2 = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT,
+                                              quantize_ask_price, 10002, FixtureCoinbasePro.ORDERS_LIMIT_2,
+                                              FixtureCoinbasePro.WS_ORDER_OPEN)
         self.run_parallel(asyncio.sleep(1))
+
+        if API_MOCK_ENABLED:
+            self.web_app.update_response("delete", API_BASE_URL, f"/orders/{exch_order_id}", exch_order_id)
+            self.web_app.update_response("delete", API_BASE_URL, f"/orders/{exch_order_id_2}", exch_order_id_2)
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
+        if API_MOCK_ENABLED:
+            resp = FixtureCoinbasePro.WS_ORDER_CANCELLED.copy()
+            resp["order_id"] = exch_order_id
+            HummingWsServerFactory.send_json_threadsafe(WS_BASE_URL, resp, delay=0.1)
+            resp = FixtureCoinbasePro.WS_ORDER_CANCELLED.copy()
+            resp["order_id"] = exch_order_id_2
+            HummingWsServerFactory.send_json_threadsafe(WS_BASE_URL, resp, delay=0.11)
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
 
@@ -302,6 +407,13 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_deposit_info(self):
+        if API_MOCK_ENABLED:
+            accs_resp = FixtureCoinbasePro.COINBASE_ACCOUNTS_GET.copy()
+            account_id = [x for x in accs_resp if x["currency"] == "ETH"][0]["id"]
+            deposit_info_resp = FixtureCoinbasePro.DEPOSIT_INFO
+            self.web_app.update_response("get", API_BASE_URL, f"/coinbase-accounts", accs_resp)
+            self.web_app.update_response("post", API_BASE_URL, f"/coinbase-accounts/{account_id}/addresses",
+                                         deposit_info_resp)
         [deposit_info] = self.run_parallel(
             self.market.get_deposit_info("ETH")
         )
@@ -342,10 +454,12 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             bid_price: Decimal = current_bid_price * Decimal("0.8")
             quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
 
-            amount: Decimal = Decimal("0.04")
+            amount: Decimal = Decimal("0.02")
             quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-            order_id = self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
+            order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT,
+                                                       quantize_bid_price, 10001, FixtureCoinbasePro.ORDERS_LIMIT,
+                                                       FixtureCoinbasePro.WS_ORDER_OPEN)
             [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
             order_created_event: BuyOrderCreatedEvent = order_created_event
             self.assertEqual(order_id, order_created_event.order_id)
@@ -370,10 +484,10 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
             self.market: CoinbaseProMarket = CoinbaseProMarket(
-                coinbase_pro_api_key=conf.coinbase_pro_api_key,
-                coinbase_pro_secret_key=conf.coinbase_pro_secret_key,
-                coinbase_pro_passphrase=conf.coinbase_pro_passphrase,
-                trading_pairs=["ETH-USDC", "ETH-USD"]
+                coinbase_pro_api_key=API_KEY,
+                coinbase_pro_secret_key=API_SECRET,
+                coinbase_pro_passphrase=API_PASSPHRASE,
+                trading_pairs=["ETH-USDC"]
             )
             for event_tag in self.events:
                 self.market.add_listener(event_tag, self.market_logger)
@@ -389,7 +503,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             self.assertEqual(1, len(self.market.tracking_states))
 
             # Cancel the order and verify that the change is saved.
-            self.market.cancel(trading_pair, order_id)
+            self.cancel_order(trading_pair, order_id, exch_order_id, FixtureCoinbasePro.WS_ORDER_CANCELLED)
             self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
             order_id = None
             self.assertEqual(0, len(self.market.limit_orders))
@@ -398,7 +512,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             self.assertEqual(0, len(saved_market_states.saved_state))
         finally:
             if order_id is not None:
-                self.market.cancel(trading_pair, order_id)
+                self.cancel_order(trading_pair, order_id, exch_order_id, FixtureCoinbasePro.WS_ORDER_CANCELLED)
                 self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
@@ -415,8 +529,10 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
 
         try:
             # Try to buy 0.04 ETH from the exchange, and watch for completion event.
-            amount: Decimal = Decimal("0.04")
-            order_id = self.market.buy(trading_pair, amount)
+            amount: Decimal = Decimal("0.02")
+            order_id, exch_order_id = self.place_order(True, trading_pair, amount, OrderType.MARKET, Decimal("nan"),
+                                                       10001, FixtureCoinbasePro.ORDERS_MARKET,
+                                                       FixtureCoinbasePro.WS_MARKET_FILLED)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
             # Reset the logs
@@ -424,7 +540,9 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
 
             # Try to sell back the same amount of ETH to the exchange, and watch for completion event.
             amount = buy_order_completed_event.base_asset_amount
-            order_id = self.market.sell(trading_pair, amount)
+            order_id, exch_order_id = self.place_order(False, trading_pair, amount, OrderType.MARKET, Decimal("nan"),
+                                                       10002, FixtureCoinbasePro.ORDERS_MARKET_2,
+                                                       FixtureCoinbasePro.WS_MARKET_FILLED)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 
             # Query the persisted trade logs
@@ -439,7 +557,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
 
         finally:
             if order_id is not None:
-                self.market.cancel(trading_pair, order_id)
+                self.cancel_order(trading_pair, order_id, exch_order_id, FixtureCoinbasePro.WS_ORDER_CANCELLED)
                 self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()

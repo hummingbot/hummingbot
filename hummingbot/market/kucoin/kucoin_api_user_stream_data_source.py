@@ -3,6 +3,7 @@
 import asyncio
 import aiohttp
 import logging
+import time
 from typing import (
     AsyncIterable,
     Dict,
@@ -10,6 +11,7 @@ from typing import (
 )
 import ujson
 import websockets
+
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.market.kucoin.kucoin_auth import KucoinAuth
@@ -38,6 +40,11 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._listen_for_user_stream_task = None
         super().__init__()
         self._kucoin_auth: KucoinAuth = kucoin_auth
+        self._last_recv_time: float = 0
+
+    @property
+    def last_recv_time(self) -> float:
+        return self._last_recv_time
 
     async def get_listen_key(self):
         async with aiohttp.ClientSession() as client:
@@ -61,7 +68,9 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
     async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         try:
             while True:
-                yield await ws.recv()
+                msg = await ws.recv()
+                self._last_recv_time = time.time()
+                yield msg
         except asyncio.CancelledError:
             raise
         except Exception:

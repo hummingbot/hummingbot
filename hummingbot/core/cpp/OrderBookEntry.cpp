@@ -47,8 +47,9 @@ void truncateOverlapEntriesDex(std::set<OrderBookEntry> &bidBook, std::set<Order
             if (topBid.amount*topBid.price > topAsk.amount*topAsk.price) {
                 askBook.erase(askIterator++);
             } else {
+                // There is no need to move the bid iterator, since its base
+                // always points to the end() iterator.
                 std::set<OrderBookEntry>::iterator eraseIterator = (std::next(bidIterator)).base();
-                bidIterator++;
                 bidBook.erase(eraseIterator);
             }
         } else {
@@ -67,8 +68,9 @@ void truncateOverlapEntriesCentralised(std::set<OrderBookEntry> &bidBook, std::s
             if (topBid.updateId > topAsk.updateId) {
                 askBook.erase(askIterator++);
             } else {
+                // There is no need to move the bid iterator, since its base
+                // always points to the end() iterator.
                 std::set<OrderBookEntry>::iterator eraseIterator = (std::next(bidIterator)).base();
-                bidIterator++;
                 bidBook.erase(eraseIterator);
             }
         } else {
@@ -77,14 +79,14 @@ void truncateOverlapEntriesCentralised(std::set<OrderBookEntry> &bidBook, std::s
     }
 }
 
-double OrderBookEntry::getPrice() {
+double OrderBookEntry::getPrice() const {
     return this->price;
 }
 
-double OrderBookEntry::getAmount() {
+double OrderBookEntry::getAmount() const {
     return this->amount;
 }
 
-int64_t OrderBookEntry::getUpdateId() {
+int64_t OrderBookEntry::getUpdateId() const {
     return this->updateId;
 }

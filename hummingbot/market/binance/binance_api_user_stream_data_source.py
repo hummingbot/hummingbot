@@ -3,6 +3,7 @@
 import asyncio
 import aiohttp
 import logging
+import time
 from typing import (
     AsyncIterable,
     Dict,
@@ -36,7 +37,12 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._binance_client: BinanceClient = binance_client
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
+        self._last_recv_time: float = 0
         super().__init__()
+
+    @property
+    def last_recv_time(self) -> float:
+        return self._last_recv_time
 
     async def get_listen_key(self):
         async with aiohttp.ClientSession() as client:
@@ -60,14 +66,27 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 return True
 
     async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
+        # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
         try:
             while True:
-                yield await ws.recv()
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.logger().warning("Message recv() failed. Going to reconnect...", exc_info=True)
+                try:
+                    msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
+                    self._last_recv_time = time.time()
+                    yield msg
+                except asyncio.TimeoutError:
+                    try:
+                        pong_waiter = await ws.ping()
+                        await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
+                        self._last_recv_time = time.time()
+                    except asyncio.TimeoutError:
+                        raise
+        except asyncio.TimeoutError:
+            self.logger().warning("WebSocket ping timed out. Going to reconnect...")
             return
+        except websockets.exceptions.ConnectionClosed:
+            return
+        finally:
+            await ws.close()
 
     async def messages(self) -> AsyncIterable[str]:
         try:
@@ -123,4 +142,3 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
             except Exception:
                 self.logger().error("Unexpected error. Retrying after 5 seconds...", exc_info=True)
                 await asyncio.sleep(5.0)
-

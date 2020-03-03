@@ -14,7 +14,7 @@ To run a previously created, stopped container where $NAME is the name of your i
 docker start $NAME && docker attach $NAME
 ```
 
-For additional information on useful commands, see the [cheatsheet](/cheatsheets/docker) to running Hummingbot on Docker.
+For additional information on useful commands, see the [commands](/commands/docker) to running Hummingbot on Docker.
 
 ### Installed from Source
 
@@ -55,17 +55,6 @@ The CLI is divided into three panes:
 | `start` | Starts the bot. If any configuration settings are missing, it will automatically prompt you for them.
 | `status` | Get a status report about the current bot status.
 | `stop` | Cancels all outstanding orders and stops the bot.
-
-
-## Bounty-Related Commands
-
-| Command | Description |
-|-------- | ----------- |
-| `bounty --register` | Register to participate in for liquidity bounties.
-| `bounty --list` | See a list of active bounties.
-| `bounty --restore-id` | If you lost your configuration file, this is the command to restore it.
-| `bounty --status` | See your accumulated rewards.
-| `bounty --terms` | See the terms & conditions.
 
 ## Keyboard shortcuts
 | Keyboard Combo | Command | Description |
