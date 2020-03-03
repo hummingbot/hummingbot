@@ -76,3 +76,5 @@ Read through their articles below related to trading fees, and rebates.
 
 * [VIP Level](https://www.kucoin.com/vip/level)
 * [Pay Fees via KCS & Enjoy 20% Off](https://kucoin.zendesk.com/hc/en-us/articles/360037007974-Pay-Fees-via-KCS-Enjoy-20-Off)
+
+Users can override the default fees by editing [`conf_fee_overrides.yml`](https://docs.hummingbot.io/utilities/fee-overrides/).

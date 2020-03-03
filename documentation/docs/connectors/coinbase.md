@@ -67,3 +67,5 @@ Coinbase Pro charges 0.50% fees for both maker and taker orders. However, users 
 Read through their article below related to trading fees and discounts.
 
 * [What are the fees on Coinbase Pro?](https://help.coinbase.com/en/pro/trading-and-funding/trading-rules-and-fees/fees.html)
+
+Users can override the default fees by editing [`conf_fee_overrides.yml`](https://docs.hummingbot.io/utilities/fee-overrides/).
