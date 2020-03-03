@@ -17,7 +17,7 @@ Enter your Liquid secret key >>>
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
 !!! tip "Copying and pasting into Hummingbot"
-    See [this page](https://docs.hummingbot.io/support/how-to/#paste-items-from-clipboard-in-putty) for more instructions in our Get Help section.
+    See [this page](https://docs.hummingbot.io/support/questions/#paste-items-from-clipboard-in-putty) for more instructions in our Support section.
 
 
 ### Creating Liquid API keys
@@ -71,7 +71,7 @@ The minimum order size is the value next to `minimum_order_quantity`. For exampl
 ```
 
 !!! tip
-    See troubleshooting section on how to [Get REST API data using Postman](/support/how-to/#get-rest-api-data-using-postman).
+    See troubleshooting section on how to [Get REST API data using Postman](/support/questions/#get-rest-api-data-using-postman).
 
 
 ### Transaction Fees
@@ -82,3 +82,5 @@ Read through their articles below related to trading fees, and rebates.
 
 * [Trading Fees](https://help.liquid.com/en/articles/2273126-trading-fees)
 * [Trading fee rebate for high-volume traders](https://help.liquid.com/en/articles/2825019-trading-fee-rebate-for-high-volume-traders)
+
+Users can override the default fees by editing [`conf_fee_overrides.yml`](https://docs.hummingbot.io/utilities/fee-overrides/).
