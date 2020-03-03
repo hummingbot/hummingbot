@@ -35,7 +35,9 @@ from hummingbot.core.event.events import (
     IncomingEthWatcherEvent,
     WalletWrappedEthEvent,
     WalletUnwrappedEthEvent,
-    NewBlocksWatcherEvent
+    NewBlocksWatcherEvent,
+    ZeroExEvent,
+    ZeroExFillEvent
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.pubsub import PubSub
@@ -49,6 +51,7 @@ from hummingbot.wallet.ethereum.watcher import (
     ERC20EventsWatcher,
     IncomingEthWatcher,
     WethWatcher,
+    ZeroExFillWatcher,
 )
 from hummingbot.wallet.ethereum.erc20_token import ERC20Token
 from hummingbot.logger import HummingbotLogger
@@ -102,6 +105,9 @@ class Web3WalletBackend(PubSub):
         self._unwrapped_eth_event_forwarder: EventForwarder = EventForwarder(
             self._eth_unwrapped_event_listener
         )
+        self._zeroex_fill_event_forwarder: EventForwarder = EventForwarder(
+            self._zeroex_fill_event_listener
+        )
 
         # Blockchain data
         self._local_nonce: int = -1
@@ -112,6 +118,7 @@ class Web3WalletBackend(PubSub):
         self._erc20_events_watcher: Optional[ERC20EventsWatcher] = None
         self._incoming_eth_watcher: Optional[IncomingEthWatcher] = None
         self._weth_watcher: Optional[WethWatcher] = None
+        self._zeroex_fill_watcher: Optional[ZeroExFillWatcher] = None
 
         # Tasks and transactions
         self._check_network_task: Optional[asyncio.Task] = None
@@ -149,7 +156,7 @@ class Web3WalletBackend(PubSub):
 
         :return: Gas price in wei
         """
-        remote_nonce: int = self._w3.eth.getTransactionCount(self.address, block_identifier="pending")
+        remote_nonce: int = self.get_remote_nonce()
         retval: int = max(remote_nonce, self._local_nonce)
         self._local_nonce = retval
         return retval
@@ -173,6 +180,10 @@ class Web3WalletBackend(PubSub):
     @property
     def account(self) -> LocalAccount:
         return self._account
+
+    @property
+    def zeroex_fill_watcher(self) -> ZeroExFillWatcher:
+        return self._zeroex_fill_watcher
 
     def start(self):
         if self.started:
@@ -212,7 +223,7 @@ class Web3WalletBackend(PubSub):
 
             # Fetch blockchain data.
             self._local_nonce = await async_scheduler.call_async(
-                lambda: self._w3.eth.getTransactionCount(self.address, block_identifier="pending")
+                lambda: self.get_remote_nonce()
             )
 
             # Create event watchers.
@@ -243,6 +254,10 @@ class Web3WalletBackend(PubSub):
                     self._new_blocks_watcher,
                     [self._account.address]
                 )
+            self._zeroex_fill_watcher = ZeroExFillWatcher(
+                    self._w3,
+                    self._new_blocks_watcher
+                )
 
         # Connect the event forwarders.
         self._new_blocks_watcher.add_listener(NewBlocksWatcherEvent.NewBlocks, 
@@ -253,6 +268,8 @@ class Web3WalletBackend(PubSub):
                                                 self._approved_token_event_forwarder)
         self._incoming_eth_watcher.add_listener(IncomingEthWatcherEvent.ReceivedEther,
                                                 self._received_asset_event_forwarder)
+        self._zeroex_fill_watcher.add_listener(ZeroExEvent.Fill,
+                                                self._zeroex_fill_event_forwarder)
 
         if self._weth_watcher is not None:
             self._weth_watcher.add_listener(WalletEvent.WrappedEth,
@@ -300,6 +317,8 @@ class Web3WalletBackend(PubSub):
             await self._incoming_eth_watcher.stop_network()
         if self._weth_watcher is not None:
             await self._weth_watcher.stop_network()
+        if self._zeroex_fill_watcher is not None:
+            await self._zeroex_fill_watcher.stop_network()
 
         # Stop the transaction processing tasks.
         if self._outgoing_transactions_task is not None:
@@ -571,6 +590,11 @@ class Web3WalletBackend(PubSub):
     def _eth_unwrapped_event_listener(self, unwrapped_eth_event: WalletUnwrappedEthEvent):
         self.trigger_event(WalletEvent.UnwrappedEth, unwrapped_eth_event)
 
+    def _zeroex_fill_event_listener(self, zeroex_fill_event: ZeroExFillEvent):
+        self.logger().info(f"ZeroEx order {zeroex_fill_event.order_hash} was filled at "
+                           f"transaction {zeroex_fill_event.tx_hash}.")
+        self.trigger_event(ZeroExEvent.Fill, zeroex_fill_event)
+
     async def check_and_fix_approval_amounts(self, spender: str) -> List[str]:
         """
         Maintain the approve amounts for a token.
@@ -631,3 +655,10 @@ class Web3WalletBackend(PubSub):
         async_scheduler: AsyncCallScheduler = AsyncCallScheduler.shared_instance()
         new_gas_price: int = await async_scheduler.call_async(getattr, self._w3.eth, "gasPrice")
         self._gas_price = new_gas_price
+    
+    def get_remote_nonce(self):
+        try:
+            remote_nonce = self._w3.eth.getTransactionCount(self.address, block_identifier="pending")
+            return remote_nonce
+        except BlockNotFound:
+            return None

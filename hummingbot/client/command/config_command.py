@@ -5,7 +5,6 @@ from typing import (
     Optional,
     Any,
 )
-
 from hummingbot.core.utils.wallet_setup import (
     create_and_save_wallet,
     import_and_save_wallet,
@@ -239,7 +238,6 @@ class ConfigCommand:
         else:
             self._notify('Invalid choice. Please enter "create" or "import".')
             strategy_path = await self._import_or_create_strategy_config()
-
         return strategy_path
 
     async def _one_password_config(self,  # type: HummingbotApplication

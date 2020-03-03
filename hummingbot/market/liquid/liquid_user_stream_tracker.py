@@ -24,7 +24,7 @@ class LiquidUserStreamTracker(UserStreamTracker):
     _bust_logger: Optional[HummingbotLogger] = None
 
     @classmethod
-    def logger(cls) -> (HummingbotLogger):
+    def logger(cls) -> HummingbotLogger:
         if cls._bust_logger is None:
             cls._bust_logger = logging.getLogger(__name__)
         return cls._bust_logger
@@ -41,7 +41,7 @@ class LiquidUserStreamTracker(UserStreamTracker):
         self._user_stream_tracking_task: Optional[asyncio.Task] = None
 
     @property
-    def data_source(self) -> (UserStreamTrackerDataSource):
+    def data_source(self) -> UserStreamTrackerDataSource:
         if not self._data_source:
             if self._data_source_type is UserStreamTrackerDataSourceType.EXCHANGE_API:
                 self._data_source = LiquidAPIUserStreamDataSource(
@@ -51,7 +51,7 @@ class LiquidUserStreamTracker(UserStreamTracker):
         return self._data_source
 
     @property
-    def exchange_name(self) -> (str):
+    def exchange_name(self) -> str:
         return "liquid"
 
     async def start(self):

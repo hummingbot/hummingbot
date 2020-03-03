@@ -11,7 +11,6 @@ from typing import (
 )
 import time
 
-import pandas as pd
 import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
@@ -19,7 +18,6 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.market.liquid.constants import Constants
-from hummingbot.market.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
 from hummingbot.market.liquid.liquid_auth import LiquidAuth
 from hummingbot.market.liquid.liquid_order_book import LiquidOrderBook
 
@@ -39,6 +37,7 @@ class LiquidAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._trading_pairs = trading_pairs
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
+        self._last_recv_time: float = 0
         super().__init__()
 
     @property
@@ -49,6 +48,10 @@ class LiquidAPIUserStreamDataSource(UserStreamTrackerDataSource):
         :returns: OrderBook class
         """
         return LiquidOrderBook
+
+    @property
+    def last_recv_time(self) -> float:
+        return self._last_recv_time
 
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
@@ -69,9 +72,8 @@ class LiquidAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     }
                     await ws.send(ujson.dumps(auth_request))
 
-                    active_markets_df: pd.DataFrame = await LiquidAPIOrderBookDataSource.get_active_exchange_markets()
                     quoted_currencies = [
-                        active_markets_df.loc[trading_pair, 'quoteAsset']
+                        trading_pair.split('-')[1]
                         for trading_pair in self._trading_pairs
                     ]
 
@@ -120,10 +122,12 @@ class LiquidAPIUserStreamDataSource(UserStreamTrackerDataSource):
             while True:
                 try:
                     msg: str = await asyncio.wait_for(ws.recv(), timeout=Constants.MESSAGE_TIMEOUT)
+                    self._last_recv_time = time.time()
                     yield msg
                 except asyncio.TimeoutError:
                     try:
                         pong_waiter = await ws.ping()
+                        self._last_recv_time = time.time()
                         await asyncio.wait_for(pong_waiter, timeout=Constants.PING_TIMEOUT)
                     except asyncio.TimeoutError:
                         raise

@@ -20,7 +20,7 @@ In order to trade on an Ethereum-based decentralized exchange (DEX), you may nee
 
 ## Inventory Requirements
 
-Hummingbot uses your token balances to determine the size of each order. For decentralized exchanges like DDEX and Radar Relay, it uses the token balances in your Ethereum wallet. For centralized exchanges like Binance, it uses your token balances in the respective exchange. The trade size Hummingbot makes will be always less than the lowest asset balance on any side.
+Hummingbot uses your token balances to determine the size of each order. For decentralized exchanges like Radar Relay, it uses the token balances in your Ethereum wallet. For centralized exchanges like Binance, it uses your token balances in the respective exchange. The trade size Hummingbot makes will be always less than the lowest asset balance on any side.
 
 ![inventory1](/assets/img/inventory1.png)
 ![inventory2](/assets/img/inventory2.png)

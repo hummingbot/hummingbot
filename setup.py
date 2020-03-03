@@ -19,7 +19,7 @@ if is_posix:
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20200113"
+    version = "20200302"
     packages = [
         "hummingbot",
         "hummingbot.client",
@@ -38,9 +38,7 @@ def main():
         "hummingbot.market.binance",
         "hummingbot.market.bittrex",
         "hummingbot.market.coinbase_pro",
-        "hummingbot.market.ddex",
         "hummingbot.market.huobi",
-        "hummingbot.market.idex",
         "hummingbot.market.radar_relay",
         "hummingbot.strategy",
         "hummingbot.strategy.arbitrage",
@@ -57,9 +55,7 @@ def main():
     package_data = {
         "hummingbot": [
             "core/cpp/*",
-            "wallet/ethereum/zero_ex/zero_ex_coordinator_abi.json",
-            "wallet/ethereum/zero_ex/zero_ex_coordinator_registry_abi.json",
-            "wallet/ethereum/zero_ex/zero_ex_exchange_abi.json",
+            "wallet/ethereum/zero_ex/*.json",
             "wallet/ethereum/token_abi/*.json",
             "wallet/ethereum/erc20_tokens.json",
             "VERSION",
@@ -73,6 +69,7 @@ def main():
         "cytoolz",
         "eth-abi",
         "eth-account",
+        "eth-bloom",
         "eth-hash",
         "eth-keyfile",
         "eth-keys",
