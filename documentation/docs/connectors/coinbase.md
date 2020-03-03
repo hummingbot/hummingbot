@@ -17,7 +17,7 @@ Enter your Coinbase passphrase >>>
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
 !!! tip "Copying and pasting into Hummingbot"
-    See [this page](https://docs.hummingbot.io/support/questions/#paste-items-from-clipboard-in-putty) for more instructions in our Support section.
+    See [this page](/faq/troubleshooting/#paste-items-from-clipboard-in-putty) for more instructions in our Support section.
 
 ### Creating Coinbase Pro API Keys
 
@@ -68,4 +68,4 @@ Read through their article below related to trading fees and discounts.
 
 * [What are the fees on Coinbase Pro?](https://help.coinbase.com/en/pro/trading-and-funding/trading-rules-and-fees/fees.html)
 
-Users can override the default fees by editing [`conf_fee_overrides.yml`](https://docs.hummingbot.io/utilities/fee-overrides/).
+Users can override the default fees by editing [`conf_fee_overrides.yml`](/advanced/fee-overrides/).

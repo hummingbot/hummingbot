@@ -1,7 +1,7 @@
 # MacOS Source Installation
 
 !!! info "Recommended for Developers Only"
-    [Installation using Docker](/installation/via-docker/macOS) is more efficient for running Hummingbot.  Installing from source is only recommended for developers who want to access and modify the software code.
+    [Installation using Docker](/installation/docker/macOS) is more efficient for running Hummingbot.  Installing from source is only recommended for developers who want to access and modify the software code.
 
 ## Part 1. Install Dependencies
 
