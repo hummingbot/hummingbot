@@ -106,10 +106,6 @@ Liquidity mining sets forth an analytical framework for determining market maker
 
 ## Program Sponsors
 
-!!! info "Important Disclaimer"
-    <small><ul><li>The content of this Site does not constitute investment, financial, legal, or tax advice, nor does any of the information contained on this Site constitute a recommendation, solicitation, or offer to buy or sell any digital assets, securities, options, or other financial instruments or other assets, or to provide any investment advice or service.<li>There is no guarantee of profit for participating in liquidity mining.<li>Participation is subject to eligiblity requirements.</ul></small>
-    **Please review the [Liquidity Mining Policy](https://hummingbot.io/liquidity-mining-policy/) for the full disclaimer.**
-
 ### Harmony
 
 [Harmony (ONE)](https://harmony.one/) is a new a base-layer blockchain project with key innovations in state sharding and peer-to-peer networking. Its sharding technology uses secure proof-of-stake and decentralized randomness, and its networking technology achieves optimal cross-shard routing and fask block propagation. Harmony is set on a mission to scale trust for billions of people and power decentralized economies. 

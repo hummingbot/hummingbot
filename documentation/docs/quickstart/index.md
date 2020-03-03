@@ -1,9 +1,9 @@
 # Quickstart - Overview
 
 0. Overview
-1. [Install Hummingbot](install)
-2. [Configure a market making bot](configure)
-3. [Run the bot in paper trading mode](run-bot)
+1. [Install Hummingbot](install.md)
+2. [Configure a market making bot](configure.md)
+3. [Run the bot in paper trading mode](run-bot.md)
 
 ---
 
@@ -41,4 +41,4 @@ See [API Keys](/installation/api-keys) for instructions on creating API keys for
 
 ---
 
-**Ready to get started?** Proceed to the first step: [Install Hummingbot](install)
+**Ready to get started?** Proceed to the first step: [Install Hummingbot](install.md)
