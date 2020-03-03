@@ -31,7 +31,7 @@ Below, we show how to create a Telegram bot that integrates with your Hummingbot
 
 ![](/assets/img/botfather-3.png)
 
-* Take note of the Telegram token in the response above. You'll need it for [Step 3](/utilities/telegram/#3-configure-the-telegram-settings-in-hummingbot).
+* Take note of the Telegram token in the response above. You'll need it for Step 3 below.
 
 * Click the link to your new bot in the message above launch it: `t.me/<YOUR BOT NAME>`. Click `Start` or type `/start` to start the bot.
 
