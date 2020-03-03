@@ -37,7 +37,7 @@ Remember that you need inventory of both the **base asset** (the asset that you 
 
 To grant Hummingbot access to your assets, you will need to enter the exchange API keys during the Hummingbot configuration process. 
 
-See [API Keys](/installation/api-keys) for instructions on creating API keys for each supported exchange.
+For more information on how to get the API keys for each exchange, please see the individual exchange pages in [Connectors](/connectors).
 
 ---
 
