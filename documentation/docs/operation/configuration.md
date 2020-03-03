@@ -32,6 +32,27 @@ When running `config`, you are asked to select a strategy and enter strategy-spe
 !!! note "Essential Trading Considerations"
     When configuring your bot, make sure you are aware of your exchange's minimum order sizes and fees, and check that your trading pair has sufficient order book and trading volumes. You can find more info about specific exchanges in the [connector section](/connectors).
 
+# API keys
+
+In order to trade on a centralized exchange, you will need to import your API key from that exchange to Hummingbot. API keys are account specific credentials that allow access to live information and trading outside of the exchange website.
+
+Please see below for instructions to find your API keys for the exchanges that Hummingbot currently supports:
+
+* [Binance](/connectors/binance/#creating-binance-api-keys)
+
+* [Coinbase Pro](/connectors/coinbase/#creating-coinbase-pro-api-keys)
+
+* [Huobi Global](/connectors/huobi/#creating-huobi-api-keys)
+
+* [Bittrex Global](/connectors/bittrex/#creating-bittrex-api-keys)
+
+* [Liquid](/connectors/liquid/#creating-liquid-api-keys)
+
+* [KuCoin](/connectors/kucoin/#creating-kucoin-api-keys)
+
+!!! warning "API key permissions"
+    We recommend using only **"trade"** enabled API keys; enabling **"withdraw", "transfer", or the equivalent** is unnecessary for current Hummingbot strategies.
+
 ## Config file templates
 
 This configuration files created and used by Hummingbot are saved in the `conf/` directory of your instance, which you can edit directly with a standard text editor.
