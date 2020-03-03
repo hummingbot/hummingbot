@@ -17,7 +17,7 @@ Enter your Bittrex secret key >>>
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
 !!! tip "Copying and pasting into Hummingbot"
-    See [this page](https://docs.hummingbot.io/support/questions/#paste-items-from-clipboard-in-putty) for more instructions in our Support section.
+    See [this page](/faq/troubleshooting/#paste-items-from-clipboard-in-putty) for more instructions in our Support section.
 
 
 ### Creating Bittrex API Keys
@@ -65,10 +65,6 @@ https://bittrex.com/api/v1.1/public/getmarkets
 "IsSponsored": null,
 "LogoUrl": "https://bittrexblobstorage.blob.core.windows.net/public/60b380a9-5161-4afe-a8f8-dbf3a8210033.png"
 ```
-
-!!! tip
-    See troubleshooting section on how to [Get REST API data using Postman](/support/questions/#get-rest-api-data-using-postman).
-
 
 ### Transaction Fees
 

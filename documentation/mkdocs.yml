@@ -131,12 +131,14 @@ nav:
       - Multiple Bots: advanced/running-multiple-bots.md
       - Trading Strategy Autostart: advanced/autostart.md
       - Kill Switch: advanced/kill-switch.md
+      - Fee Overrides: advanced/fee-overrides.md
       - Logs and Logging: advanced/logging.md
       - Exchange Rates: advanced/exchange-rates.md
       - Telegram: advanced/telegram.md
       - Ethereum Wallet: advanced/wallet.md
       - Ethereum Node: resources/node.md
       - Fee Override: advanced/fee-overrides.md
+
   - Developer Manual:
       - Intro: developers/index.md
       - Getting Started:
