@@ -14,18 +14,18 @@ In addition, be aware of the minimum order size requirements on different exchan
 
 **Why this is needed**: In order to run a bot on a centralized exchange like Binance, you will need to enter the exchange API keys during the Hummingbot configuration process.
 
-For more information on how to get the API keys for each exchange, please see [API Keys](/installation/api-keys).
+For more information on how to get the API keys for each exchange, please see the individual exchange pages in [Connectors](/connectors).
 
 ### Ethereum Wallet
 
 **Why this is needed**: In order to earn rewards from Liquidity Bounties, you need an Ethereum wallet. In addition, you'll need to import an Ethereum wallet when you run a trading bot on an Ethereum-based decentralized exchange.
 
-For more information on creating or importing an Ethereum wallet, see [Ethereum wallet](/installation/wallet).
+For more information on creating or importing an Ethereum wallet, see [Ethereum wallet](/advanced/wallet).
 
 ### Ethereum Node (DEX only)
 **Why this is needed**: When you run a trading bot on a Ethereum-based decentralized exchange, your wallet sends signed transactions to the blockchain via an Ethereum node.
 
-For more information, see [Ethereum node](/installation/node/node). To get a free node, see [Get a Free Ethereum Node](/installation/node/infura/).
+For more information, see [Ethereum node](/installation/node/).
 
 ## 2. Using Hummingbot
 

@@ -21,7 +21,7 @@ Enter your KuCoin passphrase >>>
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
 !!! tip "Copying and pasting into Hummingbot"
-    See [this page](https://docs.hummingbot.io/support/how-to/#paste-items-from-clipboard-in-putty) for more instructions in our Get Help section.
+    See [this page](/faq/troubleshooting/#paste-items-from-clipboard-in-putty) for more instructions in our Support section.
 
 
 ### Creating KuCoin API keys
@@ -64,10 +64,6 @@ The size must be greater than the `baseMinSize` for the symbol and no larger tha
 "isMarginEnabled": true
 ```
 
-!!! tip
-    See troubleshooting section on how to [Get REST API data using Postman](/support/how-to/#get-rest-api-data-using-postman).
-
-
 ### Transaction Fees
 
 Generally, KuCoin charges 0.10% on both maker and taker while a user can get 20% discount on trading fees if paid in KCS. However, users who trade high volumes and own substantial amounts of KuCoin Shares can receive more discounts.
@@ -76,3 +72,5 @@ Read through their articles below related to trading fees, and rebates.
 
 * [VIP Level](https://www.kucoin.com/vip/level)
 * [Pay Fees via KCS & Enjoy 20% Off](https://kucoin.zendesk.com/hc/en-us/articles/360037007974-Pay-Fees-via-KCS-Enjoy-20-Off)
+
+Users can override the default fees by editing [`conf_fee_overrides.yml`](/advanced/fee-overrides/).
