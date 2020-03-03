@@ -11,23 +11,18 @@ from typing import (
     Callable,
     List,
     Dict,
-    Iterable,
     Set,
     Optional
 )
-import os
+from os.path import join, realpath
 import ujson
 from web3 import Web3
 from web3.datastructures import AttributeDict
 from web3._utils.events import get_event_data
 
-from hummingbot.wallet.ethereum.erc20_token import ERC20Token
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.events import (
     NewBlocksWatcherEvent,
-    WalletWrappedEthEvent,
-    WalletUnwrappedEthEvent,
-    WalletEvent,
     ZeroExEvent,
     ZeroExFillEvent
 )
@@ -37,11 +32,12 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from .base_watcher import BaseWatcher
 from .new_blocks_watcher import NewBlocksWatcher
 
-with open(os.path.join(os.path.dirname(__file__), "../zero_ex/zero_ex_exchange_abi_v3.json")) as exchange_abi_json:
+with open(realpath(join(__file__, "../../zero_ex/zero_ex_exchange_abi_v3.json"))) as exchange_abi_json:
     exchange_abi: List[any] = ujson.load(exchange_abi_json)
 
 FILL_EVENT = "Fill"
 FILL_EVENT_TOPIC = bytes.fromhex("6869791f0a34781b29882982cc39e882768cf2c96995c2a110c577c53bc932d5")
+
 
 class ZeroExFillWatcher(BaseWatcher):
     _zfew_logger: Optional[HummingbotLogger] = None
@@ -101,7 +97,6 @@ class ZeroExFillWatcher(BaseWatcher):
         while True:
             try:
                 new_blocks: List[AttributeDict] = await self._new_blocks_queue.get()
-                block_hashes: List[HexBytes] = []
 
                 for block in new_blocks:
                     block_bloom_filter = BloomFilter(int.from_bytes(block["logsBloom"], byteorder='big'))
