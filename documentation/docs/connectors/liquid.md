@@ -79,4 +79,4 @@ Read through their articles below related to trading fees, and rebates.
 * [Trading Fees](https://help.liquid.com/en/articles/2273126-trading-fees)
 * [Trading fee rebate for high-volume traders](https://help.liquid.com/en/articles/2825019-trading-fee-rebate-for-high-volume-traders)
 
-Users can override the default fees by editing [`conf_fee_overrides.yml`](https://docs.hummingbot.io/operation/fee-overrides/).
+Users can override the default fees. See [Fee Overrides](/advanced/fee-overrides/).
