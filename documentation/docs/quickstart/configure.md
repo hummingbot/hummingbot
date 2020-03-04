@@ -133,7 +133,7 @@ Later, you can run the command `config advanced_mode` to access and configure th
 
 Now that you have set up how your market making bot will behave, it's time to provide it with the API keys that it needs to access your exchange account.
 
-Note that each exchange has a different format for API keys. For exchange-specific information on how to find your API keys, please see [API Keys](/installation/api-keys).
+Note that each exchange has a different format for API keys. For exchange-specific information on how to find your API keys, please see the individual exchange pages in [Connectors](/connectors).
 
 **Binance.com**
 ```
@@ -158,7 +158,7 @@ Enter your Coinbase passphrase >>>
 ```
 
 !!! tip "Tip: Copying and Pasting"
-    Users have reported not being able to copy and paste their API keys on some platforms. Our help articles such as [Paste items from clipboard in PuTTY](/faqs/troubleshooting/#paste-items-from-clipboard-in-putty) and [Other ways to copy and paste](/faqs/troubleshooting/#other-ways-to-copy-and-paste) may help.
+    Users have reported not being able to copy and paste their API keys on some platforms. Our help articles such as [Paste items from clipboard in PuTTY](/faq/troubleshooting/#paste-items-from-clipboard-in-putty) and [Other ways to copy and paste](/faq/troubleshooting/#other-ways-to-copy-and-paste) may help.
 
 ---
 
