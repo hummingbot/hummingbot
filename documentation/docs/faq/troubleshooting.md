@@ -255,7 +255,7 @@ AttributeError: 'NoneType' object has no attribute 'actions'
 
 In this case, ZRX is not yet added to the list. See [this page](/operation/paper-trade/#account-balance) on how to add balances.
 
-### Unable to convert tokem
+### Unable to convert token
 
 **Sample log error message**<br/>
 `ValueError: Unable to convert XYZ to BTC. Aborting.`

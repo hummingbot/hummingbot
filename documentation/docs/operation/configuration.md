@@ -3,7 +3,7 @@
 !!! note
     The commands below assume that you are already inside the Hummingbot CLI. Please see our  [installation](/installation) and [client UI](/operation/client) guides if you need help installing and launching the CLI.
 
-We also recommend that users read the [Hummingbot whitepaper](https://www.hummingbot.io/whitepaper.pdf) for more details about trading strategies.
+We also recommend that users read the [Hummingbot whitepaper](https://www.hummingbot.io/hummingbot.pdf) for more details about trading strategies.
 
 ## Getting Started
 
