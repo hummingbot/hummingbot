@@ -7,7 +7,7 @@ In the pure market making strategy, Hummingbot continually posts limit bid and a
 Users can specify how far away ("spreads") from the mid price the bid and asks are, the order quantity, and how often prices should be updated (order cancels + new orders posted).
 
 !!! warning
-    Please exercise caution while running this strategy and set appropriate [kill switch](/utilities/kill-switch/) rate. The current version of this strategy is intended to be a basic template that users can test and customize. Running the strategy with substantial capital without additional modifications may result in losses.
+    Please exercise caution while running this strategy and set appropriate [kill switch](/advanced/kill-switch/) rate. The current version of this strategy is intended to be a basic template that users can test and customize. Running the strategy with substantial capital without additional modifications may result in losses.
 
 ### Schematic
 
@@ -58,7 +58,7 @@ When creating a new strategy or executing `config` command, the following walks 
 |-----|-----|
 | `What is your market making strategy >>>` | Enter `pure_market_making`. |
 | `Import previous configs or create a new config file? (import/create) >>>` | Enter `create` to create a new config file.<br/><br/>Enter `import` to specify the existing config file name you want to use. |
-| `Enter your maker exchange name >>>` | The exchange where the bot will place bid and ask orders.<br/><br/>Currently available options: `binance`, `radar_relay`, `coinbase_pro`, `idex`, `bamboo_relay`, `huobi`, `bittrex`, `dolomite`, `liquid`, `kucoin` *(case sensitive)* |
+| `Enter your maker exchange name >>>` | The exchange where the bot will place bid and ask orders.<br/><br/>Currently available options: `binance`, `radar_relay`, `coinbase_pro`, `bamboo_relay`, `huobi`, `bittrex`, `dolomite`, `liquid`, `kucoin` *(case sensitive)* |
 | `Enter the token symbol you would like to trade on [exchange name] >>>` | Enter the token symbol for the *maker exchange*.<br/>Example input: `ETH-USD`<br/> |
 | `How far away from the mid price do you want to place the first bid order? (Enter 0.01 to indicate 1%) >>>` | This sets `bid_place_threshold` ([definition](#configuration-parameters)). |
 | `How far away from the mid price do you want to place the first ask order? (Enter 0.01 to indicate 1%) >>>` | This sets `ask_place_threshold` ([definition](#configuration-parameters)). |

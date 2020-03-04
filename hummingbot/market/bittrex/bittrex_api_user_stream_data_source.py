@@ -43,6 +43,7 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
         self._last_recv_time: float = 0
+        self._websocket_connection: Optional[signalr_aio.Connection] = None
         super().__init__()
 
     @property
@@ -63,7 +64,7 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         except asyncio.TimeoutError:
             self.logger().warning(f"Message recv() timed out. Reconnecting to Bittrex SignalR WebSocket... ")
 
-    async def _transform_raw_message(self, msg) -> Dict[str, Any]:
+    def _transform_raw_message(self, msg) -> Dict[str, Any]:
 
         timestamp_patten = "%Y-%m-%dT%H:%M:%S"
 
@@ -117,22 +118,21 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
-            connection: Optional[signalr_aio.Connection] = None
             try:
-                connection = signalr_aio.Connection(BITTREX_WS_FEED, session=None)
-                hub = connection.register_hub("c2")
+                self._websocket_connection = signalr_aio.Connection(BITTREX_WS_FEED, session=None)
+                hub = self._websocket_connection.register_hub("c2")
 
                 self.logger().info("Invoked GetAuthContext")
                 hub.server.invoke("GetAuthContext", self._bittrex_auth.api_key)
-                connection.start()
+                self._websocket_connection.start()
 
-                async for raw_message in self._socket_user_stream(connection):
-                    decode: Dict[str, Any] = await self._transform_raw_message(raw_message)
-                    if decode["error"]:
+                async for raw_message in self._socket_user_stream(self._websocket_connection):
+                    decode: Dict[str, Any] = self._transform_raw_message(raw_message)
+                    if decode.get("error") is not None:
                         self.logger().error(decode["error"])
                         continue
 
-                    if decode["content"] is not None:
+                    if decode.get("content") is not None:
                         signature = decode["content"].get("signature")
                         content_type = decode["event_type"]
                         if signature is not None:
