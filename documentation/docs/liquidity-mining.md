@@ -13,7 +13,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
 - [Hummingbot Miners](https://hummingbot.io/liquidity-mining): The **official Liquidity Mining app** where you can see real-time rates of return and track your payouts
 - [Get help on Discord](https://discord.hummingbot.io): Join the **#liquidity-mining** channel for 24/7 support
 - [How it works](https://hummingbot.io/liquidity-mining)
-- [Liquidity Mining FAQs](/faqs/liquidity-mining)
+- [Liquidity Mining FAQs](/faq/liquidity-mining)
 - [Liquidity Mining whitepaper](https://hummingbot.io/liquidity-mining.pdf)
 
 
@@ -112,7 +112,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
 
 Partnering with Harmony, we launched a successful pilot program rewarding community members for running market making bots for $ONE using Hummingbot in 2019. 
 
-[Whitepaper](https://harmony.one/pdf/whitepaper.pdf) | [Twitter](https://twitter.com/harmonyprotocol) | [Telegram](https://t.me/harmony_one) | [Github](https://github.com/harmony-one) | [Explorer](https://explorer.binance.org/asset/ONE-5F9) | [CoinMarketCap](https://coinmarketcap.com/currencies/harmony/) | [CoinGecko](https://www.coingecko.com/en/coins/harmony)
+[Whitepaper](https://harmony.one/pdf/hummingbot.pdf) | [Twitter](https://twitter.com/harmonyprotocol) | [Telegram](https://t.me/harmony_one) | [Github](https://github.com/harmony-one) | [Explorer](https://explorer.binance.org/asset/ONE-5F9) | [CoinMarketCap](https://coinmarketcap.com/currencies/harmony/) | [CoinGecko](https://www.coingecko.com/en/coins/harmony)
 
 ### iExec
 
@@ -130,4 +130,4 @@ Partnering with Harmony, we launched a successful pilot program rewarding commun
 
 [Zilliqa (ZIL)](https://zilliqa.com/) is a base-layer blockchain protocol centered around the idea of 'Sharding' and designed to enhance the scalability of cryptocurrency networks such as Ethereum. According to its white paper, transactions speed could scale to approximately 1,000x that of Ethereum's network. Zilliqa’s high throughput means that developers can focus on fleshing out their ideas rather than worrying about network congestion.
 
-[Whitepaper](https://docs.zilliqa.com/whitepaper.pdf) | [Twitter](https://twitter.com/zilliqa) | [Telegram](https://t.me/zilliqachat) | [Github](https://github.com/Zilliqa) | [Explorer](https://viewblock.io/zilliqa) | [CoinMarketCap](https://coinmarketcap.com/currencies/zilliqa) | [CoinGecko](https://www.coingecko.com/en/coins/zilliqa)
+[Whitepaper](https://docs.zilliqa.com/hummingbot.pdf) | [Twitter](https://twitter.com/zilliqa) | [Telegram](https://t.me/zilliqachat) | [Github](https://github.com/Zilliqa) | [Explorer](https://viewblock.io/zilliqa) | [CoinMarketCap](https://coinmarketcap.com/currencies/zilliqa) | [CoinGecko](https://www.coingecko.com/en/coins/zilliqa)
