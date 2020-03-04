@@ -4,7 +4,7 @@ Below is a summary of frequently asked questions regarding Hummingbot.  If you h
 
 ### What is Hummingbot?
 
-[Hummingbot](http://hummingbot.io) is open source software that helps you build and run market making bots. For more detailed information, please read the [Hummingbot whitepaper](https://www.hummingbot.io/whitepaper.pdf).
+[Hummingbot](http://hummingbot.io) is open source software that helps you build and run market making bots. For more detailed information, please read the [Hummingbot whitepaper](https://www.hummingbot.io/hummingbot.pdf).
 
 ### Why are you making Hummingbot available to the general public rather than just running it in-house?
 
