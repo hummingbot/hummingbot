@@ -93,8 +93,8 @@ class CoinGeckoDataFeed(DataFeedBase):
     async def update_asset_prices(self, id_asset_map: Dict[str, str]):
         try:
             await CoinCapDataFeed.get_instance().get_ready()
-            all_ids = [k for k, v in id_asset_map.items() if v in CoinCapDataFeed.get_instance().price_dict.keys()]
-            ids_chunks: List[List[str]] = [all_ids[x:x + 70] for x in range(0, len(all_ids), 70)]
+            all_ids: List[str] = list(id_asset_map.keys())
+            ids_chunks: List[List[str]] = [all_ids[x:x + 500] for x in range(0, len(all_ids), 500)]
             client: aiohttp.ClientSession = await self._http_client()
             price_url: str = f"{self.BASE_URL}/simple/price"
             price_dict: Dict[str, float] = {}
