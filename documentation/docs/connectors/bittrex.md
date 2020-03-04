@@ -17,7 +17,7 @@ Enter your Bittrex secret key >>>
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
 !!! tip "Copying and pasting into Hummingbot"
-    See [this page](https://docs.hummingbot.io/support/how-to/#paste-items-from-clipboard-in-putty) for more instructions in our Get Help section.
+    See [this page](/faq/troubleshooting/#paste-items-from-clipboard-in-putty) for more instructions in our Support section.
 
 
 ### Creating Bittrex API Keys
@@ -66,10 +66,8 @@ https://bittrex.com/api/v1.1/public/getmarkets
 "LogoUrl": "https://bittrexblobstorage.blob.core.windows.net/public/60b380a9-5161-4afe-a8f8-dbf3a8210033.png"
 ```
 
-!!! tip
-    See troubleshooting section on how to [Get REST API data using Postman](/support/how-to/#get-rest-api-data-using-postman).
-
-
 ### Transaction Fees
 
 Bittrex charges 0.25% in both maker and taker fees for most users. However, those who trade in high volumes can trade at discounted rates. Refer to [Fee Schedule](https://bittrex.zendesk.com/hc/en-us/articles/115000199651-What-fees-does-Bittrex-charge-/) section for more details.
+
+Users can override the default fees by editing [`conf_fee_overrides.yml`](https://docs.hummingbot.io/advanced/fee-overrides/).
