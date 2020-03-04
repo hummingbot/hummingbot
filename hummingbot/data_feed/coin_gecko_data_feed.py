@@ -11,6 +11,7 @@ from hummingbot.core.utils import async_ttl_cache
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
 
 
 class CoinGeckoDataFeed(DataFeedBase):
@@ -81,6 +82,9 @@ class CoinGeckoDataFeed(DataFeedBase):
                     # Make BUSD map to Binance Usd
                     if asset['symbol'] == "busd" and asset['id'] != "binance-usd":
                         continue
+                    # Make ONE map to Harmony
+                    if asset["symbol"] == "one" and asset["id"] != "harmony":
+                        continue
                     asset_map[asset['id']] = asset['symbol'].upper()
                 return asset_map
         except Exception:
@@ -88,8 +92,9 @@ class CoinGeckoDataFeed(DataFeedBase):
 
     async def update_asset_prices(self, id_asset_map: Dict[str, str]):
         try:
-            all_ids: List[str] = list(id_asset_map.keys())
-            ids_chunks: List[List[str]] = [all_ids[x:x + 500] for x in range(0, len(all_ids), 500)]
+            await CoinCapDataFeed.get_instance().get_ready()
+            all_ids = [k for k, v in id_asset_map.items() if v in CoinCapDataFeed.get_instance().price_dict.keys()]
+            ids_chunks: List[List[str]] = [all_ids[x:x + 70] for x in range(0, len(all_ids), 70)]
             client: aiohttp.ClientSession = await self._http_client()
             price_url: str = f"{self.BASE_URL}/simple/price"
             price_dict: Dict[str, float] = {}
@@ -100,12 +105,15 @@ class CoinGeckoDataFeed(DataFeedBase):
                 try:
                     async with client.request("GET", price_url, params=params) as resp:
                         results: Dict[str, Dict[str, float]] = await resp.json()
+                        if 'error' in results:
+                            raise Exception(f"{results['error']}")
                         for id, usd_price in results.items():
                             asset: str = id_asset_map[id].upper()
                             price: float = float(usd_price.get("usd", 0.0))
                             price_dict[asset] = price
-                except Exception:
-                    self.logger().warning("Coin Gecko API request failed. Unable to get prices.")
+                except Exception as e:
+                    self.logger().warning(f"Coin Gecko API request failed. Exception: {str(e)}")
+                    raise e
                 await asyncio.sleep(0.1)
 
             self._price_dict = price_dict

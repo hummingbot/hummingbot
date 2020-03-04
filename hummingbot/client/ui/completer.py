@@ -51,7 +51,7 @@ class HummingbotCompleter(Completer):
                 market = exchange
                 break
         trading_pairs = trading_pair_fetcher.trading_pairs.get(market, []) if trading_pair_fetcher.ready else []
-        return WordCompleter(trading_pairs, ignore_case=True)
+        return WordCompleter(trading_pairs, ignore_case=True, sentence=True)
 
     @property
     def _wallet_address_completer(self):

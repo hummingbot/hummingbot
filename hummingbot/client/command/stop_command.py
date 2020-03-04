@@ -1,9 +1,5 @@
 import platform
-
-from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.core.utils.async_utils import safe_ensure_future
-
-
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -37,8 +33,6 @@ class StopCommand:
 
         if self.strategy_task is not None and not self.strategy_task.cancelled():
             self.strategy_task.cancel()
-
-        ExchangeRateConversion.get_instance().stop()
 
         if self.markets_recorder is not None:
             self.markets_recorder.stop()

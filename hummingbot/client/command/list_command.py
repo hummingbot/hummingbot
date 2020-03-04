@@ -9,7 +9,14 @@ from typing import (
     Any,
     Optional,
 )
-
+from hummingbot.client.config.config_crypt import (
+    decrypt_file,
+    list_encrypted_file_paths,
+    get_encrypted_key_name_from_file
+)
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
+from functools import partial
 from hummingbot.core.utils.wallet_setup import list_wallets
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.in_memory_config_map import in_memory_config_map
@@ -24,14 +31,6 @@ from hummingbot.model.trade_fill import TradeFill
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.client.config.config_crypt import (
-    decrypt_file,
-    list_encrypted_file_paths,
-    get_encrypted_key_name_from_file
-)
-from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
-from functools import partial
 
 
 class ListCommand:
@@ -148,8 +147,7 @@ class ListCommand:
             return
         self.placeholder_mode = True
         self.app.toggle_hide_input()
-        if in_memory_config_map.get("password").value is None:
-            in_memory_config_map.get("password").value = await self._one_password_config()
+        in_memory_config_map.get("password").value = await self._one_password_config()
         password = in_memory_config_map.get("password").value
         coro = AsyncCallScheduler.shared_instance().call_async(partial(self._list_all_encrypted, encrypted_files,
                                                                        password), timeout_seconds=30)
@@ -173,4 +171,3 @@ class ListCommand:
             safe_ensure_future(self.list_encrypted())
         else:
             self.help("list")
-
