@@ -13,6 +13,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
 - [Hummingbot Miners](https://hummingbot.io/liquidity-mining): The **official Liquidity Mining app** where you can see real-time rates of return and track your payouts
 - [Get help on Discord](https://discord.hummingbot.io): Join the **#liquidity-mining** channel for 24/7 support
 - [How it works](https://hummingbot.io/liquidity-mining)
+- [Hummingbot Quickstart Guide](https://docs.hummingbot.io/quickstart)
 - [Liquidity Mining FAQs](/faqs/liquidity-mining)
 - [Liquidity Mining whitepaper](https://hummingbot.io/liquidity-mining.pdf)
 
