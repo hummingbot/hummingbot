@@ -13,7 +13,7 @@ Our business model is to administer [Liquidity Mining](/liquidity-mining) progra
 ## Getting started
 * [FAQ](/faq): Learn about Hummingbot and market making as an algo trading strategy
 * [Quickstart](/quickstart): Install Hummingbot and run your first market making bot
-* [Support](/support/troubleshooting): Get help from our 24/7 live support team
+* [Support](/support/): Get help from our 24/7 live support team
 
 ## For experienced users
 * [Installation](/installation): See how to install Hummingbot in various environments
