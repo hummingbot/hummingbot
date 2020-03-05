@@ -2,7 +2,7 @@
 
 ## How It Works
 
-Cross exchange market making is described in [Strategies](/strategies/), with a further discussion in the Hummingbot [white paper](https://hummingbot.io/whitepaper.pdf).
+Cross exchange market making is described in [Strategies](/strategies/), with a further discussion in the Hummingbot [white paper](https://hummingbot.io/hummingbot.pdf).
 
 !!! warning "Updates to strategy"
     The cross exchange market making strategy has been updated as of v0.15.0, so that it will always place the order at the minimum profitability level. If the sell price for the specified volume on the taker exchange is 100, and you set the min_profitability as 0.01, it will place the maker buy order at 99. The top depth tolerance is also now specified by the user in base currency units. Please do not use old configuration files for running this strategy.
