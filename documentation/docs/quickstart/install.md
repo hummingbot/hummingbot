@@ -45,4 +45,4 @@ We recommend that new Linux users install Hummingbot via Docker or from source:
 After installing Hummingbot, you should see the Hummingbot interface:
 ![Hummingbot CLI](/assets/img/hummingbot-cli.png)
 
-Proceed to the next step: [Configure a market making bot](/quickstart/configure)
+Proceed to the next step: [Configure a market making bot](configure.md)
