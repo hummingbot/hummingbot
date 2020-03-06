@@ -53,11 +53,13 @@ exit
 Run the following commands:
 
 ```bash tab="Option 1: Easy Install"
-# 1) Download Hummingbot install script
+# 1) Download Hummingbot install, start, and update script
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh
 
 # 2) Enable script permissions
-chmod a+x create.sh
+chmod a+x *.sh
 
 # 3) Create a hummingbot instance
 ./create.sh
@@ -131,11 +133,13 @@ exit
 Run the following commands:
 
 ```bash tab="Option 1: Easy Install"
-# 1) Download Hummingbot install script
+# 1) Download Hummingbot install, start, and update script
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh
 
 # 2) Enable script permissions
-chmod a+x create.sh
+chmod a+x *.sh
 
 # 3) Create a hummingbot instance
 ./create.sh
@@ -207,11 +211,13 @@ exit
 Run the following commands:
 
 ```bash tab="Option 1: Easy Install"
-# 1) Download Hummingbot install script
+# 1) Download Hummingbot install, start, and update script
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh
 
 # 2) Enable script permissions
-chmod a+x create.sh
+chmod a+x *.sh
 
 # 3) Create a hummingbot instance
 ./create.sh
