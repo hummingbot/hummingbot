@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from __future__ import unicode_literals
-from prompt_toolkit.eventloop import get_event_loop
+from asyncio import get_event_loop
 
 from contextlib import contextmanager
 import threading
