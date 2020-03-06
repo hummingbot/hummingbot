@@ -42,11 +42,11 @@ cdef class KrakenInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"FILLED", "CANCELED", "PENDING_CANCEL", "REJECTED", "EXPIRED"}
+        return self.last_state in {"closed", "canceled", "expired"}
 
     @property
     def is_failure(self) -> bool:
-        return self.last_state in {"CANCELED", "PENDING_CANCEL", "REJECTED", "EXPIRED"}
+        return self.last_state in {"canceled", "expired"}
 
     @property
     def is_cancelled(self) -> bool:
@@ -110,7 +110,6 @@ cdef class KrakenInFlightOrder(InFlightOrderBase):
 
     def update_with_trade_update(self, trade_update: Dict[str, Any]):
         trade_id = trade_update["trade_id"]
-        # trade_update["orderId"] is type int
         if str(trade_update["ordertxid"]) != self.exchange_order_id or trade_id in self.trade_id_set:
             # trade already recorded
             return

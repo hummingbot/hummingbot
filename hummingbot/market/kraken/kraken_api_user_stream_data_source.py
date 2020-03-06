@@ -86,7 +86,7 @@ class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     if self._current_auth_token is None:
                         self._current_auth_token = await self.get_auth_token()
 
-                    for subscription_type in ["openOrders"]:
+                    for subscription_type in ["openOrders", "ownTrades"]:
                         subscribe_request: Dict[str, Any] = {
                             "event": "subscribe",
                             "subscription": {
