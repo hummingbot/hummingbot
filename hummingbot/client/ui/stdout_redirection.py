@@ -60,7 +60,7 @@ class StdoutProxy(object):
         def write_and_flush():
             self.log_field.log(text)
 
-        get_event_loop().call_from_executor(write_and_flush)
+        get_event_loop().run_in_executor(None, write_and_flush)
 
     def _write(self, data):
         if '\n' in data:
