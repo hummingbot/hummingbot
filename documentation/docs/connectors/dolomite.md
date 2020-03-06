@@ -11,8 +11,8 @@ Dolomite streamlines the decentralized exchange experience so that users can uti
 
 An ethereum node is required in order to use Hummingbot with Dolomite. Luckily, an Ethereum node is only needed for approving tokens, which is a one-time process. So, users of the Dolomite connector can rest assured it will add virtually no extra stress to their node. See below for information on how to create an Ethereum node and wallet:
 
-* [Creating a crypto wallet](/installation/wallet)
-* [Creating an ethereum node](/installation/node/node)
+* [Creating a crypto wallet](/advanced/wallet)
+* [Creating an ethereum node](/advanced/node)
 
 In addition to the above, the user must also create an account on Dolomite. As of now, this takes 1 of 2 forms:
 1) For users **inside** the US, they must create an account from the site [https://app.dolomite.io](https://app.dolomite.io).

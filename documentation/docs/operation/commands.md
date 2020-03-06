@@ -1,6 +1,5 @@
-## Hummingbot
 
-### Client commands
+## Hummingbot commands
 
 | Command | Function |
 |---------|----------|
@@ -13,12 +12,12 @@
 | `exit`| Exit and cancel all outstanding orders.
 | `exit -f`| Force quit without cancelling orders.
 | `list` | List global objects like exchanges and trades.
-| `paper_trade` | Toggle [paper trade mode](/utilities/paper-trade).
+| `paper_trade` | Toggle [paper trading mode](/operation/paper-trade).
 | `export_trades` | Export your bot's trades to a CSV file.
 | `export_private_key` | Export your Ethereum wallet private key.
 | `get_balance` | Query your balance in an exchange or wallet.
 
-### Keyboard shortcuts
+## Hummingbot keyboard shortcuts
 
 | Keyboard Combo | Command | Description |
 |-------- | ----------- | ----------- |
@@ -36,7 +35,7 @@
     3. Hit `Enter` to jump to the next matching keyword (incremental search)
     4. When you are done. Press `CTRL + F` again to go back to reset.
 
-## Docker 
+## Docker scripts
 
 These commands execute the helper scripts for running Hummingbot and are performed from the terminal or shell. Ensure that the scripts are located in your current directory before running these commands.
 
@@ -49,7 +48,7 @@ These commands execute the helper scripts for running Hummingbot and are perform
 !!! tip
     Run the command `ls -l` to check the files in your current working directory.
 
-### Docker scripts
+### Updating your scripts
 
 Copy the commands below and paste into the shell or terminal to download and enable the automated scripts.
 

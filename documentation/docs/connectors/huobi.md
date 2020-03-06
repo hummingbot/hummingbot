@@ -62,4 +62,4 @@ No maker and taker fees for trading on stablecoins with HUSD (PAX/HUSD, USDC/HUS
 
 See [this page](https://www.hbg.com/en-us/about/fee/) for more information about their fees.
 
-Users can override the default fees by editing [`conf_fee_overrides.yml`](https://docs.hummingbot.io/utilities/fee-overrides/).
+Users can override the default fees by editing [`conf_fee_overrides.yml`](/advanced/fee-overrides/).

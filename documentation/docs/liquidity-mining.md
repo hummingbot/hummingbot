@@ -13,9 +13,9 @@ Liquidity mining sets forth an analytical framework for determining market maker
 - [Hummingbot Miners](https://hummingbot.io/liquidity-mining): The **official Liquidity Mining app** where you can see real-time rates of return and track your payouts
 - [Get help on Discord](https://discord.hummingbot.io): Join the **#liquidity-mining** channel for 24/7 support
 - [How it works](https://hummingbot.io/liquidity-mining)
+- [Hummingbot Quickstart Guide](https://docs.hummingbot.io/quickstart)
 - [Liquidity Mining FAQs](/faqs/liquidity-mining)
 - [Liquidity Mining whitepaper](https://hummingbot.io/liquidity-mining.pdf)
-
 
 ## Active Programs
 
@@ -106,17 +106,13 @@ Liquidity mining sets forth an analytical framework for determining market maker
 
 ## Program Sponsors
 
-!!! info "Important Disclaimer"
-    <small><ul><li>The content of this Site does not constitute investment, financial, legal, or tax advice, nor does any of the information contained on this Site constitute a recommendation, solicitation, or offer to buy or sell any digital assets, securities, options, or other financial instruments or other assets, or to provide any investment advice or service.<li>There is no guarantee of profit for participating in liquidity mining.<li>Participation is subject to eligiblity requirements.</ul></small>
-    **Please review the [Liquidity Mining Policy](https://hummingbot.io/liquidity-mining-policy/) for the full disclaimer.**
-
 ### Harmony
 
 [Harmony (ONE)](https://harmony.one/) is a new a base-layer blockchain project with key innovations in state sharding and peer-to-peer networking. Its sharding technology uses secure proof-of-stake and decentralized randomness, and its networking technology achieves optimal cross-shard routing and fask block propagation. Harmony is set on a mission to scale trust for billions of people and power decentralized economies. 
 
 Partnering with Harmony, we launched a successful pilot program rewarding community members for running market making bots for $ONE using Hummingbot in 2019. 
 
-[Whitepaper](https://harmony.one/pdf/whitepaper.pdf) | [Twitter](https://twitter.com/harmonyprotocol) | [Telegram](https://t.me/harmony_one) | [Github](https://github.com/harmony-one) | [Explorer](https://explorer.binance.org/asset/ONE-5F9) | [CoinMarketCap](https://coinmarketcap.com/currencies/harmony/) | [CoinGecko](https://www.coingecko.com/en/coins/harmony)
+[Whitepaper](https://harmony.one/pdf/hummingbot.pdf) | [Twitter](https://twitter.com/harmonyprotocol) | [Telegram](https://t.me/harmony_one) | [Github](https://github.com/harmony-one) | [Explorer](https://explorer.binance.org/asset/ONE-5F9) | [CoinMarketCap](https://coinmarketcap.com/currencies/harmony/) | [CoinGecko](https://www.coingecko.com/en/coins/harmony)
 
 ### iExec
 
@@ -134,4 +130,4 @@ Partnering with Harmony, we launched a successful pilot program rewarding commun
 
 [Zilliqa (ZIL)](https://zilliqa.com/) is a base-layer blockchain protocol centered around the idea of 'Sharding' and designed to enhance the scalability of cryptocurrency networks such as Ethereum. According to its white paper, transactions speed could scale to approximately 1,000x that of Ethereum's network. Zilliqa’s high throughput means that developers can focus on fleshing out their ideas rather than worrying about network congestion.
 
-[Whitepaper](https://docs.zilliqa.com/whitepaper.pdf) | [Twitter](https://twitter.com/zilliqa) | [Telegram](https://t.me/zilliqachat) | [Github](https://github.com/Zilliqa) | [Explorer](https://viewblock.io/zilliqa) | [CoinMarketCap](https://coinmarketcap.com/currencies/zilliqa) | [CoinGecko](https://www.coingecko.com/en/coins/zilliqa)
+[Whitepaper](https://docs.zilliqa.com/hummingbot.pdf) | [Twitter](https://twitter.com/zilliqa) | [Telegram](https://t.me/zilliqachat) | [Github](https://github.com/Zilliqa) | [Explorer](https://viewblock.io/zilliqa) | [CoinMarketCap](https://coinmarketcap.com/currencies/zilliqa) | [CoinGecko](https://www.coingecko.com/en/coins/zilliqa)
