@@ -109,7 +109,7 @@ dependencies:
     - parsimonious==0.8.1
     - pefile==2019.4.18
     - pre-commit==1.18.2
-    - prompt-toolkit==2.0.9
+    - prompt_toolkit=3.0.3=py_0
     - py-ecc==1.7.1
     - pyasn1==0.4.5
     - pyasn1-modules==0.2.5

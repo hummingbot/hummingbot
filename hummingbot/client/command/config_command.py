@@ -122,10 +122,10 @@ class ConfigCommand:
         self.app.toggle_hide_input()
 
         if self.strategy:
-            choice = await self.app.prompt(prompt=f"Would you like to stop running the {strategy} strategy "
-                                                  f"and reconfigure the bot? (Yes/No) >>> ")
+            choice = await self.app.prompt_async(prompt=f"Would you like to stop running the {strategy} strategy "
+                                                 f"and reconfigure the bot? (Yes/No) >>> ")
         else:
-            choice = await self.app.prompt(prompt=f"Would you like to reconfigure the bot? (Yes/No) >>> ")
+            choice = await self.app.prompt_async(prompt=f"Would you like to reconfigure the bot? (Yes/No) >>> ")
 
         self.app.change_prompt(prompt=">>> ")
         self.app.toggle_hide_input()
@@ -155,9 +155,9 @@ class ConfigCommand:
         Special handler function that asks the user to either create a new wallet,
         or import one by entering the private key.
         """
-        choice = await self.app.prompt(prompt=global_config_map.get("wallet").prompt)
+        choice = await self.app.prompt_async(prompt=global_config_map.get("wallet").prompt)
         if choice == "import":
-            private_key = await self.app.prompt(prompt="Your wallet private key >>> ", is_password=True)
+            private_key = await self.app.prompt_async(prompt="Your wallet private key >>> ", is_password=True)
             password = in_memory_config_map["password"].value
             try:
                 self.acct = import_and_save_wallet(password, private_key)
@@ -181,7 +181,7 @@ class ConfigCommand:
         """
         Special handler function that helps the user unlock an existing wallet, or redirect user to create a new wallet.
         """
-        choice = await self.app.prompt(prompt="Would you like to unlock your previously saved wallet? (Yes/No) >>> ")
+        choice = await self.app.prompt_async(prompt="Would you like to unlock your previously saved wallet? (Yes/No) >>> ")
         if choice.lower() in {"y", "yes"}:
             wallets = list_wallets()
             self._notify("Existing wallets:")
@@ -189,7 +189,7 @@ class ConfigCommand:
             if len(wallets) == 1:
                 public_key = wallets[0]
             else:
-                public_key = await self.app.prompt(prompt="Which wallet would you like to import ? >>> ")
+                public_key = await self.app.prompt_async(prompt="Which wallet would you like to import ? >>> ")
             password = in_memory_config_map["password"].value
             try:
                 acct = unlock_wallet(public_key=public_key, password=password)
@@ -200,7 +200,7 @@ class ConfigCommand:
                 if str(err) != "MAC mismatch":
                     raise err
                 self._notify("The wallet was locked by a different password.")
-                old_password = await self.app.prompt(prompt="Please enter the password >>> ", is_password=True)
+                old_password = await self.app.prompt_async(prompt="Please enter the password >>> ", is_password=True)
                 try:
                     acct = unlock_wallet(public_key=public_key, password=old_password)
                     self._notify("Wallet %s unlocked" % (acct.address,))
@@ -224,10 +224,10 @@ class ConfigCommand:
         """
         current_strategy: str = in_memory_config_map.get("strategy").value
         strategy_file_path_cv: ConfigVar = in_memory_config_map.get("strategy_file_path")
-        choice = await self.app.prompt(prompt="Import previous configs or create a new config file? "
-                                              "(import/create) >>> ")
+        choice = await self.app.prompt_async(prompt="Import previous configs or create a new config file? "
+                                             "(import/create) >>> ")
         if choice == "import":
-            strategy_path = await self.app.prompt(strategy_file_path_cv.prompt)
+            strategy_path = await self.app.prompt_async(strategy_file_path_cv.prompt)
             strategy_path = strategy_path
             self._notify(f"Loading previously saved config file from {strategy_path}...")
         elif choice == "create":
@@ -252,14 +252,14 @@ class ConfigCommand:
         password_valid = False
         err_msg = "Invalid password, please try again."
         if not encrypted_files and not wallets:
-            password = await self.app.prompt(prompt="Enter your new password >>> ", is_password=True)
-            re_password = await self.app.prompt(prompt="Please reenter your password >>> ", is_password=True)
+            password = await self.app.prompt_async(prompt="Enter your new password >>> ", is_password=True)
+            re_password = await self.app.prompt_async(prompt="Please reenter your password >>> ", is_password=True)
             if password == re_password:
                 password_valid = True
             else:
                 err_msg = "Passwords entered do not match, please try again."
         else:
-            password = await self.app.prompt(prompt="Enter your password >>> ", is_password=True)
+            password = await self.app.prompt_async(prompt="Enter your password >>> ", is_password=True)
             if encrypted_files:
                 try:
                     decrypt_file(encrypted_files[0], password)
@@ -306,7 +306,7 @@ class ConfigCommand:
             else:
                 if cvar.value is None:
                     self.app.set_text(parse_cvar_default_value_prompt(cvar))
-                val = await self.app.prompt(prompt=cvar.prompt, is_password=cvar.is_secure)
+                val = await self.app.prompt_async(prompt=cvar.prompt, is_password=cvar.is_secure)
 
             if not cvar.validate(val):
                 # If the user inputs an empty string, use the default
@@ -403,8 +403,8 @@ class ConfigCommand:
             self._notify(f"\nNew config saved:\n{key}: {str(value)}")
 
             if not self.config_complete:
-                choice = await self.app.prompt("Your configuration is incomplete. Would you like to proceed and "
-                                               "finish all necessary configurations? (Yes/No) >>> ")
+                choice = await self.app.prompt_async("Your configuration is incomplete. Would you like to proceed and "
+                                                     "finish all necessary configurations? (Yes/No) >>> ")
                 if choice.lower() in {"y", "yes"}:
                     self.config()
                     return
