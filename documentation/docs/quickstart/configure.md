@@ -161,7 +161,7 @@ Enter your Coinbase passphrase >>>
 ```
 
 !!! tip "Tip: Copying and Pasting"
-    Users have reported not being able to copy and paste their API keys on some platforms. Our help articles such as [Paste items from clipboard in PuTTY](/faq/troubleshooting/#paste-items-from-clipboard-in-putty) and [Other ways to copy and paste](/faq/troubleshooting/#other-ways-to-copy-and-paste) may help.
+    Users have reported not being able to copy and paste their API keys on some platforms. Our help articles such as [Other ways to copy and paste](/faq/troubleshooting/#other-ways-to-copy-and-paste) and [Paste items from clipboard in PuTTY](/faq/troubleshooting/#paste-items-from-clipboard-in-putty) may help.
 
 ---
 
