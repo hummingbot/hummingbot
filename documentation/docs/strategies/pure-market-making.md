@@ -7,7 +7,7 @@ In the pure market making strategy, Hummingbot continually posts limit bid and a
 Users can specify how far away ("spreads") from the mid price the bid and asks are, the order quantity, and how often prices should be updated (order cancels + new orders posted).
 
 !!! warning
-    Please exercise caution while running this strategy and set appropriate [kill switch](/utilities/kill-switch/) rate. The current version of this strategy is intended to be a basic template that users can test and customize. Running the strategy with substantial capital without additional modifications may result in losses.
+    Please exercise caution while running this strategy and set appropriate [kill switch](/advanced/kill-switch/) rate. The current version of this strategy is intended to be a basic template that users can test and customize. Running the strategy with substantial capital without additional modifications may result in losses.
 
 ### Schematic
 

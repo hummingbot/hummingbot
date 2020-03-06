@@ -1,8 +1,8 @@
 # Quickstart - Run the bot in paper trading mode
 
-0. [Overview](index)
-1. [Install Hummingbot](install)
-2. [Configure a market making bot](configure)
+0. [Overview](index.md)
+1. [Install Hummingbot](install.md)
+2. [Configure a market making bot](configure.md)
 3. Run the bot in paper trading mode
 
 ---
@@ -53,7 +53,7 @@ This command shows you:
 * **Inventory**: How your inventory has changed as a result of these trades
 * **Performance**: How much profit or loss your bot has made as a result of these trades
 
-For more information on how Hummingbot calculates performance, refer to [Performance Analysis](performance-analysis/).
+For more information on how Hummingbot calculates performance, refer to [Performance Analysis](/operation/performance-analysis).
 
 ## Exit Hummingbot
 
