@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from __future__ import unicode_literals
-# from asyncio import get_event_loop
+from asyncio import get_event_loop
 
 from contextlib import contextmanager
 import threading
@@ -15,8 +15,6 @@ __all__ = [
 
 @contextmanager
 def patch_stdout(raw=False, log_field=None):
-    yield
-    return
     proxy = StdoutProxy(raw=raw, log_field=log_field)
 
     original_stdout = sys.stdout
@@ -62,10 +60,9 @@ class StdoutProxy(object):
         def write_and_flush():
             self.log_field.log(text)
 
-        # get_event_loop().run_in_executor(None, write_and_flush)
+        get_event_loop().run_in_executor(None, write_and_flush)
 
     def _write(self, data):
-        return
         if '\n' in data:
             # When there is a newline in the data, write everything before the newline, including the newline itself.
             before, after = data.rsplit('\n', 1)
