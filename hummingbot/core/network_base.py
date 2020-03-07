@@ -83,9 +83,10 @@ class NetworkBase:
         return NetworkStatus.NOT_CONNECTED
 
     async def _check_network_loop(self):
-        return
+        if self.__class__.__name__ != "CoinCapDataFeed":
+            return
+
         while True:
-            new_status = self._network_status
             last_status = self._network_status
             has_unexpected_error = False
 
@@ -121,7 +122,7 @@ class NetworkBase:
                 self.logger().error("Unexpected error starting or stopping network.", exc_info=True)
 
     def start(self):
-        self._check_network_task = safe_ensure_future(self._check_network_loop())
+        self._check_network_task = asyncio.ensure_future(self._check_network_loop())
         self._network_status = NetworkStatus.NOT_CONNECTED
         self._started = True
 
