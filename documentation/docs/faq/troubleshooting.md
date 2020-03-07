@@ -288,3 +288,15 @@ Weight/Request error in logs happens when it encountered a warning or error and 
 ### How do I resize my Hummingbot window without jumbling the text?
 When resizing the window of your Hummingbot, text becomes unclear or at the same location as the previous size of the window. To do a refresh to the new window size, while inside Hummingbot press `CTRL + L` and it will refresh Hummingbot window panes. These command applies to all Hummingbot build.
 
+### How to change time or timezone of Hummingbot docker build?
+Hummingbot uses the time where its installed, its either on your local computer or cloud server. Sometimes docker build Hummingbot time is out of sync, follow these steps to fix it.
+```
+# While $instance_name is runnning on background type in command line.
+docker exec -it $instance_name bash
+dpkg-reconfigure tzdata
+# Configure location and timezone by inputting the corresponding number.
+# then check the date and time by entering
+date
+# then type exit 
+exit
+```
