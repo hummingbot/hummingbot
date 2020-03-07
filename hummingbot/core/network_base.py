@@ -83,9 +83,6 @@ class NetworkBase:
         return NetworkStatus.NOT_CONNECTED
 
     async def _check_network_loop(self):
-        if self.__class__.__name__ != "CoinCapDataFeed":
-            return
-
         while True:
             last_status = self._network_status
             has_unexpected_error = False
