@@ -83,6 +83,7 @@ class NetworkBase:
         return NetworkStatus.NOT_CONNECTED
 
     async def _check_network_loop(self):
+        return
         while True:
             new_status = self._network_status
             last_status = self._network_status

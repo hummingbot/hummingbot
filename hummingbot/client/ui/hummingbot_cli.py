@@ -43,7 +43,9 @@ class HummingbotCLI:
         self.hide_input = False
 
     async def run(self):
-        await self.app.run_async()
+        # await self.app.run_async()
+        while True:
+            await asyncio.sleep(1)
 
     def accept(self, buff):
         self.pending_input = self.input_field.text.strip()
