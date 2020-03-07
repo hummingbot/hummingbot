@@ -52,7 +52,6 @@ class CoinCapDataFeed(DataFeedBase):
         return self._price_dict.get(asset.upper())
 
     async def fetch_price_loop(self):
-        return
         while True:
             try:
                 await self.fetch_prices()

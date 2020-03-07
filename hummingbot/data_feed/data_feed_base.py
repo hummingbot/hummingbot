@@ -61,7 +61,6 @@ class DataFeedBase(NetworkBase):
         raise NotImplementedError
 
     async def check_network(self) -> NetworkStatus:
-        return
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(self.health_check_endpoint) as resp:
