@@ -78,6 +78,8 @@ bin/hummingbot.py
 
 Copying and pasting your API keys into Hummingbot may be problematic, especially in Docker installations or for PuTTY users. See below for how to copy/paste in different environments.
 
+### other ways to copy and paste
+
 **COPY on Windows or Linux**
 ```
 Ctrl + C 
@@ -92,7 +94,8 @@ Shift + Insert
 Ctrl + Shift + V
 ```
 
-**PuTTY**
+### paste items from clipboard in putty
+
 <br/>
 You should be able to paste items from your clipboard by doing mouse right-click or `SHIFT + right-click`. If that doesn't work, follow the steps below.
 
