@@ -96,7 +96,6 @@ Ctrl + Shift + V
 
 ### paste items from clipboard in putty
 
-<br/>
 You should be able to paste items from your clipboard by doing mouse right-click or `SHIFT + right-click`. If that doesn't work, follow the steps below.
 
 1. If you are currently logged in a session, left-click on the upper left hand corner of the PuTTY window or a right-click anywhere on the title bar then select "Change Settings". If not, proceed to next step.
