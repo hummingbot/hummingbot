@@ -130,7 +130,6 @@ class CoinGeckoDataFeed(DataFeedBase):
 
     async def start_network(self):
         await self.stop_network()
-        return
         self.fetch_data_loop_task = safe_ensure_future(self.fetch_data_loop())
 
     async def stop_network(self):
