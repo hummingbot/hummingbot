@@ -4,6 +4,7 @@ channels:
   - conda-canary
   - defaults
 dependencies:
+  - appnope=0.1.0=py38_0
   - blas=1.0=mkl
   - blosc=1.16.3=hd9629dc_0
   - bzip2=1.0.8=h1de35cc_0
