@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import path_util        # noqa: F401
+import aiohttp
 import asyncio
 import errno
 import socket
@@ -40,6 +41,7 @@ def detect_available_port(starting_port: int) -> int:
 
 
 async def main():
+    aiohttp.resolver.DefaultResolver = aiohttp.resolver.AsyncResolver
     chdir_to_data_directory()
 
     await create_yml_files()

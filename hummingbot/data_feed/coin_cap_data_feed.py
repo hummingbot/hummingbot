@@ -52,6 +52,7 @@ class CoinCapDataFeed(DataFeedBase):
         return self._price_dict.get(asset.upper())
 
     async def fetch_price_loop(self):
+        return
         while True:
             try:
                 await self.fetch_prices()
@@ -88,7 +89,6 @@ class CoinCapDataFeed(DataFeedBase):
 
     async def start_network(self):
         await self.stop_network()
-        return
         self._fetch_price_task = safe_ensure_future(self.fetch_price_loop())
 
     async def stop_network(self):
