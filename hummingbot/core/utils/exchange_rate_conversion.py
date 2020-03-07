@@ -261,6 +261,7 @@ class ExchangeRateConversion:
             await asyncio.sleep(self._update_interval)
 
     def start(self):
+        return
         self.stop()
         for data_feed in self._data_feeds:
             if not data_feed.started:
