@@ -128,7 +128,6 @@ dependencies:
     - pyperclip==1.7.0
     - pyrsistent==0.15.7
     - python-binance==0.7.1
-    - python-graphviz==0.13.2
     - python-telegram-bot==12.4.2
     - pyyaml==5.3
     - regex==2020.2.20
@@ -152,4 +151,5 @@ dependencies:
     - yarl==1.4.2
     - zope-interface==4.7.1
     - git+https://github.com/CoinAlpha/python-signalr-client.git
+    - https://hummingbot-python.s3-us-west-2.amazonaws.com/hummingsim-20200308-cp38-cp38-macosx_10_9_x86_64.whl
 prefix: /Users/martin_kou/anaconda3/envs/hummingbot
