@@ -45,7 +45,7 @@ from hummingbot.market.kucoin.kucoin_auth import KucoinAuth
 from hummingbot.market.kucoin.kucoin_in_flight_order import KucoinInFlightOrder
 from hummingbot.market.kucoin.kucoin_order_book_tracker import KucoinOrderBookTracker
 from hummingbot.market.trading_rule cimport TradingRule
-from hummingbot.market.market_base import MarketBase,
+from hummingbot.market.market_base import MarketBase
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 
