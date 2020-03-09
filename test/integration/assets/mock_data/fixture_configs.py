@@ -1,0 +1,22 @@
+class FixtureConfigs:
+    in_mem_new_pass_configs = [
+        {"prompt": "Enter your new password >>> ", "input": "a"},
+        {"prompt": "Please reenter your password >>> ", "input": "a"},
+        {"prompt": "What is your market making strategy? >>> ", "input": "pure_market_making"},
+        {"prompt": "Import previous configs or create a new config file? (import/create) >>> ", "input": "create"}
+    ]
+
+    pure_mm_basic_response = {"maker_market": "binance",
+                              "maker_market_trading_pair": "LINK-ETH",
+                              "bid_place_threshold": "0.01",
+                              "ask_place_threshold": "0.01",
+                              "cancel_order_wait_time": "60",
+                              "order_amount": "4",
+                              "advanced_mode": "No"}
+
+    global_binance_config = {
+        "binance_api_key": "EuZSXVBy8bXBpm2tdNPXlYVdCR7lX51EeNrWmsCPQ77wk9efR8EjosQANBzub3Yk",
+        "binance_api_secret": "U49ZyE5pl0Sf6h8k3IfEzPjSmpj3UOX8QtSpbCxtPQX4mLP43LyxDrTgUemm0i1s",
+        "kill_switch_enabled": "no",
+        "send_error_logs": "no"
+    }
