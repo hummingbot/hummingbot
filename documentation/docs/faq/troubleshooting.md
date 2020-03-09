@@ -41,7 +41,7 @@ $ conda
 
 If you have just installed conda, close terminal and reopen a new terminal to update the command line's program registry.
 
-If you use `zshrc` or another shell other than `bash`, see the note at the bottom of this section: [install dependencies](/installation/from-source/macos/#part-1-install-dependencies).
+If you use `zshrc` or another shell other than `bash`, see the note at the bottom of this section: [install dependencies](/installation/source/macos/#part-1-install-dependencies).
 
 ### Syntax error invalid syntax
 
@@ -78,6 +78,8 @@ bin/hummingbot.py
 
 Copying and pasting your API keys into Hummingbot may be problematic, especially in Docker installations or for PuTTY users. See below for how to copy/paste in different environments.
 
+### other ways to copy and paste
+
 **COPY on Windows or Linux**
 ```
 Ctrl + C 
@@ -92,7 +94,8 @@ Shift + Insert
 Ctrl + Shift + V
 ```
 
-**PuTTY**
+### paste items from clipboard in putty
+
 <br/>
 You should be able to paste items from your clipboard by doing mouse right-click or `SHIFT + right-click`. If that doesn't work, follow the steps below.
 
@@ -253,9 +256,9 @@ Traceback (most recent call last):
 AttributeError: 'NoneType' object has no attribute 'actions'
 ```
 
-In this case, ZRX is not yet added to the list. See [this page](/utilities/paper-trade/#account-balance) on how to add balances.
+In this case, ZRX is not yet added to the list. See [this page](/operation/paper-trade/#account-balance) on how to add balances.
 
-### Unable to convert tokem
+### Unable to convert token
 
 **Sample log error message**<br/>
 `ValueError: Unable to convert XYZ to BTC. Aborting.`

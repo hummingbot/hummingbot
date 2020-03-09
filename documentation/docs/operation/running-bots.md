@@ -37,8 +37,8 @@ For cross-exchange market making, we **recommend** that users start with roughly
 
 ## Using Commands
 
-Please see [Client: Commands](/operation/client#client-commands) for a comprehensive list of Hummingbot's commands and their descriptions.
+Please see [Command Reference](/operation/commands) for a comprehensive list of Hummingbot's commands and their descriptions.
 
 ## Understanding Logs
 
-Hummingbot's right pane contains a log of all actions taken by the bot, including approvals, canncellations, fills, etc. When the user exits Hummingbot, it saves a log file containing all of the section's activity to the `logs/` folder. (For more info, see: [Logs and Logging](/utilities/logging))
+Hummingbot's right pane contains a log of all actions taken by the bot, including approvals, canncellations, fills, etc. When the user exits Hummingbot, it saves a log file containing all of the section's activity to the `logs/` folder. (For more info, see: [Logs and Logging](/advanced/logging))

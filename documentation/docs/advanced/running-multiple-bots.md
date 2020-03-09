@@ -2,7 +2,7 @@
 
 ## Multiple bots via Docker
 
-Create multiple instances using `./create.sh` script. More information can be found in [Create Hummingbot Instance](/commands/docker/#create-hummingbot-instance).
+Create multiple instances using `./create.sh` script. More information can be found in [Create Hummingbot Instance](/operation/commands/#create-hummingbot-instance).
 
 ### Running in the background (via Docker)
 
