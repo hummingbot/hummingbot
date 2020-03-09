@@ -22,7 +22,6 @@ cdef class BinanceMarket(MarketBase):
         public object _status_polling_task
         public object _user_stream_event_listener_task
         public object _user_stream_tracker_task
-        public object _order_tracker_task
         public object _trading_rules_polling_task
         object _async_scheduler
         object _set_server_time_offset_task
