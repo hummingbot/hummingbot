@@ -157,7 +157,6 @@ cdef class BitcoinComMarket(MarketBase):
         self._withdraw_fees = {}  # Dict[currency:str, (payoutEnabled:bool, payoutFee:Decimal)]
         self._data_source_type = order_book_tracker_data_source_type
         self._status_polling_task = None
-        self._order_tracker_task = None
         self._user_stream_tracker_task = None
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
@@ -288,10 +287,8 @@ cdef class BitcoinComMarket(MarketBase):
         *required
         Async function used by NetworkBase class to handle when a single market goes online
         """
-        if self._order_tracker_task is not None:
-            self._stop_network()
-
-        self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
+        self._stop_network()
+        self._order_book_tracker.start()
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
@@ -303,15 +300,14 @@ cdef class BitcoinComMarket(MarketBase):
         """
         Synchronous function that handles when a single market goes offline
         """
-        if self._order_tracker_task is not None:
-            self._order_tracker_task.cancel()
+        self._order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
         if self._user_stream_tracker_task is not None:
             self._user_stream_tracker_task.cancel()
         if self._user_stream_event_listener_task is not None:
             self._user_stream_event_listener_task.cancel()
-        self._order_tracker_task = self._status_polling_task = self._user_stream_tracker_task = \
+        self._status_polling_task = self._user_stream_tracker_task = \
             self._user_stream_event_listener_task = None
 
     async def stop_network(self):

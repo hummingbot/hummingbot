@@ -47,11 +47,11 @@ cdef class MarketBase(NetworkIterator):
 
     def __init__(self):
         super().__init__()
-        self.event_reporter = EventReporter(event_source=self.name)
-        self.event_logger = EventLogger(event_source=self.name)
+        self._event_reporter = EventReporter(event_source=self.name)
+        self._event_logger = EventLogger(event_source=self.name)
         for event_tag in self.MARKET_EVENTS:
-            self.c_add_listener(event_tag.value, self.event_reporter)
-            self.c_add_listener(event_tag.value, self.event_logger)
+            self.c_add_listener(event_tag.value, self._event_reporter)
+            self.c_add_listener(event_tag.value, self._event_logger)
 
         self._account_balances = {}  # Dict[asset_name:str, Decimal]
         self._account_available_balances = {}  # Dict[asset_name:str, Decimal]
@@ -87,7 +87,7 @@ cdef class MarketBase(NetworkIterator):
 
     @property
     def event_logs(self) -> List[any]:
-        return self.event_logger.event_log
+        return self._event_logger.event_log
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
