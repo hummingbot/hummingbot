@@ -98,7 +98,7 @@ pure_market_making_config_map = {
         ConfigVar(key="cancel_order_wait_time",
                   prompt="How often do you want to cancel and replace bids and asks "
                          "(in seconds)? >>> ",
-                  default=60.0,
+                  default=30.0,
                   required_if=lambda: not (using_exchange("radar_relay")() or
                                            (using_exchange("bamboo_relay")() and not using_bamboo_coordinator_mode())),
                   type_str="float"),
@@ -176,7 +176,7 @@ pure_market_making_config_map = {
                   prompt="How long do you want to wait before placing the next order "
                          "if your order gets filled (in seconds)? >>> ",
                   type_str="float",
-                  default=10),
+                  default=60),
     "enable_order_filled_stop_cancellation":
         ConfigVar(key="enable_order_filled_stop_cancellation",
                   prompt="Do you want to enable hanging orders? (Yes/No) >>> ",
