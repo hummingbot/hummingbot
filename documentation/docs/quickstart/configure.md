@@ -124,7 +124,7 @@ How far away from the mid price do you want to place the first ask order? (Enter
 0.01
 
 How often do you want to cancel and replace bids and asks (in seconds)? >>>
-60.0
+30.0
 
 What is the amount of [base_asset] per order? (minimum [min_amount]) >>>
 1
@@ -161,7 +161,7 @@ Enter your Coinbase passphrase >>>
 ```
 
 !!! tip "Tip: Copying and Pasting"
-    Users have reported not being able to copy and paste their API keys on some platforms. Our help articles such as [Paste items from clipboard in PuTTY](/faq/troubleshooting/#paste-items-from-clipboard-in-putty) and [Other ways to copy and paste](/faq/troubleshooting/#other-ways-to-copy-and-paste) may help.
+    Users have reported not being able to copy and paste their API keys on some platforms. Our help articles such as [Other ways to copy and paste](/faq/troubleshooting/#other-ways-to-copy-and-paste) and [Paste items from clipboard in PuTTY](/faq/troubleshooting/#paste-items-from-clipboard-in-putty) may help.
 
 ---
 
