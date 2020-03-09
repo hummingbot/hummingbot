@@ -17,7 +17,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
 - [Liquidity Mining FAQs](/faqs/liquidity-mining)
 - [Liquidity Mining whitepaper](https://hummingbot.io/liquidity-mining.pdf)
 
-## Active Programs
+## Active programs
 
 !!! warning "Terms Subject to Change"
     Please check this page for the most up-to-date terms.  We will notify participants of changes, if any, through email (for registered users) and on our [Discord](https://discord.hummingbot.io).
@@ -35,7 +35,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td rowspan="3"><a href="#harmony">Harmony</a><br></td>
       <td>ONE/BTC</td>
       <td>Binance.com</td>
-      <td>1%</td>
+      <td>3.5%¹</td>
       <td>USDC 300</td>
     </tr>
     <tr>
@@ -104,7 +104,11 @@ Liquidity mining sets forth an analytical framework for determining market maker
   </tbody>
 </table>
 
-## Program Sponsors
+## Changes in program terms
+
+- **`ONE/BTC March 10, 2020 UTC:` the maximum spread for `ONE/BTC` was revised to 3.5% starting the second week of the campaign, the period from March 10, 2020 12:00am UTC to March 17, 2020 12:00am UTC**.  This was 1% the previous week, from March 3 to March 10.<br />The change was made because the tick size (price increments) allowable on Binance for the `ONE/BTC` pair is BTC 0.00000001, or approximately 2% of current market price.  In effect, this resulted in a single valid bid price and single valid ask price being eligible to earn liquidity mining rewards. The new wider range gives liquidity miners more flexibility on pricing.
+
+## Program sponsors
 
 ### Harmony
 
