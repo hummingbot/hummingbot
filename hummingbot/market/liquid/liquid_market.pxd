@@ -17,7 +17,6 @@ cdef class LiquidMarket(MarketBase):
         object _data_source_type
         object _coro_queue
         public object _status_polling_task
-        public object _order_tracker_task
         public object _coro_scheduler_task
         public object _user_stream_tracker_task
         public object _user_stream_event_listener_task
