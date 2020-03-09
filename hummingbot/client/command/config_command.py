@@ -32,6 +32,7 @@ from hummingbot.client.config.config_crypt import (
     get_encrypted_config_path,
     encrypt_n_save_config_value
 )
+
 from os import unlink
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
