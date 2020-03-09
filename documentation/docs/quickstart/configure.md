@@ -111,17 +111,20 @@ ETH-USDC
 
 A bot's strategy parameters control how it behaves. During this step, you will define the basic parameters for your market making bot: order spreads, order sizes, and how often to refresh orders.
 
- by setting the order spreads, order sizes, and how often to refresh orders. These are the basic configurations required for this strategy. 
+!!! tip "Tip: What spreads should I set?"
+    Order spread is one of the most important levers that market makers can control. Tighter spreads cause your orders to be filled more often, resulting in more trades, bigger changes in asset balance, and potentially more risk. 
+    
+    We recommend that new users start with **wider spreads**, such as 1.00% for each side of the order book or higher.
 
 ```
 How far away from the mid price do you want to place the first bid order? (Enter 0.01 to indicate 1%) >>>
-0.002
+0.01
 
 How far away from the mid price do you want to place the first ask order? (Enter 0.01 to indicate 1%) >>>
-0.002
+0.01
 
 How often do you want to cancel and replace bids and asks (in seconds)? >>>
-60.0
+30.0
 
 What is the amount of [base_asset] per order? (minimum [min_amount]) >>>
 1
@@ -158,7 +161,7 @@ Enter your Coinbase passphrase >>>
 ```
 
 !!! tip "Tip: Copying and Pasting"
-    Users have reported not being able to copy and paste their API keys on some platforms. Our help articles such as [Paste items from clipboard in PuTTY](/faq/troubleshooting/#paste-items-from-clipboard-in-putty) and [Other ways to copy and paste](/faq/troubleshooting/#other-ways-to-copy-and-paste) may help.
+    Users have reported not being able to copy and paste their API keys on some platforms. Our help articles such as [Other ways to copy and paste](/faq/troubleshooting/#other-ways-to-copy-and-paste) and [Paste items from clipboard in PuTTY](/faq/troubleshooting/#paste-items-from-clipboard-in-putty) may help.
 
 ---
 
@@ -184,7 +187,7 @@ You should now see:
 Config process complete. Enter "start" to start market making.
 ```
 
-Proceed to the next section: [Run Your First Trading Bot](run-bot)
+Proceed to the next section: [Run Your First Trading Bot](run-bot.md)
 
 
 <!-- ## (Optional) Adjusting Parameters
