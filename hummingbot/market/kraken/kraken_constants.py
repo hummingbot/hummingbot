@@ -41,6 +41,7 @@ BASE_ORDER_MIN = {
     "XMLN": Decimal("0.1"),
     "WAVES": Decimal("10"),
     "XZEC": Decimal("0.03"),
+    "TRX": Decimal("500")
 }
 
 HB_PAIR_TO_KRAKEN_PAIR = {
@@ -113,6 +114,10 @@ HB_PAIR_TO_KRAKEN_PAIR = {
     'SC-ZEUR': 'SCEUR',
     'SC-ZUSD': 'SCUSD',
     'SC-XXBT': 'SCXBT',
+    "TRX-XETH": "TRXETH",
+    "TRX-ZEUR": "TRXEUR",
+    "TRX-ZUSD": "TRXUSD",
+    "TRX-XXBT": "TRXXBT",
     'USDC-ZEUR': 'USDCEUR',
     'USDC-ZUSD': 'USDCUSD',
     'USDC-USDT': 'USDCUSDT',
