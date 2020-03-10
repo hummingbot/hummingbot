@@ -29,3 +29,4 @@ Hummingbot is a general open source framework for crypto algorithmic trading. Se
 * [Github](https://github.com/coinalpha/hummingbot): Hummingbot codebase
 * [Youtube](https://www.youtube.com/channel/UCxzzdEnDRbylLMWmaMjywOA): Official Hummingbot Youtube Channel
 * [中文 wiki](https://github.com/coinalpha/hummingbot_chinese): General information about Hummingbot, translated into Mandarin Chinese
+
