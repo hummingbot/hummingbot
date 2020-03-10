@@ -9,8 +9,8 @@ from hummingbot.core.data_type.order_book_query_result cimport(
 
 cdef class MarketBase(NetworkIterator):
     cdef:
-        EventReporter event_reporter
-        EventLogger event_logger
+        EventReporter _event_reporter
+        EventLogger _event_logger
         dict _account_available_balances
         dict _account_balances
         bint _trading_required
