@@ -20,7 +20,6 @@ cdef class BittrexMarket(MarketBase):
         double _poll_interval
         dict _trading_rules
         public object _coro_scheduler_task
-        public object _order_tracker_task
         public object _shared_client
         public object _status_polling_task
         public object _trading_rules_polling_task
