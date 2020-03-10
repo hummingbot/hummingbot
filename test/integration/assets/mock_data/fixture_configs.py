@@ -6,13 +6,15 @@ class FixtureConfigs:
         {"prompt": "Import previous configs or create a new config file? (import/create) >>> ", "input": "create"}
     ]
 
-    pure_mm_basic_response = {"maker_market": "binance",
-                              "maker_market_trading_pair": "LINK-ETH",
-                              "bid_place_threshold": "0.01",
-                              "ask_place_threshold": "0.01",
-                              "cancel_order_wait_time": "",
-                              "order_amount": "4",
-                              "advanced_mode": "No"}
+    pure_mm_basic_responses = {
+        "maker_market": "binance",
+        "maker_market_trading_pair": "LINK-ETH",
+        "bid_place_threshold": "0.01",
+        "ask_place_threshold": "0.01",
+        "cancel_order_wait_time": "",
+        "order_amount": "4",
+        "advanced_mode": "Hell No!"
+    }
 
     global_binance_config = {
         "binance_api_key": "EuZSXVBy8bXBpm2tdNPXlYVdCR7lX51EeNrWmsCPQ77wk9efR8EjosQANBzub3Yk",
@@ -24,4 +26,9 @@ class FixtureConfigs:
     in_mem_existing_pass_import_configs = [
         {"prompt": "What is your market making strategy? >>> ", "input": "pure_market_making"},
         {"prompt": "Import previous configs or create a new config file? (import/create) >>> ", "input": "import"}
+    ]
+
+    in_mem_existing_pass_create_configs = [
+        {"prompt": "What is your market making strategy? >>> ", "input": "pure_market_making"},
+        {"prompt": "Import previous configs or create a new config file? (import/create) >>> ", "input": "create"}
     ]
