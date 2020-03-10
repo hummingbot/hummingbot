@@ -88,11 +88,11 @@ class DiscoveryUnitTest(unittest.TestCase):
         self.assertTrue(expected_output_match_all == list(self.strategy.filter_trading_pairs(
             [["DAI"]],
             pd.DataFrame.from_dict(self.mock_bittrex_active_markets),
-            [["DAI", "PAX", "TUSD", "USDC"]]).index))
+            [["DAI", "PAX", "TUSD", "USDC"]]).sort_index().index))
         self.assertTrue(expected_output_match_all == list(self.strategy.filter_trading_pairs(
             [["ETH"]],
             pd.DataFrame.from_dict(self.mock_bittrex_active_markets),
-            [["ETH", "WETH"]]).index))
+            [["ETH", "WETH"]]).sort_index().index))
 
         expected_output_match_single = ["WETH-DAI"]
         self.assertTrue(expected_output_match_single == list(self.strategy.filter_trading_pairs(
