@@ -392,6 +392,10 @@ cdef class KrakenMarket(MarketBase):
                     )
                     continue
 
+                if order_update.get("error") is not None:
+                    self.c_cancel(tracked_order.trading_pair, tracked_order.client_order_id)
+                    continue
+
                 update = order_update.get(tracked_order.exchange_order_id)
 
                 if not update:
@@ -721,6 +725,13 @@ cdef class KrakenMarket(MarketBase):
             except Exception:
                 raise IOError(f"Error parsing data from {url}.")
 
+            try:
+                err = response_json["error"]
+                if "EOrder:Unknown order" in err or "EOrder:Invalid order" in err:
+                    return {"error": err}
+            except Exception:
+                pass
+
             data = response_json.get("result")
             if data is None:
                 self.logger().error(f"Error received from {url}. Response is {response_json}.")
@@ -967,7 +978,7 @@ cdef class KrakenMarket(MarketBase):
             self.logger().warning(f"Error cancelling order on Kraken",
                                   exc_info=True)
 
-        if isinstance(cancel_result, dict) and cancel_result.get("count") == 1:
+        if isinstance(cancel_result, dict) and (cancel_result.get("count") == 1 or cancel_result.get("error") is not None):
             self.logger().info(f"Successfully cancelled order {order_id}.")
             self.c_stop_tracking_order(order_id)
             self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,

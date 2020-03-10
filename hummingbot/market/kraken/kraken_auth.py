@@ -3,10 +3,10 @@ from typing import (
     Dict,
     Any
 )
-import time
 import base64
 import hashlib
 import hmac
+from hummingbot.market.kraken.kraken_tracking_nonce import get_tracking_nonce
 
 
 class KrakenAuth:
@@ -25,7 +25,7 @@ class KrakenAuth:
 
         # Variables (API method, nonce, and POST data)
         api_path: bytes = bytes(uri, 'utf-8')
-        api_nonce: str = str(int(time.time() * 1000))
+        api_nonce: str = get_tracking_nonce()
         api_post: str = "nonce=" + api_nonce
 
         if data is not None:
