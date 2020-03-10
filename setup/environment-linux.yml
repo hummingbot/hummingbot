@@ -1,148 +1,155 @@
 name: hummingbot
 channels:
+  - conda-forge
   - conda-canary
   - defaults
 dependencies:
-  - _libgcc_mutex=0.1=main
-  - asn1crypto=0.24.0=py36_0
+  - _libgcc_mutex=0.1=conda_forge
+  - _openmp_mutex=4.5=0_gnu
   - blas=1.0=mkl
-  - blosc=1.15.0=hd408876_0
-  - bzip2=1.0.6=h14c3975_5
-  - ca-certificates=2019.5.15=0
-  - certifi=2019.6.16=py36_0
-  - cffi=1.12.1=py36h2e261b9_0
-  - cryptography=2.5=py36h1ba5d50_0
-  - cython=0.29.5=py36he6710b0_0
+  - blosc=1.16.3=hd408876_0
+  - bzip2=1.0.8=h7b6447c_0
+  - ca-certificates=2020.1.1=0
+  - certifi=2019.11.28=py38_0
+  - cython=0.29.15=py38he6710b0_0
   - hdf5=1.10.4=hb1b8bf9_0
-  - idna=2.8=py36_0
-  - intel-openmp=2019.1=144
-  - libedit=3.1.20181209=hc058e9b_0
-  - libffi=3.2.1=hd88cf55_4
-  - libgcc-ng=8.2.0=hdf63c60_1
+  - intel-openmp=2020.0=166
+  - ld_impl_linux-64=2.33.1=h53a641e_8
+  - libffi=3.2.1=he1b5a44_1006
+  - libgcc-ng=9.2.0=h24d8f2e_2
   - libgfortran-ng=7.3.0=hdf63c60_0
-  - libsodium=1.0.16=h1bed415_0
-  - libstdcxx-ng=8.2.0=hdf63c60_1
+  - libgomp=9.2.0=h24d8f2e_2
+  - libstdcxx-ng=9.2.0=hdf63c60_2
+  - lz4-c=1.8.1.2=h14c3975_0
   - lzo=2.10=h49e0be7_2
-  - mkl=2019.1=144
-  - mkl_fft=1.0.10=py36ha843d7b_0
-  - mkl_random=1.0.2=py36hd81dba3_0
-  - ncurses=6.1=he6710b0_1
-  - nose=1.3.7=py36_2
-  - numexpr=2.6.9=py36h9e4a6bb_0
-  - numpy=1.15.4=py36h7e9f1db_0
-  - numpy-base=1.15.4=py36hde5b4d6_0
-  - openssl=1.1.1c=h7b6447c_1
-  - pandas=0.24.1=py36he6710b0_0
-  - pip=19.0.3=py36_0
-  - prompt_toolkit=2.0.9=py36_0
-  - pycparser=2.19=py36_0
-  - pygments=2.3.1=py36_0
-  - pyopenssl=19.0.0=py36_0
-  - pysocks=1.6.8=py36_0
-  - pytables=3.4.4=py36h71ec239_0
-  - python=3.6.7=h0371630_0
-  - python-dateutil=2.8.0=py36_0
-  - pytz=2018.9=py36_0
-  - pyyaml=3.13=py36h14c3975_0
-  - pyzmq=18.0.0=py36he6710b0_0
-  - readline=7.0=h7b6447c_5
-  - setuptools=40.8.0=py36_0
-  - six=1.12.0=py36_0
+  - mkl=2020.0=166
+  - mkl-service=2.3.0=py38he904b0f_0
+  - mkl_fft=1.0.15=py38ha843d7b_0
+  - mkl_random=1.1.0=py38h962f231_0
+  - mock=4.0.1=py_0
+  - ncurses=6.1=hf484d3e_1002
+  - nose=1.3.7=py38_2
+  - numexpr=2.7.1=py38h423224d_0
+  - numpy=1.18.1=py38h4f9e942_0
+  - numpy-base=1.18.1=py38hde5b4d6_1
+  - openssl=1.1.1d=h7b6447c_4
+  - pandas=1.0.1=py38h0573a6f_0
+  - pip=20.0.2=py_2
+  - prompt_toolkit=3.0.3=py_0
+  - pygments=2.5.2=py_0
+  - pytables=3.6.1=py38h9fd0a39_0
+  - python=3.8.2=h9d8adfe_4_cpython
+  - python-dateutil=2.8.1=py_0
+  - pytz=2019.3=py_0
+  - readline=8.0=hf8c457e_0
+  - setuptools=45.2.0=py38_0
+  - six=1.14.0=py38_0
   - snappy=1.1.7=hbae5bb6_3
-  - sqlalchemy=1.3.4=py36h7b6447c_0
-  - sqlite=3.26.0=h7b6447c_0
-  - tk=8.6.8=hbc83047_0
-  - tzlocal=1.5.1=py36_0
-  - ujson=1.35=py36h14c3975_0
-  - urllib3=1.24.1=py36_0
-  - wcwidth=0.1.7=py36_0
-  - wheel=0.33.1=py36_0
-  - xz=5.2.4=h14c3975_4
-  - yaml=0.1.7=had09818_2
-  - zeromq=4.3.1=he6710b0_3
-  - zlib=1.2.11=h7b6447c_3
+  - sqlalchemy=1.3.13=py38h7b6447c_0
+  - sqlite=3.30.1=hcee41ef_0
+  - tk=8.6.10=hed695b0_0
+  - tzlocal=2.0.0=py38_0
+  - ujson=1.35=py38h7b6447c_0
+  - wcwidth=0.1.8=py_0
+  - wheel=0.34.2=py_1
+  - xz=5.2.4=h14c3975_1001
+  - zlib=1.2.11=h516909a_1006
+  - zstd=1.3.7=h0b5b093_0
   - pip:
     - 0x-contract-addresses==3.0.0
     - 0x-contract-artifacts==2.0.0
     - 0x-contract-wrappers==2.0.0
     - 0x-json-schemas==2.1.0
     - 0x-order-utils==4.0.0
-    - aioconsole==0.1.13
-    - aiohttp==3.6.1
-    - aiokafka==0.5.0
+    - aioconsole==0.1.15
+    - aiohttp==3.6.2
+    - aiokafka==0.5.2
     - appdirs==1.4.3
-    - aspy-yaml==1.3.0
+    - asn1crypto==1.3.0
     - async-timeout==3.0.1
     - attrdict==2.0.1
-    - attrs==18.2.0
-    - autobahn==19.2.1
-    - automat==0.7.0
-    - cachetools==3.0.0
-    - cfgv==2.0.1
+    - attrs==19.3.0
+    - autobahn==20.3.1
+    - automat==20.2.0
+    - base58==2.0.0
+    - cachetools==4.0.0
+    - cffi==1.14.0
+    - cfgv==3.1.0
     - chardet==3.0.4
-    - coincurve==12.0.0
+    - coincurve==13.0.0
     - constantly==15.1.0
-    - cytoolz==0.9.0.1
-    - dateparser==0.7.1
+    - cryptography==2.8
+    - cytoolz==0.10.1
+    - dateparser==0.7.4
+    - decorator==4.4.2
+    - deprecated==1.2.7
+    - distlib==0.3.0
     - entrypoints==0.3
-    - eth-abi==2.1.0
-    - eth-account==0.3.0
+    - eth-abi==2.1.1
+    - eth-account==0.4.0
     - eth-bloom==1.0.3
     - eth-hash==0.2.0
     - eth-keyfile==0.5.1
-    - eth-keys==0.2.1
+    - eth-keys==0.2.4
     - eth-rlp==0.1.2
-    - eth-typing==2.1.0
-    - eth-utils==1.4.1
-    - flake8==3.7.8
-    - future==0.17.1
-    - hexbytes==0.1.0
-    - https://hummingbot-python.s3-us-west-2.amazonaws.com/hummingsim-20191212.3-cp36-cp36m-linux_x86_64.whl
-    - hyperlink==18.0.0
-    - hypothesis==4.23.8
-    - identify==1.4.7
-    - idna-ssl==1.1.0
-    - importlib-metadata==0.23
-    - importlib-resources==1.0.2
+    - eth-typing==2.2.1
+    - eth-utils==1.8.4
+    - filelock==3.0.12
+    - flake8==3.7.9
+    - future==0.18.2
+    - hexbytes==0.2.0
+    - hyperlink==19.0.0
+    - identify==1.4.11
+    - idna==2.9
     - incremental==17.5.0
-    - jsonschema==3.0.1
-    - kafka-python==1.4.3
+    - ipfshttpclient==0.4.12
+    - jsonschema==3.2.0
+    - kafka-python==1.4.6
     - lru-dict==1.1.6
     - mccabe==0.6.1
-    - more-itertools==7.2.0
-    - multidict==4.5.2
-    - mypy-extensions==0.4.1
-    - nodeenv==1.3.3
+    - multiaddr==0.0.9
+    - multidict==4.7.5
+    - mypy-extensions==0.4.3
+    - netaddr==0.7.19
+    - nodeenv==1.3.5
     - parsimonious==0.8.1
-    - pre-commit==1.18.2
-    - py-ecc==1.7.0
-    - pyasn1==0.4.5
-    - pyasn1-modules==0.2.4
+    - pre-commit==2.1.1
+    - protobuf==3.11.3
+    - pyasn1==0.4.8
+    - pyasn1-modules==0.2.8
     - pycodestyle==2.5.0
-    - pycryptodome==3.7.3
+    - pycparser==2.20
+    - pycryptodome==3.9.7
     - pyflakes==2.1.1
-    - pyhamcrest==1.9.0
-    - PyJWT==1.7.1
+    - pyhamcrest==2.0.2
+    - pyinstall==0.1.4
+    - pyjwt==1.7.1
+    - pyopenssl==19.1.0
     - pyperclip==1.7.0
-    - pyrsistent==0.15.2
+    - pyrsistent==0.15.7
     - python-binance==0.7.1
-    - python-telegram-bot==11.1.0
-    - regex==2019.2.21
-    - requests==2.21.0
-    - rlp==1.1.0
-    - ruamel-yaml==0.15.89
+    - python-telegram-bot==12.4.2
+    - pyyaml==5.3
+    - regex==2020.2.20
+    - requests==2.23.0
+    - rlp==1.2.0
+    - ruamel-yaml==0.16.10
+    - ruamel-yaml-clib==0.2.0
     - service-identity==18.1.0
     - stringcase==1.2.0
     - toml==0.10.0
-    - toolz==0.9.0
-    - twisted==18.9.0
-    - txaio==18.8.1
-    - typing-extensions==3.7.4.1
-    - virtualenv==16.7.6
+    - toolz==0.10.0
+    - tornado==6.0.4
+    - twisted==19.10.0
+    - txaio==20.1.1
+    - urllib3==1.25.8
+    - varint==1.0.2
+    - virtualenv==20.0.8
     - web3==5.5.1
-    - websockets==6.0
-    - yarl==1.3.0
-    - zipp==0.6.0
-    - zope-interface==4.6.0
+    - websockets==8.1
+    - wrapt==1.12.0
+    - yarl==1.4.2
+    - zope-interface==4.7.1
     - git+https://github.com/CoinAlpha/python-signalr-client.git
+    - https://hummingbot-python.s3-us-west-2.amazonaws.com/hummingsim-20200308-cp38-cp38-linux_x86_64.whl
 prefix: /home/martin_kou/anaconda3/envs/hummingbot
