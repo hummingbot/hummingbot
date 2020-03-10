@@ -35,4 +35,8 @@ fi
 
 source "${CONDA_BIN}/activate" hummingbot
 
+# For some reason, this needs to be installed outside of the environment file,
+# or it'll give you the graphviz install error.
+pip install objgraph
+
 pre-commit install
