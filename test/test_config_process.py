@@ -13,6 +13,7 @@ import time
 import inspect
 import os
 from hummingbot.client import settings
+from hummingbot.client.config.in_memory_config_map import in_memory_config_map
 from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map
 from hummingbot.client.config.global_config_map import global_config_map
 from test.integration.assets.mock_data.fixture_configs import FixtureConfigs
@@ -74,6 +75,7 @@ class ConfigProcessTest(unittest.TestCase):
     def setUpClass(cls):
         cls.ev_loop = asyncio.new_event_loop()
         cls.ev_loop.run_until_complete(cls.set_up_class())
+        cls.file_no = 0
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -87,10 +89,10 @@ class ConfigProcessTest(unittest.TestCase):
         add_files_extension(settings.CONF_FILE_PATH, [".yml", ".json"], ".temp")
         asyncio.ensure_future(hb_main())
         cls.hb = HummingbotApplication.main_application()
-        await wait_til(lambda: ExchangeRateConversion.get_instance()._ready_notifier.is_set())
+        await wait_til(lambda: ExchangeRateConversion.get_instance()._ready_notifier.is_set(), 20)
         await wait_til(lambda: 'Enter "config" to create a bot' in cls.hb.app.output_field.document.text)
 
-    async def verify_config_input(self, expected_prompt_text, input_text):
+    async def check_prompt_and_input(self, expected_prompt_text, input_text):
         self.assertEqual(self.hb.app.prompt_text, expected_prompt_text)
         last_output = str(self.hb.app.output_field.document.lines[-1])
         user_response(input_text)
@@ -98,43 +100,89 @@ class ConfigProcessTest(unittest.TestCase):
         await asyncio.sleep(0.1)
 
     async def _test_pure_mm_basic_til_start(self):
-        await self.verify_config_input(">>> ", "config")
-        for fixture_config in FixtureConfigs.in_mem_new_pass_configs:
-            await self.verify_config_input(fixture_config["prompt"], fixture_config["input"])
-        await wait_til(lambda: f'A new config file {settings.CONF_PREFIX}pure_market_making{settings.CONF_POSTFIX}_0'
-                               f'.yml created.' in self.hb.app.output_field.document.text)
-        for name, config in pure_market_making_config_map.items():
-            if config.required and config.value is None:
-                await self.verify_config_input(config.prompt, FixtureConfigs.pure_mm_basic_response[name])
-        for name, config in global_config_map.items():
-            if config.required and config.value is None:
-                await self.verify_config_input(config.prompt, FixtureConfigs.global_binance_config[name])
-        # input for cancel_order_wait_time is blank, check the assigned value is its default value
+        config_file_name = f"{settings.CONF_PREFIX}pure_market_making{settings.CONF_POSTFIX}_{self.file_no}.yml"
+        await self.check_prompt_and_input(">>> ", "config")
+        # For the second time this test is called, it's to reconfigure the bot
+        if self.file_no > 0:
+            await self.check_prompt_and_input("Would you like to reconfigure the bot? (Yes/No) >>> ", "yes")
+        ConfigProcessTest.file_no += 1
+        fixture_in_mem = FixtureConfigs.in_mem_new_pass_configs if in_memory_config_map["password"].value is None \
+            else FixtureConfigs.in_mem_existing_pass_create_configs
+        for fixture_config in fixture_in_mem:
+            await self.check_prompt_and_input(fixture_config["prompt"], fixture_config["input"])
+        await wait_til(lambda: f'A new config file {config_file_name}' in self.hb.app.output_field.document.text)
+        # configs that are required will be prompted
+        for config_name, response in FixtureConfigs.pure_mm_basic_responses.items():
+            config = pure_market_making_config_map[config_name]
+            await self.check_prompt_and_input(config.prompt, response)
+        # advance_mode will be asked again as the previous response is not valid.
+        await asyncio.sleep(0.2)
+        self.assertEqual(self.hb.app.output_field.document.lines[-1],
+                         f"{FixtureConfigs.pure_mm_basic_responses['advanced_mode']} "
+                         f"is not a valid advanced_mode value")
+        await self.check_prompt_and_input(pure_market_making_config_map["advanced_mode"].prompt, "no")
+
+        # input for cancel_order_wait_time is empty, check the assigned value is its default value
         self.assertEqual(pure_market_making_config_map["cancel_order_wait_time"].value,
                          pure_market_making_config_map["cancel_order_wait_time"].default)
+
+        # Check that configs that are not prompted get assigned correct default value
+        for name, config in pure_market_making_config_map.items():
+            if config.default is not None and name not in FixtureConfigs.pure_mm_basic_responses:
+                self.assertEqual(config.value, config.default)
+
+        # if not conf_global_file_exists:
+        for name, config in global_config_map.items():
+            if config.required and config.value is None:
+                await self.check_prompt_and_input(config.prompt, FixtureConfigs.global_binance_config[name])
+
+        self.assertEqual(pure_market_making_config_map["mode"].value,
+                         pure_market_making_config_map["mode"].default)
         await wait_til(lambda: f"Config process complete." in self.hb.app.output_field.document.text)
 
     def test_pure_mm_basic_til_start(self):
         self.ev_loop.run_until_complete(self._test_pure_mm_basic_til_start())
 
     async def _test_pure_mm_basic_import_config_file(self):
-        await self.verify_config_input(">>> ", "stop")
-        await self.verify_config_input(">>> ", "config")
-        await self.verify_config_input("Would you like to reconfigure the bot? (Yes/No) >>> ", "yes")
+        config_file_name = f"{settings.CONF_PREFIX}pure_market_making{settings.CONF_POSTFIX}_0.yml"
+        # update the config file to put in some blank and invalid values.
+        with open(os.path.join(settings.CONF_FILE_PATH, config_file_name), "r+") as f:
+            content = f.read()  # read everything in the file
+            f.seek(0)  # rewind
+            content = content.replace("bid_place_threshold: 0.01", "bid_place_threshold: ")
+            content = content.replace("advanced_mode: false", "advanced_mode: better not")
+            f.write(content)  # write the new line before
+        await self.check_prompt_and_input(">>> ", "stop")
+        await self.check_prompt_and_input(">>> ", "config")
+        await self.check_prompt_and_input("Would you like to reconfigure the bot? (Yes/No) >>> ", "yes")
         for fixture_config in FixtureConfigs.in_mem_existing_pass_import_configs:
-            await self.verify_config_input(fixture_config["prompt"], fixture_config["input"])
-        await self.verify_config_input(default_strategy_conf_path_prompt(), f"{settings.CONF_PREFIX}pure_market_making"
-                                                                            f"{settings.CONF_POSTFIX}_0.yml")
+            await self.check_prompt_and_input(fixture_config["prompt"], fixture_config["input"])
+        await self.check_prompt_and_input(default_strategy_conf_path_prompt(), config_file_name)
+        # advanced_mode should be prompted here as its file value not valid.
+        await self.check_prompt_and_input(pure_market_making_config_map["bid_place_threshold"].prompt, "0.01")
+        await self.check_prompt_and_input(pure_market_making_config_map["advanced_mode"].prompt, "no")
         await wait_til(lambda: f"Config process complete." in self.hb.app.output_field.document.text)
 
     def test_pure_mm_basic_import_config_file(self):
         self.ev_loop.run_until_complete(self._test_pure_mm_basic_import_config_file())
 
+    async def _test_single_configs(self):
+        await self.check_prompt_and_input(">>> ", "config bid_place_threshold")
+        # try inputting invalid value
+        await self.check_prompt_and_input(pure_market_making_config_map["bid_place_threshold"].prompt, "-0.01")
+        self.assertEqual(self.hb.app.output_field.document.lines[-1], f"-0.01 is not a valid bid_place_threshold value")
+        await self.check_prompt_and_input(pure_market_making_config_map["bid_place_threshold"].prompt, "0.01")
+
+    def test_single_configs(self):
+        self.ev_loop.run_until_complete(self._test_single_configs())
+
 
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(ConfigProcessTest('test_pure_mm_basic_til_start'))
+    suite.addTest(ConfigProcessTest('test_single_configs'))
     suite.addTest(ConfigProcessTest('test_pure_mm_basic_import_config_file'))
+    suite.addTest(ConfigProcessTest('test_pure_mm_basic_til_start'))
     return suite
 
 
