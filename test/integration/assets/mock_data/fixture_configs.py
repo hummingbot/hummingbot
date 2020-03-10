@@ -10,7 +10,7 @@ class FixtureConfigs:
                               "maker_market_trading_pair": "LINK-ETH",
                               "bid_place_threshold": "0.01",
                               "ask_place_threshold": "0.01",
-                              "cancel_order_wait_time": "60",
+                              "cancel_order_wait_time": "",
                               "order_amount": "4",
                               "advanced_mode": "No"}
 
@@ -20,3 +20,8 @@ class FixtureConfigs:
         "kill_switch_enabled": "no",
         "send_error_logs": "no"
     }
+
+    in_mem_existing_pass_import_configs = [
+        {"prompt": "What is your market making strategy? >>> ", "input": "pure_market_making"},
+        {"prompt": "Import previous configs or create a new config file? (import/create) >>> ", "input": "import"}
+    ]
