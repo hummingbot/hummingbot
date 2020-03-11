@@ -156,7 +156,6 @@ cdef class DolomiteMarket(MarketBase):
         self._last_timestamp = 0
         self._poll_interval = poll_interval
         self._shared_client = None
-        self._order_tracker_task = None
         self._polling_update_task = None
 
         # State
@@ -490,9 +489,8 @@ cdef class DolomiteMarket(MarketBase):
     # ----------------------------------------------------------
 
     async def start_network(self):
-        if self._order_tracker_task is not None:
-            await self.stop_network()
-        self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
+        await self.stop_network()
+        self._order_book_tracker.start()
         self._polling_update_task = safe_ensure_future(self._polling_update())
 
         if self._trading_required:
@@ -502,11 +500,9 @@ cdef class DolomiteMarket(MarketBase):
             self._pending_approval_tx_hashes.update(tx_hashes)
 
     async def stop_network(self):
-        if self._order_tracker_task is not None:
-            self._order_tracker_task.cancel()
-            self._polling_update_task.cancel()
-            self._pending_approval_tx_hashes.clear()
-        self._order_tracker_task = self._polling_update_task = None
+        self._order_book_tracker.stop()
+        self._pending_approval_tx_hashes.clear()
+        self._polling_update_task = None
 
     async def check_network(self) -> NetworkStatus:
         if self._wallet.network_status is not NetworkStatus.CONNECTED:

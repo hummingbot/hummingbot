@@ -21,10 +21,9 @@ class BinanceTime:
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global _bt_logger
-        if _bt_logger is None:
-            _bt_logger = logging.getLogger(__name__)
-        return _bt_logger
+        if cls._bt_logger is None:
+            cls._bt_logger = logging.getLogger(__name__)
+        return cls._bt_logger
 
     @classmethod
     def get_instance(cls) -> "BinanceTime":

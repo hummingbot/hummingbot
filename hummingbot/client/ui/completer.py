@@ -144,7 +144,10 @@ class HummingbotCompleter(Completer):
 
         else:
             text_before_cursor: str = document.text_before_cursor
-            first_word: str = text_before_cursor[0:text_before_cursor.index(' ')]
+            try:
+                first_word: str = text_before_cursor[0:text_before_cursor.index(' ')]
+            except ValueError:
+                return
             subcommand_completer: Completer = self.get_subcommand_completer(first_word)
             if complete_event.completion_requested or self._complete_subcommand(document):
                 for c in subcommand_completer.get_completions(document, complete_event):
