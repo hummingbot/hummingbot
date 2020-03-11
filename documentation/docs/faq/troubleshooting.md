@@ -290,13 +290,12 @@ When resizing the window of your Hummingbot, text becomes unclear or at the same
 
 ### How to change time or timezone of Hummingbot docker build?
 Hummingbot uses the time where its installed, its either on your local computer or cloud server. Sometimes docker build Hummingbot time is out of sync, follow these steps to fix it.
+
+While docker $instance_name is runnning on background type in command line.
 ```
-# While $instance_name is runnning on background type in command line.
 docker exec -it $instance_name bash
 dpkg-reconfigure tzdata
-# Configure location and timezone by inputting the corresponding number.
-# then check the date and time by entering
-date
-# then type exit 
-exit
 ```
+Configure geographic location and timezone by inputting the corresponding number, see example below:
+
+![](/assets/img/docker-tz.png)
