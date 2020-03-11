@@ -43,6 +43,7 @@ from hummingbot.market.bitfinex import (
     BITFINEX_QUOTE_INCREMENT,
     TAKER_FEE,
     MAKER_FEE,
+    OrderStatus,
 )
 from hummingbot.market.bitfinex.bitfinex_api_order_book_data_source import \
     BitfinexAPIOrderBookDataSource
@@ -103,6 +104,7 @@ cdef class BitfinexMarket(MarketBase):
 
     API_CALL_TIMEOUT = 10.0
     UPDATE_ORDERS_INTERVAL = 10.0
+    ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -139,6 +141,7 @@ cdef class BitfinexMarket(MarketBase):
         self._poll_interval = poll_interval
         self._in_flight_orders = {}
         self._trading_rules = {}
+        self._order_not_found_records = {}
         self._data_source_type = order_book_tracker_data_source_type
         self._status_polling_task = None
         self._order_tracker_task = None
@@ -1255,10 +1258,26 @@ cdef class BitfinexMarket(MarketBase):
             order_update = order_dict.get(str(exchange_order_id))
 
             if order_update is None:
+                self._order_not_found_records[client_order_id] = \
+                    self._order_not_found_records.get(client_order_id, 0) + 1
+
+                if self._order_not_found_records[client_order_id] < self.ORDER_NOT_EXIST_CONFIRMATION_COUNT:
+                    # Wait until the order not found error have repeated for a few times before actually treating
+                    # it as a fail. See: https://github.com/CoinAlpha/hummingbot/issues/601
+                    continue
+
+                tracked_order.last_state = OrderStatus.CANCELED
+                self.c_trigger_event(
+                    self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                    MarketOrderFailureEvent(self._current_timestamp,
+                                            client_order_id,
+                                            tracked_order.order_type)
+                )
+                self.c_stop_tracking_order(client_order_id)
                 self.logger().network(
-                    f"Error fetching status update for the order {tracked_order.client_order_id}: "
-                    f"{order_update}.",
-                    app_warning_msg=f"Could not fetch updates for the order {tracked_order.client_order_id} {tracked_order.exchange_order_id}. "
+                    f"Error fetching status update for the order {client_order_id}: "
+                    f"{tracked_order}",
+                    app_warning_msg=f"Could not fetch updates for the order {client_order_id}. "
                                     f"Check API key and network connection."
                 )
                 continue
