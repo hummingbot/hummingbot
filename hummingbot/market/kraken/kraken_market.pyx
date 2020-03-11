@@ -142,7 +142,6 @@ cdef class KrakenMarket(MarketBase):
         self._status_polling_task = None
         self._user_stream_tracker_task = None
         self._user_stream_event_listener_task = None
-        self._order_tracker_task = None
         self._trading_rules_polling_task = None
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._last_pull_timestamp = 0
@@ -634,9 +633,8 @@ cdef class KrakenMarket(MarketBase):
         self._async_scheduler.stop()
 
     async def start_network(self):
-        if self._order_tracker_task is not None:
-            self._stop_network()
-        self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
+        self._stop_network()
+        self._order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
@@ -644,8 +642,7 @@ cdef class KrakenMarket(MarketBase):
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
 
     def _stop_network(self):
-        if self._order_tracker_task is not None:
-            self._order_tracker_task.cancel()
+        self._order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
         if self._user_stream_tracker_task is not None:
@@ -654,7 +651,7 @@ cdef class KrakenMarket(MarketBase):
             self._user_stream_event_listener_task.cancel()
         if self._trading_rules_polling_task is not None:
             self._trading_rules_polling_task.cancel()
-        self._order_tracker_task = self._status_polling_task = self._user_stream_tracker_task = \
+        self._status_polling_task = self._user_stream_tracker_task = \
             self._user_stream_event_listener_task = None
 
     async def stop_network(self):
@@ -729,6 +726,12 @@ cdef class KrakenMarket(MarketBase):
                 err = response_json["error"]
                 if "EOrder:Unknown order" in err or "EOrder:Invalid order" in err:
                     return {"error": err}
+                elif "EAPI:Invalid nonce" in err:
+                    self.logger().error(f"Invalid nonce error from {url}. " +
+                                        "Please ensure your Kraken API key nonce window is at least 10.")
+                    raise IOError({"error": response_json})
+            except IOError:
+                raise
             except Exception:
                 pass
 
