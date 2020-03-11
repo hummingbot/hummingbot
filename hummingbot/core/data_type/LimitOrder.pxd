@@ -9,18 +9,12 @@ cdef extern from "../cpp/LimitOrder.h":
     cdef cppclass LimitOrder:
         LimitOrder()
         LimitOrder(string clientOrderID,
-                   string tradingPair,
-                   bool isBuy,
-                   string baseCurrency,
-                   string quoteCurrency,
                    PyObject *price,
-                   PyObject *quantity)
+                   PyObject *quantity,
+                   PyObject *spread)
         LimitOrder(const LimitOrder &other)
         LimitOrder &operator=(const LimitOrder &other)
-        string getClientOrderID();
-        string getTradingPair();
-        bool getIsBuy();
-        string getBaseCurrency();
-        string getQuoteCurrency();
-        PyObject *getPrice();
-        PyObject *getQuantity();
+        string getClientOrderID()
+        PyObject *getPrice()
+        PyObject *getQuantity()
+        PyObject *getSpread()
