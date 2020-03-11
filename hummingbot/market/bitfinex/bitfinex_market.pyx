@@ -773,7 +773,6 @@ cdef class BitfinexMarket(MarketBase):
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
 
-    # sell
     cdef str c_sell(self,
                     str trading_pair,
                     object amount,
