@@ -319,9 +319,9 @@ cdef class OrderBook(PubSub):
                 total_cost += order_book_row.amount * order_book_row.price
                 total_volume += order_book_row.amount
                 if total_volume >= volume:
-                    incremental_amount = total_volume - volume
                     total_cost -= order_book_row.amount * order_book_row.price
                     total_volume -= order_book_row.amount
+                    incremental_amount = volume - total_volume
                     total_cost += incremental_amount * order_book_row.price
                     total_volume += incremental_amount
                     result_vwap = total_cost / total_volume
@@ -331,9 +331,9 @@ cdef class OrderBook(PubSub):
                 total_cost += order_book_row.amount * order_book_row.price
                 total_volume += order_book_row.amount
                 if total_volume >= volume:
-                    incremental_amount = total_volume - volume
                     total_cost -= order_book_row.amount * order_book_row.price
                     total_volume -= order_book_row.amount
+                    incremental_amount = volume - total_volume
                     total_cost += incremental_amount * order_book_row.price
                     total_volume += incremental_amount
                     result_vwap = total_cost / total_volume
