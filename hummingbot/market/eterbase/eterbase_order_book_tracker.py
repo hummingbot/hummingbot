@@ -113,7 +113,7 @@ class EterbaseOrderBookTracker(OrderBookTracker):
         deleted_trading_pairs: Set[str] = tracking_trading_pairs - available_trading_pairs
 
         for trading_pair in new_trading_pairs:
-            order_book_tracker_entry: EterbaseProOrderBookTrackerEntry = available_pairs[trading_pair]
+            order_book_tracker_entry: EterbaseOrderBookTrackerEntry = available_pairs[trading_pair]
             self._active_order_trackers[trading_pair] = order_book_tracker_entry.active_order_tracker
             self._order_books[trading_pair] = order_book_tracker_entry.order_book
             self._tracking_message_queues[trading_pair] = asyncio.Queue()
@@ -157,13 +157,14 @@ class EterbaseOrderBookTracker(OrderBookTracker):
                 if ob_message.content["type"] == "match":  # put match messages to trade queue
                     trade_type = float(TradeType.SELL.value) if ob_message.content["side"].upper() == "SELL" \
                         else float(TradeType.BUY.value)
-                    self._order_book_trade_stream.put_nowait(OrderBookMessage(OrderBookMessageType.TRADE, {
+                    self._order_book_trade_stream.put_nowait(EterbaseOrderBookMessage(OrderBookMessageType.TRADE, {
                         "trading_pair": ob_message.trading_pair ,
                         "trade_type": trade_type,
                         "trade_id": ob_message.update_id,
                         "update_id": ob_message.timestamp,
                         "price": ob_message.content["price"],
-                        "amount": ob_message.content["size"]
+                        "amount": ob_message.content["size"],
+                        "cost": ob_message.content["cost"]
                     }, timestamp=ob_message.timestamp))
 
                 # Log some statistics.
@@ -211,7 +212,6 @@ class EterbaseOrderBookTracker(OrderBookTracker):
                     message = saved_messages.popleft()
                 else:
                     message = await message_queue.get()
-
                 if message.type is OrderBookMessageType.DIFF:
                     bids, asks = active_order_tracker.convert_diff_message_to_order_book_row(message)
                     order_book.apply_diffs(bids, asks, message.update_id)

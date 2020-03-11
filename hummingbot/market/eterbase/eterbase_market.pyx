@@ -54,7 +54,7 @@ from hummingbot.market.market_base import (
     MarketBase,
     OrderType,
 )
-from hummingbot.market.trading_rule cimport TradingRule
+from hummingbot.market.eterbase.eterbase_trading_rule cimport EterbaseTradingRule
 from hummingbot.market.eterbase.eterbase_in_flight_order import EterbaseInFlightOrder
 from hummingbot.market.eterbase.eterbase_in_flight_order cimport EterbaseInFlightOrder
 
@@ -127,7 +127,7 @@ cdef class EterbaseMarket(MarketBase):
     DEPOSIT_TIMEOUT = 1800.0
     UPDATE_ORDERS_INTERVAL = 10.0
 
-
+    trading_pairs_split = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -391,7 +391,7 @@ cdef class EterbaseMarket(MarketBase):
             for trading_rule in trading_rules_list:
                 self._trading_rules[trading_rule.trading_pair] = trading_rule
 
-    def _format_trading_rules(self, raw_trading_rules: List[Any]) -> List[TradingRule]:
+    def _format_trading_rules(self, raw_trading_rules: List[Any]) -> List[EterbaseTradingRule]:
         """
         Turns json data from API into TradingRule instances
         :returns: List of TradingRule
@@ -431,12 +431,18 @@ cdef class EterbaseMarket(MarketBase):
                         self.logger().debug("eterbase_market - format_trading_rules - orderCount: future imp")
                     elif (attr=="Cost"):
                         if (con=="Min"):
-                            mn_price_increment = Decimal(str(value))
+                            min_order_value = Decimal(str(value))
+                        elif (con=="Max"):
+                            max_order_value = Decimal(str(value))
 
-                retval.append(TradingRule(trading_pair,
+                retval.append(EterbaseTradingRule(trading_pair,
                                           min_order_size=mn_order_size,
                                           max_order_size=mx_order_size,
+                                          min_order_value=min_order_value,
+                                          max_order_value = max_order_value,
                                           max_price_significant_digits=priceSigDigs,
+                                          max_cost_significant_digits=costSigDigs,
+                                          max_quantity_significant_digits=qtySigDigs,
                                           supports_limit_orders = orderTypeLimit,
                                           supports_market_orders = orderTypeMarket,
 
@@ -475,15 +481,22 @@ cdef class EterbaseMarket(MarketBase):
             order_fills = await self.get_order_fills(exchange_order_id)
 
             done_reason = order_update.get("closeReason")
-            # Calculate the newly executed amount for this update.
-            new_confirmed_amount = Decimal(order_update["qty"]) -  Decimal(order_update["remainingQty"])
-            execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
+            # Calculate the newly executed amount/cost for this update.
+            # Cost only for MARKET order BUY
+            execute_amount_diff = s_decimal_0
+            new_confirmed_amount = s_decimal_0
+            if (tracked_order.order_type == OrderType.MARKET) and (tracked_order.trade_type == TradeType.BUY):
+                new_confirmed_amount = Decimal(order_update["cost"]) -  Decimal(order_update["remainingCost"])
+                execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
+            else:
+                new_confirmed_amount = Decimal(order_update["qty"]) -  Decimal(order_update["remainingQty"])
+                execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
 
             client_order_id = tracked_order.client_order_id
             order_type_description = tracked_order.order_type_description
             order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
             # Emit event if executed amount is greater than 0.
-            if execute_amount_diff > s_decimal_0:
+            if (execute_amount_diff > s_decimal_0):
                 #find execute price
                 for order_fill in order_fills:
                     if order_fill["orderId"]==order_update["id"]:
@@ -616,13 +629,6 @@ cdef class EterbaseMarket(MarketBase):
                     else:
                         self.logger().error(f"Invalid change message - '{content}'. Aborting.")
 
-                if event_type in ["open", "done", "o_placed","o_closed"]:
-                    remaining_size = Decimal(content.get("remaining_size", tracked_order.amount))
-                    new_confirmed_amount = tracked_order.amount - remaining_size
-                    execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
-                    tracked_order.executed_amount_base = new_confirmed_amount
-                    tracked_order.executed_amount_quote += execute_amount_diff * execute_price
-
                 if execute_amount_diff > s_decimal_0:
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"{order_type_description} order {tracked_order.client_order_id}")
@@ -693,23 +699,46 @@ cdef class EterbaseMarket(MarketBase):
                 await asyncio.sleep(5.0)
 
     async def place_order(self, order_id: str, trading_pair: str, amount: Decimal, is_buy: bool, order_type: OrderType,
-                          price: Decimal):
+                          price: Decimal, cost: Optional[Decimal]):
         """
         Async wrapper for placing orders through the rest API.
         :returns: json response from the API
         """
         tp_map_mkrtid:Dict[str,str] = await EterbaseAPIOrderBookDataSource.get_map_market_id()
         path_url = "/orders"
+
+        if order_type is OrderType.LIMIT:
+            type_order=2
+        elif order_type is OrderType.MARKET:
+            type_order=1
+        else:
+            self.logger().error(f"Unsuported Order type value - {order_type}.", exc_info=True)
+        if is_buy==True:
+            side_order=1
+        elif is_buy==False:
+            side_order=2
+        else:
+            self.logger().error(f"Unsuported Order side value - {is_buy}.", exc_info=True)
         data = {
             "accountId": self._eterbase_account,
-            "limitPrice": str(price),
-            "qty": str(amount),
             "marketId": tp_map_mkrtid[trading_pair],
-            "side": 1 if is_buy else 2,
-            "type": 2 if order_type is OrderType.LIMIT else 1,
+            "side":side_order,
+            "type": type_order,
             "refId": order_id
         }
+        if order_type is OrderType.LIMIT:
+            data["limitPrice"] = str(price)
+            data["qty"] = str(amount)
+        elif order_type is OrderType.MARKET:
+            if is_buy:
+                data["cost"] = str(cost)
+            else:
+                data["qty"] = str(amount)
+        else:
+            self.logger().error(f"Unsuported OrderType - {order_type}.", exc_info=True) 
+
         order_result = await api_request("post", path_url=path_url, data=data, auth=self._eterbase_auth)
+
         return order_result
 
     async def execute_buy(self,
@@ -723,29 +752,48 @@ cdef class EterbaseMarket(MarketBase):
         and submit an API request to place a buy order
         """
         cdef:
-            TradingRule trading_rule = self._trading_rules[trading_pair]
-
+            EterbaseTradingRule trading_rule = self._trading_rules[trading_pair]
         decimal_amount = self.quantize_order_amount(trading_pair, amount)
         decimal_price = self.quantize_order_price(trading_pair, price)
-
-        # convert price according significant digits
-        str_price = ("{0:."+str(trading_rule.max_price_significant_digits)+"g}").format(decimal_price)
-        if re.search(r'e+',str_price):
-            decimal_price = Decimal("{:.0f}".format(Decimal(str_price)))
+        decimal_cost = s_decimal_0
+        #For Order Market type is needed cost
+        if (order_type == OrderType.MARKET):
+            decimal_cost = self.c_quantize_cost(trading_pair, amount, price)
+            str_cost = ("{0:."+str(trading_rule.max_cost_significant_digits)+"g}").format(decimal_cost)
+            if re.search(r'e+',str_cost):
+                decimal_cost = Decimal("{:.0f}".format(Decimal(str_cost)))
+            else:
+                decimal_cost = Decimal(str_cost)
+            if decimal_cost < trading_rule.min_order_value:
+                raise ValueError(f"Buy order cost {decimal_cost} is lower than the minimum order cost "
+                                 f"{trading_rule.min_order_value}.")
+            if decimal_cost > trading_rule.max_order_value:
+                raise ValueError(f"Buy order cost {decimal_cost} is higer than the maximum order cost "
+                                 f"{trading_rule.max_order_value}.")
+        elif (order_type == OrderType.LIMIT):
+            # convert price according significant digits
+            str_price = ("{0:."+str(trading_rule.max_price_significant_digits)+"g}").format(decimal_price)
+            if re.search(r'e+',str_price):
+                decimal_price = Decimal("{:.0f}".format(Decimal(str_price)))
+            else:
+                decimal_price = Decimal(str_price)
+            if decimal_amount < trading_rule.min_order_size:
+                raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
+                                 f"{trading_rule.min_order_size}.")
+            if decimal_amount > trading_rule.max_order_size:
+                raise ValueError(f"Buy order amount {decimal_amount} is higer than the maximum order size "
+                                 f"{trading_rule.max_order_size}.")
         else:
-            decimal_price = Decimal(str_price)
-        if decimal_amount < trading_rule.min_order_size:
-            raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
-                             f"{trading_rule.min_order_size}.")
+            raise ValueError(f"Unsuported Order type {order_type}.") 
 
         try:
-            self.c_start_tracking_order(order_id, trading_pair, order_type, TradeType.BUY, decimal_price, decimal_amount)
-            order_result = await self.place_order(order_id, trading_pair, decimal_amount, True, order_type, decimal_price)
+            self.c_start_tracking_order(order_id, trading_pair, order_type, TradeType.BUY, decimal_price, decimal_amount, decimal_cost)
+            order_result = await self.place_order(order_id, trading_pair, decimal_amount, True, order_type, decimal_price, decimal_cost)
 
             exchange_order_id = order_result["id"]
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
-                self.logger().info(f"Created {order_type} buy order {order_id} for {decimal_amount} {trading_pair}.")
+                self.logger().info(f"Created {order_type} buy order {order_id} for amount {decimal_amount} and price {decimal_price} or cost {decimal_cost} {trading_pair}.")
                 tracked_order.update_exchange_order_id(exchange_order_id)
 
             self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
@@ -793,10 +841,12 @@ cdef class EterbaseMarket(MarketBase):
         and submit an API request to place a sell order
         """
         cdef:
-            TradingRule trading_rule = self._trading_rules[trading_pair]
-
+            EterbaseTradingRule trading_rule = self._trading_rules[trading_pair]
+        if price.is_nan() and order_type==OrderType.MARKET:
+            price = s_decimal_0
         decimal_amount = self.quantize_order_amount(trading_pair, amount)
         decimal_price = self.quantize_order_price(trading_pair, price)
+        decimal_cost = s_decimal_0
 
         # convert price according significant digits
         str_price = ("{0:."+str(trading_rule.max_price_significant_digits)+"g}").format(decimal_price)
@@ -805,14 +855,13 @@ cdef class EterbaseMarket(MarketBase):
         else:
             decimal_price = Decimal(str_price)
 
-
         if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Sell order amount {decimal_amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
 
         try:
-            self.c_start_tracking_order(order_id, trading_pair, order_type, TradeType.SELL, decimal_price, decimal_amount)
-            order_result = await self.place_order(order_id, trading_pair, decimal_amount, False, order_type, decimal_price)
+            self.c_start_tracking_order(order_id, trading_pair, order_type, TradeType.SELL, decimal_price, decimal_amount, decimal_cost)
+            order_result = await self.place_order(order_id, trading_pair, decimal_amount, False, order_type, decimal_price, decimal_cost)
 
             exchange_order_id = order_result["id"]
             tracked_order = self._in_flight_orders.get(order_id)
@@ -1099,7 +1148,8 @@ cdef class EterbaseMarket(MarketBase):
                                 object order_type,
                                 object trade_type,
                                 object price,
-                                object amount):
+                                object amount,
+                                object cost):
         """
         Add new order to self._in_flight_orders mapping
         """
@@ -1111,6 +1161,7 @@ cdef class EterbaseMarket(MarketBase):
             trade_type,
             price,
             amount,
+            cost
         )
 
     cdef c_stop_tracking_order(self, str order_id):
@@ -1134,7 +1185,7 @@ cdef class EterbaseMarket(MarketBase):
         :return: Min order price increment in Decimal format
         """
         cdef:
-            TradingRule trading_rule = self._trading_rules[trading_pair]
+            EterbaseTradingRule trading_rule = self._trading_rules[trading_pair]
         return trading_rule.min_price_increment
 
     cdef object c_get_order_size_quantum(self, str trading_pair, object order_size):
@@ -1144,7 +1195,7 @@ cdef class EterbaseMarket(MarketBase):
         :return: Min order size increment in Decimal format
         """
         cdef:
-            TradingRule trading_rule = self._trading_rules[trading_pair]
+            EterbaseTradingRule trading_rule = self._trading_rules[trading_pair]
 
         # Eterbase is using the min_order_size as max_precision
         # Order size must be a multiple of the min_order_size
@@ -1157,7 +1208,7 @@ cdef class EterbaseMarket(MarketBase):
         :return: Valid order amount in Decimal format
         """
         cdef:
-            TradingRule trading_rule = self._trading_rules[trading_pair]
+            EterbaseTradingRule trading_rule = self._trading_rules[trading_pair]
 
         global s_decimal_0
         quantized_amount = MarketBase.c_quantize_order_amount(self, trading_pair, amount)
@@ -1170,6 +1221,29 @@ cdef class EterbaseMarket(MarketBase):
             return s_decimal_0
 
         return quantized_amount
+
+    cdef object c_quantize_cost(self, str trading_pair, object amount, object price):
+        """
+        *required
+        Check current order cost against trading rule, and correct any rule violations
+        :return: Valid order cost in Decimal format
+        """
+        cdef:
+            EterbaseTradingRule trading_rule = self._trading_rules[trading_pair]
+
+        global s_decimal_0
+        
+        cost = amount * price
+        
+        # Check against min_order_value. If not passing either check, return 0.
+        if cost < trading_rule.min_order_value:
+            return s_decimal_0
+
+        # Check against max_order_value. If not passing either check, return 0.
+        if cost > trading_rule.max_order_value:
+            return s_decimal_0
+
+        return cost
 
     @staticmethod
     def prepare_trading_pairs_split(markets:List):

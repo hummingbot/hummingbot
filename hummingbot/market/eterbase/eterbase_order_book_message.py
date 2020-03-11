@@ -12,6 +12,7 @@ from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType,
 )
+from hummingbot.market.eterbase.eterbase_utils import get_marketid_mapping
 
 
 class EterbaseOrderBookMessage(OrderBookMessage):
@@ -44,10 +45,9 @@ class EterbaseOrderBookMessage(OrderBookMessage):
 
     @property
     def trading_pair(self) -> str:
-        if "product_id" in self.content:
-            return self.content["product_id"]
-        elif "symbol" in self.content:
-            return self.content["symbol"]
+        if "marketId" in self.content:
+            tp_map:Dict[str,str] = get_marketid_mapping()
+            return tp_map[self.content["marketId"]]
 
     @property
     def asks(self) -> List[OrderBookRow]:
@@ -56,3 +56,10 @@ class EterbaseOrderBookMessage(OrderBookMessage):
     @property
     def bids(self) -> List[OrderBookRow]:
         raise NotImplementedError("Eterbase order book messages have different semantics.")
+
+    def __repr__(self) -> str:
+        return super().__repr__()+\
+               f".EterbaseExtension(" \
+               f"trade_id={self.trade_id}, " \
+               f"trading_pair={self.trading_pair}, " \
+               f"update_id={self.update_id}) "

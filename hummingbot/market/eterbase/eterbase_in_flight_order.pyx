@@ -16,6 +16,7 @@ from hummingbot.core.event.events import (
 from hummingbot.market.eterbase.eterbase_market import EterbaseMarket
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 
+s_decimal_0 = Decimal(0)
 
 s_logger = None
 
@@ -28,6 +29,7 @@ cdef class EterbaseInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
+                 cost: Optional[Decimal],
                  initial_state: str = "open",
                  fill_ids:Set[str] = set()):
         super().__init__(
@@ -42,6 +44,8 @@ cdef class EterbaseInFlightOrder(InFlightOrderBase):
             initial_state,
         )
         self.fill_ids=fill_ids
+        self.cost = cost
+        self.executed_cost_quote = s_decimal_0
 
 
     @classmethod
@@ -95,4 +99,11 @@ cdef class EterbaseInFlightOrder(InFlightOrderBase):
         retval.fee_asset = data["fee_asset"]
         retval.fee_paid = Decimal(data["fee_paid"])
         retval.last_state = data["last_state"]
+        retval.cost = data["cost"]
         return retval
+
+    def __repr__(self) -> str:
+        return super().__repr__()+\
+               f".EterbaseExtension(" \
+               f"fill_ids='{self.fill_ids}', " \
+               f"cost='{self.cost}')"
