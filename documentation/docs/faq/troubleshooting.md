@@ -96,7 +96,6 @@ Ctrl + Shift + V
 
 ### paste items from clipboard in putty
 
-<br/>
 You should be able to paste items from your clipboard by doing mouse right-click or `SHIFT + right-click`. If that doesn't work, follow the steps below.
 
 1. If you are currently logged in a session, left-click on the upper left hand corner of the PuTTY window or a right-click anywhere on the title bar then select "Change Settings". If not, proceed to next step.
@@ -289,3 +288,14 @@ Weight/Request error in logs happens when it encountered a warning or error and 
 ### How do I resize my Hummingbot window without jumbling the text?
 When resizing the window of your Hummingbot, text becomes unclear or at the same location as the previous size of the window. To do a refresh to the new window size, while inside Hummingbot press `CTRL + L` and it will refresh Hummingbot window panes. These command applies to all Hummingbot build.
 
+### How to change time or timezone of Hummingbot docker build?
+Hummingbot uses the time where its installed, its either on your local computer or cloud server. Sometimes docker build Hummingbot time is out of sync, follow these steps to fix it.
+
+While docker $instance_name is runnning on background type in command line.
+```
+docker exec -it $instance_name bash
+dpkg-reconfigure tzdata
+```
+Configure geographic location and timezone by inputting the corresponding number, see example below:
+
+![](/assets/img/docker-tz.png)
