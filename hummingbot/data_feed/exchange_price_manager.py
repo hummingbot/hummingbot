@@ -49,11 +49,4 @@ class ExchangePriceManager:
             if trading_pair in ex_feed.price_dict:
                 return ex_feed.price_dict[trading_pair]
 
-        for ex_feed in ExchangePriceManager.ex_feeds.values():
-            proxy_prices = {k: v for k, v in ex_feed.price_dict.items() if k.startswith(f"{base_asset}-")}
-            for proxy_pair, proxy_price in proxy_prices.items():
-                proxy_quote = proxy_pair.split("-")[1]
-                proxy_pair_2 = f"{proxy_quote}-{quote_asset}"
-                if proxy_pair_2 in ex_feed.price_dict:
-                    return proxy_price * ex_feed.price_dict[proxy_pair_2]
         return None

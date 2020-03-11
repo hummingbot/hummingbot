@@ -57,10 +57,6 @@ class ExchangePriceManagerMockAPIUnitTest(TestCase):
         eth_btc_price = ExchangePriceManager.get_price("ETH", "BTC")
         self.assertEqual(Decimal("0.025"), eth_btc_price)
 
-        # ETH-USDT pair doesn't exist in the fixture, however its price can be derived from ETH-BTC and BTC-USDT pairs
-        eth_usdt_price = ExchangePriceManager.get_price("ETH", "USDT")
-        self.assertEqual(Decimal('200'), eth_usdt_price)
-
         # ZRX-USDT is not in the fixture, this should return None
         zrx_usdt_price = ExchangePriceManager.get_price("ZRX", "USDT")
         self.assertEqual(None, zrx_usdt_price)
