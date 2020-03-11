@@ -119,7 +119,7 @@ class NetworkBase:
                 self.logger().error("Unexpected error starting or stopping network.", exc_info=True)
 
     def start(self):
-        self._check_network_task = asyncio.ensure_future(self._check_network_loop())
+        self._check_network_task = safe_ensure_future(self._check_network_loop())
         self._network_status = NetworkStatus.NOT_CONNECTED
         self._started = True
 
