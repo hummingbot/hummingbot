@@ -21,6 +21,8 @@ TYPE_MATCH = "o_fill"
 TYPE_DONE = "o_closed"
 SIDE_BUY = 1
 SIDE_SELL = 2
+SIDE_NaN = 0
+ORDER_TYPE_MARKET = 1
 
 cdef class EterbaseActiveOrderTracker:
     def __init__(self,
@@ -77,7 +79,7 @@ cdef class EterbaseActiveOrderTracker:
             dict content = message.content
             str msg_type = content["type"]
             str order_id
-            str order_side
+            int order_side = SIDE_NaN
             str price_raw
             object price
             dict order_dict
@@ -87,8 +89,14 @@ cdef class EterbaseActiveOrderTracker:
         order_id = content.get("orderId")
         if (order_id) is None:
             order_id = str(timestamp)
-        order_side = content.get("side")
+
+
+
         price_raw = content.get("cost")
+        if (price_raw is None):
+            price_raw = content.get("price")
+            if (price_raw is None):
+                price_raw = content.get("limitPrice")
         if order_id is None:
             raise ValueError(f"Unknown order id for message - '{message}'. Aborting.")
         elif price_raw == "null": # 'change' messages have 'null' as price for market orders
@@ -96,6 +104,14 @@ cdef class EterbaseActiveOrderTracker:
         price = None
         if (price_raw !=None):
             price = Decimal(price_raw)
+        if msg_type!="ob_update":
+            if (content.get("side") is not None):
+                order_side = content.get("side")
+            if order_side == SIDE_NaN:
+                if price in self._active_bids and order_id in self._active_bids[price]:
+                    order_side = self._active_bids[price][order_id]["side"]
+            if ((order_side!=SIDE_BUY) and (order_side!=SIDE_SELL)):
+                raise ValueError(f"Invalid msg side it is not sell nor buy - found side: {order_side} for message {message}'. Aborting.")    
 
         if msg_type == "ob_update":
             changes = content["changes"]
@@ -106,7 +122,8 @@ cdef class EterbaseActiveOrderTracker:
                 side = change[3]
                 order_dict = {
                     "order_id": order_id,
-                    "remaining_size": quantity
+                    "remaining_size": quantity,
+                    "side": side
                 }
 
                 if side == SIDE_BUY:
@@ -122,11 +139,13 @@ cdef class EterbaseActiveOrderTracker:
                         self._active_asks[price] = {order_id: order_dict}
                     return s_empty_diff, np.array([[timestamp, float(price), quantity, message.update_id]], dtype="float64")
                 else:
-                    raise ValueError(f"Invalid msg side it is not sell nor buy - '{change}, found side: {side}'. Aborting.")
+                    raise ValueError(f"Invalid msg side it is not sell nor buy, found side: {side} for message {message}'. Aborting.")
         elif msg_type == TYPE_OPEN:
             order_dict = {
                 "order_id": order_id,
-                "remaining_size": content["remaining_size"]
+                "remaining_size": content["qty"],
+                "side": order_side,
+                "order_type": content["oType"]
             }
             if order_side == SIDE_BUY:
                 if price in self._active_bids:
@@ -135,47 +154,24 @@ cdef class EterbaseActiveOrderTracker:
                     self._active_bids[price] = {order_id: order_dict}
                 quantity = self.volume_for_bid_price(price)
                 return np.array([[timestamp, float(price), quantity, message.update_id]], dtype="float64"), s_empty_diff
-            else:
+            elif order_side == SIDE_SELL:
                 if price in self._active_asks:
                     self._active_asks[price][order_id] = order_dict
                 else:
                     self._active_asks[price] = {order_id: order_dict}
                 quantity = self.volume_for_ask_price(price)
                 return s_empty_diff, np.array([[timestamp, float(price), quantity, message.update_id]], dtype="float64")
-
-        elif msg_type == TYPE_CHANGE:
-            if content.get("new_size") is not None:
-                remaining_size = content["new_size"]
-            elif content.get("new_funds") is not None:
-                remaining_size = str(Decimal(content["new_funds"]) / price)
             else:
-                raise ValueError(f"Invalid change message - '{message}'. Aborting.")
-            if order_side == SIDE_BUY:
-                if price in self._active_bids and order_id in self._active_bids[price]:
-                    self._active_bids[price][order_id]["remaining_size"] = remaining_size
-                    quantity = self.volume_for_bid_price(price)
-                    return (
-                        np.array([[timestamp, float(price), quantity, message.update_id]], dtype="float64"),
-                        s_empty_diff
-                    )
-                else:
-                    return s_empty_diff, s_empty_diff
-            else:
-                if price in self._active_asks and order_id in self._active_asks[price]:
-                    self._active_asks[price][order_id]["remaining_size"] = remaining_size
-                    quantity = self.volume_for_ask_price(price)
-                    return (
-                        s_empty_diff,
-                        np.array([[timestamp, float(price), quantity, message.update_id]], dtype="float64")
-                    )
-                else:
-                    return s_empty_diff, s_empty_diff
+                raise ValueError(f"Cannot determine order side - {order_side} for message - {message}. Aborting.")
 
         elif msg_type == TYPE_MATCH:
             if order_side == SIDE_BUY:
                 if price in self._active_bids and order_id in self._active_bids[price]:
                     remaining_size = self._active_bids[price][order_id]["remaining_size"]
-                    self._active_bids[price][order_id]["remaining_size"] = str(float(remaining_size) - float(content["size"]))
+                    if (self._active_bids[price][order_id]["order_type"]==ORDER_TYPE_MARKET):
+                        self._active_bids[price][order_id]["remaining_size"] = str(float(content["remainingCost"]))
+                    else:
+                        self._active_bids[price][order_id]["remaining_size"] = str(float(content["remainingQty"]))
                     quantity = self.volume_for_bid_price(price)
                     return (
                         np.array([[timestamp, float(price), quantity, message.update_id]], dtype="float64"),
@@ -183,10 +179,10 @@ cdef class EterbaseActiveOrderTracker:
                     )
                 else:
                     return s_empty_diff, s_empty_diff
-            else:
+            elif order_side == SIDE_SELL:
                 if price in self._active_asks and order_id in self._active_asks[price]:
                     remaining_size = self._active_asks[price][order_id]["remaining_size"]
-                    self._active_asks[price][order_id]["remaining_size"] = str(float(remaining_size) - float(content["size"]))
+                    self._active_asks[price][order_id]["remaining_size"] = str(float(content["remainingQty"]))
                     quantity = self.volume_for_ask_price(price)
                     return (
                         s_empty_diff,
@@ -194,6 +190,8 @@ cdef class EterbaseActiveOrderTracker:
                     )
                 else:
                     return s_empty_diff, s_empty_diff
+            else:
+                raise ValueError(f"Cannot determine order side - {order_side} for message - {message}. Aborting.") 
 
         elif msg_type == TYPE_DONE:
             if order_side == SIDE_BUY:
@@ -212,7 +210,7 @@ cdef class EterbaseActiveOrderTracker:
                             s_empty_diff
                         )
                 return s_empty_diff, s_empty_diff
-            else:
+            elif order_side == SIDE_SELL:
                 if price in self._active_asks and order_id in self._active_asks[price]:
                     del self._active_asks[price][order_id]
                     if len(self._active_asks[price]) < 1:
@@ -228,6 +226,8 @@ cdef class EterbaseActiveOrderTracker:
                             np.array([[timestamp, float(price), quantity, message.update_id]], dtype="float64")
                         )
                 return s_empty_diff, s_empty_diff
+            else:
+                raise ValueError(f"Cannot determine order side - {order_side} for message - {message}. Aborting.")
 
         else:
             raise ValueError(f"Unknown message type '{msg_type}' - {message}. Aborting.")
