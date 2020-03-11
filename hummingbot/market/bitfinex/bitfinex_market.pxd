@@ -18,6 +18,7 @@ cdef class BitfinexMarket(MarketBase):
         double _poll_interval
         dict _in_flight_orders
         dict _trading_rules
+        dict _order_not_found_records
         object _data_source_type
         object _coro_queue
         public object _status_polling_task
