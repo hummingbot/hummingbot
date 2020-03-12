@@ -584,6 +584,9 @@ cdef class PaperTradeMarket(MarketBase):
                                    SingleTradingPairLimitOrdersIterator orders_it):
         cdef:
             const CPPLimitOrder *cpp_limit_order_ptr = address(deref(orders_it))
+            str trading_pair = cpp_limit_order_ptr.getTradingPair().decode("utf8")
+            str quote_asset = cpp_limit_order_ptr.getQuoteCurrency().decode("utf8")
+            str base_asset = cpp_limit_order_ptr.getBaseCurrency().decode("utf8")
             str order_id = cpp_limit_order_ptr.getClientOrderID().decode("utf8")
             object quote_asset_balance = self.c_get_balance(quote_asset)
             object quote_asset_traded = <object> cpp_limit_order_ptr.getPrice() * \
@@ -639,6 +642,9 @@ cdef class PaperTradeMarket(MarketBase):
                                    SingleTradingPairLimitOrdersIterator orders_it):
         cdef:
             const CPPLimitOrder *cpp_limit_order_ptr = address(deref(orders_it))
+            str trading_pair_str = cpp_limit_order_ptr.getTradingPair().decode("utf8")
+            str quote_asset = cpp_limit_order_ptr.getQuoteCurrency().decode("utf8")
+            str base_asset = cpp_limit_order_ptr.getBaseCurrency().decode("utf8")
             str order_id = cpp_limit_order_ptr.getClientOrderID().decode("utf8")
             object base_asset_balance = self.c_get_balance(base_asset)
             object quote_asset_traded = <object> cpp_limit_order_ptr.getPrice() * \
