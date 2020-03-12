@@ -38,7 +38,6 @@ cdef class BambooRelayMarket(MarketBase):
         public object _status_polling_task
         public object _user_stream_event_listener_task
         public object _approval_tx_polling_task
-        public object _order_tracker_task
         int64_t _latest_salt
         str _api_endpoint
         str _api_prefix

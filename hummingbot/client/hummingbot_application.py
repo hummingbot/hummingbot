@@ -4,7 +4,7 @@ import asyncio
 from collections import deque
 import logging
 import time
-from eth_account.local import LocalAccount
+from eth_account.signers.local import LocalAccount
 from typing import List, Dict, Optional, Tuple, Set, Deque
 
 from hummingbot.client.command import __all__ as commands
