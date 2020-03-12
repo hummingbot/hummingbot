@@ -1126,6 +1126,8 @@ cdef class BinanceMarket(MarketBase):
                     # Required by cancel_all() below.
                     "origClientOrderId": order_id
                 }
+            else:
+                raise e
 
         if isinstance(cancel_result, dict) and cancel_result.get("status") == "CANCELED":
             self.logger().info(f"Successfully cancelled order {order_id}.")
