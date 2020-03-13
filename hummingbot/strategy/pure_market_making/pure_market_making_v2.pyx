@@ -205,8 +205,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             trading_pair = market_info.trading_pair
             mid_price = ((market.c_get_price(trading_pair, True) + market.c_get_price(trading_pair, False)) *
                          Decimal("0.5"))
-            base_asset_amount = market.c_get_balance(trading_pair.base_asset)
-            quote_asset_amount = market.c_get_balance(trading_pair.quote_asset)
+            base_asset_amount = market.c_get_balance(market_info.base_asset)
+            quote_asset_amount = market.c_get_balance(market_info.quote_asset)
             base_asset_value = base_asset_amount * mid_price
             total_value = base_asset_value + quote_asset_amount
 
