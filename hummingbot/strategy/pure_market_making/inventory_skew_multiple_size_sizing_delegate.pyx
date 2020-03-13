@@ -57,6 +57,14 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
     def number_of_orders(self) -> int:
         return self._number_of_orders
 
+    @property
+    def inventory_target_base_ratio(self) -> Decimal:
+        return self._inventory_target_base_percent
+
+    @property
+    def inventory_target_base_range(self) -> Decimal:
+        return self._base_asset_range
+
     cdef object c_get_order_size_proposal(self,
                                           PureMarketMakingStrategyV2 strategy,
                                           object market_info,
