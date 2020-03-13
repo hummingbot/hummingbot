@@ -197,9 +197,11 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         return self._sb_order_tracker
 
     def inventory_skew_stats_data_frame(self, market_info: MarketTradingPairTuple) -> Optional[pd.DataFrame]:
+        cdef:
+            MarketBase market = market_info.market
+
         if (hasattr(self._sizing_delegate, "inventory_target_base_ratio") and
                 hasattr(self._sizing_delegate, "inventory_target_base_range")):
-            market = market_info.market
             trading_pair = market_info.trading_pair
             mid_price = ((market.c_get_price(trading_pair, True) + market.c_get_price(trading_pair, False)) *
                          Decimal("0.5"))
@@ -229,7 +231,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             list lines = []
             list warning_lines = []
             list active_orders = []
-            MarketBase market = None
 
         for market_info in self._market_infos.values():
             active_orders = self.market_info_to_active_orders.get(market_info, [])
