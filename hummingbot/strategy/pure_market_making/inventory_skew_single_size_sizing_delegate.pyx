@@ -9,7 +9,7 @@ from hummingbot.core.event.events import (
     TradeType
 )
 from hummingbot.logger import HummingbotLogger
-from .data_types import SizingProposal, InventorySkewBidAskRatios
+from .data_types import SizingProposal
 from .pure_market_making_v2 cimport PureMarketMakingStrategyV2
 from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
 
