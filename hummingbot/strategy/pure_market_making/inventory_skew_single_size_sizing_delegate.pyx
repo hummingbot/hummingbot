@@ -39,6 +39,14 @@ cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
     def order_size(self) -> Decimal:
         return self._order_size
 
+    @property
+    def inventory_target_base_ratio(self) -> Decimal:
+        return self._inventory_target_base_percent
+
+    @property
+    def inventory_target_base_range(self) -> Decimal:
+        return self._base_asset_range
+
     cdef object c_get_order_size_proposal(self,
                                           PureMarketMakingStrategyV2 strategy,
                                           object market_info,

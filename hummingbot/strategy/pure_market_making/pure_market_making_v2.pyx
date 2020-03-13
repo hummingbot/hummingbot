@@ -1,10 +1,11 @@
 from decimal import Decimal
 import logging
+import pandas as pd
 from typing import (
     List,
     Tuple,
-    Optional,
-    Dict
+    Dict,
+    Optional
 )
 from math import (
     floor,
@@ -195,11 +196,40 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     def order_tracker(self):
         return self._sb_order_tracker
 
+    def inventory_skew_stats_data_frame(self, market_info: MarketTradingPairTuple) -> Optional[pd.DataFrame]:
+        if (hasattr(self._sizing_delegate, "inventory_target_base_ratio") and
+                hasattr(self._sizing_delegate, "inventory_target_base_range")):
+            market = market_info.market
+            trading_pair = market_info.trading_pair
+            mid_price = ((market.c_get_price(trading_pair, True) + market.c_get_price(trading_pair, False)) *
+                         Decimal("0.5"))
+            base_asset_amount = market.c_get_balance(trading_pair.base_asset)
+            quote_asset_amount = market.c_get_balance(trading_pair.quote_asset)
+            base_asset_value = base_asset_amount * mid_price
+            total_value = base_asset_value + quote_asset_amount
+
+            base_asset_ratio = (base_asset_value / total_value
+                                if total_value > s_decimal_zero
+                                else s_decimal_zero)
+            target_base_ratio = self._sizing_delegate.inventory_target_base_ratio
+            base_asset_range = self._sizing_delegate.inventory_target_base_range
+
+            inventory_skew_df = pd.DataFrame(data={
+                "Title": ["Target base asset %", "Current base asset %", "Base asset range"],
+                "Value": [float(target_base_ratio) * 100.0,
+                          float(base_asset_ratio) * 100.0,
+                          float(base_asset_range)]
+            }).set_index("Title")
+            return inventory_skew_df
+        else:
+            return None
+
     def format_status(self) -> str:
         cdef:
             list lines = []
             list warning_lines = []
             list active_orders = []
+            MarketBase market = None
 
         for market_info in self._market_infos.values():
             active_orders = self.market_info_to_active_orders.get(market_info, [])
@@ -211,6 +241,12 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
             assets_df = self.wallet_balance_data_frame([market_info])
             lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
+
+            # Print stats related to inventory skew.
+            inventory_skew_df = self.inventory_skew_stats_data_frame(market_info)
+            if inventory_skew_df is not None:
+                lines.extend(["", "  Inventory Skew Stats:"] +
+                             ["    " + line for line in str(inventory_skew_df).split("\n")])
 
             # See if there're any open orders.
             if len(active_orders) > 0:
