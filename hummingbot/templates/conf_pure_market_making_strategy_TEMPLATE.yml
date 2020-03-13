@@ -60,6 +60,9 @@ inventory_skew_enabled: null
 # Target base asset inventory percentage target to be maintained (for Inventory skew feature).
 inventory_target_base_percent: null
 
+# Target base asset range, allowable around the target base percentage (for Inventory skew feature).
+inventory_target_base_range: null
+
 # How long to wait before placing the next order in case your order gets filled (for single order mode).
 filled_order_replenish_wait_time: null
 

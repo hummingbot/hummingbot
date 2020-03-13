@@ -9,7 +9,7 @@ from hummingbot.core.event.events import (
     TradeType
 )
 from hummingbot.logger import HummingbotLogger
-from .data_types import SizingProposal, InventorySkewBidAskRatios
+from .data_types import SizingProposal
 from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
 from .pure_market_making_v2 cimport PureMarketMakingStrategyV2
 
@@ -33,7 +33,7 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
         if base_asset_range is None:
             total_order_size = (order_start_size * Decimal(number_of_orders) +
                                 (order_step_size *
-                                 Decimal(number_of_orders * (number_of_orders + 1) / 2 - number_of_orders)))
+                                 Decimal(number_of_orders * (number_of_orders - 1) / 2)))
             total_order_size *= Decimal(2)
             base_asset_range = total_order_size
         self._base_asset_range = base_asset_range
@@ -97,8 +97,11 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
 
         if self._inventory_target_base_percent is not None:
             bid_ask_ratios = c_calculate_bid_ask_ratios_from_base_asset_ratio(
-                base_asset_balance, quote_asset_balance, mid_price,
-                self._inventory_target_base_percent, self._base_asset_range
+                float(base_asset_balance),
+                float(quote_asset_balance),
+                float(mid_price),
+                float(self._inventory_target_base_percent),
+                float(self._base_asset_range)
             )
             bid_adjustment_ratio = Decimal(bid_ask_ratios.bid_ratio)
             ask_adjustment_ratio = Decimal(bid_ask_ratios.ask_ratio)
