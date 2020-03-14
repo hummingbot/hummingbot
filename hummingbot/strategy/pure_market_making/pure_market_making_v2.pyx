@@ -215,12 +215,20 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                 else s_decimal_zero)
             target_base_ratio = self._sizing_delegate.inventory_target_base_ratio
             base_asset_range = self._sizing_delegate.inventory_target_base_range
+            target_base_amount = (total_value * target_base_ratio / mid_price
+                                  if mid_price > s_decimal_zero
+                                  else s_decimal_zero)
+            high_water_mark = target_base_amount + base_asset_range
+            low_water_mark = max(target_base_amount - base_asset_range, s_decimal_zero)
 
             inventory_skew_df = pd.DataFrame(data={
-                "Title": ["Target base asset %", "Current base asset %", "Base asset range"],
+                "Title": ["Target base asset %", "Current base asset %",
+                          "Base asset range", "Upper limit", "Lower limit"],
                 "Value": [float(target_base_ratio) * 100.0,
                           float(base_asset_ratio) * 100.0,
-                          float(base_asset_range)]
+                          float(base_asset_range),
+                          float(high_water_mark),
+                          float(low_water_mark)]
             }).set_index("Title")
             return inventory_skew_df
         else:
