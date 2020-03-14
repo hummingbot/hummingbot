@@ -2,7 +2,7 @@
 ###       Pure market making strategy config         ###
 ########################################################
 
-template_version: 8
+template_version: 9
 
 ############  Basic configuration section  ############
 
