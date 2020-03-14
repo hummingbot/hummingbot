@@ -110,22 +110,50 @@ Multiple orders allow you to create multiple orders for each bid and ask side, e
 
 ### Inventory-Based Dynamic Order Sizing
 
-This function allows you to specify a target base-to-quote asset inventory ratio and adjust order sizes whenever the current portfolio ratio deviates from this target.
+[Updated as of v0.25.0]
 
-For example, if you are targeting a 50/50 base to quote asset ratio but the current value of your base asset accounts for more than 50% of the value of your inventory, then bid order amount (buy base asset) is decreased, while ask order amount (sell base asset) is increased.
+This function adjusts the bid and ask order sizes to limit the user's trading exposure within a defined range. This prevents the user from being over-exposed from the risks of a single side of the trade when the market keeps hitting limit orders on one side only.
 
- | Prompt | Description |
+The user specifies a target base asset ratio and an allowable range around the target. If the user's base asset value goes above the upper limit, then no bid orders would be emitted. Conversely, if the user's base asset value goes below the lower limit, then no ask orders would be emitted.
+
+For example, if you are targeting a 3% base asset ratio but the current value of your base asset accounts for 3.5% of the value of your inventory, then bid order amount (buy base asset) is decreased, while ask order amount (sell base asset) is increased.
+
+| Prompt | Description |
 |-----|-----|
 | `Would you like to enable inventory skew? (Yes/No) >>>` | This sets `inventory_skew_enabled` ([definition](#configuration-parameters)). |
 | `What is your target base asset inventory percentage? (Enter 0.01 to indicate 1%) >>>` | This sets `inventory_target_base_percent` ([definition](#configuration-parameters)). |
+| `What is your target base asset range (expressed in base asset amount)?` | This sets `inventory_target_base_range` ([definition](#configuration-parameters)). |
 
 **How order size is calculated**
 
-The input `order_amount` is adjusted by the ratio of current base (or quote) percentage versus target percentage:
+The input `order_amount` is adjusted linearly by comparing the percentage of the base asset in the overall trading portfolio vs. the target base asset ratio.
 
-![Inventory skew calculations](/assets/img/inventory-skew-calculation.png)
+The mathematics operations is as follows.
 
-Here's an [inventory skew calculator](https://docs.google.com/spreadsheets/d/16oCExZyM8Wo8d0aRPmT_j7oXCzea3knQ5mmm0LlPGbU/edit#gid=690135600) you can use that shows how your order sizes are adjusted.
+$o$ = order size.<br/>
+$t$ = target base asset ratio.<br />
+$r$ = target base asset range, expressed in base asset amounts.<br />
+$b_{base}, b_{quote}$ = current balance of base and quote asset, respectively.<br />
+$p$ = current price of base asset, in terms of quote asset. <br/>
+$interp(x, x_0, x_1, y_0, y_1) = {y_0 + (x - x_0)({y_1 - y_0 \over x_1 - x_0})}$, i.e. the linear interpolation function.<br/>
+$clamp(x, l, r) = min(max(x, l), r)$<br/><br/>
+Then,<br/>
+
+$$total\_value=b_{base} \times p + b_{quote}$$
+
+$$base\_value=b_{base} \times p $$
+
+$$limit_{R}, limit_{L} = (t \times total\_value) \pm r \times p $$
+
+$$bid\_adj=clamp(interp(base\_value, limit_{L}, limit_{R}, 2, 0), 0, 2)$$
+
+$$ask\_adj=clamp(interp(base\_value, limit_{L}, limit_{R}, 0, 2), 0, 2)$$
+
+$$bid\_size=bid\_adj \times o$$
+
+$$ask\_size=ask\_adj \times o$$
+
+Here's an [inventory skew calculator](https://docs.google.com/spreadsheets/d/175AESICWSNKvU1z9Qmk_GJ2GwEn4kHdieD2wdOcQb8E/edit?usp=sharing) you can use that shows how your order sizes are adjusted.
 
 ### Order Replenish Time
 
