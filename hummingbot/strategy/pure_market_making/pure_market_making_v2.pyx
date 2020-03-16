@@ -218,7 +218,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             # See if there're any open orders.
             if len(active_orders) > 0:
                 df = LimitOrder.to_pandas(active_orders)
-                hangings = {}
                 df['Hang'] = df.apply(lambda row:
                                       'Yes' if row["Order_Id"] in self._hanging_order_ids else 'No', axis = 1)
                 df_lines = str(df).split("\n")
@@ -545,10 +544,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             list cancel_order_ids = []
             bint no_order_placement = False
 
-        # if len(active_orders) > 0:
-        #     self.logger().info(f"Active orders: {active_orders}")
-        # if len(self._time_to_cancel) > 0:
-        #     self.logger().info(f"_time_to_cancel: {self._time_to_cancel}")
         active_non_hanging_orders = [o for o in active_orders if o.client_order_id not in self._hanging_order_ids]
 
         # Before doing anything, ask the filter delegate whether to proceed or not.
