@@ -288,7 +288,7 @@ Weight/Request error in logs happens when it encountered a warning or error and 
 ### How do I resize my Hummingbot window without jumbling the text?
 When resizing the window of your Hummingbot, text becomes unclear or at the same location as the previous size of the window. To do a refresh to the new window size, while inside Hummingbot press `CTRL + L` and it will refresh Hummingbot window panes. These command applies to all Hummingbot build.
 
-## How to change time or timezone of Hummingbot?
+### How to change time or timezone of Hummingbot?
 
 Hummingbot follows the same date/time and timezone on the machine where it is installed. Below are some steps you can follow to change the timezone depending on the operating system and installation type.
 
