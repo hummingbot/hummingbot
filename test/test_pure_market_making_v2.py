@@ -10,7 +10,6 @@ import pandas as pd
 from typing import List
 import unittest
 import time
-import asyncio
 
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import (
@@ -48,8 +47,7 @@ from hummingbot.strategy.pure_market_making import (
     InventorySkewSingleSizeSizingDelegate,
     InventorySkewMultipleSizeSizingDelegate,
     OrderBookAssetPriceDelegate,
-    DataFeedAssetPriceDelegate,
-    APIAssetPriceDelegate
+    DataFeedAssetPriceDelegate
 )
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
@@ -209,8 +207,8 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.ext_market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             self.ext_market, *self.maker_trading_pairs
         )
-        self.ext_data.set_balanced_order_book(mid_price=50, min_price=1, max_price=400,
-                                         price_step_size=1, volume_step_size=10)
+        self.ext_data.set_balanced_order_book(mid_price=50, min_price=1, max_price=400, price_step_size=1,
+                                              volume_step_size=10)
         self.ext_market.add_data(self.ext_data)
         self.asset_del = OrderBookAssetPriceDelegate(self.ext_market, self.maker_trading_pairs[0])
         self.ext_exc_price_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
@@ -242,7 +240,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             },
             "default_data_feed": "mock_data_feed"
         })
-        mock_feed = MockDataFeed("mock_data_feed", {self.maker_trading_pairs[1]:200, self.maker_trading_pairs[2]:1})
+        mock_feed = MockDataFeed("mock_data_feed", {self.maker_trading_pairs[1]: 200, self.maker_trading_pairs[2]: 1})
         ExchangeRateConversion.set_data_feeds([
             mock_feed
         ])
@@ -905,10 +903,9 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.simulate_limit_order_fill(self.maker_market, ask_order)
 
         # Ask is filled and due to delay is not replenished immediately
-        # Bid order is no longer tracked and is not in active bids
         self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size)
         self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
-        self.assertEqual(0, len(self.prevent_cancel_strategy.active_bids))
+        self.assertEqual(1, len(self.prevent_cancel_strategy.active_bids))
         self.assertEqual(0, len(self.prevent_cancel_strategy.active_asks))
 
         # Orders are placed after replenish delay

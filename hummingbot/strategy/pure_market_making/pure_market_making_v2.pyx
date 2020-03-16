@@ -105,7 +105,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  limit_order_min_expiration: float = 130.0,
                  status_report_interval: float = 900,
                  asset_price_delegate: AssetPriceDelegate = None,
-                 expiration_seconds: float = NaN):
+                 expiration_seconds: float = NaN,
+                 cancel_hanging_order_pct: float = 0.1):
 
         if len(market_infos) < 1:
             raise ValueError(f"market_infos must not be empty.")
@@ -123,6 +124,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._add_transaction_costs_to_orders = add_transaction_costs_to_orders
 
         self._time_to_cancel = {}
+        self._hanging_order_ids = []
 
         self._logging_options = logging_options
         self._last_timestamp = 0
@@ -132,6 +134,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._pricing_delegate = pricing_delegate
         self._sizing_delegate = sizing_delegate
         self._enable_order_filled_stop_cancellation = enable_order_filled_stop_cancellation
+        self._cancel_hanging_order_pct = cancel_hanging_order_pct
         self._best_bid_ask_jump_mode = best_bid_ask_jump_mode
         self._best_bid_ask_jump_orders_depth = best_bid_ask_jump_orders_depth
         self._asset_price_delegate = asset_price_delegate
@@ -215,6 +218,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             # See if there're any open orders.
             if len(active_orders) > 0:
                 df = LimitOrder.to_pandas(active_orders)
+                hangings = {}
+                df['Hang'] = df.apply(lambda row:
+                                      'Yes' if row["Order_Id"] in self._hanging_order_ids else 'No', axis = 1)
                 df_lines = str(df).split("\n")
                 lines.extend(["", "  Active orders:"] +
                              ["    " + line for line in df_lines])
@@ -539,8 +545,14 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             list cancel_order_ids = []
             bint no_order_placement = False
 
+        # if len(active_orders) > 0:
+        #     self.logger().info(f"Active orders: {active_orders}")
+        # if len(self._time_to_cancel) > 0:
+        #     self.logger().info(f"_time_to_cancel: {self._time_to_cancel}")
+        active_non_hanging_orders = [o for o in active_orders if o.client_order_id not in self._hanging_order_ids]
+
         # Before doing anything, ask the filter delegate whether to proceed or not.
-        if not self._filter_delegate.c_should_proceed_with_processing(self, market_info, active_orders):
+        if not self._filter_delegate.c_should_proceed_with_processing(self, market_info, active_non_hanging_orders):
             return self.NO_OP_ORDERS_PROPOSAL
 
         # If there are no active orders, then do the following:
@@ -555,17 +567,17 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             asset_mid_price = self._asset_price_delegate.c_get_mid_price()
         pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self,
                                                                              market_info,
-                                                                             active_orders,
+                                                                             active_non_hanging_orders,
                                                                              asset_mid_price)
         # If jump orders is enabled, run the penny jumped pricing proposal
         if self._best_bid_ask_jump_mode:
             pricing_proposal = self.c_get_penny_jumped_pricing_proposal(market_info,
                                                                         pricing_proposal,
-                                                                        active_orders)
+                                                                        active_non_hanging_orders)
 
         sizing_proposal = self._sizing_delegate.c_get_order_size_proposal(self,
                                                                           market_info,
-                                                                          active_orders,
+                                                                          active_non_hanging_orders,
                                                                           pricing_proposal)
         if self._add_transaction_costs_to_orders:
             no_order_placement, pricing_proposal = self.c_check_and_add_transaction_costs_to_pricing_proposal(
@@ -582,19 +594,19 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
         if ((market_info.market.name not in self.RADAR_RELAY_TYPE_EXCHANGES) or
                 (market_info.market.display_name == "bamboo_relay" and market_info.market.use_coordinator)):
+            market_mid_price = market_info.get_mid_price()
             for active_order in active_orders:
                 # If there are active orders, and active order cancellation is needed, then do the following:
                 #  1. Check the time to cancel for each order, and see if cancellation should be proposed.
                 #  2. Record each order id that needs to be cancelled.
                 #  3. Set action to include cancel orders.
-
-                # If Enable filled order stop cancellation is true and an order filled event happens when proposal is
-                # generated, then check if the order is still in time_to_cancel
-
-                if active_order.client_order_id in self._time_to_cancel and \
+                if active_order.client_order_id in self._hanging_order_ids:
+                    if asset_mid_price > 0 and abs(active_order.price - market_mid_price)/market_mid_price > \
+                            self._cancel_hanging_order_pct:
+                        cancel_order_ids.append(active_order.client_order_id)
+                elif active_order.client_order_id in self._time_to_cancel and \
                         self._current_timestamp >= self._time_to_cancel[active_order.client_order_id]:
                     cancel_order_ids.append(active_order.client_order_id)
-
             if len(cancel_order_ids) > 0:
                 actions |= ORDER_PROPOSAL_ACTION_CANCEL_ORDERS
 
@@ -648,9 +660,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             active_sell_orders = [x.client_order_id for x in active_orders if not x.is_buy]
 
             if self._enable_order_filled_stop_cancellation:
-                # If the filled order is a hanging order (not an active buy order)
-                # do nothing
-                if order_id not in active_buy_orders:
+                # If the filled order is a hanging order, do nothing
+                if order_id in self._hanging_order_ids:
                     return
 
             # if filled order is buy, adjust the cancel time for sell order
@@ -660,15 +671,11 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
                     # If you want to stop cancelling orders remove it from the cancel list
                     if self._enable_order_filled_stop_cancellation:
+                        self._hanging_order_ids.append(other_order_id)
                         del self._time_to_cancel[other_order_id]
                     else:
                         # cancel time is minimum of current cancel time and replenish time to sync up both
                         self._time_to_cancel[other_order_id] = min(self._time_to_cancel[other_order_id], replenish_time_stamp)
-
-                # Stop tracking the order
-                if self._enable_order_filled_stop_cancellation:
-                    self._sb_order_tracker.c_stop_tracking_limit_order(market_info, other_order_id)
-                    maker_market.c_stop_tracking_order(other_order_id)
 
             if not isnan(replenish_time_stamp):
                 self.filter_delegate.order_placing_timestamp = replenish_time_stamp
@@ -698,9 +705,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             active_sell_orders = [x.client_order_id for x in active_orders if not x.is_buy]
 
             if self._enable_order_filled_stop_cancellation:
-                # If the filled order is a hanging order (not an active sell order)
-                # do nothing
-                if order_id not in active_sell_orders:
+                # If the filled order is a hanging order, do nothing
+                if order_id in self._hanging_order_ids:
                     return
 
             # if filled order is sell, adjust the cancel time for buy order
@@ -710,15 +716,11 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
                     # If you want to stop cancelling orders remove it from the cancel list
                     if self._enable_order_filled_stop_cancellation:
+                        self._hanging_order_ids.append(other_order_id)
                         del self._time_to_cancel[other_order_id]
                     else:
                         # cancel time is minimum of current cancel time and replenish time to sync up both
                         self._time_to_cancel[other_order_id] = min(self._time_to_cancel[other_order_id], replenish_time_stamp)
-
-                # Stop tracking the order
-                if self._enable_order_filled_stop_cancellation:
-                    self._sb_order_tracker.c_stop_tracking_limit_order(market_info, other_order_id)
-                    maker_market.c_stop_tracking_order(other_order_id)
 
             if not isnan(replenish_time_stamp):
                 self.filter_delegate.order_placing_timestamp = replenish_time_stamp
