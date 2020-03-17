@@ -38,7 +38,7 @@ def start(self):
         raw_maker_trading_pair = pure_market_making_config_map.get("maker_market_trading_pair").value
         inventory_skew_enabled = pure_market_making_config_map.get("inventory_skew_enabled").value
         inventory_target_base_percent = pure_market_making_config_map.get("inventory_target_base_percent").value
-        inventory_target_base_range = pure_market_making_config_map.get("inventory_target_base_range").value
+        inventory_range_multiplier = pure_market_making_config_map.get("inventory_range_multiplier").value
         filled_order_replenish_wait_time = pure_market_making_config_map.get("filled_order_replenish_wait_time").value
         enable_order_filled_stop_cancellation = pure_market_making_config_map.get(
             "enable_order_filled_stop_cancellation").value
@@ -70,7 +70,7 @@ def start(self):
                                                                           order_step_size,
                                                                           number_of_orders,
                                                                           inventory_target_base_percent,
-                                                                          inventory_target_base_range)
+                                                                          inventory_range_multiplier)
             else:
                 sizing_delegate = StaggeredMultipleSizeSizingDelegate(order_start_size,
                                                                       order_step_size,
@@ -81,7 +81,7 @@ def start(self):
             if inventory_skew_enabled:
                 sizing_delegate = InventorySkewSingleSizeSizingDelegate(order_size,
                                                                         inventory_target_base_percent,
-                                                                        inventory_target_base_range)
+                                                                        inventory_range_multiplier)
             else:
                 sizing_delegate = ConstantSizeSizingDelegate(order_size)
         try:

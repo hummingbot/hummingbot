@@ -184,7 +184,7 @@ pure_market_making_config_map = {
                          "expressed in multiples of your total order size? ",
                   required_if=lambda: pure_market_making_config_map.get("inventory_skew_enabled").value,
                   type_str="decimal",
-                  default=2.0),
+                  default=1.0),
     "filled_order_replenish_wait_time":
         ConfigVar(key="filled_order_replenish_wait_time",
                   prompt="How long do you want to wait before placing the next order "
