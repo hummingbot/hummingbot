@@ -8,6 +8,7 @@ from decimal import Decimal
 from hummingbot.client.config.config_helpers import (
     minimum_order_amount
 )
+from hummingbot.data_feed.exchange_price_manager import ExchangePriceManager
 
 
 def maker_trading_pair_prompt():
@@ -54,6 +55,13 @@ def is_valid_order_amount(value: str) -> bool:
         return False
 
 
+def taker_market_on_validated(value: str):
+    required_exchanges.append(value)
+    maker_exchange = cross_exchange_market_making_config_map["maker_market"].value
+    ExchangePriceManager.set_exchanges_to_feed([maker_exchange, value])
+    ExchangePriceManager.start()
+
+
 cross_exchange_market_making_config_map = {
     "maker_market": ConfigVar(
         key="maker_market",
@@ -65,7 +73,7 @@ cross_exchange_market_making_config_map = {
         key="taker_market",
         prompt="Enter your taker exchange name >>> ",
         validator=is_exchange,
-        on_validated=lambda value: required_exchanges.append(value),
+        on_validated=taker_market_on_validated,
     ),
     "maker_market_trading_pair": ConfigVar(
         key="maker_market_trading_pair",
