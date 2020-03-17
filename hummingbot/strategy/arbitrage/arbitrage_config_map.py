@@ -7,6 +7,7 @@ from hummingbot.client.settings import (
     required_exchanges,
     EXAMPLE_PAIRS,
 )
+from hummingbot.data_feed.exchange_price_manager import ExchangePriceManager
 
 
 def is_valid_primary_market_trading_pair(value: str) -> bool:
@@ -33,6 +34,13 @@ def secondary_trading_pair_prompt():
            % (secondary_market, f" (e.g. {example})" if example else "")
 
 
+def secondary_market_on_validated(value: str):
+    required_exchanges.append(value)
+    primary_exchange = arbitrage_config_map["primary_market"].value
+    ExchangePriceManager.set_exchanges_to_feed([primary_exchange, value])
+    ExchangePriceManager.start()
+
+
 arbitrage_config_map = {
     "primary_market": ConfigVar(
         key="primary_market",
@@ -43,7 +51,7 @@ arbitrage_config_map = {
         key="secondary_market",
         prompt="Enter your secondary exchange name >>> ",
         validator=is_exchange,
-        on_validated=lambda value: required_exchanges.append(value)),
+        on_validated=secondary_market_on_validated),
     "primary_market_trading_pair": ConfigVar(
         key="primary_market_trading_pair",
         prompt=primary_trading_pair_prompt,
