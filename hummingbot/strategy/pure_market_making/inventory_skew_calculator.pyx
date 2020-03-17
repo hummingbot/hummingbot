@@ -1,6 +1,21 @@
+from decimal import Decimal
 import numpy as np
 
 from .data_types import InventorySkewBidAskRatios
+
+decimal_0 = Decimal(0)
+decimal_1 = Decimal(1)
+decimal_2 = Decimal(2)
+
+
+def calculate_total_order_size(order_start_size: Decimal, order_step_size: Decimal = decimal_0,
+                               number_of_orders: int = 1) -> Decimal:
+    number_of_orders_decimal = number_of_orders
+    return (decimal_2 *
+            (number_of_orders_decimal * order_start_size +
+             number_of_orders_decimal * (number_of_orders_decimal - decimal_1) / decimal_2 * order_step_size
+             )
+            )
 
 
 def calculate_bid_ask_ratios_from_base_asset_ratio(

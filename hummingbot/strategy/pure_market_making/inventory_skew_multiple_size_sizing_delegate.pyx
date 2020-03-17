@@ -11,10 +11,12 @@ from hummingbot.core.event.events import (
 from hummingbot.logger import HummingbotLogger
 from .data_types import SizingProposal
 from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
+from .inventory_skew_calculator import calculate_total_order_size
 from .pure_market_making_v2 cimport PureMarketMakingStrategyV2
 
 s_logger = None
 s_decimal_0 = Decimal(0)
+s_decimal_1 = Decimal(1)
 
 
 cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
@@ -23,20 +25,13 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
                  order_step_size: Decimal,
                  number_of_orders: int,
                  inventory_target_base_percent: Optional[Decimal] = None,
-                 base_asset_range: Optional[Decimal] = None):
+                 inventory_range_multiplier: Optional[Decimal] = s_decimal_1):
         super().__init__()
         self._order_start_size = order_start_size
         self._order_step_size = order_step_size
         self._number_of_orders = number_of_orders
         self._inventory_target_base_percent = inventory_target_base_percent
-
-        if base_asset_range is None:
-            total_order_size = (order_start_size * Decimal(number_of_orders) +
-                                (order_step_size *
-                                 Decimal(number_of_orders * (number_of_orders - 1) / 2)))
-            total_order_size *= Decimal(2)
-            base_asset_range = total_order_size
-        self._base_asset_range = base_asset_range
+        self._inventory_range_multiplier = inventory_range_multiplier
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -62,8 +57,16 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
         return self._inventory_target_base_percent
 
     @property
-    def inventory_target_base_range(self) -> Decimal:
-        return self._base_asset_range
+    def inventory_range_multiplier(self) -> Decimal:
+        return self._inventory_range_multiplier
+
+    @property
+    def total_order_size(self) -> Decimal:
+        return calculate_total_order_size(
+            self._order_start_size,
+            self._order_step_size,
+            self._number_of_orders
+        )
 
     cdef object c_get_order_size_proposal(self,
                                           PureMarketMakingStrategyV2 strategy,
@@ -104,12 +107,13 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
             object current_ask_order_size
 
         if self._inventory_target_base_percent is not None:
+            total_order_size = self.total_order_size
             bid_ask_ratios = c_calculate_bid_ask_ratios_from_base_asset_ratio(
                 float(base_asset_balance),
                 float(quote_asset_balance),
                 float(mid_price),
                 float(self._inventory_target_base_percent),
-                float(self._base_asset_range)
+                float(total_order_size * self._inventory_range_multiplier)
             )
             bid_adjustment_ratio = Decimal(bid_ask_ratios.bid_ratio)
             ask_adjustment_ratio = Decimal(bid_ask_ratios.ask_ratio)

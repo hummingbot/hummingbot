@@ -5,4 +5,4 @@ cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
     cdef:
         object _order_size
         object _inventory_target_base_percent
-        object _base_asset_range
+        object _inventory_range_multiplier

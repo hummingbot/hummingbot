@@ -201,7 +201,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             MarketBase market = market_info.market
 
         if (hasattr(self._sizing_delegate, "inventory_target_base_ratio") and
-                hasattr(self._sizing_delegate, "inventory_target_base_range")):
+                hasattr(self._sizing_delegate, "inventory_range_multiplier") and
+                hasattr(self._sizing_delegate, "total_order_size")):
             trading_pair = market_info.trading_pair
             mid_price = ((market.c_get_price(trading_pair, True) + market.c_get_price(trading_pair, False)) *
                          Decimal("0.5"))
@@ -214,10 +215,12 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                 if total_value > s_decimal_zero
                                 else s_decimal_zero)
             target_base_ratio = self._sizing_delegate.inventory_target_base_ratio
-            base_asset_range = self._sizing_delegate.inventory_target_base_range
+            inventory_range_multiplier = self._sizing_delegate.inventory_range_multiplier
             target_base_amount = (total_value * target_base_ratio / mid_price
                                   if mid_price > s_decimal_zero
                                   else s_decimal_zero)
+            base_asset_range = (self._sizing_delegate.total_order_size *
+                                self._sizing_delegate.inventory_range_multiplier)
             high_water_mark = target_base_amount + base_asset_range
             low_water_mark = max(target_base_amount - base_asset_range, s_decimal_zero)
 

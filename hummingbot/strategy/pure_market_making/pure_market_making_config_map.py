@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import Dict
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
@@ -78,16 +77,6 @@ def external_market_trading_pair_prompt():
 def is_valid_external_market_trading_pair(value: str) -> bool:
     market = pure_market_making_config_map.get("external_price_source_exchange").value
     return is_valid_market_trading_pair(market, value)
-
-
-def calculate_total_order_volume(cv_map: Dict[str, ConfigVar]) -> Decimal:
-    order_start_size: Decimal = cv_map["order_start_size"].value
-    order_step_size: Decimal = cv_map["order_step_size"].value
-    number_of_orders: Decimal = Decimal(cv_map["number_of_orders"].value)
-    return Decimal(2) * (
-        order_start_size * number_of_orders +
-        order_step_size * (number_of_orders * (number_of_orders - 1) / Decimal(2))
-    )
 
 
 pure_market_making_config_map = {
@@ -189,12 +178,13 @@ pure_market_making_config_map = {
                   type_str="decimal",
                   validator=is_valid_percent,
                   default=0.5),
-    "inventory_target_base_range":
-        ConfigVar(key="inventory_target_base_range",
-                  prompt="What is your target base asset range (expressed in base asset amount)? ",
+    "inventory_range_multiplier":
+        ConfigVar(key="inventory_range_multiplier",
+                  prompt="What is your tolerable range of inventory around the target, "
+                         "expressed in multiples of your total order size? ",
                   required_if=lambda: pure_market_making_config_map.get("inventory_skew_enabled").value,
                   type_str="decimal",
-                  default=lambda: calculate_total_order_volume(pure_market_making_config_map)),
+                  default=2.0),
     "filled_order_replenish_wait_time":
         ConfigVar(key="filled_order_replenish_wait_time",
                   prompt="How long do you want to wait before placing the next order "
