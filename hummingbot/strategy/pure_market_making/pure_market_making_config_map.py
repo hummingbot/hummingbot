@@ -20,6 +20,7 @@ from hummingbot.client.config.config_helpers import (
     parse_cvar_value,
     minimum_order_amount
 )
+from hummingbot.data_feed.exchange_price_manager import ExchangePriceManager
 
 
 def maker_trading_pair_prompt():
@@ -79,12 +80,18 @@ def is_valid_external_market_trading_pair(value: str) -> bool:
     return is_valid_market_trading_pair(market, value)
 
 
+def maker_market_on_validated(value: str):
+    required_exchanges.append(value)
+    ExchangePriceManager.set_exchanges_to_feed([value])
+    ExchangePriceManager.start()
+
+
 pure_market_making_config_map = {
     "maker_market":
         ConfigVar(key="maker_market",
                   prompt="Enter your maker exchange name >>> ",
                   validator=is_exchange,
-                  on_validated=lambda value: required_exchanges.append(value)),
+                  on_validated=maker_market_on_validated),
     "maker_market_trading_pair":
         ConfigVar(key="primary_market_trading_pair",
                   prompt=maker_trading_pair_prompt,
