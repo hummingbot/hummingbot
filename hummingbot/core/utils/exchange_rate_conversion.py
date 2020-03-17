@@ -14,6 +14,7 @@ from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
 from hummingbot.data_feed.coin_gecko_data_feed import CoinGeckoDataFeed
 from hummingbot.data_feed.data_feed_base import DataFeedBase, NetworkStatus
 from hummingbot.logger import HummingbotLogger
+from hummingbot.data_feed.exchange_price_manager import ExchangePriceManager
 
 NaN = float("nan")
 s_decimal_nan = Decimal("nan")
@@ -184,7 +185,7 @@ class ExchangeRateConversion:
                             source: str = None) -> float:
         """
         Converts a token amount to the amount of another token with equivalent worth
-        :param source:
+        :param source: default, config, any
         :param amount:
         :param from_currency:
         :param to_currency:
@@ -192,6 +193,10 @@ class ExchangeRateConversion:
         """
         if not self._started:
             self.start()
+        if source is None:
+            rate = ExchangePriceManager.get_price(to_currency, from_currency)
+            if rate is not None:
+                return amount / float(rate)
         exchange_rate = self.get_exchange_rate(source)
         from_currency = from_currency.upper()
         to_currency = to_currency.upper()
