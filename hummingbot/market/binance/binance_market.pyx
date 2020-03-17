@@ -186,9 +186,7 @@ cdef class BinanceMarket(MarketBase):
         self._last_update_trade_fees_timestamp = 0
         self._data_source_type = order_book_tracker_data_source_type
         self._status_polling_task = None
-        self._user_stream_tracker_task = None
         self._user_stream_event_listener_task = None
-        self._order_tracker_task = None
         self._trading_rules_polling_task = None
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._last_poll_timestamp = 0
@@ -875,9 +873,7 @@ cdef class BinanceMarket(MarketBase):
         self._async_scheduler.stop()
 
     async def start_network(self):
-        if self._order_tracker_task is not None:
-            self._stop_network()
-        self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
+        self._order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
@@ -885,8 +881,7 @@ cdef class BinanceMarket(MarketBase):
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
 
     def _stop_network(self):
-        if self._order_tracker_task is not None:
-            self._order_tracker_task.cancel()
+        self._order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
         if self._user_stream_tracker_task is not None:
@@ -895,7 +890,7 @@ cdef class BinanceMarket(MarketBase):
             self._user_stream_event_listener_task.cancel()
         if self._trading_rules_polling_task is not None:
             self._trading_rules_polling_task.cancel()
-        self._order_tracker_task = self._status_polling_task = self._user_stream_tracker_task = \
+        self._status_polling_task = self._user_stream_tracker_task = \
             self._user_stream_event_listener_task = None
 
     async def stop_network(self):
@@ -1131,6 +1126,8 @@ cdef class BinanceMarket(MarketBase):
                     # Required by cancel_all() below.
                     "origClientOrderId": order_id
                 }
+            else:
+                raise e
 
         if isinstance(cancel_result, dict) and cancel_result.get("status") == "CANCELED":
             self.logger().info(f"Successfully cancelled order {order_id}.")

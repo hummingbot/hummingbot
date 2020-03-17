@@ -14,7 +14,6 @@ cdef class KucoinMarket(MarketBase):
         dict _in_flight_orders
         double _last_poll_timestamp
         double _last_timestamp
-        public object _order_tracker_task
         object _poll_notifier
         double _poll_interval
         object _shared_client
@@ -22,8 +21,6 @@ cdef class KucoinMarket(MarketBase):
         dict _trading_rules
         public object _trading_rules_polling_task
         TransactionTracker _tx_tracker
-        #object _order_book_tracker
-        #dict _account_balances
 
     cdef c_did_timeout_tx(self, str tracking_id)
     cdef c_start_tracking_order(self,

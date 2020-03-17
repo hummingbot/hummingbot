@@ -138,7 +138,6 @@ cdef class RadarRelayMarket(MarketBase):
         self._trading_rules = {}
         self._pending_approval_tx_hashes = set()
         self._status_polling_task = None
-        self._order_tracker_task = None
         self._approval_tx_polling_task = None
         self._wallet = wallet
         self._wallet_spender_address = wallet_spender_address
@@ -581,16 +580,17 @@ cdef class RadarRelayMarket(MarketBase):
                            headers: Optional[Dict[str, str]] = None,
                            json: int = 0) -> Dict[str, Any]:
         async with aiohttp.ClientSession() as client:
-            async with client.request(http_method,
-                                      url=url,
-                                      timeout=self.API_CALL_TIMEOUT,
-                                      data=data,
-                                      headers=headers) if json==0 else\
-                       client.request(http_method,
-                                      url=url,
-                                      timeout=self.API_CALL_TIMEOUT,
-                                      json=data,
-                                      headers=headers) as response:
+            async with (
+                    client.request(http_method,
+                                   url=url,
+                                   timeout=self.API_CALL_TIMEOUT,
+                                   data=data,
+                                   headers=headers) if json==0 else
+                    client.request(http_method,
+                                   url=url,
+                                   timeout=self.API_CALL_TIMEOUT,
+                                   json=data,
+                                   headers=headers)) as response:
                 try:
                     if response.status == 201:
                         return response
@@ -909,10 +909,8 @@ cdef class RadarRelayMarket(MarketBase):
         return order_books[trading_pair]
 
     async def start_network(self):
-        if self._order_tracker_task is not None:
-            self._stop_network()
-
-        self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
+        self._stop_network()
+        self._order_book_tracker.start()
         self._status_polling_task = safe_ensure_future(self._status_polling_loop())
         if self._trading_required:
             tx_hashes = await self.wallet.current_backend.check_and_fix_approval_amounts(
@@ -922,15 +920,14 @@ cdef class RadarRelayMarket(MarketBase):
             self._approval_tx_polling_task = safe_ensure_future(self._approval_tx_polling_loop())
 
     def _stop_network(self):
-        if self._order_tracker_task is not None:
-            self._order_tracker_task.cancel()
+        self._order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
         if self._pending_approval_tx_hashes is not None:
             self._pending_approval_tx_hashes.clear()
         if self._approval_tx_polling_task is not None:
             self._approval_tx_polling_task.cancel()
-        self._order_tracker_task = self._status_polling_task = self._approval_tx_polling_task = None
+        self._status_polling_task = self._approval_tx_polling_task = None
 
     async def stop_network(self):
         self._stop_network()

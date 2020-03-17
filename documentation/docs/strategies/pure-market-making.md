@@ -135,7 +135,7 @@ The `filled_order_replenish_wait_time` parameter allows for a delay when placing
 
 **Example:**
 
-If you have a buy order that is filled at 1:00:00 and the delay is set as 10 seconds, the next orders placed will be at 1:00:10. The sell order is also cancelled within this delay period and placed at 1:00:10 to ensure that both buy and sell orders stay in sync.
+If you have a buy order that is filled at 1:00:00 and the delay is set as 60 seconds, the next orders placed will be at 1:01:00. The sell order is also cancelled within this delay period and placed at 1:01:00 to ensure that both buy and sell orders stay in sync.
 
 | Prompt | Description |
 |-----|-----|
@@ -274,7 +274,7 @@ The following parameters are fields in Hummingbot configuration files located in
 | Term | Definition |
 |------|------------|
 | **order_amount**<br /><small>(single order strategy)</small> | The order amount for the limit bid and ask orders. <br/> Ensure you have enough quote and base tokens to place the bid and ask orders. The strategy will not place orders if you do not have sufficient balance for both sides of the order. <br/>
-| **cancel_order_wait_time** | An amount in seconds, which is the duration for the placed limit orders. _Default value: 60 seconds_. <br/><br/> The limit bid and ask orders are cancelled and new bids and asks are placed according to the current mid price and settings at this interval.
+| **cancel_order_wait_time** | An amount in seconds, which is the duration for the placed limit orders. _Default value: 30 seconds_. <br/><br/> The limit bid and ask orders are cancelled and new bids and asks are placed according to the current mid price and settings at this interval.
 | **bid_place_threshold** | An amount expressed in decimals (i.e. input of `0.01` corresponds to 1%). The strategy will place the buy (bid) order 1% away from the mid price if set to 0.01. <br/><br/>*Example: Assuming the following, Top bid : 99, Top ask: 101 ; mid price: 100 ( (99+ 101)/2 ). If you set bid_place_threshold to 0.1 which is 10%, it will place your buy order (bid) at 10% below mid price of 100 which is 90.*
 | **ask_place_threshold** | An amount expressed in decimals (i.e. input of `0.01` corresponds to 1%). The strategy will place the sell (ask) order 1% away from the mid price if set to 0.01. <br/><br/>*Example: Assuming the following, Top bid : 99, Top ask: 101 ; mid price: 100 ( (99+ 101)/2 ). If you set ask_place_threshold to 0.1 which is 10%, it will place your sell order (ask) at 10% above mid price of 100 which is 110.*
 | **number_of_orders**<br /><small>(multiple order strategy)</small> | The number of orders to place for each side.<br /> <em>Example: Entering `3` places three bid **and** three ask orders.</em>
@@ -283,7 +283,7 @@ The following parameters are fields in Hummingbot configuration files located in
 | **order_interval_percent**<br /><small>(multiple order strategy only)</small> | The percentage amount increase in price for subsequent orders from the first order. <br /> <em>Example: For a mid price of 100, `ask_place_threshold` of 0.01, and `order_interval_percent` of 0.005,<br />the first, second, and third ask prices would be **101** (= 100 + 0.01 x 100), **101.5** (= 101 + 0.005 x 100), and **102**.</em>
 | **inventory_skew_enabled** | When this is `true`, the bid and ask order sizes are adjusted based on the `inventory_target_base_percent`.
 | **inventory_target_base_percent** | An amount expressed in decimals (i.e. input of `0.01` corresponds to 1%). The strategy will place bid and ask orders with adjusted sizes (based on `order_amount`, `order_start_size`) and try to maintain this base asset vs. total (base + quote) asset value.<br/><br/>*Example: You are market making ETH / USD with `order_amount: 1` and balances of 10 ETH and 1000 USD. Your current base asset value is ~67% and quote asset value is ~33%. If `inventory_target_base_percent: 0.5`, the order amount will be adjusted from 1 ETH bid, 1 ETH ask to 0.67 ETH bid, 1.33 ETH ask.*
-| **filled_order_replenish_wait_time** | An amount in seconds, which specifies the delay before placing the next order for single order mode. _Default value: 10 seconds_. <br/>
+| **filled_order_replenish_wait_time** | An amount in seconds, which specifies the delay before placing the next order for single order mode. _Default value: 60 seconds_. <br/>
 | **enable_order_filled_stop_cancellation** | When this is `true`, the orders on the side opposite to the filled orders remains uncanceled. _Default value: False_. <br/>
 | **best_bid_ask_jump_mode** | When this is `true`, the bid and ask order prices are adjusted based on the current top bid and ask prices in the market. _Default value: False_. <br/>
 | **best_bid_ask_jump_orders_depth** | If `best_bid_ask_jump_mode` is `true`, this specifies how deep into the orderbook to go for calculating the top bid and ask prices including the user's active orders. _Default value: 0_. <br/>
