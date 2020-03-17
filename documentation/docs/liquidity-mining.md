@@ -14,13 +14,16 @@ Liquidity mining sets forth an analytical framework for determining market maker
 - [Get help on Discord](https://discord.hummingbot.io): Join the **#liquidity-mining** channel for 24/7 support
 - [How it works](https://hummingbot.io/liquidity-mining)
 - [Hummingbot Quickstart Guide](https://docs.hummingbot.io/quickstart)
-- [Liquidity Mining FAQs](/faqs/liquidity-mining)
+- [Liquidity Mining FAQs](https://docs.hummingbot.io/faq/liquidity-mining/)
 - [Liquidity Mining whitepaper](https://hummingbot.io/liquidity-mining.pdf)
 
-## Active Programs
+## Active programs
 
-!!! warning "Terms Subject to Change"
+!!! warning "Terms subject to change"
     Please check this page for the most up-to-date terms.  We will notify participants of changes, if any, through email (for registered users) and on our [Discord](https://discord.hummingbot.io).
+
+!!! note "Terms updated for week 3"
+    **For the period starting March 17, 2020 12:00am UTC until March 24 12:00am UTC, the following two parameters have been changed for all programs:**<ol><li>The `maximum spread` was increased to 5%.<li>The `spread constant` used for weighting orders by spread was increased to 4 from 2.</ul>
 
 <table>
   <thead>
@@ -35,76 +38,79 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td rowspan="3"><a href="#harmony">Harmony</a><br></td>
       <td>ONE/BTC</td>
       <td>Binance.com</td>
-      <td>1%</td>
+      <td>5%¹</td>
       <td>USDC 300</td>
     </tr>
     <tr>
       <td>ONE/USDT</td>
       <td>Binance.com</td>
-      <td>1%</td>
+      <td>5%¹</td>
       <td>USDC 300</td>
     </tr>
     <tr>
       <td>ONE/BNB</td>
       <td>Binance.com</td>
-      <td>1%</td>
+      <td>5%¹</td>
       <td>USDC 150</td>
     </tr>
     <tr>
       <td rowspan="3"><a href="#iexec">iExec</a><br></td>
       <td>RLC/BTC</td>
       <td>Binance.com</td>
-      <td>1%</td>
+      <td>5%¹</td>
       <td>USDC 250</td>
     </tr>
     <tr>
       <td>RLC/USDT</td>
       <td>Binance.com</td>
-      <td>1%</td>
+      <td>5%¹</td>
       <td>USDC 250</td>
     </tr>
     <tr>
       <td>RLC/ETH</td>
       <td>Binance.com</td>
-      <td>1%</td>
+      <td>5%¹</td>
       <td>USDC 250</td>
     </tr>
     <tr>
       <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
       <td>XZC/BTC</td>
       <td>Binance.com</td>
-      <td>1%</td>
+      <td>5%¹</td>
       <td>USDC 562.50</td>
     </tr>
     <tr>
       <td>XZC/BNB</td>
       <td>Binance.com</td>
-      <td>1%</td>
+      <td>5%¹</td>
       <td>USDC 187.50</td>
     </tr>
     <tr>
       <td rowspan="3"><a href="#zilliqa">Zilliqa</a><br></td>
       <td>ZIL/USDT</td>
       <td>Binance.com</td>
-      <td>1%</td>
+      <td>5%¹</td>
       <td>USDC 250</td>
     </tr>
     <tr>
       <td>ZIL/ETH</td>
       <td>Binance.com</td>
-      <td>1%</td>
+      <td>5%¹</td>
       <td>USDC 250</td>
     </tr>
     <tr>
       <td>ZIL/BNB</td>
       <td>Binance.com</td>
-      <td>1%</td>
+      <td>5%¹</td>
       <td>USDC 250</td>
     </tr>
   </tbody>
 </table>
 
-## Program Sponsors
+## Changes to campaign terms
+1. **March 17, 2020**: the maximum spread and for all programs has been increased to 5% and the spread constant used in calculating weights of orders for rewards was increased to 4.<br />Previously, the max spreads were 3.5% for `ONE/BTC` and 1% for all other token pairs, and the spread constant was 2.<br />For additional information, [see our post on the Hummingbot reddit forum](https://www.reddit.com/r/Hummingbot/comments/fjq6gt/change_of_campaign_terms_for_week_3_wider_max/).
+
+## Program sponsors
 
 ### Harmony
 

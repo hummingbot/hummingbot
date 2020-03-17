@@ -54,6 +54,12 @@ def order_amount_prompt() -> str:
     return f"What is the amount of {base_asset} per order? (minimum {min_amount}) >>> "
 
 
+def order_start_size_prompt() -> str:
+    trading_pair = pure_market_making_config_map["maker_market_trading_pair"].value
+    min_amount = minimum_order_amount(trading_pair)
+    return f"What is the size of the first bid and ask order? (minimum {min_amount}) >>> "
+
+
 def is_valid_order_amount(value: str) -> bool:
     try:
         trading_pair = pure_market_making_config_map["maker_market_trading_pair"].value
@@ -98,7 +104,7 @@ pure_market_making_config_map = {
         ConfigVar(key="cancel_order_wait_time",
                   prompt="How often do you want to cancel and replace bids and asks "
                          "(in seconds)? >>> ",
-                  default=60.0,
+                  default=30.0,
                   required_if=lambda: not (using_exchange("radar_relay")() or
                                            (using_exchange("bamboo_relay")() and not using_bamboo_coordinator_mode())),
                   type_str="float"),
@@ -135,13 +141,13 @@ pure_market_making_config_map = {
                   prompt="How many orders do you want to place on both sides? >>> ",
                   required_if=lambda: pure_market_making_config_map.get("mode").value == "multiple",
                   type_str="int",
-                  default=1),
+                  default=2),
     "order_start_size":
         ConfigVar(key="order_start_size",
-                  prompt="What is the size of the first bid and ask order? >>> ",
+                  prompt=order_start_size_prompt,
                   required_if=lambda: pure_market_making_config_map.get("mode").value == "multiple",
                   type_str="decimal",
-                  default=1),
+                  validator=is_valid_order_amount),
     "order_step_size":
         ConfigVar(key="order_step_size",
                   prompt="How much do you want to increase the order size for each "
@@ -176,7 +182,7 @@ pure_market_making_config_map = {
                   prompt="How long do you want to wait before placing the next order "
                          "if your order gets filled (in seconds)? >>> ",
                   type_str="float",
-                  default=10),
+                  default=60),
     "enable_order_filled_stop_cancellation":
         ConfigVar(key="enable_order_filled_stop_cancellation",
                   prompt="Do you want to enable hanging orders? (Yes/No) >>> ",
