@@ -15,6 +15,8 @@ from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_ass
 
 s_logger = None
 s_decimal_0 = Decimal(0)
+s_decimal_1 = Decimal(1)
+s_decimal_2 = Decimal(2)
 
 
 cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
@@ -22,11 +24,11 @@ cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
     def __init__(self,
                  order_size: Decimal,
                  inventory_target_base_percent: Optional[Decimal] = None,
-                 base_asset_range: Optional[Decimal] = None):
+                 inventory_range_multiplier: Optional[Decimal] = s_decimal_1):
         super().__init__()
         self._order_size = order_size
         self._inventory_target_base_percent = inventory_target_base_percent
-        self._base_asset_range = base_asset_range if base_asset_range is not None else order_size * Decimal(2)
+        self._inventory_range_multiplier = inventory_range_multiplier
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -44,8 +46,12 @@ cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
         return self._inventory_target_base_percent
 
     @property
-    def inventory_target_base_range(self) -> Decimal:
-        return self._base_asset_range
+    def inventory_range_multiplier(self) -> Decimal:
+        return self._inventory_range_multiplier
+
+    @property
+    def total_order_size(self) -> Decimal:
+        return s_decimal_2 * self._order_size
 
     cdef object c_get_order_size_proposal(self,
                                           PureMarketMakingStrategyV2 strategy,
@@ -81,12 +87,13 @@ cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
             return SizingProposal([s_decimal_0], [s_decimal_0])
 
         if self._inventory_target_base_percent is not None:
+            total_order_size = self.total_order_size
             bid_ask_ratios = c_calculate_bid_ask_ratios_from_base_asset_ratio(
                 float(base_asset_balance),
                 float(quote_asset_balance),
                 float(mid_price),
                 float(self._inventory_target_base_percent),
-                float(self._base_asset_range)
+                float(total_order_size * self._inventory_range_multiplier)
             )
             bid_order_size = Decimal(bid_ask_ratios.bid_ratio) * bid_order_size
             ask_order_size = Decimal(bid_ask_ratios.ask_ratio) * ask_order_size

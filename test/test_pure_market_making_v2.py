@@ -1009,14 +1009,14 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
         self.inventory_skew_single_size_sizing_delegate = InventorySkewSingleSizeSizingDelegate(
             order_size=Decimal("1"),
             inventory_target_base_percent=Decimal("0.9"),
-            base_asset_range=Decimal("10")
+            inventory_range_multiplier=Decimal("5")
         )
         self.inventory_skew_multiple_size_sizing_delegate = InventorySkewMultipleSizeSizingDelegate(
             order_start_size=Decimal("1.0"),
             order_step_size=Decimal("0.5"),
             number_of_orders=5,
             inventory_target_base_percent=Decimal("0.9"),
-            base_asset_range=Decimal("10")
+            inventory_range_multiplier=Decimal("0.5")
         )
 
         self.maker_market.add_data(self.maker_data)
