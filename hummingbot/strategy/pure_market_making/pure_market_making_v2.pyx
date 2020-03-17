@@ -226,9 +226,12 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
             inventory_skew_df = pd.DataFrame(data={
                 "Title": ["Target base asset %", "Current base asset %",
+                          "Total order size", "Inventory range multiplier",
                           "Base asset range", "Upper limit", "Lower limit"],
                 "Value": [float(target_base_ratio) * 100.0,
                           float(base_asset_ratio) * 100.0,
+                          float(self._sizing_delegate.total_order_size),
+                          float(self._sizing_delegate.inventory_range_multiplier),
                           float(base_asset_range),
                           float(high_water_mark),
                           float(low_water_mark)]
