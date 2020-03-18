@@ -147,6 +147,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self.c_add_markets(list(all_markets))
 
     @property
+    def hanging_order_ids(self) -> List[str]:
+        return self._hanging_order_ids
+
+    @property
     def active_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
         return self._sb_order_tracker.active_maker_orders
 
@@ -596,7 +600,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 #  2. Record each order id that needs to be cancelled.
                 #  3. Set action to include cancel orders.
                 if active_order.client_order_id in self._hanging_order_ids:
-                    if asset_mid_price > 0 and abs(active_order.price - market_mid_price)/market_mid_price > \
+                    if market_mid_price > 0 and abs(active_order.price - market_mid_price)/market_mid_price > \
                             self._cancel_hanging_order_pct:
                         cancel_order_ids.append(active_order.client_order_id)
                 elif active_order.client_order_id in self._time_to_cancel and \
@@ -646,34 +650,33 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             MarketBase maker_market = market_info.market
             LimitOrder limit_order_record
 
-        if isinstance(self.sizing_delegate, self.SINGLE_ORDER_SIZING_DELEGATES):
-            # Set the replenish time as current_timestamp + order replenish time
-            replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
+        # Set the replenish time as current_timestamp + order replenish time
+        replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
 
-            active_orders = self.market_info_to_active_orders.get(market_info, [])
-            active_buy_orders = [x.client_order_id for x in active_orders if x.is_buy]
-            active_sell_orders = [x.client_order_id for x in active_orders if not x.is_buy]
+        active_orders = self.market_info_to_active_orders.get(market_info, [])
+        active_buy_orders = [x.client_order_id for x in active_orders if x.is_buy]
+        active_sell_orders = [x.client_order_id for x in active_orders if not x.is_buy]
 
-            if self._enable_order_filled_stop_cancellation:
-                # If the filled order is a hanging order, do nothing
-                if order_id in self._hanging_order_ids:
-                    return
+        if self._enable_order_filled_stop_cancellation:
+            # If the filled order is a hanging order, do nothing
+            if order_id in self._hanging_order_ids:
+                return
 
-            # if filled order is buy, adjust the cancel time for sell order
-            # For syncing buy and sell orders during order completed events
-            for other_order_id in active_sell_orders:
-                if other_order_id in self._time_to_cancel:
+        # if filled order is buy, adjust the cancel time for sell order
+        # For syncing buy and sell orders during order completed events
+        for other_order_id in active_sell_orders:
+            if other_order_id in self._time_to_cancel:
 
-                    # If you want to stop cancelling orders remove it from the cancel list
-                    if self._enable_order_filled_stop_cancellation:
-                        self._hanging_order_ids.append(other_order_id)
-                        del self._time_to_cancel[other_order_id]
-                    else:
-                        # cancel time is minimum of current cancel time and replenish time to sync up both
-                        self._time_to_cancel[other_order_id] = min(self._time_to_cancel[other_order_id], replenish_time_stamp)
+                # If you want to stop cancelling orders remove it from the cancel list
+                if self._enable_order_filled_stop_cancellation:
+                    self._hanging_order_ids.append(other_order_id)
+                    del self._time_to_cancel[other_order_id]
+                else:
+                    # cancel time is minimum of current cancel time and replenish time to sync up both
+                    self._time_to_cancel[other_order_id] = min(self._time_to_cancel[other_order_id], replenish_time_stamp)
 
-            if not isnan(replenish_time_stamp):
-                self.filter_delegate.order_placing_timestamp = replenish_time_stamp
+        if not isnan(replenish_time_stamp):
+            self.filter_delegate.order_placing_timestamp = replenish_time_stamp
 
         if market_info is not None:
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
@@ -691,34 +694,33 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             MarketBase maker_market = market_info.market
             LimitOrder limit_order_record
 
-        if isinstance(self.sizing_delegate, self.SINGLE_ORDER_SIZING_DELEGATES):
-            # Set the replenish time as current_timestamp + order replenish time
-            replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
+        # Set the replenish time as current_timestamp + order replenish time
+        replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
 
-            active_orders = self.market_info_to_active_orders.get(market_info, [])
-            active_buy_orders = [x.client_order_id for x in active_orders if x.is_buy]
-            active_sell_orders = [x.client_order_id for x in active_orders if not x.is_buy]
+        active_orders = self.market_info_to_active_orders.get(market_info, [])
+        active_buy_orders = [x.client_order_id for x in active_orders if x.is_buy]
+        active_sell_orders = [x.client_order_id for x in active_orders if not x.is_buy]
 
-            if self._enable_order_filled_stop_cancellation:
-                # If the filled order is a hanging order, do nothing
-                if order_id in self._hanging_order_ids:
-                    return
+        if self._enable_order_filled_stop_cancellation:
+            # If the filled order is a hanging order, do nothing
+            if order_id in self._hanging_order_ids:
+                return
 
-            # if filled order is sell, adjust the cancel time for buy order
-            # For syncing buy and sell orders during order completed events
-            for other_order_id in active_buy_orders:
-                if other_order_id in self._time_to_cancel:
+        # if filled order is sell, adjust the cancel time for buy order
+        # For syncing buy and sell orders during order completed events
+        for other_order_id in active_buy_orders:
+            if other_order_id in self._time_to_cancel:
 
-                    # If you want to stop cancelling orders remove it from the cancel list
-                    if self._enable_order_filled_stop_cancellation:
-                        self._hanging_order_ids.append(other_order_id)
-                        del self._time_to_cancel[other_order_id]
-                    else:
-                        # cancel time is minimum of current cancel time and replenish time to sync up both
-                        self._time_to_cancel[other_order_id] = min(self._time_to_cancel[other_order_id], replenish_time_stamp)
+                # If you want to stop cancelling orders remove it from the cancel list
+                if self._enable_order_filled_stop_cancellation:
+                    self._hanging_order_ids.append(other_order_id)
+                    del self._time_to_cancel[other_order_id]
+                else:
+                    # cancel time is minimum of current cancel time and replenish time to sync up both
+                    self._time_to_cancel[other_order_id] = min(self._time_to_cancel[other_order_id], replenish_time_stamp)
 
-            if not isnan(replenish_time_stamp):
-                self.filter_delegate.order_placing_timestamp = replenish_time_stamp
+        if not isnan(replenish_time_stamp):
+            self.filter_delegate.order_placing_timestamp = replenish_time_stamp
 
         if market_info is not None:
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
@@ -766,7 +768,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                             expiration_seconds=expiration_seconds
                         )
                         self._time_to_cancel[bid_order_id] = self._current_timestamp + self._cancel_order_wait_time
-
                 elif orders_proposal.buy_order_type is OrderType.MARKET:
                     raise RuntimeError("Market buy order in orders proposal is not supported yet.")
 
@@ -791,6 +792,5 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                             expiration_seconds=expiration_seconds
                         )
                         self._time_to_cancel[ask_order_id] = self._current_timestamp + self._cancel_order_wait_time
-
                 elif orders_proposal.sell_order_type is OrderType.MARKET:
                     raise RuntimeError("Market sell order in orders proposal is not supported yet.")
