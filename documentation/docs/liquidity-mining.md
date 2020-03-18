@@ -19,8 +19,11 @@ Liquidity mining sets forth an analytical framework for determining market maker
 
 ## Active programs
 
-!!! warning "Terms Subject to Change"
+!!! warning "Terms subject to change"
     Please check this page for the most up-to-date terms.  We will notify participants of changes, if any, through email (for registered users) and on our [Discord](https://discord.hummingbot.io).
+
+!!! note "Terms updated for week 3"
+    **For the period starting March 17, 2020 12:00am UTC until March 24 12:00am UTC, the following two parameters have been changed for all programs:**<ol><li>The `maximum spread` was increased to 5%.<li>The `spread constant` used for weighting orders by spread was increased to 4 from 2.</ul>
 
 <table>
   <thead>
@@ -35,78 +38,77 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td rowspan="3"><a href="#harmony">Harmony</a><br></td>
       <td>ONE/BTC</td>
       <td>Binance.com</td>
-      <td>3.5%¹</td>
+      <td>5%¹</td>
       <td>USDC 300</td>
     </tr>
     <tr>
       <td>ONE/USDT</td>
       <td>Binance.com</td>
-      <td>1%</td>
+      <td>5%¹</td>
       <td>USDC 300</td>
     </tr>
     <tr>
       <td>ONE/BNB</td>
       <td>Binance.com</td>
-      <td>1%</td>
+      <td>5%¹</td>
       <td>USDC 150</td>
     </tr>
     <tr>
       <td rowspan="3"><a href="#iexec">iExec</a><br></td>
       <td>RLC/BTC</td>
       <td>Binance.com</td>
-      <td>1%</td>
+      <td>5%¹</td>
       <td>USDC 250</td>
     </tr>
     <tr>
       <td>RLC/USDT</td>
       <td>Binance.com</td>
-      <td>1%</td>
+      <td>5%¹</td>
       <td>USDC 250</td>
     </tr>
     <tr>
       <td>RLC/ETH</td>
       <td>Binance.com</td>
-      <td>1%</td>
+      <td>5%¹</td>
       <td>USDC 250</td>
     </tr>
     <tr>
       <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
       <td>XZC/BTC</td>
       <td>Binance.com</td>
-      <td>1%</td>
+      <td>5%¹</td>
       <td>USDC 562.50</td>
     </tr>
     <tr>
       <td>XZC/BNB</td>
       <td>Binance.com</td>
-      <td>1%</td>
+      <td>5%¹</td>
       <td>USDC 187.50</td>
     </tr>
     <tr>
       <td rowspan="3"><a href="#zilliqa">Zilliqa</a><br></td>
       <td>ZIL/USDT</td>
       <td>Binance.com</td>
-      <td>1%</td>
+      <td>5%¹</td>
       <td>USDC 250</td>
     </tr>
     <tr>
       <td>ZIL/ETH</td>
       <td>Binance.com</td>
-      <td>1%</td>
+      <td>5%¹</td>
       <td>USDC 250</td>
     </tr>
     <tr>
       <td>ZIL/BNB</td>
       <td>Binance.com</td>
-      <td>1%</td>
+      <td>5%¹</td>
       <td>USDC 250</td>
     </tr>
   </tbody>
 </table>
 
-## Changes in program terms
-
-1. **`ONE/BTC` March 10, 2020 UTC: the maximum spread for `ONE/BTC` was revised to 3.5% starting the second week of the campaign, the period from March 10, 2020 12:00am UTC to March 17, 2020 12:00am UTC**.  This maximum spread was 1% the prior week, from March 3 to March 10.<br />The change was made because the tick size (price increments) allowable on Binance for the `ONE/BTC` pair is BTC 0.00000001, or approximately 2% of current market price.  In effect, this resulted in only a single valid bid price and single valid ask price being eligible to earn liquidity mining rewards. The new wider range gives liquidity miners more flexibility on pricing.
+## Changes to campaign terms
+1. **March 17, 2020**: the maximum spread and for all programs has been increased to 5% and the spread constant used in calculating weights of orders for rewards was increased to 4.<br />Previously, the max spreads were 3.5% for `ONE/BTC` and 1% for all other token pairs, and the spread constant was 2.<br />For additional information, [see our post on the Hummingbot reddit forum](https://www.reddit.com/r/Hummingbot/comments/fjq6gt/change_of_campaign_terms_for_week_3_wider_max/).
 
 ## Program sponsors
 
@@ -134,4 +136,4 @@ Partnering with Harmony, we launched a successful pilot program rewarding commun
 
 [Zilliqa (ZIL)](https://zilliqa.com/) is a base-layer blockchain protocol centered around the idea of 'Sharding' and designed to enhance the scalability of cryptocurrency networks such as Ethereum. According to its white paper, transactions speed could scale to approximately 1,000x that of Ethereum's network. Zilliqa’s high throughput means that developers can focus on fleshing out their ideas rather than worrying about network congestion.
 
-[Whitepaper](https://docs.zilliqa.com/hummingbot.pdf) | [Twitter](https://twitter.com/zilliqa) | [Telegram](https://t.me/zilliqachat) | [Github](https://github.com/Zilliqa) | [Explorer](https://viewblock.io/zilliqa) | [CoinMarketCap](https://coinmarketcap.com/currencies/zilliqa) | [CoinGecko](https://www.coingecko.com/en/coins/zilliqa)
+[Whitepaper](https://docs.zilliqa.com/whitepaper.pdf) | [Twitter](https://twitter.com/zilliqa) | [Telegram](https://t.me/zilliqachat) | [Github](https://github.com/Zilliqa) | [Explorer](https://viewblock.io/zilliqa) | [CoinMarketCap](https://coinmarketcap.com/currencies/zilliqa) | [CoinGecko](https://www.coingecko.com/en/coins/zilliqa)
