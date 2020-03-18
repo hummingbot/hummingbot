@@ -288,14 +288,31 @@ Weight/Request error in logs happens when it encountered a warning or error and 
 ### How do I resize my Hummingbot window without jumbling the text?
 When resizing the window of your Hummingbot, text becomes unclear or at the same location as the previous size of the window. To do a refresh to the new window size, while inside Hummingbot press `CTRL + L` and it will refresh Hummingbot window panes. These command applies to all Hummingbot build.
 
-### How to change time or timezone of Hummingbot docker build?
-Hummingbot uses the time where its installed, its either on your local computer or cloud server. Sometimes docker build Hummingbot time is out of sync, follow these steps to fix it.
+### How to change time or timezone of Hummingbot?
 
-While docker $instance_name is runnning on background type in command line.
+Hummingbot follows the same date/time and timezone on the machine where it is installed. Below are some steps you can follow to change the timezone depending on the operating system and installation type.
+
+**Docker**
+
+While docker `$instance_name` is runnning on background type in command line.
+
 ```
 docker exec -it $instance_name bash
 dpkg-reconfigure tzdata
 ```
+
 Configure geographic location and timezone by inputting the corresponding number, see example below:
 
 ![](/assets/img/docker-tz.png)
+
+**Windows**
+
+You can change the timezone on a Windows computer by doing the following:
+
+1. Press **Win + R** shortcut to open the Run dialog box
+2. Enter `timedate.cpl` to open Date and Time settings
+3. Click **Change time zone**
+
+![](/assets/img/windows-tz.png)
+
+Alternatively, you can also follow these steps in Windows Support article: [How to set your time and time zone](https://support.microsoft.com/en-ph/help/4026213/windows-how-to-set-your-time-and-time-zone)
