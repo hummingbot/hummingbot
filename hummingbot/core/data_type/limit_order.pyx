@@ -11,13 +11,18 @@ from typing import List
 cdef class LimitOrder:
     @classmethod
     def to_pandas(cls, limit_orders: List[LimitOrder], mid_price: float = 0.0) -> pd.DataFrame:
+        buys = [o for o in limit_orders if o.is_buy]
+        buys.sort(key=lambda x: x.price)
+        sells = [o for o in limit_orders if not o.is_buy]
+        sells.sort(key=lambda x: x.price, reverse=True)
+        limit_orders = sells + buys
         cdef:
             list columns = ["Order ID", "Time Placed", "Price", "Spread", "Quantity"]
             list data = [[
                 order.client_order_id,
                 pd.Timestamp(int(order.client_order_id.split("-")[-1])/1e6, unit='s', tz='UTC').strftime('%Y-%m-%d %H:%M:%S'),
                 float(order.price),
-                0 if mid_price == 0 else abs(float(order.price) - mid_price)/mid_price,
+                f"{(0 if mid_price == 0 else abs(float(order.price) - mid_price)/mid_price):.2%}",
                 float(order.quantity),
             ] for order in limit_orders]
 
