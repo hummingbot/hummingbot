@@ -2,14 +2,45 @@
 
 ## Multiple bots via Docker
 
-Create multiple instances using `./create.sh` script. More information can be found in [Create Hummingbot Instance](/operation/commands/#create-hummingbot-instance).
+Create multiple instances using `./create.sh` script. More information can be found in [Hummingbot Docker Scripts](/operation/commands/#docker-scripts). Below commands download the create script and make it executable.
+
+```bash tab="Linux"
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
+chmod a+x *.sh
+```
+
+```bash tab="MacOS"
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh -o create.sh
+chmod a+x *.sh
+```
+
+```bash tab="Windows via Docker Toolbox"
+cd ~
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh -o create.sh
+chmod a+x *.sh
+```
 
 ### Running in the background (via Docker)
 
 Press keys `Ctrl+P` then `Ctrl+Q` in sequence to detach from Docker i.e. return to command line. This exits out of Hummingbot without shutting down the container instance.
 
-Restart or connect to a running instance using `./start.sh` command.
+Restart or connect to a running instance using `./start.sh` script. Below commands download the start script and make it executable.
 
+```bash tab="Linux"
+wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh
+chmod a+x *.sh
+```
+
+```bash tab="MacOS"
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh -o start.sh
+chmod a+x *.sh
+```
+
+```bash tab="Windows via Docker Toolbox"
+cd ~
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh -o start.sh
+chmod a+x *.sh
+```
 
 ## Multiple bots from source
 

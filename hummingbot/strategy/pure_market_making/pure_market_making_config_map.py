@@ -19,6 +19,7 @@ from hummingbot.client.config.config_helpers import (
     minimum_order_amount
 )
 from decimal import Decimal
+from hummingbot.data_feed.exchange_price_manager import ExchangePriceManager
 
 
 def maker_trading_pair_prompt():
@@ -54,6 +55,12 @@ def order_amount_prompt() -> str:
     return f"What is the amount of {base_asset} per order? (minimum {min_amount}) >>> "
 
 
+def order_start_size_prompt() -> str:
+    trading_pair = pure_market_making_config_map["maker_market_trading_pair"].value
+    min_amount = minimum_order_amount(trading_pair)
+    return f"What is the size of the first bid and ask order? (minimum {min_amount}) >>> "
+
+
 def is_valid_order_amount(value: str) -> bool:
     try:
         trading_pair = pure_market_making_config_map["maker_market_trading_pair"].value
@@ -72,12 +79,18 @@ def is_valid_external_market_trading_pair(value: str) -> bool:
     return is_valid_market_trading_pair(market, value)
 
 
+def maker_market_on_validated(value: str):
+    required_exchanges.append(value)
+    ExchangePriceManager.set_exchanges_to_feed([value])
+    ExchangePriceManager.start()
+
+
 pure_market_making_config_map = {
     "maker_market":
         ConfigVar(key="maker_market",
                   prompt="Enter your maker exchange name >>> ",
                   validator=is_exchange,
-                  on_validated=lambda value: required_exchanges.append(value)),
+                  on_validated=maker_market_on_validated),
     "maker_market_trading_pair":
         ConfigVar(key="primary_market_trading_pair",
                   prompt=maker_trading_pair_prompt,
@@ -135,13 +148,13 @@ pure_market_making_config_map = {
                   prompt="How many orders do you want to place on both sides? >>> ",
                   required_if=lambda: pure_market_making_config_map.get("mode").value == "multiple",
                   type_str="int",
-                  default=1),
+                  default=2),
     "order_start_size":
         ConfigVar(key="order_start_size",
-                  prompt="What is the size of the first bid and ask order? >>> ",
+                  prompt=order_start_size_prompt,
                   required_if=lambda: pure_market_making_config_map.get("mode").value == "multiple",
                   type_str="decimal",
-                  default=1),
+                  validator=is_valid_order_amount),
     "order_step_size":
         ConfigVar(key="order_step_size",
                   prompt="How much do you want to increase the order size for each "
