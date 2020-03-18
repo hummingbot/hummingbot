@@ -221,9 +221,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
             # See if there're any open orders.
             if len(active_orders) > 0:
-                df = LimitOrder.to_pandas(active_orders)
+                mid_price = (market_info.get_price(False) + market_info.get_price(True)) * Decimal("0.5")
+                df = LimitOrder.to_pandas(active_orders, mid_price)
                 df['Hang'] = df.apply(lambda row:
-                                      'Yes' if row["Order_Id"] in self._hanging_order_ids else 'No', axis = 1)
+                                      'Yes' if row["Order ID"] in self._hanging_order_ids else 'No', axis = 1)
                 df_lines = str(df).split("\n")
                 lines.extend(["", "  Active orders:"] +
                              ["    " + line for line in df_lines])

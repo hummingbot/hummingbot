@@ -10,18 +10,16 @@ from typing import List
 
 cdef class LimitOrder:
     @classmethod
-    def to_pandas(cls, limit_orders: List[LimitOrder]) -> pd.DataFrame:
+    def to_pandas(cls, limit_orders: List[LimitOrder], mid_price: float = 0.0) -> pd.DataFrame:
         cdef:
-            list columns = ["Order_Id", "is_buy", "Trading_Pair", "Base_Asset", "Quote_Asset", "Price", "Quantity"]
+            list columns = ["Order ID", "Time Placed", "Price", "Spread", "Quantity"]
             list data = [[
-                limit_order.client_order_id,
-                limit_order.is_buy,
-                limit_order.trading_pair,
-                limit_order.base_currency,
-                limit_order.quote_currency,
-                float(limit_order.price),
-                float(limit_order.quantity)
-            ] for limit_order in limit_orders]
+                order.client_order_id,
+                pd.Timestamp(int(order.client_order_id.split("-")[-1])/1e6, unit='s', tz='UTC').strftime('%Y-%m-%d %H:%M:%S'),
+                float(order.price),
+                0 if mid_price == 0 else abs(float(order.price) - mid_price)/mid_price,
+                float(order.quantity),
+            ] for order in limit_orders]
 
         return pd.DataFrame(data=data, columns=columns)
 
