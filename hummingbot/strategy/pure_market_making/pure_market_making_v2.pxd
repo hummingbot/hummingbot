@@ -24,9 +24,11 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         double _status_report_interval
         double _last_timestamp
         double _filled_order_replenish_wait_time
+        double _cancel_hanging_order_pct
         object _best_bid_ask_jump_orders_depth
 
         dict _time_to_cancel
+        list _hanging_order_ids
 
         int64_t _logging_options
 
