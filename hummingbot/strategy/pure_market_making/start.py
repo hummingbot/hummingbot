@@ -41,6 +41,7 @@ def start(self):
         filled_order_replenish_wait_time = pure_market_making_config_map.get("filled_order_replenish_wait_time").value
         enable_order_filled_stop_cancellation = pure_market_making_config_map.get(
             "enable_order_filled_stop_cancellation").value
+        cancel_hanging_order_pct = pure_market_making_config_map.get("cancel_hanging_order_pct").value
         best_bid_ask_jump_mode = pure_market_making_config_map.get("best_bid_ask_jump_mode").value
         best_bid_ask_jump_orders_depth = pure_market_making_config_map.get("best_bid_ask_jump_orders_depth").value
         add_transaction_costs_to_orders = pure_market_making_config_map.get("add_transaction_costs").value
@@ -124,7 +125,8 @@ def start(self):
                                                    add_transaction_costs_to_orders=add_transaction_costs_to_orders,
                                                    logging_options=strategy_logging_options,
                                                    asset_price_delegate=asset_price_delegate,
-                                                   expiration_seconds=expiration_seconds)
+                                                   expiration_seconds=expiration_seconds,
+                                                   cancel_hanging_order_pct=cancel_hanging_order_pct)
     except Exception as e:
         self._notify(str(e))
         self.logger().error("Unknown error during initialization.", exc_info=True)
