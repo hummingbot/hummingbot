@@ -240,16 +240,16 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             total_order_size_ratio = (self._sizing_delegate.total_order_size / total_value
                                       if total_value > s_decimal_zero
                                       else s_decimal_zero)
-            position = 4 if total_value <= 1 else (2 if total_value < 1000 else None)
+            precision = 4 if total_value <= 1 else (2 if total_value < 1000 else None)
             inventory_skew_df = pd.DataFrame(data=[
-                ["Total assets amount", f"{round(total_value, position)} {market_info.base_asset}"],
-                ["Current base asset amount", f"{round(base_asset_amount, position)}({base_asset_ratio:.1%})"],
-                ["Target base asset", f"{round(target_base_amount, position)}({target_base_ratio:.1%})"],
-                ["Total order amount", f"{round(self._sizing_delegate.total_order_size, position)}"
+                ["Total assets amount", f"{round(total_value, precision)} {market_info.base_asset}"],
+                ["Current base asset amount", f"{round(base_asset_amount, precision)}({base_asset_ratio:.1%})"],
+                ["Target base asset", f"{round(target_base_amount, precision)}({target_base_ratio:.1%})"],
+                ["Total order amount", f"{round(self._sizing_delegate.total_order_size, precision)}"
                                        f"({total_order_size_ratio:.1%})"],
                 ["Range multiplier", f"{self._sizing_delegate.inventory_range_multiplier:.2f}"],
-                ["Target base asset range", f"{round(low_water_mark, position)}({low_water_mark_ratio:.1%})-"
-                                            f"{round(high_water_mark, position)}({high_water_mark_ratio:.1%})"]
+                ["Target base asset range", f"{round(low_water_mark, precision)}({low_water_mark_ratio:.1%})-"
+                                            f"{round(high_water_mark, precision)}({high_water_mark_ratio:.1%})"]
             ])
             return inventory_skew_df
         else:
