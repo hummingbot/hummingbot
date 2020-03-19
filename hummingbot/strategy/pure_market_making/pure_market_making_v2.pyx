@@ -216,33 +216,41 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             base_asset_amount = market.c_get_balance(market_info.base_asset)
             quote_asset_amount = market.c_get_balance(market_info.quote_asset)
             base_asset_value = base_asset_amount * mid_price
-            total_value = base_asset_value + quote_asset_amount
+            quote_asset_value = quote_asset_amount / mid_price if mid_price > s_decimal_zero else s_decimal_zero
+            total_value = base_asset_amount + quote_asset_value
 
-            base_asset_ratio = (base_asset_value / total_value
+            base_asset_ratio = (base_asset_amount / total_value
                                 if total_value > s_decimal_zero
                                 else s_decimal_zero)
             target_base_ratio = self._sizing_delegate.inventory_target_base_ratio
             inventory_range_multiplier = self._sizing_delegate.inventory_range_multiplier
-            target_base_amount = (total_value * target_base_ratio / mid_price
+            target_base_amount = (total_value * target_base_ratio
                                   if mid_price > s_decimal_zero
                                   else s_decimal_zero)
             base_asset_range = (self._sizing_delegate.total_order_size *
                                 self._sizing_delegate.inventory_range_multiplier)
             high_water_mark = target_base_amount + base_asset_range
             low_water_mark = max(target_base_amount - base_asset_range, s_decimal_zero)
-
-            inventory_skew_df = pd.DataFrame(data={
-                "Title": ["Target base asset %", "Current base asset %",
-                          "Total order size", "Inventory range multiplier",
-                          "Base asset range", "Upper limit", "Lower limit"],
-                "Value": [float(target_base_ratio) * 100.0,
-                          float(base_asset_ratio) * 100.0,
-                          float(self._sizing_delegate.total_order_size),
-                          float(self._sizing_delegate.inventory_range_multiplier),
-                          float(base_asset_range),
-                          float(high_water_mark),
-                          float(low_water_mark)]
-            }).set_index("Title")
+            low_water_mark_ratio = (low_water_mark / total_value
+                                    if total_value > s_decimal_zero
+                                    else s_decimal_zero)
+            high_water_mark_ratio = (high_water_mark / total_value
+                                     if total_value > s_decimal_zero
+                                     else s_decimal_zero)
+            total_order_size_ratio = (self._sizing_delegate.total_order_size / total_value
+                                      if total_value > s_decimal_zero
+                                      else s_decimal_zero)
+            position = 4 if total_value <= 1 else (2 if total_value < 1000 else None)
+            inventory_skew_df = pd.DataFrame(data=[
+                ["Total assets amount", f"{round(total_value, position)} {market_info.base_asset}"],
+                ["Current base asset amount", f"{round(base_asset_amount, position)}({base_asset_ratio:.1%})"],
+                ["Target base asset", f"{round(target_base_amount, position)}({target_base_ratio:.1%})"],
+                ["Total order amount", f"{round(self._sizing_delegate.total_order_size, position)}"
+                                       f"({total_order_size_ratio:.1%})"],
+                ["Range multiplier", f"{self._sizing_delegate.inventory_range_multiplier:.2f}"],
+                ["Target base asset range", f"{round(low_water_mark, position)}({low_water_mark_ratio:.1%})-"
+                                            f"{round(high_water_mark, position)}({high_water_mark_ratio:.1%})"]
+            ])
             return inventory_skew_df
         else:
             return None
@@ -268,7 +276,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             inventory_skew_df = self.inventory_skew_stats_data_frame(market_info)
             if inventory_skew_df is not None:
                 lines.extend(["", "  Inventory Skew Stats:"] +
-                             ["    " + line for line in str(inventory_skew_df).split("\n")])
+                             ["    " + line for line in inventory_skew_df.to_string(index=False,
+                                                                                    header=False).split("\n")])
 
             # See if there're any open orders.
             if len(active_orders) > 0:

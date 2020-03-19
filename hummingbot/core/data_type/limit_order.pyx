@@ -26,8 +26,9 @@ cdef class LimitOrder:
                 float(order.price),
                 f"{(0 if mid_price == 0 else abs(float(order.price) - mid_price)/mid_price):.2%}",
                 float(order.quantity),
-                pd.Timestamp(int(time.time()) - int(order.client_order_id.split("-")[-1])/1e6, unit='s',
-                             tz='UTC').strftime('%H:%M:%S'),
+                ("n/a" if "-" not in order.client_order_id else
+                 pd.Timestamp(int(time.time()) - int(order.client_order_id.split("-")[-1])/1e6,
+                              unit='s', tz='UTC').strftime('%H:%M:%S')),
                 "n/a" if hanging_ids is None else ("yes" if order.client_order_id in hanging_ids else "no")
             ] for order in limit_orders]
 
