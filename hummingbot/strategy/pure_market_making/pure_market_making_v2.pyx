@@ -242,14 +242,14 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                       else s_decimal_zero)
             precision = 4 if total_value <= 1 else (2 if total_value < 1000 else None)
             inventory_skew_df = pd.DataFrame(data=[
-                ["Total assets amount", f"{round(total_value, precision)} {market_info.base_asset}"],
-                ["Current base asset amount", f"{round(base_asset_amount, precision)}({base_asset_ratio:.1%})"],
-                ["Target base asset", f"{round(target_base_amount, precision)}({target_base_ratio:.1%})"],
-                ["Total order amount", f"{round(self._sizing_delegate.total_order_size, precision)}"
-                                       f"({total_order_size_ratio:.1%})"],
+                ["Current inventory %", f"{base_asset_ratio:.1%} {market_info.base_asset} / "
+                                        f"{(1 - base_asset_ratio):.1%} {market_info.quote_asset}"],
+                ["Target base asset %", f"{target_base_ratio:.1%} "
+                                        f"({round(target_base_amount, precision)} {market_info.base_asset})"],
+                ["Total order amount %", f"{total_order_size_ratio:.1%} "
+                    f"({round(self._sizing_delegate.total_order_size, precision)} {market_info.base_asset})"],
                 ["Range multiplier", f"{self._sizing_delegate.inventory_range_multiplier:.2f}"],
-                ["Target base asset range", f"{round(low_water_mark, precision)}({low_water_mark_ratio:.1%})-"
-                                            f"{round(high_water_mark, precision)}({high_water_mark_ratio:.1%})"]
+                ["Target base asset range", f"{low_water_mark_ratio:.1%} - {high_water_mark_ratio:.1%}"]
             ])
             return inventory_skew_df
         else:
@@ -275,7 +275,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             # Print stats related to inventory skew.
             inventory_skew_df = self.inventory_skew_stats_data_frame(market_info)
             if inventory_skew_df is not None:
-                lines.extend(["", "  Inventory Skew Stats:"] +
+                lines.extend(["", "  Inventory Skew:"] +
                              ["    " + line for line in inventory_skew_df.to_string(index=False,
                                                                                     header=False).split("\n")])
 
