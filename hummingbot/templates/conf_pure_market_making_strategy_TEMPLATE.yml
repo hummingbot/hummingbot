@@ -2,7 +2,7 @@
 ###       Pure market making strategy config         ###
 ########################################################
 
-template_version: 9
+template_version: 10
 
 ############  Basic configuration section  ############
 
@@ -64,11 +64,14 @@ inventory_target_base_percent: null
 # inventory skew feature).
 inventory_range_multiplier: null
 
-# How long to wait before placing the next order in case your order gets filled (for single order mode).
+# How long to wait before placing the next order in case your order gets filled.
 filled_order_replenish_wait_time: null
 
-# Whether to stop cancellations of orders on the other side when one side is filled (true/false).
+# Whether to stop cancellations of orders on the other side when one side is filled (hanging orders feature) (true/false).
 enable_order_filled_stop_cancellation: null
+
+# Spread (from mid price, in percentage) hanging orders will be canceled (Enter 0.01 to indicate 1%)
+cancel_hanging_order_pct: null
 
 # Whether to enable best bid ask jumping mode (true/false).
 best_bid_ask_jump_mode: null
