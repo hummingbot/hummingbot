@@ -9,7 +9,7 @@ cdef class DataFeedAssetPriceDelegate(AssetPriceDelegate):
 
     cdef object c_get_mid_price(self):
         ex_rate_conversion = ExchangeRateConversion.get_instance()
-        return ex_rate_conversion.convert_token_value_decimal(1, self._base_asset, self._quote_asset)
+        return ex_rate_conversion.convert_token_value_decimal(1, self._base_asset, self._quote_asset, "any")
 
     @property
     def ready(self) -> bool:

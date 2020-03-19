@@ -6,25 +6,27 @@ Welcome to the official documentation site for Hummingbot!
 
 
 ## What is Hummingbot?
-Hummingbot is open source software that helps you create, configure and manage high-frequency market making and arbitrage bots that run on both centralized and decentralized crypto exchanges.
+[Hummingbot](https://hummingbot.io) is open source software that helps you build and run high-frequency market making bots on any crypto exchange.
 
-## How the documentation is organized
+Our business model is to administer [Liquidity Mining](/liquidity-mining) programs, which allow token issuers and exchange source liquidity from anyone running Hummingbot. Hummingbot users who choose to participate in Liquidity Mining can earn token rewards for providing liquidity to certain trading pairs.
 
-* [General](/): For new users. Learn about how Hummingbot works, install the software, and quickly start running your first bot
-* [User Manual](/manual): For experienced users who want to get the most of Hummingbot
-* [Liquidity Mining](/liquidity-mining): How to earn rewards by running a market making bot for your favorite tokens and exchanges
-* [Developer Manual](/developers): For developers looking to contribute to Hummingbot or extend its capabilities
-* [Release Notes](/release-notes): New features, bug fixes, and other updates from our bi-weekly releases
+## Getting started
+* [FAQ](/faq): Learn about Hummingbot and market making as an algo trading strategy
+* [Quickstart](/quickstart): Install Hummingbot and run your first market making bot
+* [Support](/support/): Get help from our 24/7 live support team
 
-## First steps
-New to Hummingbot? Here are some helpful links to get you started!
+## For experienced users
+* [Installation](/installation): See how to install Hummingbot in various environments
+* [Liquidity Mining](/liquidity-mining): Learn how you can earn liquidity rewards by market making
+* Check out advanced features such as [Running multiple bots](/advanced/running-multiple-bots/) and [Telegram integration](/advanced/telegram/).
 
-* [FAQ](/faq): Answers to frequently asked questions
-* [Whitepaper](/whitepaper): Overview about Hummingbot, its strategies, and the technical architecture
-* [Quickstart](/quickstart): Guide that walks you through how to install and run Hummingbot
+## For developers
 
-## Get help
-* [Cheatsheets](/cheatsheets): Quick reference for common Hummingbot commands
-* [Support](/support): Various ways to get support in using Hummingbot
-* [Troubleshooting](/support/troubleshooting/general): Common issues and how to resolve them
-* [中文 Github repo](https://github.com/coinalpha/hummingbot_chinese): General information about Hummingbot, translated into Mandarin Chinese
+Hummingbot is a general open source framework for crypto algorithmic trading. See the [Developer Manual](/developers) to learn how to build custom algo trading strategies with Hummingbot
+
+## More resources
+* [Command Reference](/operation/commands): Quick reference for common commands and keyboard shortcuts
+* [Github](https://github.com/coinalpha/hummingbot): Hummingbot codebase
+* [Youtube](https://www.youtube.com/channel/UCxzzdEnDRbylLMWmaMjywOA): Official Hummingbot Youtube Channel
+* [中文 wiki](https://github.com/coinalpha/hummingbot_chinese): General information about Hummingbot, translated into Mandarin Chinese
+
