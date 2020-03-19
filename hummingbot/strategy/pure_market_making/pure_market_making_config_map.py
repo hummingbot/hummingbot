@@ -196,6 +196,15 @@ pure_market_making_config_map = {
                   type_str="bool",
                   default=False,
                   validator=is_valid_bool),
+    "cancel_hanging_order_pct":
+        ConfigVar(key="cancel_hanging_order_pct",
+                  prompt="At what spread percentage (from mid price) will hanging orders be canceled? "
+                         "(Enter 0.01 to indicate 1%) >>> ",
+                  required_if=lambda: pure_market_making_config_map.get("enable_order_filled_stop_cancellation").value,
+                  type_str="decimal",
+                  default=0.1,
+                  validator=is_valid_percent,
+                  migration_default=0.1),
     "best_bid_ask_jump_mode":
         ConfigVar(key="best_bid_ask_jump_mode",
                   prompt="Do you want to enable best bid ask jumping? (Yes/No) >>> ",
