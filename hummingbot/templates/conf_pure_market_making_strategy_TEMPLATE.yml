@@ -2,7 +2,7 @@
 ###       Pure market making strategy config         ###
 ########################################################
 
-template_version: 9
+template_version: 10
 
 ############  Basic configuration section  ############
 
@@ -59,6 +59,10 @@ inventory_skew_enabled: null
 
 # Target base asset inventory percentage target to be maintained (for Inventory skew feature).
 inventory_target_base_percent: null
+
+# The range around the inventory target base percent to maintain, expressed in multiples of total order size (for
+# inventory skew feature).
+inventory_range_multiplier: null
 
 # How long to wait before placing the next order in case your order gets filled.
 filled_order_replenish_wait_time: null
