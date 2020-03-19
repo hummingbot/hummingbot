@@ -17,45 +17,42 @@ from hummingbot.strategy.pure_market_making import (
     DataFeedAssetPriceDelegate,
     APIAssetPriceDelegate
 )
-from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map
+from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map as c_map
 from hummingbot.market.paper_trade import create_paper_trade_market
 from hummingbot.market.market_base import MarketBase
+from decimal import Decimal
 
 
 def start(self):
     try:
-        order_size = pure_market_making_config_map.get("order_amount").value
-        cancel_order_wait_time = pure_market_making_config_map.get("cancel_order_wait_time").value
-        bid_place_threshold = pure_market_making_config_map.get("bid_place_threshold").value
-        ask_place_threshold = pure_market_making_config_map.get("ask_place_threshold").value
-        expiration_seconds = pure_market_making_config_map.get("expiration_seconds").value
-        mode = pure_market_making_config_map.get("mode").value
-        number_of_orders = pure_market_making_config_map.get("number_of_orders").value
-        order_start_size = pure_market_making_config_map.get("order_start_size").value
-        order_step_size = pure_market_making_config_map.get("order_step_size").value
-        order_interval_percent = pure_market_making_config_map.get("order_interval_percent").value
-        maker_market = pure_market_making_config_map.get("maker_market").value.lower()
-        raw_maker_trading_pair = pure_market_making_config_map.get("maker_market_trading_pair").value
-        inventory_skew_enabled = pure_market_making_config_map.get("inventory_skew_enabled").value
-        inventory_target_base_percent = pure_market_making_config_map.get("inventory_target_base_percent").value
-        inventory_range_multiplier = pure_market_making_config_map.get("inventory_range_multiplier").value
-        filled_order_replenish_wait_time = pure_market_making_config_map.get("filled_order_replenish_wait_time").value
-        enable_order_filled_stop_cancellation = pure_market_making_config_map.get(
-            "enable_order_filled_stop_cancellation").value
-        cancel_hanging_order_pct = pure_market_making_config_map.get("cancel_hanging_order_pct").value
-        best_bid_ask_jump_mode = pure_market_making_config_map.get("best_bid_ask_jump_mode").value
-        best_bid_ask_jump_orders_depth = pure_market_making_config_map.get("best_bid_ask_jump_orders_depth").value
-        add_transaction_costs_to_orders = pure_market_making_config_map.get("add_transaction_costs").value
-        external_pricing_source = pure_market_making_config_map.get("external_pricing_source").value
-        external_price_source_type = pure_market_making_config_map.get("external_price_source_type").value
-        external_price_source_exchange = pure_market_making_config_map.get("external_price_source_exchange").value
-        external_price_source_exchange_trading_pair = pure_market_making_config_map.get(
-            "external_price_source_exchange_trading_pair").value
-        external_price_source_feed_base_asset = pure_market_making_config_map.get(
-            "external_price_source_feed_base_asset").value
-        external_price_source_feed_quote_asset = pure_market_making_config_map.get(
-            "external_price_source_feed_quote_asset").value
-        external_price_source_custom_api = pure_market_making_config_map.get("external_price_source_custom_api").value
+        order_size = c_map.get("order_amount").value
+        cancel_order_wait_time = c_map.get("cancel_order_wait_time").value
+        bid_place_threshold = c_map.get("bid_place_threshold").value
+        ask_place_threshold = c_map.get("ask_place_threshold").value
+        expiration_seconds = c_map.get("expiration_seconds").value
+        mode = c_map.get("mode").value
+        number_of_orders = c_map.get("number_of_orders").value
+        order_start_size = c_map.get("order_start_size").value
+        order_step_size = c_map.get("order_step_size").value
+        order_interval_percent = c_map.get("order_interval_percent").value
+        maker_market = c_map.get("maker_market").value.lower()
+        raw_maker_trading_pair = c_map.get("maker_market_trading_pair").value
+        inventory_skew_enabled = c_map.get("inventory_skew_enabled").value
+        inventory_target_base_percent = c_map.get("inventory_target_base_percent").value / Decimal('100')
+        inventory_range_multiplier = c_map.get("inventory_range_multiplier").value
+        filled_order_replenish_wait_time = c_map.get("filled_order_replenish_wait_time").value
+        enable_order_filled_stop_cancellation = c_map.get("enable_order_filled_stop_cancellation").value
+        cancel_hanging_order_pct = c_map.get("cancel_hanging_order_pct").value
+        best_bid_ask_jump_mode = c_map.get("best_bid_ask_jump_mode").value
+        best_bid_ask_jump_orders_depth = c_map.get("best_bid_ask_jump_orders_depth").value
+        add_transaction_costs_to_orders = c_map.get("add_transaction_costs").value
+        external_pricing_source = c_map.get("external_pricing_source").value
+        external_price_source_type = c_map.get("external_price_source_type").value
+        external_price_source_exchange = c_map.get("external_price_source_exchange").value
+        external_price_source_exchange_trading_pair = c_map.get("external_price_source_exchange_trading_pair").value
+        external_price_source_feed_base_asset = c_map.get("external_price_source_feed_base_asset").value
+        external_price_source_feed_quote_asset = c_map.get("external_price_source_feed_quote_asset").value
+        external_price_source_custom_api = c_map.get("external_price_source_custom_api").value
 
         pricing_delegate = None
         sizing_delegate = None

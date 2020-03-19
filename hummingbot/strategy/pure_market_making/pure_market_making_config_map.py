@@ -6,7 +6,8 @@ from hummingbot.client.config.config_validators import (
     is_valid_market_trading_pair,
     is_valid_percent,
     is_valid_expiration,
-    is_valid_bool
+    is_valid_bool,
+    is_valid_decimal
 )
 from hummingbot.client.settings import (
     required_exchanges,
@@ -179,12 +180,11 @@ pure_market_making_config_map = {
                   validator=is_valid_bool),
     "inventory_target_base_percent":
         ConfigVar(key="inventory_target_base_percent",
-                  prompt="What is your target base asset inventory percentage? "
-                         "(Enter 0.01 to indicate 1%) >>> ",
+                  prompt="What is your target base asset percentage? Enter 50 for 50% >>> ",
                   required_if=lambda: pure_market_making_config_map.get("inventory_skew_enabled").value,
                   type_str="decimal",
-                  validator=is_valid_percent,
-                  default=0.5),
+                  validator=lambda v: is_valid_decimal(v, 0, 100),
+                  default=50),
     "inventory_range_multiplier":
         ConfigVar(key="inventory_range_multiplier",
                   prompt="What is your tolerable range of inventory around the target, "
