@@ -44,6 +44,7 @@ extra_css:
   - assets/css/custom.css
 extra_javascript:
   - assets/js/heap.js
+  - https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-AMS-MML_HTMLorMML
 
 # Extensions
 markdown_extensions:
@@ -69,6 +70,7 @@ markdown_extensions:
   - pymdownx.tasklist:
       custom_checkbox: true
   - pymdownx.tilde
+  - mdx_math
 
 # Navigation
 nav:
