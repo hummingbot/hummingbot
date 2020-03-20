@@ -200,7 +200,7 @@ The `enable_order_filled_stop_cancellation` can be used if there is enough volat
 
 Users now have the option to automatically adjust the prices to just above top bid and just below top ask using `best_bid_ask_jump_mode` available in single order mode. It can also be specified how deep to go into the orderbook for calculating the top bid and top ask price using `best_bid_ask_jump_orders_depth`.
 
-It is recommended to disable `add_transcation_costs` (set to `false`) for penny jumping mode to work effectively. This is because adding transaction costs would affect the prices at which the orders are placed and they might not be at the best bid/ask.
+It is recommended to disable `add_transaction_costs` (set to `false`) for penny jumping mode to work effectively. This is because adding transaction costs would affect the prices at which the orders are placed and they might not be at the best bid/ask.
 
 **Example scenario:**
 
