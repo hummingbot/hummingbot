@@ -34,7 +34,8 @@ Transactions from Hummingbot are normal transactions conducted on exchanges; the
 
 Hummingbot has the ability to send error logs to us.
 
-!!! note Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
+!!! note 
+      Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
 ### Why would I want to send you my usage data?
 - **Get better support**: Granting access to your logs and client commands enables us to diagnose your issue more quickly and provide better support.
