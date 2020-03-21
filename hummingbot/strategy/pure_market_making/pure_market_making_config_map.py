@@ -1,10 +1,13 @@
+from decimal import Decimal
+
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     is_exchange,
     is_valid_market_trading_pair,
     is_valid_percent,
     is_valid_expiration,
-    is_valid_bool
+    is_valid_bool,
+    is_valid_decimal
 )
 from hummingbot.client.settings import (
     required_exchanges,
@@ -18,7 +21,6 @@ from hummingbot.client.config.config_helpers import (
     parse_cvar_value,
     minimum_order_amount
 )
-from decimal import Decimal
 from hummingbot.data_feed.exchange_price_manager import ExchangePriceManager
 
 
@@ -178,12 +180,18 @@ pure_market_making_config_map = {
                   validator=is_valid_bool),
     "inventory_target_base_percent":
         ConfigVar(key="inventory_target_base_percent",
-                  prompt="What is your target base asset inventory percentage? "
-                         "(Enter 0.01 to indicate 1%) >>> ",
+                  prompt="What is your target base asset percentage? Enter 50 for 50% >>> ",
                   required_if=lambda: pure_market_making_config_map.get("inventory_skew_enabled").value,
                   type_str="decimal",
-                  validator=is_valid_percent,
-                  default=0.5),
+                  validator=lambda v: is_valid_decimal(v, 0, 100),
+                  default=50),
+    "inventory_range_multiplier":
+        ConfigVar(key="inventory_range_multiplier",
+                  prompt="What is your tolerable range of inventory around the target, "
+                         "expressed in multiples of your total order size? ",
+                  required_if=lambda: pure_market_making_config_map.get("inventory_skew_enabled").value,
+                  type_str="decimal",
+                  default=1.0),
     "filled_order_replenish_wait_time":
         ConfigVar(key="filled_order_replenish_wait_time",
                   prompt="How long do you want to wait before placing the next order "
@@ -196,6 +204,15 @@ pure_market_making_config_map = {
                   type_str="bool",
                   default=False,
                   validator=is_valid_bool),
+    "cancel_hanging_order_pct":
+        ConfigVar(key="cancel_hanging_order_pct",
+                  prompt="At what spread percentage (from mid price) will hanging orders be canceled? "
+                         "(Enter 0.01 to indicate 1%) >>> ",
+                  required_if=lambda: pure_market_making_config_map.get("enable_order_filled_stop_cancellation").value,
+                  type_str="decimal",
+                  default=0.1,
+                  validator=is_valid_percent,
+                  migration_default=0.1),
     "best_bid_ask_jump_mode":
         ConfigVar(key="best_bid_ask_jump_mode",
                   prompt="Do you want to enable best bid ask jumping? (Yes/No) >>> ",
