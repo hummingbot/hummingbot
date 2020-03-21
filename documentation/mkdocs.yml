@@ -70,7 +70,6 @@ markdown_extensions:
   - pymdownx.tasklist:
       custom_checkbox: true
   - pymdownx.tilde
-  - mdx_math
 
 # Navigation
 nav:
@@ -114,6 +113,13 @@ nav:
     - Strategies:
       - Overview: strategies/index.md
       - Pure Market Making: strategies/pure-market-making.md
+      - Advanced Market Making:
+        - Overview: strategies/advanced-mm/index.md
+        - Multiple Orders: strategies/advanced-mm/multiple-orders.md
+        - Inventory Skew: strategies/advanced-mm/inventory-skew.md
+        - Hanging Orders: strategies/advanced-mm/hanging-orders.md
+        - Best Bid Ask Jumping: strategies/advanced-mm/penny-jumping.md
+        - External Price Source: strategies/advanced-mm/price-source.md
       - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
       - Arbitrage: strategies/arbitrage.md
       - Discovery: strategies/discovery.md
@@ -161,9 +167,9 @@ nav:
           - 3. Re-compiling Hummingbot: developers/gettingstarted/windows/3-recompiling.md
       - Strategies:
         - Architecture: developers/strategies/index.md
-        - Arbitrage: developers/strategies/arbitrage.md
-        - Cross-Exchange Market Making: developers/strategies/cross-exchange-market-making.md
         - Pure Market Making: developers/strategies/pure-market-making.md
+        - Cross-Exchange Market Making: developers/strategies/cross-exchange-market-making.md
+        - Arbitrage: developers/strategies/arbitrage.md
         - Discovery: developers/strategies/discovery.md
         - TWAP: developers/strategies/twap.md
       - Connectors:
