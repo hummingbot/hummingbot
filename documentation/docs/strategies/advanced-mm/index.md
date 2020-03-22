@@ -1,18 +1,32 @@
 # Advanced Market Making
 
-These advanced parameters give you more control over how your bot behaves. Please take the time to understand how these parameters work before risking extensive capital.
+These advanced parameters give you more control over how your bot behaves. Please take the time to understand how these parameters work before risking extensive capital with bots that utilize them.
 
-## Configuring Advanced Parameters
+## How to Configure Advanced Parameters
 
-When the strategy is already running, run command `config advanced_mode`. This will stop the strategy and walk you through in reconfiguring all the advanced parameters.
+There are a few ways to configure these parameters:
 
-## [Multiple Orders](./multiple-orders)
+1. Run `config` to go through the normal strategy configuration process and answer `Yes` to the final question `Would you like to proceed with advanced configuration?`
+2. Run `list configs` to see the current strategy. Run command `config advanced_mode`. This will walk you through in reconfiguring all the advanced parameters.
+3. Outside of the Hummingbot client, you can edit the strategy configuration file directly and then import it later.
 
-These parameters allow you to set multiple levels of orders on each side and gives you more fine-grained control over the spreads and sizes of each set of orders. See [Multiple orders](./multiple-orders) for more information.
+## Multiple Orders
+
+This feature allows you to set multiple levels of orders on each side and gives you more fine-grained control over the spreads and sizes of each set of orders. 
+
+See [Multiple Orders](./multiple-orders) for more information.
 
 ## Inventory Skew
 
+This feature lets you set and maintain a target inventory split between the base and quote assets. It prevents your overall inventory level from changing too much and may result in more stable performance in volatile markets.
+
+See [Inventory Skew](./inventory-skew) for more information.
+
 ## Hanging Orders
+
+This feature prevents keeps orders "hanging" (or not cancelled and remaining on the order book) if a matching order has been filled on the other side of the order book.
+
+See [Hanging Orders](./hanging-orders) for more information.
 
 ## Filled Order Delay
 
@@ -28,13 +42,6 @@ If you have a buy order that is filled at 1:00:00 and the delay is set as 60 sec
 |-----|-----|
 | `How long do you want to wait before placing the next order if your order gets filled (in seconds)? >>>` | This sets `filled_order_replenish_wait_time` ([definition](#configuration-parameters)). |
 
-### Configuration Walkthrough
-
-The following walks through all the steps when running `config` for the first time.
-
-!!! tip "Tip: Autocomplete inputs during configuration"
-    When going through the command line config process, pressing `<TAB>` at a prompt will display valid available inputs.
-
 | Prompt | Description |
 |-----|-----|
 | `Enter quantity of bid/ask orders per side (single/multiple) >>> ` | Enter `single` to place only 1 order per side (i.e. 1 bid and 1 ask)<br/><br/>Enter `multiple` to place multiple orders on each side.<br /><br />Multiple order also allows you to set different prices and sizes on each side. See [additional configuration for multiple orders](#multiple-order-configuration). |
@@ -45,7 +52,7 @@ The following walks through all the steps when running `config` for the first ti
 | `Do you want to add transaction costs automatically to order prices? (Yes/No) >>>` | More information in [Adding Transaction Costs to Prices](#adding-transaction-costs-to-prices) section. |
 | `Would you like to use an external pricing source for mid-market price? (Yes/No) >>>` | More information in [External Pricing Source Configuration](#external-pricing-source-configuration) section. |
 
-### Adding Transaction Costs to Prices
+## Adding Transaction Costs to Prices
 
 Transaction costs can now be added to the price calculation. `fee_pct` refers to the percentage maker fees per order (generally common in Centralized exchanges) while `fixed_fees` refers to the flat fees (generally common in Decentralized exchanges).
 
@@ -67,7 +74,9 @@ If the buy price with the transaction cost is zero or negative, it is not profit
 |-----|-----|
 | `Do you want to add transaction costs automatically to order prices? (Yes/No) >>>` | This sets `add_transaction_costs` ([definition](#configuration-parameters)). |
 
-## Advanced Configuration Parameters
+## Extra
+
+### Advanced Configuration Parameters
 
 The following parameters are fields in Hummingbot configuration files located in the `/conf` folder (e.g. `conf/conf_pure_market_making_strategy_[#].yml`).
 
