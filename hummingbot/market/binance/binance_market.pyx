@@ -74,7 +74,7 @@ from hummingbot.client.config.fee_overrides_config_map import fee_overrides_conf
 s_logger = None
 s_decimal_0 = Decimal(0)
 TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|USDS|TUSD|PAX|TRX|BUSD|NGN|RUB|TRY|EUR)$")
-
+BROKER_ID = "X-IORD8DS5"
 
 cdef class BinanceMarketTransactionTracker(TransactionTracker):
     cdef:
@@ -125,6 +125,13 @@ cdef class WithdrawRule:
     def __repr__(self) -> str:
         return f"WithdrawRule(asset_name='{self.asset_name}', min_withdraw_amount={self.min_withdraw_amount}, " \
                f"withdraw_fee={self.withdraw_fee})"
+
+
+cdef str get_order_id(str order_side, object trading_pair):
+    cdef:
+        int64_t nonce = <int64_t> get_tracking_nonce()
+        object symbols = trading_pair.split("-")
+    return f"{BROKER_ID}-{order_side.upper()[0]}{symbols[0][0]}{symbols[0][-1]}{symbols[1][0]}{symbols[1][-1]}-{nonce}"
 
 
 cdef class BinanceMarket(MarketBase):
@@ -1013,8 +1020,8 @@ cdef class BinanceMarket(MarketBase):
     cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.MARKET, object price=s_decimal_NaN,
                    dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
-            str order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
+            str t_pair = BinanceMarket.convert_from_exchange_trading_pair(trading_pair)
+            str order_id = get_order_id("buy", t_pair)
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
         return order_id
 
@@ -1105,8 +1112,8 @@ cdef class BinanceMarket(MarketBase):
     cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.MARKET, object price=s_decimal_NaN,
                     dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
-            str order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
+            str t_pair = BinanceMarket.convert_from_exchange_trading_pair(trading_pair)
+            str order_id = get_order_id("sell", t_pair)
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id
 
