@@ -17,7 +17,6 @@ from hummingbot.core.data_type.order_book_tracker import (
     OrderBookTrackerDataSourceType)
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.remote_api_order_book_data_source import RemoteAPIOrderBookDataSource
-from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.market.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
@@ -59,27 +58,6 @@ class BinanceOrderBookTracker(OrderBookTracker):
     @property
     def exchange_name(self) -> str:
         return "binance"
-
-    async def start(self):
-        await super().start()
-        self._order_book_trade_listener_task = safe_ensure_future(
-            self.data_source.listen_for_trades(self._ev_loop, self._order_book_trade_stream)
-        )
-        self._order_book_diff_listener_task = safe_ensure_future(
-            self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
-        )
-        self._order_book_snapshot_listener_task = safe_ensure_future(
-            self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
-        )
-        self._refresh_tracking_task = safe_ensure_future(
-            self._refresh_tracking_loop()
-        )
-        self._order_book_diff_router_task = safe_ensure_future(
-            self._order_book_diff_router()
-        )
-        self._order_book_snapshot_router_task = safe_ensure_future(
-            self._order_book_snapshot_router()
-        )
 
     async def _order_book_diff_router(self):
         """
