@@ -56,7 +56,7 @@ Would you like to proceed with advanced configuration? (Yes/No) >>>
 
 Responding `Yes` to this question will walk you through in setting up the advanced parameters for this strategy. Responding `No` will leave the advanced parameters to their default values.
 
-See [Advanced Market Making](advanced-market-making.md) for more information about these parameters and how to use them.
+See [Advanced Market Making](/strategies/advanced-mm) for more information about these parameters and how to use them.
 
 
 ## Basic Configuration Walkthrough
