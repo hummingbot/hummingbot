@@ -22,12 +22,6 @@ This feature lets you set and maintain a target inventory split between the base
 
 See [Inventory Skew](./inventory-skew) for more information.
 
-## Hanging Orders
-
-This feature prevents keeps orders "hanging" (or not cancelled and remaining on the order book) if a matching order has been filled on the other side of the order book.
-
-See [Hanging Orders](./hanging-orders) for more information.
-
 ## Filled Order Delay
 
 By default, Hummingbot places orders as soon as there are no active orders; i.e., Hummingbot immediately places a new order to replace a filled order. If there is a sustained movement in the market in any one direction for some time, there is a risk of continued trading in that direction: For example, continuing to buy and accumulate base tokens in the case of a prolonged downward move or continuing to sell in the case of a prolonged upward move.
@@ -42,6 +36,17 @@ The `filled_order_replenish_wait_time` parameter allows for a delay when placing
 |-----------|--------|------------|---------------|
 | **filled_order_replenish_wait_time** | `How long do you want to wait before placing the next order if your order gets filled (in seconds)? >>>` | How long to wait before placing the next order in case your order gets filled. | `60.0` |
 
+## Hanging Orders
+
+This feature prevents keeps orders "hanging" (or not cancelled and remaining on the order book) if a matching order has been filled on the other side of the order book.
+
+See [Hanging Orders](./hanging-orders) for more information.
+
+## Best Bid Ask Jumping
+
+This feature allows users to automatically adjust the prices to right just above the top bid and just below the top ask. If your orders are at the top of the orderbook, this will adjust your prices right next to the next best orders.
+
+See [Best Bid Ask Jumping](./penny-jumping) for more information.
 
 ## Adding Transaction Costs to Prices
 
@@ -64,3 +69,10 @@ We currently display warnings if the adjusted price post adding the transaction 
 | Parameter | Prompt | Definition | Default Value |
 |-----------|--------|------------|---------------|
 | **add_transaction_costs** | `Do you want to add transaction costs automatically to order prices? (Yes/No) >>>` | Whether to enable adding transaction costs to order price calculation. | `false` |
+
+## External Price Source
+
+By default, Hummingbot uses the market orderbook mid price (between the top bid and the top ask) as a starting price to calculate maker order prices. 
+With external pricing sources, you can now use external sources for the starting mid price such as an external **exchange**, **data feed**, or a **custom API**.
+
+See [External Price Source](./price-source) for more information.
