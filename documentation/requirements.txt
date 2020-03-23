@@ -2,3 +2,4 @@ mkdocs>=1.0
 mkdocs-material>=4.6
 pymdown-extensions>=6.3
 markdown>=3.2
+python-markdown-math==0.6

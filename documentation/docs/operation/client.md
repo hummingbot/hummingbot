@@ -6,7 +6,7 @@ Hummingbot uses a command-line interface (CLI) that helps users configure and ru
 
 ### Installed from Docker
 
-Creating a new instance of Hummingbot with `docker run` will automatically start the Hummingbot client (see Docker installation guides for [Windows](/installation/via-docker/windows), [Linux](/installation/via-docker/linux) and [MacOS](/installation/via-docker/macOS)).
+Creating a new instance of Hummingbot with `docker run` will automatically start the Hummingbot client (see Docker installation guides for [Windows](/installation/docker/windows), [Linux](/installation/docker/linux) and [MacOS](/installation/docker/macOS)).
 
 To run a previously created, stopped container where $NAME is the name of your instance of Hummingbot:
 
@@ -14,7 +14,7 @@ To run a previously created, stopped container where $NAME is the name of your i
 docker start $NAME && docker attach $NAME
 ```
 
-For additional information on useful commands, see the [cheatsheet](/cheatsheets/docker) to running Hummingbot on Docker.
+For additional information on useful commands, see the [commands](/operation/commands) to running Hummingbot on Docker.
 
 ### Installed from Source
 
@@ -51,7 +51,7 @@ The CLI is divided into three panes:
 | `help` | Prints a list of available commands. Adding a command after `help` will display available positional and optional arguments.<br/><br/>*Example: `help bounty` will show how to use the `bounty` command.
 | `history`| Print bot's past trades and performance analytics. For an explanation of how Hummingbot calculates profitability, see our blog [here](https://hummingbot.io/blog/2019-07-measure-performance-crypto-trading/#tldr).
 | `list` | List wallets, exchanges, configs, and completed trades.<br/><br/>*Example usage: `list [wallets|exchanges|configs|trades]`*
-| `paper_trade` | Enable or disable [paper trade mode](/utilities/paper-trade).
+| `paper_trade` | Enable or disable [paper trading mode](/operation/paper-trade).
 | `start` | Starts the bot. If any configuration settings are missing, it will automatically prompt you for them.
 | `status` | Get a status report about the current bot status.
 | `stop` | Cancels all outstanding orders and stops the bot.

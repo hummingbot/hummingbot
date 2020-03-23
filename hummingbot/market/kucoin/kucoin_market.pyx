@@ -1,27 +1,18 @@
 import aiohttp
-from aiohttp.test_utils import TestClient
 import asyncio
-from async_timeout import timeout
-import conf
-from datetime import datetime
 from decimal import Decimal
 from libc.stdint cimport int64_t
 import logging
 import pandas as pd
-import time
 from typing import (
     Any,
-    AsyncIterable,
-    Coroutine,
     Dict,
     List,
     Optional,
     Tuple
 )
-import ujson
 import json
 
-import hummingbot
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -30,7 +21,6 @@ from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSou
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.events import (
     MarketEvent,
-    MarketWithdrawAssetEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
     OrderFilledEvent,
@@ -55,9 +45,7 @@ from hummingbot.market.kucoin.kucoin_auth import KucoinAuth
 from hummingbot.market.kucoin.kucoin_in_flight_order import KucoinInFlightOrder
 from hummingbot.market.kucoin.kucoin_order_book_tracker import KucoinOrderBookTracker
 from hummingbot.market.trading_rule cimport TradingRule
-from hummingbot.market.market_base import (
-    MarketBase,
-    NaN)
+from hummingbot.market.market_base import MarketBase
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 
@@ -129,7 +117,6 @@ cdef class KucoinMarket(MarketBase):
             data_source_type=order_book_tracker_data_source_type,
             trading_pairs=trading_pairs
         )
-        self._order_tracker_task = None
         self._poll_notifier = asyncio.Event()
         self._poll_interval = poll_interval
         self._shared_client = None
@@ -215,18 +202,15 @@ cdef class KucoinMarket(MarketBase):
         self._async_scheduler.stop()
 
     async def start_network(self):
-        if self._order_tracker_task is not None:
-            self._stop_network()
-        self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
+        self._stop_network()
+        self._order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             await self._update_account_id()
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
 
     def _stop_network(self):
-        if self._order_tracker_task is not None:
-            self._order_tracker_task.cancel()
-            self._order_tracker_task = None
+        self._order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
