@@ -33,7 +33,7 @@ In any market with low trading activity, there's a risk where the market maker m
 
 Other strategies may be more suitable from a risk perspective in this type of market, e.g. [cross-exchange market making](/strategies/cross-exchange-market-making).
 
-### Volatile or trending markets
+### Market/inventory risk due to low volatile or trending markets
 
 Another common risk that market makers need to be aware of is trending markets. Here's one example:
 
@@ -45,7 +45,7 @@ However, it is still possible to improve the probability of generating profits i
 
 Market making in volatile or trending markets is more advanced and risky for new traders. It's recommended that a trader looking to market make in this kind of environment to get mentally familiar with it (e.g. via paper trading) before committing meaningful capital to the strategy.
 
-## What risks does a market maker face?
+## Besides market risk, what other risks does a market maker face?
 
 There are many moving parts when operating a market making bot that all have to work together in order to properly function:
 
