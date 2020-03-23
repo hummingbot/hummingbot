@@ -4,17 +4,22 @@ These parameters allow you to set multiple levels of orders on each side and giv
 
 ## How It Works
 
-==TO-DO: Explain number of orders==
+Enter the value for `number_of_orders` to specify how many orders you want to place on each side (buy and sell).
 
 >**Example**: Entering `3` places three bid and three ask orders on each side of the book, for a total of 6 orders.
 
-==TO-DO: Explain order size increments==
+Users can also increase the size of subsequent orders starting from the first order in increments specified in `order_step_size`. This can be set to `0` if you don't want your multiple order sizes to increase.
 
->Example: Entering `1` when the first order size is `10` results in sizes of `11` and `12` for the second and third order levels
+>**Example**: If the order start size is `7000` and the order step size is `1000`, the second order size is `8000`, and the third order is `9000`.
 
-==TO-DO: Explain order spread increments==
+The `order_interval_percent` logic works the same as order step size but instead, it increases the spreads of your subsequent orders starting from the first order.
 
->Example: Entering `0.005` when ask and bid spreads are `0.01` results in the spreads of `0.015` amd `0.025` for the second and third order levels.
+>**Example**: The spread of your first buy and sell order is `0.01` (1%) and your order interval amount is `0.02` (2%). The spread of your second order is `0.03` (3%), and the third order is `0.05` (5%).
+
+Given the sample scenarios above, your active orders will show as:
+
+![](/assets/img/multiple_orders1.png)
+
 
 ## Sample Configuration
 
