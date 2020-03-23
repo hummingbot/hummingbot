@@ -32,7 +32,17 @@ from hummingbot.client.config.config_crypt import (
     get_encrypted_config_path,
     encrypt_n_save_config_value
 )
-from hummingbot.strategy.pure_market_making import PureMarketMakingStrategyV2
+from hummingbot.strategy.pure_market_making import (
+    PureMarketMakingStrategyV2,
+    ConstantSpreadPricingDelegate,
+    ConstantMultipleSpreadPricingDelegate,
+    ConstantSizeSizingDelegate,
+    StaggeredMultipleSizeSizingDelegate,
+    InventorySkewSingleSizeSizingDelegate,
+    InventorySkewMultipleSizeSizingDelegate,
+)
+from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map \
+    as pure_mm_map
 from os import unlink
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -393,6 +403,40 @@ class ConfigCommand:
             pure_mm.pricing_delegate.bid_spread = new_value
         elif key == "ask_place_threshold":
             pure_mm.pricing_delegate.ask_spread = new_value
+        if key == "mode":
+            bid_spread = pure_mm_map["bid_place_threshold"].value
+            ask_spread = pure_mm_map["ask_place_threshold"].value
+            inventory_skew_enabled = pure_mm_map["inventory_skew_enabled"].value
+            number_of_orders = pure_mm_map.get("number_of_orders").value
+            order_interval_percent = pure_mm_map.get("order_interval_percent").value
+            order_start_size = pure_mm_map.get("order_start_size").value
+            order_step_size = pure_mm_map.get("order_step_size").value
+            inventory_target_base_percent = pure_mm_map.get("inventory_target_base_percent").value
+            inventory_range_multiplier = pure_mm_map.get("inventory_range_multiplier").value
+            if new_value == "multiple" and isinstance(pure_mm.pricing_delegate, ConstantSpreadPricingDelegate):
+                pure_mm.pricing_delegate = ConstantMultipleSpreadPricingDelegate(bid_spread,
+                                                                                 ask_spread,
+                                                                                 order_interval_percent,
+                                                                                 number_of_orders)
+                if inventory_skew_enabled:
+                    pure_mm.sizing_delegate = InventorySkewMultipleSizeSizingDelegate(order_start_size,
+                                                                                      order_step_size,
+                                                                                      number_of_orders,
+                                                                                      inventory_target_base_percent,
+                                                                                      inventory_range_multiplier)
+                else:
+                    pure_mm.sizing_delegate = StaggeredMultipleSizeSizingDelegate(order_start_size,
+                                                                                  order_step_size,
+                                                                                  number_of_orders)
+            elif new_value == "single" and isinstance(pure_mm.pricing_delegate, ConstantMultipleSpreadPricingDelegate):
+                pure_mm.pricing_delegate = ConstantSpreadPricingDelegate(bid_spread, ask_spread)
+                order_size = pure_mm_map.get("order_amount").value
+                if inventory_skew_enabled:
+                    pure_mm.sizing_delegate = InventorySkewSingleSizeSizingDelegate(order_size,
+                                                                                    inventory_target_base_percent,
+                                                                                    inventory_range_multiplier)
+                else:
+                    pure_mm.sizing_delegate = ConstantSizeSizingDelegate(order_size)
 
     async def _config_single_key(self,  # type: HummingbotApplication
                                  key: str):
