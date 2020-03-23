@@ -1,21 +1,41 @@
+# Hanging Orders
 
-### "Hanging" Orders
+This feature keeps orders "hanging" (or not cancelled and remaining on the order book) if a matching order has been filled on the other side of the order book.
 
-Typically, orders are placed as pairs e.g. 1 buy order + 1 sell order in single order mode. There is now an option using `enable_order_filled_stop_cancellation` to leave the orders on the other side hanging (not cancelled) whenever one side (buy or sell) is filled.
+## How It Works
 
-**Example:**
+Typically, orders are placed as pairs in single order mode (1 buy and 1 sell order). The parameter `enable_order_filled_stop_cancellation` allows Hummingbot to leave the order on the other side hanging (not cancelled) whenever one side is filled.
 
-Assume you are running pure market making in single order mode, the order size is 1 and the mid price is 100. Then:
+The hanging order will be cancelled in the following conditions:
 
-- Based on bid and ask thresholds of 0.01, your bid/ask orders would be placed at 99 and 101, respectively.
-- Your current bid at 99 is fully filled, i.e. someone takes your order and you buy 1.
-- By default, after the `cancel_order_wait_time`, the ask order at 101 would be cancelled.
-- With the `enable_order_filled_stop_cancellation` parameter:
-    - the original 101 ask order stays outstanding
-    - after the `cancel_order_wait_time`, a new pair of bid and ask orders are created, resulting in a total of 1 bid order and 2 ask orders (original and new).  The original ask order stays outstanding until that is filled or manually cancelled.</ul></ul>
+1. The spread goes above the specified `cancel_hanging_order_pct` value
+2. Sending `stop` or `exit` command
 
-The `enable_order_filled_stop_cancellation` can be used if there is enough volatility such that the hanging order might eventually get filled. It should also be used with caution, as the user should monitor the bot regularly to manually cancel orders which don't get filled. It is recommended to disable inventory skew while running this feature.
 
-| Prompt | Description |
-|-----|-----|
-| `Do you want to enable hanging orders? (Yes/No) >>>` | This sets `enable_order_filled_stop_cancellation` ([definition](#configuration-parameters)). |
+## Sample Configurations
+
+Let's see how this configuration works in the scenario below:
+
+```json
+- filled_order_replenish_wait_time: 60.0
+- enable_order_filled_stop_cancellation: true
+- cancel_hanging_order_pct: 0.02
+```
+
+![](/assets/img/hanging_order1.png)
+
+When the buy order `...1497` was completely filled, it will not cancel the sell order `...1840`. After 60 seconds, Hummingbot will create a new set of buy and sell orders. The `status` output will show all active orders while indicating which orders are hanging.
+
+![](/assets/img/hanging_order2.png)
+
+The hanging order will stay outstanding and will be cancelled if its spread goes above 2% as specified in our `cancel_hanging_order_pct`.
+
+![](/assets/img/hanging_order3.png)
+
+
+## Relevant Parameters
+
+| Parameter | Prompt | Definition | Default Value |
+|-----------|--------|------------|---------------|
+| **enable_order_filled_stop_cancellation** | `Do you want to enable hanging orders? (Yes/No) >>>` | When value is set to `true`, the orders on the side opposite to the filled orders remains active. | `false` |
+| **cancel_hanging_order_pct** | `At what spread percentage (from mid price) will hanging orders be canceled? (Enter 0.01 to indicate 1%) >>>` | Cancels the hanging orders when their spread goes above this value. | `0.1` |
