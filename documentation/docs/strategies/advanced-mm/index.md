@@ -34,23 +34,14 @@ By default, Hummingbot places orders as soon as there are no active orders; i.e.
 
 The `filled_order_replenish_wait_time` parameter allows for a delay when placing a new order in the event of an order being filled, which will help mitigate the above scenarios.
 
-**Example:**
+>**Example**: If you have a buy order that is filled at 1:00:00 and the delay is set to `60` seconds, the next orders placed will be at 1:01:00. The sell order is also cancelled within this delay period and placed at 1:01:00 to ensure that both buy and sell orders stay in sync.
 
-If you have a buy order that is filled at 1:00:00 and the delay is set as 60 seconds, the next orders placed will be at 1:01:00. The sell order is also cancelled within this delay period and placed at 1:01:00 to ensure that both buy and sell orders stay in sync.
+**Relevant Parameters**
 
-| Prompt | Description |
-|-----|-----|
-| `How long do you want to wait before placing the next order if your order gets filled (in seconds)? >>>` | This sets `filled_order_replenish_wait_time` ([definition](#configuration-parameters)). |
+| Parameter | Prompt | Definition | Default Value |
+|-----------|--------|------------|---------------|
+| **filled_order_replenish_wait_time** | `How long do you want to wait before placing the next order if your order gets filled (in seconds)? >>>` | How long to wait before placing the next order in case your order gets filled. | `60.0` |
 
-| Prompt | Description |
-|-----|-----|
-| `Enter quantity of bid/ask orders per side (single/multiple) >>> ` | Enter `single` to place only 1 order per side (i.e. 1 bid and 1 ask)<br/><br/>Enter `multiple` to place multiple orders on each side.<br /><br />Multiple order also allows you to set different prices and sizes on each side. See [additional configuration for multiple orders](#multiple-order-configuration). |
-| `Would you like to enable inventory skew? (Yes/No) >>>` | More information in [Inventory-Based Dynamic Order Sizing](#inventory-based-dynamic-order-sizing) section. |
-| `How long do you want to wait before placing the next order if your order gets filled (in seconds)? >>>` | More information in [Order Replenish Time](#order-replenish-time) section. |
-| `Do you want to enable hanging orders? (Yes/No) >>>` | More information in ["Hanging Orders"](#hanging-orders) section. |
-| `Do you want to enable best bid ask jumping? (Yes/No) >>>` | More information in [Best Bid Ask Jumping](#best-bid-ask-jumping) section. |
-| `Do you want to add transaction costs automatically to order prices? (Yes/No) >>>` | More information in [Adding Transaction Costs to Prices](#adding-transaction-costs-to-prices) section. |
-| `Would you like to use an external pricing source for mid-market price? (Yes/No) >>>` | More information in [External Pricing Source Configuration](#external-pricing-source-configuration) section. |
 
 ## Adding Transaction Costs to Prices
 
@@ -66,10 +57,10 @@ Transaction costs can now be added to the price calculation. `fee_pct` refers to
 
 Adding the transaction cost will reduce the bid order price and increase the ask order price i.e. putting your orders further away from the mid price.
 
-We currently display warnings if the adjusted price post adding the transaction costs is 10% away from the original price. This setting can be modified by changing `warning_report_threshold` in the `c_add_transaction_costs_to_pricing_proposal` function inside `hummingbot/strategy/pure_market_making/pure_market_making_v2.pyx`.
+We currently display warnings if the adjusted price post adding the transaction costs is 10% away from the original price. If the buy price with the transaction cost is zero or negative, it is not profitable to place orders and orders will not be placed.
 
-If the buy price with the transaction cost is zero or negative, it is not profitable to place orders and orders will not be placed.
+**Relevant Parameters**
 
-| Prompt | Description |
-|-----|-----|
-| `Do you want to add transaction costs automatically to order prices? (Yes/No) >>>` | This sets `add_transaction_costs` ([definition](#configuration-parameters)). |
+| Parameter | Prompt | Definition | Default Value |
+|-----------|--------|------------|---------------|
+| **add_transaction_costs** | `Do you want to add transaction costs automatically to order prices? (Yes/No) >>>` | Whether to enable adding transaction costs to order price calculation. | `false` |
