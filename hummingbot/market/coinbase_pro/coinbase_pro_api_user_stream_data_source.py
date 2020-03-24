@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import time
 from typing import (
     AsyncIterable,
     Dict,
@@ -11,6 +12,7 @@ from typing import (
 import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
+
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.market.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
 from hummingbot.logger import HummingbotLogger
@@ -41,6 +43,7 @@ class CoinbaseProAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._trading_pairs = trading_pairs
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
+        self._last_recv_time: float = 0
         super().__init__()
 
     @property
@@ -51,6 +54,10 @@ class CoinbaseProAPIUserStreamDataSource(UserStreamTrackerDataSource):
         :returns: OrderBook class
         """
         return CoinbaseProOrderBook
+
+    @property
+    def last_recv_time(self) -> float:
+        return self._last_recv_time
 
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
@@ -105,10 +112,12 @@ class CoinbaseProAPIUserStreamDataSource(UserStreamTrackerDataSource):
             while True:
                 try:
                     msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
+                    self._last_recv_time = time.time()
                     yield msg
                 except asyncio.TimeoutError:
                     try:
                         pong_waiter = await ws.ping()
+                        self._last_recv_time = time.time()
                         await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
                     except asyncio.TimeoutError:
                         raise
@@ -119,4 +128,3 @@ class CoinbaseProAPIUserStreamDataSource(UserStreamTrackerDataSource):
             return
         finally:
             await ws.close()
-

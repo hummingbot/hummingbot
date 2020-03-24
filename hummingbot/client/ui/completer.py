@@ -51,7 +51,7 @@ class HummingbotCompleter(Completer):
                 market = exchange
                 break
         trading_pairs = trading_pair_fetcher.trading_pairs.get(market, []) if trading_pair_fetcher.ready else []
-        return WordCompleter(trading_pairs, ignore_case=True)
+        return WordCompleter(trading_pairs, ignore_case=True, sentence=True)
 
     @property
     def _wallet_address_completer(self):
@@ -144,7 +144,10 @@ class HummingbotCompleter(Completer):
 
         else:
             text_before_cursor: str = document.text_before_cursor
-            first_word: str = text_before_cursor[0:text_before_cursor.index(' ')]
+            try:
+                first_word: str = text_before_cursor[0:text_before_cursor.index(' ')]
+            except ValueError:
+                return
             subcommand_completer: Completer = self.get_subcommand_completer(first_word)
             if complete_event.completion_requested or self._complete_subcommand(document):
                 for c in subcommand_completer.get_completions(document, complete_event):

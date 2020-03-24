@@ -13,7 +13,6 @@ cdef class DolomiteMarket(MarketBase):
         object _web3
         object _shared_client
 
-        public object _order_tracker_task
         public object _polling_update_task
 
         dict _trading_rules

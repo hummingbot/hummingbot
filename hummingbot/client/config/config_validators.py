@@ -8,6 +8,7 @@ from hummingbot.client.settings import (
     STRATEGIES,
     CONF_FILE_PATH,
 )
+from decimal import Decimal
 
 
 # Validators
@@ -22,6 +23,13 @@ def is_strategy(value: str) -> bool:
 def is_valid_percent(value: str) -> bool:
     try:
         return 0 <= float(value) < 1
+    except ValueError:
+        return False
+
+
+def is_valid_decimal(value: str, min_value, max_value) -> bool:
+    try:
+        return Decimal(str(min_value)) <= Decimal(value) < Decimal(str(max_value))
     except ValueError:
         return False
 

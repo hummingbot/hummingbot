@@ -93,6 +93,10 @@ cdef class OrderBook(PubSub):
         cdef:
             double best_bid_price = float("NaN")
             double best_ask_price = float("NaN")
+            set[OrderBookEntry].reverse_iterator bid_iterator
+            set[OrderBookEntry].iterator ask_iterator
+            OrderBookEntry top_bid
+            OrderBookEntry top_ask
 
         # Start with an empty order book, and then insert all entries.
         self._bid_book.clear()
@@ -108,6 +112,15 @@ cdef class OrderBook(PubSub):
 
         if self._dex:
             truncateOverlapEntries(self._bid_book, self._ask_book, self._dex)
+            # Record the current best prices, for faster c_get_price() calls.
+            bid_iterator = self._bid_book.rbegin()
+            ask_iterator = self._ask_book.begin()
+            if bid_iterator != self._bid_book.rend():
+                top_bid = deref(bid_iterator)
+                best_bid_price = top_bid.getPrice()
+            if ask_iterator != self._ask_book.end():
+                top_ask = deref(ask_iterator)
+                best_ask_price = top_ask.getPrice()
 
         # Record the current best prices, for faster c_get_price() calls.
         self._best_bid = best_bid_price
@@ -306,9 +319,9 @@ cdef class OrderBook(PubSub):
                 total_cost += order_book_row.amount * order_book_row.price
                 total_volume += order_book_row.amount
                 if total_volume >= volume:
-                    incremental_amount = total_volume - volume
                     total_cost -= order_book_row.amount * order_book_row.price
                     total_volume -= order_book_row.amount
+                    incremental_amount = volume - total_volume
                     total_cost += incremental_amount * order_book_row.price
                     total_volume += incremental_amount
                     result_vwap = total_cost / total_volume
@@ -318,9 +331,9 @@ cdef class OrderBook(PubSub):
                 total_cost += order_book_row.amount * order_book_row.price
                 total_volume += order_book_row.amount
                 if total_volume >= volume:
-                    incremental_amount = total_volume - volume
                     total_cost -= order_book_row.amount * order_book_row.price
                     total_volume -= order_book_row.amount
+                    incremental_amount = volume - total_volume
                     total_cost += incremental_amount * order_book_row.price
                     total_volume += incremental_amount
                     result_vwap = total_cost / total_volume
