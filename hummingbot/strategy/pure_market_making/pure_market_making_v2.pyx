@@ -187,17 +187,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     def pricing_delegate(self) -> OrderPricingDelegate:
         return self._pricing_delegate
 
-    @pricing_delegate.setter
-    def pricing_delegate(self, value):
-        self._pricing_delegate = value
-
     @property
     def sizing_delegate(self) -> OrderSizingDelegate:
         return self._sizing_delegate
-
-    @sizing_delegate.setter
-    def sizing_delegate(self, value):
-        self._sizing_delegate = value
 
     @property
     def asset_price_delegate(self) -> AssetPriceDelegate:

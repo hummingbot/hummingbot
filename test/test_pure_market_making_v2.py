@@ -51,6 +51,7 @@ from hummingbot.strategy.pure_market_making import (
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.core.network_base import NetworkStatus
+from hummingbot.client.command.config_command import ConfigCommand
 
 
 class MockDataFeed(DataFeedBase):
@@ -371,6 +372,22 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.assertEqual(1, self.strategy.active_bids[0][1].quantity)
         self.assertEqual(1, self.strategy.active_asks[0][1].quantity)
 
+    def test_spread_configs_update_single_mode(self):
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(self.mid_price * (1 - Decimal('0.01')),
+                         self.strategy.active_bids[0][1].price)
+        self.assertEqual(self.mid_price * (1 + Decimal('0.01')),
+                         self.strategy.active_asks[0][1].price)
+        self.assertEqual(1, self.strategy.active_bids[0][1].quantity)
+        self.assertEqual(1, self.strategy.active_asks[0][1].quantity)
+        ConfigCommand.update_running_pure_mm(self.strategy, "bid_place_threshold", Decimal('0.02'))
+        ConfigCommand.update_running_pure_mm(self.strategy, "ask_place_threshold", Decimal('0.03'))
+        self.clock.backtest_til(self.start_timestamp + (2 * self.clock_tick_size) + 1)
+        self.assertEqual(self.mid_price * (1 - Decimal('0.02')),
+                         self.strategy.active_bids[0][1].price)
+        self.assertEqual(self.mid_price * (1 + Decimal('0.03')),
+                         self.strategy.active_asks[0][1].price)
+
     def test_check_sufficient_balance(self):
         self.maker_market.set_balance("WETH", 0)
         end_ts = self.start_timestamp + self.clock_tick_size
@@ -681,6 +698,40 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         ask_order: LimitOrder = self.ext_feed_price_strategy.active_asks[0][1]
         self.assertEqual(Decimal("202"), ask_order.price)
         self.assertEqual(Decimal("1.0"), ask_order.quantity)
+
+    def test_spread_configs_update_multiple_mode(self):
+        self.clock.remove_iterator(self.strategy)
+        self.clock.add_iterator(self.multi_order_equal_strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(5, len(self.multi_order_equal_strategy.active_bids))
+        self.assertEqual(5, len(self.multi_order_equal_strategy.active_asks))
+
+        first_bid_order: LimitOrder = self.multi_order_equal_strategy.active_bids[0][1]
+        first_ask_order: LimitOrder = self.multi_order_equal_strategy.active_asks[0][1]
+        self.assertEqual(Decimal("99"), first_bid_order.price)
+        self.assertEqual(Decimal("101"), first_ask_order.price)
+
+        last_bid_order: LimitOrder = self.multi_order_equal_strategy.active_bids[-1][1]
+        last_ask_order: LimitOrder = self.multi_order_equal_strategy.active_asks[-1][1]
+        last_bid_price = Decimal(99 * (1 - 0.01) ** 4).quantize(Decimal("0.01"))
+        last_ask_price = Decimal(101 * (1 + 0.01) ** 4).quantize(Decimal("0.01"))
+        self.assertAlmostEqual(last_bid_price, last_bid_order.price, 2)
+        self.assertAlmostEqual(last_ask_price, last_ask_order.price, 2)
+
+        ConfigCommand.update_running_pure_mm(self.multi_order_equal_strategy, "bid_place_threshold", Decimal('0.02'))
+        ConfigCommand.update_running_pure_mm(self.multi_order_equal_strategy, "ask_place_threshold", Decimal('0.02'))
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
+        first_bid_order: LimitOrder = self.multi_order_equal_strategy.active_bids[0][1]
+        first_ask_order: LimitOrder = self.multi_order_equal_strategy.active_asks[0][1]
+        self.assertEqual(Decimal("98"), first_bid_order.price)
+        self.assertEqual(Decimal("102"), first_ask_order.price)
+
+        last_bid_order: LimitOrder = self.multi_order_equal_strategy.active_bids[-1][1]
+        last_ask_order: LimitOrder = self.multi_order_equal_strategy.active_asks[-1][1]
+        last_bid_price = Decimal(98 * (1 - 0.01) ** 4).quantize(Decimal("0.01"))
+        last_ask_price = Decimal(102 * (1 + 0.01) ** 4).quantize(Decimal("0.01"))
+        self.assertAlmostEqual(last_bid_price, last_bid_order.price, 2)
+        self.assertAlmostEqual(last_ask_price, last_ask_order.price, 2)
 
     def test_multiple_orders_equal_sizes(self):
         self.clock.remove_iterator(self.strategy)
