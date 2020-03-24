@@ -20,7 +20,7 @@ In order to trade on an Ethereum-based decentralized exchange (DEX), you may nee
 
 ## Inventory Requirements
 
-Hummingbot uses your token balances to determine the size of each order. For decentralized exchanges like IDEX and Radar Relay, it uses the token balances in your Ethereum wallet. For centralized exchanges like Binance, it uses your token balances in the respective exchange. The trade size Hummingbot makes will be always less than the lowest asset balance on any side.
+Hummingbot uses your token balances to determine the size of each order. For decentralized exchanges like Radar Relay, it uses the token balances in your Ethereum wallet. For centralized exchanges like Binance, it uses your token balances in the respective exchange. The trade size Hummingbot makes will be always less than the lowest asset balance on any side.
 
 ![inventory1](/assets/img/inventory1.png)
 ![inventory2](/assets/img/inventory2.png)
@@ -37,8 +37,8 @@ For cross-exchange market making, we **recommend** that users start with roughly
 
 ## Using Commands
 
-Please see [Client: Commands](/operation/client#client-commands) for a comprehensive list of Hummingbot's commands and their descriptions.
+Please see [Command Reference](/operation/commands) for a comprehensive list of Hummingbot's commands and their descriptions.
 
 ## Understanding Logs
 
-Hummingbot's right pane contains a log of all actions taken by the bot, including approvals, canncellations, fills, etc. When the user exits Hummingbot, it saves a log file containing all of the section's activity to the `logs/` folder. (For more info, see: [Logs and Logging](/utilities/logging))
+Hummingbot's right pane contains a log of all actions taken by the bot, including approvals, canncellations, fills, etc. When the user exits Hummingbot, it saves a log file containing all of the section's activity to the `logs/` folder. (For more info, see: [Logs and Logging](/advanced/logging))

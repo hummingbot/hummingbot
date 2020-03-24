@@ -52,6 +52,10 @@ class StartCommand:
             self.ev_loop.call_soon_threadsafe(self.start, log_level)
             return
 
+        if self.strategy_task is not None and not self.strategy_task.done():
+            self._notify('The bot is already running - please run "stop" first')
+            return
+
         is_valid = self.status()
         if not is_valid:
             return
@@ -71,7 +75,6 @@ class StartCommand:
 
         self._initialize_notifiers()
 
-        ExchangeRateConversion.get_instance().start()
         strategy_name = in_memory_config_map.get("strategy").value
         self._notify(f"\n  Status check complete. Starting '{strategy_name}' strategy...")
         safe_ensure_future(self.start_market_making(strategy_name), loop=self.ev_loop)

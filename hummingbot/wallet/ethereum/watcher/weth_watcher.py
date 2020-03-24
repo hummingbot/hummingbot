@@ -76,16 +76,15 @@ class WethWatcher(BaseWatcher):
         while True:
             try:
                 new_blocks: List[AttributeDict] = await self._new_blocks_queue.get()
-                block_hashes: List[HexBytes] = [block["hash"] for block in new_blocks]
 
                 deposit_entries = await self._contract_event_logger.get_new_entries_from_logs(
                     DEPOSIT_EVENT_NAME,
-                    block_hashes
+                    new_blocks
                 )
 
                 withdrawal_entries = await self._contract_event_logger.get_new_entries_from_logs(
                     WITHDRAWAL_EVENT_NAME,
-                    block_hashes
+                    new_blocks
                 )
                 for deposit_entry in deposit_entries:
                     await self._handle_event_data(deposit_entry)

@@ -44,6 +44,7 @@ extra_css:
   - assets/css/custom.css
 extra_javascript:
   - assets/js/heap.js
+  - https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-AMS-MML_HTMLorMML
 
 # Extensions
 markdown_extensions:
@@ -72,174 +73,151 @@ markdown_extensions:
 
 # Navigation
 nav:
-    - General:
-      - Getting Started: index.md
-      - Learn about Hummingbot:
-        - FAQ: faq.md
-        - Whitepaper: whitepaper.md
-        - Timeline: roadmap.md
-        - Useful Terminology: glossary.md
-      - Quickstart:
-        - 1. Setup: quickstart/index.md
-        - 2. Install Hummingbot: quickstart/2-install.md
-        - 3. Configure a Bot: quickstart/3-configure-bot.md
-        - 4. Run a Bot: quickstart/4-run-bot.md
-      - Cheatsheets:
-        - Cheatsheets Overview: cheatsheets/index.md
-        - Docker Commands: cheatsheets/docker.md
-        - Source Commands: cheatsheets/source.md
-        - Client Commands: cheatsheets/client.md
-      - Bounties:
-        - Bug Bounty Program: support/bug-bounty-program.md
-        - Developer Bounty Program: bounties/developer-bounty.md
-      - Get Help:
-        - Frequently Asked Questions: support/faq.md
-        - Troubleshooting:
-          - General: support/troubleshooting/general.md
-          - Binance Errors: support/troubleshooting/binance.md
-          - IDEX Errors: support/troubleshooting/idex.md
-          - Dolomite Errors: support/troubleshooting/dolomite.md
-        - Common 'How To' Questions: support/how-to.md
-        - Contact and Support: support/index.md
-        - 中文 Github repo: https://github.com/coinalpha/hummingbot_chinese
-    - User Manual:
-      - Intro: manual.md
-      - Installation:
-        - Installation Overview: installation/index.md
-        - Setup a Cloud Server: installation/cloud.md
-        - Install via Binary:
-          - Windows: installation/from-binary/windows.md
-          - macOS: installation/from-binary/macos.md
-        - Install via Docker:
-          - Linux: installation/via-docker/linux.md
-          - macOS: installation/via-docker/macOS.md
-          - Windows: installation/via-docker/windows.md
-        - Install from Source:
-          - Linux: installation/from-source/linux.md
-          - macOS: installation/from-source/macOS.md
-          - Windows: installation/from-source/windows.md
-        - Updating Hummingbot: installation/updating.md
-      - Operation:
-        - Using the Client: operation/client.md
-        - Running Trading Bots: operation/running-bots.md
-        - Trading Strategy Autostart: operation/autostart.md
-        - Running Multiple Bots: operation/running-multiple-bots.md
-      - Configuration:
-        - Configuring Hummingbot: operation/configuration.md
-        - API Keys: installation/api-keys.md
-        - Ethereum Wallet: installation/wallet.md
-        - Ethereum Node: installation/node/index.md
-        - Get a Free Ethereum Node: installation/node/infura.md
-      - Connectors:
-        - Connectors Overview: connectors/index.md
-        - Binance: connectors/binance.md
-        - Coinbase Pro: connectors/coinbase.md
-        - Huobi Global: connectors/huobi.md
-        - Bittrex Global: connectors/bittrex.md
-        - Liquid: connectors/liquid.md
-        - KuCoin: connectors/kucoin.md
-        - IDEX: connectors/idex.md
-        - Radar Relay: connectors/radar-relay.md
+  - General:
+    - Overview: index.md
+    - Liquidity Mining: liquidity-mining.md
+    - Get Support: support.md
+    - FAQs:
+      - Overview: faq/index.md
+      - Hummingbot FAQs: faq/hummingbot.md
+      - Market Making FAQs: faq/market-making.md
+      - Liquidity Mining FAQs: faq/liquidity-mining.md
+      - Troubleshooting FAQs: faq/troubleshooting.md
+    - Quickstart:
+      - Overview: quickstart/index.md
+      - Install: quickstart/install.md
+      - Configure: quickstart/configure.md
+      - Run: quickstart/run-bot.md
+    - Installation:
+      - Overview: installation/index.md
+      - Download:
+        - Windows: installation/download/windows.md
+        - macOS: installation/download/macos.md
+      - Docker:
+        - Linux: installation/docker/linux.md
+        - macOS: installation/docker/macOS.md
+        - Windows: installation/docker/windows.md
+      - Source:
+        - Linux: installation/source/linux.md
+        - macOS: installation/source/macOS.md
+        - Windows: installation/source/windows.md
+      - Cloud Server Guide: installation/cloud.md
+      - Updating Hummingbot: installation/updating.md
+    - Operation:
+      - Hummingbot Client: operation/client.md
+      - Configuring Hummingbot: operation/configuration.md
+      - Command Reference: operation/commands.md
+      - Performance Analysis: operation/performance-analysis.md
+      - Paper Trading Mode: operation/paper-trade.md
+      - Running Trading Bots: operation/running-bots.md
+    - Strategies:
+      - Overview: strategies/index.md
+      - Pure Market Making: strategies/pure-market-making.md
+      - Advanced Market Making:
+        - Overview: strategies/advanced-mm/index.md
+        - Multiple Orders: strategies/advanced-mm/multiple-orders.md
+        - Inventory Skew: strategies/advanced-mm/inventory-skew.md
+        - Hanging Orders: strategies/advanced-mm/hanging-orders.md
+        - Best Bid Ask Jumping: strategies/advanced-mm/penny-jumping.md
+        - External Price Source: strategies/advanced-mm/price-source.md
+      - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
+      - Arbitrage: strategies/arbitrage.md
+      - Discovery: strategies/discovery.md
+    - Connectors:
+      - Overview: connectors/index.md
+      - Binance: connectors/binance.md
+      - Coinbase Pro: connectors/coinbase.md
+      - Huobi Global: connectors/huobi.md
+      - Bittrex Global: connectors/bittrex.md
+      - Liquid: connectors/liquid.md
+      - KuCoin: connectors/kucoin.md
+      - Radar Relay: connectors/radar-relay.md
+      - Community Connectors:
         - Bamboo Relay: connectors/bamboo-relay.md
         - Dolomite: connectors/dolomite.md
-        - 0x Relayers: connectors/0x.md
+    - Advanced:
+      - Multiple Bots: advanced/running-multiple-bots.md
+      - Trading Strategy Autostart: advanced/autostart.md
+      - Kill Switch: advanced/kill-switch.md
+      - Fee Overrides: advanced/fee-overrides.md
+      - Logs and Logging: advanced/logging.md
+      - Exchange Rates: advanced/exchange-rates.md
+      - Telegram: advanced/telegram.md
+      - Ethereum Wallet: advanced/wallet.md
+      - Ethereum Node: advanced/node.md
+  - Developer Manual:
+      - Intro: developers/index.md
+      - Getting Started:
+        - Intro: developers/gettingstarted/index.md
+        - Linux:
+          - Intro: developers/gettingstarted/linux/index.md
+          - 1. Installing Hummingbot: developers/gettingstarted/linux/1-installing.md
+          - 2. Using Hummingbot: developers/gettingstarted/linux/2-using.md
+          - 3. Re-compiling Hummingbot: developers/gettingstarted/linux/3-recompiling.md
+        - macOS:
+          - Intro: developers/gettingstarted/mac/index.md
+          - 1. Installing Prerequisites: developers/gettingstarted/mac/1-prereqs.md
+          - 2. Installing Hummingbot: developers/gettingstarted/mac/2-installing.md
+          - 3. Using Hummingbot: developers/gettingstarted/mac/3-using.md
+          - 4. Re-compiling Hummingbot: developers/gettingstarted/mac/4-recompiling.md
+        - Windows:
+          - Intro: developers/gettingstarted/windows/index.md
+          - 1. Installing Hummingbot: developers/gettingstarted/windows/1-installing.md
+          - 2. Using Hummingbot: developers/gettingstarted/windows/2-using.md
+          - 3. Re-compiling Hummingbot: developers/gettingstarted/windows/3-recompiling.md
       - Strategies:
-        - Strategies Overview: strategies/index.md
-        - Arbitrage: strategies/arbitrage.md
-        - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
-        - Pure Market Making: strategies/pure-market-making.md
-        - Discovery: strategies/discovery.md
-      - Data Feeds:
-        - Data Feeds Overview: feeds.md
-      - Utilities:
-        - Performance Analysis: utilities/performance-analysis.md
-        - Paper Trading Mode: utilities/paper-trade.md
-        - Kill Switch: utilities/kill-switch.md
-        - Logs and Logging: utilities/logging.md
-        - Using Exchange Rates: utilities/exchange-rates.md
-        - Integrating Telegram: utilities/telegram.md
-    - Liquidity Mining:
-      - Overview: liquidity-mining/index.md
-      - FAQ: liquidity-mining/faq.md
-      - Liquidity Mining Guide:
-        - Intro: liquidity-mining/guide/index.md
-        - 1. Sign up: liquidity-mining/guide/1-sign-up.md
-        - 2. Connect exchanges: liquidity-mining/guide/2-connect-exchanges.md
-        - 3. Run Hummingbot: liquidity-mining/guide/3-run-bot.md
-        - 4. Track earnings: liquidity-mining/guide/4-track-earnings.md
-      - Liquidity Mining Campaigns:
-        - Active: liquidity-mining/campaigns/index.md
-        - List of Sponsors: liquidity-mining/campaigns/sponsors.md
-    - Developer Manual:
-        - Intro: developers/index.md
-        - Getting Started:
-          - Intro: developers/gettingstarted/index.md
-          - Linux:
-            - Intro: developers/gettingstarted/linux/index.md
-            - 1. Installing Hummingbot: developers/gettingstarted/linux/1-installing.md
-            - 2. Using Hummingbot: developers/gettingstarted/linux/2-using.md
-            - 3. Re-compiling Hummingbot: developers/gettingstarted/linux/3-recompiling.md
-          - macOS:
-            - Intro: developers/gettingstarted/mac/index.md
-            - 1. Installing Prerequisites: developers/gettingstarted/mac/1-prereqs.md
-            - 2. Installing Hummingbot: developers/gettingstarted/mac/2-installing.md
-            - 3. Using Hummingbot: developers/gettingstarted/mac/3-using.md
-            - 4. Re-compiling Hummingbot: developers/gettingstarted/mac/4-recompiling.md
-          - Windows:
-            - Intro: developers/gettingstarted/windows/index.md
-            - 1. Installing Hummingbot: developers/gettingstarted/windows/1-installing.md
-            - 2. Using Hummingbot: developers/gettingstarted/windows/2-using.md
-            - 3. Re-compiling Hummingbot: developers/gettingstarted/windows/3-recompiling.md
-        - Strategies:
-          - Architecture: developers/strategies/index.md
-          - Arbitrage: developers/strategies/arbitrage.md
-          - Cross-Exchange Market Making: developers/strategies/cross-exchange-market-making.md
-          - Pure Market Making: developers/strategies/pure-market-making.md
-          - Discovery: developers/strategies/discovery.md
-          - TWAP: developers/strategies/twap.md
-        - Connectors:
-          - Intro: developers/connectors/index.md
-          - Architecture: developers/connectors/architecture.md
-          - Order Lifecycle: developers/connectors/order-lifecycle.md
-          - Building Connectors: developers/connectors/tutorial.md
-          - Miscellaneous: developers/connectors/miscellaneous.md
-        - Tutorial (WIP):
-          - Intro: developers/tutorial/index.md
-          - Perform Trade: developers/tutorial/perform-trade.md
-          - Simple Trade: developers/tutorial/simple-trade.md
-        - Debug Console: developers/debug.md
-        - Configuration: developers/config.md
-    - Release Notes:
-      - About Releases: release-notes/index.md
-      - 0.23.0: release-notes/0.23.0.md
-      - 0.22.0: release-notes/0.22.0.md
-      - 0.21.0: release-notes/0.21.0.md
-      - 0.20.0: release-notes/0.20.0.md
-      - 0.19.1: release-notes/0.19.1.md
-      - 0.19.0: release-notes/0.19.0.md
-      - 0.18.1: release-notes/0.18.1.md
-      - 0.18.0: release-notes/0.18.0.md
-      - 0.17.1: release-notes/0.17.1.md
-      - 0.17.0: release-notes/0.17.0.md
-      - 0.16.0: release-notes/0.16.0.md
-      - 0.15.0: release-notes/0.15.0.md
-      - 0.14.0: release-notes/0.14.0.md
-      - 0.13.0: release-notes/0.13.0.md
-      - 0.12.1: release-notes/0.12.1.md
-      - 0.12.0: release-notes/0.12.0.md
-      - 0.11.1: release-notes/0.11.1.md
-      - 0.11.0: release-notes/0.11.0.md
-      - 0.10.1: release-notes/0.10.1.md
-      - 0.10.0: release-notes/0.10.0.md
-      - 0.9.1: release-notes/0.9.1.md
-      - 0.9.0: release-notes/0.9.0.md
-      - 0.8.1: release-notes/0.8.1.md
-      - 0.8.0: release-notes/0.8.0.md
-      - 0.7.0: release-notes/0.7.0.md
-      - 0.6.0: release-notes/0.6.0.md
-      - 0.5.1: release-notes/0.5.1.md
-      - 0.5.0: release-notes/0.5.0.md
-      - 0.4.0: release-notes/0.4.0.md
-      - 0.3.1 (beta): release-notes/0.3.1.md
-      - 0.3.0: release-notes/0.3.0.md
-      - 0.2.0: release-notes/0.2.0.md
+        - Architecture: developers/strategies/index.md
+        - Pure Market Making: developers/strategies/pure-market-making.md
+        - Cross-Exchange Market Making: developers/strategies/cross-exchange-market-making.md
+        - Arbitrage: developers/strategies/arbitrage.md
+        - Discovery: developers/strategies/discovery.md
+        - TWAP: developers/strategies/twap.md
+      - Connectors:
+        - Intro: developers/connectors/index.md
+        - Architecture: developers/connectors/architecture.md
+        - Order Lifecycle: developers/connectors/order-lifecycle.md
+        - Building Connectors: developers/connectors/tutorial.md
+        - Miscellaneous: developers/connectors/miscellaneous.md
+      - Tutorial (WIP):
+        - Intro: developers/tutorial/index.md
+        - Perform Trade: developers/tutorial/perform-trade.md
+        - Simple Trade: developers/tutorial/simple-trade.md
+      - Debug Console: developers/debug.md
+      - Configuration: developers/config.md
+  - Release Notes:
+    - About Releases: release-notes/index.md
+    - 0.25.0: release-notes/0.25.0.md
+    - 0.24.1: release-notes/0.24.1.md
+    - 0.24.0: release-notes/0.24.0.md
+    - 0.23.0: release-notes/0.23.0.md
+    - 0.22.0: release-notes/0.22.0.md
+    - 0.21.0: release-notes/0.21.0.md
+    - 0.20.0: release-notes/0.20.0.md
+    - 0.19.1: release-notes/0.19.1.md
+    - 0.19.0: release-notes/0.19.0.md
+    - 0.18.1: release-notes/0.18.1.md
+    - 0.18.0: release-notes/0.18.0.md
+    - 0.17.1: release-notes/0.17.1.md
+    - 0.17.0: release-notes/0.17.0.md
+    - 0.16.0: release-notes/0.16.0.md
+    - 0.15.0: release-notes/0.15.0.md
+    - 0.14.0: release-notes/0.14.0.md
+    - 0.13.0: release-notes/0.13.0.md
+    - 0.12.1: release-notes/0.12.1.md
+    - 0.12.0: release-notes/0.12.0.md
+    - 0.11.1: release-notes/0.11.1.md
+    - 0.11.0: release-notes/0.11.0.md
+    - 0.10.1: release-notes/0.10.1.md
+    - 0.10.0: release-notes/0.10.0.md
+    - 0.9.1: release-notes/0.9.1.md
+    - 0.9.0: release-notes/0.9.0.md
+    - 0.8.1: release-notes/0.8.1.md
+    - 0.8.0: release-notes/0.8.0.md
+    - 0.7.0: release-notes/0.7.0.md
+    - 0.6.0: release-notes/0.6.0.md
+    - 0.5.1: release-notes/0.5.1.md
+    - 0.5.0: release-notes/0.5.0.md
+    - 0.4.0: release-notes/0.4.0.md
+    - 0.3.1 (beta): release-notes/0.3.1.md
+    - 0.3.0: release-notes/0.3.0.md
+    - 0.2.0: release-notes/0.2.0.md

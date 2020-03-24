@@ -4,6 +4,11 @@ from hummingbot.client.config.config_validators import (
     is_valid_market_trading_pair
 )
 from hummingbot.client.settings import required_exchanges, EXAMPLE_PAIRS
+from decimal import Decimal
+from hummingbot.client.config.config_helpers import (
+    minimum_order_amount
+)
+from hummingbot.data_feed.exchange_price_manager import ExchangePriceManager
 
 
 def maker_trading_pair_prompt():
@@ -35,6 +40,28 @@ def is_valid_taker_market_trading_pair(value: str) -> bool:
     return is_valid_market_trading_pair(taker_market, value)
 
 
+def order_amount_prompt() -> str:
+    trading_pair = cross_exchange_market_making_config_map["maker_market_trading_pair"].value
+    base_asset, quote_asset = trading_pair.split("-")
+    min_amount = minimum_order_amount(trading_pair)
+    return f"What is the amount of {base_asset} per order? (minimum {min_amount}) >>> "
+
+
+def is_valid_order_amount(value: str) -> bool:
+    try:
+        trading_pair = cross_exchange_market_making_config_map["maker_market_trading_pair"].value
+        return Decimal(value) >= minimum_order_amount(trading_pair)
+    except Exception:
+        return False
+
+
+def taker_market_on_validated(value: str):
+    required_exchanges.append(value)
+    maker_exchange = cross_exchange_market_making_config_map["maker_market"].value
+    ExchangePriceManager.set_exchanges_to_feed([maker_exchange, value])
+    ExchangePriceManager.start()
+
+
 cross_exchange_market_making_config_map = {
     "maker_market": ConfigVar(
         key="maker_market",
@@ -46,7 +73,7 @@ cross_exchange_market_making_config_map = {
         key="taker_market",
         prompt="Enter your taker exchange name >>> ",
         validator=is_exchange,
-        on_validated=lambda value: required_exchanges.append(value),
+        on_validated=taker_market_on_validated,
     ),
     "maker_market_trading_pair": ConfigVar(
         key="maker_market_trading_pair",
@@ -65,9 +92,9 @@ cross_exchange_market_making_config_map = {
     ),
     "order_amount": ConfigVar(
         key="order_amount",
-        prompt="What is your preferred trade size? (Denominated in the base asset) >>> ",
-        default=0.0,
+        prompt=order_amount_prompt,
         type_str="decimal",
+        validator=is_valid_order_amount,
     ),
     "adjust_order_enabled": ConfigVar(
         key="adjust_order_enabled",

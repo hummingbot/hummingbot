@@ -13,7 +13,8 @@ from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.clock cimport Clock
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.events import (
-    WalletEvent
+    WalletEvent,
+    ZeroExEvent
 )
 from decimal import Decimal
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
@@ -94,6 +95,9 @@ cdef class Web3Wallet(WalletBase):
         )
         self._transaction_failure_forwarder = Web3WalletBackendEventForwarder(
             self, WalletEvent.TransactionFailure.value
+        )
+        self._zeroex_fill_forwarder = Web3WalletBackendEventForwarder(
+            self, ZeroExEvent.Fill.value
         )
 
         # The check network operation can be done more frequently since it's only an indirect check.
@@ -183,7 +187,8 @@ cdef class Web3Wallet(WalletBase):
             self._token_approved_forwarder,
             self._eth_wrapped_forwarder,
             self._eth_unwrapped_forwarder,
-            self._transaction_failure_forwarder
+            self._transaction_failure_forwarder,
+            self._zeroex_fill_forwarder
         ]
         for backend, event_forwarder in itertools.product(self._wallet_backends, all_forwarders):
             event_tag = event_forwarder.event_tag
@@ -200,7 +205,8 @@ cdef class Web3Wallet(WalletBase):
             self._token_approved_forwarder,
             self._eth_wrapped_forwarder,
             self._eth_unwrapped_forwarder,
-            self._transaction_failure_forwarder
+            self._transaction_failure_forwarder,
+            self._zeroex_fill_forwarder
         ]
         for backend, event_forwarder in itertools.product(self._wallet_backends, all_forwarders):
             event_tag = event_forwarder.event_tag

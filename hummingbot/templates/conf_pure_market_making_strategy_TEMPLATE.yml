@@ -2,7 +2,7 @@
 ###       Pure market making strategy config         ###
 ########################################################
 
-template_version: 7
+template_version: 10
 
 ############  Basic configuration section  ############
 
@@ -60,11 +60,18 @@ inventory_skew_enabled: null
 # Target base asset inventory percentage target to be maintained (for Inventory skew feature).
 inventory_target_base_percent: null
 
-# How long to wait before placing the next order in case your order gets filled (for single order mode).
+# The range around the inventory target base percent to maintain, expressed in multiples of total order size (for
+# inventory skew feature).
+inventory_range_multiplier: null
+
+# How long to wait before placing the next order in case your order gets filled.
 filled_order_replenish_wait_time: null
 
-# Whether to stop cancellations of orders on the other side when one side is filled (true/false).
+# Whether to stop cancellations of orders on the other side when one side is filled (hanging orders feature) (true/false).
 enable_order_filled_stop_cancellation: null
+
+# Spread (from mid price, in percentage) hanging orders will be canceled (Enter 0.01 to indicate 1%)
+cancel_hanging_order_pct: null
 
 # Whether to enable best bid ask jumping mode (true/false).
 best_bid_ask_jump_mode: null
@@ -83,6 +90,9 @@ external_price_source_type: null
 
 # An external exchange name (for external exchange pricing source).
 external_price_source_exchange: null
+
+# A trading pair for the external exchange (for external exchange pricing source).
+external_price_source_exchange_trading_pair: null
 
 # A base asset, e.g. ETH (for external feed pricing source).
 external_price_source_feed_base_asset: null

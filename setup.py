@@ -19,7 +19,7 @@ if is_posix:
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20200213.1"
+    version = "20200323"
     packages = [
         "hummingbot",
         "hummingbot.client",
@@ -39,7 +39,6 @@ def main():
         "hummingbot.market.bittrex",
         "hummingbot.market.coinbase_pro",
         "hummingbot.market.huobi",
-        "hummingbot.market.idex",
         "hummingbot.market.radar_relay",
         "hummingbot.strategy",
         "hummingbot.strategy.arbitrage",
@@ -70,6 +69,7 @@ def main():
         "cytoolz",
         "eth-abi",
         "eth-account",
+        "eth-bloom",
         "eth-hash",
         "eth-keyfile",
         "eth-keys",
@@ -92,7 +92,7 @@ def main():
         "attrs",
         "certifi",
         "chardet",
-        "cython==0.29.5",
+        "cython==0.29.15",
         "idna",
         "idna_ssl",
         "multidict",
@@ -100,7 +100,7 @@ def main():
         "pandas",
         "pytz",
         "pyyaml",
-        "python-binance==0.6.9",
+        "python-binance==0.7.1",
         "sqlalchemy",
         "ujson",
         "yarl",
