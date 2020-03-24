@@ -33,23 +33,15 @@ from hummingbot.client.config.config_crypt import (
     encrypt_n_save_config_value
 )
 from hummingbot.strategy.pure_market_making import (
-    PureMarketMakingStrategyV2,
-    ConstantSpreadPricingDelegate,
-    ConstantMultipleSpreadPricingDelegate,
-    ConstantSizeSizingDelegate,
-    StaggeredMultipleSizeSizingDelegate,
-    InventorySkewSingleSizeSizingDelegate,
-    InventorySkewMultipleSizeSizingDelegate,
+    PureMarketMakingStrategyV2
 )
-from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map \
-    as pure_mm_map
 from os import unlink
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
-need_restart_pmm_keys = ["maker_market", "maker_market_trading_pair"]
+no_restart_pmm_keys = ["bid_place_threshold", "ask_place_threshold"]
 
 
 class ConfigCommand:
@@ -61,7 +53,7 @@ class ConfigCommand:
         """
         self.app.clear_input()
         if (key is None and (self.strategy or self.config_complete)) or \
-                (isinstance(self.strategy, PureMarketMakingStrategyV2) and key in need_restart_pmm_keys):
+                (isinstance(self.strategy, PureMarketMakingStrategyV2) and key not in no_restart_pmm_keys):
             safe_ensure_future(self.reset_config_loop(key))
             return
 
@@ -397,46 +389,13 @@ class ConfigCommand:
             self.placeholder_mode = False
             self.app.change_prompt(prompt=">>> ")
 
-    def update_running_pure_mm(self, key: str, new_value):
-        pure_mm = self.strategy
+    # Make this function static so unit testing can be performed.
+    @staticmethod
+    def update_running_pure_mm(pure_mm_strategy: PureMarketMakingStrategyV2, key: str, new_value: Any):
         if key == "bid_place_threshold":
-            pure_mm.pricing_delegate.bid_spread = new_value
+            pure_mm_strategy.pricing_delegate.bid_spread = new_value
         elif key == "ask_place_threshold":
-            pure_mm.pricing_delegate.ask_spread = new_value
-        if key == "mode":
-            bid_spread = pure_mm_map["bid_place_threshold"].value
-            ask_spread = pure_mm_map["ask_place_threshold"].value
-            inventory_skew_enabled = pure_mm_map["inventory_skew_enabled"].value
-            number_of_orders = pure_mm_map.get("number_of_orders").value
-            order_interval_percent = pure_mm_map.get("order_interval_percent").value
-            order_start_size = pure_mm_map.get("order_start_size").value
-            order_step_size = pure_mm_map.get("order_step_size").value
-            inventory_target_base_percent = pure_mm_map.get("inventory_target_base_percent").value
-            inventory_range_multiplier = pure_mm_map.get("inventory_range_multiplier").value
-            if new_value == "multiple" and isinstance(pure_mm.pricing_delegate, ConstantSpreadPricingDelegate):
-                pure_mm.pricing_delegate = ConstantMultipleSpreadPricingDelegate(bid_spread,
-                                                                                 ask_spread,
-                                                                                 order_interval_percent,
-                                                                                 number_of_orders)
-                if inventory_skew_enabled:
-                    pure_mm.sizing_delegate = InventorySkewMultipleSizeSizingDelegate(order_start_size,
-                                                                                      order_step_size,
-                                                                                      number_of_orders,
-                                                                                      inventory_target_base_percent,
-                                                                                      inventory_range_multiplier)
-                else:
-                    pure_mm.sizing_delegate = StaggeredMultipleSizeSizingDelegate(order_start_size,
-                                                                                  order_step_size,
-                                                                                  number_of_orders)
-            elif new_value == "single" and isinstance(pure_mm.pricing_delegate, ConstantMultipleSpreadPricingDelegate):
-                pure_mm.pricing_delegate = ConstantSpreadPricingDelegate(bid_spread, ask_spread)
-                order_size = pure_mm_map.get("order_amount").value
-                if inventory_skew_enabled:
-                    pure_mm.sizing_delegate = InventorySkewSingleSizeSizingDelegate(order_size,
-                                                                                    inventory_target_base_percent,
-                                                                                    inventory_range_multiplier)
-                else:
-                    pure_mm.sizing_delegate = ConstantSizeSizingDelegate(order_size)
+            pure_mm_strategy.pricing_delegate.ask_spread = new_value
 
     async def _config_single_key(self,  # type: HummingbotApplication
                                  key: str):
@@ -458,7 +417,7 @@ class ConfigCommand:
                 await write_config_to_yml()
             self._notify(f"\nNew config saved:\n{key}: {str(value)}")
             if isinstance(self.strategy, PureMarketMakingStrategyV2):
-                self.update_running_pure_mm(key, cv.value)
+                ConfigCommand.update_running_pure_mm(self.strategy, key, cv.value)
 
             if not self.config_complete:
                 choice = await self.app.prompt("Your configuration is incomplete. Would you like to proceed and "
