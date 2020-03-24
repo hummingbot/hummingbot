@@ -22,6 +22,7 @@ from hummingbot.client.config.config_helpers import (
     minimum_order_amount
 )
 from hummingbot.data_feed.exchange_price_manager import ExchangePriceManager
+from hummingbot.wallet.user_balances import UserBalances
 
 
 def maker_trading_pair_prompt():
@@ -85,6 +86,15 @@ def maker_market_on_validated(value: str):
     required_exchanges.append(value)
     ExchangePriceManager.set_exchanges_to_feed([value])
     ExchangePriceManager.start()
+    UserBalances.get_instance().add_exchange(value)
+
+
+def inventory_target_base_percent_prompt():
+    exchange = pure_market_making_config_map["maker_market"].value
+    base_ratio = UserBalances.get_instance().get_base_amount_per_total(
+        exchange, pure_market_making_config_map["maker_market_trading_pair"].value)
+    ratio_text = "" if base_ratio is None else f" (currently {base_ratio:.2%})"
+    return f"What is your target base asset percentage{ratio_text}? Enter 50 for 50% >>> "
 
 
 pure_market_making_config_map = {
@@ -180,7 +190,7 @@ pure_market_making_config_map = {
                   validator=is_valid_bool),
     "inventory_target_base_percent":
         ConfigVar(key="inventory_target_base_percent",
-                  prompt="What is your target base asset percentage? Enter 50 for 50% >>> ",
+                  prompt=inventory_target_base_percent_prompt,
                   required_if=lambda: pure_market_making_config_map.get("inventory_skew_enabled").value,
                   type_str="decimal",
                   validator=lambda v: is_valid_decimal(v, 0, 100),
