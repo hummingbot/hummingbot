@@ -17,6 +17,17 @@ from hummingbot.client.ui.layout import (
     generate_layout,
 )
 from hummingbot.client.ui.style import load_style
+import logging
+
+
+# Monkey patching here as _handle_exception gets the UI hanged into Press ENTER screen mode
+def _handle_exception_patch(self, loop, context):
+    if "exception" in context:
+        logging.getLogger(__name__).error(f"Unhandled error in prompt_toolkit: {context.get('exception')}",
+                                          exc_info=True)
+
+
+Application._handle_exception = _handle_exception_patch
 
 
 class HummingbotCLI:

@@ -58,7 +58,8 @@ if "SPEC" in globals():
 
     hidden_imports: List[str] = list(enumerate_modules(os.path.join(project_path(), "hummingbot")))
     hidden_imports.extend([
-        "aiokafka"
+        "aiokafka",
+        "pkg_resources.py2_warn"
     ])
 
     import _strptime
