@@ -139,36 +139,23 @@ pure_market_making_config_map = {
                                                                           not using_bamboo_coordinator_mode()),
                   type_str="float",
                   validator=is_valid_expiration),
-    "mode":
-        ConfigVar(key="mode",
-                  prompt="Enter quantity of bid/ask orders per side (single/multiple) >>> ",
-                  type_str="str",
-                  validator=lambda v: v in {"single", "multiple"},
-                  default="single"),
-    "number_of_orders":
-        ConfigVar(key="number_of_orders",
+    "order_levels":
+        ConfigVar(key="order_levels",
                   prompt="How many orders do you want to place on both sides? >>> ",
-                  required_if=lambda: pure_market_making_config_map.get("mode").value == "multiple",
                   type_str="int",
-                  default=2),
-    "order_start_size":
-        ConfigVar(key="order_start_size",
-                  prompt=order_start_size_prompt,
-                  required_if=lambda: pure_market_making_config_map.get("mode").value == "multiple",
-                  type_str="decimal",
-                  validator=is_valid_order_amount),
+                  default=1),
     "order_step_size":
         ConfigVar(key="order_step_size",
                   prompt="How much do you want to increase the order size for each "
                          "additional order? >>> ",
-                  required_if=lambda: pure_market_making_config_map.get("mode").value == "multiple",
+                  required_if=lambda: pure_market_making_config_map.get("order_levels").value > 1,
                   type_str="decimal",
                   default=0),
-    "order_interval_percent":
-        ConfigVar(key="order_interval_percent",
+    "order_level_spread":
+        ConfigVar(key="order_level_spread",
                   prompt="Enter the price increments (as percentage) for subsequent "
                          "orders? (Enter 0.01 to indicate 1%) >>> ",
-                  required_if=lambda: pure_market_making_config_map.get("mode").value == "multiple",
+                  required_if=lambda: pure_market_making_config_map.get("order_levels").value > 1,
                   type_str="decimal",
                   validator=is_valid_percent,
                   default=0.01),

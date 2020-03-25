@@ -108,18 +108,18 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.equal_strategy_sizing_delegate = StaggeredMultipleSizeSizingDelegate(
             order_start_size=Decimal("1.0"),
             order_step_size=Decimal("0"),
-            number_of_orders=Decimal("5")
+            order_levels=Decimal("5")
         )
         self.staggered_strategy_sizing_delegate = StaggeredMultipleSizeSizingDelegate(
             order_start_size=Decimal("1.0"),
             order_step_size=Decimal("0.5"),
-            number_of_orders=Decimal("5")
+            order_levels=Decimal("5")
         )
         self.multiple_order_strategy_pricing_delegate = ConstantMultipleSpreadPricingDelegate(
             bid_spread=Decimal(self.bid_threshold),
             ask_spread=Decimal(self.ask_threshold),
-            order_interval_size=Decimal("0.01"),
-            number_of_orders=Decimal("5")
+            order_level_spread=Decimal("0.01"),
+            order_levels=Decimal("5")
         )
 
         self.maker_market.add_data(self.maker_data)
@@ -985,13 +985,13 @@ class PureMarketMakingV2HangingOrderUnitTest(unittest.TestCase):
         self.multiple_order_pricing_delegate = ConstantMultipleSpreadPricingDelegate(
             bid_spread=Decimal(self.bid_threshold),
             ask_spread=Decimal(self.ask_threshold),
-            order_interval_size=Decimal("0.01"),
-            number_of_orders=Decimal("5")
+            order_level_spread=Decimal("0.01"),
+            order_levels=Decimal("5")
         )
         self.equal_sizing_delegate = StaggeredMultipleSizeSizingDelegate(
             order_start_size=Decimal("1.0"),
             order_step_size=Decimal("0"),
-            number_of_orders=Decimal("5")
+            order_levels=Decimal("5")
         )
         self.multi_orders_hanging_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
@@ -1209,8 +1209,8 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
         self.multiple_order_strategy_pricing_delegate = ConstantMultipleSpreadPricingDelegate(
             bid_spread=Decimal(self.bid_threshold),
             ask_spread=Decimal(self.ask_threshold),
-            order_interval_size=Decimal("0.01"),
-            number_of_orders=5
+            order_level_spread=Decimal("0.01"),
+            order_levels=5
         )
         self.inventory_skew_single_size_sizing_delegate = InventorySkewSingleSizeSizingDelegate(
             order_size=Decimal("1"),
@@ -1220,7 +1220,7 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
         self.inventory_skew_multiple_size_sizing_delegate = InventorySkewMultipleSizeSizingDelegate(
             order_start_size=Decimal("1.0"),
             order_step_size=Decimal("0.5"),
-            number_of_orders=5,
+            order_levels=5,
             inventory_target_base_percent=Decimal("0.9"),
             inventory_range_multiplier=Decimal("0.5")
         )
