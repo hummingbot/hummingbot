@@ -2,7 +2,7 @@
 ###       Pure market making strategy config         ###
 ########################################################
 
-template_version: 10
+template_version: 11
 
 ############  Basic configuration section  ############
 
@@ -39,20 +39,14 @@ advanced_mode: null
 # Ox ONLY - Sets the expiration of limit orders. Minimum is 130 seconds.
 expiration_seconds: null
 
-# Whether to single or multiple bids and asks.
-mode: null
+# Number of orders to place on each side of the order book.
+order_levels: null
 
-# Number of orders to place on each side of the order book (for multiple orders mode).
-number_of_orders: null
-
-# Size of the first bid and ask order (for multiple orders mode).
-order_start_size: null
-
-# Increment size of consecutive orders after the first order (for multiple orders mode).
+# Increment size of consecutive orders after the first order (for multiple order levels).
 order_step_size: null
 
-# Order price space between orders (for multiple orders mode).
-order_interval_percent: null
+# Order price space between orders (for multiple order levels).
+order_level_spread: null
 
 # Whether to enable Inventory skew feature (true/false).
 inventory_skew_enabled: null

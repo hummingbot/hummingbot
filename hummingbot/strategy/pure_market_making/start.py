@@ -25,16 +25,14 @@ from decimal import Decimal
 
 def start(self):
     try:
-        order_size = c_map.get("order_amount").value
+        order_amount = c_map.get("order_amount").value
         cancel_order_wait_time = c_map.get("cancel_order_wait_time").value
         bid_place_threshold = c_map.get("bid_place_threshold").value
         ask_place_threshold = c_map.get("ask_place_threshold").value
         expiration_seconds = c_map.get("expiration_seconds").value
-        mode = c_map.get("mode").value
-        number_of_orders = c_map.get("number_of_orders").value
-        order_start_size = c_map.get("order_start_size").value
+        order_levels = c_map.get("order_levels").value
         order_step_size = c_map.get("order_step_size").value
-        order_interval_percent = c_map.get("order_interval_percent").value
+        order_level_spread = c_map.get("order_level_spread").value
         maker_market = c_map.get("maker_market").value.lower()
         raw_maker_trading_pair = c_map.get("maker_market_trading_pair").value
         inventory_skew_enabled = c_map.get("inventory_skew_enabled").value
@@ -58,30 +56,30 @@ def start(self):
         sizing_delegate = None
         filter_delegate = PassThroughFilterDelegate()
 
-        if mode == "multiple":
+        if order_levels > 1:
             pricing_delegate = ConstantMultipleSpreadPricingDelegate(bid_place_threshold,
                                                                      ask_place_threshold,
-                                                                     order_interval_percent,
-                                                                     number_of_orders)
+                                                                     order_level_spread,
+                                                                     order_levels)
             if inventory_skew_enabled:
-                sizing_delegate = InventorySkewMultipleSizeSizingDelegate(order_start_size,
+                sizing_delegate = InventorySkewMultipleSizeSizingDelegate(order_amount,
                                                                           order_step_size,
-                                                                          number_of_orders,
+                                                                          order_levels,
                                                                           inventory_target_base_percent,
                                                                           inventory_range_multiplier)
             else:
-                sizing_delegate = StaggeredMultipleSizeSizingDelegate(order_start_size,
+                sizing_delegate = StaggeredMultipleSizeSizingDelegate(order_amount,
                                                                       order_step_size,
-                                                                      number_of_orders)
+                                                                      order_levels)
         else:  # mode == "single"
             pricing_delegate = ConstantSpreadPricingDelegate(bid_place_threshold,
                                                              ask_place_threshold)
             if inventory_skew_enabled:
-                sizing_delegate = InventorySkewSingleSizeSizingDelegate(order_size,
+                sizing_delegate = InventorySkewSingleSizeSizingDelegate(order_amount,
                                                                         inventory_target_base_percent,
                                                                         inventory_range_multiplier)
             else:
-                sizing_delegate = ConstantSizeSizingDelegate(order_size)
+                sizing_delegate = ConstantSizeSizingDelegate(order_amount)
         try:
             trading_pair: str = self._convert_to_exchange_trading_pair(maker_market, [raw_maker_trading_pair])[0]
             maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [trading_pair])[0]
