@@ -71,8 +71,8 @@ class HistoryCommand:
                              f"{current_balance:.4f}",
                              f"{current_balance - starting_balance:.4f}",
                              f"{asset_delta['delta']:.4f}"])
-        df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Net_Delta",
-                                                     "Trade_Delta"])
+        df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Net Delta",
+                                                     "Trade Delta"])
         return df
 
     def _calculate_trade_performance(self,  # type: HummingbotApplication
@@ -113,8 +113,8 @@ class HistoryCommand:
 
             trade_performance_status_line = []
             market_df_data: Set[Tuple[str, str, Decimal, Decimal, str, str]] = set()
-            market_df_columns = ["Market", "Trading_Pair", "Start_Price", "End_Price",
-                                 "Total_Value_Delta"]
+            market_df_columns = ["Market", "Pair", "Start Price", "End Price",
+                                 "Total Value Delta"]
 
             for market_trading_pair_tuple, trading_pair_stats in market_trading_pair_stats.items():
                 market_df_data.add((
@@ -131,12 +131,12 @@ class HistoryCommand:
 
             trade_performance_status_line.extend(["", "  Inventory:"] +
                                                  ["    " + line for line in inventory_df.to_string().split("\n")])
-            trade_performance_status_line.extend(["", "  Market Trading Pair Performance:"] +
+            trade_performance_status_line.extend(["", "  Markets:"] +
                                                  ["    " + line for line in market_df.to_string().split("\n")])
 
             trade_performance_status_line.extend(
-                ["", "  Portfolio Performance:"] +
-                [f"    Quote Value Delta: {portfolio_delta:.7g} {primary_quote_asset}"])
+                ["", "  Performance:"] +
+                [f"    Total Trade Value Delta: {portfolio_delta:.7g} {primary_quote_asset}"])
 
             self._notify("\n".join(trade_performance_status_line))
 
