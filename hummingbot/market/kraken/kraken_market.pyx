@@ -728,7 +728,8 @@ cdef class KrakenMarket(MarketBase):
                     return {"error": err}
                 elif "EAPI:Invalid nonce" in err:
                     self.logger().error(f"Invalid nonce error from {url}. " +
-                                        "Please ensure your Kraken API key nonce window is at least 10.")
+                                        "Please ensure your Kraken API key nonce window is at least 10, " +
+                                        "and if needed reset your API key.")
                     raise IOError({"error": response_json})
             except IOError:
                 raise

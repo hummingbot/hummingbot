@@ -75,6 +75,18 @@ class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
             except Exception:
                 raise IOError(f"Error parsing data from {url}.")
 
+            try:
+                err = response_json["error"]
+                if "EAPI:Invalid nonce" in err:
+                    self.logger().error(f"Invalid nonce error from {url}. " +
+                                        "Please ensure your Kraken API key nonce window is at least 10, " +
+                                        "and if needed reset your API key.")
+                    raise IOError({"error": response_json})
+            except IOError:
+                raise
+            except Exception:
+                pass
+
             return response_json["result"]["token"]
 
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
