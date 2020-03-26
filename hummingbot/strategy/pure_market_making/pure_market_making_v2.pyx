@@ -237,6 +237,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             high_water_mark_ratio = (high_water_mark / total_value
                                      if total_value > s_decimal_zero
                                      else s_decimal_zero)
+            high_water_mark_ratio = min(1.0, high_water_mark_ratio)
             total_order_size_ratio = (self._sizing_delegate.total_order_size / total_value
                                       if total_value > s_decimal_zero
                                       else s_decimal_zero)
