@@ -17,8 +17,8 @@ class FixtureConfigs:
     }
 
     global_binance_config = {
-        "binance_api_key": "EuZSXVBy8bXBpm2tdNPXlYVdCR7lX51EeNrWmsCPQ77wk9efR8EjosQANBzub3Yk",
-        "binance_api_secret": "U49ZyE5pl0Sf6h8k3IfEzPjSmpj3UOX8QtSpbCxtPQX4mLP43LyxDrTgUemm0i1s",
+        "binance_api_key": "",
+        "binance_api_secret": "",
         "kill_switch_enabled": "no",
         "send_error_logs": "no"
     }
