@@ -4,7 +4,6 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     is_exchange,
     is_valid_market_trading_pair,
-    is_valid_percent,
     is_valid_expiration,
     is_valid_bool,
     is_valid_decimal
@@ -25,10 +24,10 @@ from hummingbot.data_feed.exchange_price_manager import ExchangePriceManager
 
 
 def maker_trading_pair_prompt():
-    maker_market = pure_market_making_config_map.get("maker_market").value
-    example = EXAMPLE_PAIRS.get(maker_market)
+    exchange = pure_market_making_config_map.get("exchange").value
+    example = EXAMPLE_PAIRS.get(exchange)
     return "Enter the token trading pair you would like to trade on %s%s >>> " \
-           % (maker_market, f" (e.g. {example})" if example else "")
+           % (exchange, f" (e.g. {example})" if example else "")
 
 
 def assign_values_advanced_mode_switch(advanced_mode):
@@ -45,72 +44,72 @@ def assign_values_advanced_mode_switch(advanced_mode):
 
 
 # strategy specific validators
-def is_valid_maker_market_trading_pair(value: str) -> bool:
-    maker_market = pure_market_making_config_map.get("maker_market").value
-    return is_valid_market_trading_pair(maker_market, value)
+def is_valid_exchange_trading_pair(value: str) -> bool:
+    exchange = pure_market_making_config_map.get("exchange").value
+    return is_valid_market_trading_pair(exchange, value)
 
 
 def order_amount_prompt() -> str:
-    trading_pair = pure_market_making_config_map["maker_market_trading_pair"].value
+    trading_pair = pure_market_making_config_map["market"].value
     base_asset, quote_asset = trading_pair.split("-")
     min_amount = minimum_order_amount(trading_pair)
     return f"What is the amount of {base_asset} per order? (minimum {min_amount}) >>> "
 
 
 def order_start_size_prompt() -> str:
-    trading_pair = pure_market_making_config_map["maker_market_trading_pair"].value
+    trading_pair = pure_market_making_config_map["market"].value
     min_amount = minimum_order_amount(trading_pair)
     return f"What is the size of the first bid and ask order? (minimum {min_amount}) >>> "
 
 
 def is_valid_order_amount(value: str) -> bool:
     try:
-        trading_pair = pure_market_making_config_map["maker_market_trading_pair"].value
+        trading_pair = pure_market_making_config_map["market"].value
         return Decimal(value) >= minimum_order_amount(trading_pair)
     except Exception:
         return False
 
 
-def external_market_trading_pair_prompt():
-    external_market = pure_market_making_config_map.get("external_price_source_exchange").value
+def price_source_market_prompt():
+    external_market = pure_market_making_config_map.get("price_source_exchange").value
     return f'Enter the token trading pair on {external_market} >>> '
 
 
-def is_valid_external_market_trading_pair(value: str) -> bool:
-    market = pure_market_making_config_map.get("external_price_source_exchange").value
+def is_valid_price_source_market(value: str) -> bool:
+    market = pure_market_making_config_map.get("price_source_exchange").value
     return is_valid_market_trading_pair(market, value)
 
 
-def maker_market_on_validated(value: str):
+def exchange_on_validated(value: str):
     required_exchanges.append(value)
     ExchangePriceManager.set_exchanges_to_feed([value])
     ExchangePriceManager.start()
 
 
 pure_market_making_config_map = {
-    "maker_market":
-        ConfigVar(key="maker_market",
+    "exchange":
+        ConfigVar(key="exchange",
                   prompt="Enter your maker exchange name >>> ",
                   validator=is_exchange,
-                  on_validated=maker_market_on_validated),
-    "maker_market_trading_pair":
+                  on_validated=exchange_on_validated),
+    "market":
         ConfigVar(key="primary_market_trading_pair",
                   prompt=maker_trading_pair_prompt,
-                  validator=is_valid_maker_market_trading_pair),
-    "bid_place_threshold":
-        ConfigVar(key="bid_place_threshold",
+                  validator=is_valid_exchange_trading_pair),
+    "bid_spread":
+        ConfigVar(key="bid_spread",
                   prompt="How far away from the mid price do you want to place the "
-                         "first bid order? (Enter 0.01 to indicate 1%) >>> ",
+                         "first bid order? (Enter 1 to indicate 1%) >>> ",
                   type_str="decimal",
-                  validator=is_valid_percent),
-    "ask_place_threshold":
-        ConfigVar(key="ask_place_threshold",
+                  validator=lambda v: is_valid_decimal(v, 0, 99)),
+    "ask_spread":
+        ConfigVar(key="ask_spread",
                   prompt="How far away from the mid price do you want to place the "
-                         "first ask order? (Enter 0.01 to indicate 1%) >>> ",
+                         "first ask order? (Enter 1 to indicate 1%) >>> ",
                   type_str="decimal",
-                  validator=is_valid_percent),
-    "cancel_order_wait_time":
-        ConfigVar(key="cancel_order_wait_time",
+                  validator=lambda v: is_valid_decimal(v, 0, 99)),
+    "order_refresh_time":
+        ConfigVar(key="order_refresh_time",
                   prompt="How often do you want to cancel and replace bids and asks "
                          "(in seconds)? >>> ",
                   default=30.0,
@@ -130,8 +129,8 @@ pure_market_making_config_map = {
                   on_validated=assign_values_advanced_mode_switch,
                   migration_default=True,
                   validator=is_valid_bool),
-    "expiration_seconds":
-        ConfigVar(key="expiration_seconds",
+    "order_expiration_time":
+        ConfigVar(key="order_expiration_time",
                   prompt="How long should your limit orders remain valid until they "
                          "expire and are replaced? (Minimum / Default is 130 seconds) >>> ",
                   default=130.0,
@@ -144,8 +143,8 @@ pure_market_making_config_map = {
                   prompt="How many orders do you want to place on both sides? >>> ",
                   type_str="int",
                   default=1),
-    "order_step_size":
-        ConfigVar(key="order_step_size",
+    "order_level_amount":
+        ConfigVar(key="order_level_amount",
                   prompt="How much do you want to increase the order size for each "
                          "additional order? >>> ",
                   required_if=lambda: pure_market_making_config_map.get("order_levels").value > 1,
@@ -154,19 +153,19 @@ pure_market_making_config_map = {
     "order_level_spread":
         ConfigVar(key="order_level_spread",
                   prompt="Enter the price increments (as percentage) for subsequent "
-                         "orders? (Enter 0.01 to indicate 1%) >>> ",
+                         "orders? (Enter 1 to indicate 1%) >>> ",
                   required_if=lambda: pure_market_making_config_map.get("order_levels").value > 1,
                   type_str="decimal",
-                  validator=is_valid_percent,
-                  default=0.01),
+                  validator=lambda v: is_valid_decimal(v, 0, 99),
+                  default=Decimal("0.01")),
     "inventory_skew_enabled":
         ConfigVar(key="inventory_skew_enabled",
                   prompt="Would you like to enable inventory skew? (Yes/No) >>> ",
                   type_str="bool",
                   default=False,
                   validator=is_valid_bool),
-    "inventory_target_base_percent":
-        ConfigVar(key="inventory_target_base_percent",
+    "inventory_target_base_pct":
+        ConfigVar(key="inventory_target_base_pct",
                   prompt="What is your target base asset percentage? Enter 50 for 50% >>> ",
                   required_if=lambda: pure_market_making_config_map.get("inventory_skew_enabled").value,
                   type_str="decimal",
@@ -178,40 +177,40 @@ pure_market_making_config_map = {
                          "expressed in multiples of your total order size? ",
                   required_if=lambda: pure_market_making_config_map.get("inventory_skew_enabled").value,
                   type_str="decimal",
-                  default=1.0),
-    "filled_order_replenish_wait_time":
-        ConfigVar(key="filled_order_replenish_wait_time",
+                  default=Decimal("1")),
+    "filled_order_delay":
+        ConfigVar(key="filled_order_delay",
                   prompt="How long do you want to wait before placing the next order "
                          "if your order gets filled (in seconds)? >>> ",
                   type_str="float",
                   default=60),
-    "enable_order_filled_stop_cancellation":
-        ConfigVar(key="enable_order_filled_stop_cancellation",
+    "hanging_orders_enabled":
+        ConfigVar(key="hanging_orders_enabled",
                   prompt="Do you want to enable hanging orders? (Yes/No) >>> ",
                   type_str="bool",
                   default=False,
                   validator=is_valid_bool),
-    "cancel_hanging_order_pct":
-        ConfigVar(key="cancel_hanging_order_pct",
+    "hanging_orders_cancel_pct":
+        ConfigVar(key="hanging_orders_cancel_pct",
                   prompt="At what spread percentage (from mid price) will hanging orders be canceled? "
-                         "(Enter 0.01 to indicate 1%) >>> ",
-                  required_if=lambda: pure_market_making_config_map.get("enable_order_filled_stop_cancellation").value,
+                         "(Enter 1 to indicate 1%) >>> ",
+                  required_if=lambda: pure_market_making_config_map.get("hanging_orders_enabled").value,
                   type_str="decimal",
-                  default=0.1,
-                  validator=is_valid_percent,
-                  migration_default=0.1),
-    "best_bid_ask_jump_mode":
-        ConfigVar(key="best_bid_ask_jump_mode",
+                  default=Decimal("0.1"),
+                  validator=lambda v: is_valid_decimal(v, 0, 100),
+                  migration_default=Decimal("0.1")),
+    "order_optimization_enabled":
+        ConfigVar(key="order_optimization_enabled",
                   prompt="Do you want to enable best bid ask jumping? (Yes/No) >>> ",
                   type_str="bool",
                   default=False,
                   validator=is_valid_bool),
-    "best_bid_ask_jump_orders_depth":
-        ConfigVar(key="best_bid_ask_jump_orders_depth",
+    "order_optimization_depth":
+        ConfigVar(key="order_optimization_depth",
                   prompt="How deep do you want to go into the order book for calculating "
                          "the top bid and ask, ignoring dust orders on the top "
                          "(expressed in base asset amount)? >>> ",
-                  required_if=lambda: pure_market_making_config_map.get("best_bid_ask_jump_mode").value,
+                  required_if=lambda: pure_market_making_config_map.get("order_optimization_enabled").value,
                   type_str="decimal",
                   default=0),
     "add_transaction_costs":
@@ -220,45 +219,35 @@ pure_market_making_config_map = {
                   type_str="bool",
                   default=False,
                   validator=is_valid_bool),
-    "external_pricing_source": ConfigVar(key="external_pricing_source",
-                                         prompt="Would you like to use an external pricing source for mid-market "
-                                                "price? (Yes/No) >>> ",
-                                         type_str="bool",
-                                         default=False,
-                                         validator=is_valid_bool),
-    "external_price_source_type": ConfigVar(key="external_price_source_type",
-                                            prompt="Which type of external price source to use? "
-                                                   "(exchange/feed/custom_api) >>> ",
-                                            required_if=lambda: pure_market_making_config_map.get(
-                                                "external_pricing_source").value,
-                                            type_str="str",
-                                            validator=lambda s: s in {"exchange", "feed", "custom_api"}),
-    "external_price_source_exchange": ConfigVar(key="external_price_source_exchange",
-                                                prompt="Enter exchange name >>> ",
-                                                required_if=lambda: pure_market_making_config_map.get(
-                                                    "external_price_source_type").value == "exchange",
-                                                type_str="str",
-                                                validator=lambda s: s != pure_market_making_config_map.get(
-                                                    "maker_market").value and is_exchange(s)),
-    "external_price_source_exchange_trading_pair": ConfigVar(key="external_price_source_exchange_trading_pair",
-                                                             prompt=external_market_trading_pair_prompt,
-                                                             required_if=lambda: pure_market_making_config_map.get(
-                                                                 "external_price_source_type").value == "exchange",
-                                                             type_str="str",
-                                                             validator=is_valid_external_market_trading_pair),
-    "external_price_source_feed_base_asset": ConfigVar(key="external_price_source_feed_base_asset",
-                                                       prompt="Reference base asset from data feed? (e.g. ETH) >>> ",
-                                                       required_if=lambda: pure_market_making_config_map.get(
-                                                           "external_price_source_type").value == "feed",
-                                                       type_str="str"),
-    "external_price_source_feed_quote_asset": ConfigVar(key="external_price_source_feed_quote_asset",
-                                                        prompt="Reference quote asset from data feed? (e.g. USD) >>> ",
-                                                        required_if=lambda: pure_market_making_config_map.get(
-                                                            "external_price_source_type").value == "feed",
-                                                        type_str="str"),
-    "external_price_source_custom_api": ConfigVar(key="external_price_source_custom_api",
-                                                  prompt="Enter pricing API URL >>> ",
-                                                  required_if=lambda: pure_market_making_config_map.get(
-                                                      "external_price_source_type").value == "custom_api",
-                                                  type_str="str")
+    "price_source_enabled": ConfigVar(key="price_source_enabled",
+                                      prompt="Would you like to use an external pricing source for mid-market "
+                                             "price? (Yes/No) >>> ",
+                                      type_str="bool",
+                                      default=False,
+                                      validator=is_valid_bool),
+    "price_source_type": ConfigVar(key="price_source_type",
+                                   prompt="Which type of external price source to use? "
+                                          "(exchange/custom_api) >>> ",
+                                   required_if=lambda: pure_market_making_config_map.get(
+                                       "price_source_enabled").value,
+                                   type_str="str",
+                                   validator=lambda s: s in {"exchange", "custom_api"}),
+    "price_source_exchange": ConfigVar(key="price_source_exchange",
+                                       prompt="Enter exchange name >>> ",
+                                       required_if=lambda: pure_market_making_config_map.get(
+                                           "price_source_type").value == "exchange",
+                                       type_str="str",
+                                       validator=lambda s: s != pure_market_making_config_map.get(
+                                           "exchange").value and is_exchange(s)),
+    "price_source_market": ConfigVar(key="price_source_market",
+                                     prompt=price_source_market_prompt,
+                                     required_if=lambda: pure_market_making_config_map.get(
+                                         "price_source_type").value == "exchange",
+                                     type_str="str",
+                                     validator=is_valid_price_source_market),
+    "price_source_custom": ConfigVar(key="price_source_custom",
+                                     prompt="Enter pricing API URL >>> ",
+                                     required_if=lambda: pure_market_making_config_map.get(
+                                         "price_source_type").value == "custom_api",
+                                     type_str="str")
 }
