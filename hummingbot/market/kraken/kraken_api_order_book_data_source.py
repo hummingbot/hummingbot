@@ -94,7 +94,7 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             price_dict: Dict[str, float] = await cls.get_prices_from_df(all_markets)
 
-            usd_volume: float = [
+            usd_volume: List[float] = [
                 (
                     baseVolume * price_dict[baseAsset] if baseAsset in price_dict else -1
                 )
