@@ -36,7 +36,7 @@ class KrakenOrderBookTrackerUnitTest(unittest.TestCase):
         self.assertEqual(self.order_book_tracker.exchange_name, "kraken")
 
     def test_start_stop(self):
-        self.run_async(self.order_book_tracker.start())
+        self.order_book_tracker.start()
         self.assertTrue(asyncio.isfuture(self.order_book_tracker._order_book_snapshot_router_task))
         self.order_book_tracker.stop()
         self.assertIsNone(self.order_book_tracker._order_book_snapshot_router_task)
