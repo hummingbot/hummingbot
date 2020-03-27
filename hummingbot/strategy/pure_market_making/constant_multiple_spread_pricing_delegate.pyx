@@ -38,17 +38,9 @@ cdef class ConstantMultipleSpreadPricingDelegate(OrderPricingDelegate):
     def number_of_orders(self) -> int:
         return self._number_of_orders
 
-    @number_of_orders.setter
-    def number_of_orders(self, value):
-        self._number_of_orders = value
-
     @property
     def order_interval_size(self) -> Decimal:
         return self._order_interval_size
-
-    @order_interval_size.setter
-    def order_interval_size(self, value):
-        self._order_interval_size = value
 
     cdef object c_get_order_price_proposal(self,
                                            PureMarketMakingStrategyV2 strategy,
