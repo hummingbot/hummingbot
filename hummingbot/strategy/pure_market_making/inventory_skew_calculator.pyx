@@ -9,11 +9,11 @@ decimal_2 = Decimal(2)
 
 
 def calculate_total_order_size(order_start_size: Decimal, order_step_size: Decimal = decimal_0,
-                               number_of_orders: int = 1) -> Decimal:
-    number_of_orders_decimal = number_of_orders
+                               order_levels: int = 1) -> Decimal:
+    order_levels_decimal = order_levels
     return (decimal_2 *
-            (number_of_orders_decimal * order_start_size +
-             number_of_orders_decimal * (number_of_orders_decimal - decimal_1) / decimal_2 * order_step_size
+            (order_levels_decimal * order_start_size +
+             order_levels_decimal * (order_levels_decimal - decimal_1) / decimal_2 * order_step_size
              )
             )
 
