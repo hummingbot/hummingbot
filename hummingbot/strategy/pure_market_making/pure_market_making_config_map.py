@@ -93,7 +93,7 @@ pure_market_making_config_map = {
                   validator=is_exchange,
                   on_validated=exchange_on_validated),
     "market":
-        ConfigVar(key="primary_market_trading_pair",
+        ConfigVar(key="market",
                   prompt=maker_trading_pair_prompt,
                   validator=is_valid_exchange_trading_pair),
     "bid_spread":
@@ -157,7 +157,7 @@ pure_market_making_config_map = {
                   required_if=lambda: pure_market_making_config_map.get("order_levels").value > 1,
                   type_str="decimal",
                   validator=lambda v: is_valid_decimal(v, 0, 99),
-                  default=Decimal("0.01")),
+                  default=Decimal("1")),
     "inventory_skew_enabled":
         ConfigVar(key="inventory_skew_enabled",
                   prompt="Would you like to enable inventory skew? (Yes/No) >>> ",
@@ -196,9 +196,9 @@ pure_market_making_config_map = {
                          "(Enter 1 to indicate 1%) >>> ",
                   required_if=lambda: pure_market_making_config_map.get("hanging_orders_enabled").value,
                   type_str="decimal",
-                  default=Decimal("0.1"),
+                  default=Decimal("10"),
                   validator=lambda v: is_valid_decimal(v, 0, 100),
-                  migration_default=Decimal("0.1")),
+                  migration_default=Decimal("10")),
     "order_optimization_enabled":
         ConfigVar(key="order_optimization_enabled",
                   prompt="Do you want to enable best bid ask jumping? (Yes/No) >>> ",
