@@ -15,17 +15,17 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     cdef:
         dict _market_infos
         bint _all_markets_ready
-        bint _enable_order_filled_stop_cancellation
-        bint _best_bid_ask_jump_mode
+        bint _hanging_orders_enabled
+        bint _order_optimization_enabled
         bint _add_transaction_costs_to_orders
 
-        double _cancel_order_wait_time
+        double _order_refresh_time
         double _expiration_seconds
         double _status_report_interval
         double _last_timestamp
-        double _filled_order_replenish_wait_time
-        double _cancel_hanging_order_pct
-        object _best_bid_ask_jump_orders_depth
+        double _filled_order_delay
+        double _hanging_orders_cancel_pct
+        object _order_optimization_depth
 
         dict _time_to_cancel
         list _hanging_order_ids
