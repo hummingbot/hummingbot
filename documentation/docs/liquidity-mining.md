@@ -118,7 +118,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
 
 Partnering with Harmony, we launched a successful pilot program rewarding community members for running market making bots for $ONE using Hummingbot in 2019. 
 
-[Whitepaper](https://harmony.one/pdf/hummingbot.pdf) | [Twitter](https://twitter.com/harmonyprotocol) | [Telegram](https://t.me/harmony_one) | [Github](https://github.com/harmony-one) | [Explorer](https://explorer.binance.org/asset/ONE-5F9) | [CoinMarketCap](https://coinmarketcap.com/currencies/harmony/) | [CoinGecko](https://www.coingecko.com/en/coins/harmony)
+[Whitepaper](https://harmony.one/pdf/whitepaper.pdf) | [Twitter](https://twitter.com/harmonyprotocol) | [Telegram](https://t.me/harmony_one) | [Github](https://github.com/harmony-one) | [Explorer](https://explorer.binance.org/asset/ONE-5F9) | [CoinMarketCap](https://coinmarketcap.com/currencies/harmony/) | [CoinGecko](https://www.coingecko.com/en/coins/harmony)
 
 ### iExec
 
