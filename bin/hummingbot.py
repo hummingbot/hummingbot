@@ -70,6 +70,28 @@ async def main():
             tasks.append(start_management_console(locals(), host="localhost", port=management_port))
         await safe_gather(*tasks)
 
+
+def login():
+    from prompt_toolkit import prompt
+    err_msg = None
+    from hummingbot.client.config.security import Security
+    if Security.new_password_required():
+        password = prompt("Enter your new password >>> ", is_password=True)
+        re_password = prompt("Please reenter your password >>> ", is_password=True)
+        if password != re_password:
+            err_msg = "Passwords entered do not match, please try again."
+        else:
+            Security.login(password)
+    else:
+        password = prompt("Enter your password >>> ", is_password=True)
+        if not Security.login(password):
+            err_msg = "Invalid password, please try again."
+    if err_msg is not None:
+        print(err_msg)
+        login()
+
+
 if __name__ == "__main__":
+    login()
     ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
     ev_loop.run_until_complete(main())
