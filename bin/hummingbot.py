@@ -23,6 +23,8 @@ from hummingbot import (
 from hummingbot.client.ui.stdout_redirection import patch_stdout
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
+from prompt_toolkit.shortcuts import input_dialog, message_dialog
+from hummingbot.client.config.security import Security
 
 
 def detect_available_port(starting_port: int) -> int:
@@ -71,24 +73,24 @@ async def main():
         await safe_gather(*tasks)
 
 
-def login():
-    from prompt_toolkit import prompt
+def login(welcome_msg=True):
     err_msg = None
-    from hummingbot.client.config.security import Security
     if Security.new_password_required():
-        password = prompt("Enter your new password >>> ", is_password=True)
-        re_password = prompt("Please reenter your password >>> ", is_password=True)
+        if welcome_msg:
+            message_dialog(title='Welcome to Hummingbot', text='Press ENTER to continue.').run()
+        password = input_dialog(title="Hummingbot", text="Enter your new password", password=True).run()
+        re_password = input_dialog(title="Hummingbot", text="Please reenter your password", password=True).run()
         if password != re_password:
             err_msg = "Passwords entered do not match, please try again."
         else:
             Security.login(password)
     else:
-        password = prompt("Enter your password >>> ", is_password=True)
+        password = input_dialog(title="Hummingbot", text="Enter your password", password=True).run()
         if not Security.login(password):
             err_msg = "Invalid password, please try again."
     if err_msg is not None:
-        print(err_msg)
-        login()
+        message_dialog(title='Error', text=err_msg).run()
+        login(welcome_msg=False)
 
 
 if __name__ == "__main__":
