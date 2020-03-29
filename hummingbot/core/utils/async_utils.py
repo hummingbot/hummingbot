@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import time
+import inspect
 
 
 async def safe_wrapper(c):
@@ -21,3 +23,14 @@ async def safe_gather(*args, **kwargs):
     except Exception as e:
         logging.getLogger(__name__).debug(f"Unhandled error in background task: {str(e)}", exc_info=True)
         raise
+
+
+async def wait_til(condition_func, timeout=10):
+    start_time = time.perf_counter()
+    while True:
+        if condition_func():
+            return
+        elif time.perf_counter() - start_time > timeout:
+            raise Exception(f"{inspect.getsource(condition_func).strip()} condition is never met. Time out reached.")
+        else:
+            await asyncio.sleep(0.1)
