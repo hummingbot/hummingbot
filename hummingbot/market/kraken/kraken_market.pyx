@@ -263,7 +263,12 @@ cdef class KrakenMarket(MarketBase):
             if order.get("status") == "open":
                 details = order.get("descr")
                 if details.get("ordertype") == "limit":
-                    base, quote = await self.trading_pair_to_tuple(details.get("pair"))
+                    pair = await self.trading_pair_to_tuple(details.get("pair"))
+                    if pair is None:
+                        self.logger().debug(f"Pair {details.get('pair')} could not be split.",
+                                            exc_info=True)
+                        continue
+                    (base, quote) = pair
                     vol_locked = Decimal(order.get("vol", 0)) - Decimal(order.get("vol_exec", 0))
                     if details.get("type") == "sell":
                         locked[base] += vol_locked
