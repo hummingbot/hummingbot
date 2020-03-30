@@ -23,7 +23,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
     Please check this page for the most up-to-date terms.  We will notify participants of changes, if any, through email (for registered users) and on our [Discord](https://discord.hummingbot.io).
 
 !!! note "Terms updated for week 5"
-    **For the period starting March 31, 2020 12:00am UTC until April 7 12:00am UTC, the following changes were made:**<ol><li>The `maximum spread` was decreased to 3% for all trading pairs.<li>The campaign for Harmony ONE tokens is paused.</ul>
+    **For the period starting March 31, 2020 12:00am UTC until April 7 12:00am UTC, the following changes were made:**<ol><li>The `maximum spread` was decreased to 3% for all trading pairs.<li>The campaign for Harmony ONE tokens is paused; ONE pairs currently not eligible for rewards.</ul>
 
 <table>
   <thead>
@@ -89,7 +89,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
 </table>
 
 ## Changes to campaign terms
-1. **March 31, 2020**: (1) the maximum spread and for all programs has been decreased to 3% (from 5%) and (2) Harmony has paused its campaign for ONE tokens.
+1. **March 31, 2020**: (1) the maximum spread and for all programs has been decreased to 3% from 5% previously and (2) Harmony has paused its campaign for ONE tokens.  You can read more about the changes on our [reddit post](https://www.reddit.com/r/Hummingbot/comments/frxs5z/campaign_terms_update_for_week_5_max_spread_3_and/).
 
 ## Program sponsors
 
