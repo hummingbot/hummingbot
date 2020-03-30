@@ -24,6 +24,7 @@ from hummingbot.client.ui.stdout_redirection import patch_stdout
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from prompt_toolkit.shortcuts import input_dialog, message_dialog
+from prompt_toolkit.styles import Style
 from hummingbot.client.config.security import Security
 
 
@@ -72,24 +73,73 @@ async def main():
             tasks.append(start_management_console(locals(), host="localhost", port=management_port))
         await safe_gather(*tasks)
 
+dialog_style = Style.from_dict({
+    'dialog': 'bg:#171E2B',
+    'dialog frame.label': 'bg:#ffffff #000000',
+    'dialog.body': 'bg:#000000 #1CD085',
+    'dialog shadow': 'bg:#171E2B',
+    'button': 'bg:#000000',
+    'text-area': 'bg:#000000 #1CD085',
+})
+
+logo = """
+
+    ██╗  ██╗██╗   ██╗███╗   ███╗███╗   ███╗██╗███╗   ██╗ ██████╗ ██████╗  ██████╗ ████████╗
+    ██║  ██║██║   ██║████╗ ████║████╗ ████║██║████╗  ██║██╔════╝ ██╔══██╗██╔═══██╗╚══██╔══╝
+    ███████║██║   ██║██╔████╔██║██╔████╔██║██║██╔██╗ ██║██║  ███╗██████╔╝██║   ██║   ██║
+    ██╔══██║██║   ██║██║╚██╔╝██║██║╚██╔╝██║██║██║╚██╗██║██║   ██║██╔══██╗██║   ██║   ██║
+    ██║  ██║╚██████╔╝██║ ╚═╝ ██║██║ ╚═╝ ██║██║██║ ╚████║╚██████╔╝██████╔╝╚██████╔╝   ██║
+    ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═════╝  ╚═════╝    ╚═╝
+
+    =======================================================================================
+
+    Version:  [version number]
+    Codebase: https://github.com/coinalpha/hummingbot
+
+
+"""
+
 
 def login(welcome_msg=True):
     err_msg = None
     if Security.new_password_required():
         if welcome_msg:
-            message_dialog(title='Welcome to Hummingbot', text='Press ENTER to continue.').run()
-        password = input_dialog(title="Hummingbot", text="Enter your new password", password=True).run()
-        re_password = input_dialog(title="Hummingbot", text="Please reenter your password", password=True).run()
+            message_dialog(
+                title='Welcome to Hummingbot',
+                text=logo,
+                style=dialog_style).run()
+        password = input_dialog(
+            title="Security",
+            text="Set a password to protect your sensitive data. This password is not shared with us nor with anyone else, so please store it in a safe place.\n\nEnter your new password:",
+            password=True,
+            style=dialog_style).run()
+        re_password = input_dialog(
+            title="Security",
+            text="Please re-enter your password:",
+            password=True,
+            style=dialog_style).run()
         if password != re_password:
             err_msg = "Passwords entered do not match, please try again."
         else:
             Security.login(password)
     else:
-        password = input_dialog(title="Hummingbot", text="Enter your password", password=True).run()
+        if welcome_msg:
+            message_dialog(
+                title='Welcome to Hummingbot',
+                text=logo,
+                style=dialog_style).run()
+        password = input_dialog(
+            title="Security",
+            text="Enter your password:",
+            password=True,
+            style=dialog_style).run()
         if not Security.login(password):
-            err_msg = "Invalid password, please try again."
+            err_msg = "Invalid password - please try again."
     if err_msg is not None:
-        message_dialog(title='Error', text=err_msg).run()
+        message_dialog(
+            title='Error',
+            text=err_msg,
+            style=dialog_style).run()
         login(welcome_msg=False)
 
 
