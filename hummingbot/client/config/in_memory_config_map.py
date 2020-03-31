@@ -1,6 +1,5 @@
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
-    is_strategy,
     is_path,
 )
 from hummingbot.client.settings import (
@@ -8,7 +7,6 @@ from hummingbot.client.settings import (
     CONF_PREFIX,
 )
 from hummingbot.client.config.config_helpers import (
-    load_required_configs,
     read_configs_from_yml,
 )
 
@@ -19,7 +17,8 @@ def get_default_strategy_config_yml_path(strategy: str) -> str:
 
 # Prompt generators
 def default_strategy_conf_path_prompt():
-    strategy = in_memory_config_map.get("strategy").value
+    from hummingbot.client.config.global_config_map import global_config_map
+    strategy = global_config_map.get("strategy").value
     return "Enter path to your strategy file (e.g. \"%s\") >>> " \
            % (get_default_strategy_config_yml_path(strategy),)
 
@@ -31,11 +30,6 @@ in_memory_config_map = {
         ConfigVar(key="password",
                   prompt="Password please >>> ",
                   is_secure=True),
-    "strategy":
-        ConfigVar(key="strategy",
-                  prompt="What is your market making strategy? >>> ",
-                  validator=is_strategy,
-                  on_validated=load_required_configs),
     "strategy_file_path":
         ConfigVar(key="strategy_file_path",
                   prompt=default_strategy_conf_path_prompt,

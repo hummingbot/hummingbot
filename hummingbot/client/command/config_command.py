@@ -105,7 +105,7 @@ class ConfigCommand:
         Returns a list of config keys that are currently relevant, including the ones that are not required.
         """
         all_available_config_keys = list(in_memory_config_map.keys()) + list(global_config_map.keys())
-        current_strategy: str = in_memory_config_map.get("strategy").value
+        current_strategy: str = global_config_map.get("strategy").value
         strategy_cm: Optional[Dict[str, ConfigVar]] = get_strategy_config_map(current_strategy)
         if strategy_cm:
             all_available_config_keys += list(strategy_cm.keys())
@@ -116,7 +116,7 @@ class ConfigCommand:
         """
         Handler function that allows user to redo the config step.
         """
-        strategy = in_memory_config_map.get("strategy").value
+        strategy = global_config_map.get("strategy").value
         strategy_cm = get_strategy_config_map(strategy)
 
         self.placeholder_mode = True
@@ -143,7 +143,7 @@ class ConfigCommand:
                 if strategy_cm:
                     for k in strategy_cm:
                         strategy_cm[k].value = None
-                in_memory_config_map.get("strategy").value = None
+                global_config_map.get("strategy").value = None
                 in_memory_config_map.get("strategy_file_path").value = None
                 self.clear_application_warning()
             self.config(key)
@@ -223,7 +223,11 @@ class ConfigCommand:
         """
         Special handler function that asks if the user wants to import or create a new strategy config.
         """
-        current_strategy: str = in_memory_config_map.get("strategy").value
+        current_strategy: str = global_config_map.get("strategy").value
+        # A quick fix here, this is because global_config_map gets assigned values later on
+        # when there is no conf_global.yml
+        if current_strategy is None:
+            current_strategy = global_config_map.get("strategy").default
         strategy_file_path_cv: ConfigVar = in_memory_config_map.get("strategy_file_path")
         choice = await self.app.prompt(prompt="Import previous configs or create a new config file? "
                                               "(import/create) >>> ")
@@ -329,7 +333,7 @@ class ConfigCommand:
         Check if key exists in `in_memory_config-map`, `global_config_map`, and `strategy_config_map`.
         If so, return the corresponding ConfigVar for that key
         """
-        current_strategy: str = in_memory_config_map.get("strategy").value
+        current_strategy: str = global_config_map.get("strategy").value
         strategy_cm: Optional[Dict[str, ConfigVar]] = get_strategy_config_map(current_strategy)
         if key in in_memory_config_map:
             cv: ConfigVar = in_memory_config_map.get(key)
