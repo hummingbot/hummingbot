@@ -5,9 +5,9 @@ from os.path import (
 )
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 import sys; sys.path.append(realpath(join(__file__, "../../bin")))
-import unittest
-from hummingbot.client.hummingbot_application import HummingbotApplication
 from bin.hummingbot import main as hb_main
+from hummingbot.client.hummingbot_application import HummingbotApplication
+import unittest
 import asyncio
 import time
 import inspect
@@ -180,9 +180,9 @@ class ConfigProcessTest(unittest.TestCase):
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(ConfigProcessTest('test_pure_mm_basic_til_start'))
-    suite.addTest(ConfigProcessTest('test_single_configs'))
-    suite.addTest(ConfigProcessTest('test_pure_mm_basic_import_config_file'))
-    suite.addTest(ConfigProcessTest('test_pure_mm_basic_til_start'))
+    # suite.addTest(ConfigProcessTest('test_single_configs'))
+    # suite.addTest(ConfigProcessTest('test_pure_mm_basic_import_config_file'))
+    # suite.addTest(ConfigProcessTest('test_pure_mm_basic_til_start'))
     return suite
 
 
