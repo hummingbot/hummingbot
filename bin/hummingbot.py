@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import path_util        # noqa: F401
+import bin.path_util        # noqa: F401
 import asyncio
 import errno
 import socket
