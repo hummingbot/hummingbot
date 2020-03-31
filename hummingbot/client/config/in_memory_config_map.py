@@ -26,10 +26,6 @@ def default_strategy_conf_path_prompt():
 # These configs are never saved and prompted every time
 in_memory_config_map = {
     # Always required
-    "password":
-        ConfigVar(key="password",
-                  prompt="Password please >>> ",
-                  is_secure=True),
     "strategy_file_path":
         ConfigVar(key="strategy_file_path",
                   prompt=default_strategy_conf_path_prompt,

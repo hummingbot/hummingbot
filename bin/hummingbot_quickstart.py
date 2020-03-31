@@ -32,6 +32,7 @@ from bin.hummingbot import (
 )
 from hummingbot.client.config.config_helpers import write_config_to_yml
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.client.config.security import Security
 
 
 class CmdlineParser(ThrowingArgumentParser):
@@ -57,22 +58,22 @@ class CmdlineParser(ThrowingArgumentParser):
 
 
 async def quick_start():
+    args = CmdlineParser().parse_args()
+    strategy = args.strategy
+    config_file_name = args.config_file_name
+    wallet = args.wallet
+    password = args.config_password
+    if not Security.login(password):
+        logging.getLogger().error(f"Invalid password.")
+        return
     try:
-        args = CmdlineParser().parse_args()
-
-        strategy = args.strategy
-        config_file_name = args.config_file_name
-        wallet = args.wallet
-        password = args.config_password
-
+        await Security.wait_til_decryption_done()
         await create_yml_files()
         init_logging("hummingbot_logs.yml")
         read_configs_from_yml()
         ExchangeRateConversion.get_instance().start()
         await ExchangeRateConversion.get_instance().wait_till_ready()
         hb = HummingbotApplication.main_application()
-
-        in_memory_config_map.get("password").value = password
         global_config_map.get("strategy").value = strategy
         global_config_map.get("strategy").validate(strategy)
         in_memory_config_map.get("strategy_file_path").value = config_file_name
@@ -90,7 +91,7 @@ async def quick_start():
             config_map = load_required_configs()
             empty_configs = [key for key, config in config_map.items() if config.value is None and config.required]
             empty_config_description: str = "\n- ".join([""] + empty_configs)
-            raise ValueError(f"Missing empty configs: {empty_config_description}\n")
+            raise ValueError(f"Missing configuration values: {empty_config_description}\n")
 
         with patch_stdout(log_field=hb.app.log_field):
             dev_mode = check_dev_mode()
@@ -112,9 +113,12 @@ async def quick_start():
             await safe_gather(*tasks)
 
     except Exception as e:
-        # In case of quick start failure, start the bot normally to allow further configuration
-        logging.getLogger().warning(f"Bot config incomplete: {str(e)}. Starting normally...")
-        await normal_start()
+        if "Missing configuration values" in str(e):
+            # In case of quick start failure, start the bot normally to allow further configuration
+            logging.getLogger().warning(f"Bot config incomplete: {str(e)}. Starting normally...")
+            await normal_start()
+        else:
+            raise e
 
 
 if __name__ == "__main__":

@@ -22,9 +22,17 @@ cdef class ConstantMultipleSpreadPricingDelegate(OrderPricingDelegate):
     def bid_spread(self) -> Decimal:
         return self._bid_spread
 
+    @bid_spread.setter
+    def bid_spread(self, value):
+        self._bid_spread = value
+
     @property
     def ask_spread(self) -> Decimal:
         return self._ask_spread
+
+    @ask_spread.setter
+    def ask_spread(self, value):
+        self._ask_spread = value
 
     @property
     def order_levels(self) -> int:
@@ -45,9 +53,9 @@ cdef class ConstantMultipleSpreadPricingDelegate(OrderPricingDelegate):
             str market_name = maker_market.name
             object mid_price = asset_mid_price
             list bid_prices = [maker_market.c_quantize_order_price(market_info.trading_pair,
-                                                                   mid_price * (Decimal(1) - self.bid_spread))]
+                                                                   mid_price * (Decimal(1) - self._bid_spread))]
             list ask_prices = [maker_market.c_quantize_order_price(market_info.trading_pair,
-                                                                   mid_price * (Decimal(1) + self.ask_spread))]
+                                                                   mid_price * (Decimal(1) + self._ask_spread))]
 
         for _ in range(self.order_levels - 1):
             last_bid_price = bid_prices[-1]
