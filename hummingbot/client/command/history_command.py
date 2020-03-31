@@ -114,7 +114,7 @@ class HistoryCommand:
             trade_performance_status_line = []
             market_df_data: Set[Tuple[str, str, Decimal, Decimal, str, str]] = set()
             market_df_columns = ["Market", "Pair", "Start Price", "End Price",
-                                 "Total Value Delta"]
+                                 "Total Value Delta", "Trades"]
 
             for market_trading_pair_tuple, trading_pair_stats in market_trading_pair_stats.items():
                 market_df_data.add((
@@ -122,7 +122,8 @@ class HistoryCommand:
                     market_trading_pair_tuple.trading_pair.upper(),
                     trading_pair_stats["starting_quote_rate"],
                     trading_pair_stats["end_quote_rate"],
-                    f"{trading_pair_stats['trading_pair_delta']:.8f} {primary_quote_asset}"
+                    f"{trading_pair_stats['trading_pair_delta']:.8f} {primary_quote_asset}",
+                    trading_pair_stats["trade_count"]
                 ))
 
             inventory_df: pd.DataFrame = self.balance_comparison_data_frame(market_trading_pair_stats)
