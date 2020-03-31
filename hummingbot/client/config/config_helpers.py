@@ -32,10 +32,7 @@ from hummingbot.client.settings import (
     TOKEN_ADDRESSES_FILE_PATH,
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.client.config.config_crypt import (
-    encrypt_n_save_config_value,
-    encrypted_config_file_exists
-)
+from hummingbot.client.config.security import Security
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 
 # Use ruamel.yaml to preserve order and comments in .yml file
@@ -283,10 +280,7 @@ async def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
             for key in cm:
                 cvar = cm.get(key)
                 if cvar.is_secure:
-                    if cvar.value is not None and not encrypted_config_file_exists(cvar):
-                        from hummingbot.client.config.in_memory_config_map import in_memory_config_map
-                        password = in_memory_config_map.get("password").value
-                        encrypt_n_save_config_value(cvar, password)
+                    Security.update_secure_config(cvar)
                     if key in data:
                         data.pop(key)
                 elif type(cvar.value) == Decimal:
@@ -354,9 +348,9 @@ def default_min_quote(quote_asset):
 
 
 def minimum_order_amount(trading_pair):
-    base_asset, quote_asset = trading_pair.split("-")
-    default_quote_asset, default_amount = default_min_quote(quote_asset)
     try:
+        base_asset, quote_asset = trading_pair.split("-")
+        default_quote_asset, default_amount = default_min_quote(quote_asset)
         quote_amount = ExchangeRateConversion.get_instance().convert_token_value_decimal(default_amount,
                                                                                          default_quote_asset,
                                                                                          base_asset)
