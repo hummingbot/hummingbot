@@ -197,7 +197,7 @@ def load_required_configs(*args) -> OrderedDict:
     config settings required by the bot.
     """
     from hummingbot.client.config.in_memory_config_map import in_memory_config_map
-    current_strategy = in_memory_config_map.get("strategy").value
+    current_strategy = global_config_map.get("strategy").value
     current_strategy_file_path = in_memory_config_map.get("strategy_file_path").value
     if current_strategy is None or current_strategy_file_path is None:
         return _merge_dicts(in_memory_config_map)
@@ -213,10 +213,6 @@ def read_configs_from_yml(strategy_file_path: Optional[str] = None):
     Read global config and selected strategy yml files and save the values to corresponding config map
     If a yml file is outdated, it gets reformatted with the new template
     """
-    from hummingbot.client.config.in_memory_config_map import in_memory_config_map
-    current_strategy = in_memory_config_map.get("strategy").value
-    strategy_config_map: Optional[Dict[str, ConfigVar]] = get_strategy_config_map(current_strategy)
-
     def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str, ConfigVar]):
         try:
             with open(yml_path) as stream:
@@ -265,7 +261,10 @@ def read_configs_from_yml(strategy_file_path: Optional[str] = None):
     load_yml_into_cm(GLOBAL_CONFIG_PATH, join(TEMPLATE_PATH, "conf_global_TEMPLATE.yml"), global_config_map)
     load_yml_into_cm(TRADE_FEES_CONFIG_PATH, join(TEMPLATE_PATH, "conf_fee_overrides_TEMPLATE.yml"),
                      fee_overrides_config_map)
-
+    current_strategy = global_config_map.get("strategy").value
+    if current_strategy is None:
+        current_strategy = global_config_map.get("strategy").default
+    strategy_config_map: Optional[Dict[str, ConfigVar]] = get_strategy_config_map(current_strategy)
     if strategy_file_path:
         strategy_template_path = get_strategy_template_path(current_strategy)
         load_yml_into_cm(join(CONF_FILE_PATH, strategy_file_path), strategy_template_path, strategy_config_map)
@@ -299,7 +298,7 @@ async def write_config_to_yml():
     Write current config saved in all config maps into each corresponding yml file
     """
     from hummingbot.client.config.in_memory_config_map import in_memory_config_map
-    current_strategy = in_memory_config_map.get("strategy").value
+    current_strategy = global_config_map.get("strategy").value
     strategy_file_path = in_memory_config_map.get("strategy_file_path").value
 
     if current_strategy is not None and strategy_file_path is not None:

@@ -74,8 +74,8 @@ async def quick_start():
         ExchangeRateConversion.get_instance().start()
         await ExchangeRateConversion.get_instance().wait_till_ready()
         hb = HummingbotApplication.main_application()
-        in_memory_config_map.get("strategy").value = strategy
-        in_memory_config_map.get("strategy").validate(strategy)
+        global_config_map.get("strategy").value = strategy
+        global_config_map.get("strategy").validate(strategy)
         in_memory_config_map.get("strategy_file_path").value = config_file_name
         in_memory_config_map.get("strategy_file_path").validate(config_file_name)
 

@@ -337,7 +337,7 @@ class HummingbotApplication(*commands):
             self.trade_fill_db,
             list(self.markets.values()),
             in_memory_config_map.get("strategy_file_path").value,
-            in_memory_config_map.get("strategy").value,
+            global_config_map.get("strategy").value,
         )
         self.markets_recorder.start()
 
