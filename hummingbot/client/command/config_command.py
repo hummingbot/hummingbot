@@ -25,9 +25,15 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.config.security import Security
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.strategy.pure_market_making import (
+    PureMarketMakingStrategyV2
+)
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
+
+
+no_restart_pmm_keys = ["bid_place_threshold", "ask_place_threshold"]
 
 
 class ConfigCommand:
@@ -38,7 +44,8 @@ class ConfigCommand:
         Router function that for all commands related to bot configuration
         """
         self.app.clear_input()
-        if self.strategy or (self.config_complete and key is None):
+        if (key is None and (self.strategy or self.config_complete)) or \
+                (isinstance(self.strategy, PureMarketMakingStrategyV2) and key not in no_restart_pmm_keys):
             safe_ensure_future(self.reset_config_loop(key))
             return
 
@@ -332,6 +339,14 @@ class ConfigCommand:
             self.placeholder_mode = False
             self.app.change_prompt(prompt=">>> ")
 
+    # Make this function static so unit testing can be performed.
+    @staticmethod
+    def update_running_pure_mm(pure_mm_strategy: PureMarketMakingStrategyV2, key: str, new_value: Any):
+        if key == "bid_place_threshold":
+            pure_mm_strategy.pricing_delegate.bid_spread = new_value
+        elif key == "ask_place_threshold":
+            pure_mm_strategy.pricing_delegate.ask_spread = new_value
+
     async def _config_single_key(self,  # type: HummingbotApplication
                                  key: str):
         """
@@ -351,6 +366,8 @@ class ConfigCommand:
             else:
                 await write_config_to_yml()
             self._notify(f"\nNew config saved:\n{key}: {str(value)}")
+            if isinstance(self.strategy, PureMarketMakingStrategyV2):
+                ConfigCommand.update_running_pure_mm(self.strategy, key, cv.value)
 
             if not self.config_complete:
                 choice = await self.app.prompt("Your configuration is incomplete. Would you like to proceed and "
