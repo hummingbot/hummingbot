@@ -79,10 +79,10 @@ class ConfigProcessTest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
-        user_response("stop")
-        cls.ev_loop.run_until_complete(wait_til(lambda: cls.hb.markets_recorder is None))
         remove_files(settings.CONF_FILE_PATH, [".yml", ".json"])
         remove_files_extension(settings.CONF_FILE_PATH, ".temp")
+        user_response("stop")
+        cls.ev_loop.run_until_complete(wait_til(lambda: cls.hb.markets_recorder is None))
 
     @classmethod
     async def set_up_class(cls):
@@ -180,9 +180,9 @@ class ConfigProcessTest(unittest.TestCase):
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(ConfigProcessTest('test_pure_mm_basic_til_start'))
-    # suite.addTest(ConfigProcessTest('test_single_configs'))
-    # suite.addTest(ConfigProcessTest('test_pure_mm_basic_import_config_file'))
-    # suite.addTest(ConfigProcessTest('test_pure_mm_basic_til_start'))
+    suite.addTest(ConfigProcessTest('test_single_configs'))
+    suite.addTest(ConfigProcessTest('test_pure_mm_basic_import_config_file'))
+    suite.addTest(ConfigProcessTest('test_pure_mm_basic_til_start'))
     return suite
 
 
