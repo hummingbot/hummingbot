@@ -115,7 +115,7 @@ class TradeFill(HummingbotBase):
                               "flat_fee / gas"]
         data = []
         for trade in trades:
-            flat_fees: List[Tuple[str, Any]] = trade.trade_fee.flat_fees
+            flat_fees: List[Tuple[str, Any]] = trade.trade_fee["flat_fees"]
             if len(flat_fees) == 0:
                 flat_fee_str = "None"
             else:
