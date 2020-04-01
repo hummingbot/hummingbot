@@ -754,6 +754,8 @@ cdef class EterbaseMarket(MarketBase):
         cdef:
             EterbaseTradingRule trading_rule = self._trading_rules[trading_pair]
         decimal_amount = self.quantize_order_amount(trading_pair, amount)
+        if (order_type == OrderType.MARKET) and (price!=price):
+            price = self.get_price(trading_pair, True)
         decimal_price = self.quantize_order_price(trading_pair, price)
         decimal_cost = s_decimal_0
         #For Order Market type is needed cost
