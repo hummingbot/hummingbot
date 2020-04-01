@@ -280,7 +280,7 @@ async def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
             for key in cm:
                 cvar = cm.get(key)
                 if cvar.is_secure:
-                    Security.update_secure_config(cvar)
+                    Security.update_secure_config(key, cvar.value)
                     if key in data:
                         data.pop(key)
                 elif type(cvar.value) == Decimal:
