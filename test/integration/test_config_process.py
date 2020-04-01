@@ -5,9 +5,9 @@ from os.path import (
 )
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 import sys; sys.path.append(realpath(join(__file__, "../../bin")))
-import unittest
-from hummingbot.client.hummingbot_application import HummingbotApplication
 from bin.hummingbot import main as hb_main
+from hummingbot.client.hummingbot_application import HummingbotApplication
+import unittest
 import asyncio
 import time
 import inspect
@@ -79,10 +79,10 @@ class ConfigProcessTest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
-        user_response("stop")
-        cls.ev_loop.run_until_complete(wait_til(lambda: cls.hb.markets_recorder is None))
         remove_files(settings.CONF_FILE_PATH, [".yml", ".json"])
         remove_files_extension(settings.CONF_FILE_PATH, ".temp")
+        user_response("stop")
+        cls.ev_loop.run_until_complete(wait_til(lambda: cls.hb.markets_recorder is None))
 
     @classmethod
     async def set_up_class(cls):
