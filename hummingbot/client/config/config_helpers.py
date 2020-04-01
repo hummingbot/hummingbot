@@ -357,3 +357,29 @@ def minimum_order_amount(trading_pair):
     except Exception:
         quote_amount = Decimal('0')
     return round(quote_amount, 4)
+
+
+def default_strategy_file_path(strategy: str) -> str:
+    """
+    Find the next available file name.
+    :return: a default file name - `conf_{short_strategy}_{INDEX}.yml` e.g. 'conf_pure_mm_1.yml'
+    """
+    i = 1
+    new_fname = f"{CONF_PREFIX}{short_strategy_name(strategy)}_{i}.yml"
+    new_path = join(CONF_FILE_PATH, new_fname)
+    while isfile(new_path):
+        new_fname = f"{CONF_PREFIX}{short_strategy_name(strategy)}_{i}.yml"
+        new_path = join(CONF_FILE_PATH, new_fname)
+        i += 1
+    return new_fname
+
+
+def short_strategy_name(strategy: str) -> str:
+    if strategy == "pure_market_making":
+        return "pure_mm"
+    elif strategy == "cross_exchange_market_making":
+        return "xemm"
+    elif strategy == "arbitrage":
+        return "arb"
+    else:
+        return strategy
