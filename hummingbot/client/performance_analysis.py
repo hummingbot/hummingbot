@@ -166,7 +166,8 @@ class PerformanceAnalysis:
             if not queried_trades:
                 market_trading_pair_stats[market_trading_pair_tuple] = {
                     "starting_quote_rate": market_trading_pair_tuple.get_mid_price(),
-                    "asset": asset_stats
+                    "asset": asset_stats,
+                    "trade_count": 0
                 }
                 continue
 
@@ -185,7 +186,8 @@ class PerformanceAnalysis:
 
             market_trading_pair_stats[market_trading_pair_tuple] = {
                 "starting_quote_rate": Decimal(repr(queried_trades[0].price)),
-                "asset": asset_stats
+                "asset": asset_stats,
+                "trade_count": len(queried_trades)
             }
 
         return market_trading_pair_stats
