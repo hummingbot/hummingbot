@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import bin.path_util        # noqa: F401
+import path_util        # noqa: F401
 import asyncio
 import errno
 import socket
@@ -79,10 +79,14 @@ dialog_style = Style.from_dict({
     'dialog.body': 'bg:#000000 #1CD085',
     'dialog shadow': 'bg:#171E2B',
     'button': 'bg:#000000',
-    'text-area': 'bg:#000000 #1CD085',
+    'text-area': 'bg:#000000 #ffffff',
 })
 
-logo = """
+
+def show_welcome():
+    message_dialog(
+        title='Welcome to Hummingbot',
+        text="""
 
     ██╗  ██╗██╗   ██╗███╗   ███╗███╗   ███╗██╗███╗   ██╗ ██████╗ ██████╗  ██████╗ ████████╗
     ██║  ██║██║   ██║████╗ ████║████╗ ████║██║████╗  ██║██╔════╝ ██╔══██╗██╔═══██╗╚══██╔══╝
@@ -97,24 +101,59 @@ logo = """
     Codebase: https://github.com/coinalpha/hummingbot
 
 
-"""
+        """,
+        style=dialog_style).run()
+    message_dialog(
+        title='Important Warning',
+        text="""
+
+
+    PLEASE READ THIS CAREFULLY BEFORE USING HUMMINGBOT:
+
+    Hummingbot is a free and open source software client that helps you build algorithmic
+    crypto trading strategies.
+
+    Algorithmic crypto trading is a risky activity. You will be building a "bot" that
+    automatically places orders and trades based on parameters that you set. Please take
+    the time to understand how each strategy works before you risk real capital with it.
+    You are solely responsible for the trades that you perform using Hummingbot.
+
+    To use Hummingbot, you first need to give it access to your crypto assets by entering
+    API keys and/or private keys. These keys are not shared with anyone, including us.
+
+    On the next screen, you will set a password to protect your use of Hummingbot. Please
+    store this password safely, since only you have access to it and we cannot reset it.
+
+        """,
+        style=dialog_style).run()
+    message_dialog(
+        title='Important Warning',
+        text="""
+
+
+    SET A SECURE PASSWORD:
+
+    To use Hummingbot, you will need to give it access to your crypto assets by entering
+    your exchange API keys and/or wallet private keys. These keys are not shared with
+    anyone, including us.
+
+    On the next screen, you will set a password to protect these keys and other sensitive
+    data. Please store this password safely since there is no way to reset it.
+
+        """,
+        style=dialog_style).run()
 
 
 def login(welcome_msg=True):
     err_msg = None
     if Security.new_password_required():
-        if welcome_msg:
-            message_dialog(
-                title='Welcome to Hummingbot',
-                text=logo,
-                style=dialog_style).run()
         password = input_dialog(
-            title="Security",
-            text="Set a password to protect your sensitive data. This password is not shared with us nor with anyone else, so please store it in a safe place.\n\nEnter your new password:",
+            title="Set Password",
+            text="Create a password to protect your sensitive data. This password is not shared with us nor with anyone else, so please store it securely.\n\nEnter your new password:",
             password=True,
             style=dialog_style).run()
         re_password = input_dialog(
-            title="Security",
+            title="Set Password",
             text="Please re-enter your password:",
             password=True,
             style=dialog_style).run()
@@ -123,13 +162,8 @@ def login(welcome_msg=True):
         else:
             Security.login(password)
     else:
-        if welcome_msg:
-            message_dialog(
-                title='Welcome to Hummingbot',
-                text=logo,
-                style=dialog_style).run()
         password = input_dialog(
-            title="Security",
+            title="Welcome back to Hummingbot",
             text="Enter your password:",
             password=True,
             style=dialog_style).run()
