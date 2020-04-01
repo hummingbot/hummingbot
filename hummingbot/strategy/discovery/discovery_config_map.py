@@ -4,7 +4,7 @@ from typing import (
 )
 
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_validators import is_exchange
+from hummingbot.client.config.config_validators import validate_exchange
 from hummingbot.client.settings import EXAMPLE_PAIRS, required_exchanges
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 
@@ -59,13 +59,13 @@ discovery_config_map = {
     "primary_market": ConfigVar(
         key="primary_market",
         prompt="Enter your first exchange name >>> ",
-        validator=is_exchange,
+        validator=validate_exchange,
         on_validated=lambda value: required_exchanges.append(value),
     ),
     "secondary_market": ConfigVar(
         key="secondary_market",
         prompt="Enter your second exchange name >>> ",
-        validator=is_exchange,
+        validator=validate_exchange,
         on_validated=lambda value: required_exchanges.append(value),
     ),
     "target_trading_pair_1": ConfigVar(

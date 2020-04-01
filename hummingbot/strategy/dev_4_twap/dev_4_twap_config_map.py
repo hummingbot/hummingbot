@@ -1,6 +1,6 @@
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
-    is_exchange,
+    validate_exchange,
     is_valid_market_trading_pair,
 )
 from hummingbot.client.settings import (
@@ -30,7 +30,7 @@ dev_4_twap_config_map = {
     "market":
         ConfigVar(key="market",
                   prompt="Enter the name of the exchange >>> ",
-                  validator=is_exchange,
+                  validator=validate_exchange,
                   on_validated=lambda value: required_exchanges.append(value)),
     "market_trading_pair_tuple":
         ConfigVar(key="market_trading_pair_tuple",

@@ -1,6 +1,6 @@
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
-    is_exchange,
+    validate_exchange,
     is_valid_market_trading_pair,
 )
 from hummingbot.client.settings import (
@@ -45,12 +45,12 @@ arbitrage_config_map = {
     "primary_market": ConfigVar(
         key="primary_market",
         prompt="Enter your primary exchange name >>> ",
-        validator=is_exchange,
+        validator=validate_exchange,
         on_validated=lambda value: required_exchanges.append(value)),
     "secondary_market": ConfigVar(
         key="secondary_market",
         prompt="Enter your secondary exchange name >>> ",
-        validator=is_exchange,
+        validator=validate_exchange,
         on_validated=secondary_market_on_validated),
     "primary_market_trading_pair": ConfigVar(
         key="primary_market_trading_pair",

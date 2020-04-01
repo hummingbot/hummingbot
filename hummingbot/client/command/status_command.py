@@ -64,11 +64,11 @@ class StatusCommand:
                ) -> bool:
         # Preliminary checks.
         self._notify("\n  Preliminary checks:")
-        if self.config_complete:
-            self._notify("   - Config check: Config complete")
-        else:
-            self._notify('   x Config check: Pending config. Please enter "config" before starting the bot.')
-            return False
+        # if self.config_complete:
+        #     self._notify("   - Config check: Config complete")
+        # else:
+        #     self._notify('   x Config check: Pending config. Please enter "config" before starting the bot.')
+        #     return False
 
         if self.wallet is not None:
             # Only check node url when a wallet has been initialized

@@ -1,6 +1,6 @@
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
-    is_exchange,
+    validate_exchange,
     is_valid_market_trading_pair
 )
 from hummingbot.client.settings import required_exchanges, EXAMPLE_PAIRS
@@ -66,13 +66,13 @@ cross_exchange_market_making_config_map = {
     "maker_market": ConfigVar(
         key="maker_market",
         prompt="Enter your maker exchange name >>> ",
-        validator=is_exchange,
+        validator=validate_exchange,
         on_validated=lambda value: required_exchanges.append(value),
     ),
     "taker_market": ConfigVar(
         key="taker_market",
         prompt="Enter your taker exchange name >>> ",
-        validator=is_exchange,
+        validator=validate_exchange,
         on_validated=taker_market_on_validated,
     ),
     "maker_market_trading_pair": ConfigVar(

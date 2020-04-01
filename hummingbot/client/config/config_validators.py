@@ -12,40 +12,47 @@ from decimal import Decimal
 
 
 # Validators
-def is_exchange(value: str) -> bool:
-    return value in EXCHANGES
+def validate_exchange(value: str) -> (bool, str):
+    if value in EXCHANGES:
+        return True, None
+    else:
+        return False, f"Invalid exchange, please choose value from {EXCHANGES}"
 
 
-def is_strategy(value: str) -> bool:
-    return value in STRATEGIES
+def validate_strategy(value: str) -> (bool, str):
+    if value in STRATEGIES:
+        return True, None
+    else:
+        return False, f"Invalid strategy, please choose value from {STRATEGIES}"
 
 
-def is_valid_percent(value: str) -> bool:
+def validate_decimal(value: str, min_value: Decimal = None, max_value: Decimal = None) -> (bool, str):
     try:
-        return 0 <= float(value) < 1
+        decimal_value = Decimal(value)
+        if min_value is not None and max_value is not None:
+            if not (Decimal(str(min_value)) <= decimal_value <= Decimal(str(max_value))):
+                return False, f"Value must be between {min_value} and {max_value}."
+        elif min_value is not None:
+            if decimal_value < Decimal(str(min_value)):
+                return False, f"Value cannot be less than {min_value}."
+        elif max_value is not None:
+            if decimal_value > Decimal(str(max_value)):
+                return False, f"Value cannot be more than {max_value}."
+        return True, None
     except ValueError:
-        return False
+        return False, f"{value} is not in decimal format."
 
 
-def is_valid_decimal(value: str, min_value, max_value) -> bool:
-    try:
-        return Decimal(str(min_value)) <= Decimal(value) < Decimal(str(max_value))
-    except ValueError:
-        return False
+def validate_path(value: str) -> (bool, str):
+    if not isfile(join(CONF_FILE_PATH, value)):
+        return False, f"{value} is not a valid file."
+    elif not value.endswith('.yml'):
+        return False, f"File extension must be .yml"
+    else:
+        return True, None
 
 
-def is_valid_expiration(value: str) -> bool:
-    try:
-        return float(value) >= 130.0
-    except Exception:
-        return False
-
-
-def is_path(value: str) -> bool:
-    return isfile(join(CONF_FILE_PATH, value)) and value.endswith('.yml')
-
-
-def is_valid_market_trading_pair(market: str, value: str) -> bool:
+def is_valid_market_trading_pair(market: str, value: str) -> (bool, str):
     # Since trading pair validation and autocomplete are UI optimizations that do not impact bot performances,
     # in case of network issues or slow wifi, this check returns true and does not prevent users from proceeding,
     trading_pair_fetcher: TradingPairFetcher = TradingPairFetcher.get_instance()
@@ -56,5 +63,9 @@ def is_valid_market_trading_pair(market: str, value: str) -> bool:
         return True
 
 
-def is_valid_bool(value: str) -> bool:
-    return value.lower() in ('true', 'yes', 'y', 'false', 'no', 'n')
+def validate_bool(value: str) -> (bool, str):
+    valid_values = ('true', 'yes', 'y', 'false', 'no', 'n')
+    if value.lower() in valid_values:
+        return True, None
+    else:
+        return False, f"Invalid input, please choose value from {valid_values}"
