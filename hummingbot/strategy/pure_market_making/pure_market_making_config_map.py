@@ -17,7 +17,6 @@ from hummingbot.client.config.global_config_map import (
     using_exchange
 )
 from hummingbot.client.config.config_helpers import (
-    parse_cvar_value,
     minimum_order_amount
 )
 from hummingbot.data_feed.exchange_price_manager import ExchangePriceManager
@@ -31,7 +30,7 @@ def maker_trading_pair_prompt():
 
 
 def assign_values_advanced_mode_switch(advanced_mode):
-    advanced_mode = parse_cvar_value(pure_market_making_config_map["advanced_mode"], advanced_mode)
+    advanced_mode = False
     found_advanced_section = False
     for cvar in pure_market_making_config_map.values():
         if found_advanced_section:
@@ -39,7 +38,7 @@ def assign_values_advanced_mode_switch(advanced_mode):
                 cvar.value = None
             if not advanced_mode and cvar.value is None and cvar.default is not None:
                 cvar.value = cvar.default
-        elif cvar == pure_market_making_config_map["advanced_mode"]:
+        elif cvar == pure_market_making_config_map["order_amount"]:
             found_advanced_section = True
 
 
@@ -120,15 +119,8 @@ pure_market_making_config_map = {
         ConfigVar(key="order_amount",
                   prompt=order_amount_prompt,
                   type_str="decimal",
-                  validator=is_valid_order_amount),
-    "advanced_mode":
-        ConfigVar(key="advanced_mode",
-                  prompt="Would you like to proceed with advanced configuration? (Yes/No) >>> ",
-                  type_str="bool",
-                  default=False,
-                  on_validated=assign_values_advanced_mode_switch,
-                  migration_default=True,
-                  validator=is_valid_bool),
+                  validator=is_valid_order_amount,
+                  on_validated=assign_values_advanced_mode_switch),
     "order_expiration_time":
         ConfigVar(key="order_expiration_time",
                   prompt="How long should your limit orders remain valid until they "
@@ -141,6 +133,7 @@ pure_market_making_config_map = {
     "order_levels":
         ConfigVar(key="order_levels",
                   prompt="How many orders do you want to place on both sides? >>> ",
+                  required_if=lambda: False,
                   type_str="int",
                   default=1),
     "order_level_amount":
@@ -162,6 +155,7 @@ pure_market_making_config_map = {
         ConfigVar(key="inventory_skew_enabled",
                   prompt="Would you like to enable inventory skew? (Yes/No) >>> ",
                   type_str="bool",
+                  required_if=lambda: False,
                   default=False,
                   validator=is_valid_bool),
     "inventory_target_base_pct":
@@ -183,11 +177,13 @@ pure_market_making_config_map = {
                   prompt="How long do you want to wait before placing the next order "
                          "if your order gets filled (in seconds)? >>> ",
                   type_str="float",
+                  required_if=lambda: False,
                   default=60),
     "hanging_orders_enabled":
         ConfigVar(key="hanging_orders_enabled",
                   prompt="Do you want to enable hanging orders? (Yes/No) >>> ",
                   type_str="bool",
+                  required_if=lambda: False,
                   default=False,
                   validator=is_valid_bool),
     "hanging_orders_cancel_pct":
@@ -203,6 +199,7 @@ pure_market_making_config_map = {
         ConfigVar(key="order_optimization_enabled",
                   prompt="Do you want to enable best bid ask jumping? (Yes/No) >>> ",
                   type_str="bool",
+                  required_if=lambda: False,
                   default=False,
                   validator=is_valid_bool),
     "order_optimization_depth":
@@ -217,12 +214,14 @@ pure_market_making_config_map = {
         ConfigVar(key="add_transaction_costs",
                   prompt="Do you want to add transaction costs automatically to order prices? (Yes/No) >>> ",
                   type_str="bool",
+                  required_if=lambda: False,
                   default=False,
                   validator=is_valid_bool),
     "price_source_enabled": ConfigVar(key="price_source_enabled",
                                       prompt="Would you like to use an external pricing source for mid-market "
                                              "price? (Yes/No) >>> ",
                                       type_str="bool",
+                                      required_if=lambda: False,
                                       default=False,
                                       validator=is_valid_bool),
     "price_source_type": ConfigVar(key="price_source_type",
