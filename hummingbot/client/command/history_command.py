@@ -13,6 +13,7 @@ from typing import (
 from hummingbot.client.performance_analysis import PerformanceAnalysis
 from hummingbot.market.market_base import MarketBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from datetime import datetime
 
 s_float_0 = float(0)
 
@@ -137,6 +138,7 @@ class HistoryCommand:
 
             trade_performance_status_line.extend(
                 ["", "  Performance:"] +
+                [f"    Started: {datetime.fromtimestamp(self.start_time//1e3)}"] +
                 [f"    Total Trade Value Delta: {portfolio_delta:.7g} {primary_quote_asset}"])
 
             self._notify("\n".join(trade_performance_status_line))
