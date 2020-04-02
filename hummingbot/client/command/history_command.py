@@ -11,7 +11,6 @@ from typing import (
     TYPE_CHECKING,
 )
 from hummingbot.client.performance_analysis import PerformanceAnalysis
-from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.market.market_base import MarketBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
@@ -71,10 +70,9 @@ class HistoryCommand:
                              f"{starting_balance:.4f}",
                              f"{current_balance:.4f}",
                              f"{current_balance - starting_balance:.4f}",
-                             f"{asset_delta['delta']:.4f}",
-                             f"{ExchangeRateConversion.get_instance().adjust_token_rate(asset, Decimal(1)):.4f}"])
-        df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Net_Delta",
-                                                     "Trade_Delta", "Conversion_Rate"])
+                             f"{asset_delta['delta']:.4f}"])
+        df = pd.DataFrame(rows, index=None, columns=["Market", "Asset", "Starting", "Current", "Net Delta",
+                                                     "Trade Delta"])
         return df
 
     def _calculate_trade_performance(self,  # type: HummingbotApplication
@@ -115,8 +113,8 @@ class HistoryCommand:
 
             trade_performance_status_line = []
             market_df_data: Set[Tuple[str, str, Decimal, Decimal, str, str]] = set()
-            market_df_columns = ["Market", "Trading_Pair", "Start_Price", "End_Price",
-                                 "Total_Value_Delta", "Profit"]
+            market_df_columns = ["Market", "Pair", "Start Price", "End Price",
+                                 "Total Value Delta", "Trades"]
 
             for market_trading_pair_tuple, trading_pair_stats in market_trading_pair_stats.items():
                 market_df_data.add((
@@ -125,23 +123,21 @@ class HistoryCommand:
                     trading_pair_stats["starting_quote_rate"],
                     trading_pair_stats["end_quote_rate"],
                     f"{trading_pair_stats['trading_pair_delta']:.8f} {primary_quote_asset}",
-                    f"{trading_pair_stats['trading_pair_delta_percentage']:.4f} %"
+                    trading_pair_stats["trade_count"]
                 ))
 
             inventory_df: pd.DataFrame = self.balance_comparison_data_frame(market_trading_pair_stats)
             market_df: pd.DataFrame = pd.DataFrame(data=list(market_df_data), columns=market_df_columns)
             portfolio_delta: Decimal = trade_performance_stats["portfolio_delta"]
-            portfolio_delta_percentage: Decimal = trade_performance_stats["portfolio_delta_percentage"]
 
             trade_performance_status_line.extend(["", "  Inventory:"] +
                                                  ["    " + line for line in inventory_df.to_string().split("\n")])
-            trade_performance_status_line.extend(["", "  Market Trading Pair Performance:"] +
+            trade_performance_status_line.extend(["", "  Markets:"] +
                                                  ["    " + line for line in market_df.to_string().split("\n")])
 
             trade_performance_status_line.extend(
-                ["", "  Portfolio Performance:"] +
-                [f"    Quote Value Delta: {portfolio_delta:.7g} {primary_quote_asset}"] +
-                [f"    Delta Percentage: {portfolio_delta_percentage:.4f} %"])
+                ["", "  Performance:"] +
+                [f"    Total Trade Value Delta: {portfolio_delta:.7g} {primary_quote_asset}"])
 
             self._notify("\n".join(trade_performance_status_line))
 
