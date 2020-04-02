@@ -51,6 +51,7 @@ from hummingbot.strategy.pure_market_making import (
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.core.network_base import NetworkStatus
+from hummingbot.client.command.config_command import ConfigCommand
 
 
 class MockDataFeed(DataFeedBase):
@@ -97,7 +98,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.mid_price = 100
         self.bid_threshold = 0.01
         self.ask_threshold = 0.01
-        self.cancel_order_wait_time = 45
+        self.order_refresh_time = 45
         self.maker_data.set_balanced_order_book(mid_price=self.mid_price, min_price=1,
                                                 max_price=200, price_step_size=1, volume_step_size=10)
 
@@ -108,18 +109,18 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.equal_strategy_sizing_delegate = StaggeredMultipleSizeSizingDelegate(
             order_start_size=Decimal("1.0"),
             order_step_size=Decimal("0"),
-            number_of_orders=Decimal("5")
+            order_levels=Decimal("5")
         )
         self.staggered_strategy_sizing_delegate = StaggeredMultipleSizeSizingDelegate(
             order_start_size=Decimal("1.0"),
             order_step_size=Decimal("0.5"),
-            number_of_orders=Decimal("5")
+            order_levels=Decimal("5")
         )
         self.multiple_order_strategy_pricing_delegate = ConstantMultipleSpreadPricingDelegate(
             bid_spread=Decimal(self.bid_threshold),
             ask_spread=Decimal(self.ask_threshold),
-            order_interval_size=Decimal("0.01"),
-            number_of_orders=Decimal("5")
+            order_level_spread=Decimal("0.01"),
+            order_levels=Decimal("5")
         )
 
         self.maker_market.add_data(self.maker_data)
@@ -142,11 +143,11 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
                                 (~PureMarketMakingStrategyV2.OPTION_LOG_NULL_ORDER_SIZE))
         self.strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
-            filled_order_replenish_wait_time=self.cancel_order_wait_time,
+            filled_order_delay=self.order_refresh_time,
             filter_delegate=self.filter_delegate,
             sizing_delegate=self.constant_sizing_delegate,
             pricing_delegate=self.constant_pricing_delegate,
-            cancel_order_wait_time=45,
+            order_refresh_time=45,
             logging_options=logging_options
         )
 
@@ -155,7 +156,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             filter_delegate=self.filter_delegate,
             pricing_delegate=self.multiple_order_strategy_pricing_delegate,
             sizing_delegate=self.equal_strategy_sizing_delegate,
-            cancel_order_wait_time=45,
+            order_refresh_time=45,
             logging_options=logging_options
         )
 
@@ -164,7 +165,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             filter_delegate=self.filter_delegate,
             pricing_delegate=self.multiple_order_strategy_pricing_delegate,
             sizing_delegate=self.staggered_strategy_sizing_delegate,
-            cancel_order_wait_time=45,
+            order_refresh_time=45,
             logging_options=logging_options
         )
 
@@ -173,8 +174,8 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             filter_delegate=self.filter_delegate,
             pricing_delegate=self.constant_pricing_delegate,
             sizing_delegate=self.constant_sizing_delegate,
-            cancel_order_wait_time=900,
-            filled_order_replenish_wait_time=80,
+            order_refresh_time=900,
+            filled_order_delay=80,
             logging_options=logging_options
         )
 
@@ -183,10 +184,10 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             filter_delegate=self.filter_delegate,
             pricing_delegate=self.constant_pricing_delegate,
             sizing_delegate=self.constant_sizing_delegate,
-            best_bid_ask_jump_mode=True,
-            cancel_order_wait_time=900,
-            filled_order_replenish_wait_time=80,
-            enable_order_filled_stop_cancellation=True,
+            order_optimization_enabled=True,
+            order_refresh_time=900,
+            filled_order_delay=80,
+            hanging_orders_enabled=True,
             logging_options=logging_options
         )
 
@@ -201,22 +202,22 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.asset_del = OrderBookAssetPriceDelegate(self.ext_market, self.maker_trading_pairs[0])
         self.ext_exc_price_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
-            filled_order_replenish_wait_time=self.cancel_order_wait_time,
+            filled_order_delay=self.order_refresh_time,
             filter_delegate=self.filter_delegate,
             sizing_delegate=self.constant_sizing_delegate,
             pricing_delegate=self.constant_pricing_delegate,
-            cancel_order_wait_time=45,
+            order_refresh_time=45,
             logging_options=logging_options,
             asset_price_delegate=self.asset_del
         )
 
         self.multi_orders_ext_exc_price_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
-            filled_order_replenish_wait_time=self.cancel_order_wait_time,
+            filled_order_delay=self.order_refresh_time,
             filter_delegate=self.filter_delegate,
             sizing_delegate=self.equal_strategy_sizing_delegate,
             pricing_delegate=self.multiple_order_strategy_pricing_delegate,
-            cancel_order_wait_time=45,
+            order_refresh_time=45,
             logging_options=logging_options,
             asset_price_delegate=self.asset_del
         )
@@ -239,22 +240,22 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
 
         self.ext_feed_price_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
-            filled_order_replenish_wait_time=self.cancel_order_wait_time,
+            filled_order_delay=self.order_refresh_time,
             filter_delegate=self.filter_delegate,
             sizing_delegate=self.constant_sizing_delegate,
             pricing_delegate=self.constant_pricing_delegate,
-            cancel_order_wait_time=45,
+            order_refresh_time=45,
             logging_options=logging_options,
             asset_price_delegate=self.feed_asset_del
         )
 
         self.multi_orders_ext_feed_price_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
-            filled_order_replenish_wait_time=self.cancel_order_wait_time,
+            filled_order_delay=self.order_refresh_time,
             filter_delegate=self.filter_delegate,
             sizing_delegate=self.equal_strategy_sizing_delegate,
             pricing_delegate=self.multiple_order_strategy_pricing_delegate,
-            cancel_order_wait_time=45,
+            order_refresh_time=45,
             logging_options=logging_options,
             asset_price_delegate=self.feed_asset_del
         )
@@ -370,6 +371,22 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
                          self.strategy.active_bids[0][1].price)
         self.assertEqual(1, self.strategy.active_bids[0][1].quantity)
         self.assertEqual(1, self.strategy.active_asks[0][1].quantity)
+
+    def test_spread_configs_update_single_mode(self):
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(self.mid_price * (1 - Decimal('0.01')),
+                         self.strategy.active_bids[0][1].price)
+        self.assertEqual(self.mid_price * (1 + Decimal('0.01')),
+                         self.strategy.active_asks[0][1].price)
+        self.assertEqual(1, self.strategy.active_bids[0][1].quantity)
+        self.assertEqual(1, self.strategy.active_asks[0][1].quantity)
+        ConfigCommand.update_running_pure_mm(self.strategy, "bid_place_threshold", Decimal('0.02'))
+        ConfigCommand.update_running_pure_mm(self.strategy, "ask_place_threshold", Decimal('0.03'))
+        self.clock.backtest_til(self.start_timestamp + (2 * self.clock_tick_size) + 1)
+        self.assertEqual(self.mid_price * (1 - Decimal('0.02')),
+                         self.strategy.active_bids[0][1].price)
+        self.assertEqual(self.mid_price * (1 + Decimal('0.03')),
+                         self.strategy.active_asks[0][1].price)
 
     def test_check_sufficient_balance(self):
         self.maker_market.set_balance("WETH", 0)
@@ -528,12 +545,12 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
                                 (~PureMarketMakingStrategyV2.OPTION_LOG_NULL_ORDER_SIZE))
         self.strategy_with_tx_costs: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
-            filled_order_replenish_wait_time=self.cancel_order_wait_time,
+            filled_order_delay=self.order_refresh_time,
             add_transaction_costs_to_orders=True,
             filter_delegate=self.filter_delegate,
             sizing_delegate=self.constant_sizing_delegate,
             pricing_delegate=self.constant_pricing_delegate,
-            cancel_order_wait_time=45,
+            order_refresh_time=45,
             logging_options=logging_options
         )
         self.clock.add_iterator(self.strategy_with_tx_costs)
@@ -549,7 +566,7 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.assertEqual(Decimal("1.0"), bid_order.quantity)
         self.assertEqual(Decimal("1.0"), ask_order.quantity)
 
-        # Check if orders are placed after cancel_order_wait_time
+        # Check if orders are placed after order_refresh_time
         self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
         self.assertEqual(2, len(self.cancel_order_logger.event_log))
         bid_order: LimitOrder = self.strategy_with_tx_costs.active_bids[0][1]
@@ -681,6 +698,40 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         ask_order: LimitOrder = self.ext_feed_price_strategy.active_asks[0][1]
         self.assertEqual(Decimal("202"), ask_order.price)
         self.assertEqual(Decimal("1.0"), ask_order.quantity)
+
+    def test_spread_configs_update_multiple_mode(self):
+        self.clock.remove_iterator(self.strategy)
+        self.clock.add_iterator(self.multi_order_equal_strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(5, len(self.multi_order_equal_strategy.active_bids))
+        self.assertEqual(5, len(self.multi_order_equal_strategy.active_asks))
+
+        first_bid_order: LimitOrder = self.multi_order_equal_strategy.active_bids[0][1]
+        first_ask_order: LimitOrder = self.multi_order_equal_strategy.active_asks[0][1]
+        self.assertEqual(Decimal("99"), first_bid_order.price)
+        self.assertEqual(Decimal("101"), first_ask_order.price)
+
+        last_bid_order: LimitOrder = self.multi_order_equal_strategy.active_bids[-1][1]
+        last_ask_order: LimitOrder = self.multi_order_equal_strategy.active_asks[-1][1]
+        last_bid_price = Decimal(99 * (1 - 0.01) ** 4).quantize(Decimal("0.01"))
+        last_ask_price = Decimal(101 * (1 + 0.01) ** 4).quantize(Decimal("0.01"))
+        self.assertAlmostEqual(last_bid_price, last_bid_order.price, 2)
+        self.assertAlmostEqual(last_ask_price, last_ask_order.price, 2)
+
+        ConfigCommand.update_running_pure_mm(self.multi_order_equal_strategy, "bid_place_threshold", Decimal('0.02'))
+        ConfigCommand.update_running_pure_mm(self.multi_order_equal_strategy, "ask_place_threshold", Decimal('0.02'))
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
+        first_bid_order: LimitOrder = self.multi_order_equal_strategy.active_bids[0][1]
+        first_ask_order: LimitOrder = self.multi_order_equal_strategy.active_asks[0][1]
+        self.assertEqual(Decimal("98"), first_bid_order.price)
+        self.assertEqual(Decimal("102"), first_ask_order.price)
+
+        last_bid_order: LimitOrder = self.multi_order_equal_strategy.active_bids[-1][1]
+        last_ask_order: LimitOrder = self.multi_order_equal_strategy.active_asks[-1][1]
+        last_bid_price = Decimal(98 * (1 - 0.01) ** 4).quantize(Decimal("0.01"))
+        last_ask_price = Decimal(102 * (1 + 0.01) ** 4).quantize(Decimal("0.01"))
+        self.assertAlmostEqual(last_bid_price, last_bid_order.price, 2)
+        self.assertAlmostEqual(last_ask_price, last_ask_order.price, 2)
 
     def test_multiple_orders_equal_sizes(self):
         self.clock.remove_iterator(self.strategy)
@@ -910,10 +961,10 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             filter_delegate=self.filter_delegate,
             pricing_delegate=self.constant_pricing_delegate,
             sizing_delegate=self.constant_sizing_delegate,
-            best_bid_ask_jump_mode=True,
-            cancel_order_wait_time=900,
-            filled_order_replenish_wait_time=80,
-            enable_order_filled_stop_cancellation=True,
+            order_optimization_enabled=True,
+            order_refresh_time=900,
+            filled_order_delay=80,
+            hanging_orders_enabled=True,
             logging_options=logging_options
         )
         self.clock.add_iterator(self.penny_jumping_strategy)
@@ -948,7 +999,7 @@ class PureMarketMakingV2HangingOrderUnitTest(unittest.TestCase):
         self.mid_price = 100
         self.bid_threshold = 0.01
         self.ask_threshold = 0.01
-        self.cancel_order_wait_time = 30
+        self.order_refresh_time = 30
         self.maker_data.set_balanced_order_book(mid_price=self.mid_price, min_price=1,
                                                 max_price=200, price_step_size=1, volume_step_size=10)
         self.constant_pricing_delegate = ConstantSpreadPricingDelegate(Decimal(self.bid_threshold),
@@ -976,33 +1027,33 @@ class PureMarketMakingV2HangingOrderUnitTest(unittest.TestCase):
             filter_delegate=self.filter_delegate,
             pricing_delegate=self.constant_pricing_delegate,
             sizing_delegate=self.constant_sizing_delegate,
-            cancel_order_wait_time=4,
-            filled_order_replenish_wait_time=8,
-            enable_order_filled_stop_cancellation=True,
+            order_refresh_time=4,
+            filled_order_delay=8,
+            hanging_orders_enabled=True,
             logging_options=logging_options,
-            cancel_hanging_order_pct=0.05
+            hanging_orders_cancel_pct=0.05
         )
         self.multiple_order_pricing_delegate = ConstantMultipleSpreadPricingDelegate(
             bid_spread=Decimal(self.bid_threshold),
             ask_spread=Decimal(self.ask_threshold),
-            order_interval_size=Decimal("0.01"),
-            number_of_orders=Decimal("5")
+            order_level_spread=Decimal("0.01"),
+            order_levels=Decimal("5")
         )
         self.equal_sizing_delegate = StaggeredMultipleSizeSizingDelegate(
             order_start_size=Decimal("1.0"),
             order_step_size=Decimal("0"),
-            number_of_orders=Decimal("5")
+            order_levels=Decimal("5")
         )
         self.multi_orders_hanging_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
             filter_delegate=self.filter_delegate,
             pricing_delegate=self.multiple_order_pricing_delegate,
             sizing_delegate=self.equal_sizing_delegate,
-            cancel_order_wait_time=4,
-            filled_order_replenish_wait_time=8,
-            enable_order_filled_stop_cancellation=True,
+            order_refresh_time=4,
+            filled_order_delay=8,
+            hanging_orders_enabled=True,
             logging_options=logging_options,
-            cancel_hanging_order_pct=0.1
+            hanging_orders_cancel_pct=0.1
         )
 
         self.replenish_delay_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
@@ -1010,8 +1061,8 @@ class PureMarketMakingV2HangingOrderUnitTest(unittest.TestCase):
             filter_delegate=self.filter_delegate,
             pricing_delegate=self.constant_pricing_delegate,
             sizing_delegate=self.constant_sizing_delegate,
-            cancel_order_wait_time=4,
-            filled_order_replenish_wait_time=8,
+            order_refresh_time=4,
+            filled_order_delay=8,
             logging_options=logging_options
         )
 
@@ -1020,8 +1071,8 @@ class PureMarketMakingV2HangingOrderUnitTest(unittest.TestCase):
             filter_delegate=self.filter_delegate,
             pricing_delegate=self.multiple_order_pricing_delegate,
             sizing_delegate=self.equal_sizing_delegate,
-            cancel_order_wait_time=4,
-            filled_order_replenish_wait_time=8,
+            order_refresh_time=4,
+            filled_order_delay=8,
             logging_options=logging_options
         )
         self.logging_options = logging_options
@@ -1050,12 +1101,12 @@ class PureMarketMakingV2HangingOrderUnitTest(unittest.TestCase):
         self.assertEqual(1, len(strategy.hanging_order_ids))
         hanging_order_id = strategy.hanging_order_ids[0]
 
-        # At cancel_order_wait_time (4 seconds), hanging order remains.
+        # At order_refresh_time (4 seconds), hanging order remains.
         self.clock.backtest_til(self.start_timestamp + 5 * self.clock_tick_size)
         self.assertEqual(0, len(strategy.active_bids))
         self.assertEqual(1, len(strategy.active_asks))
 
-        # At filled_order_replenish_wait_time (8 seconds), a new set of bid and ask orders (one each) is created
+        # At filled_order_delay (8 seconds), a new set of bid and ask orders (one each) is created
         self.clock.backtest_til(self.start_timestamp + 10 * self.clock_tick_size)
         self.assertEqual(1, len(strategy.active_bids))
         self.assertEqual(2, len(strategy.active_asks))
@@ -1063,7 +1114,7 @@ class PureMarketMakingV2HangingOrderUnitTest(unittest.TestCase):
         self.assertIn(hanging_order_id, [order.client_order_id for market, order in strategy.active_asks])
 
         PureMarketMakingV2UnitTest.simulate_order_book_widening(self.maker_data.order_book, 80, 100)
-        # As book bids moving lower, the ask hanging order price spread is now more than the cancel_hanging_order_pct
+        # As book bids moving lower, the ask hanging order price spread is now more than the hanging_orders_cancel_pct
         # Hanging order is canceled and removed from the active list
         self.clock.backtest_til(self.start_timestamp + 11 * self.clock_tick_size)
         self.assertEqual(1, len(strategy.active_bids))
@@ -1097,12 +1148,12 @@ class PureMarketMakingV2HangingOrderUnitTest(unittest.TestCase):
         self.assertEqual(4, len(strategy.active_asks))
         self.assertEqual(5, len(strategy.hanging_order_ids))
 
-        # At cancel_order_wait_time (4 seconds), hanging order remains, asks all got canceled
+        # At order_refresh_time (4 seconds), hanging order remains, asks all got canceled
         self.clock.backtest_til(self.start_timestamp + 5 * self.clock_tick_size)
         self.assertEqual(5, len(strategy.active_bids))
         self.assertEqual(0, len(strategy.active_asks))
 
-        # At filled_order_replenish_wait_time (8 seconds), new sets of bid and ask orders are created
+        # At filled_order_delay (8 seconds), new sets of bid and ask orders are created
         self.clock.backtest_til(self.start_timestamp + 10 * self.clock_tick_size)
         self.assertEqual(10, len(strategy.active_bids))
         self.assertEqual(5, len(strategy.active_asks))
@@ -1113,7 +1164,7 @@ class PureMarketMakingV2HangingOrderUnitTest(unittest.TestCase):
 
         PureMarketMakingV2UnitTest.simulate_order_book_widening(self.maker_data.order_book, 100, 120)
         # As order book asks moving higher, some hanging ask orders price spreads are now more than
-        # the cancel_hanging_order_pct
+        # the hanging_orders_cancel_pct
         self.clock.backtest_til(self.start_timestamp + 11 * self.clock_tick_size)
         self.assertEqual(6, len(strategy.active_bids))
         self.assertEqual(5, len(strategy.active_asks))
@@ -1145,7 +1196,7 @@ class PureMarketMakingV2HangingOrderUnitTest(unittest.TestCase):
         self.assertEqual(0, len(strategy.active_bids))
         self.assertEqual(0, len(strategy.active_asks))
 
-        # New orders are placed after filled_order_replenish_wait_time
+        # New orders are placed after filled_order_delay
         self.clock.backtest_til(self.start_timestamp + 10 * self.clock_tick_size)
         self.assertEqual(1, len(strategy.active_bids))
         self.assertEqual(1, len(strategy.active_asks))
@@ -1177,7 +1228,7 @@ class PureMarketMakingV2HangingOrderUnitTest(unittest.TestCase):
         self.assertEqual(0, len(strategy.active_bids))
         self.assertEqual(0, len(strategy.active_asks))
 
-        # New orders are placed after filled_order_replenish_wait_time
+        # New orders are placed after filled_order_delay
         self.clock.backtest_til(self.start_timestamp + 10 * self.clock_tick_size)
         self.assertEqual(5, len(strategy.active_bids))
         self.assertEqual(5, len(strategy.active_asks))
@@ -1200,7 +1251,7 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
         self.mid_price = 100
         self.bid_threshold = 0.01
         self.ask_threshold = 0.01
-        self.cancel_order_wait_time = 30
+        self.order_refresh_time = 30
         self.maker_data.set_balanced_order_book(mid_price=self.mid_price, min_price=1,
                                                 max_price=200, price_step_size=1, volume_step_size=10)
         self.filter_delegate = PassThroughFilterDelegate()
@@ -1209,8 +1260,8 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
         self.multiple_order_strategy_pricing_delegate = ConstantMultipleSpreadPricingDelegate(
             bid_spread=Decimal(self.bid_threshold),
             ask_spread=Decimal(self.ask_threshold),
-            order_interval_size=Decimal("0.01"),
-            number_of_orders=5
+            order_level_spread=Decimal("0.01"),
+            order_levels=5
         )
         self.inventory_skew_single_size_sizing_delegate = InventorySkewSingleSizeSizingDelegate(
             order_size=Decimal("1"),
@@ -1220,7 +1271,7 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
         self.inventory_skew_multiple_size_sizing_delegate = InventorySkewMultipleSizeSizingDelegate(
             order_start_size=Decimal("1.0"),
             order_step_size=Decimal("0.5"),
-            number_of_orders=5,
+            order_levels=5,
             inventory_target_base_percent=Decimal("0.9"),
             inventory_range_multiplier=Decimal("0.5")
         )
@@ -1249,8 +1300,8 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
             filter_delegate=self.filter_delegate,
             sizing_delegate=self.inventory_skew_single_size_sizing_delegate,
             pricing_delegate=self.constant_pricing_delegate,
-            cancel_order_wait_time=45,
-            filled_order_replenish_wait_time=0,
+            order_refresh_time=45,
+            filled_order_delay=0,
             logging_options=logging_options
         )
 
@@ -1259,8 +1310,8 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
             filter_delegate=self.filter_delegate,
             sizing_delegate=self.inventory_skew_single_size_sizing_delegate,
             pricing_delegate=self.constant_pricing_delegate,
-            cancel_order_wait_time=45,
-            filled_order_replenish_wait_time=15,
+            order_refresh_time=45,
+            filled_order_delay=15,
             logging_options=logging_options
         )
 
@@ -1269,7 +1320,7 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
             filter_delegate=self.filter_delegate,
             sizing_delegate=self.inventory_skew_multiple_size_sizing_delegate,
             pricing_delegate=self.multiple_order_strategy_pricing_delegate,
-            cancel_order_wait_time=45,
+            order_refresh_time=45,
             logging_options=logging_options
         )
 
@@ -1405,7 +1456,7 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
         self.assertAlmostEqual(101, maker_fill.price)
         self.assertAlmostEqual(Decimal("1.5"), Decimal(str(maker_fill.amount)), places=4)
 
-        # The default filled_order_replenish_wait_time is 60, so gotta wait 60 + 2 here.
+        # The default filled_order_delay is 60, so gotta wait 60 + 2 here.
         self.clock.backtest_til(self.start_timestamp + 62 * self.clock_tick_size + 1)
         self.assertEqual(5, len(self.inventory_skew_multiple_order_strategy.active_bids))
         self.assertEqual(5, len(self.inventory_skew_multiple_order_strategy.active_asks))
