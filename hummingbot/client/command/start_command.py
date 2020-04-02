@@ -14,7 +14,6 @@ from hummingbot.core.clock import (
     ClockMode
 )
 from hummingbot import init_logging
-from hummingbot.client.config.in_memory_config_map import in_memory_config_map
 from hummingbot.client.config.config_helpers import (
     get_strategy_starter_file,
 )
@@ -60,10 +59,9 @@ class StartCommand:
         if not is_valid:
             return
 
-        strategy_file_path = in_memory_config_map.get("strategy_file_path").value
         init_logging("hummingbot_logs.yml",
                      override_log_level=log_level.upper() if log_level else None,
-                     strategy_file_path=strategy_file_path)
+                     strategy_file_path=self.strategy_file_name)
 
         # If macOS, disable App Nap.
         if platform.system() == "Darwin":
@@ -90,7 +88,7 @@ class StartCommand:
             raise NotImplementedError
 
         try:
-            config_path: str = in_memory_config_map.get("strategy_file_path").value
+            config_path: str = self.strategy_file_name  # in_memory_config_map.get("strategy_file_path").value
             self.start_time = time.time() * 1e3  # Time in milliseconds
             self.clock = Clock(ClockMode.REALTIME)
             if self.wallet is not None:
