@@ -10,7 +10,8 @@ from hummingbot.client.config.config_helpers import (
     default_strategy_file_path,
     save_to_yml,
     get_strategy_template_path,
-    missing_required_configs
+    missing_required_configs,
+    format_config_file_name
 )
 from hummingbot.client.settings import CONF_FILE_PATH
 from hummingbot.client.config.global_config_map import global_config_map
@@ -41,12 +42,22 @@ def parse_config_default_to_text(config: ConfigVar) -> str:
 class CreateCommand:
     def create(self,  # type: HummingbotApplication
                file_name):
+        strategy_file_name = None
+        if file_name is not None:
+            strategy_file_name = format_config_file_name(file_name)
+            if strategy_file_name is None:
+                self._notify(f"{file_name} is a not valid yml file.")
+                return
+            if os.path.exists(os.path.join(CONF_FILE_PATH, strategy_file_name)):
+                self._notify(f"{strategy_file_name} already exists.")
+                return
         self.app.clear_input()
         self.placeholder_mode = True
         self.app.toggle_hide_input()
-        safe_ensure_future(self.prompt_for_configuration())
+        safe_ensure_future(self.prompt_for_configuration(strategy_file_name))
 
-    async def prompt_for_configuration(self):
+    async def prompt_for_configuration(self,  # type: HummingbotApplication
+                                       strategy_file_name):
         strategy = global_config_map.get("strategy").value
         config_map = get_strategy_config_map(strategy)
         self._notify(f"Please see https://docs.hummingbot.io/strategies/{strategy.replace('_', '-')}/ "
@@ -63,7 +74,10 @@ class CreateCommand:
             else:
                 config.value = config.default
         strategy = global_config_map.get("strategy").value
-        self.strategy_file_name = await self.prompt_new_file_name(strategy)
+        if strategy_file_name is not None:
+            self.strategy_file_name = strategy_file_name
+        else:
+            self.strategy_file_name = await self.prompt_new_file_name(strategy)
         strategy_path = os.path.join(CONF_FILE_PATH, self.strategy_file_name)
         template = get_strategy_template_path(strategy)
         shutil.copy(template, strategy_path)

@@ -412,3 +412,13 @@ def load_secure_values(config_map):
     for key, config in config_map.items():
         if config.is_secure:
             config.value = Security.decrypted_value(key)
+
+
+def format_config_file_name(file_name):
+    parts = file_name.split(".")
+    if len(parts) == 1:
+        return f"{file_name}.yml"
+    elif len(parts) == 2 and parts[1] == "yml":
+        return file_name
+    else:
+        return None
