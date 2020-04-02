@@ -88,7 +88,7 @@ class StartCommand:
             raise NotImplementedError
 
         try:
-            config_path: str = self.strategy_file_name  # in_memory_config_map.get("strategy_file_path").value
+            config_path: str = self.strategy_file_name
             self.start_time = time.time() * 1e3  # Time in milliseconds
             self.clock = Clock(ClockMode.REALTIME)
             if self.wallet is not None:
