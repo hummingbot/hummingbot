@@ -9,10 +9,12 @@ from hummingbot.client.config.config_helpers import (
     parse_cvar_value,
     default_strategy_file_path,
     save_to_yml,
-    get_strategy_template_path
+    get_strategy_template_path,
+    missing_required_configs
 )
 from hummingbot.client.settings import CONF_FILE_PATH
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.security import Security
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -44,13 +46,19 @@ class CreateCommand:
         self.app.toggle_hide_input()
         safe_ensure_future(self.prompt_for_configuration())
 
-    async def prompt_for_configuration(self, config_map):
+    async def prompt_for_configuration(self):
         strategy = global_config_map.get("strategy").value
         config_map = get_strategy_config_map(strategy)
         self._notify(f"Please see https://docs.hummingbot.io/strategies/{strategy.replace('_', '-')}/ "
                      f"while setting up these below configuration.")
+        # assign default values and reset those not required
         for config in config_map.values():
             if config.required:
+                config.value = config.default
+            else:
+                config.value = None
+        for config in config_map.values():
+            if config.prompt_on_new:
                 await self.prompt_a_config(config)
             else:
                 config.value = config.default
@@ -59,7 +67,11 @@ class CreateCommand:
         strategy_path = os.path.join(CONF_FILE_PATH, self.strategy_file_name)
         template = get_strategy_template_path(strategy)
         shutil.copy(template, strategy_path)
-        await save_to_yml(strategy_path, config_map)
+        save_to_yml(strategy_path, config_map)
+        self._notify(f"A new config file {self.strategy_file_name} created.")
+        if not await self.notify_missing_configs():
+            self._notify("Enter \"start\" to start market making.")
+            self.app.set_text("start")
         self.placeholder_mode = False
         self.app.change_prompt(prompt=">>> ")
 
@@ -84,6 +96,29 @@ class CreateCommand:
         file_path = os.path.join(CONF_FILE_PATH, input)
         if os.path.exists(file_path):
             self._notify(f"{input} file already exists, please enter a new name.")
-            await self.prompt_new_file_name()
+            await self.prompt_new_file_name(strategy)
         else:
             return input
+
+    async def notify_missing_configs(self,  # type: HummingbotApplication
+                                     ):
+        await Security.wait_til_decryption_done()
+        for config in global_config_map.values():
+            if config.is_secure and config.value is None:
+                config.value = Security.decrypted_value(config.key)
+        missing_globals = missing_required_configs(global_config_map)
+        if missing_globals:
+            self._notify("\nIncomplete global configuration (conf_global.yml). The following values are missing.\n")
+            for config in missing_globals:
+                self._notify(config.key)
+        missing_configs = missing_required_configs(get_strategy_config_map(global_config_map["strategy"].value))
+        if missing_configs:
+            self._notify(f"\nIncomplete strategy configuration ({self.strategy_file_name}). "
+                         f"The following values are missing.\n")
+            for config in missing_configs:
+                self._notify(config.key)
+        any_missing = missing_globals or missing_configs
+        if any_missing:
+            self._notify(f"\nPlease run config config_name (e.g. config kill_switch) "
+                         f"to update the missing config values.")
+        return any_missing

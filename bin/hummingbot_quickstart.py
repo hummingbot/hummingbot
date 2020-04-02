@@ -18,7 +18,7 @@ from hummingbot.client.config.in_memory_config_map import in_memory_config_map
 from hummingbot.client.config.config_helpers import (
     create_yml_files,
     load_required_configs,
-    read_configs_from_yml,
+    read_system_configs_from_yml,
 )
 from hummingbot.client.ui.stdout_redirection import patch_stdout
 from hummingbot.client.ui.parser import ThrowingArgumentParser
@@ -70,7 +70,7 @@ async def quick_start():
         await Security.wait_til_decryption_done()
         await create_yml_files()
         init_logging("hummingbot_logs.yml")
-        read_configs_from_yml()
+        read_system_configs_from_yml()
         ExchangeRateConversion.get_instance().start()
         await ExchangeRateConversion.get_instance().wait_till_ready()
         hb = HummingbotApplication.main_application()
