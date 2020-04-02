@@ -107,9 +107,7 @@ class ListCommand:
                 if len(df) > MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT:
                     df_lines = str(df[:MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT]).split("\n")
                     self._notify(
-                        f"Number of Trades exceeds the maximum display limit "
-                        f"of:{MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT} trades. "
-                        f"Please change limit in client settings to display the required number of trades ")
+                        f"\n  Showing last {MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT} trades in the current session.")
                 else:
                     df_lines = str(df).split("\n")
                 lines.extend(["", "  Past trades:"] +
