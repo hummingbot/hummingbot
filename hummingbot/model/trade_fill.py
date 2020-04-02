@@ -6,7 +6,6 @@ from typing import (
     Dict,
     List,
     Optional,
-    Tuple,
 )
 from sqlalchemy import (
     Column,
@@ -115,11 +114,11 @@ class TradeFill(HummingbotBase):
                               "flat_fee / gas"]
         data = []
         for trade in trades:
-            flat_fees: List[Tuple[str, Any]] = trade.trade_fee["flat_fees"]
+            flat_fees: List[Dict[str, Any]] = trade.trade_fee["flat_fees"]
             if len(flat_fees) == 0:
                 flat_fee_str = "None"
             else:
-                fee_strs = [f"{fee_tuple[0]} {fee_tuple[1]}" for fee_tuple in flat_fees]
+                fee_strs = [f"{fee_dict['amount']} {fee_dict['asset']}" for fee_dict in flat_fees]
                 flat_fee_str = ",".join(fee_strs)
 
             data.append([
