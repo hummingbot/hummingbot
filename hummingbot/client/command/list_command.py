@@ -110,7 +110,7 @@ class ListCommand:
                         f"\n  Showing last {MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT} trades in the current session.")
                 else:
                     df_lines = str(df).split("\n")
-                lines.extend(["", "  Past trades:"] +
+                lines.extend(["", "  Recent trades:"] +
                              ["    " + line for line in df_lines])
             else:
                 lines.extend(["  No past trades in this session."])

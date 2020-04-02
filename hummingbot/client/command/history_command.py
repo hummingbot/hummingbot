@@ -2,6 +2,7 @@ from decimal import Decimal
 
 import pandas as pd
 import threading
+import time
 from typing import (
     Any,
     Dict,
@@ -13,6 +14,7 @@ from typing import (
 from hummingbot.client.performance_analysis import PerformanceAnalysis
 from hummingbot.market.market_base import MarketBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from datetime import datetime
 
 s_float_0 = float(0)
 
@@ -114,7 +116,7 @@ class HistoryCommand:
             trade_performance_status_line = []
             market_df_data: Set[Tuple[str, str, Decimal, Decimal, str, str]] = set()
             market_df_columns = ["Market", "Pair", "Start Price", "End Price",
-                                 "Total Value Delta", "Trades"]
+                                 "Trades", "Trade Value Delta"]
 
             for market_trading_pair_tuple, trading_pair_stats in market_trading_pair_stats.items():
                 market_df_data.add((
@@ -122,8 +124,8 @@ class HistoryCommand:
                     market_trading_pair_tuple.trading_pair.upper(),
                     trading_pair_stats["starting_quote_rate"],
                     trading_pair_stats["end_quote_rate"],
-                    f"{trading_pair_stats['trading_pair_delta']:.8f} {primary_quote_asset}",
-                    trading_pair_stats["trade_count"]
+                    trading_pair_stats["trade_count"],
+                    f"{trading_pair_stats['trading_pair_delta']:.8f} {primary_quote_asset}"
                 ))
 
             inventory_df: pd.DataFrame = self.balance_comparison_data_frame(market_trading_pair_stats)
@@ -137,6 +139,8 @@ class HistoryCommand:
 
             trade_performance_status_line.extend(
                 ["", "  Performance:"] +
+                [f"    Started: {datetime.fromtimestamp(self.start_time//1e3)}"] +
+                [f"    Duration: {pd.Timestamp((time.time() - self.start_time/1e3), unit='s').strftime('%H:%M:%S')}"] +
                 [f"    Total Trade Value Delta: {portfolio_delta:.7g} {primary_quote_asset}"])
 
             self._notify("\n".join(trade_performance_status_line))
