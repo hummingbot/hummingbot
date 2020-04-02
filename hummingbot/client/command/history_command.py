@@ -2,6 +2,7 @@ from decimal import Decimal
 
 import pandas as pd
 import threading
+import time
 from typing import (
     Any,
     Dict,
@@ -139,6 +140,7 @@ class HistoryCommand:
             trade_performance_status_line.extend(
                 ["", "  Performance:"] +
                 [f"    Started: {datetime.fromtimestamp(self.start_time//1e3)}"] +
+                [f"    Duration: {pd.Timestamp((time.time() - self.start_time/1e3), unit='s').strftime('%H:%M:%S')}"] +
                 [f"    Total Trade Value Delta: {portfolio_delta:.7g} {primary_quote_asset}"])
 
             self._notify("\n".join(trade_performance_status_line))
