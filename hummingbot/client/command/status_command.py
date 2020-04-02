@@ -12,6 +12,8 @@ from hummingbot.market.market_base import MarketBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.ethereum import check_web3
+from hummingbot.client.config.config_helpers import all_configs_complete, load_all_secure_values
+from hummingbot.client.config.security import Security
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -64,7 +66,12 @@ class StatusCommand:
                ) -> bool:
         # Preliminary checks.
         self._notify("\n  Preliminary checks:")
-        if self.config_complete:
+
+        if not Security.is_decryption_done():
+            self._notify('   x Security check: Files are being decryped, please wait and try again a bit later.')
+            return False
+        load_all_secure_values()
+        if all_configs_complete():
             self._notify("   - Config check: Config complete")
         else:
             self._notify('   x Config check: Pending config. Please enter "config" before starting the bot.')

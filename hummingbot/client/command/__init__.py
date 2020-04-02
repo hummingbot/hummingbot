@@ -11,6 +11,7 @@ from .start_command import StartCommand
 from .status_command import StatusCommand
 from .stop_command import StopCommand
 from .create_command import CreateCommand
+from .import_command import ImportCommand
 
 
 __all__ = [
@@ -26,5 +27,6 @@ __all__ = [
     StartCommand,
     StatusCommand,
     StopCommand,
-    CreateCommand
+    CreateCommand,
+    ImportCommand
 ]

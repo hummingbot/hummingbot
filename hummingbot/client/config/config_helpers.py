@@ -161,13 +161,13 @@ def _merge_dicts(*args: Dict[str, ConfigVar]) -> OrderedDict:
     return result
 
 
-def get_strategy_config_map(strategy: str) -> Optional[Dict[str, ConfigVar]]:
+def get_strategy_config_map(strategy: str = None) -> Optional[Dict[str, ConfigVar]]:
     """
     Given the name of a strategy, find and load strategy-specific config map.
     """
-    if strategy is None:
-        return None
     try:
+        if strategy is None:
+            strategy = global_config_map.get("strategy").value
         cm_key = f"{strategy}_config_map"
         strategy_module = __import__(f"hummingbot.strategy.{strategy}.{cm_key}",
                                      fromlist=[f"hummingbot.strategy.{strategy}"])
@@ -208,55 +208,58 @@ def load_required_configs(*args) -> OrderedDict:
         return _merge_dicts(in_memory_config_map, strategy_config_map, global_config_map)
 
 
+def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str, ConfigVar]):
+    try:
+        with open(yml_path) as stream:
+            data = yaml_parser.load(stream) or {}
+            conf_version = data.get("template_version", 0)
+
+        with open(template_file_path, "r") as template_fd:
+            template_data = yaml_parser.load(template_fd)
+            template_version = template_data.get("template_version", 0)
+
+        for key in template_data:
+            if key in {"wallet", "template_version"}:
+                continue
+
+            cvar = cm.get(key)
+            if cvar is None:
+                logging.getLogger().error(f"Cannot find corresponding config to key {key} in template.")
+                continue
+
+            # Skip this step since the values are not saved in the yml file
+            if cvar.is_secure:
+                cvar.value = Security.decrypted_value(key)
+                continue
+
+            val_in_file = data.get(key)
+            if key not in data and cvar.migration_default is not None:
+                cvar.value = cvar.migration_default
+            else:
+                cvar.value = parse_cvar_value(cvar, val_in_file)
+            if cvar.value is not None and not cvar.validate(str(cvar.value)):
+                # Instead of raising an exception, simply skip over this variable and wait till the user is prompted
+                logging.getLogger().error("Invalid value %s for config variable %s" % (val_in_file, cvar.key))
+                cvar.value = None
+
+        if conf_version < template_version:
+            # delete old config file
+            if isfile(yml_path):
+                unlink(yml_path)
+            # copy the new file template
+            shutil.copy(template_file_path, yml_path)
+            # save the old variables into the new config file
+            safe_ensure_future(save_to_yml(yml_path, cm))
+    except Exception as e:
+        logging.getLogger().error("Error loading configs. Your config file may be corrupt. %s" % (e,),
+                                  exc_info=True)
+
+
 def read_configs_from_yml(strategy_file_path: Optional[str] = None):
     """
     Read global config and selected strategy yml files and save the values to corresponding config map
     If a yml file is outdated, it gets reformatted with the new template
     """
-    def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str, ConfigVar]):
-        try:
-            with open(yml_path) as stream:
-                data = yaml_parser.load(stream) or {}
-                conf_version = data.get("template_version", 0)
-
-            with open(template_file_path, "r") as template_fd:
-                template_data = yaml_parser.load(template_fd)
-                template_version = template_data.get("template_version", 0)
-
-            for key in template_data:
-                if key in {"wallet", "template_version"}:
-                    continue
-
-                cvar = cm.get(key)
-                if cvar is None:
-                    logging.getLogger().error(f"Cannot find corresponding config to key {key} in template.")
-                    continue
-
-                # Skip this step since the values are not saved in the yml file
-                if cvar.is_secure:
-                    continue
-
-                val_in_file = data.get(key)
-                if key not in data and cvar.migration_default is not None:
-                    cvar.value = cvar.migration_default
-                else:
-                    cvar.value = parse_cvar_value(cvar, val_in_file)
-                if cvar.value is not None and not cvar.validate(str(cvar.value)):
-                    # Instead of raising an exception, simply skip over this variable and wait till the user is prompted
-                    logging.getLogger().error("Invalid value %s for config variable %s" % (val_in_file, cvar.key))
-                    cvar.value = None
-
-            if conf_version < template_version:
-                # delete old config file
-                if isfile(yml_path):
-                    unlink(yml_path)
-                # copy the new file template
-                shutil.copy(template_file_path, yml_path)
-                # save the old variables into the new config file
-                safe_ensure_future(save_to_yml(yml_path, cm))
-        except Exception as e:
-            logging.getLogger().error("Error loading configs. Your config file may be corrupt. %s" % (e,),
-                                      exc_info=True)
 
     load_yml_into_cm(GLOBAL_CONFIG_PATH, join(TEMPLATE_PATH, "conf_global_TEMPLATE.yml"), global_config_map)
     load_yml_into_cm(TRADE_FEES_CONFIG_PATH, join(TEMPLATE_PATH, "conf_fee_overrides_TEMPLATE.yml"),
@@ -383,3 +386,24 @@ def short_strategy_name(strategy: str) -> str:
         return "arb"
     else:
         return strategy
+
+
+def all_configs_complete():
+    strategy_map = get_strategy_config_map()
+    return config_map_complete(global_config_map) and config_map_complete(strategy_map)
+
+
+def config_map_complete(config_map):
+    return not any(c.required and c.value is None for c in config_map.values())
+
+
+def load_all_secure_values():
+    strategy_map = get_strategy_config_map()
+    load_secure_values(global_config_map)
+    load_secure_values(strategy_map)
+
+
+def load_secure_values(config_map):
+    for key, config in config_map.items():
+        if config.is_secure:
+            config.value = Security.decrypted_value(key)

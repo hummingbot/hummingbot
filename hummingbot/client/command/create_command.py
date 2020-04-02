@@ -12,6 +12,7 @@ from hummingbot.client.config.config_helpers import (
     get_strategy_template_path
 )
 from hummingbot.client.settings import CONF_FILE_PATH
+from hummingbot.client.config.global_config_map import global_config_map
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -41,22 +42,24 @@ class CreateCommand:
         self.app.clear_input()
         self.placeholder_mode = True
         self.app.toggle_hide_input()
-        strategy = "pure_market_making"
-        config_map = get_strategy_config_map(strategy)
-        for config in config_map.values():
-            config.value = config.default
-        safe_ensure_future(self.prompt_for_configuration(config_map))
+        safe_ensure_future(self.prompt_for_configuration())
 
     async def prompt_for_configuration(self, config_map):
+        strategy = global_config_map.get("strategy").value
+        config_map = get_strategy_config_map(strategy)
+        self._notify(f"Please see https://docs.hummingbot.io/strategies/{strategy.replace('_', '-')}/ "
+                     f"while setting up these below configuration.")
         for config in config_map.values():
             if config.required:
                 await self.prompt_a_config(config)
-        strategy = "pure_market_making"
-        file_name = await self.prompt_new_file_name(strategy)
-        file_path = os.path.join(CONF_FILE_PATH, file_name)
+            else:
+                config.value = config.default
+        strategy = global_config_map.get("strategy").value
+        self.strategy_file_name = await self.prompt_new_file_name(strategy)
+        strategy_path = os.path.join(CONF_FILE_PATH, self.strategy_file_name)
         template = get_strategy_template_path(strategy)
-        shutil.copy(template, file_path)
-        await save_to_yml(file_path, config_map)
+        shutil.copy(template, strategy_path)
+        await save_to_yml(strategy_path, config_map)
         self.placeholder_mode = False
         self.app.change_prompt(prompt=">>> ")
 
@@ -78,8 +81,9 @@ class CreateCommand:
         file_name = default_strategy_file_path(strategy)
         self.app.set_text(file_name)
         input = await self.app.prompt(prompt="Enter a new file name for your configuration >>> ")
-        if os.path.exists(input):
+        file_path = os.path.join(CONF_FILE_PATH, input)
+        if os.path.exists(file_path):
             self._notify(f"{input} file already exists, please enter a new name.")
-            await self.prompt_a_config()
+            await self.prompt_new_file_name()
         else:
             return input
