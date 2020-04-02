@@ -295,12 +295,10 @@ global_config_map = {
                   prompt=None,
                   required_if=lambda: False,
                   type_str="json",
-                  default=MIN_QUOTE_ORDER_AMOUNTS,
-                  migration_default=MIN_QUOTE_ORDER_AMOUNTS),
+                  default=MIN_QUOTE_ORDER_AMOUNTS),
     "strategy":
         ConfigVar(key="strategy",
                   prompt="What is your market making strategy? >>> ",
                   default="pure_market_making",
-                  validator=is_strategy,
-                  migration_default="pure_market_making"),
+                  validator=is_strategy),
 }

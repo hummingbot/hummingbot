@@ -32,8 +32,9 @@ class ImportCommand:
         template_path = get_strategy_template_path(strategy)
         load_yml_into_cm(strategy_path, template_path, config_map)
         self._notify(f"Configuration from {self.strategy_file_name} file is imported.")
-        self._notify("Enter \"start\" to start market making.")
-        self.app.set_text("start")
+        if not await self.notify_missing_configs():
+            self._notify("Enter \"start\" to start market making.")
+            self.app.set_text("start")
         self.placeholder_mode = False
         self.app.change_prompt(prompt=">>> ")
 

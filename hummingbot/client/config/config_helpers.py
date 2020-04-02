@@ -233,10 +233,12 @@ def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str, Confi
                 continue
 
             val_in_file = data.get(key)
-            if key not in data and cvar.migration_default is not None:
-                cvar.value = cvar.migration_default
-            else:
-                cvar.value = parse_cvar_value(cvar, val_in_file)
+            if (val_in_file is None or val_in_file == "") and cvar.default is not None:
+                cvar.value = cvar.default
+                continue
+
+            # Todo: the proper process should be first validate the value then assign it
+            cvar.value = parse_cvar_value(cvar, val_in_file)
             if cvar.value is not None and not cvar.validate(str(cvar.value)):
                 # Instead of raising an exception, simply skip over this variable and wait till the user is prompted
                 logging.getLogger().error("Invalid value %s for config variable %s" % (val_in_file, cvar.key))
@@ -255,25 +257,24 @@ def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str, Confi
                                   exc_info=True)
 
 
-def read_configs_from_yml(strategy_file_path: Optional[str] = None):
+def read_system_configs_from_yml():
     """
     Read global config and selected strategy yml files and save the values to corresponding config map
     If a yml file is outdated, it gets reformatted with the new template
     """
-
     load_yml_into_cm(GLOBAL_CONFIG_PATH, join(TEMPLATE_PATH, "conf_global_TEMPLATE.yml"), global_config_map)
     load_yml_into_cm(TRADE_FEES_CONFIG_PATH, join(TEMPLATE_PATH, "conf_fee_overrides_TEMPLATE.yml"),
                      fee_overrides_config_map)
-    current_strategy = global_config_map.get("strategy").value
-    if current_strategy is None:
-        current_strategy = global_config_map.get("strategy").default
-    strategy_config_map: Optional[Dict[str, ConfigVar]] = get_strategy_config_map(current_strategy)
-    if strategy_file_path:
-        strategy_template_path = get_strategy_template_path(current_strategy)
-        load_yml_into_cm(join(CONF_FILE_PATH, strategy_file_path), strategy_template_path, strategy_config_map)
+    # In case config maps get updated (due to default values)
+    save_system_configs_to_yml()
 
 
-async def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
+def save_system_configs_to_yml():
+    save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
+    save_to_yml(TRADE_FEES_CONFIG_PATH, fee_overrides_config_map)
+
+
+def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
     """
     Write current config saved a single config map into each a single yml file
     """
@@ -395,6 +396,10 @@ def all_configs_complete():
 
 def config_map_complete(config_map):
     return not any(c.required and c.value is None for c in config_map.values())
+
+
+def missing_required_configs(config_map):
+    return [c for c in config_map.values() if c.required and c.value is None]
 
 
 def load_all_secure_values():

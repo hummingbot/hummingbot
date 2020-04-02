@@ -373,14 +373,6 @@ class ConfigCommand:
             if isinstance(self.strategy, PureMarketMakingStrategyV2):
                 ConfigCommand.update_running_pure_mm(self.strategy, key, cv.value)
 
-            if not self.config_complete:
-                choice = await self.app.prompt("Your configuration is incomplete. Would you like to proceed and "
-                                               "finish all necessary configurations? (Yes/No) >>> ")
-                if choice.lower() in {"y", "yes"}:
-                    self.config()
-                    return
-                else:
-                    self._notify("Aborted.")
         except asyncio.TimeoutError:
             self.logger().error("Prompt timeout")
         except Exception as err:
