@@ -66,12 +66,15 @@ class StatusCommand:
                ) -> bool:
         # Preliminary checks.
         self._notify("\n  Preliminary checks:")
+        if self.strategy_name is None or self.strategy_file_name is None:
+            self._notify('   x Strategy check: Please import or create a strategy.')
+            return False
 
         if not Security.is_decryption_done():
-            self._notify('   x Security check: Files are being decryped, please wait and try again a bit later.')
+            self._notify('   x Security check: Encrypted files are being processed.')
             return False
-        load_all_secure_values()
-        if all_configs_complete():
+        load_all_secure_values(self.strategy_name)
+        if all_configs_complete(self.strategy_name):
             self._notify("   - Config check: Config complete")
         else:
             self._notify('   x Config check: Pending config. Please enter "config" before starting the bot.')

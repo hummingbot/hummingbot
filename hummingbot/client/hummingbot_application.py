@@ -93,7 +93,9 @@ class HummingbotApplication(*commands):
         self.acct: Optional[LocalAccount] = None
         self.markets: Dict[str, MarketBase] = {}
         self.wallet: Optional[Web3Wallet] = None
+        # strategy file name and name get assigned value after import or create command
         self.strategy_file_name: str = None
+        self.strategy_name: str = None
         self.strategy_task: Optional[asyncio.Task] = None
         self.strategy: Optional[StrategyBase] = None
         self.market_pair: Optional[CrossExchangeMarketPair] = None
@@ -337,7 +339,7 @@ class HummingbotApplication(*commands):
             self.trade_fill_db,
             list(self.markets.values()),
             self.strategy_file_name,
-            global_config_map.get("strategy").value,
+            self.strategy_name,
         )
         self.markets_recorder.start()
 
