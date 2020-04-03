@@ -147,6 +147,7 @@ def show_welcome():
 def login(welcome_msg=True):
     err_msg = None
     if Security.new_password_required():
+        show_welcome()
         password = input_dialog(
             title="Set Password",
             text="Create a password to protect your sensitive data. This password is not shared with us nor with anyone else, so please store it securely.\n\nEnter your new password:",
