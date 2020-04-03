@@ -1,11 +1,10 @@
 import logging
 from decimal import Decimal
-
 import ruamel.yaml
 from os import unlink
 from os.path import (
     join,
-    isfile,
+    isfile
 )
 from collections import OrderedDict
 import json
@@ -34,6 +33,7 @@ from hummingbot.client.settings import (
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.config.security import Security
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot import get_strategy_list
 
 # Use ruamel.yaml to preserve order and comments in .yml file
 yaml_parser = ruamel.yaml.YAML()
@@ -161,13 +161,11 @@ def _merge_dicts(*args: Dict[str, ConfigVar]) -> OrderedDict:
     return result
 
 
-def get_strategy_config_map(strategy: str = None) -> Optional[Dict[str, ConfigVar]]:
+def get_strategy_config_map(strategy: str) -> Optional[Dict[str, ConfigVar]]:
     """
     Given the name of a strategy, find and load strategy-specific config map.
     """
     try:
-        if strategy is None:
-            strategy = global_config_map.get("strategy").value
         cm_key = f"{strategy}_config_map"
         strategy_module = __import__(f"hummingbot.strategy.{strategy}.{cm_key}",
                                      fromlist=[f"hummingbot.strategy.{strategy}"])
@@ -191,21 +189,36 @@ def get_strategy_starter_file(strategy: str) -> Callable:
         logging.getLogger().error(e, exc_info=True)
 
 
-def load_required_configs(*args) -> OrderedDict:
-    """
-    Go through `in_memory_config_map`, `strategy_config_map`, and `global_config_map` in order to list all of the
-    config settings required by the bot.
-    """
-    from hummingbot.client.config.in_memory_config_map import in_memory_config_map
-    current_strategy = global_config_map.get("strategy").value
-    current_strategy_file_path = in_memory_config_map.get("strategy_file_path").value
-    if current_strategy is None or current_strategy_file_path is None:
-        return _merge_dicts(in_memory_config_map)
-    else:
-        strategy_config_map = get_strategy_config_map(current_strategy)
-        # create an ordered dict where `strategy` is inserted first
-        # so that strategy-specific configs are prompted first and populate required_exchanges
-        return _merge_dicts(in_memory_config_map, strategy_config_map, global_config_map)
+def load_required_configs(strategy_name) -> OrderedDict:
+    strategy_config_map = get_strategy_config_map(strategy_name)
+    # create an ordered dict where `strategy` is inserted first
+    # so that strategy-specific configs are prompted first and populate required_exchanges
+    return _merge_dicts(strategy_config_map, global_config_map)
+
+
+def strategy_type_from_file(file_path: str) -> str:
+    strategies = get_strategy_list()
+    for strategy in strategies:
+        if strategy_matches_file(file_path, strategy):
+            return strategy
+
+
+def strategy_matches_file(file_path, strategy) -> bool:
+    strategy = strategy.replace("_", " ")
+    file = open(file_path, 'r')
+    for _ in range(0, 3):
+        line = file.readline()
+        if strategy.lower() in line.lower():
+            return True
+    return False
+
+
+def update_strategy_config_map_from_file(yml_path: str) -> str:
+    strategy = strategy_type_from_file(yml_path)
+    config_map = get_strategy_config_map(strategy)
+    template_path = get_strategy_template_path(strategy)
+    load_yml_into_cm(yml_path, template_path, config_map)
+    return strategy
 
 
 def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str, ConfigVar]):
@@ -297,20 +310,11 @@ def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
         logging.getLogger().error("Error writing configs: %s" % (str(e),), exc_info=True)
 
 
-async def write_config_to_yml():
-    """
-    Write current config saved in all config maps into each corresponding yml file
-    """
-    from hummingbot.client.config.in_memory_config_map import in_memory_config_map
-    current_strategy = global_config_map.get("strategy").value
-    strategy_file_path = in_memory_config_map.get("strategy_file_path").value
-
-    if current_strategy is not None and strategy_file_path is not None:
-        strategy_config_map = get_strategy_config_map(current_strategy)
-        strategy_file_path = join(CONF_FILE_PATH, strategy_file_path)
-        await save_to_yml(strategy_file_path, strategy_config_map)
-
-    await save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
+async def write_config_to_yml(strategy_name, strategy_file_name):
+    strategy_config_map = get_strategy_config_map(strategy_name)
+    strategy_file_path = join(CONF_FILE_PATH, strategy_file_name)
+    save_to_yml(strategy_file_path, strategy_config_map)
+    save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
 
 
 async def create_yml_files():
@@ -389,8 +393,8 @@ def short_strategy_name(strategy: str) -> str:
         return strategy
 
 
-def all_configs_complete():
-    strategy_map = get_strategy_config_map()
+def all_configs_complete(strategy):
+    strategy_map = get_strategy_config_map(strategy)
     return config_map_complete(global_config_map) and config_map_complete(strategy_map)
 
 
@@ -402,8 +406,8 @@ def missing_required_configs(config_map):
     return [c for c in config_map.values() if c.required and c.value is None]
 
 
-def load_all_secure_values():
-    strategy_map = get_strategy_config_map()
+def load_all_secure_values(strategy):
+    strategy_map = get_strategy_config_map(strategy)
     load_secure_values(global_config_map)
     load_secure_values(strategy_map)
 
@@ -415,10 +419,6 @@ def load_secure_values(config_map):
 
 
 def format_config_file_name(file_name):
-    parts = file_name.split(".")
-    if len(parts) == 1:
-        return f"{file_name}.yml"
-    elif len(parts) == 2 and parts[1] == "yml":
-        return file_name
-    else:
-        return None
+    if "." not in file_name:
+        return file_name + ".yml"
+    return file_name

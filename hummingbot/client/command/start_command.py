@@ -8,7 +8,6 @@ from typing import (
     Optional,
     Callable,
 )
-
 from hummingbot.core.clock import (
     Clock,
     ClockMode
@@ -25,7 +24,6 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
 from hummingbot.core.utils.kill_switch import KillSwitch
-from hummingbot.client.config.global_config_map import global_config_map
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -73,9 +71,8 @@ class StartCommand:
 
         self._initialize_notifiers()
 
-        strategy_name = global_config_map.get("strategy").value
-        self._notify(f"\n  Status check complete. Starting '{strategy_name}' strategy...")
-        safe_ensure_future(self.start_market_making(strategy_name), loop=self.ev_loop)
+        self._notify(f"\n  Status check complete. Starting '{self.strategy_name}' strategy...")
+        safe_ensure_future(self.start_market_making(self.strategy_name), loop=self.ev_loop)
 
     async def start_market_making(self,  # type: HummingbotApplication
                                   strategy_name: str):

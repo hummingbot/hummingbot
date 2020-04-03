@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 7
+template_version: 6
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -99,5 +99,3 @@ min_quote_order_amount:
   - 11
 - - BNB
   - 0.5
-
-strategy: null
