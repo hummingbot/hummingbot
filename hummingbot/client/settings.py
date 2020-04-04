@@ -37,7 +37,8 @@ EXCHANGES = {
     "dolomite",
     "bittrex",
     "kucoin",
-    "bitcoin_com"
+    "bitcoin_com",
+    "kraken"
 }
 
 DEXES = {
@@ -59,6 +60,7 @@ EXAMPLE_PAIRS = {
     "huobi": "ETH-USDT",
     "liquid": "ETH-USD",
     "radar_relay": "ZRX-WETH",
+    "kraken": "XETH-USDC"
 }
 
 EXAMPLE_ASSETS = {
@@ -72,6 +74,7 @@ EXAMPLE_ASSETS = {
     "huobi": "eth",
     "liquid": "ETH",
     "radar_relay": "ZRX",
+    "kraken": "XETH"
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
