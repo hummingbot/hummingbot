@@ -5,7 +5,8 @@ from typing import (
     Any,
     Dict,
     List,
-    Optional)
+    Optional,
+)
 from sqlalchemy import (
     Column,
     ForeignKey,
@@ -117,7 +118,7 @@ class TradeFill(HummingbotBase):
             if len(flat_fees) == 0:
                 flat_fee_str = "None"
             else:
-                fee_strs = [f"{fee_dict['amount']} {fee_dict['trading_pair']}" for fee_dict in flat_fees]
+                fee_strs = [f"{fee_dict['amount']} {fee_dict['asset']}" for fee_dict in flat_fees]
                 flat_fee_str = ",".join(fee_strs)
 
             data.append([
