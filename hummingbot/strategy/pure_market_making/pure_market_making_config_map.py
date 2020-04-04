@@ -73,6 +73,11 @@ def exchange_on_validated(value: str):
 
 
 pure_market_making_config_map = {
+    "strategy":
+        ConfigVar(key="strategy",
+                  prompt="",
+                  default="pure_market_making",
+                  validator=lambda v: v == "pure_market_making"),
     "exchange":
         ConfigVar(key="exchange",
                   prompt="Enter your maker exchange name >>> ",

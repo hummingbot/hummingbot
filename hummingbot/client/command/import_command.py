@@ -4,7 +4,8 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.config.config_helpers import (
     update_strategy_config_map_from_file,
     short_strategy_name,
-    format_config_file_name
+    format_config_file_name,
+    validate_strategy_file
 )
 from hummingbot.client.settings import CONF_FILE_PATH, CONF_PREFIX
 from typing import TYPE_CHECKING
@@ -43,8 +44,9 @@ class ImportCommand:
         example = f"{CONF_PREFIX}{short_strategy_name('pure_market_making')}_{1}.yml"
         file_name = await self.app.prompt(prompt=f'Enter path to your strategy file (e.g. "{example}") >>> ')
         file_path = os.path.join(CONF_FILE_PATH, file_name)
-        if not os.path.exists(file_path):
-            self._notify(f"{file_name} does not  exists, please enter a valid file name.")
-            await self.prompt_a_file_name()
+        err_msg = validate_strategy_file(file_path)
+        if err_msg is not None:
+            self._notify(f"Error: {err_msg}")
+            return await self.prompt_a_file_name()
         else:
             return file_name

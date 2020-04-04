@@ -27,6 +27,11 @@ def is_valid_market_trading_pair_tuple(value: str) -> bool:
 
 
 dev_simple_trade_config_map = {
+    "strategy":
+        ConfigVar(key="strategy",
+                  prompt="",
+                  default="dev_simple_trade",
+                  validator=lambda v: v == "dev_simple_trade"),
     "market":
         ConfigVar(key="market",
                   prompt="Enter the name of the exchange >>> ",

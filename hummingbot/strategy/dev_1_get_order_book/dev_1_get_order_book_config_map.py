@@ -27,6 +27,11 @@ def is_valid_trading_pair(value: str) -> bool:
 
 
 dev_1_get_order_book_config_map = {
+    "strategy":
+        ConfigVar(key="strategy",
+                  prompt="",
+                  default="dev_1_get_order_book",
+                  validator=lambda v: v == "dev_1_get_order_book"),
     "market":
         ConfigVar(key="market",
                   prompt="Enter the name of the exchange >>> ",
