@@ -4,7 +4,8 @@ import ruamel.yaml
 from os import unlink
 from os.path import (
     join,
-    isfile
+    isfile,
+    exists
 )
 from collections import OrderedDict
 import json
@@ -196,25 +197,26 @@ def load_required_configs(strategy_name) -> OrderedDict:
     return _merge_dicts(strategy_config_map, global_config_map)
 
 
-def strategy_type_from_file(file_path: str) -> str:
-    strategies = get_strategy_list()
-    for strategy in strategies:
-        if strategy_matches_file(file_path, strategy):
-            return strategy
+def strategy_name_from_file(file_path: str) -> str:
+    with open(file_path) as stream:
+        data = yaml_parser.load(stream) or {}
+        strategy = data.get("strategy")
+    return strategy
 
 
-def strategy_matches_file(file_path, strategy) -> bool:
-    strategy = strategy.replace("_", " ")
-    file = open(file_path, 'r')
-    for _ in range(0, 3):
-        line = file.readline()
-        if strategy.lower() in line.lower():
-            return True
-    return False
+def validate_strategy_file(file_path: str) -> str:
+    if not exists(file_path):
+        return f"{file_path} file does not exist."
+    strategy = strategy_name_from_file(file_path)
+    if strategy is None:
+        return f"Invalid configuration file or 'strategy' field is missing."
+    if strategy not in get_strategy_list():
+        return f"Invalid strategy specified in the file."
+    return None
 
 
 def update_strategy_config_map_from_file(yml_path: str) -> str:
-    strategy = strategy_type_from_file(yml_path)
+    strategy = strategy_name_from_file(yml_path)
     config_map = get_strategy_config_map(strategy)
     template_path = get_strategy_template_path(strategy)
     load_yml_into_cm(yml_path, template_path, config_map)

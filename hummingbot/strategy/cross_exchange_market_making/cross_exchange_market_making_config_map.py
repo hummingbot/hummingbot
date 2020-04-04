@@ -63,36 +63,47 @@ def taker_market_on_validated(value: str):
 
 
 cross_exchange_market_making_config_map = {
+    "strategy": ConfigVar(key="strategy",
+                          prompt="",
+                          default="cross_exchange_market_making",
+                          validator=lambda v: v == "cross_exchange_market_making"
+                          ),
     "maker_market": ConfigVar(
         key="maker_market",
         prompt="Enter your maker exchange name >>> ",
+        prompt_on_new=True,
         validator=is_exchange,
         on_validated=lambda value: required_exchanges.append(value),
     ),
     "taker_market": ConfigVar(
         key="taker_market",
         prompt="Enter your taker exchange name >>> ",
+        prompt_on_new=True,
         validator=is_exchange,
         on_validated=taker_market_on_validated,
     ),
     "maker_market_trading_pair": ConfigVar(
         key="maker_market_trading_pair",
         prompt=maker_trading_pair_prompt,
+        prompt_on_new=True,
         validator=is_valid_maker_market_trading_pair
     ),
     "taker_market_trading_pair": ConfigVar(
         key="taker_market_trading_pair",
         prompt=taker_trading_pair_prompt,
+        prompt_on_new=True,
         validator=is_valid_taker_market_trading_pair
     ),
     "min_profitability": ConfigVar(
         key="min_profitability",
         prompt="What is the minimum profitability for you to make a trade? (Enter 0.01 to indicate 1%) >>> ",
+        prompt_on_new=True,
         type_str="decimal",
     ),
     "order_amount": ConfigVar(
         key="order_amount",
         prompt=order_amount_prompt,
+        prompt_on_new=True,
         type_str="decimal",
         validator=is_valid_order_amount,
     ),

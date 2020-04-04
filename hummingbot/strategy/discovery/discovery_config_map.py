@@ -56,6 +56,11 @@ def valid_token_or_trading_pair_array(market: str, input_list: Any):
 
 
 discovery_config_map = {
+    "strategy": ConfigVar(key="strategy",
+                          prompt="",
+                          default="discovery",
+                          validator=lambda v: v == "discovery"
+                          ),
     "primary_market": ConfigVar(
         key="primary_market",
         prompt="Enter your first exchange name >>> ",
