@@ -30,5 +30,7 @@ fee_overrides_config_map = {
     "bittrex_maker_fee": new_fee_config_var("bittrex_maker_fee"),
     "bittrex_taker_fee": new_fee_config_var("bittrex_taker_fee"),
     "kucoin_maker_fee": new_fee_config_var("kucoin_maker_fee"),
-    "kucoin_taker_fee": new_fee_config_var("kucoin_taker_fee")
+    "kucoin_taker_fee": new_fee_config_var("kucoin_taker_fee"),
+    "kraken_maker_fee": new_fee_config_var("kraken_maker_fee"),
+    "kraken_taker_fee": new_fee_config_var("kraken_taker_fee"),
 }
