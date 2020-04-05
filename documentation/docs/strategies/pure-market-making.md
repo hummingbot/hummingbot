@@ -35,7 +35,7 @@ When placing orders, if the size of the order determined by the order price and 
 
 Only a sell order will be created but no buy order.
 
-When using the [multiple order mode](#multiple-order-configuration), this may result in some (or none) of the orders being placed on one side.
+When using the [multiple order mode](/strategies/advanced-mm/multiple-orders), this may result in some (or none) of the orders being placed on one side.
 
 **Example:**
 
