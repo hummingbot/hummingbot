@@ -5,6 +5,7 @@ from typing import (
 
 from hummingbot.client.errors import ArgumentParserError
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.client.settings import EXCHANGES
 
 
 class ThrowingArgumentParser(argparse.ArgumentParser):
@@ -37,6 +38,13 @@ class ThrowingArgumentParser(argparse.ArgumentParser):
 def load_parser(hummingbot) -> ThrowingArgumentParser:
     parser = ThrowingArgumentParser(prog="", add_help=False)
     subparsers = parser.add_subparsers()
+
+    config_parser = subparsers.add_parser("balance", help="Display all balances from all connected exchanges.")
+    config_parser.set_defaults(func=hummingbot.balance)
+
+    config_parser = subparsers.add_parser("connect", help="Connect or reconnect to an exchange.")
+    config_parser.add_argument("exchange", nargs="?", choices=EXCHANGES, help="An exchange name")
+    config_parser.set_defaults(func=hummingbot.connect)
 
     config_parser = subparsers.add_parser("config", help="Create a new bot or import an existing configuration")
     config_parser.add_argument("key", nargs="?", default=None, help="Configure a specific variable")

@@ -82,6 +82,7 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return "-e" in text_before_cursor or \
                "--exchange" in text_before_cursor or \
+               "connect" in text_before_cursor or \
                any(x for x in ("exchange name", "name of exchange", "name of the exchange")
                    if x in self.prompt_text.lower())
 
