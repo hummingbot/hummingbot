@@ -6,6 +6,7 @@ from typing import (
     Any,
 )
 from decimal import Decimal
+import pandas as pd
 from hummingbot.core.utils.wallet_setup import (
     create_and_save_wallet,
     import_and_save_wallet,
@@ -35,6 +36,12 @@ if TYPE_CHECKING:
 
 
 no_restart_pmm_keys = ["bid_spread", "ask_spread"]
+global_configs_to_disply = ["kill_switch_enabled",
+                            "kill_switch_rate",
+                            "telegram_enabled",
+                            "telegram_token",
+                            "telegram_chat_id",
+                            "send_error_logs"]
 
 
 class ConfigCommand:
@@ -45,9 +52,8 @@ class ConfigCommand:
         Router function that for all commands related to bot configuration
         """
         self.app.clear_input()
-        if (key is None and (self.strategy or self.config_complete)) or \
-                (isinstance(self.strategy, PureMarketMakingStrategyV2) and key not in no_restart_pmm_keys):
-            safe_ensure_future(self.reset_config_loop(key))
+        if key is None:
+            self.list_configs()
             return
 
         if key is not None:
@@ -83,6 +89,23 @@ class ConfigCommand:
                     continue
                 return False
         return True
+
+    def list_configs(self,  # type: HummingbotApplication
+                     ):
+        columns = ["Key", "  Value"]
+        data = [[cv.key, cv.value] for cv in global_config_map.values()
+                if cv.key in global_configs_to_disply and not cv.is_secure]
+        df = pd.DataFrame(data=data, columns=columns)
+        self._notify("\nGlobal Configurations:")
+        lines = ["    " + line for line in df.to_string(index=False).split("\n")]
+        self._notify("\n".join(lines))
+
+        if self.strategy_name is not None:
+            data = [[cv.key, cv.value] for cv in self.strategy_config_map.values() if not cv.is_secure]
+            df = pd.DataFrame(data=data, columns=columns)
+            self._notify(f"\nStrategy Configurations:")
+            lines = ["    " + line for line in df.to_string(index=False).split("\n")]
+            self._notify("\n".join(lines))
 
     @staticmethod
     def _get_empty_configs() -> List[str]:
