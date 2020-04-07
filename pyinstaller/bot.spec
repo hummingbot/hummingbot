@@ -74,6 +74,7 @@ if "SPEC" in globals():
     if system_type == "Windows":
        import coincurve
        binaries.extend([(os.path.realpath(os.path.join(coincurve.__file__, "../libsecp256k1.dll")), "coincurve")])
+       datas.extend([(os.path.realpath(os.path.join(project_path(), "redist/VC_redist.x64.exe")), "redist")])
 
 
     a = Analysis([os.path.join(project_path(), "bin/bot")],
