@@ -35,7 +35,6 @@ from hummingbot.client.ui.parser import load_parser, ThrowingArgumentParser
 from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.client.errors import InvalidCommandError, ArgumentParserError
-from hummingbot.client.config.in_memory_config_map import in_memory_config_map
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import get_erc20_token_addresses
 from hummingbot.strategy.strategy_base import StrategyBase
@@ -96,6 +95,9 @@ class HummingbotApplication(*commands):
         self.acct: Optional[LocalAccount] = None
         self.markets: Dict[str, MarketBase] = {}
         self.wallet: Optional[Web3Wallet] = None
+        # strategy file name and name get assigned value after import or create command
+        self.strategy_file_name: str = None
+        self.strategy_name: str = None
         self.strategy_task: Optional[asyncio.Task] = None
         self.strategy: Optional[StrategyBase] = None
         self.market_pair: Optional[CrossExchangeMarketPair] = None
@@ -346,8 +348,8 @@ class HummingbotApplication(*commands):
         self.markets_recorder = MarketsRecorder(
             self.trade_fill_db,
             list(self.markets.values()),
-            in_memory_config_map.get("strategy_file_path").value,
-            global_config_map.get("strategy").value,
+            self.strategy_file_name,
+            self.strategy_name,
         )
         self.markets_recorder.start()
 

@@ -13,7 +13,7 @@ from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import (
     create_yml_files,
-    read_configs_from_yml
+    read_system_configs_from_yml
 )
 from hummingbot import (
     init_logging,
@@ -50,7 +50,7 @@ async def main():
     # This init_logging() call is important, to skip over the missing config warnings.
     init_logging("hummingbot_logs.yml")
 
-    read_configs_from_yml()
+    read_system_configs_from_yml()
     ExchangeRateConversion.get_instance().start()
 
     hb = HummingbotApplication.main_application()
