@@ -307,7 +307,7 @@ global_config_map = {
     # Database options
     "db_engine":
         ConfigVar(key="db_engine",
-                  prompt="Please enter database engine you wish to use (reference: https://docs.sqlalchemy.org/en/13/dialects/) >>> ",
+                  prompt="Please enter database engine you want to use (reference: https://docs.sqlalchemy.org/en/13/dialects/) >>> ",
                   type_str="str",
                   required_if=lambda: False,
                   default="sqlite"),
