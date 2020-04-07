@@ -72,10 +72,10 @@ class SQLConnectionManager:
 
             return create_engine(f"{dialect}:///{db_path}")
         else:
-            username = params.get("username")
-            password = params.get("password")
-            host = params.get("host")
-            port = params.get("port")
+            username = params.get("db_username")
+            password = params.get("db_password")
+            host = params.get("db_host")
+            port = params.get("db_port")
             db_name = params.get("db_name")
 
             return create_engine(f"{dialect}://{username}:{password}@{host}:{port}/{db_name}")
@@ -99,8 +99,7 @@ class SQLConnectionManager:
         if connection_type is SQLConnectionType.TRADE_FILLS:
             self._engine: Engine = self.get_db_engine(
                                                 engine_options.get("db_engine"),
-                                                engine_options
-                                                )
+                                                engine_options)
             self._metadata: MetaData = self.get_declarative_base().metadata
             self._metadata.create_all(self._engine)
 
