@@ -15,7 +15,7 @@ from sqlalchemy.orm import (
     Query
 )
 from typing import Optional
-
+from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot import data_path
 from hummingbot.logger.logger import HummingbotLogger
 from . import get_declarative_base
@@ -92,12 +92,6 @@ class SQLConnectionManager:
             db_path = params.get("db_path")
 
             return create_engine(f"{dialect}:///{db_path}")
-        elif "oracle" in dialect:
-            username = params.get("username")
-            password = params.get("password")
-            sid = params.get("sid")
-
-            return create_engine(f"{dialect}://{username}:{password}@{sid}")
         else:
             username = params.get("username")
             password = params.get("password")
