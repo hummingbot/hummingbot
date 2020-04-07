@@ -42,27 +42,37 @@ def secondary_market_on_validated(value: str):
 
 
 arbitrage_config_map = {
+    "strategy":
+        ConfigVar(key="strategy",
+                  prompt="",
+                  default="arbitrage",
+                  validator=lambda v: v == "arbitrage"),
     "primary_market": ConfigVar(
         key="primary_market",
         prompt="Enter your primary exchange name >>> ",
+        prompt_on_new=True,
         validator=is_exchange,
         on_validated=lambda value: required_exchanges.append(value)),
     "secondary_market": ConfigVar(
         key="secondary_market",
         prompt="Enter your secondary exchange name >>> ",
+        prompt_on_new=True,
         validator=is_exchange,
         on_validated=secondary_market_on_validated),
     "primary_market_trading_pair": ConfigVar(
         key="primary_market_trading_pair",
         prompt=primary_trading_pair_prompt,
+        prompt_on_new=True,
         validator=is_valid_primary_market_trading_pair),
     "secondary_market_trading_pair": ConfigVar(
         key="secondary_market_trading_pair",
         prompt=secondary_trading_pair_prompt,
+        prompt_on_new=True,
         validator=is_valid_secondary_market_trading_pair),
     "min_profitability": ConfigVar(
         key="min_profitability",
         prompt="What is the minimum profitability for you to make a trade? (Enter 0.01 to indicate 1%) >>> ",
+        prompt_on_new=True,
         default=0.003,
         type_str="decimal"),
 }

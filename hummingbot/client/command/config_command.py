@@ -331,7 +331,7 @@ class ConfigCommand:
 
         try:
             await self._inner_config_loop(keys)
-            await write_config_to_yml()
+            await write_config_to_yml(self.strategy_name, self.strategy_file_name)
             self._notify("\nConfig process complete. Enter \"start\" to start market making.")
             self.app.set_text("start")
         except asyncio.TimeoutError:
@@ -368,19 +368,11 @@ class ConfigCommand:
             if cv.is_secure:
                 Security.update_secure_config(cv.key, cv.value)
             else:
-                await write_config_to_yml()
+                await write_config_to_yml(self.strategy_name, self.strategy_file_name)
             self._notify(f"\nNew config saved:\n{key}: {str(value)}")
             if isinstance(self.strategy, PureMarketMakingStrategyV2):
                 ConfigCommand.update_running_pure_mm(self.strategy, key, cv.value)
 
-            if not self.config_complete:
-                choice = await self.app.prompt("Your configuration is incomplete. Would you like to proceed and "
-                                               "finish all necessary configurations? (Yes/No) >>> ")
-                if choice.lower() in {"y", "yes"}:
-                    self.config()
-                    return
-                else:
-                    self._notify("Aborted.")
         except asyncio.TimeoutError:
             self.logger().error("Prompt timeout")
         except Exception as err:
