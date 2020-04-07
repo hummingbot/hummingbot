@@ -16,6 +16,7 @@ from hummingbot.client.settings import (
 from hummingbot.client.ui.parser import ThrowingArgumentParser
 from hummingbot.core.utils.wallet_setup import list_wallets
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
+from hummingbot.client.command.connect_command import EXCHANGES as CONNECT_EXCHANGES
 
 
 class HummingbotCompleter(Completer):
@@ -28,6 +29,7 @@ class HummingbotCompleter(Completer):
                                              file_filter=lambda fname: fname.endswith(".yml"))
         self._command_completer = WordCompleter(self.parser.commands, ignore_case=True)
         self._exchange_completer = WordCompleter(EXCHANGES, ignore_case=True)
+        self._connect_exchange_completer = WordCompleter(CONNECT_EXCHANGES, ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
 
     @property
@@ -86,6 +88,10 @@ class HummingbotCompleter(Completer):
                any(x for x in ("exchange name", "name of exchange", "name of the exchange")
                    if x in self.prompt_text.lower())
 
+    def _complete_connect_exchanges(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return "connect" in text_before_cursor
+
     def _complete_trading_pairs(self, document: Document) -> bool:
         return "trading pair" in self.prompt_text
 
@@ -121,6 +127,10 @@ class HummingbotCompleter(Completer):
 
         if self._complete_wallet_addresses(document):
             for c in self._wallet_address_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_connect_exchanges(document):
+            for c in self._connect_exchange_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_exchanges(document):

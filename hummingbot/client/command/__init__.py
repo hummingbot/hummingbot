@@ -30,7 +30,7 @@ __all__ = [
     StatusCommand,
     StopCommand,
     ConnectCommand,
-    BalanceCommand
+    BalanceCommand,
     CreateCommand,
     ImportCommand
 ]

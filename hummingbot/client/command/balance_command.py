@@ -15,14 +15,13 @@ class BalanceCommand:
     async def show_balances(self):
         self._notify("Updating balances, please wait...")
         df = await self.balances_df()
-        lines = ["    " + l for l in df.to_string(index=False).split("\n")]
+        lines = ["    " + line for line in df.to_string(index=False).split("\n")]
         self._notify("\n".join(lines))
 
     async def balances_df(self  # type: HummingbotApplication
                           ):
         all_ex_bals = await UserBalances.instance().all_balances_all_exchanges()
         ex_columns = [ex for ex, bals in all_ex_bals.items() if any(bal > 0 for bal in bals.values())]
-        columns = ["Symbol"] + ex_columns + ["Total(USD)"]
         rows = []
         for exchange, bals in all_ex_bals.items():
             for token, bal in bals.items():
@@ -37,12 +36,12 @@ class BalanceCommand:
             ex_total = 0
             for ex, amount in row.items():
                 try:
-                    if ex not in ("Symbol", "Total(USD)"):
+                    if ex != "Symbol":
                         ex_total += ERC.get_instance().convert_token_value_decimal(amount, row["Symbol"], "USD")
                 except Exception:
                     continue
-            row["Total(USD)"] = round(ex_total, 4)
-        rows.append({"Symbol": "Total(USD)"})
+            row["Total(USD)"] = round(ex_total, 2)
+        last_row = {"Symbol": "Total(USD)"}
         for ex in ex_columns:
             token_total = 0
             for row in rows:
@@ -50,8 +49,12 @@ class BalanceCommand:
                     token_total += ERC.get_instance().convert_token_value_decimal(row[ex], row["Symbol"], "USD")
                 except Exception:
                     continue
-            rows[-1][ex] = round(token_total, 4)
-        rows[-1]["Total(USD)"] = sum(amount for ex, amount in rows[-1].items() if ex in ex_columns)
+            last_row[ex] = round(token_total, 2)
+        last_row["Total(USD)"] = round(sum(amount for ex, amount in last_row.items() if ex in ex_columns), 2)
+        ex_columns.sort(key=lambda ex: last_row[ex], reverse=True)
+        columns = ["Symbol"] + ex_columns + ["Total(USD)"]
         df = pd.DataFrame(data=rows, columns=columns)
         df = df.replace(NaN, 0)
+        df.sort_values(by=["Total(USD)"], inplace=True, ascending=False)
+        df = df.append(last_row, ignore_index=True, sort=False)
         return df
