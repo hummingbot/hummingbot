@@ -5,6 +5,7 @@ from typing import (
 
 from hummingbot.client.errors import ArgumentParserError
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.client.settings import EXCHANGES
 
 
 class ThrowingArgumentParser(argparse.ArgumentParser):
@@ -38,13 +39,20 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     parser = ThrowingArgumentParser(prog="", add_help=False)
     subparsers = parser.add_subparsers()
 
+    balance_parser = subparsers.add_parser("balance", help="Display all balances from all connected exchanges.")
+    balance_parser.set_defaults(func=hummingbot.balance)
+
+    connect_parser = subparsers.add_parser("connect", help="Connect or reconnect to an exchange.")
+    connect_parser.add_argument("exchange", nargs="?", choices=EXCHANGES, help="An exchange name")
+    connect_parser.set_defaults(func=hummingbot.connect)
+
     create_parser = subparsers.add_parser("create", help="Create a new configuration for a new bot.")
     create_parser.add_argument("file_name", nargs="?", default=None, help="A new configuration file name")
     create_parser.set_defaults(func=hummingbot.create)
 
-    create_parser = subparsers.add_parser("import", help="Import a configuration to start a bot.")
-    create_parser.add_argument("file_name", nargs="?", default=None, help="A configuration file name")
-    create_parser.set_defaults(func=hummingbot.import_command)
+    import_parser = subparsers.add_parser("import", help="Import a configuration to start a bot.")
+    import_parser.add_argument("file_name", nargs="?", default=None, help="A configuration file name")
+    import_parser.set_defaults(func=hummingbot.import_command)
 
     config_parser = subparsers.add_parser("config", help="Create a new bot or import an existing configuration")
     config_parser.add_argument("key", nargs="?", default=None, help="Configure a specific variable")
