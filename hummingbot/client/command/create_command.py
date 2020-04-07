@@ -1,5 +1,4 @@
 import os
-from decimal import Decimal
 import shutil
 
 from hummingbot.client.config.config_var import ConfigVar
@@ -11,7 +10,8 @@ from hummingbot.client.config.config_helpers import (
     save_to_yml,
     get_strategy_template_path,
     missing_required_configs,
-    format_config_file_name
+    format_config_file_name,
+    parse_config_default_to_text
 )
 from hummingbot.client.settings import CONF_FILE_PATH
 from hummingbot.client.config.global_config_map import global_config_map
@@ -20,24 +20,6 @@ from hummingbot.client.config.config_validators import is_strategy
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
-
-
-def parse_config_default_to_text(config: ConfigVar) -> str:
-    """
-    :param config: ConfigVar object
-    :return: text for default value prompt
-    """
-    if config.default is None:
-        default = ""
-    elif callable(config.default):
-        default = config.default()
-    elif config.type == 'bool' and isinstance(config.prompt, str) and "Yes/No" in config.prompt:
-        default = "Yes" if config.default else "No"
-    else:
-        default = str(config.default)
-    if isinstance(default, Decimal):
-        default = "{0:.4f}".format(default)
-    return default
 
 
 class CreateCommand:
