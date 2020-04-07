@@ -63,27 +63,6 @@ class SQLConnectionManager:
             cls._scm_trade_fills_instance = SQLConnectionManager(SQLConnectionType.TRADE_FILLS)
         return cls._scm_trade_fills_instance
 
-    def __init__(self,
-                 connection_type: SQLConnectionType,
-                 db_path: Optional[str] = None):
-        if db_path is None:
-            db_path = join(data_path(), "hummingbot_trades.sqlite")
-
-        if connection_type is SQLConnectionType.TRADE_FILLS:
-            self._engine: Engine = create_engine(f"sqlite:///{db_path}")
-            self._metadata: MetaData = self.get_declarative_base().metadata
-            self._metadata.create_all(self._engine)
-
-        self._session_cls = sessionmaker(bind=self._engine)
-        self._shared_session: Session = self._session_cls()
-
-        if connection_type is SQLConnectionType.TRADE_FILLS:
-            self.check_and_upgrade_trade_fills_db()
-
-    @property
-    def engine(self) -> Engine:
-        return self._engine
-
     @classmethod
     def get_db_engine(cls, 
                       dialect: str, 
@@ -100,6 +79,40 @@ class SQLConnectionManager:
             db_name = params.get("db_name")
 
             return create_engine(f"{dialect}://{username}:{password}@{host}:{port}/{db_name}")
+
+    def __init__(self,
+                 connection_type: SQLConnectionType,
+                 db_path: Optional[str] = None):
+        if db_path is None:
+            db_path = join(data_path(), "hummingbot_trades.sqlite")
+
+        engine_options = {
+            "db_engine": global_config_map.get("db_engine").value,
+            "db_host": global_config_map.get("db_host").value,
+            "db_port": global_config_map.get("db_port").value,
+            "db_username": global_config_map.get("db_username").value,
+            "db_password": global_config_map.get("db_password").value,
+            "db_name": global_config_map.get("db_name").value,
+            "db_path": db_path
+        }
+
+        if connection_type is SQLConnectionType.TRADE_FILLS:
+            self._engine: Engine = self.get_db_engine(
+                                                engine_options.get("db_engine"),
+                                                engine_options
+                                                )
+            self._metadata: MetaData = self.get_declarative_base().metadata
+            self._metadata.create_all(self._engine)
+
+        self._session_cls = sessionmaker(bind=self._engine)
+        self._shared_session: Session = self._session_cls()
+
+        if connection_type is SQLConnectionType.TRADE_FILLS:
+            self.check_and_upgrade_trade_fills_db()
+
+    @property
+    def engine(self) -> Engine:
+        return self._engine
 
     def get_shared_session(self) -> Session:
         return self._shared_session
