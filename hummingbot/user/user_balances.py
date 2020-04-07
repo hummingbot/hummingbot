@@ -7,6 +7,7 @@ from hummingbot.market.liquid.liquid_market import LiquidMarket
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.client.settings import EXCHANGES
 from hummingbot.client.config.security import Security
+from hummingbot.core.utils.async_utils import safe_gather
 
 
 class UserBalances:
@@ -65,13 +66,22 @@ class UserBalances:
             return None
         return self._markets[exchange].get_all_balances()
 
-    async def update_all_exchanges(self):
+    async def update_all_exchanges(self, reconnect=False):
+        tasks = []
+        updated_exchanges = []
+        if reconnect:
+            self._markets.clear()
         for exchange in EXCHANGES:
             if exchange in self._markets:
-                await self._update_balances(self._markets[exchange])
-            api_keys = await Security.api_keys(exchange)
-            if api_keys:
-                await self.add_exchange(exchange, *api_keys.values())
+                tasks.append(self._update_balances(self._markets[exchange]))
+                updated_exchanges.append(exchange)
+            else:
+                api_keys = await Security.api_keys(exchange)
+                if api_keys:
+                    tasks.append(self.add_exchange(exchange, *api_keys.values()))
+                    updated_exchanges.append(exchange)
+        results = await safe_gather(*tasks)
+        return {ex: err_msg for ex, err_msg in zip(updated_exchanges, results)}
 
     async def all_balances_all_exchanges(self):
         await self.update_all_exchanges()
