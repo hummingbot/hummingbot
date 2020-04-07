@@ -5,6 +5,7 @@ from typing import (
     Optional,
     Any,
 )
+from decimal import Decimal
 from hummingbot.core.utils.wallet_setup import (
     create_and_save_wallet,
     import_and_save_wallet,
@@ -33,7 +34,7 @@ if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
-no_restart_pmm_keys = ["bid_place_threshold", "ask_place_threshold"]
+no_restart_pmm_keys = ["bid_spread", "ask_spread"]
 
 
 class ConfigCommand:
@@ -331,7 +332,7 @@ class ConfigCommand:
 
         try:
             await self._inner_config_loop(keys)
-            await write_config_to_yml()
+            await write_config_to_yml(self.strategy_name, self.strategy_file_name)
             self._notify("\nConfig process complete. Enter \"start\" to start market making.")
             self.app.set_text("start")
         except asyncio.TimeoutError:
@@ -346,10 +347,10 @@ class ConfigCommand:
     # Make this function static so unit testing can be performed.
     @staticmethod
     def update_running_pure_mm(pure_mm_strategy: PureMarketMakingStrategyV2, key: str, new_value: Any):
-        if key == "bid_place_threshold":
-            pure_mm_strategy.pricing_delegate.bid_spread = new_value
-        elif key == "ask_place_threshold":
-            pure_mm_strategy.pricing_delegate.ask_spread = new_value
+        if key == "bid_spread":
+            pure_mm_strategy.pricing_delegate.bid_spread = new_value / Decimal("100")
+        elif key == "ask_spread":
+            pure_mm_strategy.pricing_delegate.ask_spread = new_value / Decimal("100")
 
     async def _config_single_key(self,  # type: HummingbotApplication
                                  key: str):
@@ -368,19 +369,11 @@ class ConfigCommand:
             if cv.is_secure:
                 Security.update_secure_config(cv.key, cv.value)
             else:
-                await write_config_to_yml()
+                await write_config_to_yml(self.strategy_name, self.strategy_file_name)
             self._notify(f"\nNew config saved:\n{key}: {str(value)}")
             if isinstance(self.strategy, PureMarketMakingStrategyV2):
                 ConfigCommand.update_running_pure_mm(self.strategy, key, cv.value)
 
-            if not self.config_complete:
-                choice = await self.app.prompt("Your configuration is incomplete. Would you like to proceed and "
-                                               "finish all necessary configurations? (Yes/No) >>> ")
-                if choice.lower() in {"y", "yes"}:
-                    self.config()
-                    return
-                else:
-                    self._notify("Aborted.")
         except asyncio.TimeoutError:
             self.logger().error("Prompt timeout")
         except Exception as err:

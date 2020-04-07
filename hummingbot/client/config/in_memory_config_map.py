@@ -7,7 +7,7 @@ from hummingbot.client.settings import (
     CONF_PREFIX,
 )
 from hummingbot.client.config.config_helpers import (
-    read_configs_from_yml,
+    read_system_configs_from_yml,
 )
 
 
@@ -30,5 +30,5 @@ in_memory_config_map = {
         ConfigVar(key="strategy_file_path",
                   prompt=default_strategy_conf_path_prompt,
                   validator=is_path,
-                  on_validated=read_configs_from_yml)
+                  on_validated=read_system_configs_from_yml)
 }

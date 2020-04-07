@@ -55,7 +55,7 @@ class ListCommand:
         self._notify("\nglobal configs:")
         self._notify(str(global_df))
 
-        strategy = global_config_map.get("strategy").value
+        strategy = self.strategy_name
         if strategy:
             strategy_cvs: List[ConfigVar] = get_strategy_config_map(strategy).values()
             strategy_data: List[List[Any]] = [
@@ -92,9 +92,7 @@ class ListCommand:
             return
 
         lines = []
-        # To access the trades from Markets Recorder you need the file path and strategy name
-        if in_memory_config_map.get("strategy_file_path").value is None or \
-                global_config_map.get("strategy").value is None:
+        if self.strategy is None:
             self._notify("Bot not started. No past trades.")
         else:
             # Query for maximum number of trades to display + 1

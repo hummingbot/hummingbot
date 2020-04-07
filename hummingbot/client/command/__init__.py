@@ -12,6 +12,8 @@ from .status_command import StatusCommand
 from .stop_command import StopCommand
 from .connect_command import ConnectCommand
 from .balance_command import BalanceCommand
+from .create_command import CreateCommand
+from .import_command import ImportCommand
 
 
 __all__ = [
@@ -29,4 +31,6 @@ __all__ = [
     StopCommand,
     ConnectCommand,
     BalanceCommand
+    CreateCommand,
+    ImportCommand
 ]
