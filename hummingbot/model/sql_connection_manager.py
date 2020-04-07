@@ -84,6 +84,29 @@ class SQLConnectionManager:
     def engine(self) -> Engine:
         return self._engine
 
+    @classmethod
+    def get_db_engine(cls, 
+                      dialect: str, 
+                      params: dict) -> Engine:
+        if "sqlite" in dialect:
+            db_path = params.get("db_path")
+
+            return create_engine(f"{dialect}:///{db_path}")
+        elif "oracle" in dialect:
+            username = params.get("username")
+            password = params.get("password")
+            sid = params.get("sid")
+
+            return create_engine(f"{dialect}://{username}:{password}@{sid}")
+        else:
+            username = params.get("username")
+            password = params.get("password")
+            host = params.get("host")
+            port = params.get("port")
+            db_name = params.get("db_name")
+
+            return create_engine(f"{dialect}://{username}:{password}@{host}:{port}/{db_name}")
+
     def get_shared_session(self) -> Session:
         return self._shared_session
 
