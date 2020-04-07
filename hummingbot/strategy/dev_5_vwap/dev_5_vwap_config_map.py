@@ -33,6 +33,11 @@ def order_percent_of_volume_prompt():
 
 
 dev_5_vwap_config_map = {
+    "strategy":
+        ConfigVar(key="strategy",
+                  prompt="",
+                  default="dev_5_vwap",
+                  validator=lambda v: v == "dev_5_vwap"),
     "market":
         ConfigVar(key="market",
                   prompt="Enter the name of the exchange >>> ",

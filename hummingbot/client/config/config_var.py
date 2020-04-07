@@ -15,8 +15,8 @@ class ConfigVar:
                  required_if: Callable = lambda: True,
                  validator: Callable = lambda *args: True,
                  on_validated: Callable = lambda *args: None,
-                 # a default value for when a config is not found on an old configuration file (during migration).
-                 migration_default: any = None):
+                 # Whether to prompt a user for value when new strategy config file is created
+                 prompt_on_new: bool = False):
         self._prompt = prompt
         self.key = key
         self.value = None
@@ -26,7 +26,7 @@ class ConfigVar:
         self._required_if = required_if
         self._validator = validator
         self._on_validated = on_validated
-        self.migration_default = migration_default
+        self.prompt_on_new = prompt_on_new
 
     @property
     def prompt(self):

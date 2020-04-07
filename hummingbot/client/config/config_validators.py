@@ -1,6 +1,6 @@
 from os.path import (
     isfile,
-    join,
+    join
 )
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.client.settings import (
