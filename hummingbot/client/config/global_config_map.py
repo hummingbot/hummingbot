@@ -304,4 +304,41 @@ global_config_map = {
                   type_str="json",
                   default=MIN_QUOTE_ORDER_AMOUNTS,
                   migration_default=MIN_QUOTE_ORDER_AMOUNTS),
+    # Database options
+    "db_engine":
+        ConfigVar(key="db_engine",
+                  prompt="Please enter database engine you wish to use (reference: https://docs.sqlalchemy.org/en/13/dialects/) >>> ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  default="sqlite"),
+    "db_host":
+        ConfigVar(key="db_host",
+                  prompt="Please enter your DB host address >>> ",
+                  type_str="str",
+                  required_if=lambda: any([x in global_config_map.get("db_engine").value for x in ["oracle", "postgres", "mysql", "mssql"]]),
+                  default="127.0.0.1"),
+    "db_port":
+        ConfigVar(key="db_port",
+                  prompt="Please enter your DB port >>> ",
+                  type_str="str",
+                  required_if=lambda: any([x in global_config_map.get("db_engine").value for x in ["oracle", "postgres", "mysql", "mssql"]]),
+                  default="3306"),
+    "db_username":
+        ConfigVar(key="db_username",
+                  prompt="Please enter your DB username >>> ",
+                  type_str="str",
+                  required_if=lambda: any([x in global_config_map.get("db_engine").value for x in ["oracle", "postgres", "mysql", "mssql"]]),
+                  default="username"),
+    "db_password":
+        ConfigVar(key="db_password",
+                  prompt="Please enter your DB password >>> ",
+                  type_str="str",
+                  required_if=lambda: any([x in global_config_map.get("db_engine").value for x in ["oracle", "postgres", "mysql", "mssql"]]),
+                  default="password"),
+    "db_name":
+        ConfigVar(key="db_name",
+                  prompt="Please enter your the name of your DB >>> ",
+                  type_str="str",
+                  required_if=lambda: any([x in global_config_map.get("db_engine").value for x in ["oracle", "postgres", "mysql", "mssql"]]),
+                  default="dbname"),
 }
