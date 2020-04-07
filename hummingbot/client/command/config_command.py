@@ -5,6 +5,7 @@ from typing import (
     Optional,
     Any,
 )
+from decimal import Decimal
 from hummingbot.core.utils.wallet_setup import (
     create_and_save_wallet,
     import_and_save_wallet,
@@ -41,7 +42,7 @@ if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
-no_restart_pmm_keys = ["bid_place_threshold", "ask_place_threshold"]
+no_restart_pmm_keys = ["bid_spread", "ask_spread"]
 
 
 class ConfigCommand:
@@ -392,10 +393,10 @@ class ConfigCommand:
     # Make this function static so unit testing can be performed.
     @staticmethod
     def update_running_pure_mm(pure_mm_strategy: PureMarketMakingStrategyV2, key: str, new_value: Any):
-        if key == "bid_place_threshold":
-            pure_mm_strategy.pricing_delegate.bid_spread = new_value
-        elif key == "ask_place_threshold":
-            pure_mm_strategy.pricing_delegate.ask_spread = new_value
+        if key == "bid_spread":
+            pure_mm_strategy.pricing_delegate.bid_spread = new_value / Decimal("100")
+        elif key == "ask_spread":
+            pure_mm_strategy.pricing_delegate.ask_spread = new_value / Decimal("100")
 
     async def _config_single_key(self,  # type: HummingbotApplication
                                  key: str):
