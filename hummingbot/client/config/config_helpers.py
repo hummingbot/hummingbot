@@ -424,3 +424,21 @@ def format_config_file_name(file_name):
     if "." not in file_name:
         return file_name + ".yml"
     return file_name
+
+
+def parse_config_default_to_text(config: ConfigVar) -> str:
+    """
+    :param config: ConfigVar object
+    :return: text for default value prompt
+    """
+    if config.default is None:
+        default = ""
+    elif callable(config.default):
+        default = config.default()
+    elif config.type == 'bool' and isinstance(config.prompt, str) and "Yes/No" in config.prompt:
+        default = "Yes" if config.default else "No"
+    else:
+        default = str(config.default)
+    if isinstance(default, Decimal):
+        default = "{0:.4f}".format(default)
+    return default
