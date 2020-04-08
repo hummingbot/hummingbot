@@ -5,6 +5,7 @@ import logging
 from os.path import join
 from sqlalchemy import (
     create_engine,
+    inspect
     MetaData,
 )
 from sqlalchemy.engine.base import Engine
@@ -14,6 +15,7 @@ from sqlalchemy.orm import (
     Session,
     Query
 )
+from sqlalchemy.schema import DropConstraint, ForeignKeyConstraint, Table
 from typing import Optional
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot import data_path
@@ -102,6 +104,21 @@ class SQLConnectionManager:
                                                 engine_options)
             self._metadata: MetaData = self.get_declarative_base().metadata
             self._metadata.create_all(self._engine)
+
+            # SQLite does not enforce foreign key constraint, but for others engines, we need to drop it. 
+            # See: `hummingbot/market/markets_recorder.py`, at line 213.
+            with self._engine.begin() as conn:
+                inspector = inspect(conn)
+
+                for tname, fkcs in reversed(
+                        inspector.get_sorted_table_and_fkc_names()):
+                    if fkcs:
+                        if not self._engine.dialect.supports_alter:
+                            continue
+                        for fkc in fkcs:
+                            fk_constraint = ForeignKeyConstraint((), (), name=fkc)
+                            Table(tname, MetaData(), fk_constraint)
+                            conn.execute(DropConstraint(fk_constraint))
 
         self._session_cls = sessionmaker(bind=self._engine)
         self._shared_session: Session = self._session_cls()
