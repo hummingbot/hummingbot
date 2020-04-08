@@ -17,8 +17,9 @@ from hummingbot.client.config.config_helpers import (
 from hummingbot.client.settings import CONF_FILE_PATH
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
-from hummingbot.client.config.config_validators import is_strategy
+from hummingbot.client.config.config_validators import validate_strategy
 from hummingbot.user.user_balances import UserBalances
+from hummingbot.client.ui.completer import load_completer
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -42,7 +43,7 @@ class CreateCommand:
         self.app.hide_input = True
         strategy_config = ConfigVar(key="strategy",
                                     prompt="What is your market making strategy? >>> ",
-                                    validator=is_strategy)
+                                    validator=validate_strategy)
         await self.prompt_a_config(strategy_config)
         strategy = strategy_config.value
         config_map = get_strategy_config_map(strategy)
@@ -69,6 +70,8 @@ class CreateCommand:
         save_to_yml(strategy_path, config_map)
         self.strategy_file_name = file_name
         self.strategy_name = strategy
+        # Reload completer here otherwise the new file will not appear
+        self.app.input_field.completer = load_completer(self)
         self._notify(f"A new config file {self.strategy_file_name} created.")
         if not await self.notify_missing_configs():
             self._notify("Enter \"start\" to start market making.")
@@ -85,11 +88,9 @@ class CreateCommand:
             if assign_default:
                 self.app.set_text(parse_config_default_to_text(config))
             input_value = await self.app.prompt(prompt=config.prompt, is_password=config.is_secure)
-        valid = config.validate(input_value)
-        # ToDo: this should be from the above validate function.
-        msg = "Invalid input."
-        if not valid:
-            self._notify(msg)
+        err_msg = config.validate(input_value)
+        if err_msg is not None:
+            self._notify(err_msg)
             await self.prompt_a_config(config)
         else:
             config.value = parse_cvar_value(config, input_value)

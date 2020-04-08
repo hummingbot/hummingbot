@@ -1,0 +1,46 @@
+#################################
+###   Global configurations   ###
+#################################
+
+# For more detailed information: https://docs.hummingbot.io
+template_version: 7
+
+# Exchange configs
+bamboo_relay_use_coordinator:
+bamboo_relay_pre_emptive_soft_cancels:
+
+ethereum_rpc_url:
+ethereum_chain_name:
+ethereum_token_overrides:
+
+# Kill switch
+kill_switch_enabled:
+## The rate of performance at which you would want the bot to stop trading (-0.2 = 20%)
+kill_switch_rate:
+
+# Paper Trading
+paper_trade_enabled:
+paper_trade_account_balance:
+telegram_enabled:
+telegram_token:
+telegram_chat_id:
+
+# Exchange rate
+exchange_rate_default_data_feed:
+exchange_rate_conversion:
+exchange_rate_fetcher:
+send_error_logs:
+
+# Advanced configs: Do NOT touch unless you understand what you are changing
+client_id:
+log_level:
+debug_console:
+strategy_report_interval:
+logger_override_whitelist:
+key_file_path:
+log_file_path:
+on_chain_cancel_on_exit:
+
+# Minimum default order amount (in quote currency), this is used for when prompting a new order_amount.
+min_quote_order_amount:
+strategy: pure_market_making

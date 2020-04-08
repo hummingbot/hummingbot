@@ -6,15 +6,10 @@ from sqlalchemy.orm import (
 )
 from typing import (
     List,
-    Any,
     Optional,
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.wallet_setup import list_wallets
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.in_memory_config_map import in_memory_config_map
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.config_helpers import get_strategy_config_map
 from hummingbot.client.settings import (
     EXCHANGES,
     MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT
@@ -42,31 +37,6 @@ class ListCommand:
             self._notify("No exchanges available")
         else:
             self._notify('\n'.join(EXCHANGES))
-
-    def list_configs(self,  # type: HummingbotApplication
-                     ):
-        columns: List[str] = ["Key", "Current Value"]
-
-        global_cvs: List[ConfigVar] = list(in_memory_config_map.values()) + list(global_config_map.values())
-        global_data: List[List[Any]] = [
-            [cv.key, len(str(cv.value)) * "*" if cv.is_secure else str(cv.value)]
-            for cv in global_cvs]
-        global_df: pd.DataFrame = pd.DataFrame(data=global_data, columns=columns)
-        self._notify("\nglobal configs:")
-        self._notify(str(global_df))
-
-        strategy = self.strategy_name
-        if strategy:
-            strategy_cvs: List[ConfigVar] = get_strategy_config_map(strategy).values()
-            strategy_data: List[List[Any]] = [
-                [cv.key, len(str(cv.value)) * "*" if cv.is_secure else str(cv.value)]
-                for cv in strategy_cvs]
-            strategy_df: pd.DataFrame = pd.DataFrame(data=strategy_data, columns=columns)
-
-            self._notify(f"\n{strategy} strategy configs:")
-            self._notify(str(strategy_df))
-
-        self._notify("\n")
 
     def _get_trades_from_session(self,  # type: HummingbotApplication
                                  start_timestamp: int,

@@ -1,60 +1,55 @@
-from os.path import (
-    isfile,
-    join
-)
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.client.settings import (
     EXCHANGES,
     STRATEGIES,
-    CONF_FILE_PATH,
 )
 from decimal import Decimal
 
 
 # Validators
-def is_exchange(value: str) -> bool:
-    return value in EXCHANGES
+def validate_exchange(value: str) -> str:
+    if value not in EXCHANGES:
+        return f"Invalid exchange, please choose value from {EXCHANGES}"
 
 
-def is_strategy(value: str) -> bool:
-    return value in STRATEGIES
+def validate_strategy(value: str) -> str:
+    if value not in STRATEGIES:
+        return f"Invalid strategy, please choose value from {STRATEGIES}"
 
 
-def is_valid_percent(value: str) -> bool:
+def validate_decimal(value: str, min_value: Decimal = None, max_value: Decimal = None, inclusive=True) -> str:
     try:
-        return 0 <= float(value) < 1
-    except ValueError:
-        return False
-
-
-def is_valid_decimal(value: str, min_value, max_value) -> bool:
-    try:
-        return Decimal(str(min_value)) <= Decimal(value) < Decimal(str(max_value))
+        decimal_value = Decimal(value)
     except Exception:
-        return False
+        return f"{value} is not in decimal format."
+    if inclusive:
+        if min_value is not None and max_value is not None:
+            if not (Decimal(str(min_value)) <= decimal_value <= Decimal(str(max_value))):
+                return "Value must be between {min_value} and {max_value}."
+        elif min_value is not None and not decimal_value >= Decimal(str(min_value)):
+            return f"Value cannot be less than {min_value}."
+        elif max_value is not None and not decimal_value <= Decimal(str(max_value)):
+            return f"Value cannot be more than {max_value}."
+    else:
+        if min_value is not None and max_value is not None:
+            if not (Decimal(str(min_value)) < decimal_value < Decimal(str(max_value))):
+                return f"Value must be between {min_value} and {max_value} (exclusive)."
+        elif min_value is not None and not decimal_value > Decimal(str(min_value)):
+            return f"Value has to be more than {min_value}."
+        elif max_value is not None and not decimal_value < Decimal(str(max_value)):
+            return f"Value has to be less than {max_value}."
 
 
-def is_valid_expiration(value: str) -> bool:
-    try:
-        return float(value) >= 130.0
-    except Exception:
-        return False
-
-
-def is_path(value: str) -> bool:
-    return isfile(join(CONF_FILE_PATH, value)) and value.endswith('.yml')
-
-
-def is_valid_market_trading_pair(market: str, value: str) -> bool:
+def validate_market_trading_pair(market: str, value: str) -> str:
     # Since trading pair validation and autocomplete are UI optimizations that do not impact bot performances,
     # in case of network issues or slow wifi, this check returns true and does not prevent users from proceeding,
     trading_pair_fetcher: TradingPairFetcher = TradingPairFetcher.get_instance()
     if trading_pair_fetcher.ready:
-        trading_pairs = trading_pair_fetcher.trading_pairs.get(market, [])
-        return value in trading_pair_fetcher.trading_pairs.get(market) if len(trading_pairs) > 0 else True
-    else:
-        return True
+        if value not in trading_pair_fetcher.trading_pairs.get(market):
+            return f"{value} is not an active market on {market}."
 
 
-def is_valid_bool(value: str) -> bool:
-    return value.lower() in ('true', 'yes', 'y', 'false', 'no', 'n')
+def validate_bool(value: str) -> str:
+    valid_values = ('true', 'yes', 'y', 'false', 'no', 'n')
+    if value.lower() not in valid_values:
+        return f"Invalid value, please choose value from {valid_values}"

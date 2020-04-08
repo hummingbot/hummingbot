@@ -20,7 +20,7 @@ from hummingbot.client.command.connect_command import EXCHANGES as CONNECT_EXCHA
 
 
 def file_name_list(path, file_extension):
-    return [f for f in listdir(path) if isfile(join(path, f)) and f.endswith(file_extension)]
+    return sorted([f for f in listdir(path) if isfile(join(path, f)) and f.endswith(file_extension)])
 
 
 class HummingbotCompleter(Completer):
