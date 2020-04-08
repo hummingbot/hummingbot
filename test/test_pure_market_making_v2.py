@@ -380,8 +380,8 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
                          self.strategy.active_asks[0][1].price)
         self.assertEqual(1, self.strategy.active_bids[0][1].quantity)
         self.assertEqual(1, self.strategy.active_asks[0][1].quantity)
-        ConfigCommand.update_running_pure_mm(self.strategy, "bid_place_threshold", Decimal('0.02'))
-        ConfigCommand.update_running_pure_mm(self.strategy, "ask_place_threshold", Decimal('0.03'))
+        ConfigCommand.update_running_pure_mm(self.strategy, "bid_spread", Decimal('2'))
+        ConfigCommand.update_running_pure_mm(self.strategy, "ask_spread", Decimal('3'))
         self.clock.backtest_til(self.start_timestamp + (2 * self.clock_tick_size) + 1)
         self.assertEqual(self.mid_price * (1 - Decimal('0.02')),
                          self.strategy.active_bids[0][1].price)
@@ -718,8 +718,8 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.assertAlmostEqual(last_bid_price, last_bid_order.price, 2)
         self.assertAlmostEqual(last_ask_price, last_ask_order.price, 2)
 
-        ConfigCommand.update_running_pure_mm(self.multi_order_equal_strategy, "bid_place_threshold", Decimal('0.02'))
-        ConfigCommand.update_running_pure_mm(self.multi_order_equal_strategy, "ask_place_threshold", Decimal('0.02'))
+        ConfigCommand.update_running_pure_mm(self.multi_order_equal_strategy, "bid_spread", Decimal('2'))
+        ConfigCommand.update_running_pure_mm(self.multi_order_equal_strategy, "ask_spread", Decimal('2'))
         self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
         first_bid_order: LimitOrder = self.multi_order_equal_strategy.active_bids[0][1]
         first_ask_order: LimitOrder = self.multi_order_equal_strategy.active_asks[0][1]
