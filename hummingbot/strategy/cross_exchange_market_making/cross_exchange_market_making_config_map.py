@@ -1,7 +1,7 @@
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
-    is_exchange,
-    is_valid_market_trading_pair
+    validate_exchange,
+    validate_market_trading_pair
 )
 from hummingbot.client.settings import required_exchanges, EXAMPLE_PAIRS
 from decimal import Decimal
@@ -30,14 +30,14 @@ def taker_trading_pair_prompt():
 
 
 # strategy specific validators
-def is_valid_maker_market_trading_pair(value: str) -> bool:
+def validate_maker_market_trading_pair(value: str) -> str:
     maker_market = cross_exchange_market_making_config_map.get("maker_market").value
-    return is_valid_market_trading_pair(maker_market, value)
+    return validate_market_trading_pair(maker_market, value)
 
 
-def is_valid_taker_market_trading_pair(value: str) -> bool:
+def validate_taker_market_trading_pair(value: str) -> str:
     taker_market = cross_exchange_market_making_config_map.get("taker_market").value
-    return is_valid_market_trading_pair(taker_market, value)
+    return validate_market_trading_pair(taker_market, value)
 
 
 def order_amount_prompt() -> str:
@@ -47,12 +47,14 @@ def order_amount_prompt() -> str:
     return f"What is the amount of {base_asset} per order? (minimum {min_amount}) >>> "
 
 
-def is_valid_order_amount(value: str) -> bool:
+def validate_order_amount(value: str) -> str:
     try:
         trading_pair = cross_exchange_market_making_config_map["maker_market_trading_pair"].value
-        return Decimal(value) >= minimum_order_amount(trading_pair)
+        min_amount = minimum_order_amount(trading_pair)
+        if Decimal(value) < min_amount:
+            return f"Order amount must be at least {min_amount}."
     except Exception:
-        return False
+        return f"Invalid order amount."
 
 
 def taker_market_on_validated(value: str):
@@ -65,34 +67,33 @@ def taker_market_on_validated(value: str):
 cross_exchange_market_making_config_map = {
     "strategy": ConfigVar(key="strategy",
                           prompt="",
-                          default="cross_exchange_market_making",
-                          validator=lambda v: v == "cross_exchange_market_making"
+                          default="cross_exchange_market_making"
                           ),
     "maker_market": ConfigVar(
         key="maker_market",
         prompt="Enter your maker exchange name >>> ",
         prompt_on_new=True,
-        validator=is_exchange,
+        validator=validate_exchange,
         on_validated=lambda value: required_exchanges.append(value),
     ),
     "taker_market": ConfigVar(
         key="taker_market",
         prompt="Enter your taker exchange name >>> ",
         prompt_on_new=True,
-        validator=is_exchange,
+        validator=validate_exchange,
         on_validated=taker_market_on_validated,
     ),
     "maker_market_trading_pair": ConfigVar(
         key="maker_market_trading_pair",
         prompt=maker_trading_pair_prompt,
         prompt_on_new=True,
-        validator=is_valid_maker_market_trading_pair
+        validator=validate_maker_market_trading_pair
     ),
     "taker_market_trading_pair": ConfigVar(
         key="taker_market_trading_pair",
         prompt=taker_trading_pair_prompt,
         prompt_on_new=True,
-        validator=is_valid_taker_market_trading_pair
+        validator=validate_taker_market_trading_pair
     ),
     "min_profitability": ConfigVar(
         key="min_profitability",
@@ -105,7 +106,7 @@ cross_exchange_market_making_config_map = {
         prompt=order_amount_prompt,
         prompt_on_new=True,
         type_str="decimal",
-        validator=is_valid_order_amount,
+        validator=validate_order_amount,
     ),
     "adjust_order_enabled": ConfigVar(
         key="adjust_order_enabled",
