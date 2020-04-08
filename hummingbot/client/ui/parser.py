@@ -56,6 +56,7 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
 
     config_parser = subparsers.add_parser("config", help="Create a new bot or import an existing configuration")
     config_parser.add_argument("key", nargs="?", default=None, help="Configure a specific variable")
+    config_parser.add_argument("value", nargs="?", default=None, help="Value for the variable")
     config_parser.set_defaults(func=hummingbot.config)
 
     help_parser = subparsers.add_parser("help", help="List the commands and get help on each one")

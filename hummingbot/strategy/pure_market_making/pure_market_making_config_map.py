@@ -75,7 +75,7 @@ def exchange_on_validated(value: str):
 pure_market_making_config_map = {
     "strategy":
         ConfigVar(key="strategy",
-                  prompt="",
+                  prompt=None,
                   default="pure_market_making",
                   validator=lambda v: v == "pure_market_making"),
     "exchange":
@@ -151,7 +151,7 @@ pure_market_making_config_map = {
         ConfigVar(key="inventory_skew_enabled",
                   prompt="Would you like to enable inventory skew? (Yes/No) >>> ",
                   type_str="bool",
-                  default=False,
+                  default=True,
                   validator=is_valid_bool),
     "inventory_target_base_pct":
         ConfigVar(key="inventory_target_base_pct",

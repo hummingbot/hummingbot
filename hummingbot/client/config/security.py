@@ -94,6 +94,12 @@ class Security:
         cls._secure_configs[key] = new_value
 
     @classmethod
+    def update_config_map(cls, config_map):
+        for config in config_map.values():
+            if config.is_secure and config.value is None:
+                config.value = cls.decrypted_value(config.key)
+
+    @classmethod
     def is_decryption_done(cls):
         return cls._decryption_done.is_set()
 
