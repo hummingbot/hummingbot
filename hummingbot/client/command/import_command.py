@@ -19,13 +19,14 @@ class ImportCommand:
                        file_name):
         if file_name is not None:
             file_name = format_config_file_name(file_name)
-        self.app.clear_input()
-        self.placeholder_mode = True
-        self.app.toggle_hide_input()
+
         safe_ensure_future(self.import_config_file(file_name))
 
     async def import_config_file(self,  # type: HummingbotApplication
                                  file_name):
+        self.app.clear_input()
+        self.placeholder_mode = True
+        self.app.hide_input = True
         if file_name is None:
             file_name = await self.prompt_a_file_name()
         strategy_path = os.path.join(CONF_FILE_PATH, file_name)
@@ -34,6 +35,7 @@ class ImportCommand:
         self.strategy_name = strategy
         self._notify(f"Configuration from {self.strategy_file_name} file is imported.")
         self.placeholder_mode = False
+        self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
         if not await self.notify_missing_configs():
             self._notify("Enter \"start\" to start market making.")

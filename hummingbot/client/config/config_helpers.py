@@ -254,10 +254,12 @@ def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str, Confi
 
             # Todo: the proper process should be first validate the value then assign it
             cvar.value = parse_cvar_value(cvar, val_in_file)
-            if cvar.value is not None and not cvar.validate(str(cvar.value)):
-                # Instead of raising an exception, simply skip over this variable and wait till the user is prompted
-                logging.getLogger().error("Invalid value %s for config variable %s" % (val_in_file, cvar.key))
-                cvar.value = None
+            if cvar.value is not None:
+                err_msg = cvar.validate(str(cvar.value))
+                if err_msg is not None:
+                    # Instead of raising an exception, simply skip over this variable and wait till the user is prompted
+                    logging.getLogger().error("Invalid value %s for config variable %s" % (val_in_file, cvar.key))
+                    cvar.value = None
 
         if conf_version < template_version:
             # delete old config file

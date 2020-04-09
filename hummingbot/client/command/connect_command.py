@@ -61,7 +61,7 @@ class ConnectCommand:
         columns = ["Exchange", "  Keys Added", "  Keys Confirmed"]
         data = []
         failed_msgs = {}
-        err_msgs = await UserBalances.instance().update_all_exchanges(reconnect=True)
+        err_msgs = await UserBalances.instance().update_all(reconnect=True)
         for exchange in sorted(EXCHANGES):
             api_keys = (await Security.api_keys(exchange)).values()
             keys_added = "No"

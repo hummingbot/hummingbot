@@ -66,7 +66,15 @@ class UserBalances:
             return None
         return self._markets[exchange].get_all_balances()
 
-    async def update_all_exchanges(self, reconnect=False):
+    async def update_exchange_balance(self, exchange):
+        if exchange in self._markets:
+            await self._update_balances(self._markets[exchange])
+        else:
+            api_keys = await Security.api_keys(exchange)
+            if api_keys:
+                await self.add_exchange(exchange, *api_keys.values())
+
+    async def update_all(self, reconnect=False):
         tasks = []
         updated_exchanges = []
         if reconnect:
@@ -84,14 +92,18 @@ class UserBalances:
         return {ex: err_msg for ex, err_msg in zip(updated_exchanges, results)}
 
     async def all_balances_all_exchanges(self):
-        await self.update_all_exchanges()
+        await self.update_all()
         return {k: v.get_all_balances() for k, v in self._markets.items()}
 
-    def get_base_amount_per_total(self, exchange, trading_pair):
+    async def balances(self, exchange, *symbols):
+        await self.update_exchange_balance(exchange)
+        return {k: v for k, v in self.all_balances(exchange).items() if k in symbols}
+
+    @staticmethod
+    def base_amount_ratio(trading_pair, balances):
         base, quote = trading_pair.split("-")
-        user_bals = self.all_balances(exchange)
-        base_amount = user_bals.get(base, 0)
-        quote_amount = user_bals.get(quote, 0)
+        base_amount = balances.get(base, 0)
+        quote_amount = balances.get(quote, 0)
         rate = ExchangeRateConversion.get_instance().convert_token_value_decimal(1, quote, base)
         total_value = base_amount + (quote_amount * rate)
         return None if total_value <= 0 else base_amount / total_value

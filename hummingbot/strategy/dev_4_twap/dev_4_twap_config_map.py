@@ -1,7 +1,7 @@
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
-    is_exchange,
-    is_valid_market_trading_pair,
+    validate_exchange,
+    validate_market_trading_pair,
 )
 from hummingbot.client.settings import (
     required_exchanges,
@@ -21,31 +21,30 @@ def str2bool(value: str):
 
 
 # checks if the trading pair is valid
-def is_valid_market_trading_pair_tuple(value: str) -> bool:
+def validate_market_trading_pair_tuple(value: str) -> bool:
     market = dev_4_twap_config_map.get("market").value
-    return is_valid_market_trading_pair(market, value)
+    return validate_market_trading_pair(market, value)
 
 
 dev_4_twap_config_map = {
     "strategy":
         ConfigVar(key="strategy",
                   prompt="",
-                  default="dev_4_twap",
-                  validator=lambda v: v == "dev_4_twap"),
+                  default="dev_4_twap"),
     "market":
         ConfigVar(key="market",
                   prompt="Enter the name of the exchange >>> ",
-                  validator=is_exchange,
+                  validator=validate_exchange,
                   on_validated=lambda value: required_exchanges.append(value)),
     "market_trading_pair_tuple":
         ConfigVar(key="market_trading_pair_tuple",
                   prompt=trading_pair_prompt,
-                  validator=is_valid_market_trading_pair_tuple),
+                  validator=validate_market_trading_pair_tuple),
     "order_type":
         ConfigVar(key="order_type",
                   prompt="Enter type of order (limit/market) default is market >>> ",
                   type_str="str",
-                  validator=lambda v: v in {"limit", "market", ""},
+                  validator=lambda v: None if v in {"limit", "market", ""} else "Invalid order type.",
                   default="market"),
     "order_amount":
         ConfigVar(key="order_amount",

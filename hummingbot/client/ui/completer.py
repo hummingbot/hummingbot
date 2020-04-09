@@ -3,11 +3,11 @@ from typing import List
 from prompt_toolkit.completion import (
     Completer,
     WordCompleter,
-    PathCompleter,
     CompleteEvent,
 )
 from prompt_toolkit.document import Document
-
+from os import listdir
+from os.path import isfile, join
 from hummingbot.client.settings import (
     EXCHANGES,
     STRATEGIES,
@@ -19,14 +19,15 @@ from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.client.command.connect_command import EXCHANGES as CONNECT_EXCHANGES
 
 
+def file_name_list(path, file_extension):
+    return sorted([f for f in listdir(path) if isfile(join(path, f)) and f.endswith(file_extension)])
+
+
 class HummingbotCompleter(Completer):
     def __init__(self, hummingbot_application):
         super(HummingbotCompleter, self).__init__()
         self.hummingbot_application = hummingbot_application
-
-        # static completers
-        self._path_completer = PathCompleter(get_paths=lambda: [f"./{CONF_FILE_PATH}"],
-                                             file_filter=lambda fname: fname.endswith(".yml"))
+        self._path_completer = WordCompleter(file_name_list(CONF_FILE_PATH, "yml"))
         self._command_completer = WordCompleter(self.parser.commands, ignore_case=True)
         self._exchange_completer = WordCompleter(EXCHANGES, ignore_case=True)
         self._connect_exchange_completer = WordCompleter(CONNECT_EXCHANGES, ignore_case=True)
@@ -68,10 +69,11 @@ class HummingbotCompleter(Completer):
 
     @property
     def _config_completer(self):
-        return WordCompleter(self.hummingbot_application.get_all_available_config_keys(), ignore_case=True)
+        config_keys = self.hummingbot_application.get_all_available_config_keys()
+        return WordCompleter(config_keys, ignore_case=True)
 
     def _complete_strategies(self, document: Document) -> bool:
-        return "strategy" in self.prompt_text
+        return "strategy" in self.prompt_text and "strategy file" not in self.prompt_text
 
     def _complete_configs(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -96,7 +98,9 @@ class HummingbotCompleter(Completer):
         return "trading pair" in self.prompt_text
 
     def _complete_paths(self, document: Document) -> bool:
-        return "path" in self.prompt_text and "file" in self.prompt_text
+        text_before_cursor: str = document.text_before_cursor
+        return (("path" in self.prompt_text and "file" in self.prompt_text) or
+                "import" in text_before_cursor)
 
     def _complete_wallet_addresses(self, document: Document) -> bool:
         return "Which wallet" in self.prompt_text
@@ -119,13 +123,12 @@ class HummingbotCompleter(Completer):
         if self._complete_paths(document):
             for c in self._path_completer.get_completions(document, complete_event):
                 yield c
-            return
 
-        if self._complete_strategies(document):
+        elif self._complete_strategies(document):
             for c in self._strategy_completer.get_completions(document, complete_event):
                 yield c
 
-        if self._complete_wallet_addresses(document):
+        elif self._complete_wallet_addresses(document):
             for c in self._wallet_address_completer.get_completions(document, complete_event):
                 yield c
 
