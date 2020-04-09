@@ -36,7 +36,7 @@ from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.client.errors import InvalidCommandError, ArgumentParserError
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.config_helpers import get_erc20_token_addresses
+from hummingbot.client.config.config_helpers import get_erc20_token_addresses, get_strategy_config_map
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
 
@@ -118,6 +118,12 @@ class HummingbotApplication(*commands):
 
         self.trade_fill_db: SQLConnectionManager = SQLConnectionManager.get_trade_fills_instance()
         self.markets_recorder: Optional[MarketsRecorder] = None
+
+    @property
+    def strategy_config_map(self):
+        if self.strategy_name is not None:
+            return get_strategy_config_map(self.strategy_name)
+        return None
 
     def _notify(self, msg: str):
         self.app.log(msg)

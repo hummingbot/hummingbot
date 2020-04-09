@@ -13,12 +13,11 @@ import time
 import inspect
 import os
 from hummingbot.client import settings
-from hummingbot.client.config.in_memory_config_map import in_memory_config_map
+from hummingbot.client.config.security import Security
 from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map
 from hummingbot.client.config.global_config_map import global_config_map
 from test.integration.assets.mock_data.fixture_configs import FixtureConfigs
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
-from hummingbot.client.config.in_memory_config_map import default_strategy_conf_path_prompt
 
 
 async def wait_til(condition_func, timeout=10):
@@ -106,7 +105,7 @@ class ConfigProcessTest(unittest.TestCase):
         if self.file_no > 0:
             await self.check_prompt_and_input("Would you like to reconfigure the bot? (Yes/No) >>> ", "yes")
         ConfigProcessTest.file_no += 1
-        fixture_in_mem = FixtureConfigs.in_mem_new_pass_configs if in_memory_config_map["password"].value is None \
+        fixture_in_mem = FixtureConfigs.in_mem_new_pass_configs if Security.password is None \
             else FixtureConfigs.in_mem_existing_pass_create_configs
         for fixture_config in fixture_in_mem:
             await self.check_prompt_and_input(fixture_config["prompt"], fixture_config["input"])
@@ -157,7 +156,7 @@ class ConfigProcessTest(unittest.TestCase):
         await self.check_prompt_and_input("Would you like to reconfigure the bot? (Yes/No) >>> ", "yes")
         for fixture_config in FixtureConfigs.in_mem_existing_pass_import_configs:
             await self.check_prompt_and_input(fixture_config["prompt"], fixture_config["input"])
-        await self.check_prompt_and_input(default_strategy_conf_path_prompt(), config_file_name)
+        # await self.check_prompt_and_input(default_strategy_conf_path_prompt(), config_file_name)
         # advanced_mode should be prompted here as its file value not valid.
         await self.check_prompt_and_input(pure_market_making_config_map["bid_place_threshold"].prompt, "0.01")
         await self.check_prompt_and_input(pure_market_making_config_map["advanced_mode"].prompt, "no")
