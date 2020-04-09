@@ -60,7 +60,7 @@ class CreateCommand:
                 await self.prompt_a_config(config)
             else:
                 config.value = config.default
-        if strategy == "pure_market_making":
+        if strategy == "pure_market_making" and not global_config_map.get("paper_trade_enabled").value:
             await self.asset_ratio_maintenance_prompt(config_map)
         if file_name is None:
             file_name = await self.prompt_new_file_name(strategy)
@@ -136,17 +136,21 @@ class CreateCommand:
 
     async def asset_ratio_maintenance_prompt(self,  # type: HummingbotApplication
                                              config_map):
-        base_ratio = await UserBalances.instance().get_base_amount_per_total(config_map['exchange'].value,
-                                                                             config_map["market"].value)
+        exchange = config_map['exchange'].value
+        market = config_map["market"].value
+        base, quote = market.split("-")
+        balances = await UserBalances.instance().balances(exchange, base, quote)
+        base_ratio = UserBalances.base_amount_ratio(market, balances)
         if base_ratio is None:
             return
         base_ratio = round(base_ratio, 3)
         quote_ratio = 1 - base_ratio
         base, quote = config_map["market"].value.split("-")
-        input = await self.app.prompt(prompt=f"On {config_map['exchange'].value}, your inventory split "
-                                             f"(by market value) is currently {base_ratio:.1%} {base} "
-                                             f"and {quote_ratio:.1%} {quote}. "
-                                             f"Would you like to keep this ratio? (Yes/No) >>> ")
+        input = await self.app.prompt(prompt=f"On {exchange}, you have {balances.get(base, 0):.4f} {base} and "
+                                             f"{balances.get(quote, 0):.4f} {quote}. By market value, "
+                                             f"your current inventory split is {base_ratio:.1%} {base} "
+                                             f"and {quote_ratio:.1%} {quote}."
+                                             f" Would you like to keep this ratio? (Yes/No) >>> ")
         if input.lower() in ["true", "yes", "y"]:
             config_map['inventory_target_base_pct'].value = round(base_ratio * Decimal('100'), 1)
         else:
