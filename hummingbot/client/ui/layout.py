@@ -72,7 +72,15 @@ high-frequency trading (HFT) bots.
 * Documentation and guides: https://docs.hummingbot.io
 * Earn token rewards via liquidity mining: https://hummingbot.io
 
-Enter "config" to create a bot or "help" to see a list of commands.
+Enter any of these commands to begin:
+
+  "connect"    Display current exchanges and connections
+  "create"     Create a new strategy configuration
+  "import"     Import an existing strategy configuration
+  "help"       List of other available commands
+
+For first time users, run command "connect [exchange_name]" to enter API keys
+before creating a strategy configuration.
 """
 
 with open(realpath(join(dirname(__file__), '../../VERSION'))) as version_file:
