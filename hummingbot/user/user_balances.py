@@ -66,13 +66,17 @@ class UserBalances:
             return None
         return self._markets[exchange].get_all_balances()
 
+    # return True if fetching balances successfully
     async def update_exchange_balance(self, exchange):
         if exchange in self._markets:
             await self._update_balances(self._markets[exchange])
+            return True
         else:
             api_keys = await Security.api_keys(exchange)
             if api_keys:
                 await self.add_exchange(exchange, *api_keys.values())
+                return True
+        return False
 
     async def update_all(self, reconnect=False):
         tasks = []
@@ -96,8 +100,8 @@ class UserBalances:
         return {k: v.get_all_balances() for k, v in self._markets.items()}
 
     async def balances(self, exchange, *symbols):
-        await self.update_exchange_balance(exchange)
-        return {k: v for k, v in self.all_balances(exchange).items() if k in symbols}
+        if await self.update_exchange_balance(exchange):
+            return {k: v for k, v in self.all_balances(exchange).items() if k in symbols}
 
     @staticmethod
     def base_amount_ratio(trading_pair, balances):

@@ -5,7 +5,7 @@ from typing import (
 
 from hummingbot.client.errors import ArgumentParserError
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.client.settings import EXCHANGES
+from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
 
 
 class ThrowingArgumentParser(argparse.ArgumentParser):
@@ -42,8 +42,8 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     balance_parser = subparsers.add_parser("balance", help="Display all balances from all connected exchanges.")
     balance_parser.set_defaults(func=hummingbot.balance)
 
-    connect_parser = subparsers.add_parser("connect", help="Connect or reconnect to an exchange.")
-    connect_parser.add_argument("exchange", nargs="?", choices=EXCHANGES, help="An exchange name")
+    connect_parser = subparsers.add_parser("connect", help="Connect or reconnect to an exchange or a wallet.")
+    connect_parser.add_argument("option", nargs="?", choices=CONNECT_OPTIONS, help="An exchange name or 'wallet'")
     connect_parser.set_defaults(func=hummingbot.connect)
 
     create_parser = subparsers.add_parser("create", help="Create a new configuration for a new bot.")

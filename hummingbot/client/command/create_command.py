@@ -140,9 +140,9 @@ class CreateCommand:
         market = config_map["market"].value
         base, quote = market.split("-")
         balances = await UserBalances.instance().balances(exchange, base, quote)
-        base_ratio = UserBalances.base_amount_ratio(market, balances)
-        if base_ratio is None:
+        if balances is None:
             return
+        base_ratio = UserBalances.base_amount_ratio(market, balances)
         base_ratio = round(base_ratio, 3)
         quote_ratio = 1 - base_ratio
         base, quote = config_map["market"].value.split("-")
