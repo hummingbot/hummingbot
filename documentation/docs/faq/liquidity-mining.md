@@ -11,7 +11,7 @@ You earn rewards by running a market making bot that maintains orders on exchang
 
 * The amount of your orders
 * The spread (distance to the mid price) of your orders
-* How long you maintain your orders on the order bok
+* How long you maintain your orders on the order book
 
 For more information, please read [the whitepaper](https://hummingbot.io/liquidity-mining.pdf).
 
@@ -28,7 +28,10 @@ In addition, a collective pool of participants are working together for a common
 
 **Liquidity** is the total eligible open order volume across all Active Bots currently. 
 
-**Yield/Day** shows you how much you can earn per day currently. To calculate Yield/Day, divide the daily reward (**Reward/Day**) by Liquidity. Note that Yield/Day is solely based on liquidity rewards and does not take into account trades executed.
+**Yield/Day** shows you how much you can earn per day currently. To calculate Yield/Day, divide the daily reward (**Reward/Day**) by Liquidity. 
+
+!!! note
+    The Yield/Day is solely based on liquidity rewards and does not take into account trades executed.
 
 !!! warning "Liquidity mining yields do not include profits or losses from trading"
     The published Yield/Day metrics only include reward payments versus order volumes. They *do not* capture the individual miner's profit or loss on the underlying strategy or any transaction fees (if any) that generated the orders created.  As a result, *liquidity mining yields are not an indication of a miner's overall portfolio return*; miners should take into consideration overall economics, and not just mining return, when deciding on participating in liquidity mining campaigns.
@@ -46,7 +49,8 @@ Like any trading strategy, market making includes risk. One of the primary risks
 
 While the open source Hummingbot client includes features that help users better manage inventory risk and other risks, users are solely responsible for bearing these risks when using the software.
 
-Note that published liquidity mining returns illustrate the return from liquidity rewards proportional to the value of the inventory committed to maintain orders. These figures do not take into account trading-related profits and losses.  The return figures may also fluctuate based on relative changes in the value of the base tokens, quote tokens, and the tokens used for the liquidity mining payments.
+!!! note
+    The published liquidity mining returns illustrate the return from liquidity rewards proportional to the value of the inventory committed to maintain orders. These figures do not take into account trading-related profits and losses.  The return figures may also fluctuate based on relative changes in the value of the base tokens, quote tokens, and the tokens used for the liquidity mining payments.
 
 ### How do you measure liquidity?
 We believe that **slippage** is the optimal metric to quantify liquidity, as opposed to filled order volume, a measure widely used by the market. Slippage refers to the difference between the observed mid-market price and the actual executed price for a trade of a given size.  Calculating slippage factors in order book depth and prices at different depths, which better captures the friction and efficiency of actually trading that asset.  Deep, liquid order books have low slippage, while thin, illiquid order books have high slippage.
@@ -103,15 +107,19 @@ Alternatively, you can also reach it from the Activity page. Click on a row in t
 
 ### My bot is running but I'm not earning any rewards!
 
-Note that it may takes up to 1 hour for our system to start tracking newly created bots and crediting them with rewards.
+!!! note
+    It may takes up to 1 hour for our system to start tracking newly created bots and crediting them with rewards.
 
-Also, please check that:
+Check the following if:
 
-1. You are not running Hummingbot in paper trading mode, which doesn't place real orders
-2. Your bot is actually placing orders on the exchange. You should be able to see them in the exchange website.
-3. If you are running Hummingbot in a Mac or Windows computer, your machine didn't go to sleep which prevents Hummingbot from maintaining orders.
+1. You are not running Hummingbot in paper trading mode, which doesn't place real orders.
+2. Your bot is actually placing orders on the exchange. You should be able to see them in the exchange website. Make sure you're running token pair on our [active campaigns](https://docs.hummingbot.io/liquidity-mining/#active-programs).
+3. If you are running Hummingbot locally on Mac or Windows computer, your machine didn't go to sleep or lost internet connection which prevents Hummingbot from maintaining orders.
 
-If these 3 reasons are not the cause, you can email a CSV export of your Binance order history for a particular market to accounts@hummingbot.io. Note that we can only provide you with our system's data a nd cannot credit users for past rewards.
+If these 3 reasons are not the cause, you can email a CSV export of your Binance order history for a particular market to accounts@hummingbot.io. Make sure to used or include the email address registered for liquidity mining.
+
+!!! note
+    We can only provide you with our system's data and cannot credit users for past rewards.
 
 ### When are liquidity mining rewards paid out?
 Each weekly epoch runs begins and ends at Tuesday 12am UTC. Rewards are distributed to each participant's registered Ethereum address 3 calendar days after the end of each epoch.
