@@ -82,6 +82,10 @@ test_web3_provider_list = [os.getenv("WEB3_PROVIDER")]
 liquid_api_key = os.getenv("LIQUID_API_KEY")
 liquid_secret_key = os.getenv("LIQUID_SECRET_KEY")
 
+# Kraken Tests
+kraken_api_key = os.getenv("KRAKEN_API_KEY")
+kraken_secret_key = os.getenv("KRAKEN_SECRET_KEY")
+
 # Wallet Tests
 test_erc20_token_address = os.getenv("TEST_ERC20_TOKEN_ADDRESS")
 web3_test_private_key_a = os.getenv("TEST_WALLET_PRIVATE_KEY_A")
