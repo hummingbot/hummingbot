@@ -40,12 +40,11 @@ Running a bot with the parameters above, the `status` command shows 3 levels of 
 
 ## Relevant Parameters
 
-| Parameter | Prompt | Definition | Default Value |
-|-----------|--------|------------|---------------|
-| **number\_of\_orders** | `How many orders do you want to place on both sides? >>>` | The number of order levels to place for each side of the order book. | `1` |
-| **order\_start\_size** | `What is the size of the first bid and ask order? >>>` | The size of the first order level, in base asset units | none |
-| **order\_step\_size** | `How much do you want to increase the order size for each additional order? >>>` | The incremental size increase for subsequent order levels after the first level. | `0` |
-| **order\_interval\_percent** | `Enter the price increments (as percentage) for subsequent orders? (Enter 0.01 to indicate 1%) >>>` | The incremental spread increases for subsequent order levels after the first level. | `0` |
+| Parameter | Prompt | Definition |
+|-----------|--------|------------|
+| **order_levels** | `How many orders do you want to place on both sides?` | The number of order levels to place for each side of the order book. |
+| **order_level_amount** | `How much do you want to increase the order size for each additional order?` | The incremental size increase for subsequent order levels after the first level. |
+| **order_level_spread** | `Enter the price increments (as percentage) for subsequent orders?` | The incremental spread increases for subsequent order levels after the first level. |
 
 !!! warning "Low values for `order_interval_percent`"
     Setting `order_interval_percent` to a very low number may cause multiple orders to be placed on the same price level. For example for an asset like SNM/BTC, if you set an order interval percent of 0.004 (~0.4%) because of low asset value the price of the next order will be rounded to the nearest price supported by the exchange, which in this case might lead to multiple orders being placed at the same price level.
