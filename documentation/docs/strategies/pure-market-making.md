@@ -43,37 +43,20 @@ We aim to teach new users the basics of market making, while enabling experience
 See [Advanced Market Making](/strategies/advanced-mm) for more information about the advanced parameters and how to use them.
 
 
-## Basic Configuration Walkthrough
-
-These are the questions prompted during configuration of the strategy. The parameters are explained in the section further down below.
-
-| Prompt | Parameter |
-|--------|-----------|
-| `What is your market making strategy >>>` <img width=400/> | `strategy` <img width=600/> |
-| `Enter your maker exchange name >>>` | `exchange` |
-| `Enter the token trading pair you would like to trade on [exchange] (e.g. ZRX-ETH) >>>` | `market` |
-| `How far away from the mid price do you want to place the first bid order? (Enter 1 to indicate 1%) >>>` | `bid_spread` |
-| `How far away from the mid price do you want to place the first ask order? (Enter 1 to indicate 1%) >>>` | `ask_spread` |
-| `How often do you want to cancel and replace bids and asks (in seconds)? >>>` | `order_refresh_time` |
-| `What is the amount of [base_asset] per order? (minimum [min_amount]) >>> ` | `order_amount` |
-| `On [exchange], you have [amount of base assets] and [amount of quote assets]. By market value, your current inventory split is [base asset ratio] and [quote asset ratio]. Would you like to keep this ratio? (Yes/No) >>>` | `inventory_skew_enabled` |
-| `What is your target base asset percentage? Enter 50 for 50% >>>` | `inventory_target_base_pct` |
-
-!!! tip "Tip: Autocomplete inputs during configuration"
-    When going through the command line config process, pressing `<TAB>` at a prompt will display valid available inputs.
-
-
-## Basic Configuration Parameters
+## Basic Configuration Parameters and Walkthrough
 
 The following parameters are fields in Hummingbot configuration files located in the `/conf` folder (e.g. `conf_pure_mm_[#].yml`).
 
-| Term | Definition |
-|------|------------|
-| **exchange** | The exchange where the bot will place bid and ask orders.<br/><br/>Currently available options: `binance`, `radar_relay`, `coinbase_pro`, `bamboo_relay`, `huobi`, `bittrex`, `dolomite`, `liquid`, `kucoin` (case sensitive)
-| **market** | Token trading pair symbol you would like to trade on the exchange.
-| **bid\_spread** | The strategy will place the buy (bid) order on a certain % away from the mid price.
-| **ask\_spread** | The strategy will place the sell (ask) order on a certain % away from the mid price.
-| **order\_refresh\_time** | An amount in seconds, which is the duration for the placed limit orders. <br/><br/> The limit bid and ask orders are cancelled and new orders are placed according to the current mid price and spreads at this interval.
-| **order\_amount** | The order amount for the limit bid and ask orders. <br/><br/> Ensure you have enough quote and base tokens to place the bid and ask orders. The strategy will not place any orders if you do not have sufficient balance on either sides of the order. <br/>
-| **inventory\_skew\_enabled** | Allows the user to set and maintain a target inventory split between base and quote assets. <br/><br/> This is an advanced parameter we added during basic configuration walkthrough. See [Inventory Skew](/advanced-mm/inventory-skew) for more information.
-| **inventory\_target\_base\_pct** |  Target amount held of the base asset, expressed as a percentage of the total base and quote asset value. This question prompts when answering `No` to the question for `inventory_skew_enabled`.
+| Parameter | Prompt | Definition |
+|-----------|--------|------------|
+| **exchange** | `Enter your maker exchange name` | The exchange where the bot will place bid and ask orders. |
+| **market** | `Enter the token trading pair you would like to trade on [exchange]` | Token trading pair symbol you would like to trade on the exchange. |
+| **bid_spread** | `How far away from the mid price do you want to place the first bid order?` | The strategy will place the buy (bid) order on a certain % away from the mid price. |
+| **ask_spread** | `How far away from the mid price do you want to place the first ask order?` | The strategy will place the sell (ask) order on a certain % away from the mid price. |
+| **order_refresh_time** | `How often do you want to cancel and replace bids and asks (in seconds)?` | An amount in seconds, which is the duration for the placed limit orders. <br/><br/> The limit bid and ask orders are cancelled and new orders are placed according to the current mid price and spreads at this interval. |
+| **order_amount** | `What is the amount of [base_asset] per order? (minimum [min_amount])` | The order amount for the limit bid and ask orders. <br/><br/> Ensure you have enough quote and base tokens to place the bid and ask orders. The strategy will not place any orders if you do not have sufficient balance on either sides of the order. <br/>
+| **inventory_skew_enabled** | `On [exchange], you have [amount of base assets] and [amount of quote assets]. By market value, your current inventory split is [base asset ratio] and [quote asset ratio]. Would you like to keep this ratio? (Yes/No)` | Allows the user to set and maintain a target inventory split between base and quote assets. <br/><br/> This is an advanced parameter we added during basic configuration walkthrough. <br/><br/> See [Inventory Skew](/advanced-mm/inventory-skew) for more information on this feature.
+| **inventory_target_base_pct** | `What is your target base asset percentage? Enter 50 for 50%` | Target amount held of the base asset, expressed as a percentage of the total base and quote asset value. <br/><br/> This question prompts when answering `No` to the above question.
+
+!!! tip "Tip: Autocomplete inputs during configuration"
+    When going through the command line config process, pressing `<TAB>` at a prompt will display valid available inputs.
