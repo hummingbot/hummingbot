@@ -35,7 +35,7 @@ The hanging order will stay outstanding and will be cancelled if its spread goes
 
 ## Relevant Parameters
 
-| Parameter | Prompt | Definition | Default Value |
-|-----------|--------|------------|---------------|
-| **enable_order_filled_stop_cancellation** | `Do you want to enable hanging orders? (Yes/No) >>>` | When value is set to `true`, the orders on the side opposite to the filled orders remains active. | `false` |
-| **cancel_hanging_order_pct** | `At what spread percentage (from mid price) will hanging orders be canceled? (Enter 0.01 to indicate 1%) >>>` | Cancels the hanging orders when their spread goes above this value. | `0.1` |
+| Parameter | Prompt | Definition |
+|-----------|--------|------------|
+| **hanging_orders_enabled** | `Do you want to enable hanging orders? (Yes/No)` | When enabled, the orders on the side opposite to the filled orders remains active. |
+| **hanging_orders_cancel_pct** | `At what spread percentage (from mid price) will hanging orders be canceled?` | Cancels the hanging orders when their spread goes above this value. |

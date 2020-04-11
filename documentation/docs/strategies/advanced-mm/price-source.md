@@ -8,12 +8,10 @@ In a situation where the calculaton of maker order prices from external sources 
 
 ## Relevant Parameters
 
-| Parameter | Prompt | Definition | Default Value |
-|-----------|--------|------------|---------------|
-| **external_pricing_source** | `Would you like to use an external pricing source for mid-market price? (Yes/No) >>>` | Whether to use external pricing source for the mid price. | `false` |
-| **external_price_source _type** | `Which type of external price source to use? (exchange/feed/custom_api) >>>` | The type of external pricing source (exchange/feed/custom_api) | none |
-| **external_price_source _exchange** | `Enter exchange name >>> ` | An external exchange name (for external exchange pricing source) | none |
-| **external_price_source _exchange_trading_pair** | |  A trading pair for the external exchange (for external exchange pricing source). | none |
-| **external_price_source _feed_base_asset** | `Reference base asset from data feed? (e.g. ETH) >>>` | A base asset, e.g. ETH (for external feed pricing source). | none |
-| **external_price_source _feed_quote_asset** | `Reference quote asset from data feed? (e.g. USD) >>>` | A quote asset, e.g. USD (for external feed pricing source). | none |
-| **external_price_source _custom_api** | `Enter pricing API URL >>>` | An external api that returns price (for external custom_api pricing source). | none |
+| Parameter | Prompt | Definition |
+|-----------|--------|------------|
+| **price_source_enabled** | `Would you like to use an external pricing source for mid-market price? (Yes/No)` | When enabled, allows users to use an external pricing source for the mid price. |
+| **price_source_type** | `Which type of external price source to use? (exchange/custom_api)` | The type of external pricing source. |
+| **price_source_exchange** | `Enter external price source exchange name` | Name of exchange to be used for external pricing source. |
+| **price_source_market** | `Enter the token pair on [price_source_exchange]` | The trading pair for the price source exchange. |
+| **price_source_custom** | `Enter pricing API URL` | An external API that returns price. |

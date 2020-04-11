@@ -61,11 +61,11 @@ By increasing the range multiplier to 2, the current inventory percentage fall i
 
 ## Relevant Parameters
 
-| Parameter | Prompt | Definition | Default Value |
-|-----------|--------|------------|---------------|
-| **inventory_skew_enabled** | `Would you like to enable inventory skew? (Yes/No) >>>` | Activates Inventory Skew if `true` | `false` |
-| **inventory_target_base_percent** | `What is your target base asset percentage? (Enter 50 to indicate 50%) >>>` | Target amount held of the base asset, expressed as a percentage of the total base and quote asset value | none |
-| **inventory_range_multiplier** | `What is your tolerable range of inventory around the target, expressed in multiples of your total order size?` | This expands the range of tolerable inventory level around your target base percent, as a multiple of your total order size. Larger values expand this range. | `1` |
+| Parameter | Prompt | Definition |
+|-----------|--------|------------|
+| **inventory_skew_enabled** | `Would you like to enable inventory skew? (Yes/No)` | Allows the user to set and maintain a target inventory split between base and quote assets. |
+| **inventory_target_base_pct** | `What is your target base asset percentage?` | Target amount held of the base asset, expressed as a percentage of the total base and quote asset value. |
+| **inventory_range_multiplier** | `What is your tolerable range of inventory around the target, expressed in multiples of your total order size?` | This expands the range of tolerable inventory level around your target base percent, as a multiple of your total order size. Larger values expand this range. |
 
 ## Order Size Calculation Math
 
