@@ -6,7 +6,7 @@ Users now have the option to automatically adjust the prices to right just above
 
 This feature works best in single order mode. Take note that this does not automatically jump your orders from the bottom to the top. Instead, if your orders are already the best in the orderbook (at the top) this will adjust your prices right next to the next best orders.
 
-It is recommended to disable `add_transaction_costs` (set to `false`) for this feature to work effectively. This is because adding transaction costs would affect the prices at which the orders are placed and they might not be at the best bid/ask.
+It is recommended to disable `add_transaction_costs` (set to `False`) for this feature to work effectively. This is because adding transaction costs would affect the prices at which the orders are placed and they might not be at the best bid/ask.
 
 ## Sample Configuration
 
@@ -23,12 +23,12 @@ Setting our bid and ask threshold to a very small value (0.1%) puts our orders a
 
 The image on the right has best bid ask jump enabled which places the buy order at `0.003150` and sell order at `0.003174` right just above the next best order.
 
-Now let's enable `best_bid_ask_jump_mode`. You'll see in the next image that the buy order is placed at `0.003150` and sell order at `0.003174` right just above the next best order.
+Now let's enable `order_optimization_enabled`. You'll see in the next image that the buy order is placed at `0.003150` and sell order at `0.003174` right just above the next best order.
 
 ```json
 - bid_spread: 0.1%
 - ask_spread: 0.1%
-- order_optimization_enabled: true
+- order_optimization_enabled: True
 - order_optimization_depth: 0
 ```
 
@@ -43,7 +43,7 @@ This allows users to ignore dust orders specified in base currency amount. As sh
 ```json
 - bid_spread: 0.1%
 - ask_spread: 0.1%
-- order_optimization_enabled: true
+- order_optimization_enabled: True
 - order_optimization_depth: 0
 ```
 
@@ -54,7 +54,7 @@ Then we reconfigure and set `order_optimization_depth` to 10000.
 ```json
 - bid_spread: 0.1%
 - ask_spread: 0.1%
-- order_optimization_enabled: true
+- order_optimization_enabled: True
 - order_optimization_depth: 10000
 ```
 
