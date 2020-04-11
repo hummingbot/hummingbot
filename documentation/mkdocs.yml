@@ -117,8 +117,10 @@ nav:
         - Overview: strategies/advanced-mm/index.md
         - Multiple Orders: strategies/advanced-mm/multiple-orders.md
         - Inventory Skew: strategies/advanced-mm/inventory-skew.md
+        - Filled Order Delay: strategies/advanced-mm/filled-order-delay.md
         - Hanging Orders: strategies/advanced-mm/hanging-orders.md
         - Order Optimization: strategies/advanced-mm/order-optimization.md
+        - Adding Transaction Costs: strategies/advanced-mm/add-transaction-costs.md
         - External Price Source: strategies/advanced-mm/price-source.md
       - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
       - Arbitrage: strategies/arbitrage.md
