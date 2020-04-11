@@ -4,11 +4,11 @@ This feature keeps orders "hanging" (or not cancelled and remaining on the order
 
 ## How It Works
 
-Typically, orders are placed as pairs in single order mode (1 buy and 1 sell order). The parameter `enable_order_filled_stop_cancellation` allows Hummingbot to leave the order on the other side hanging (not cancelled) whenever one side is filled.
+Typically, orders are placed as pairs in single order mode (1 buy and 1 sell order). The parameter `hanging_orders_enabled` allows Hummingbot to leave the order on the other side hanging (not cancelled) whenever one side is filled.
 
 The hanging order will be cancelled in the following conditions:
 
-1. The spread goes above the specified `cancel_hanging_order_pct` value
+1. The spread goes above the specified `hanging_orders_cancel_pct` value
 2. Sending `stop` or `exit` command
 
 
@@ -17,9 +17,9 @@ The hanging order will be cancelled in the following conditions:
 Let's see how this configuration works in the scenario below:
 
 ```json
-- filled_order_replenish_wait_time: 60.0
-- enable_order_filled_stop_cancellation: true
-- cancel_hanging_order_pct: 0.02
+- filled_order_delay: 60.0
+- hanging_orders_enabled: True
+- hanging_orders_cancel_pct: 0.02
 ```
 
 ![](/assets/img/hanging_order1.png)
@@ -28,7 +28,7 @@ When the buy order `...1497` was completely filled, it will not cancel the sell 
 
 ![](/assets/img/hanging_order2.png)
 
-The hanging order will stay outstanding and will be cancelled if its spread goes above 2% as specified in our `cancel_hanging_order_pct`.
+The hanging order will stay outstanding and will be cancelled if its spread goes above 2% as specified in our `hanging_orders_cancel_pct`.
 
 ![](/assets/img/hanging_order3.png)
 
