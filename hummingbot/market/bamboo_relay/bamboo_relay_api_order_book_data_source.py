@@ -152,16 +152,13 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                            trading_pair: str,
                            api_endpoint: str = "https://rest.bamboorelay.com/",
                            api_prefix: str = "main/0x") -> Dict[str, any]:
-        #Manually hardcode an exception for LOYALTY PO-WETH pair to return an empty snapshot since there seems to be a bug with it from Bamboo relay API.
-        if trading_pair == "LOYALTY PO-WETH":
-            return {"asks":[],"bids":[],"baseTokenAddress":"0xcd6d1a15f39e41f1154511601c905faf469001be","quoteTokenAddress":"0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"}
-        else:
-            async with client.get(f"{api_endpoint}{api_prefix}/markets/{trading_pair}/book") as response:
-                response: aiohttp.ClientResponse = response
-                if response.status != 200:
-                    raise IOError(f"Error fetching Bamboo Relay market snapshot for {trading_pair}. "
-                                f"HTTP status is {response.status}.")
-                return await response.json()
+
+        async with client.get(f"{api_endpoint}{api_prefix}/markets/{trading_pair}/book") as response:
+            response: aiohttp.ClientResponse = response
+            if response.status != 200:
+                raise IOError(f"Error fetching Bamboo Relay market snapshot for {trading_pair}. "
+                              f"HTTP status is {response.status}.")
+            return await response.json()
 
     async def get_trading_pairs(self) -> List[str]:
         if not self._trading_pairs:
