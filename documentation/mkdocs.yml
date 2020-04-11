@@ -118,7 +118,7 @@ nav:
         - Multiple Orders: strategies/advanced-mm/multiple-orders.md
         - Inventory Skew: strategies/advanced-mm/inventory-skew.md
         - Hanging Orders: strategies/advanced-mm/hanging-orders.md
-        - Best Bid Ask Jumping: strategies/advanced-mm/penny-jumping.md
+        - Order Optimization: strategies/advanced-mm/order-optimization.md
         - External Price Source: strategies/advanced-mm/price-source.md
       - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
       - Arbitrage: strategies/arbitrage.md
