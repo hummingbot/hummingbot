@@ -3,14 +3,16 @@ import asyncio
 import logging
 import websockets
 import ujson
+import random
+import string
 import hummingbot.market.hitbtc.hitbtc_constants as constants
 
 from typing import Dict, Optional, AsyncIterable, Any
 from websockets.exceptions import ConnectionClosed
 from hummingbot.logger import HummingbotLogger
+from hummingbot.market.hitbtc.hitbtc_auth import HitBTCAuth
 
 # reusable websocket class
-
 
 class HitBTCWebsocket():
     MESSAGE_TIMEOUT = 30.0
@@ -27,13 +29,16 @@ class HitBTCWebsocket():
     def __init__(self):
         self._events: Dict[str, bool] = {}
         self._ws: Optional[websockets.WebSocketClientProtocol] = None
-        self._nonce = 0
 
     def _get_event(self, name: str):
         return self._events.get(name)
 
     def _set_event(self, name: str):
         self._events[name] = True
+    
+    @staticmethod
+    def get_random_string():
+        return ''.join([random.choice(string.ascii_letters + string.digits) for n in range(16)])
 
     async def _get_ws(self) -> (websockets.WebSocketClientProtocol):
         if self._ws:
@@ -72,14 +77,21 @@ class HitBTCWebsocket():
         finally:
             await self._ws.close()
 
+    async def login(self, hitbtc_auth: HitBTCAuth):
+        params: dict = {
+            "algo": "BASIC",
+            "pKey": hitbtc_auth.auth.login,
+            "sKey": hitbtc_auth.auth.password
+        }
+
+        await self.subscribe("login", params)
+
     # subscribe to a method
     async def subscribe(self, name: str, data):
-        self._nonce += 1
-
         await self._get_ws()
         await self._ws.send(ujson.dumps({
             "method": name,
-            "id": self._nonce,
+            "id": self.get_random_string(),
             "params": data
         }))
 

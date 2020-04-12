@@ -27,6 +27,7 @@ from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
+from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.events import (
     MarketEvent,
@@ -54,6 +55,7 @@ from hummingbot.market.hitbtc.hitbtc_api_order_book_data_source import HitBTCAPI
 from hummingbot.market.hitbtc.hitbtc_auth import HitBTCAuth
 from hummingbot.market.hitbtc.hitbtc_in_flight_order import HitBTCInFlightOrder
 from hummingbot.market.hitbtc.hitbtc_order_book_tracker import HitBTCOrderBookTracker
+from hummingbot.market.hitbtc.hitbtc_user_stream_tracker import HitBTCUserStreamTracker
 from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.market.market_base import (
     MarketBase,
@@ -70,7 +72,7 @@ SYMBOL_SPLITTER = re.compile(r"^(\w+)(IDRT|EURS|BUSD|TUSD|GUSD|USDT|USDC|KRWB|US
 class HitBTCAPIError(IOError):
     def __init__(self, error_payload: Dict[str, Any]):
         super().__init__()
-        self.error_payload = error_payload
+        self.error_payload = error_payload.get("error")
 
 
 cdef class HitBTCMarketTransactionTracker(TransactionTracker):
@@ -113,6 +115,8 @@ cdef class HitBTCMarket(MarketBase):
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
                  OrderBookTrackerDataSourceType.EXCHANGE_API,
+                 user_stream_tracker_data_source_type: UserStreamTrackerDataSourceType =
+                 UserStreamTrackerDataSourceType.EXCHANGE_API,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
 
@@ -128,6 +132,12 @@ cdef class HitBTCMarket(MarketBase):
             data_source_type=order_book_tracker_data_source_type,
             trading_pairs=trading_pairs
         )
+        self._user_stream_tracker = HitBTCUserStreamTracker(
+            hitbtc_auth=self._hitbtc_auth,
+            data_source_type=user_stream_tracker_data_source_type
+        )
+        self._user_stream_tracker_task = None
+        self._user_stream_event_listener_task = None
         self._order_tracker_task = None
         self._poll_notifier = asyncio.Event()
         self._poll_interval = poll_interval
@@ -164,6 +174,18 @@ cdef class HitBTCMarket(MarketBase):
     @property
     def name(self) -> str:
         return "hitbtc"
+
+    @property
+    def status_dict(self) -> Dict[str, bool]:
+        return {
+            "order_books_initialized": self._order_book_tracker.ready,
+            "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
+            "trading_rule_initialized": len(self._trading_rules) > 0
+        }
+
+    @property
+    def ready(self) -> bool:
+        return all(self.status_dict.values())
 
     @property
     def order_book_tracker(self) -> HitBTCOrderBookTracker:
@@ -229,23 +251,25 @@ cdef class HitBTCMarket(MarketBase):
         self._async_scheduler.stop()
 
     async def start_network(self):
-        if self._order_tracker_task is not None:
-            self._stop_network()
-        self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
+        self._order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
+            self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
+            self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
 
     def _stop_network(self):
-        if self._order_tracker_task is not None:
-            self._order_tracker_task.cancel()
-            self._order_tracker_task = None
+        self._order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
-            self._status_polling_task = None
+        if self._user_stream_tracker_task is not None:
+            self._user_stream_tracker_task.cancel()
+        if self._user_stream_event_listener_task is not None:
+            self._user_stream_event_listener_task.cancel()
         if self._trading_rules_polling_task is not None:
             self._trading_rules_polling_task.cancel()
-            self._trading_rules_polling_task = None
+        self._status_polling_task = self._user_stream_tracker_task = \
+            self._user_stream_event_listener_task = None
 
     async def stop_network(self):
         self._stop_network()
@@ -488,9 +512,6 @@ cdef class HitBTCMarket(MarketBase):
                         execute_price,
                         execute_amount_diff,
                         fee,
-                        # Unique exchange trade ID not available in client order status
-                        # But can use validate an order using exchange order ID:
-                        # https://huobiapi.github.io/docs/spot/v1/en/#query-order-by-order-id
                         exchange_trade_id=tracked_order.exchange_order_id
                     )
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
@@ -570,18 +591,6 @@ cdef class HitBTCMarket(MarketBase):
                                       app_warning_msg="Could not fetch new trading rules from HitBTC. "
                                                       "Check network connection.")
                 await asyncio.sleep(0.5)
-
-    @property
-    def status_dict(self) -> Dict[str, bool]:
-        return {
-            "order_books_initialized": self._order_book_tracker.ready,
-            "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "trading_rule_initialized": len(self._trading_rules) > 0
-        }
-
-    @property
-    def ready(self) -> bool:
-        return all(self.status_dict.values())
 
     async def place_order(self,
                           order_id: str,
@@ -762,11 +771,26 @@ cdef class HitBTCMarket(MarketBase):
             path_url = f"/api/2/order/{order_id}"
             response = await self._api_request("DELETE", path_url=path_url, is_auth_required=True)
 
+            if response.get("status") is "canceled":
+                self.c_stop_tracking_order(order_id)
+                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                    OrderCancelledEvent(self._current_timestamp, order_id))
+                tracked_order.last_state = "canceled" 
+            return order_id
+        except HitBTCAPIError as e:
+            if '20002' in e.error_payload:
+                # no-op
+                self.logger().info(f"The order {order_id} does not exist on HitBTC. No cancellation needed.")
+                self.c_stop_tracking_order(order_id)
+                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                     OrderCancelledEvent(self._current_timestamp, order_id))
+                tracked_order.last_state = "canceled"
+            return order_id
         except Exception as e:
             self.logger().network(
                 f"Failed to cancel order {order_id}: {str(e)}",
                 exc_info=True,
-                app_warning_msg=f"Failed to cancel the order {order_id} on HitBTC."
+                app_warning_msg=f"Failed to cancel the order {order_id} on HitBTC. "
                                 f"Check API key and network connection."
             )
 
@@ -778,32 +802,33 @@ cdef class HitBTCMarket(MarketBase):
         open_orders = [o for o in self._in_flight_orders.values() if o.is_open]
         if len(open_orders) == 0:
             return []
-        cancel_order_ids = list(set([o.client_order_id for o in open_orders]))
+        cancel_order_ids = [o.client_order_id for o in open_orders]
         self.logger().debug(f"cancel_order_id {cancel_order_ids} {open_orders}")
-        cancellation_results = []
-        for id in cancel_order_ids:
-            path_url = f"/api/2/order/{id}"
-            try:
-                cancel_all_results = await self._api_request(
-                    "DELETE",
-                    path_url=path_url,
-                    is_auth_required=True
-                )
-                oid = cancel_all_results["clientOrderId"]
-                order = self._in_flight_orders[oid]
-                if cancel_all_results['status'] == 'canceled':
-                    cancellation_results.append(CancellationResult(oid, True))
-                if order in open_orders:
-                    open_orders.remove(order)
+        tasks = [self.execute_cancel(o.trading_pair, o.client_order_id) for o in open_orders]
 
-            except Exception as e:
-                self.logger().network(
-                    f"Failed to cancel all orders.",
-                    exc_info=True,
-                    app_warning_msg=f"Failed to cancel all orders on HitBTC. Check API key and network connection."
-                )
-        for order in open_orders:
-            cancellation_results.append(CancellationResult(order.client_order_id, False))
+        cancellation_results = []
+
+        try:
+            async with timeout(timeout_seconds):
+                results = await safe_gather(*tasks, return_exceptions=True)         
+                for client_order_id in results:
+                    if type(client_order_id) is str:
+                        cancel_order_ids.remove(client_order_id)
+                        cancellation_results.append(CancellationResult(client_order_id, True))
+                    else:
+                        self.logger().warning(
+                            f"Failed to cancel all orders: "
+                            f"{repr(client_order_id)}"
+                        )
+        except Exception as e:
+            self.logger().network(
+                f"Failed to cancel all orders.",
+                exc_info=True,
+                app_warning_msg=f"Failed to cancel all orders on HitBTC. Check API key and network connection."
+            )
+        for oid in cancel_order_ids:
+            cancellation_results.append(CancellationResult(oid, False))
+
         return cancellation_results
 
     cdef OrderBook c_get_order_book(self, str trading_pair):
@@ -866,3 +891,131 @@ cdef class HitBTCMarket(MarketBase):
             return trading_rule.max_order_size
 
         return quantized_amount
+
+    async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, Any]]:
+        """
+        Iterator for incoming messages from the user stream.
+        """
+        while True:
+            try:
+                yield await self._user_stream_tracker.user_stream.get()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error("Unknown error. Retrying after 1 seconds.", exc_info=True)
+                await asyncio.sleep(1.0)
+
+    async def _user_stream_event_listener(self):
+        """
+        Update order statuses from incoming messages from the user stream
+
+        Example:
+        {
+            "id": "4345697765",
+            "clientOrderId": "53b7cf917963464a811a4af426102c19",
+            "symbol": "ETHBTC",
+            "side": "sell",
+            "status": "filled",
+            "type": "limit",
+            "timeInForce": "GTC",
+            "quantity": "0.001",
+            "price": "0.053868",
+            "cumQuantity": "0.001",
+            "postOnly": false,
+            "createdAt": "2017-10-20T12:20:05.952Z",
+            "updatedAt": "2017-10-20T12:20:38.708Z",
+            "reportType": "trade",
+            "tradeQuantity": "0.001",
+            "tradePrice": "0.053868",
+            "tradeId": 55051694,
+            "tradeFee": "-0.000000005"
+        }
+        """
+        async for event_message in self._iter_user_event_queue():
+            try:
+                order_update = event_message
+
+                order_state = order_update.get("status")
+                order_id = order_update.get("clientOrderId")
+                
+                tracked_order = self._in_flight_orders.get(order_id, None)
+
+                if tracked_order is None:
+                    continue
+
+                execute_price = Decimal(order_update.get("tradePrice", 0.0))
+                execute_amount_diff = Decimal(order_update.get("tradeQuantity", 0.0))
+                
+                if order_state not in ["new", "suspended", "partiallyFilled", "filled", "canceled", "expired"]:
+                    self.logger().debug(f"Unrecognized order update response - {order_update}")
+
+                tracked_order.last_state = order_state
+                tracked_order.fee_paid = Decimal(order_update.get("tradeFee", 0.0))
+
+                if execute_amount_diff > s_decimal_0 and order_update.get("reportType") is "trade":
+                    self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} for "
+                                       f"order {tracked_order.client_order_id}")
+                    self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
+                                         OrderFilledEvent(
+                                             self._current_timestamp,
+                                             tracked_order.client_order_id,
+                                             tracked_order.trading_pair,
+                                             tracked_order.trade_type,
+                                             tracked_order.order_type,
+                                             execute_price,
+                                             execute_amount_diff,
+                                             self.c_get_fee(
+                                                 tracked_order.base_asset,
+                                                 tracked_order.quote_asset,
+                                                 tracked_order.order_type,
+                                                 tracked_order.trade_type,
+                                                 execute_price,
+                                                 execute_amount_diff,
+                                             ),
+                                             exchange_trade_id=tracked_order.exchange_order_id
+                                         ))
+
+                if tracked_order.is_done:
+                    if not tracked_order.is_cancelled:
+                        if tracked_order.trade_type == TradeType.BUY:
+                            self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
+                                            f"according to HitBTC user stream.")
+                            self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
+                                                BuyOrderCompletedEvent(self._current_timestamp,
+                                                                        tracked_order.client_order_id,
+                                                                        tracked_order.base_asset,
+                                                                        tracked_order.quote_asset,
+                                                                        (tracked_order.fee_asset
+                                                                        or tracked_order.base_asset),
+                                                                        tracked_order.executed_amount_base,
+                                                                        tracked_order.executed_amount_quote,
+                                                                        tracked_order.fee_paid,
+                                                                        tracked_order.order_type))
+                        else:
+                            self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
+                                            f"according to HitBTC user stream.")
+                            self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
+                                                SellOrderCompletedEvent(self._current_timestamp,
+                                                                        tracked_order.client_order_id,
+                                                                        tracked_order.base_asset,
+                                                                        tracked_order.quote_asset,
+                                                                        (tracked_order.fee_asset
+                                                                        or tracked_order.quote_asset),
+                                                                        tracked_order.executed_amount_base,
+                                                                        tracked_order.executed_amount_quote,
+                                                                        tracked_order.fee_paid,
+                                                                        tracked_order.order_type))
+                        self.c_stop_tracking_order(tracked_order.client_order_id)
+                    else:  # status == "cancelled":
+                        execute_amount_diff = 0
+                        tracked_order.last_state = "cancelled"
+                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                            OrderCancelledEvent(self._current_timestamp, tracked_order.client_order_id))
+                        execute_amount_diff = 0
+                        self.c_stop_tracking_order(tracked_order.client_order_id)
+
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
+                await asyncio.sleep(5.0)

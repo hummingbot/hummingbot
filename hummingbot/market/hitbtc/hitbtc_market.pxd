@@ -13,7 +13,10 @@ cdef class HitBTCMarket(MarketBase):
         dict _in_flight_orders
         double _last_poll_timestamp
         double _last_timestamp
+        public object _user_stream_tracker_task
+        public object _user_stream_event_listener_task
         public object _order_tracker_task
+        object _user_stream_tracker
         object _poll_notifier
         double _poll_interval
         object _shared_client

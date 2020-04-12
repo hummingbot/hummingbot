@@ -158,7 +158,7 @@ class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         metadata={"trading_pair": trading_pair}
                     )
                     order_book: OrderBook = self.order_book_create_function()
-                    active_order_tracker: HitBTCActiveOrderTracker = HitBTCActiveOrderTracker() # TODO: evaluate, is this required?
+                    active_order_tracker: HitBTCActiveOrderTracker = HitBTCActiveOrderTracker()
                     bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
                     order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
 
