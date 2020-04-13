@@ -23,7 +23,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
     Please check this page for the most up-to-date terms.  We will notify participants of changes, if any, through email (for registered users) and on our [Discord](https://discord.hummingbot.io).
 
 !!! note "Terms updated for week 7"
-    **For the period starting April 14, 2020 12:00am UTC until April 21 12:00am UTC, the following changes were made:**<ol><li>**Zillqa**: the total amount of rewards for Zilliqa's campaigns was increased from USDC 750 per week to USDC 1,250 per week.  Please see updated amounts per trading pair below.<li>**Zcoin**: Zcoin listed a new trading pair, **XZC/USDT**, and has included this in its campaign.  *XZC/BNB is no longer eligible* and reward amounts for XZC/BTC and XZC/USDT are listed in the table below.</ul>
+    **For the period starting April 14, 2020 12:00am UTC until April 21, 2020 12:00am UTC, the following changes were made:**<ol><li>**Zillqa**: the total amount of rewards for Zilliqa's campaigns was increased from USDC 750 per week to USDC 1,250 per week.  Please see updated amounts per trading pair below.<li>**Zcoin**: Zcoin listed a new trading pair, **XZC/USDT**, and has included this in its campaign.  *XZC/BNB is no longer eligible* and reward amounts for XZC/BTC and XZC/USDT are listed in the table below.</ul>
 
 <table>
   <thead>
