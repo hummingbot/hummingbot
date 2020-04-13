@@ -8,14 +8,15 @@ from hummingbot.client.settings import (
     EXAMPLE_PAIRS,
 )
 from hummingbot.data_feed.exchange_price_manager import ExchangePriceManager
+from typing import Optional
 
 
-def validate_primary_market_trading_pair(value: str) -> str:
+def validate_primary_market_trading_pair(value: str) -> Optional[str]:
     primary_market = arbitrage_config_map.get("primary_market").value
     return validate_market_trading_pair(primary_market, value)
 
 
-def validate_secondary_market_trading_pair(value: str) -> str:
+def validate_secondary_market_trading_pair(value: str) -> Optional[str]:
     secondary_market = arbitrage_config_map.get("secondary_market").value
     return validate_market_trading_pair(secondary_market, value)
 
