@@ -110,7 +110,12 @@ class PerformanceAnalysis:
         total_flat_fees: Decimal = s_decimal_0
         amount: Decimal = Decimal(trade.amount)
         price: Decimal = Decimal(trade.price)
-        for flat_fee_currency, flat_fee_amount in trade_fee["flat_fees"]:
+        for flat_fee in trade_fee["flat_fees"]:
+            if isinstance(flat_fee, dict):
+                flat_fee_currency = flat_fee["asset"]
+                flat_fee_amount = flat_fee["amount"]
+            else:
+                flat_fee_currency, flat_fee_amount = flat_fee
             if flat_fee_currency == trade.quote_asset:
                 total_flat_fees += Decimal(flat_fee_amount)
             else:

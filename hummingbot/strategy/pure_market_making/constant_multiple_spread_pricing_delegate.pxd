@@ -5,5 +5,5 @@ cdef class ConstantMultipleSpreadPricingDelegate(OrderPricingDelegate):
     cdef:
         object _bid_spread
         object _ask_spread
-        object _order_interval_size
-        int _number_of_orders
+        object _order_level_spread
+        int _order_levels
