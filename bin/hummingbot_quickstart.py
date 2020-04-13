@@ -24,7 +24,6 @@ from hummingbot.client.config.config_helpers import (
 from hummingbot.client.ui.stdout_redirection import patch_stdout
 from hummingbot.client.ui.parser import ThrowingArgumentParser
 from hummingbot.client.settings import STRATEGIES
-from hummingbot.core.utils.wallet_setup import unlock_wallet
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.management.console import start_management_console
 from bin.hummingbot import (
@@ -86,8 +85,7 @@ async def quick_start():
             global_config_map.get("kill_switch_enabled").value = False
 
         if wallet and password:
-            global_config_map.get("wallet").value = wallet
-            hb.acct = unlock_wallet(public_key=wallet, password=password)
+            global_config_map.get("ethereum_wallet").value = wallet
 
         if not all_configs_complete(hb.strategy_name):
             await hb.notify_missing_configs()

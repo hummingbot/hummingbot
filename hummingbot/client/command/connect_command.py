@@ -2,7 +2,8 @@ from hummingbot.client.config.security import Security
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.user.user_balances import UserBalances
-from hummingbot.core.utils.wallet_setup import import_and_save_wallet
+from hummingbot.client.config.config_helpers import save_to_yml
+from hummingbot.client.settings import GLOBAL_CONFIG_PATH
 import pandas as pd
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -16,7 +17,7 @@ OPTIONS = {
     "bittrex",
     "kucoin",
     "kraken",
-    "wallet"
+    "ethereum"
 }
 
 
@@ -25,8 +26,8 @@ class ConnectCommand:
                 option: str):
         if option is None:
             safe_ensure_future(self.show_connections())
-        elif option == "wallet":
-            safe_ensure_future(self.connect_wallet())
+        elif option == "ethereum":
+            safe_ensure_future(self.connect_ethereum())
         else:
             safe_ensure_future(self.prompt_api_keys(option))
 
@@ -80,15 +81,22 @@ class ConnectCommand:
             data.append([exchange, keys_added, keys_confirmed])
         return pd.DataFrame(data=data, columns=columns), failed_msgs
 
-    async def connect_wallet(self,  # type: HummingbotApplication
-                             ):
+    async def connect_ethereum(self,  # type: HummingbotApplication
+                               ):
         self.placeholder_mode = True
         self.app.hide_input = True
+        ether_wallet = global_config_map["ethereum_wallet"].value
+        if ether_wallet is not None:
+            answer = await self.app.prompt(prompt=f"Would you like to replace your existing Ethereum wallet "
+                                                  f"{ether_wallet} (Yes/No)? >>> ")
+            if answer.lower() not in ("yes", "y"):
+                return
         private_key = await self.app.prompt(prompt="Enter your wallet private key >>> ", is_password=True)
         try:
-            self.acct = import_and_save_wallet(Security.password, private_key)
-            Security.wallets[self.acct.address] = private_key
-            self._notify(f"Wallet {self.acct.address} connected to hummingbot.")
+            public_address = Security.add_private_key(private_key)
+            global_config_map["ethereum_wallet"].value = public_address
+            save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
+            self._notify(f"Wallet {public_address} connected to hummingbot.")
         except Exception as e:
             self._notify(f"Failed to connect wallet key: {e}")
         self.placeholder_mode = False
