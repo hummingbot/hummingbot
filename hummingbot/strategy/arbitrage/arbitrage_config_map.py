@@ -2,12 +2,14 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     validate_exchange,
     validate_market_trading_pair,
+    validate_decimal
 )
 from hummingbot.client.settings import (
     required_exchanges,
     EXAMPLE_PAIRS,
 )
 from hummingbot.data_feed.exchange_price_manager import ExchangePriceManager
+from decimal import Decimal
 
 
 def validate_primary_market_trading_pair(value: str) -> str:
@@ -70,8 +72,9 @@ arbitrage_config_map = {
         validator=validate_secondary_market_trading_pair),
     "min_profitability": ConfigVar(
         key="min_profitability",
-        prompt="What is the minimum profitability for you to make a trade? (Enter 0.01 to indicate 1%) >>> ",
+        prompt="What is the minimum profitability for you to make a trade? (Enter 1 to indicate 1%) >>> ",
         prompt_on_new=True,
-        default=0.003,
+        default=0.3,
+        validator=lambda v: validate_decimal(v, Decimal(0), Decimal("100"), inclusive=False),
         type_str="decimal"),
 }

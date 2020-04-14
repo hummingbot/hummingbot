@@ -1,5 +1,6 @@
 import random
 from typing import Callable
+from decimal import Decimal
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.settings import (
     required_exchanges,
@@ -8,7 +9,8 @@ from hummingbot.client.settings import (
     DEFAULT_LOG_FILE_PATH,
 )
 from hummingbot.client.config.config_validators import (
-    validate_bool
+    validate_bool,
+    validate_decimal
 )
 
 
@@ -214,7 +216,7 @@ global_config_map = {
                   is_secure=True),
     "wallet":
         ConfigVar(key="wallet",
-                  prompt="Would you like to import an existing wallet or create a new wallet? (import/create) >>> ",
+                  prompt="",
                   required_if=using_wallet,
                   is_secure=True),
     "ethereum_rpc_url":
@@ -267,9 +269,10 @@ global_config_map = {
     "kill_switch_rate":
         ConfigVar(key="kill_switch_rate",
                   prompt="At what profit/loss rate would you like the bot to stop? "
-                         "(e.g. -0.05 equals 5 percent loss) >>> ",
-                  type_str="float",
-                  default=-1,
+                         "(e.g. -5 equals 5 percent loss) >>> ",
+                  type_str="decimal",
+                  default=-100,
+                  validator=lambda v: validate_decimal(v, Decimal(-100), Decimal(100)),
                   required_if=lambda: global_config_map["kill_switch_enabled"].value),
     "telegram_enabled":
         ConfigVar(key="telegram_enabled",
