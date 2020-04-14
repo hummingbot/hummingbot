@@ -366,9 +366,9 @@ cdef class BinanceMarket(MarketBase):
             str trading_pair = base_currency + quote_currency
 
         if order_type is OrderType.LIMIT and fee_overrides_config_map["binance_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["binance_maker_fee"].value)
+            return TradeFee(percent=fee_overrides_config_map["binance_maker_fee"].value / Decimal("100"))
         if order_type is OrderType.MARKET and fee_overrides_config_map["binance_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["binance_taker_fee"].value)
+            return TradeFee(percent=fee_overrides_config_map["binance_taker_fee"].value / Decimal("100"))
 
         if trading_pair not in self._trade_fees:
             # https://www.binance.com/en/fee/schedule
