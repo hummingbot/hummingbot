@@ -7,11 +7,24 @@
 
 ---
 
-If you have successfully installed Hummingbot using our install scripts, you should see the command line-based Hummingbot interface below. 
+If you have successfully installed Hummingbot you should see the welcome screen, read through the important disclaimer and create a secure password. 
+
+## Create a secure password
+
+If you are using Hummingbot for the first time on this machine, the system will prompt you to create a password. This password will be used to encrypt sensitive configuration settings e.g. API keys, secret keys and wallet private keys. 
+
+![](/assets/img/welcome.gif)
+
+!!! warning
+    For security reasons, the password is only stored locally in encrypted form. **We do not have access to your password.**
+
+
+## Navigate the client interface
+
+After setting up your password, you should see the command line-based Hummingbot interface.
 
 ![](/assets/img/hummingbot-cli.png)
 
-## Navigate the client interface
 
 First, let's walk through the design of the Hummingbot client interface:
 
@@ -21,65 +34,54 @@ First, let's walk through the design of the Hummingbot client interface:
 
 Enter the command `help` to see a list of commands:
 ```
-config              Create a new bot or import an existing configuration
-help                List the commands and get help on each one          
-start               Start your currently configured bot                 
-stop                Stop your currently configured bot                  
-status              Get the status of a running bot                     
-history             List your bot's past trades and analyze performance 
-exit                Exit and cancel all outstanding orders              
-list                List global objects like exchanges and trades       
-paper_trade         Toggle paper trade mode                             
-export_trades       Export your bot's trades to a CSV file              
-export_private_key  Export your Ethereum wallet private key             
-get_balance         Query your balance in an exchange or wallet         
+connect             List available exchanges and add API keys to them
+create              Create a new bot
+import              Import a existing bot by loading the configuration file
+help                List available commands
+balance             Display your asset balances across all connected exchanges
+config              Display the current bot's configuration
+start               Start the current bot
+stop                Stop the current bot
+status              Get the market status of the current bot
+history             See the past performance of the current bot
+exit                Exit and cancel all outstanding orders
+paper_trade         Toggle paper trade mode on and off
+export_trades       Export your bot's trades to a CSV file
+export_private_key  Export your Ethereum wallet private key
 ```
+
+## Enter API keys
+
+Hummingbot requires **read-only** and **trade enabled** API keys to access your exchange account. If you wish to test Hummingbot and simulate trading without risking actual assets, proceed to [enable paper trading mode](#enable-paper-trading-mode).
+
+Enter the command `connect [exchange]` to connect your exchange account to Hummingbot by adding API keys.
+
+![](/assets/img/connect.gif)
+
+The command `connect` shows if API keys have been successfully added.
+
+Note that each exchange has a different format for API keys. For exchange-specific information on how to find your API keys, please see the individual exchange pages in [Connectors](/connectors).
+
+!!! tip "Tip: Copying and Pasting"
+    Users have reported not being able to copy and paste their API keys on some platforms. Our help articles such as [Other ways to copy and paste](/faq/troubleshooting/#other-ways-to-copy-and-paste) and [Paste items from clipboard in PuTTY](/faq/troubleshooting/#paste-items-from-clipboard-in-putty) may help.
 
 ## Enable paper trading mode
 
-In this Quickstart guide, we will run Hummingbot in paper trading mode and simulate trading strategies without executing and placing actual trades. 
+In this Quickstart guide, we will run Hummingbot in paper trading mode and simulate trading strategies without executing and placing actual trades.
+
+If you wish to use Hummingbot using real assets and place live orders, [skip this step](/#create-a-new-configuration).
 
 Enter the command `paper_trade` to enable this feature.
-```
->>> paper_trade
 
-Enable paper trading mode (Yes/No) ? >>> Yes
-
-New config saved:
-paper_trade_enabled: Yes
-
-Your configuration is incomplete. Would you like to proceed and finish all necessary configurations? (Yes/No) >>> No
-```
-
-## Create a secure password
-
-Enter the command `config` to configure a new market making bot. 
-
-If you are using Hummingbot for the first time on this machine, the system will prompt you to enter a password. This password will be used to encrypt sensitive configuration settings e.g. API keys, secret keys and wallet private keys. 
-
-```
->>> config
-
-Enter your password >>> *****
-
-Please reenter your password >>> *****
-```
-
-!!! warning
-    For security reasons, the password is only stored locally in encrypted form. **We do not have access to your password.**
+<img src="/assets/img/paper_trade.gif" alt="Binance Trading Pair"  width="600" />
 
 ## Create a new configuration
 
 Next, we'll create a configuration for a market making bot using the [pure market making](/strategies/pure-market-making) strategy.
 
-This configuration will be saved to a file that can be imported later on.
-```
-What is your market making strategy >>>
-pure_market_making
+Enter the command `create` to begin creating a strategy config file. This configuration will be saved to a file that can be imported later on.
 
-Import previous configs or create a new config file? (import/create) >>>
-create
-```
+<img src="/assets/img/quickstart_create.gif" alt="Binance Trading Pair"  width="600" />
 
 ## Select exchange and trading pair
 
@@ -90,22 +92,13 @@ Since we are creating a paper trading bot, you don't need any assets on the exch
 For the trading pair, select either `ETH-USDT` or `ETH-USDC` depending on the exchange. Here are two examples:
 
 **Binance.com**
-```
-Enter your maker exchange name >>>
-binance
 
-Enter the token symbol you would like to trade on binance (e.g. ZRX-ETH) >>>
-ETH-USDT
-```
+<img src="/assets/img/quickstart_binance.png" alt="Binance Trading Pair"  width="800" />
 
 **Coinbase Pro**
-```
-Enter your maker exchange name >>>
-coinbase_pro
 
-Enter the token symbol you would like to trade on binance (e.g. ZRX-ETH) >>>
-ETH-USDC
-```
+<img src="/assets/img/quickstart_coinbase_pro.png" alt="Coinbase Pro Trading Pair"  width="800" />
+
 
 ## Enter market making parameters
 
@@ -116,76 +109,25 @@ A bot's strategy parameters control how it behaves. During this step, you will d
     
     We recommend that new users start with **wider spreads**, such as 1.00% for each side of the order book or higher.
 
-```
-How far away from the mid price do you want to place the first bid order? (Enter 0.01 to indicate 1%) >>>
-0.01
+<img src="/assets/img/quickstart_configure1.png" alt="Pure-mm Parameters"  width="800" />
 
-How far away from the mid price do you want to place the first ask order? (Enter 0.01 to indicate 1%) >>>
-0.01
+Later, you can access and configure the advanced parameters of this strategy. A more detailed explanation of each prompt for basic pure market making strategy are explained [here](/strategies/pure-market-making/#configuration-walkthrough) and advanced market making [here](/strategies/advanced-mm/#advanced-configuration-parameters).
 
-How often do you want to cancel and replace bids and asks (in seconds)? >>>
-30.0
 
-What is the amount of [base_asset] per order? (minimum [min_amount]) >>>
-1
-```
+## Adjust inventory ratio
 
-Later, you can run the command `config advanced_mode` to access and configure the advanced parameters. A more detailed explanation of each prompt for pure market making strategy are explained [here](/strategies/pure-market-making/#configuration-walkthrough) in the User Manual.
+If paper trade mode is not enabled, you will be asked whether you want to keep your current inventory ratio. The inventory skew feature lets you set and maintain a target inventory split between the base and quote assets.
 
-## Enter API keys
+![](/assets/img/quickstart_inventory_skew.png)
 
-Now that you have set up how your market making bot will behave, it's time to provide it with the API keys that it needs to access your exchange account.
+For more information, you may read through [Inventory Skew](/strategies/advanced-mm/inventory-skew) in the Advanced Market Making section.
 
-Note that each exchange has a different format for API keys. For exchange-specific information on how to find your API keys, please see the individual exchange pages in [Connectors](/connectors).
 
-**Binance.com**
-```
-Enter your Binance API key >>>
-******************************
+## Save configuration
 
-Enter your Binance API secret >>>
-******************************
-```
+Enter the name you want for your configuration file to complete the process.
 
-**Coinbase Pro**
-```
-Enter your Coinbase API key >>>
-******************************
-
-Enter your Coinbase secret key >>>
-******************************
-
-Enter your Coinbase passphrase >>>
-******
-
-```
-
-!!! tip "Tip: Copying and Pasting"
-    Users have reported not being able to copy and paste their API keys on some platforms. Our help articles such as [Other ways to copy and paste](/faq/troubleshooting/#other-ways-to-copy-and-paste) and [Paste items from clipboard in PuTTY](/faq/troubleshooting/#paste-items-from-clipboard-in-putty) may help.
-
----
-
-## Complete and save configuration
-
-Complete the configuration process: 
-```
-Would you like to enable the kill switch? (Yes/No) >>>  
-No
-
-Would you like to send error logs to hummingbot? (Yes/No) >>> 
-Yes
-
-Config process complete. Enter "start" to start market making.
->>> start
-```
-
-The [Kill Switch](/advanced/kill-switch/) automatically stops the bot after a certain performance threshold, which can be either positive or negative. You can learn about this feature and other advanced features in the **Advanced** section in the sidebar.
-
----
-You should now see:
-```
-Config process complete. Enter "start" to start market making.
-```
+![](/assets/img/quickstart_complete_save.png)
 
 Proceed to the next section: [Run Your First Trading Bot](run-bot.md)
 
