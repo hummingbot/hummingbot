@@ -7,22 +7,22 @@ We also recommend that users read the [Hummingbot whitepaper](https://www.hummin
 
 ## Getting Started
 
-The `config` command walks you through the process of initializing and configuring the global and strategy-specific settings necessary to run the bot. Running the command will create the following files in the `conf/` folder:
+The `create` command walks you through the process of initializing and configuring the global and strategy-specific settings necessary to run the bot. Running the command will create the following files in the `conf/` folder:
 
 File | Description
 ---|---
 `conf_global.yml` | Global configuration settings, e.g. Binance API keys and Ethereum node.
-`conf_arbitrage_strategy_[#].yml` | Settings for the [arbitrage](/strategies/arbitrage/) strategy.
-`conf_cross_exchange_market_making_strategy_[#].yml` | Settings for the [cross-exchange market making](/strategies/cross-exchange-market-making/) strategy.
-`conf_pure_market_making_strategy_[#].yml` | Settings for the [pure market making](/strategies/pure-market-making/) strategy.
-`conf_discovery_strategy_[#].yml` | Settings for the [discovery](/strategies/discovery/) strategy.
+`conf_arb_[#].yml` | Settings for the [arbitrage](/strategies/arbitrage/) strategy.
+`conf_xemm_[#].yml` | Settings for the [cross-exchange market making](/strategies/cross-exchange-market-making/) strategy.
+`conf_pure_mm_[#].yml` | Settings for the [pure market making](/strategies/pure-market-making/) strategy.
+`conf_discovery_[#].yml` | Settings for the [discovery](/strategies/discovery/) strategy.
 
 !!! tip "Editing Configuration Files Directly"
     Once they are created, you may find it easier to edit the configuration files in the `conf/` folder. Simply open them with a text editor and make any desired modifications.
 
 ## Setup Walkthrough
 
-When running `config`, you are asked to select a strategy and enter strategy-specific configuration parameters. We have developed walkthroughs for each strategy:
+When running `create`, you are asked to select a strategy and enter strategy-specific configuration parameters. We have developed walkthroughs for each strategy:
 
 * [Arbitrage](/strategies/arbitrage#configuration-walkthrough)
 * [Cross-exchange market making](/strategies/cross-exchange-market-making#configuration-walkthrough)
@@ -34,7 +34,7 @@ When running `config`, you are asked to select a strategy and enter strategy-spe
 
 # API keys
 
-In order to trade on a centralized exchange, you will need to import your API key from that exchange to Hummingbot. API keys are account specific credentials that allow access to live information and trading outside of the exchange website.
+In order to trade on a centralized exchange, you will need to import your API key from that exchange to Hummingbot using the `connect [exchange_name]` command. API keys are account specific credentials that allow access to live information and trading outside of the exchange website.
 
 Please see below for instructions to find your API keys for the exchanges that Hummingbot currently supports:
 
