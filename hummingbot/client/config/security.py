@@ -8,7 +8,8 @@ from hummingbot.client.config.config_crypt import (
 )
 from hummingbot.core.utils.wallet_setup import (
     list_wallets,
-    unlock_wallet
+    unlock_wallet,
+    import_and_save_wallet
 )
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -21,7 +22,7 @@ class Security:
     __instance = None
     password = None
     _secure_configs = {}
-    wallets = {}
+    _private_keys = {}
     _decryption_done = asyncio.Event()
 
     @staticmethod
@@ -34,6 +35,10 @@ class Security:
     def any_encryped_files():
         encrypted_files = list_encrypted_file_paths()
         return len(encrypted_files) > 0
+
+    @staticmethod
+    def any_wallets():
+        return len(list_wallets()) > 0
 
     @staticmethod
     def encrypted_file_exists(config_key):
@@ -69,12 +74,14 @@ class Security:
 
     @classmethod
     def unlock_wallet(cls, public_key):
-        cls.wallets[public_key] = unlock_wallet(public_key=public_key, password=Security.password)
+        if public_key not in cls._private_keys:
+            cls._private_keys[public_key] = unlock_wallet(public_key=public_key, password=Security.password)
+        return cls._private_keys[public_key]
 
     @classmethod
     def decrypt_all(cls):
         cls._secure_configs.clear()
-        cls.wallets.clear()
+        cls._private_keys.clear()
         cls._decryption_done.clear()
         encrypted_files = list_encrypted_file_paths()
         for file in encrypted_files:
@@ -94,6 +101,13 @@ class Security:
         cls._secure_configs[key] = new_value
 
     @classmethod
+    def add_private_key(cls, private_key) -> str:
+        # Add private key and return public key
+        account = import_and_save_wallet(cls.password, private_key)
+        cls._private_keys[account.address] = private_key
+        return account.address
+
+    @classmethod
     def update_config_map(cls, config_map):
         for config in config_map.values():
             if config.is_secure and config.value is None:
@@ -110,6 +124,10 @@ class Security:
     @classmethod
     def all_decrypted_values(cls):
         return cls._secure_configs.copy()
+
+    @classmethod
+    def private_keys(cls):
+        return cls._private_keys.copy()
 
     @classmethod
     async def wait_til_decryption_done(cls):
