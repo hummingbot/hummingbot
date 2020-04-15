@@ -6,13 +6,6 @@ from typing import (
 from decimal import Decimal
 import pandas as pd
 from os.path import join
-from hummingbot.core.utils.wallet_setup import (
-    create_and_save_wallet,
-    import_and_save_wallet,
-    list_wallets,
-    unlock_wallet,
-    save_wallet
-)
 from hummingbot.client.settings import (
     GLOBAL_CONFIG_PATH,
     CONF_FILE_PATH,
@@ -78,71 +71,6 @@ class ConfigCommand:
         if self.strategy_config_map is not None:
             keys += [c.key for c in self.strategy_config_map.values() if c.prompt is not None]
         return keys
-
-    async def _create_or_import_wallet(self,  # type: HummingbotApplication
-                                       ):
-        """
-        Special handler function that asks the user to either create a new wallet,
-        or import one by entering the private key.
-        """
-        choice = await self.app.prompt(prompt=global_config_map.get("wallet").prompt)
-        if choice == "import":
-            private_key = await self.app.prompt(prompt="Your wallet private key >>> ", is_password=True)
-            try:
-                self.acct = import_and_save_wallet(Security.password, private_key)
-                self._notify("Wallet %s imported into hummingbot" % (self.acct.address,))
-            except Exception as e:
-                self._notify(f"Failed to import wallet key: {e}")
-                result = await self._create_or_import_wallet()
-                return result
-        elif choice == "create":
-            self.acct = create_and_save_wallet(Security.password)
-            self._notify("New wallet %s created" % (self.acct.address,))
-        else:
-            self._notify('Invalid choice. Please enter "create" or "import".')
-            result = await self._create_or_import_wallet()
-            return result
-        return self.acct.address
-
-    async def _unlock_wallet(self,  # type: HummingbotApplication
-                             ):
-        """
-        Special handler function that helps the user unlock an existing wallet, or redirect user to create a new wallet.
-        """
-        choice = await self.app.prompt(prompt="Would you like to unlock your previously saved wallet? (Yes/No) >>> ")
-        if choice.lower() in {"y", "yes"}:
-            wallets = list_wallets()
-            self._notify("Existing wallets:")
-            self.list(obj="wallets")
-            if len(wallets) == 1:
-                public_key = wallets[0]
-            else:
-                public_key = await self.app.prompt(prompt="Which wallet would you like to import ? >>> ")
-            try:
-                acct = unlock_wallet(public_key=public_key, password=Security.password)
-                self._notify("Wallet %s unlocked" % (acct.address,))
-                self.acct = acct
-                return self.acct.address
-            except ValueError as err:
-                if str(err) != "MAC mismatch":
-                    raise err
-                self._notify("The wallet was locked by a different password.")
-                old_password = await self.app.prompt(prompt="Please enter the password >>> ", is_password=True)
-                try:
-                    acct = unlock_wallet(public_key=public_key, password=old_password)
-                    self._notify("Wallet %s unlocked" % (acct.address,))
-                    save_wallet(acct, Security.password)
-                    self._notify(f"Wallet {acct.address} is now saved with your main password.")
-                    self.acct = acct
-                    return self.acct.address
-                except ValueError as err:
-                    if str(err) != "MAC mismatch":
-                        raise err
-                    self._notify("Cannot unlock wallet. Please try again.")
-                    return await self._unlock_wallet()
-        else:
-            value = await self._create_or_import_wallet()
-            return value
 
     async def check_password(self,  # type: HummingbotApplication
                              ):

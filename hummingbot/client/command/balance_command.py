@@ -1,6 +1,7 @@
 from hummingbot.user.user_balances import UserBalances
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion as ERC
+from hummingbot.client.config.global_config_map import global_config_map
 import pandas as pd
 from numpy import NaN
 from typing import TYPE_CHECKING
@@ -17,6 +18,12 @@ class BalanceCommand:
         df = await self.balances_df()
         lines = ["    " + line for line in df.to_string(index=False).split("\n")]
         self._notify("\n".join(lines))
+        eth_address = global_config_map["ethereum_wallet"].value
+        if eth_address is not None:
+            bal = UserBalances.ethereum_balance()
+            bal = round(bal, 4)
+            self._notify(f"Ethereum balance in ...{eth_address[-4:]} wallet: {bal} ETH")
+            self._notify(f"Note: You may have other ERC 20 tokens in this same address (not shown here).")
 
     async def balances_df(self  # type: HummingbotApplication
                           ):
