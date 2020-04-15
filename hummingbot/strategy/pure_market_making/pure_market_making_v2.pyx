@@ -308,7 +308,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             order = active_orders[idx]
             level = no_sells - idx if not order.is_buy else idx + 1 - no_sells
             spread = 0 if mid_price == 0 else abs(order.price - mid_price)/mid_price
-            age = pd.Timestamp(int(time.time()) - int(order.client_order_id.split("-")[-1])/1e6, unit='s')
+            age = "n/a"
+            if "-" in order.client_order_id:
+                age = pd.Timestamp(int(time.time()) - int(order.client_order_id.split("-")[-1])/1e6,
+                                   unit='s').strftime('%H:%M:%S')
             amount_orig = order_start_size + ((level - 1) * order_step_size)
             data.append([
                 level,
@@ -317,7 +320,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 f"{spread:.2%}",
                 float(amount_orig),
                 float(order.quantity),
-                age.strftime('%H:%M:%S'),
+                age,
                 "yes" if order.client_order_id in self._hanging_order_ids else "no"
             ])
 
