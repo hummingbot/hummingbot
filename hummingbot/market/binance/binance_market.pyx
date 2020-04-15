@@ -981,7 +981,7 @@ cdef class BinanceMarket(MarketBase):
             exchange_order_id = str(order_result["orderId"])
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
-                self.logger().info(f"Created {order_type} buy order {order_id} for "
+                self.logger().info(f"Created {order_type.name.lower()} buy order {order_id} for "
                                    f"{decimal_amount} {trading_pair}.")
                 tracked_order.exchange_order_id = exchange_order_id
             self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
