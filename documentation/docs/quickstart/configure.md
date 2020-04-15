@@ -33,22 +33,23 @@ First, let's walk through the design of the Hummingbot client interface:
 * **Right pane**: trading logs
 
 Enter the command `help` to see a list of commands:
-```
-connect             List available exchanges and add API keys to them
-create              Create a new bot
-import              Import a existing bot by loading the configuration file
-help                List available commands
-balance             Display your asset balances across all connected exchanges
-config              Display the current bot's configuration
-start               Start the current bot
-stop                Stop the current bot
-status              Get the market status of the current bot
-history             See the past performance of the current bot
-exit                Exit and cancel all outstanding orders
-paper_trade         Toggle paper trade mode on and off
-export_trades       Export your bot's trades to a CSV file
-export_private_key  Export your Ethereum wallet private key
-```
+
+| Command | Function |
+|---------|----------|
+| `connect` | List available exchanges and add API keys to them |
+| `create` | Create a new bot. |
+| `import` | Import a existing bot by loading the configuration file. |
+| `help` | List available commands. |
+| `balance` | Display your asset balances across all connected exchanges. |
+| `config` | Display the current bot's configuration. |
+| `start` | Start the current bot. |
+| `stop` | Stop the current bot. |
+| `status` | Get the market status of the current bot. |
+| `history` | See the past performance of the current bot. |
+| `exit` | Exit and cancel all outstanding orders. |
+| `paper_trade` | Toggle [paper trade mode](/operation/paper-trade) on and off. |
+| `export_trades` | Export your bot's trades to a CSV file. |
+| `export_private_key` | Export your Ethereum wallet private key. |
 
 ## Enter API keys
 

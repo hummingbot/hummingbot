@@ -3,19 +3,20 @@
 
 | Command | Function |
 |---------|----------|
-| `config` | Create a new bot or import an existing configuration.
-| `help` | List the commands and get help on each one.
-| `start` | Start your currently configured bot.
-| `stop` | Stop your currently configured bot.
-| `status` | Get the status of a running bot.
-| `history`| List your bot's past trades and analyze performance.
-| `exit`| Exit and cancel all outstanding orders.
-| `exit -f`| Force quit without cancelling orders.
-| `list` | List global objects like exchanges and trades.
-| `paper_trade` | Toggle [paper trading mode](/operation/paper-trade).
-| `export_trades` | Export your bot's trades to a CSV file.
-| `export_private_key` | Export your Ethereum wallet private key.
-| `get_balance` | Query your balance in an exchange or wallet.
+| `connect` | List available exchanges and add API keys to them |
+| `create` | Create a new bot. |
+| `import` | Import a existing bot by loading the configuration file. |
+| `help` | List available commands. |
+| `balance` | Display your asset balances across all connected exchanges. |
+| `config` | Display the current bot's configuration. |
+| `start` | Start the current bot. |
+| `stop` | Stop the current bot. |
+| `status` | Get the market status of the current bot. |
+| `history` | See the past performance of the current bot. |
+| `exit` | Exit and cancel all outstanding orders. |
+| `paper_trade` | Toggle [paper trade mode](/operation/paper-trade) on and off. |
+| `export_trades` | Export your bot's trades to a CSV file. |
+| `export_private_key` | Export your Ethereum wallet private key. |
 
 ## Hummingbot keyboard shortcuts
 
