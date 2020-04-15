@@ -16,7 +16,7 @@ from hummingbot.client.settings import (
 from hummingbot.client.ui.parser import ThrowingArgumentParser
 from hummingbot.core.utils.wallet_setup import list_wallets
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
-from hummingbot.client.command.connect_command import EXCHANGES as CONNECT_EXCHANGES
+from hummingbot.client.command.connect_command import OPTIONS as CONNECT_EXCHANGES
 
 
 def file_name_list(path, file_extension):

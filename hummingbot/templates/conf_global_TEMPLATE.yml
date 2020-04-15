@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 6
+template_version: 7
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -36,7 +36,7 @@ kraken_api_key: null
 kraken_secret_key: null
 
 # Ethereum wallet address: required for trading on a DEX
-wallet: null
+ethereum_wallet: null
 ethereum_rpc_url: null
 ethereum_chain_name: MAIN_NET
 ethereum_token_overrides: {}
