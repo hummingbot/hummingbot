@@ -212,11 +212,11 @@ global_config_map = {
                   prompt="Enter your Kraken secret key >>> ",
                   required_if=using_exchange("kraken"),
                   is_secure=True),
-    "wallet":
-        ConfigVar(key="wallet",
-                  prompt="Would you like to import an existing wallet or create a new wallet? (import/create) >>> ",
-                  required_if=using_wallet,
-                  is_secure=True),
+    "ethereum_wallet":
+        ConfigVar(key="ethereum_wallet",
+                  prompt="",
+                  type_str="str",
+                  required_if=using_wallet),
     "ethereum_rpc_url":
         ConfigVar(key="ethereum_rpc_url",
                   prompt="Which Ethereum node would you like your client to connect to? >>> ",
