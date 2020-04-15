@@ -81,7 +81,7 @@ class ListCommand:
                 lines.extend(["", "  Recent trades:"] +
                              ["    " + line for line in df_lines])
             else:
-                lines.extend(["  No past trades in this session."])
+                lines.extend(["\n  No past trades in this session."])
             self._notify("\n".join(lines))
 
     async def list_encrypted(self,  # type: HummingbotApplication
