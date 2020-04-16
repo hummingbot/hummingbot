@@ -7,6 +7,7 @@ from hummingbot.client.settings import (
     required_exchanges,
     EXAMPLE_PAIRS,
 )
+from typing import Optional
 
 
 def trading_pair_prompt():
@@ -21,7 +22,7 @@ def str2bool(value: str):
 
 
 # checks if the trading pair is valid
-def validate_trading_pair(value: str) -> str:
+def validate_trading_pair(value: str) -> Optional[str]:
     market = dev_1_get_order_book_config_map.get("market").value
     return validate_market_trading_pair(market, value)
 
