@@ -80,7 +80,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             trading_pairs: Dict[str, Any] = {item["symbol"]: {attr_name_map[k]: item[k] for k in ["baseCurrency", "quoteCurrency"]}
                                              for item in exchange_data["data"]
-                                             if item["enableTrading"] == "true"}
+                                             if item["enableTrading"] == True}
 
             market_data: List[Dict[str, Any]] = [{**item, **trading_pairs[item["symbol"]]}
                                                  for item in market_data["data"]["ticker"]

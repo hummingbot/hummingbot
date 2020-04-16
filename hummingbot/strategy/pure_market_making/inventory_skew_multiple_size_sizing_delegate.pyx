@@ -23,13 +23,13 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
     def __init__(self,
                  order_start_size: Decimal,
                  order_step_size: Decimal,
-                 number_of_orders: int,
+                 order_levels: int,
                  inventory_target_base_percent: Optional[Decimal] = None,
                  inventory_range_multiplier: Optional[Decimal] = s_decimal_1):
         super().__init__()
         self._order_start_size = order_start_size
         self._order_step_size = order_step_size
-        self._number_of_orders = number_of_orders
+        self._order_levels = order_levels
         self._inventory_target_base_percent = inventory_target_base_percent
         self._inventory_range_multiplier = inventory_range_multiplier
 
@@ -49,8 +49,8 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
         return self._order_step_size
 
     @property
-    def number_of_orders(self) -> int:
-        return self._number_of_orders
+    def order_levels(self) -> int:
+        return self._order_levels
 
     @property
     def inventory_target_base_ratio(self) -> Decimal:
@@ -65,7 +65,7 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
         return calculate_total_order_size(
             self._order_start_size,
             self._order_step_size,
-            self._number_of_orders
+            self._order_levels
         )
 
     cdef object c_get_order_size_proposal(self,
@@ -118,7 +118,7 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
             bid_adjustment_ratio = Decimal(bid_ask_ratios.bid_ratio)
             ask_adjustment_ratio = Decimal(bid_ask_ratios.ask_ratio)
 
-        for i in range(self.number_of_orders):
+        for i in range(self.order_levels):
             current_bid_order_size = (self.order_start_size + self.order_step_size * i) * bid_adjustment_ratio
             current_ask_order_size = (self.order_start_size + self.order_step_size * i) * ask_adjustment_ratio
             if market.name == "binance":
