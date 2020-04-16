@@ -234,7 +234,6 @@ class HummingbotApplication(*commands):
 
         for market_name, trading_pairs in market_trading_pairs_map.items():
             if global_config_map.get("paper_trade_enabled").value:
-                self._notify(f"\nPaper trade is enabled for market {market_name}")
                 try:
                     market = create_paper_trade_market(market_name, trading_pairs)
                 except Exception:

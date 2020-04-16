@@ -15,6 +15,7 @@ from hummingbot.client.performance_analysis import PerformanceAnalysis
 from hummingbot.market.market_base import MarketBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from datetime import datetime
+from hummingbot.client.config.global_config_map import global_config_map
 
 s_float_0 = float(0)
 
@@ -31,8 +32,10 @@ class HistoryCommand:
             return
 
         if not all(market.ready for market in self.markets.values()):
-            self._notify("  History stats are not available before Markets are ready.")
+            self._notify("\n  History stats are not available before Markets are ready.")
             return
+        if global_config_map.get("paper_trade_enabled").value:
+            self._notify("\n  Paper Trading ON: All orders are simulated, and no real orders are placed.")
         self.list_trades()
         self.trade_performance_report()
 
@@ -57,7 +60,7 @@ class HistoryCommand:
                                       market_trading_pair_stats: Dict[MarketTradingPairTuple, any],
                                       ) -> pd.DataFrame:
         if len(self.starting_balances) == 0:
-            self._notify("  Balance snapshots are not available before bot starts")
+            self._notify("\n  Balance snapshots are not available before bot starts")
             return
         rows = []
         for market_trading_pair_tuple in self.market_trading_pair_tuples:
@@ -106,7 +109,7 @@ class HistoryCommand:
     def trade_performance_report(self,  # type: HummingbotApplication
                                  ) -> Optional[pd.DataFrame]:
         if len(self.market_trading_pair_tuples) == 0 or self.markets_recorder is None:
-            self._notify("  Performance analysis is not available when the bot is stopped.")
+            self._notify("\n  Performance analysis is not available when the bot is stopped.")
             return
 
         try:
