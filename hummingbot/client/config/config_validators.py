@@ -26,7 +26,7 @@ def validate_decimal(value: str, min_value: Decimal = None, max_value: Decimal =
     if inclusive:
         if min_value is not None and max_value is not None:
             if not (Decimal(str(min_value)) <= decimal_value <= Decimal(str(max_value))):
-                return "Value must be between {min_value} and {max_value}."
+                return f"Value must be between {min_value} and {max_value}."
         elif min_value is not None and not decimal_value >= Decimal(str(min_value)):
             return f"Value cannot be less than {min_value}."
         elif max_value is not None and not decimal_value <= Decimal(str(max_value)):
@@ -36,9 +36,9 @@ def validate_decimal(value: str, min_value: Decimal = None, max_value: Decimal =
             if not (Decimal(str(min_value)) < decimal_value < Decimal(str(max_value))):
                 return f"Value must be between {min_value} and {max_value} (exclusive)."
         elif min_value is not None and not decimal_value > Decimal(str(min_value)):
-            return f"Value has to be more than {min_value}."
+            return f"Value must be more than {min_value}."
         elif max_value is not None and not decimal_value < Decimal(str(max_value)):
-            return f"Value has to be less than {max_value}."
+            return f"Value must be less than {max_value}."
 
 
 def validate_market_trading_pair(market: str, value: str) -> Optional[str]:

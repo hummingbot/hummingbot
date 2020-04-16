@@ -43,7 +43,7 @@ ethereum_token_overrides: {}
 
 # Kill switch
 kill_switch_enabled: null
-## The rate of performance at which you would want the bot to stop trading (-0.2 = 20%)
+## The rate of performance at which you would want the bot to stop trading (-20 = 20%)
 kill_switch_rate: null
 
 # Paper Trading
