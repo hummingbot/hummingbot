@@ -203,7 +203,7 @@ def strategy_name_from_file(file_path: str) -> str:
     return strategy
 
 
-def validate_strategy_file(file_path: str) -> str:
+def validate_strategy_file(file_path: str) -> Optional[str]:
     if not exists(file_path):
         return f"{file_path} file does not exist."
     strategy = strategy_name_from_file(file_path)

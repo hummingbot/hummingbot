@@ -3,6 +3,10 @@ from typing import (
     Callable,
 )
 
+RequiredIf = Callable[[str], Optional[bool]]
+Validator = Callable[[str], Optional[str]]
+OnValidated = Callable
+
 
 class ConfigVar:
     def __init__(self,
@@ -12,9 +16,9 @@ class ConfigVar:
                  default: any = None,
                  type_str: str = "str",
                  # Whether this config will be prompted during the setup process
-                 required_if: Callable = lambda: True,
-                 validator: Callable = lambda *args: None,
-                 on_validated: Callable = lambda *args: None,
+                 required_if: RequiredIf = lambda: True,
+                 validator: Validator = lambda *args: None,
+                 on_validated: OnValidated = lambda *args: None,
                  # Whether to prompt a user for value when new strategy config file is created
                  prompt_on_new: bool = False):
         self._prompt = prompt
@@ -40,9 +44,11 @@ class ConfigVar:
         assert callable(self._required_if)
         return self._required_if()
 
-    def validate(self, value: str) -> str:
+    def validate(self, value: str) -> Optional[str]:
         assert callable(self._validator)
         assert callable(self._on_validated)
+        if self.required and (value is None or value == ""):
+            return "Value is required."
         err_msg = self._validator(value)
         if err_msg is None and self._validator is not None:
             self._on_validated(value)
