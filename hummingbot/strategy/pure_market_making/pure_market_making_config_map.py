@@ -19,6 +19,7 @@ from hummingbot.client.config.config_helpers import (
     minimum_order_amount
 )
 from hummingbot.data_feed.exchange_price_manager import ExchangePriceManager
+from typing import Optional
 
 
 def maker_trading_pair_prompt():
@@ -29,7 +30,7 @@ def maker_trading_pair_prompt():
 
 
 # strategy specific validators
-def validate_exchange_trading_pair(value: str) -> str:
+def validate_exchange_trading_pair(value: str) -> Optional[str]:
     exchange = pure_market_making_config_map.get("exchange").value
     return validate_market_trading_pair(exchange, value)
 
@@ -47,7 +48,7 @@ def order_start_size_prompt() -> str:
     return f"What is the size of the first bid and ask order? (minimum {min_amount}) >>> "
 
 
-def validate_order_amount(value: str) -> str:
+def validate_order_amount(value: str) -> Optional[str]:
     try:
         trading_pair = pure_market_making_config_map["market"].value
         min_amount = minimum_order_amount(trading_pair)
@@ -62,13 +63,13 @@ def price_source_market_prompt():
     return f'Enter the token trading pair on {external_market} >>> '
 
 
-def validate_price_source_exchange(value: str) -> str:
+def validate_price_source_exchange(value: str) -> Optional[str]:
     if value == pure_market_making_config_map.get("exchange").value:
         return "Price source exchange cannot be the same as maker exchange."
     return validate_exchange(value)
 
 
-def validate_price_source_market(value: str) -> str:
+def validate_price_source_market(value: str) -> Optional[str]:
     market = pure_market_making_config_map.get("price_source_exchange").value
     return validate_market_trading_pair(market, value)
 
@@ -144,6 +145,7 @@ pure_market_making_config_map = {
                          "additional order? >>> ",
                   required_if=lambda: pure_market_making_config_map.get("order_levels").value > 1,
                   type_str="decimal",
+                  validator=lambda v: validate_decimal(v, min_value=0),
                   default=0),
     "order_level_spread":
         ConfigVar(key="order_level_spread",
@@ -179,6 +181,7 @@ pure_market_making_config_map = {
                   prompt="How long do you want to wait before placing the next order "
                          "if your order gets filled (in seconds)? >>> ",
                   type_str="float",
+                  validator=lambda v: validate_decimal(v, min_value=0, inclusive=False),
                   default=60),
     "hanging_orders_enabled":
         ConfigVar(key="hanging_orders_enabled",
@@ -207,6 +210,7 @@ pure_market_making_config_map = {
                          "(expressed in base asset amount)? >>> ",
                   required_if=lambda: pure_market_making_config_map.get("order_optimization_enabled").value,
                   type_str="decimal",
+                  validator=lambda v: validate_decimal(v, min_value=0),
                   default=0),
     "add_transaction_costs":
         ConfigVar(key="add_transaction_costs",

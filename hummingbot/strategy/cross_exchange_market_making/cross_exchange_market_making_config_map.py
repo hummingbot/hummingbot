@@ -10,6 +10,7 @@ from hummingbot.client.config.config_helpers import (
     minimum_order_amount
 )
 from hummingbot.data_feed.exchange_price_manager import ExchangePriceManager
+from typing import Optional
 
 
 def maker_trading_pair_prompt():
@@ -31,12 +32,12 @@ def taker_trading_pair_prompt():
 
 
 # strategy specific validators
-def validate_maker_market_trading_pair(value: str) -> str:
+def validate_maker_market_trading_pair(value: str) -> Optional[str]:
     maker_market = cross_exchange_market_making_config_map.get("maker_market").value
     return validate_market_trading_pair(maker_market, value)
 
 
-def validate_taker_market_trading_pair(value: str) -> str:
+def validate_taker_market_trading_pair(value: str) -> Optional[str]:
     taker_market = cross_exchange_market_making_config_map.get("taker_market").value
     return validate_market_trading_pair(taker_market, value)
 
@@ -48,7 +49,7 @@ def order_amount_prompt() -> str:
     return f"What is the amount of {base_asset} per order? (minimum {min_amount}) >>> "
 
 
-def validate_order_amount(value: str) -> str:
+def validate_order_amount(value: str) -> Optional[str]:
     try:
         trading_pair = cross_exchange_market_making_config_map["maker_market_trading_pair"].value
         min_amount = minimum_order_amount(trading_pair)
