@@ -97,8 +97,8 @@ discovery_config_map = {
     ),
     "target_profitability": ConfigVar(
         key="target_profitability",
-        prompt="What is the target profitability for discovery? (Default to "
-        "0.0 to list maximum profitable amounts) >>> ",
+        prompt="What is the target profitability for discovery? (Enter 1 for 1%, Enter "
+        "0 to list maximum profitable amounts) >>> ",
         default=0.0,
         type_str="float",
     ),

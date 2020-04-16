@@ -1,7 +1,8 @@
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     validate_exchange,
-    validate_market_trading_pair
+    validate_market_trading_pair,
+    validate_decimal
 )
 from hummingbot.client.settings import required_exchanges, EXAMPLE_PAIRS
 from decimal import Decimal
@@ -98,8 +99,9 @@ cross_exchange_market_making_config_map = {
     ),
     "min_profitability": ConfigVar(
         key="min_profitability",
-        prompt="What is the minimum profitability for you to make a trade? (Enter 0.01 to indicate 1%) >>> ",
+        prompt="What is the minimum profitability for you to make a trade? (Enter 1 to indicate 1%) >>> ",
         prompt_on_new=True,
+        validator=lambda v: validate_decimal(v, Decimal(0), Decimal("100"), inclusive=False),
         type_str="decimal",
     ),
     "order_amount": ConfigVar(
@@ -128,7 +130,7 @@ cross_exchange_market_making_config_map = {
     "cancel_order_threshold": ConfigVar(
         key="cancel_order_threshold",
         prompt="",
-        default=0.05,
+        default=5,
         type_str="decimal",
         required_if=lambda: False,
     ),
@@ -156,21 +158,21 @@ cross_exchange_market_making_config_map = {
     "order_size_taker_volume_factor": ConfigVar(
         key="order_size_taker_volume_factor",
         prompt="",
-        default=0.25,
+        default=25,
         type_str="decimal",
         required_if=lambda: False,
     ),
     "order_size_taker_balance_factor": ConfigVar(
         key="order_size_taker_balance_factor",
         prompt="",
-        default=0.995,
+        default=99.5,
         type_str="decimal",
         required_if=lambda: False,
     ),
     "order_size_portfolio_ratio_limit": ConfigVar(
         key="order_size_portfolio_ratio_limit",
         prompt="",
-        default=0.1667,
+        default=16.67,
         type_str="decimal",
         required_if=lambda: False,
     )

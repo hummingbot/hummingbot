@@ -181,7 +181,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
         taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.002"), taker_fee.percent)
-        fee_overrides_config_map["huobi_taker_fee"].value = Decimal('0.001')
+        fee_overrides_config_map["huobi_taker_fee"].value = Decimal('0.1')
         taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.001"), taker_fee.percent)
@@ -189,7 +189,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
         maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.002"), maker_fee.percent)
-        fee_overrides_config_map["huobi_maker_fee"].value = Decimal('0.005')
+        fee_overrides_config_map["huobi_maker_fee"].value = Decimal('0.5')
         maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
