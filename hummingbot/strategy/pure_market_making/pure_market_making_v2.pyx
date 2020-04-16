@@ -11,7 +11,8 @@ from math import (
     floor,
     ceil
 )
-
+import time
+import numpy as np
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.limit_order cimport LimitOrder
@@ -48,6 +49,7 @@ from .inventory_skew_single_size_sizing_delegate cimport InventorySkewSingleSize
 from .inventory_skew_single_size_sizing_delegate import InventorySkewSingleSizeSizingDelegate
 from .asset_price_delegate cimport AssetPriceDelegate
 from .asset_price_delegate import AssetPriceDelegate
+from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
 
 
 NaN = float("nan")
@@ -218,15 +220,19 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             base_asset_value = base_asset_amount * mid_price
             quote_asset_value = quote_asset_amount / mid_price if mid_price > s_decimal_zero else s_decimal_zero
             total_value = base_asset_amount + quote_asset_value
+            total_value_in_quote = (base_asset_amount * mid_price) + quote_asset_amount
 
             base_asset_ratio = (base_asset_amount / total_value
                                 if total_value > s_decimal_zero
                                 else s_decimal_zero)
+            quote_asset_ratio = Decimal("1") - base_asset_ratio if total_value > 0 else 0
             target_base_ratio = self._sizing_delegate.inventory_target_base_ratio
             inventory_range_multiplier = self._sizing_delegate.inventory_range_multiplier
             target_base_amount = (total_value * target_base_ratio
                                   if mid_price > s_decimal_zero
                                   else s_decimal_zero)
+            target_base_amount_in_quote = target_base_ratio * total_value_in_quote
+            target_quote_amount = (1 - target_base_ratio) * total_value_in_quote
             base_asset_range = (self._sizing_delegate.total_order_size *
                                 self._sizing_delegate.inventory_range_multiplier)
             high_water_mark = target_base_amount + base_asset_range
@@ -241,20 +247,85 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             total_order_size_ratio = (self._sizing_delegate.total_order_size / total_value
                                       if total_value > s_decimal_zero
                                       else s_decimal_zero)
-            precision = 4 if total_value <= 1 else (2 if total_value < 1000 else None)
+            bid_ask_ratios = c_calculate_bid_ask_ratios_from_base_asset_ratio(
+                float(base_asset_amount),
+                float(quote_asset_amount),
+                float(mid_price),
+                float(target_base_ratio),
+                float(base_asset_range)
+            )
             inventory_skew_df = pd.DataFrame(data=[
-                ["Current inventory %", f"{base_asset_ratio:.1%} {market_info.base_asset} / "
-                                        f"{(1 - base_asset_ratio):.1%} {market_info.quote_asset}"],
-                ["Target base asset %", f"{target_base_ratio:.1%} "
-                                        f"({round(target_base_amount, precision)} {market_info.base_asset})"],
-                ["Total order amount %", f"{total_order_size_ratio:.1%} "
-                    f"({round(self._sizing_delegate.total_order_size, precision)} {market_info.base_asset})"],
-                ["Range multiplier", f"{self._sizing_delegate.inventory_range_multiplier:.2f}"],
-                ["Target base asset range", f"{low_water_mark_ratio:.1%} - {high_water_mark_ratio:.1%}"]
+                [f"Target Value ({market_info.quote_asset})", f"{target_base_amount_in_quote:.4f}",
+                 f"{target_quote_amount:.4f}"],
+                ["Current %", f"{base_asset_ratio:.1%}", f"{quote_asset_ratio:.1%}"],
+                ["Target %", f"{target_base_ratio:.1%}", f"{1 - target_base_ratio:.1%}"],
+                ["Inventory Range", f"{low_water_mark_ratio:.1%} - {high_water_mark_ratio:.1%}",
+                 f"{1 - high_water_mark_ratio:.1%} - {1 - low_water_mark_ratio:.1%}"],
+                ["Order Adjust %", f"{bid_ask_ratios.bid_ratio:.1%}", f"{bid_ask_ratios.ask_ratio:.1%}"]
             ])
             return inventory_skew_df
         else:
             return None
+
+    def pure_mm_assets_df(self, market_info: MarketTradingPairTuple, to_show_current_pct: bool) -> pd.DataFrame:
+        market, trading_pair, base_asset, quote_asset = market_info
+        active_orders = self.market_info_to_active_orders.get(market_info, [])
+        mid_price = market_info.get_mid_price()
+        base_balance = float(market.get_balance(base_asset))
+        quote_balance = float(market.get_balance(quote_asset))
+        available_base_balance = float(market.get_available_balance(base_asset))
+        available_quote_balance = float(market.get_available_balance(quote_asset))
+        base_value = base_balance * float(mid_price)
+        total_in_quote = base_value + quote_balance
+        base_ratio = base_value / total_in_quote if total_in_quote > 0 else 0
+        quote_ratio = quote_balance / total_in_quote if total_in_quote > 0 else 0
+        data=[
+            ["", base_asset, quote_asset],
+            ["Total Balance", round(base_balance, 4), round(quote_balance, 4)],
+            ["Available Balance", round(available_base_balance, 4), round(available_quote_balance, 4)],
+            [f"Current Value ({quote_asset})", round(base_value, 4), round(quote_balance, 4)]
+        ]
+        if to_show_current_pct:
+            data.append(["Current %", f"{base_ratio:.1%}", f"{quote_ratio:.1%}"])
+        df = pd.DataFrame(data=data)
+        return df
+
+    def active_orders_df(self, market_info) -> pd.DataFrame:
+        mid_price = market_info.get_mid_price()
+        active_orders = self.market_info_to_active_orders.get(market_info, [])
+        no_sells = len([o for o in active_orders if not o.is_buy])
+        active_orders.sort(key=lambda x: x.price, reverse=True)
+        columns = ["Level", "Type", "Price", "Spread", "Amount (Orig)", "Amount (Adj)", "Age", "Hang"]
+        data = []
+        order_start_size = 0
+        if hasattr(self._sizing_delegate, "order_start_size"):
+            order_start_size = self._sizing_delegate.order_start_size
+        elif hasattr(self._sizing_delegate, "order_size"):
+            order_start_size = self._sizing_delegate.order_size
+        order_step_size = 0
+        if hasattr(self._sizing_delegate, "order_step_size"):
+            order_step_size = self._sizing_delegate.order_step_size
+        for idx in range(0, len(active_orders)):
+            order = active_orders[idx]
+            level = no_sells - idx if not order.is_buy else idx + 1 - no_sells
+            spread = 0 if mid_price == 0 else abs(order.price - mid_price)/mid_price
+            age = "n/a"
+            if "-" in order.client_order_id:
+                age = pd.Timestamp(int(time.time()) - int(order.client_order_id.split("-")[-1])/1e6,
+                                   unit='s').strftime('%H:%M:%S')
+            amount_orig = order_start_size + ((level - 1) * order_step_size)
+            data.append([
+                level,
+                "buy" if order.is_buy else "sell",
+                float(order.price),
+                f"{spread:.2%}",
+                float(amount_orig),
+                float(order.quantity),
+                age,
+                "yes" if order.client_order_id in self._hanging_order_ids else "no"
+            ])
+
+        return pd.DataFrame(data=data, columns=columns)
 
     def format_status(self) -> str:
         cdef:
@@ -268,25 +339,24 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             warning_lines.extend(self.network_warning([market_info]))
 
             markets_df = self.market_status_data_frame([market_info])
-            lines.extend(["", "  Markets:"] + ["    " + line for line in str(markets_df).split("\n")])
+            lines.extend(["", "  Markets:"] + ["    " + line for line in markets_df.to_string(index=False).split("\n")])
 
-            assets_df = self.wallet_balance_data_frame([market_info])
-            lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
-
-            # Print stats related to inventory skew.
             inventory_skew_df = self.inventory_skew_stats_data_frame(market_info)
+            assets_df = self.pure_mm_assets_df(market_info, inventory_skew_df is None)
+
+            # append inventory skew stats.
             if inventory_skew_df is not None:
-                lines.extend(["", "  Inventory Skew:"] +
-                             ["    " + line for line in inventory_skew_df.to_string(index=False,
-                                                                                    header=False).split("\n")])
+                assets_df = assets_df.append(inventory_skew_df)
+
+            first_col_length = max(*assets_df[0].apply(len))
+            df_lines = assets_df.to_string(index=False, header=False,
+                                           formatters={0: ("{:<" + str(first_col_length) + "}").format}).split("\n")
+            lines.extend(["", "  Assets:"] + ["    " + line for line in df_lines])
 
             # See if there're any open orders.
             if len(active_orders) > 0:
-                mid_price = (market_info.get_price(False) + market_info.get_price(True)) * Decimal("0.5")
-                df = LimitOrder.to_pandas(active_orders, mid_price, self._hanging_order_ids)
-                df_lines = str(df).split("\n")
-                lines.extend(["", "  Active orders:"] +
-                             ["    " + line for line in df_lines])
+                df = self.active_orders_df(market_info)
+                lines.extend(["", "  Orders:"] + ["    " + line for line in df.to_string(index=False).split("\n")])
             else:
                 lines.extend(["", "  No active maker orders."])
 
