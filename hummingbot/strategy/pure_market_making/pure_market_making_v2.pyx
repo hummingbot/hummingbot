@@ -275,8 +275,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         quote_balance = float(market.get_balance(quote_asset))
         available_base_balance = float(market.get_available_balance(base_asset))
         available_quote_balance = float(market.get_available_balance(quote_asset))
-        quote_in_orders = sum(o.quantity * o.price for o in active_orders if o.is_buy)
-        base_in_orders = sum(o.quantity for o in active_orders if not o.is_buy)
         base_value = base_balance * float(mid_price)
         total_in_quote = base_value + quote_balance
         base_ratio = base_value / total_in_quote if total_in_quote > 0 else 0
@@ -284,7 +282,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         data=[
             ["", base_asset, quote_asset],
             ["Total Balance", round(base_balance, 4), round(quote_balance, 4)],
-            ["In Orders", round(base_in_orders, 4), round(quote_in_orders, 4)],
             ["Available Balance", round(available_base_balance, 4), round(available_quote_balance, 4)],
             [f"Current Value ({quote_asset})", round(base_value, 4), round(quote_balance, 4)]
         ]
