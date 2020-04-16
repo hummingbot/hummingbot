@@ -300,9 +300,9 @@ cdef class KrakenMarket(MarketBase):
             str trading_pair = base_currency + quote_currency
 
         if order_type is OrderType.LIMIT and fee_overrides_config_map["kraken_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["kraken_maker_fee"].value)
+            return TradeFee(percent=fee_overrides_config_map["kraken_maker_fee"].value / Decimal("100"))
         if order_type is OrderType.MARKET and fee_overrides_config_map["kraken_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["kraken_taker_fee"].value)
+            return TradeFee(percent=fee_overrides_config_map["kraken_taker_fee"].value / Decimal("100"))
 
         if trading_pair in self._trade_fees:
             maker_trade_fee, taker_trade_fee = self._trade_fees.get(trading_pair)

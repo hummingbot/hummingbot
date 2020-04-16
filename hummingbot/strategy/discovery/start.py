@@ -67,7 +67,7 @@ def start(self: "hummingbot.client.hummingbot_application.HummingbotApplication"
         market_2 = discovery_config_map.get("secondary_market").value.lower()
         target_trading_pair_1 = list(discovery_config_map.get("target_trading_pair_1").value)
         target_trading_pair_2 = list(discovery_config_map.get("target_trading_pair_2").value)
-        target_profitability = float(discovery_config_map.get("target_profitability").value)
+        target_profitability = float(discovery_config_map.get("target_profitability").value) / 100.0
         target_amount = float(discovery_config_map.get("target_amount").value)
         equivalent_token: List[List[str]] = list(discovery_config_map.get("equivalent_tokens").value)
 
