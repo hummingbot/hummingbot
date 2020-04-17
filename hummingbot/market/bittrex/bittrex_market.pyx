@@ -188,9 +188,9 @@ cdef class BittrexMarket(MarketBase):
             object maker_fee = Decimal(0.0025)
             object taker_fee = Decimal(0.0025)
         if order_type is OrderType.LIMIT and fee_overrides_config_map["bittrex_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["bittrex_maker_fee"].value)
+            return TradeFee(percent=fee_overrides_config_map["bittrex_maker_fee"].value / Decimal("100"))
         if order_type is OrderType.MARKET and fee_overrides_config_map["bittrex_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["bittrex_taker_fee"].value)
+            return TradeFee(percent=fee_overrides_config_map["bittrex_taker_fee"].value / Decimal("100"))
 
         return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
 

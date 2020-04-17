@@ -149,7 +149,7 @@ class KrakenMarketUnitTest(unittest.TestCase):
         taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.0026"), taker_fee.percent)
-        fee_overrides_config_map["kraken_taker_fee"].value = Decimal('0.002')
+        fee_overrides_config_map["kraken_taker_fee"].value = Decimal('0.2')
         taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.002"), taker_fee.percent)
@@ -157,7 +157,7 @@ class KrakenMarketUnitTest(unittest.TestCase):
         maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.0016"), maker_fee.percent)
-        fee_overrides_config_map["kraken_maker_fee"].value = Decimal('0.005')
+        fee_overrides_config_map["kraken_maker_fee"].value = Decimal('0.5')
         maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
