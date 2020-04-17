@@ -21,8 +21,8 @@ class KillSwitch:
         self._hummingbot_application = hummingbot_application
 
         self._kill_switch_enabled: bool = global_config_map.get("kill_switch_enabled").value
-        self._kill_switch_rate: Decimal = Decimal(global_config_map.get("kill_switch_rate").value or "0.0")
-
+        self._kill_switch_rate: Decimal = Decimal(global_config_map.get("kill_switch_rate").value or "0.0") / \
+            Decimal(100)
         self._started = False
         self._update_interval = 10.0
         self._check_profitability_task: Optional[asyncio.Task] = None
