@@ -5,7 +5,7 @@ import logging
 from os.path import join
 from sqlalchemy import (
     create_engine,
-    inspect
+    inspect,
     MetaData,
 )
 from sqlalchemy.engine.base import Engine
