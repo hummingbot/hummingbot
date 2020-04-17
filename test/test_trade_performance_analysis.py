@@ -208,6 +208,7 @@ class TestTradePerformanceAnalysis(unittest.TestCase):
                     'spent': Decimal('210'), 'acquired': Decimal('202.9500000000000021555673912'),
                     'delta': Decimal('-7.0499999999999978444326088'),
                     'delta_percentage': Decimal('-3.357142857142856116396480380')}},
+            'trade_count': 4,
             'end_quote_rate': Decimal('115.0'),
             'acquired_quote_value': Decimal('430.65'),
             'spent_quote_value': Decimal('428.5'),
@@ -250,6 +251,7 @@ class TestTradePerformanceAnalysis(unittest.TestCase):
                     'spent': Decimal('230')
                 }
             },
+            'trade_count': 4,
             'starting_quote_rate': Decimal('1.0')
         }
         self.assertDictEqual(expected_stats, market_trading_pair_stats[self.trading_pair_tuple_1])
@@ -295,6 +297,7 @@ class TestTradePerformanceAnalysis(unittest.TestCase):
                                                       'delta': Decimal('-35.6899999999999976275227854'),
                                                       'delta_percentage': Decimal(
                                                           '-14.13465346534653371387041006')}},
+                                              'trade_count': 4,
                                               'end_quote_rate': Decimal('115.0'),
                                               'acquired_quote_value': Decimal('501.435'),
                                               'spent_quote_value': Decimal('471.0'),
@@ -361,6 +364,7 @@ class TestTradePerformanceAnalysis(unittest.TestCase):
                     'spent': Decimal('210'), 'acquired': Decimal('202.9500000000000021555673912'),
                     'delta': Decimal('-7.0499999999999978444326088'),
                     'delta_percentage': Decimal('-3.357142857142856116396480380')}},
+            'trade_count': 4,
             'end_quote_rate': Decimal('115.0'),
             'acquired_quote_value': Decimal('430.65'),
             'spent_quote_value': Decimal('428.5'),
@@ -379,6 +383,7 @@ class TestTradePerformanceAnalysis(unittest.TestCase):
                     'spent': Decimal('252.5'), 'acquired': Decimal('216.8100000000000023724772146'),
                     'delta': Decimal('-35.6899999999999976275227854'),
                     'delta_percentage': Decimal('-14.13465346534653371387041006')}},
+            'trade_count': 4,
             'end_quote_rate': Decimal('110.0'),
             'acquired_quote_value': Decimal('540.5400000000001'),
             'spent_quote_value': Decimal('510.0789473684211'),

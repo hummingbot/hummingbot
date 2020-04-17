@@ -1,5 +1,6 @@
 import random
 from typing import Callable
+from decimal import Decimal
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.settings import (
     required_exchanges,
@@ -7,7 +8,10 @@ from hummingbot.client.settings import (
     DEFAULT_KEY_FILE_PATH,
     DEFAULT_LOG_FILE_PATH,
 )
-from hummingbot.client.config.config_validators import is_valid_bool
+from hummingbot.client.config.config_validators import (
+    validate_bool,
+    validate_decimal
+)
 
 
 def generate_client_id() -> str:
@@ -18,10 +22,6 @@ def generate_client_id() -> str:
 # Required conditions
 def paper_trade_disabled():
     return global_config_map.get("paper_trade_enabled").value is False
-
-
-def using_strategy(strategy: str) -> Callable:
-    return lambda: global_config_map.get("strategy").value == strategy
 
 
 def using_exchange(exchange: str) -> Callable:
@@ -95,7 +95,7 @@ global_config_map = {
                   type_str="bool",
                   default=False,
                   required_if=lambda: True,
-                  validator=is_valid_bool),
+                  validator=validate_bool),
     "paper_trade_account_balance":
         ConfigVar(key="paper_trade_account_balance",
                   prompt="Enter paper trade balance settings (Input must be valid json: "
@@ -161,14 +161,14 @@ global_config_map = {
                   required_if=lambda: False,
                   type_str="bool",
                   default=False,
-                  validator=is_valid_bool),
+                  validator=validate_bool),
     "bamboo_relay_pre_emptive_soft_cancels":
         ConfigVar(key="bamboo_relay_pre_emptive_soft_cancels",
                   prompt="Would you like to pre-emptively soft cancel orders? (Yes/No) >>> ",
                   required_if=lambda: False,
                   type_str="bool",
                   default=False,
-                  validator=is_valid_bool),
+                  validator=validate_bool),
     "bittrex_api_key":
         ConfigVar(key="bittrex_api_key",
                   prompt="Enter your Bittrex API key >>> ",
@@ -214,11 +214,11 @@ global_config_map = {
                   prompt="Enter your Kraken secret key >>> ",
                   required_if=using_exchange("kraken"),
                   is_secure=True),
-    "wallet":
-        ConfigVar(key="wallet",
-                  prompt="Would you like to import an existing wallet or create a new wallet? (import/create) >>> ",
-                  required_if=using_wallet,
-                  is_secure=True),
+    "ethereum_wallet":
+        ConfigVar(key="ethereum_wallet",
+                  prompt="",
+                  type_str="str",
+                  required_if=using_wallet),
     "ethereum_rpc_url":
         ConfigVar(key="ethereum_rpc_url",
                   prompt="Which Ethereum node would you like your client to connect to? >>> ",
@@ -265,13 +265,14 @@ global_config_map = {
                   required_if=paper_trade_disabled,
                   type_str="bool",
                   default=False,
-                  validator=is_valid_bool),
+                  validator=validate_bool),
     "kill_switch_rate":
         ConfigVar(key="kill_switch_rate",
                   prompt="At what profit/loss rate would you like the bot to stop? "
-                         "(e.g. -0.05 equals 5 percent loss) >>> ",
-                  type_str="float",
-                  default=-1,
+                         "(e.g. -5 equals 5 percent loss) >>> ",
+                  type_str="decimal",
+                  default=-100,
+                  validator=lambda v: validate_decimal(v, Decimal(-100), Decimal(100)),
                   required_if=lambda: global_config_map["kill_switch_enabled"].value),
     "telegram_enabled":
         ConfigVar(key="telegram_enabled",
@@ -302,8 +303,7 @@ global_config_map = {
                   prompt=None,
                   required_if=lambda: False,
                   type_str="json",
-                  default=MIN_QUOTE_ORDER_AMOUNTS,
-                  migration_default=MIN_QUOTE_ORDER_AMOUNTS),
+                  default=MIN_QUOTE_ORDER_AMOUNTS),
     # Database options
     "db_engine":
         ConfigVar(key="db_engine",

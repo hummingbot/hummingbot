@@ -1,5 +1,5 @@
 from typing import TYPE_CHECKING
-
+from hummingbot.client.config.security import Security
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -7,21 +7,17 @@ if TYPE_CHECKING:
 class ExportPrivateKeyCommand:
     async def export_private_key(self,  # type: HummingbotApplication
                                  ):
-        if self.acct is None:
-            self._notify("Your wallet is currently locked. Please enter \"config\""
-                         " to unlock your wallet first")
-        else:
-            self.placeholder_mode = True
-            self.app.toggle_hide_input()
-
-            ans = await self.app.prompt("Are you sure you want to print your private key in plain text? (Yes/No) >>> ")
-
-            if ans.lower() in {"y", "yes"}:
-                self._notify("\nWarning: Never disclose this key. Anyone with your private keys can steal any assets "
-                             "held in your account.\n")
-                self._notify("Your private key:")
-                self._notify(self.acct.privateKey.hex())
-
-            self.app.change_prompt(prompt=">>> ")
-            self.app.toggle_hide_input()
-            self.placeholder_mode = False
+        if not Security.any_wallets():
+            self._notify("There is no wallet in your conf folder, please connect wallet first.")
+            return
+        self.placeholder_mode = True
+        self.app.toggle_hide_input()
+        await self.check_password()
+        await Security.wait_til_decryption_done()
+        self._notify("\nWarning: Never disclose private key. Anyone with your private keys can steal any assets "
+                     "held in your account.\n")
+        for key, value in Security.private_keys().items():
+            self._notify(f"Public Address: {key}\nPrivate Key: {value.hex()}\n")
+        self.app.change_prompt(prompt=">>> ")
+        self.app.toggle_hide_input()
+        self.placeholder_mode = False
