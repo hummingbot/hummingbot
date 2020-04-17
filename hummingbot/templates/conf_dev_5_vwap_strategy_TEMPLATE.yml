@@ -2,7 +2,8 @@
 ###       Execution5 strategy config               ###
 ########################################################
 
-template_version: 1
+template_version: 5
+strategy: null
 # The following configuations are only required for the
 # twap strategy
 
