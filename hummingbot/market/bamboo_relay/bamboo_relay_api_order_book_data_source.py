@@ -152,6 +152,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                            trading_pair: str,
                            api_endpoint: str = "https://rest.bamboorelay.com/",
                            api_prefix: str = "main/0x") -> Dict[str, any]:
+
         async with client.get(f"{api_endpoint}{api_prefix}/markets/{trading_pair}/book") as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
