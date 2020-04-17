@@ -4,7 +4,7 @@ from typing import (
 )
 
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_validators import is_exchange
+from hummingbot.client.config.config_validators import validate_exchange
 from hummingbot.client.settings import EXAMPLE_PAIRS, required_exchanges
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 
@@ -20,11 +20,11 @@ def is_token(input_str: str):
     return input_str.startswith("<") and input_str.endswith(">")
 
 
-def valid_token_or_trading_pair_array(market: str, input_list: Any):
+def validate_token_or_trading_pair_array(market: str, input_list: Any):
     try:
         if isinstance(input_list, str):
             if len(input_list) == 0:
-                return True
+                return None
             filtered: filter = filter(lambda x: x not in ['[', ']', '"', "'"], list(input_list))
             input_list = "".join(filtered).split(",")
             input_list = [s.strip() for s in input_list]  # remove leading and trailing whitespaces
@@ -34,7 +34,7 @@ def valid_token_or_trading_pair_array(market: str, input_list: Any):
 
         known_trading_pairs = TradingPairFetcher.get_instance().trading_pairs.get(market, [])
         if len(known_trading_pairs) == 0:
-            return True
+            return None
         else:
             from hummingbot.client.hummingbot_application import MARKET_CLASSES
             from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -52,35 +52,39 @@ def valid_token_or_trading_pair_array(market: str, input_list: Any):
             return all([token[1:-1] in valid_token_set for token in single_token_inputs]) and \
                 all([trading_pair in known_trading_pairs for trading_pair in trading_pair_inputs])
     except Exception:
-        return False
+        return "Invalid token or trading pair array."
 
 
 discovery_config_map = {
+    "strategy": ConfigVar(key="strategy",
+                          prompt="",
+                          default="discovery"
+                          ),
     "primary_market": ConfigVar(
         key="primary_market",
         prompt="Enter your first exchange name >>> ",
-        validator=is_exchange,
+        validator=validate_exchange,
         on_validated=lambda value: required_exchanges.append(value),
     ),
     "secondary_market": ConfigVar(
         key="secondary_market",
         prompt="Enter your second exchange name >>> ",
-        validator=is_exchange,
+        validator=validate_exchange,
         on_validated=lambda value: required_exchanges.append(value),
     ),
     "target_trading_pair_1": ConfigVar(
         key="target_trading_pair_1",
         prompt=lambda: discovery_trading_pair_list_prompt(discovery_config_map.get("primary_market").value),
-        validator=lambda value: valid_token_or_trading_pair_array(discovery_config_map.get("primary_market").value,
-                                                                  value),
+        validator=lambda value: validate_token_or_trading_pair_array(discovery_config_map.get("primary_market").value,
+                                                                     value),
         type_str="list",
         default=[],
     ),
     "target_trading_pair_2": ConfigVar(
         key="target_trading_pair_2",
         prompt=lambda: discovery_trading_pair_list_prompt(discovery_config_map.get("secondary_market").value),
-        validator=lambda value: valid_token_or_trading_pair_array(discovery_config_map.get("secondary_market").value,
-                                                                  value),
+        validator=lambda value: validate_token_or_trading_pair_array(discovery_config_map.get("secondary_market").value,
+                                                                     value),
         type_str="list",
         default=[],
     ),
@@ -93,8 +97,8 @@ discovery_config_map = {
     ),
     "target_profitability": ConfigVar(
         key="target_profitability",
-        prompt="What is the target profitability for discovery? (Default to "
-        "0.0 to list maximum profitable amounts) >>> ",
+        prompt="What is the target profitability for discovery? (Enter 1 for 1%, Enter "
+        "0 to list maximum profitable amounts) >>> ",
         default=0.0,
         type_str="float",
     ),

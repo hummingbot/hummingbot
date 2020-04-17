@@ -22,8 +22,8 @@ Liquidity mining sets forth an analytical framework for determining market maker
 !!! warning "Terms subject to change"
     Please check this page for the most up-to-date terms.  We will notify participants of changes, if any, through email (for registered users) and on our [Discord](https://discord.hummingbot.io).
 
-!!! note "Terms updated for week 5"
-    **For the period starting March 31, 2020 12:00am UTC until April 7 12:00am UTC, the following changes were made:**<ol><li>The `maximum spread` was decreased to 3% for all trading pairs.<li>The campaign for Harmony ONE tokens is paused; ONE pairs currently not eligible for rewards.</ul>
+!!! note "Terms updated for week 7"
+    **For the period starting April 14, 2020 12:00am UTC until April 21, 2020 12:00am UTC, the following changes were made:**<ol><li>**Zillqa**: the total amount of rewards for Zilliqa's campaigns was increased from USDC 750 per week to USDC 1,250 per week.  Please see updated amounts per trading pair below.<li>**Zcoin**: Zcoin listed a new trading pair, **XZC/USDT**, and has included this in its campaign.  *XZC/BNB is no longer eligible* and reward amounts for XZC/BTC and XZC/USDT are listed in the table below.</ul>
 
 <table>
   <thead>
@@ -38,58 +38,58 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td rowspan="3"><a href="#iexec">iExec</a><br></td>
       <td>RLC/BTC</td>
       <td>Binance.com</td>
-      <td>3%¹</td>
+      <td>3%</td>
       <td>USDC 250</td>
     </tr>
     <tr>
       <td>RLC/USDT</td>
       <td>Binance.com</td>
-      <td>3%¹</td>
+      <td>3%</td>
       <td>USDC 250</td>
     </tr>
     <tr>
       <td>RLC/ETH</td>
       <td>Binance.com</td>
-      <td>3%¹</td>
+      <td>3%</td>
       <td>USDC 250</td>
     </tr>
     <tr>
       <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
       <td>XZC/BTC</td>
       <td>Binance.com</td>
-      <td>3%¹</td>
-      <td>USDC 562.50</td>
+      <td>3%</td>
+      <td>USDC 375¹</td>
     </tr>
     <tr>
-      <td>XZC/BNB</td>
+      <td>XZC/USDT¹</td>
       <td>Binance.com</td>
-      <td>3%¹</td>
-      <td>USDC 187.50</td>
+      <td>3%</td>
+      <td>USDC 375¹</td>
     </tr>
     <tr>
       <td rowspan="3"><a href="#zilliqa">Zilliqa</a><br></td>
       <td>ZIL/USDT</td>
       <td>Binance.com</td>
-      <td>3%¹</td>
-      <td>USDC 250</td>
+      <td>3%</td>
+      <td>USDC 450¹</td>
     </tr>
     <tr>
       <td>ZIL/ETH</td>
       <td>Binance.com</td>
-      <td>3%¹</td>
-      <td>USDC 250</td>
+      <td>3%</td>
+      <td>USDC 400¹</td>
     </tr>
     <tr>
       <td>ZIL/BNB</td>
       <td>Binance.com</td>
-      <td>3%¹</td>
-      <td>USDC 250</td>
+      <td>3%</td>
+      <td>USDC 400¹</td>
     </tr>
   </tbody>
 </table>
 
 ## Changes to campaign terms
-1. **March 31, 2020**: (1) the maximum spread and for all programs has been decreased to 3% from 5% previously and (2) Harmony has paused its campaign for ONE tokens.  You can read more about the changes on our [reddit post](https://www.reddit.com/r/Hummingbot/comments/frxs5z/campaign_terms_update_for_week_5_max_spread_3_and/).
+1. **April 14, 2020**: (1) the reward amounts for ZIL/USDT, ZIL/ETH, and ZIL/BNB were increased to USDC 450, USD 400, and USD 400 per week, respectively and (2) Zcoin (i) added a new pair (XZC/USDT), (ii) removed a previously eligible pair (XZC/BNB), as well as (iii) changed the reward amounts to USDC 375 per week per pair.  You can read more about the changes on our [reddit post](https://www.reddit.com/r/Hummingbot/comments/fy87ty/campaign_updates_for_week_7_increased_reward_pool/).
 
 ## Program sponsors
 
