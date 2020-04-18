@@ -134,6 +134,7 @@ class HistoryCommand:
             inventory_df: pd.DataFrame = self.balance_comparison_data_frame(market_trading_pair_stats)
             market_df: pd.DataFrame = pd.DataFrame(data=list(market_df_data), columns=market_df_columns)
             portfolio_delta: Decimal = trade_performance_stats["portfolio_delta"]
+            portfolio_delta_percentage: Decimal = trade_performance_stats["portfolio_delta_percentage"]
 
             trade_performance_status_line.extend(["", "  Inventory:"] +
                                                  ["    " + line for line in inventory_df.to_string().split("\n")])
@@ -144,7 +145,8 @@ class HistoryCommand:
                 ["", "  Performance:"] +
                 [f"    Started: {datetime.fromtimestamp(self.start_time//1e3)}"] +
                 [f"    Duration: {pd.Timestamp((time.time() - self.start_time/1e3), unit='s').strftime('%H:%M:%S')}"] +
-                [f"    Total Trade Value Delta: {portfolio_delta:.7g} {primary_quote_asset}"])
+                [f"    Total Trade Value Delta: {portfolio_delta:.7g} {primary_quote_asset}"] +
+                [f"    Return %: {portfolio_delta_percentage:.4f} %"])
 
             self._notify("\n".join(trade_performance_status_line))
 
