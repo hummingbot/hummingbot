@@ -74,7 +74,7 @@ from hummingbot.client.config.fee_overrides_config_map import fee_overrides_conf
 s_logger = None
 s_decimal_0 = Decimal(0)
 TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|USDS|TUSD|PAX|TRX|BUSD|NGN|RUB|TRY|EUR)$")
-BROKER_ID = "X-XEKWYICX"
+BROKER_ID = "x-XEKWYICX"
 
 
 cdef str get_client_order_id(str order_side, object trading_pair):
@@ -971,7 +971,6 @@ cdef class BinanceMarket(MarketBase):
                                                     quantity=order_decimal_amount,
                                                     price=order_decimal_price,
                                                     newClientOrderId=order_id)
-                self.logger().info(f"Order create api result: {order_result}")
             elif order_type is OrderType.MARKET:
                 self.c_start_tracking_order(
                     order_id,
@@ -1065,7 +1064,6 @@ cdef class BinanceMarket(MarketBase):
                                                     quantity=order_decimal_amount,
                                                     price=order_decimal_price,
                                                     newClientOrderId=order_id)
-                self.logger().info(f"Order create api result: {order_result}")
             elif order_type is OrderType.MARKET:
                 self.c_start_tracking_order(
                     order_id,
