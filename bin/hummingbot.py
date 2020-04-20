@@ -144,7 +144,7 @@ def show_welcome():
         style=dialog_style).run()
 
 
-def login(welcome_msg=True):
+def login():
     err_msg = None
     if Security.new_password_required():
         show_welcome()
@@ -153,11 +153,15 @@ def login(welcome_msg=True):
             text="Create a password to protect your sensitive data. This password is not shared with us nor with anyone else, so please store it securely.\n\nEnter your new password:",
             password=True,
             style=dialog_style).run()
+        if password is None:
+            return False
         re_password = input_dialog(
             title="Set Password",
             text="Please re-enter your password:",
             password=True,
             style=dialog_style).run()
+        if re_password is None:
+            return False
         if password != re_password:
             err_msg = "Passwords entered do not match, please try again."
         else:
@@ -168,6 +172,8 @@ def login(welcome_msg=True):
             text="Enter your password:",
             password=True,
             style=dialog_style).run()
+        if password is None:
+            return False
         if not Security.login(password):
             err_msg = "Invalid password - please try again."
     if err_msg is not None:
@@ -175,10 +181,11 @@ def login(welcome_msg=True):
             title='Error',
             text=err_msg,
             style=dialog_style).run()
-        login(welcome_msg=False)
+        return login()
+    return True
 
 
 if __name__ == "__main__":
-    login()
-    ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-    ev_loop.run_until_complete(main())
+    if login():
+        ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        ev_loop.run_until_complete(main())

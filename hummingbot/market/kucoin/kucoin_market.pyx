@@ -331,9 +331,9 @@ cdef class KucoinMarket(MarketBase):
         # There is no API for checking user's fee tier
         # Fee info from https://www.kucoin.com/vip/fee
         if order_type is OrderType.LIMIT and fee_overrides_config_map["kucoin_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["kucoin_maker_fee"].value)
+            return TradeFee(percent=fee_overrides_config_map["kucoin_maker_fee"].value / Decimal("100"))
         if order_type is OrderType.MARKET and fee_overrides_config_map["kucoin_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["kucoin_taker_fee"].value)
+            return TradeFee(percent=fee_overrides_config_map["kucoin_taker_fee"].value / Decimal("100"))
         return TradeFee(percent=Decimal("0.001"))
 
     async def _update_trading_rules(self):
