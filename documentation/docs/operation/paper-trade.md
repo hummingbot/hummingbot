@@ -4,14 +4,13 @@ This feature allows users to test Hummingbot and simulate trading strategies wit
 
 ## Enabling and Disabling
 
-Paper trading mode can be enabled/disabled inside Hummingbot by doing `config paper_trade_enabled`. The command `paper_trade` can also be used but only before creating or importing a strategy config file.
+Paper trading mode can be enabled/disabled inside Hummingbot by doing `paper_trade` or `config paper_trade_enabled`.
 
 Alternatively, you can edit the `conf_global.yml` file using a text editor and set `paper_trade_enabled:` value to `true` or `false`.
 
 The top bar shows the status to indicate if paper trading mode is on or off.
 
 ![](/assets/img/paper_trade_mode.png)
-
 
 ## Account Balance
 
@@ -37,7 +36,11 @@ paper_trade_account_balance:
   - 1000
 ```
 
-Add more paper trade assets by editing `conf_global.yml` using a text editor. **Strictly follow the same format above**.
+Paper trade assets can be added in two ways:
+
+1. From the Hummingbot client run command `config paper_trade_account_balance` and enter values exactly as shown in the prompt.
+![](/assets/img/paper_trade_balance.gif)
+2. Edit `conf_global.yml` in the `/conf` or `hummingbot_conf` folder using a text editor. **Strictly follow the same format above**.
 
 !!! warning
     When adding balances, make sure to exit and restart Hummingbot for the changes to take effect.
