@@ -4,10 +4,14 @@ from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.kucoin.kucoin_market import KucoinMarket
 from hummingbot.market.liquid.liquid_market import LiquidMarket
+from hummingbot.market.kraken.kraken_market import KrakenMarket
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.client.settings import EXCHANGES
 from hummingbot.client.config.security import Security
 from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.client.config.global_config_map import global_config_map
+
+from web3 import Web3
 
 
 class UserBalances:
@@ -28,6 +32,8 @@ class UserBalances:
             market = KucoinMarket(api_details[0], api_details[2], api_details[1])
         elif exchange == "liquid":
             market = LiquidMarket(api_details[0], api_details[1])
+        elif exchange == "kraken":
+            market = KrakenMarket(api_details[0], api_details[1])
         return market
 
     @staticmethod
@@ -66,13 +72,17 @@ class UserBalances:
             return None
         return self._markets[exchange].get_all_balances()
 
+    # return True if fetching balances successfully
     async def update_exchange_balance(self, exchange):
         if exchange in self._markets:
             await self._update_balances(self._markets[exchange])
+            return True
         else:
             api_keys = await Security.api_keys(exchange)
             if api_keys:
                 await self.add_exchange(exchange, *api_keys.values())
+                return True
+        return False
 
     async def update_all(self, reconnect=False):
         tasks = []
@@ -96,8 +106,17 @@ class UserBalances:
         return {k: v.get_all_balances() for k, v in self._markets.items()}
 
     async def balances(self, exchange, *symbols):
-        await self.update_exchange_balance(exchange)
-        return {k: v for k, v in self.all_balances(exchange).items() if k in symbols}
+        if await self.update_exchange_balance(exchange):
+            return {k: v for k, v in self.all_balances(exchange).items() if k in symbols}
+
+    @staticmethod
+    def ethereum_balance():
+        ethereum_wallet = global_config_map.get("ethereum_wallet").value
+        ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
+        web3 = Web3(Web3.HTTPProvider(ethereum_rpc_url))
+        balance = web3.eth.getBalance(ethereum_wallet)
+        balance = web3.fromWei(balance, "ether")
+        return balance
 
     @staticmethod
     def base_amount_ratio(trading_pair, balances):

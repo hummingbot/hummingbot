@@ -17,7 +17,7 @@ from hummingbot.client.config.config_helpers import (
 from hummingbot.client.settings import CONF_FILE_PATH
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
-from hummingbot.client.config.config_validators import validate_strategy
+from hummingbot.client.config.config_validators import validate_strategy, validate_bool
 from hummingbot.user.user_balances import UserBalances
 from hummingbot.client.ui.completer import load_completer
 from typing import TYPE_CHECKING
@@ -100,10 +100,14 @@ class CreateCommand:
         file_name = default_strategy_file_path(strategy)
         self.app.set_text(file_name)
         input = await self.app.prompt(prompt="Enter a new file name for your configuration >>> ")
+        input = format_config_file_name(input)
         file_path = os.path.join(CONF_FILE_PATH, input)
-        if os.path.exists(file_path):
+        if input is None or input == "":
+            self._notify(f"Value is required.")
+            return await self.prompt_new_file_name(strategy)
+        elif os.path.exists(file_path):
             self._notify(f"{input} file already exists, please enter a new name.")
-            await self.prompt_new_file_name(strategy)
+            return await self.prompt_new_file_name(strategy)
         else:
             return input
 
@@ -140,18 +144,23 @@ class CreateCommand:
         market = config_map["market"].value
         base, quote = market.split("-")
         balances = await UserBalances.instance().balances(exchange, base, quote)
-        base_ratio = UserBalances.base_amount_ratio(market, balances)
-        if base_ratio is None:
+        if balances is None:
             return
+        base_ratio = UserBalances.base_amount_ratio(market, balances)
         base_ratio = round(base_ratio, 3)
         quote_ratio = 1 - base_ratio
         base, quote = config_map["market"].value.split("-")
-        input = await self.app.prompt(prompt=f"On {exchange}, you have {balances.get(base, 0):.4f} {base} and "
-                                             f"{balances.get(quote, 0):.4f} {quote}. By market value, "
-                                             f"your current inventory split is {base_ratio:.1%} {base} "
-                                             f"and {quote_ratio:.1%} {quote}."
-                                             f" Would you like to keep this ratio? (Yes/No) >>> ")
-        if input.lower() in ["true", "yes", "y"]:
+        cvar = ConfigVar(key="temp_config",
+                         prompt=f"On {exchange}, you have {balances.get(base, 0):.4f} {base} and "
+                                f"{balances.get(quote, 0):.4f} {quote}. By market value, "
+                                f"your current inventory split is {base_ratio:.1%} {base} "
+                                f"and {quote_ratio:.1%} {quote}."
+                                f" Would you like to keep this ratio? (Yes/No) >>> ",
+                         required_if=lambda: True,
+                         type_str="bool",
+                         validator=validate_bool)
+        await self.prompt_a_config(cvar)
+        if cvar.value:
             config_map['inventory_target_base_pct'].value = round(base_ratio * Decimal('100'), 1)
         else:
             await self.prompt_a_config(config_map["inventory_target_base_pct"])

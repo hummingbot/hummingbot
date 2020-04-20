@@ -31,7 +31,6 @@ from hummingbot.client.settings import (
     CONF_PREFIX,
     TOKEN_ADDRESSES_FILE_PATH,
 )
-from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.config.security import Security
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot import get_strategy_list
@@ -204,7 +203,7 @@ def strategy_name_from_file(file_path: str) -> str:
     return strategy
 
 
-def validate_strategy_file(file_path: str) -> str:
+def validate_strategy_file(file_path: str) -> Optional[str]:
     if not exists(file_path):
         return f"{file_path} file does not exist."
     strategy = strategy_name_from_file(file_path)
@@ -234,7 +233,7 @@ def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str, Confi
             template_version = template_data.get("template_version", 0)
 
         for key in template_data:
-            if key in {"wallet", "template_version"}:
+            if key in {"template_version"}:
                 continue
 
             cvar = cm.get(key)
@@ -268,7 +267,7 @@ def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str, Confi
             # copy the new file template
             shutil.copy(template_file_path, yml_path)
             # save the old variables into the new config file
-            safe_ensure_future(save_to_yml(yml_path, cm))
+            save_to_yml(yml_path, cm)
     except Exception as e:
         logging.getLogger().error("Error loading configs. Your config file may be corrupt. %s" % (e,),
                                   exc_info=True)

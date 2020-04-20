@@ -3,9 +3,9 @@
 ########################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 1
+template_version: 2
 
-# Exchange trading fees, the values are in precise decimal, e.g. 0.001 for 0.1%.
+# Exchange trading fees, the values are in percentage value, e.g. 0.1 for 0.1%.
 # If the value is left blank, the default value (from corresponding market connector) will be used.
 
 binance_maker_fee:

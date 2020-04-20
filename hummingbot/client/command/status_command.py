@@ -62,8 +62,24 @@ class StatusCommand:
 
         return "\n".join(lines)
 
+    def strategy_status(self):
+        if global_config_map.get("paper_trade_enabled").value:
+            self._notify("\n  Paper Trading ON: All orders are simulated, and no real orders are placed.")
+        self._notify(self.strategy.format_status() + "\n")
+        self.application_warning()
+        return True
+
+    def application_warning(self):
+        # Application warnings.
+        self._expire_old_application_warnings()
+        if check_dev_mode() and len(self._app_warnings) > 0:
+            self._notify(self._format_application_warnings())
+
     def status(self,  # type: HummingbotApplication
                ) -> bool:
+        if self.strategy is not None:
+            return self.strategy_status()
+
         # Preliminary checks.
         self._notify("\n  Preliminary checks:")
         if self.strategy_name is None or self.strategy_file_name is None:
@@ -131,16 +147,6 @@ class StatusCommand:
             for offline_market in offline_markets:
                 self._notify(f"   x Market check:  {offline_market} is currently offline.")
 
-        # See if we can print out the strategy status.
         self._notify("   - Market check: All markets ready")
-        if self.strategy is None:
-            self._notify("   x initializing strategy.")
-        else:
-            self._notify(self.strategy.format_status() + "\n")
-
-        # Application warnings.
-        self._expire_old_application_warnings()
-        if check_dev_mode() and len(self._app_warnings) > 0:
-            self._notify(self._format_application_warnings())
-
+        self.application_warning()
         return True

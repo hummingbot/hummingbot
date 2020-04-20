@@ -4,7 +4,6 @@ import asyncio
 from collections import deque
 import logging
 import time
-from eth_account.signers.local import LocalAccount
 from typing import List, Dict, Optional, Tuple, Set, Deque
 
 from hummingbot.client.command import __all__ as commands
@@ -35,7 +34,7 @@ from hummingbot.client.ui.parser import load_parser, ThrowingArgumentParser
 from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.client.errors import InvalidCommandError, ArgumentParserError
-from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.global_config_map import global_config_map, using_wallet
 from hummingbot.client.config.config_helpers import get_erc20_token_addresses, get_strategy_config_map
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
@@ -46,6 +45,7 @@ from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.notifier.telegram_notifier import TelegramNotifier
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.market.markets_recorder import MarketsRecorder
+from hummingbot.client.config.security import Security
 
 
 s_logger = None
@@ -92,7 +92,6 @@ class HummingbotApplication(*commands):
             input_handler=self._handle_command, bindings=load_key_bindings(self), completer=load_completer(self)
         )
 
-        self.acct: Optional[LocalAccount] = None
         self.markets: Dict[str, MarketBase] = {}
         self.wallet: Optional[Web3Wallet] = None
         # strategy file name and name get assigned value after import or create command
@@ -204,17 +203,21 @@ class HummingbotApplication(*commands):
         return [market_class.convert_to_exchange_trading_pair(trading_pair) for trading_pair in hb_trading_pair]
 
     def _initialize_wallet(self, token_trading_pairs: List[str]):
+        if not using_wallet():
+            return
+
+        ethereum_wallet = global_config_map.get("ethereum_wallet").value
+        private_key = Security._private_keys[ethereum_wallet]
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
         erc20_token_addresses = get_erc20_token_addresses(token_trading_pairs)
 
-        if self.acct is not None:
-            chain_name: str = global_config_map.get("ethereum_chain_name").value
-            self.wallet: Web3Wallet = Web3Wallet(
-                private_key=self.acct.privateKey,
-                backend_urls=[ethereum_rpc_url],
-                erc20_token_addresses=erc20_token_addresses,
-                chain=getattr(EthereumChain, chain_name),
-            )
+        chain_name: str = global_config_map.get("ethereum_chain_name").value
+        self.wallet: Web3Wallet = Web3Wallet(
+            private_key=private_key,
+            backend_urls=[ethereum_rpc_url],
+            erc20_token_addresses=erc20_token_addresses,
+            chain=getattr(EthereumChain, chain_name),
+        )
 
     def _initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
@@ -231,7 +234,6 @@ class HummingbotApplication(*commands):
 
         for market_name, trading_pairs in market_trading_pairs_map.items():
             if global_config_map.get("paper_trade_enabled").value:
-                self._notify(f"\nPaper trade is enabled for market {market_name}")
                 try:
                     market = create_paper_trade_market(market_name, trading_pairs)
                 except Exception:

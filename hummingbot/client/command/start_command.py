@@ -25,6 +25,7 @@ from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
 from hummingbot.core.utils.kill_switch import KillSwitch
 from typing import TYPE_CHECKING
+from hummingbot.client.config.global_config_map import global_config_map
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -72,6 +73,8 @@ class StartCommand:
         self._initialize_notifiers()
 
         self._notify(f"\n  Status check complete. Starting '{self.strategy_name}' strategy...")
+        if global_config_map.get("paper_trade_enabled").value:
+            self._notify("\n  Paper Trading ON: All orders are simulated, and no real orders are placed.")
         safe_ensure_future(self.start_market_making(self.strategy_name), loop=self.ev_loop)
 
     async def start_market_making(self,  # type: HummingbotApplication
