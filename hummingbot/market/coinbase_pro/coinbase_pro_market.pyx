@@ -369,9 +369,9 @@ cdef class CoinbaseProMarket(MarketBase):
             object maker_fee = self._maker_fee_percentage
             object taker_fee = self._taker_fee_percentage
         if order_type is OrderType.LIMIT and fee_overrides_config_map["coinbase_pro_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["coinbase_pro_maker_fee"].value)
+            return TradeFee(percent=fee_overrides_config_map["coinbase_pro_maker_fee"].value / Decimal("100"))
         if order_type is OrderType.MARKET and fee_overrides_config_map["coinbase_pro_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["coinbase_pro_taker_fee"].value)
+            return TradeFee(percent=fee_overrides_config_map["coinbase_pro_taker_fee"].value / Decimal("100"))
         return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
 
     async def _update_fee_percentage(self):
