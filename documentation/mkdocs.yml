@@ -133,6 +133,7 @@ nav:
       - Bittrex Global: connectors/bittrex.md
       - Liquid: connectors/liquid.md
       - KuCoin: connectors/kucoin.md
+      - Kraken: connectors/kraken.md
       - Radar Relay: connectors/radar-relay.md
       - Community Connectors:
         - Bamboo Relay: connectors/bamboo-relay.md
