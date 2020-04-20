@@ -2,7 +2,7 @@
 
 You need an Ethereum node for strategies that trade on Ethereum-based decentralized exchanges, such as Radar Relay, Bamboo Relay, and Dolomite.
 
-Selecting one of these exchanges will prompt the following question during the configuration process:
+Run command `config ethereum_rpc_url` to use your Ethereum node with Hummingbot.
 
 ```
 Which Ethereum node would you like your client to connect to? >>>
