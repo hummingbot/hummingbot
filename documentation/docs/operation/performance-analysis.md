@@ -24,3 +24,13 @@ Portfolio performance is also calculated as `total acquired / total spent` on bo
 Assuming ETH price is 100 DAI, performance portfolio for ETH-DAI is 3.3%
 
 ![total-performance-sample](/assets/img/performance_total.png)
+
+
+**Trade Value Delta** (Quote Value Delta in version 0.25.0) is calculated as the difference between the total assets acquired and total assets spent, specified in quote value.
+
+In the sample below, we acquired 33.6754 USDT and spent 0.2001 ETH after executing 4 trades. Multiply the base asset 0.2001 ETH to the end price 168.205 to get its equivalent quote value 33.6578 USDT.
+
+![](/assets/img/trade_value_delta.png)
+
+!!! note
+    The screenshot above shows the `history` command output in **dev-0.26.0** version.
