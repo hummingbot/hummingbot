@@ -10,6 +10,10 @@ from .paper_trade_command import PaperTradeCommand
 from .start_command import StartCommand
 from .status_command import StatusCommand
 from .stop_command import StopCommand
+from .connect_command import ConnectCommand
+from .balance_command import BalanceCommand
+from .create_command import CreateCommand
+from .import_command import ImportCommand
 
 
 __all__ = [
@@ -25,4 +29,8 @@ __all__ = [
     StartCommand,
     StatusCommand,
     StopCommand,
+    ConnectCommand,
+    BalanceCommand,
+    CreateCommand,
+    ImportCommand
 ]

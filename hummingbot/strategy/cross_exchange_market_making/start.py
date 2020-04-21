@@ -2,34 +2,35 @@ from typing import (
     List,
     Tuple
 )
-
+from decimal import Decimal
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_pair import CrossExchangeMarketPair
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making import CrossExchangeMarketMakingStrategy
-from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map import cross_exchange_market_making_config_map
+from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map import \
+    cross_exchange_market_making_config_map as xemm_map
 
 
 def start(self):
-    maker_market = cross_exchange_market_making_config_map.get("maker_market").value.lower()
-    taker_market = cross_exchange_market_making_config_map.get("taker_market").value.lower()
-    raw_maker_trading_pair = cross_exchange_market_making_config_map.get("maker_market_trading_pair").value
-    raw_taker_trading_pair = cross_exchange_market_making_config_map.get("taker_market_trading_pair").value
-    min_profitability = cross_exchange_market_making_config_map.get("min_profitability").value
-    order_amount = cross_exchange_market_making_config_map.get("order_amount").value
+    maker_market = xemm_map.get("maker_market").value.lower()
+    taker_market = xemm_map.get("taker_market").value.lower()
+    raw_maker_trading_pair = xemm_map.get("maker_market_trading_pair").value
+    raw_taker_trading_pair = xemm_map.get("taker_market_trading_pair").value
+    min_profitability = xemm_map.get("min_profitability").value / Decimal("100")
+    order_amount = xemm_map.get("order_amount").value
     strategy_report_interval = global_config_map.get("strategy_report_interval").value
-    limit_order_min_expiration = cross_exchange_market_making_config_map.get("limit_order_min_expiration").value
-    cancel_order_threshold = cross_exchange_market_making_config_map.get("cancel_order_threshold").value
-    active_order_canceling = cross_exchange_market_making_config_map.get("active_order_canceling").value
-    adjust_order_enabled = cross_exchange_market_making_config_map.get("adjust_order_enabled").value
-    top_depth_tolerance = cross_exchange_market_making_config_map.get("top_depth_tolerance").value
-    order_size_taker_volume_factor = cross_exchange_market_making_config_map.get("order_size_taker_volume_factor").value
-    order_size_taker_balance_factor = cross_exchange_market_making_config_map.get("order_size_taker_balance_factor").value
-    order_size_portfolio_ratio_limit = cross_exchange_market_making_config_map.get("order_size_portfolio_ratio_limit").value
-    anti_hysteresis_duration = cross_exchange_market_making_config_map.get("anti_hysteresis_duration").value
+    limit_order_min_expiration = xemm_map.get("limit_order_min_expiration").value
+    cancel_order_threshold = xemm_map.get("cancel_order_threshold").value / Decimal("100")
+    active_order_canceling = xemm_map.get("active_order_canceling").value
+    adjust_order_enabled = xemm_map.get("adjust_order_enabled").value
+    top_depth_tolerance = xemm_map.get("top_depth_tolerance").value
+    order_size_taker_volume_factor = xemm_map.get("order_size_taker_volume_factor").value / Decimal("100")
+    order_size_taker_balance_factor = xemm_map.get("order_size_taker_balance_factor").value / Decimal("100")
+    order_size_portfolio_ratio_limit = xemm_map.get("order_size_portfolio_ratio_limit").value / Decimal("100")
+    anti_hysteresis_duration = xemm_map.get("anti_hysteresis_duration").value
 
     # check if top depth tolerance is a list or if trade size override exists
-    if isinstance(top_depth_tolerance, list) or "trade_size_override" in cross_exchange_market_making_config_map:
+    if isinstance(top_depth_tolerance, list) or "trade_size_override" in xemm_map:
         self._notify("Current config is not compatible with cross exchange market making strategy. Please reconfigure")
         return
 
