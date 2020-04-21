@@ -7,7 +7,7 @@ from hummingbot.client.config.config_helpers import (
     format_config_file_name,
     validate_strategy_file
 )
-from hummingbot.client.settings import CONF_FILE_PATH, CONF_PREFIX
+from hummingbot.client.settings import CONF_FILE_PATH, CONF_PREFIX, required_exchanges
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -27,6 +27,7 @@ class ImportCommand:
         self.app.clear_input()
         self.placeholder_mode = True
         self.app.hide_input = True
+        required_exchanges.clear()
         if file_name is None:
             file_name = await self.prompt_a_file_name()
         strategy_path = os.path.join(CONF_FILE_PATH, file_name)
