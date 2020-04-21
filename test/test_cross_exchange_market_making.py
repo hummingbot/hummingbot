@@ -63,6 +63,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                     "WETH": {"default": 1.0, "source": "None"},
                     "ETH": {"default": 1.0, "source": "None"},
                     "QETH": {"default": 0.95, "source": "None"},
+                    "DAI": {"default": 1.0, "source": "None"},
                 },
                 "conversion_required": {
                     "WETH": {"default": 1.0, "source": "None"},
@@ -70,6 +71,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                 },
             }
         )
+        ExchangeRateConversion.set_data_feeds([])
 
     def setUp(self):
         self.clock: Clock = Clock(ClockMode.BACKTEST, 1.0, self.start_timestamp, self.end_timestamp)
