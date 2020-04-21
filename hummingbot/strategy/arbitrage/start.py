@@ -2,7 +2,7 @@ from typing import (
     List,
     Tuple,
 )
-
+from decimal import Decimal
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.arbitrage.arbitrage_market_pair import ArbitrageMarketPair
 from hummingbot.strategy.arbitrage.arbitrage import ArbitrageStrategy
@@ -14,7 +14,7 @@ def start(self):
     secondary_market = arbitrage_config_map.get("secondary_market").value.lower()
     raw_primary_trading_pair = arbitrage_config_map.get("primary_market_trading_pair").value
     raw_secondary_trading_pair = arbitrage_config_map.get("secondary_market_trading_pair").value
-    min_profitability = arbitrage_config_map.get("min_profitability").value
+    min_profitability = arbitrage_config_map.get("min_profitability").value / Decimal("100")
     try:
         primary_trading_pair: str = self._convert_to_exchange_trading_pair(primary_market, [raw_primary_trading_pair])[0]
         secondary_trading_pair: str = self._convert_to_exchange_trading_pair(secondary_market, [raw_secondary_trading_pair])[0]

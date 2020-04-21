@@ -12,6 +12,8 @@ from hummingbot.market.market_base import MarketBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.ethereum import check_web3
+from hummingbot.client.config.config_helpers import all_configs_complete, load_all_secure_values
+from hummingbot.client.config.security import Security
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -60,11 +62,35 @@ class StatusCommand:
 
         return "\n".join(lines)
 
+    def strategy_status(self):
+        if global_config_map.get("paper_trade_enabled").value:
+            self._notify("\n  Paper Trading ON: All orders are simulated, and no real orders are placed.")
+        self._notify(self.strategy.format_status() + "\n")
+        self.application_warning()
+        return True
+
+    def application_warning(self):
+        # Application warnings.
+        self._expire_old_application_warnings()
+        if check_dev_mode() and len(self._app_warnings) > 0:
+            self._notify(self._format_application_warnings())
+
     def status(self,  # type: HummingbotApplication
                ) -> bool:
+        if self.strategy is not None:
+            return self.strategy_status()
+
         # Preliminary checks.
         self._notify("\n  Preliminary checks:")
-        if self.config_complete:
+        if self.strategy_name is None or self.strategy_file_name is None:
+            self._notify('   x Strategy check: Please import or create a strategy.')
+            return False
+
+        if not Security.is_decryption_done():
+            self._notify('   x Security check: Encrypted files are being processed.')
+            return False
+        load_all_secure_values(self.strategy_name)
+        if all_configs_complete(self.strategy_name):
             self._notify("   - Config check: Config complete")
         else:
             self._notify('   x Config check: Pending config. Please enter "config" before starting the bot.')
@@ -121,16 +147,6 @@ class StatusCommand:
             for offline_market in offline_markets:
                 self._notify(f"   x Market check:  {offline_market} is currently offline.")
 
-        # See if we can print out the strategy status.
         self._notify("   - Market check: All markets ready")
-        if self.strategy is None:
-            self._notify("   x initializing strategy.")
-        else:
-            self._notify(self.strategy.format_status() + "\n")
-
-        # Application warnings.
-        self._expire_old_application_warnings()
-        if check_dev_mode() and len(self._app_warnings) > 0:
-            self._notify(self._format_application_warnings())
-
+        self.application_warning()
         return True

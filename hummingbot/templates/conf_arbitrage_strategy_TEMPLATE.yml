@@ -2,7 +2,8 @@
 ###   Arbitrage strategy config   ###
 #####################################
 
-template_version: 2
+template_version: 3
+strategy: null
 
 # The following configuations are only required for the
 # arbitrage strategy
@@ -14,7 +15,7 @@ primary_market_trading_pair: null
 secondary_market_trading_pair: null
 
 # Minimum profitability target required to place an order
-# Expressed in decimals: 0.01 = 1% target profit
+# Expressed in percentage value, e.g. 1 = 1% target profit
 min_profitability: null
 
 # For more detailed information, see:
