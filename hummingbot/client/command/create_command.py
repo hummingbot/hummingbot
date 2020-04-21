@@ -14,7 +14,7 @@ from hummingbot.client.config.config_helpers import (
     format_config_file_name,
     parse_config_default_to_text
 )
-from hummingbot.client.settings import CONF_FILE_PATH
+from hummingbot.client.settings import CONF_FILE_PATH, required_exchanges
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
 from hummingbot.client.config.config_validators import validate_strategy, validate_bool
@@ -41,6 +41,7 @@ class CreateCommand:
         self.app.clear_input()
         self.placeholder_mode = True
         self.app.hide_input = True
+        required_exchanges.clear()
         strategy_config = ConfigVar(key="strategy",
                                     prompt="What is your market making strategy? >>> ",
                                     validator=validate_strategy)
@@ -121,22 +122,27 @@ class CreateCommand:
     async def notify_missing_configs(self,  # type: HummingbotApplication
                                      ):
         await self.update_all_secure_configs()
+        missing_exchanges = [ex for ex in required_exchanges if not Security.encrypted_file_exists(ex + "_api_key")]
+        if missing_exchanges:
+            exchanges = ", ".join(missing_exchanges)
+            self._notify(f"\nMissing exchange connection: {exchanges}"
+                         f"\nPlease run 'connect [exchange_name]' (e.g. connect {missing_exchanges[0]}) "
+                         f"to connect to the exchange{'' if len(missing_exchanges) == 1 else 's'}.")
         missing_globals = missing_required_configs(global_config_map)
+        missing_globals = [c for c in missing_globals if not any(ex in c.key for ex in missing_exchanges)]
         if missing_globals:
-            self._notify("\nIncomplete global configuration (conf_global.yml). The following values are missing.\n")
-            for config in missing_globals:
-                self._notify(config.key)
+            self._notify("\nIncomplete global configuration (conf_global.yml). The following values are missing.")
+            self._notify("\n".join(c.key for c in missing_globals))
         missing_configs = missing_required_configs(get_strategy_config_map(self.strategy_name))
         if missing_configs:
             self._notify(f"\nIncomplete strategy configuration ({self.strategy_file_name}). "
-                         f"The following values are missing.\n")
-            for config in missing_configs:
-                self._notify(config.key)
-        any_missing = missing_globals or missing_configs
-        if any_missing:
-            self._notify(f"\nPlease run config config_name (e.g. config kill_switch) "
-                         f"to update the missing config values.")
-        return any_missing
+                         f"The following values are missing.")
+            self._notify("\n".join(c.key for c in missing_configs))
+        if missing_globals or missing_configs:
+            example = missing_globals[0].key if missing_globals else missing_configs[0].key
+            self._notify(f"\nPlease run 'config [config_name]' (e.g. config {example}) "
+                         f"to update the missing parameter values.")
+        return missing_exchanges or missing_globals or missing_configs
 
     async def asset_ratio_maintenance_prompt(self,  # type: HummingbotApplication
                                              config_map):
