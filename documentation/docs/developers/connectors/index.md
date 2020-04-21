@@ -112,6 +112,5 @@ The Hummingbot team reserves the right to withhold community code contributions 
 - Prior Cython experience is a plus
 
 ## Additional resources
-- [DevForum](https://forum.hummingbot.io)
-- [Discord](https://discord.hummingbot.io)
+- Developer discussions, please visit the `#dev` channel on our [discord server](https://discord.hummingbot.io).
 - Contact the dev team: [dev@hummingbot.io](mailto:dev@hummingbot.io)
