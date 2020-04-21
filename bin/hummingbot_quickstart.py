@@ -30,7 +30,6 @@ from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.management.console import start_management_console
 from bin.hummingbot import (
     detect_available_port,
-    main as normal_start,
 )
 from hummingbot.client.settings import CONF_FILE_PATH
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
@@ -69,70 +68,74 @@ async def quick_start(args):
         logging.getLogger().error(f"Invalid password.")
         return
 
-    try:
-        await Security.wait_til_decryption_done()
-        await create_yml_files()
-        init_logging("hummingbot_logs.yml")
-        read_system_configs_from_yml()
+    await Security.wait_til_decryption_done()
+    await create_yml_files()
+    init_logging("hummingbot_logs.yml")
+    read_system_configs_from_yml()
 
-        ExchangeRateConversion.get_instance().start()
-        await ExchangeRateConversion.get_instance().wait_till_ready()
-        hb = HummingbotApplication.main_application()
-        # Todo: validate strategy and config_file_name before assinging
+    ExchangeRateConversion.get_instance().start()
+    await ExchangeRateConversion.get_instance().wait_till_ready()
+    hb = HummingbotApplication.main_application()
+    # Todo: validate strategy and config_file_name before assinging
 
-        if config_file_name is not None and strategy is not None:
-            hb.strategy_name = strategy
-            hb.strategy_file_name = config_file_name
-            update_strategy_config_map_from_file(os.path.join(CONF_FILE_PATH, config_file_name))
+    if config_file_name is not None and strategy is not None:
+        hb.strategy_name = strategy
+        hb.strategy_file_name = config_file_name
+        update_strategy_config_map_from_file(os.path.join(CONF_FILE_PATH, config_file_name))
 
-        # To ensure quickstart runs with the default value of False for kill_switch_enabled if not present
-        if not global_config_map.get("kill_switch_enabled"):
-            global_config_map.get("kill_switch_enabled").value = False
+    # To ensure quickstart runs with the default value of False for kill_switch_enabled if not present
+    if not global_config_map.get("kill_switch_enabled"):
+        global_config_map.get("kill_switch_enabled").value = False
 
-        if wallet and password:
-            global_config_map.get("ethereum_wallet").value = wallet
+    if wallet and password:
+        global_config_map.get("ethereum_wallet").value = wallet
 
-        if hb.strategy_name and hb.strategy_file_name:
-            if not all_configs_complete(hb.strategy_name):
-                await hb.notify_missing_configs()
-                # config_map = load_required_configs()
-                # empty_configs = [key for key, config in config_map.items()
-                #                  if config.value is None and config.required]
-                # empty_config_description: str = "\n- ".join([""] + empty_configs)
-                # raise ValueError(f"Missing configuration values: {empty_config_description}\n")
+    if hb.strategy_name and hb.strategy_file_name:
+        if not all_configs_complete(hb.strategy_name):
+            await hb.notify_missing_configs()
+            # config_map = load_required_configs()
+            # empty_configs = [key for key, config in config_map.items()
+            #                  if config.value is None and config.required]
+            # empty_config_description: str = "\n- ".join([""] + empty_configs)
+            # raise ValueError(f"Missing configuration values: {empty_config_description}\n")
 
-        with patch_stdout(log_field=hb.app.log_field):
-            dev_mode = check_dev_mode()
-            if dev_mode:
-                hb.app.log("Running from dev branches. Full remote logging will be enabled.")
+    with patch_stdout(log_field=hb.app.log_field):
+        dev_mode = check_dev_mode()
+        if dev_mode:
+            hb.app.log("Running from dev branches. Full remote logging will be enabled.")
 
-            log_level = global_config_map.get("log_level").value
-            init_logging("hummingbot_logs.yml",
-                         override_log_level=log_level,
-                         dev_mode=dev_mode)
+        log_level = global_config_map.get("log_level").value
+        init_logging("hummingbot_logs.yml",
+                     override_log_level=log_level,
+                     dev_mode=dev_mode)
 
-            if hb.strategy_file_name is not None and hb.strategy_name is not None:
-                await write_config_to_yml(hb.strategy_name, hb.strategy_file_name)
-                hb.start(log_level)
+        if hb.strategy_file_name is not None and hb.strategy_name is not None:
+            await write_config_to_yml(hb.strategy_name, hb.strategy_file_name)
+            hb.start(log_level)
 
-            tasks: List[Coroutine] = [hb.run()]
-            if global_config_map.get("debug_console").value:
-                management_port: int = detect_available_port(8211)
-                tasks.append(start_management_console(locals(), host="localhost", port=management_port))
-            await safe_gather(*tasks)
-
-    except Exception as e:
-        if "Missing configuration values" in str(e):
-            # In case of quick start failure, start the bot normally to allow further configuration
-            logging.getLogger().warning(f"Bot config incomplete: {str(e)}. Starting normally...")
-            await normal_start()
-        else:
-            raise e
+        tasks: List[Coroutine] = [hb.run()]
+        if global_config_map.get("debug_console").value:
+            management_port: int = detect_available_port(8211)
+            tasks.append(start_management_console(locals(), host="localhost", port=management_port))
+        await safe_gather(*tasks)
 
 
 def main():
     # If no password is given from the command line, prompt for one.
     args = CmdlineParser().parse_args()
+
+    # Parse environment variables from Dockerfile.
+    # If an environment variable is not empty and it's not defined in the arguments, then we'll use the environment
+    # variable.
+    if args.strategy is None and len(os.environ.get("STRATEGY", "")) > 0:
+        args.strategy = os.environ["STRATEGY"]
+    if args.config_file_name is None and len(os.environ.get("CONFIG_FILE_NAME", "")) > 0:
+        args.config_file_name = os.environ["CONFIG_FILE_NAME"]
+    if args.wallet is None and len(os.environ.get("WALLET", "")) > 0:
+        args.wallet = os.environ["WALLET"]
+    if args.config_password is None and len(os.environ.get("CONFIG_PASSWORD", "")) > 0:
+        args.config_password = os.environ["CONFIG_PASSWORD"]
+
     if args.config_password is None:
         if not login_prompt():
             return
