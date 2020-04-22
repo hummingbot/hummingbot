@@ -2,10 +2,9 @@ import argparse
 from typing import (
     List,
 )
-
 from hummingbot.client.errors import ArgumentParserError
-from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class ThrowingArgumentParser(argparse.ArgumentParser):
@@ -65,13 +64,13 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
 
     start_parser = subparsers.add_parser("start", help="Start the current bot")
     # start_parser.add_argument("--log-level", help="Level of logging")
-    start_parser.set_defaults(func=hummingbot.start)
+    start_parser.set_defaults(func=lambda: safe_ensure_future(hummingbot.start()))
 
     stop_parser = subparsers.add_parser('stop', help='Stop the current bot')
     stop_parser.set_defaults(func=hummingbot.stop)
 
     status_parser = subparsers.add_parser("status", help="Get the market status of the current bot")
-    status_parser.set_defaults(func=hummingbot.status)
+    status_parser.set_defaults(func=lambda: safe_ensure_future(hummingbot.status()))
 
     history_parser = subparsers.add_parser("history", help="See the past performance of the current bot")
     history_parser.set_defaults(func=hummingbot.history)
@@ -84,11 +83,8 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     paper_trade_parser = subparsers.add_parser("paper_trade", help="Toggle paper trade mode on and off")
     paper_trade_parser.set_defaults(func=hummingbot.paper_trade)
 
-    export_trades_parser = subparsers.add_parser("export_trades", help="Export your bot's trades to a CSV file")
-    export_trades_parser.add_argument("-p", "--path", help="Save csv to a specific path")
-    export_trades_parser.set_defaults(func=hummingbot.export_trades)
-
-    export_private_key_parser = subparsers.add_parser("export_private_key", help="Export your Ethereum wallet private key")
-    export_private_key_parser.set_defaults(func=lambda: safe_ensure_future(hummingbot.export_private_key()))
+    export_parser = subparsers.add_parser("export", help="Export secure information")
+    export_parser.add_argument("option", nargs="?", choices=("keys", "trades"), help="Export choices.")
+    export_parser.set_defaults(func=hummingbot.export)
 
     return parser

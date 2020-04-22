@@ -31,6 +31,7 @@ class HummingbotCompleter(Completer):
         self._command_completer = WordCompleter(self.parser.commands, ignore_case=True)
         self._exchange_completer = WordCompleter(EXCHANGES, ignore_case=True)
         self._connect_exchange_completer = WordCompleter(CONNECT_EXCHANGES, ignore_case=True)
+        self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
 
     @property
@@ -94,6 +95,10 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return "connect" in text_before_cursor
 
+    def _complete_export_options(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return "export" in text_before_cursor
+
     def _complete_trading_pairs(self, document: Document) -> bool:
         return "trading pair" in self.prompt_text
 
@@ -134,6 +139,10 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_connect_exchanges(document):
             for c in self._connect_exchange_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_export_options(document):
+            for c in self._export_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_exchanges(document):
