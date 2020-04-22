@@ -108,7 +108,7 @@ async def quick_start(args):
 
             if hb.strategy_file_name is not None and hb.strategy_name is not None:
                 await write_config_to_yml(hb.strategy_name, hb.strategy_file_name)
-                hb.start(log_level)
+                await hb.start(log_level)
 
             tasks: List[Coroutine] = [hb.run()]
             if global_config_map.get("debug_console").value:
