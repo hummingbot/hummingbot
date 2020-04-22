@@ -166,8 +166,8 @@ pure_market_making_config_map = {
                   prompt="What is your target base asset percentage? Enter 50 for 50% >>> ",
                   required_if=lambda: pure_market_making_config_map.get("inventory_skew_enabled").value,
                   type_str="decimal",
-                  validator=lambda v: validate_decimal(v, 0, 100),
-                  default=50),
+                  validator=lambda v: validate_decimal(v, 0, 100)
+                  ),
     "inventory_range_multiplier":
         ConfigVar(key="inventory_range_multiplier",
                   prompt="What is your tolerable range of inventory around the target, "
