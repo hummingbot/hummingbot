@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import asyncio
 from os.path import join, realpath
 import sys
 import pandas as pd
@@ -57,6 +58,16 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        # XXX(martin_kou): ExchangeRatioConversion is a fucking mess now. Need to manually reset it.
+        # See: https://app.clubhouse.io/coinalpha/story/8346/clean-up-exchangerateconversion
+        if ExchangeRateConversion._erc_shared_instance is not None:
+            ExchangeRateConversion._erc_shared_instance.stop()
+            ExchangeRateConversion._erc_shared_instance = None
+
+        ExchangeRateConversion._exchange_rate = {}
+        ExchangeRateConversion._all_data_feed_exchange_rate = {}
+        ExchangeRateConversion._ready_notifier = asyncio.Event()
+
         ExchangeRateConversion.set_global_exchange_rate_config(
             {
                 "global_config": {
@@ -72,6 +83,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             }
         )
         ExchangeRateConversion.set_data_feeds([])
+        ExchangeRateConversion.get_instance().start()
+
+        asyncio.get_event_loop().run_until_complete(ExchangeRateConversion.get_instance().wait_till_ready())
 
     def setUp(self):
         self.clock: Clock = Clock(ClockMode.BACKTEST, 1.0, self.start_timestamp, self.end_timestamp)
