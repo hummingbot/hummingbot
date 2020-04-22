@@ -216,7 +216,7 @@ global_config_map = {
                   is_secure=True),
     "ethereum_wallet":
         ConfigVar(key="ethereum_wallet",
-                  prompt="",
+                  prompt=None,
                   type_str="str",
                   required_if=using_wallet),
     "ethereum_rpc_url":
