@@ -69,6 +69,10 @@ class SQLConnectionManager:
     def get_db_engine(cls, 
                       dialect: str, 
                       params: dict) -> Engine:
+        # Fallback to `sqlite` if dialect is None
+        if dialect is None:
+            dialect = "sqlite"
+
         if "sqlite" in dialect:
             db_path = params.get("db_path")
 
