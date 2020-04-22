@@ -4,6 +4,7 @@ from typing import (
 )
 from hummingbot.client.errors import ArgumentParserError
 from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class ThrowingArgumentParser(argparse.ArgumentParser):
@@ -63,13 +64,13 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
 
     start_parser = subparsers.add_parser("start", help="Start the current bot")
     # start_parser.add_argument("--log-level", help="Level of logging")
-    start_parser.set_defaults(func=hummingbot.start)
+    start_parser.set_defaults(func=lambda: safe_ensure_future(hummingbot.start()))
 
     stop_parser = subparsers.add_parser('stop', help='Stop the current bot')
     stop_parser.set_defaults(func=hummingbot.stop)
 
     status_parser = subparsers.add_parser("status", help="Get the market status of the current bot")
-    status_parser.set_defaults(func=hummingbot.status)
+    status_parser.set_defaults(func=lambda: safe_ensure_future(hummingbot.status()))
 
     history_parser = subparsers.add_parser("history", help="See the past performance of the current bot")
     history_parser.set_defaults(func=hummingbot.history)

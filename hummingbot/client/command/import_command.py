@@ -38,8 +38,8 @@ class ImportCommand:
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
-        if not await self.notify_missing_configs():
-            self._notify("Enter \"start\" to start market making.")
+        if await self.status():
+            self._notify("\nEnter \"start\" to start market making.")
             self.app.set_text("start")
 
     async def prompt_a_file_name(self  # type: HummingbotApplication

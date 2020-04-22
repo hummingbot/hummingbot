@@ -10,7 +10,6 @@ from hummingbot.client.config.config_helpers import (
     default_strategy_file_path,
     save_to_yml,
     get_strategy_template_path,
-    missing_required_configs,
     format_config_file_name,
     parse_config_default_to_text
 )
@@ -65,6 +64,7 @@ class CreateCommand:
             await self.asset_ratio_maintenance_prompt(config_map)
         if file_name is None:
             file_name = await self.prompt_new_file_name(strategy)
+        self.app.change_prompt(prompt=">>> ")
         strategy_path = os.path.join(CONF_FILE_PATH, file_name)
         template = get_strategy_template_path(strategy)
         shutil.copy(template, strategy_path)
@@ -74,12 +74,11 @@ class CreateCommand:
         # Reload completer here otherwise the new file will not appear
         self.app.input_field.completer = load_completer(self)
         self._notify(f"A new config file {self.strategy_file_name} created.")
-        if not await self.notify_missing_configs():
-            self._notify("Enter \"start\" to start market making.")
-            self.app.set_text("start")
         self.placeholder_mode = False
         self.app.hide_input = False
-        self.app.change_prompt(prompt=">>> ")
+        if await self.status():
+            self._notify("\nEnter \"start\" to start market making.")
+            self.app.set_text("start")
 
     async def prompt_a_config(self,  # type: HummingbotApplication
                               config: ConfigVar,
@@ -119,31 +118,6 @@ class CreateCommand:
         if self.strategy_config_map is not None:
             Security.update_config_map(self.strategy_config_map)
 
-    async def notify_missing_configs(self,  # type: HummingbotApplication
-                                     ):
-        await self.update_all_secure_configs()
-        missing_exchanges = [ex for ex in required_exchanges if not Security.encrypted_file_exists(ex + "_api_key")]
-        if missing_exchanges:
-            exchanges = ", ".join(missing_exchanges)
-            self._notify(f"\nMissing exchange connection: {exchanges}"
-                         f"\nPlease run 'connect [exchange_name]' (e.g. connect {missing_exchanges[0]}) "
-                         f"to connect to the exchange{'' if len(missing_exchanges) == 1 else 's'}.")
-        missing_globals = missing_required_configs(global_config_map)
-        missing_globals = [c for c in missing_globals if not any(ex in c.key for ex in missing_exchanges)]
-        if missing_globals:
-            self._notify("\nIncomplete global configuration (conf_global.yml). The following values are missing.")
-            self._notify("\n".join(c.key for c in missing_globals))
-        missing_configs = missing_required_configs(get_strategy_config_map(self.strategy_name))
-        if missing_configs:
-            self._notify(f"\nIncomplete strategy configuration ({self.strategy_file_name}). "
-                         f"The following values are missing.")
-            self._notify("\n".join(c.key for c in missing_configs))
-        if missing_globals or missing_configs:
-            example = missing_globals[0].key if missing_globals else missing_configs[0].key
-            self._notify(f"\nPlease run 'config [config_name]' (e.g. config {example}) "
-                         f"to update the missing parameter values.")
-        return missing_exchanges or missing_globals or missing_configs
-
     async def asset_ratio_maintenance_prompt(self,  # type: HummingbotApplication
                                              config_map):
         exchange = config_map['exchange'].value
@@ -151,6 +125,7 @@ class CreateCommand:
         base, quote = market.split("-")
         balances = await UserBalances.instance().balances(exchange, base, quote)
         if balances is None:
+            config_map['inventory_skew_enabled'].value = False
             return
         base_ratio = UserBalances.base_amount_ratio(market, balances)
         base_ratio = round(base_ratio, 3)

@@ -94,12 +94,7 @@ async def quick_start(args):
 
         if hb.strategy_name and hb.strategy_file_name:
             if not all_configs_complete(hb.strategy_name):
-                await hb.notify_missing_configs()
-                # config_map = load_required_configs()
-                # empty_configs = [key for key, config in config_map.items()
-                #                  if config.value is None and config.required]
-                # empty_config_description: str = "\n- ".join([""] + empty_configs)
-                # raise ValueError(f"Missing configuration values: {empty_config_description}\n")
+                await hb.status()
 
         with patch_stdout(log_field=hb.app.log_field):
             dev_mode = check_dev_mode()
