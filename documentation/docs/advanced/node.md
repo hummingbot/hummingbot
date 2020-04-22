@@ -11,27 +11,16 @@ Which Ethereum node would you like your client to connect to? >>>
 Below, we list different ways that you can access an Ethereum node.
 
 ## Option 1. Infura
+
 [Infura](https://infura.io/) provides free and the most widely used Ethereum nodes.
 
-!!! note "Important for Infura users"
-    If you use an Infura endpoint, make sure to append `https://` to the URL when you use it in Hummingbot. Otherwise, you may see a `Bad ethereum rpc url` error.
-
-     ![Infura](/assets/img/infura.png)
-
-1 - Sign up for an account on infura.io
+1. Sign up for an account on infura.io
 ![](/assets/img/infura1.png)
-
-2 - Click on **Create new project**.
+2. Click on **Ethereum** and **Create a project**.
 ![](/assets/img/infura2.png)
-
-3 - Name your project.
+3. Name your project and click **Create**.
+4. In **Keys** section and under **Endpoints** you'll find your Ethereum node as shown in the highlighted area.
 ![](/assets/img/infura3.png)
-
-4 - Voila! Now you have created a project.
-![](/assets/img/infura4.png)
-
-5 - Click on your project, scroll down, and you'll find your Ethereum node as shown in the highlighted area.
-![](/assets/img/infura5.png)
 
 
 ## Option 2. Run your own local node
