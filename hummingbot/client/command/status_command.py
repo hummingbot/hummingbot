@@ -18,7 +18,7 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.config.security import Security
 from hummingbot.user.user_balances import UserBalances
-from hummingbot.client.settings import required_exchanges, EXCHANGES
+from hummingbot.client.settings import required_exchanges
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -81,6 +81,8 @@ class StatusCommand:
             self._notify(self._format_application_warnings())
 
     async def invalid_connections(self) -> Dict[str, str]:
+        if global_config_map.get("paper_trade_enabled").value:
+            return {}
         await self.update_all_secure_configs()
         connections = await UserBalances.instance().update_exchanges(exchanges=required_exchanges)
         invalid_conns = {ex: err_msg for ex, err_msg in connections.items()
@@ -89,9 +91,9 @@ class StatusCommand:
 
     def missing_configurations(self) -> List[str]:
         missing_globals = missing_required_configs(global_config_map)
-        missing_globals = [c for c in missing_globals if not any(ex in c.key for ex in EXCHANGES)]
+        missing_globals = [c for c in missing_globals if not c.is_api_key]
         missing_configs = missing_required_configs(get_strategy_config_map(self.strategy_name))
-        return missing_globals.append(missing_configs)
+        return missing_globals + missing_configs
 
     async def status(self,  # type: HummingbotApplication
                      notify_success= True) -> bool:
@@ -119,7 +121,8 @@ class StatusCommand:
         missing_configs = self.missing_configurations()
         if missing_configs:
             self._notify("  - Strategy check: Incomplete strategy configuration. The following values are missing.")
-            self._notify("\n    ".join(c.key for c in missing_configs))
+            for config in missing_configs:
+                self._notify(f"    {config.key}")
         elif notify_success:
             self._notify('  - Strategy check: All required parameters confirmed.')
         if invalid_conns or missing_configs:
