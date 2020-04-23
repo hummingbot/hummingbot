@@ -106,7 +106,21 @@ nav:
     - Operation:
       - Hummingbot Client: operation/client.md
       - Configuring Hummingbot: operation/configuration.md
-      - Command Reference: operation/commands.md
+      - Hummingbot Commands:
+        - create: operation/hummingbot-commands/create.md
+        - connect: operation/hummingbot-commands/connect.md
+        - import: operation/hummingbot-commands/import.md
+        - balance: operation/hummingbot-commands/balance.md
+        - config: operation/hummingbot-commands/config.md
+        - start: operation/hummingbot-commands/start.md
+        - stop: operation/hummingbot-commands/stop.md
+        - status: operation/hummingbot-commands/status.md
+        - history: operation/hummingbot-commands/history.md
+        - exit: operation/hummingbot-commands/exit.md
+        - paper_trade: operation/hummingbot-commands/paper-trade.md
+        - export: operation/hummingbot-commands/export.md
+      - Keyboard Shortcuts: operation/keyboard-shortcuts.md
+      - Docker Commands: operation/docker-commands.md
       - Performance Analysis: operation/performance-analysis.md
       - Paper Trading Mode: operation/paper-trade.md
       - Running Trading Bots: operation/running-bots.md
