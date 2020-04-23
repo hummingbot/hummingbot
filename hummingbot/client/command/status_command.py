@@ -121,7 +121,8 @@ class StatusCommand:
         missing_configs = self.missing_configurations()
         if missing_configs:
             self._notify("  - Strategy check: Incomplete strategy configuration. The following values are missing.")
-            self._notify("    \n".join(c.key for c in missing_configs))
+            for config in missing_configs:
+                self._notify(f"    {config.key}")
         elif notify_success:
             self._notify('  - Strategy check: All required parameters confirmed.')
         if invalid_conns or missing_configs:
