@@ -159,7 +159,7 @@ pure_market_making_config_map = {
         ConfigVar(key="inventory_skew_enabled",
                   prompt="Would you like to enable inventory skew? (Yes/No) >>> ",
                   type_str="bool",
-                  default=True,
+                  default=False,
                   validator=validate_bool),
     "inventory_target_base_pct":
         ConfigVar(key="inventory_target_base_pct",

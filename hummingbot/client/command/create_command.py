@@ -125,7 +125,6 @@ class CreateCommand:
         base, quote = market.split("-")
         balances = await UserBalances.instance().balances(exchange, base, quote)
         if balances is None:
-            config_map['inventory_skew_enabled'].value = False
             return
         base_ratio = UserBalances.base_amount_ratio(market, balances)
         base_ratio = round(base_ratio, 3)
@@ -145,3 +144,4 @@ class CreateCommand:
             config_map['inventory_target_base_pct'].value = round(base_ratio * Decimal('100'), 1)
         else:
             await self.prompt_a_config(config_map["inventory_target_base_pct"])
+        config_map['inventory_skew_enabled'].value = True
