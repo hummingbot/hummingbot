@@ -95,7 +95,6 @@ class StatusCommand:
 
     def missing_configurations(self) -> List[str]:
         missing_globals = missing_required_configs(global_config_map)
-        missing_globals = [c for c in missing_globals if not c.is_connect_key]
         missing_configs = missing_required_configs(get_strategy_config_map(self.strategy_name))
         return missing_globals + missing_configs
 
