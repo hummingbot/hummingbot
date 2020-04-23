@@ -31,7 +31,7 @@ def load_key_bindings(hb) -> KeyBindings:
     @bindings.add("c-s")
     def status(event):
         hb.app.log("\n[CTRL + S] Status")
-        hb.status()
+        safe_ensure_future(hb.status())
 
     @bindings.add("c-f", filter=to_filter(not is_searching()))
     def do_find(event):
