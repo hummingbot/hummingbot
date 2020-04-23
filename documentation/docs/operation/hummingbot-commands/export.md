@@ -16,6 +16,8 @@ binance_api_key:
 binance_api_secret: 
 
 Ethereum wallets:
+Public address: 
+Private key: 
 ```
 
 ## export trades
