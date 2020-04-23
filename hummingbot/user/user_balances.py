@@ -6,7 +6,7 @@ from hummingbot.market.kucoin.kucoin_market import KucoinMarket
 from hummingbot.market.liquid.liquid_market import LiquidMarket
 from hummingbot.market.kraken.kraken_market import KrakenMarket
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
-from hummingbot.client.settings import EXCHANGES
+from hummingbot.client.settings import EXCHANGES, DEXES
 from hummingbot.client.config.security import Security
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.client.config.global_config_map import global_config_map
@@ -89,6 +89,8 @@ class UserBalances:
 
     async def update_exchanges(self, reconnect=False, exchanges=EXCHANGES):
         tasks = []
+        # We can only update user exchange balances on CEXes, for DEX we'll need to implement web3 waller query later.
+        exchanges = [ex for ex in exchanges if ex not in DEXES]
         if reconnect:
             self._markets.clear()
         for exchange in exchanges:
