@@ -59,7 +59,7 @@ if "SPEC" in globals():
     hidden_imports: List[str] = list(enumerate_modules(os.path.join(project_path(), "hummingbot")))
     hidden_imports.extend([
         "aiokafka",
-        "pkg_resources.py2_warn"
+        "pkg_resources.py2_warn",
     ])
 
     import _strptime
@@ -69,6 +69,7 @@ if "SPEC" in globals():
         r"(.+\.json|(?:\/|\\)VERSION|templates(?:\/|\\).+\.yml)$"
     ))
     datas.extend([(_strptime.__file__, ".")])
+    datas.extend([(os.path.join(project_path(), "bin/path_util.py"), ".")])
 
     binaries: List[Tuple[str, str]] = []
     if system_type == "Windows":
