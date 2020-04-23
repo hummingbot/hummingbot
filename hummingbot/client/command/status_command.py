@@ -4,7 +4,7 @@ from collections import (
     deque,
     OrderedDict
 )
-from typing import List
+from typing import List, Dict
 
 from hummingbot import check_dev_mode
 from hummingbot.logger.application_warning import ApplicationWarning
@@ -12,8 +12,13 @@ from hummingbot.market.market_base import MarketBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.ethereum import check_web3
-from hummingbot.client.config.config_helpers import all_configs_complete, load_all_secure_values
+from hummingbot.client.config.config_helpers import (
+    missing_required_configs,
+    get_strategy_config_map
+)
 from hummingbot.client.config.security import Security
+from hummingbot.user.user_balances import UserBalances
+from hummingbot.client.settings import required_exchanges
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -75,48 +80,76 @@ class StatusCommand:
         if check_dev_mode() and len(self._app_warnings) > 0:
             self._notify(self._format_application_warnings())
 
-    def status(self,  # type: HummingbotApplication
-               ) -> bool:
+    async def invalid_connections(self) -> Dict[str, str]:
+        if global_config_map.get("paper_trade_enabled").value:
+            return {}
+        await self.update_all_secure_configs()
+        connections = await UserBalances.instance().update_exchanges(exchanges=required_exchanges)
+        invalid_conns = {ex: err_msg for ex, err_msg in connections.items()
+                         if ex in required_exchanges and err_msg is not None}
+        return invalid_conns
+
+    def missing_configurations(self) -> List[str]:
+        missing_globals = missing_required_configs(global_config_map)
+        missing_globals = [c for c in missing_globals if not c.is_api_key]
+        missing_configs = missing_required_configs(get_strategy_config_map(self.strategy_name))
+        return missing_globals + missing_configs
+
+    async def status(self,  # type: HummingbotApplication
+                     notify_success= True) -> bool:
         if self.strategy is not None:
             return self.strategy_status()
 
         # Preliminary checks.
-        self._notify("\n  Preliminary checks:")
+        self._notify("\nPreliminary checks:")
         if self.strategy_name is None or self.strategy_file_name is None:
-            self._notify('   x Strategy check: Please import or create a strategy.')
+            self._notify('  - Strategy check: Please import or create a strategy.')
             return False
 
         if not Security.is_decryption_done():
-            self._notify('   x Security check: Encrypted files are being processed.')
+            self._notify('  - Security check: Encrypted files are being processed. Please wait and try again later.')
             return False
-        load_all_secure_values(self.strategy_name)
-        if all_configs_complete(self.strategy_name):
-            self._notify("   - Config check: Config complete")
-        else:
-            self._notify('   x Config check: Pending config. Please enter "config" before starting the bot.')
+
+        invalid_conns = await self.invalid_connections()
+        if invalid_conns:
+            self._notify('  - Exchange check: Invalid connections:')
+            for ex, err_msg in invalid_conns.items():
+                self._notify(f"    {ex}: {err_msg}")
+        elif notify_success:
+            self._notify('  - Exchange check: All connections confirmed.')
+
+        missing_configs = self.missing_configurations()
+        if missing_configs:
+            self._notify("  - Strategy check: Incomplete strategy configuration. The following values are missing.")
+            for config in missing_configs:
+                self._notify(f"    {config.key}")
+        elif notify_success:
+            self._notify('  - Strategy check: All required parameters confirmed.')
+        if invalid_conns or missing_configs:
             return False
 
         if self.wallet is not None:
             # Only check node url when a wallet has been initialized
             eth_node_valid = check_web3(global_config_map.get("ethereum_rpc_url").value)
-            if eth_node_valid:
-                self._notify("   - Node check: Ethereum node running and current")
-            else:
-                self._notify('   x Node check: Bad ethereum rpc url. Your node may be syncing. '
+            if not eth_node_valid:
+                self._notify('  - Node check: Bad ethereum rpc url. '
                              'Please re-configure by entering "config ethereum_rpc_url"')
                 return False
+            elif notify_success:
+                self._notify("  - Node check: Ethereum node running and current.")
 
             if self.wallet.network_status is NetworkStatus.CONNECTED:
                 if self._trading_required:
                     has_minimum_eth = self.wallet.get_balance("ETH") > 0.01
-                    if has_minimum_eth:
-                        self._notify("   - ETH wallet check: Minimum ETH requirement satisfied")
-                    else:
-                        self._notify("   x ETH wallet check: Not enough ETH in wallet. "
+                    if not has_minimum_eth:
+                        self._notify("  - ETH wallet check: Not enough ETH in wallet. "
                                      "A small amount of Ether is required for sending transactions on "
                                      "Decentralized Exchanges")
+                        return False
+                    elif notify_success:
+                        self._notify("  - ETH wallet check: Minimum ETH requirement satisfied")
             else:
-                self._notify("   x ETH wallet check: ETH wallet is not connected.")
+                self._notify("  - ETH wallet check: ETH wallet is not connected.")
 
         loading_markets: List[MarketBase] = []
         for market in self.markets.values():
@@ -124,14 +157,14 @@ class StatusCommand:
                 loading_markets.append(market)
 
         if len(loading_markets) > 0:
-            self._notify(f"   x Market check:  Waiting for markets " +
+            self._notify(f"  - Exchange connectors check:  Waiting for exchange connectors " +
                          ",".join([m.name.capitalize() for m in loading_markets]) + f" to get ready for trading. \n"
                          f"                    Please keep the bot running and try to start again in a few minutes. \n")
 
             for market in loading_markets:
                 market_status_df = pd.DataFrame(data=market.status_dict.items(), columns=["description", "status"])
                 self._notify(
-                    f"   x {market.display_name.capitalize()} market status:\n" +
+                    f"  - {market.display_name.capitalize()} connector status:\n" +
                     "\n".join(["     " + line for line in market_status_df.to_string(index=False,).split("\n")]) +
                     "\n"
                 )
@@ -145,8 +178,8 @@ class StatusCommand:
                 if market.network_status is not NetworkStatus.CONNECTED
             ]
             for offline_market in offline_markets:
-                self._notify(f"   x Market check:  {offline_market} is currently offline.")
-
-        self._notify("   - Market check: All markets ready")
+                self._notify(f"  - Exchange connector check: {offline_market} is currently offline.")
+            return False
         self.application_warning()
+        self._notify(f"  - All checks: Confirmed.")
         return True

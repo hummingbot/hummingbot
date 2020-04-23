@@ -6,10 +6,11 @@ from hummingbot.market.kucoin.kucoin_market import KucoinMarket
 from hummingbot.market.liquid.liquid_market import LiquidMarket
 from hummingbot.market.kraken.kraken_market import KrakenMarket
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
-from hummingbot.client.settings import EXCHANGES
+from hummingbot.client.settings import EXCHANGES, DEXES
 from hummingbot.client.config.security import Security
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.client.config.global_config_map import global_config_map
+from typing import Optional
 
 from web3 import Web3
 
@@ -36,14 +37,19 @@ class UserBalances:
             market = KrakenMarket(api_details[0], api_details[1])
         return market
 
+    # return error message if the _update_balances fails
     @staticmethod
-    async def _update_balances(market):
-        # Todo: Check first if _account_id is not already set, but the market objects need to expose this property.
-        if isinstance(market, HuobiMarket):
-            await market._update_account_id()
-        elif isinstance(market, KucoinMarket):
-            await market._update_account_id()
-        await market._update_balances()
+    async def _update_balances(market) -> Optional[str]:
+        try:
+            # Todo: Check first if _account_id is not already set, but the market objects need to expose this property.
+            if isinstance(market, HuobiMarket):
+                await market._update_account_id()
+            elif isinstance(market, KucoinMarket):
+                await market._update_account_id()
+            await market._update_balances()
+        except Exception as e:
+            return str(e)
+        return None
 
     @staticmethod
     def instance():
@@ -58,55 +64,46 @@ class UserBalances:
             UserBalances.__instance = self
         self._markets = {}
 
-    async def add_exchange(self, exchange, *api_details):
-        try:
-            market = UserBalances.connect_market(exchange, *api_details)
-            await UserBalances._update_balances(market)
+    async def add_exchange(self, exchange, *api_details) -> Optional[str]:
+        self._markets.pop(exchange, None)
+        market = UserBalances.connect_market(exchange, *api_details)
+        err_msg = await UserBalances._update_balances(market)
+        if err_msg is None:
             self._markets[exchange] = market
-        except Exception as e:
-            return str(e)
-        return None
+        return err_msg
 
     def all_balances(self, exchange):
         if exchange not in self._markets:
             return None
         return self._markets[exchange].get_all_balances()
 
-    # return True if fetching balances successfully
-    async def update_exchange_balance(self, exchange):
+    async def update_exchange_balance(self, exchange) -> Optional[str]:
         if exchange in self._markets:
-            await self._update_balances(self._markets[exchange])
-            return True
+            return await self._update_balances(self._markets[exchange])
         else:
             api_keys = await Security.api_keys(exchange)
             if api_keys:
-                await self.add_exchange(exchange, *api_keys.values())
-                return True
-        return False
+                return await self.add_exchange(exchange, *api_keys.values())
+            else:
+                return "API keys have not been added."
 
-    async def update_all(self, reconnect=False):
+    async def update_exchanges(self, reconnect=False, exchanges=EXCHANGES):
         tasks = []
-        updated_exchanges = []
+        # We can only update user exchange balances on CEXes, for DEX we'll need to implement web3 waller query later.
+        exchanges = [ex for ex in exchanges if ex not in DEXES]
         if reconnect:
             self._markets.clear()
-        for exchange in EXCHANGES:
-            if exchange in self._markets:
-                tasks.append(self._update_balances(self._markets[exchange]))
-                updated_exchanges.append(exchange)
-            else:
-                api_keys = await Security.api_keys(exchange)
-                if api_keys:
-                    tasks.append(self.add_exchange(exchange, *api_keys.values()))
-                    updated_exchanges.append(exchange)
+        for exchange in exchanges:
+            tasks.append(self.update_exchange_balance(exchange))
         results = await safe_gather(*tasks)
-        return {ex: err_msg for ex, err_msg in zip(updated_exchanges, results)}
+        return {ex: err_msg for ex, err_msg in zip(exchanges, results)}
 
     async def all_balances_all_exchanges(self):
-        await self.update_all()
+        await self.update_exchanges()
         return {k: v.get_all_balances() for k, v in self._markets.items()}
 
     async def balances(self, exchange, *symbols):
-        if await self.update_exchange_balance(exchange):
+        if await self.update_exchange_balance(exchange) is None:
             return {k: v for k, v in self.all_balances(exchange).items() if k in symbols}
 
     @staticmethod
