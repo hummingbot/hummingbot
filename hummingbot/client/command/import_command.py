@@ -7,7 +7,7 @@ from hummingbot.client.config.config_helpers import (
     format_config_file_name,
     validate_strategy_file
 )
-from hummingbot.client.settings import CONF_FILE_PATH, CONF_PREFIX
+from hummingbot.client.settings import CONF_FILE_PATH, CONF_PREFIX, required_exchanges
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -27,6 +27,7 @@ class ImportCommand:
         self.app.clear_input()
         self.placeholder_mode = True
         self.app.hide_input = True
+        required_exchanges.clear()
         if file_name is None:
             file_name = await self.prompt_a_file_name()
         strategy_path = os.path.join(CONF_FILE_PATH, file_name)
@@ -37,8 +38,8 @@ class ImportCommand:
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
-        if not await self.notify_missing_configs():
-            self._notify("Enter \"start\" to start market making.")
+        if await self.status_check_all():
+            self._notify("\nEnter \"start\" to start market making.")
             self.app.set_text("start")
 
     async def prompt_a_file_name(self  # type: HummingbotApplication

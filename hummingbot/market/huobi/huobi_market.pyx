@@ -70,7 +70,7 @@ HUOBI_ROOT_API = "https://api.huobi.pro/v1/"
 
 class HuobiAPIError(IOError):
     def __init__(self, error_payload: Dict[str, Any]):
-        super().__init__()
+        super().__init__(str(error_payload))
         self.error_payload = error_payload
 
 
