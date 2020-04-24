@@ -1,6 +1,16 @@
-# Paper Trading Mode
 
-This feature allows users to test Hummingbot and simulate trading strategies without risking any actual assets. An exchange account, Ethereum wallet and Ethereum address is also not required when using this feature.
+Toggle paper trade mode on and off. When paper trade mode is enabled, all orders are simulated and no real orders are placed.
+
+This feature allows users to test Hummingbot and simulate trading strategies without risking any actual assets.
+
+```
+>>>  paper_trade
+
+Enable paper trading mode (Yes/No) ? >>> Yes
+
+New configuration saved:
+paper_trade_enabled: True
+```
 
 ## Enabling and Disabling
 
@@ -57,4 +67,3 @@ Paper trade assets can be added in two ways:
 - Dolomite
 - Liquid
 - KuCoin
-- Kraken
