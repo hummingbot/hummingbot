@@ -20,7 +20,9 @@ class ConfigVar:
                  validator: Validator = lambda *args: None,
                  on_validated: OnValidated = lambda *args: None,
                  # Whether to prompt a user for value when new strategy config file is created
-                 prompt_on_new: bool = False):
+                 prompt_on_new: bool = False,
+                 # Whether this is a config var used in connect command
+                 is_connect_key: bool = False):
         self._prompt = prompt
         self.key = key
         self.value = None
@@ -31,6 +33,7 @@ class ConfigVar:
         self._validator = validator
         self._on_validated = on_validated
         self.prompt_on_new = prompt_on_new
+        self.is_connect_key = is_connect_key
 
     @property
     def prompt(self):

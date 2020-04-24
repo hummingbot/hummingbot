@@ -122,7 +122,6 @@ nav:
         - External Price Source: strategies/advanced-mm/price-source.md
       - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
       - Arbitrage: strategies/arbitrage.md
-      - Discovery: strategies/discovery.md
     - Connectors:
       - Overview: connectors/index.md
       - Binance: connectors/binance.md
@@ -171,7 +170,6 @@ nav:
         - Pure Market Making: developers/strategies/pure-market-making.md
         - Cross-Exchange Market Making: developers/strategies/cross-exchange-market-making.md
         - Arbitrage: developers/strategies/arbitrage.md
-        - Discovery: developers/strategies/discovery.md
         - TWAP: developers/strategies/twap.md
       - Connectors:
         - Intro: developers/connectors/index.md

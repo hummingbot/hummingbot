@@ -14,12 +14,6 @@ Also referred to as *liquidity mirroring* or *exchange remarketing*.  In this st
 
 Aims to capture price differentials between two different exchanges (buy low on one, sell high on the other).
 
-## [Discovery](/strategies/discovery)
-
-Assists in identifying arbitrage opportunities by examining different specified pairs across denoted exchanges and ranking them according to profitability.
-
-*This strategy is for informational purposes only and does not result in actual trading.*
-
 ---
 
 The [Hummingbot whitepaper](https://www.hummingbot.io/hummingbot.pdf) provides more details about these strategies, as well as additional ones that we are working on for future versions of Hummingbot.

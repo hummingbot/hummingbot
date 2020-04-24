@@ -41,8 +41,6 @@ def detect_available_port(starting_port: int) -> int:
 
 
 async def main():
-    chdir_to_data_directory()
-
     await create_yml_files()
 
     # This init_logging() call is important, to skip over the missing config warnings.
@@ -73,6 +71,7 @@ async def main():
 
 
 if __name__ == "__main__":
+    chdir_to_data_directory()
     if login_prompt():
         ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         ev_loop.run_until_complete(main())
