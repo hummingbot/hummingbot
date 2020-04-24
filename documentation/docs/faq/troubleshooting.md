@@ -283,18 +283,6 @@ This error occurs when the Binance API rate limit is reached. Causes include:
 
 Weight/Request error in logs happens when it encountered a warning or error and Hummingbot repeatedly sends the request (fetching status updates, placing/canceling orders, etc.) which resulted to getting banned. This should be lifted after a couple of hours or up to a maximum of 24 hours.
 
-### Error in saving Discovery result on Windows Binary
-
-```
-ERROR - Error saving discovery result as csv: 
-[Errno 2] No such file or directory: 'C:\\Program Files (x86)\\Hummingbot\\hummingbot\\strategy\\discovery\\../../../logs/discovery_strategy_output_2020-02-07-08-10-45.csv'
-```
-
-This error occurs when using Discovery strategy on Windows Binary Build of Hummingbot. Following steps below is a workaround for [GitHub Issue #1402](https://github.com/CoinAlpha/hummingbot/issues/1402).
-
-1. Create a new folder called `logs` under `Hummingbot` on your `C:\Program Files (x86)` for example `C:\Program Files (x86)\Hummingbot\logs`
-2. Then run `Hummingbot App` as administrator. To do this, press on your keyboard `CTRL + SHIFT` then click `Hummingbot App` to run `Hummingbot` as administrator, this will allow `Hummingbot App` to have a write permission on the created folder.
-
 ## Miscellaneous
 
 ### How do I resize my Hummingbot window without jumbling the text?
