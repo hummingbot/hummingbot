@@ -37,25 +37,24 @@ Enter the command `help` to see a list of commands:
 | Command | Function |
 |---------|----------|
 | `connect` | List available exchanges and add API keys to them |
-| `create` | Create a new bot. |
-| `import` | Import a existing bot by loading the configuration file. |
-| `help` | List available commands. |
-| `balance` | Display your asset balances across all connected exchanges. |
-| `config` | Display the current bot's configuration. |
-| `start` | Start the current bot. |
-| `stop` | Stop the current bot. |
-| `status` | Get the market status of the current bot. |
-| `history` | See the past performance of the current bot. |
-| `exit` | Exit and cancel all outstanding orders. |
-| `paper_trade` | Toggle [paper trade mode](/operation/paper-trade) on and off. |
-| `export_trades` | Export your bot's trades to a CSV file. |
-| `export_private_key` | Export your Ethereum wallet private key. |
+| `create` | Create a new bot |
+| `import` | Import a existing bot by loading the configuration file |
+| `help` | List available commands |
+| `balance` | Display your asset balances across all connected exchanges |
+| `config` | Display the current bot's configuration |
+| `start` | Start the current bot |
+| `stop` | Stop the current bot |
+| `status` | Get the market status of the current bot |
+| `history` | See the past performance of the current bot |
+| `exit` | Exit and cancel all outstanding orders |
+| `paper_trade` | Toggle paper trading mode |
+| `export` | Export your bot's trades or private keys |
 
 ## Enter API keys
 
-Hummingbot requires **read-only** and **trade enabled** API keys to access your exchange account. If you wish to test Hummingbot and simulate trading without risking actual assets, proceed to [enable paper trading mode](#enable-paper-trading-mode).
+Hummingbot requires **trade enabled** API keys to access your exchange account. If you wish to test Hummingbot and simulate trading without risking actual assets, proceed to [enable paper trading mode](#enable-paper-trading-mode).
 
-Enter the command `connect [exchange]` to connect your exchange account to Hummingbot by adding API keys.
+Enter the command `connect [exchange]` to connect your exchange account to Hummingbot by adding API keys, where `[exchange]`is one of the exchanges supported by Hummingbot. You can hit SPACE or start typing to see available options.
 
 ![](/assets/img/connect.gif)
 
