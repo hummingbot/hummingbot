@@ -104,7 +104,7 @@ class Security:
     def add_private_key(cls, private_key) -> str:
         # Add private key and return public key
         account = import_and_save_wallet(cls.password, private_key)
-        cls._private_keys[account.address] = private_key
+        cls._private_keys[account.address] = account.privateKey
         return account.address
 
     @classmethod

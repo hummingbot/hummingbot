@@ -18,7 +18,7 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.config.security import Security
 from hummingbot.user.user_balances import UserBalances
-from hummingbot.client.settings import required_exchanges
+from hummingbot.client.settings import required_exchanges, DEXES
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -80,18 +80,21 @@ class StatusCommand:
         if check_dev_mode() and len(self._app_warnings) > 0:
             self._notify(self._format_application_warnings())
 
-    async def invalid_connections(self) -> Dict[str, str]:
+    async def validate_required_connections(self) -> Dict[str, str]:
         if global_config_map.get("paper_trade_enabled").value:
             return {}
         await self.update_all_secure_configs()
         connections = await UserBalances.instance().update_exchanges(exchanges=required_exchanges)
         invalid_conns = {ex: err_msg for ex, err_msg in connections.items()
                          if ex in required_exchanges and err_msg is not None}
+        if any(ex in DEXES for ex in required_exchanges):
+            err_msg = UserBalances.validate_ethereum_wallet()
+            if err_msg is not None:
+                invalid_conns["ethereum"] = err_msg
         return invalid_conns
 
     def missing_configurations(self) -> List[str]:
         missing_globals = missing_required_configs(global_config_map)
-        missing_globals = [c for c in missing_globals if not c.is_api_key]
         missing_configs = missing_required_configs(get_strategy_config_map(self.strategy_name))
         return missing_globals + missing_configs
 
@@ -110,7 +113,7 @@ class StatusCommand:
             self._notify('  - Security check: Encrypted files are being processed. Please wait and try again later.')
             return False
 
-        invalid_conns = await self.invalid_connections()
+        invalid_conns = await self.validate_required_connections()
         if invalid_conns:
             self._notify('  - Exchange check: Invalid connections:')
             for ex, err_msg in invalid_conns.items():
