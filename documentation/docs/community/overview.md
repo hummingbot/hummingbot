@@ -1,0 +1,3 @@
+Welcome to the community contributions page, where we’ll list out all the community contributed projects of Hummingbot, show our recognition and appreciation to these community members who made the contributions and provide necessary resources for users who plan to make any kind of contributions. 
+
+Hummingbot is an open source community of developers who seek to democratize algo trading. We welcome contributions from anyone in various areas below.
