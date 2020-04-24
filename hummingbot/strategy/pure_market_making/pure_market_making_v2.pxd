@@ -19,6 +19,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         bint _order_optimization_enabled
         bint _add_transaction_costs_to_orders
 
+        double _cancel_timestamp
+        double _refresh_timestamp
         double _order_refresh_time
         double _expiration_seconds
         double _status_report_interval
