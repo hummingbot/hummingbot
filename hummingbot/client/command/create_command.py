@@ -76,7 +76,7 @@ class CreateCommand:
         self._notify(f"A new config file {self.strategy_file_name} created.")
         self.placeholder_mode = False
         self.app.hide_input = False
-        if await self.status():
+        if await self.status_check_all():
             self._notify("\nEnter \"start\" to start market making.")
             self.app.set_text("start")
 
