@@ -92,7 +92,7 @@ async def quick_start(args):
 
     if hb.strategy_name and hb.strategy_file_name:
         if not all_configs_complete(hb.strategy_name):
-            await hb.status()
+            hb.status()
 
     with patch_stdout(log_field=hb.app.log_field):
         dev_mode = check_dev_mode()
@@ -106,7 +106,7 @@ async def quick_start(args):
 
         if hb.strategy_file_name is not None and hb.strategy_name is not None:
             await write_config_to_yml(hb.strategy_name, hb.strategy_file_name)
-            await hb.start(log_level)
+            hb.start(log_level)
 
         tasks: List[Coroutine] = [hb.run()]
         if global_config_map.get("debug_console").value:
