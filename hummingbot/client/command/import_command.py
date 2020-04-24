@@ -38,7 +38,7 @@ class ImportCommand:
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
-        if await self.status():
+        if await self.status_check_all():
             self._notify("\nEnter \"start\" to start market making.")
             self.app.set_text("start")
 
