@@ -116,6 +116,20 @@ class UserBalances:
         return balance
 
     @staticmethod
+    def validate_ethereum_wallet() -> Optional[str]:
+        if global_config_map.get("ethereum_wallet").value is None:
+            return "Ethereum wallet is required."
+        if global_config_map.get("ethereum_rpc_url").value is None:
+            return "ethereum_rpc_url is required."
+        if global_config_map.get("ethereum_wallet").value not in Security.private_keys():
+            return "Ethereum private key file does not exist or corrupts."
+        try:
+            UserBalances.ethereum_balance()
+        except Exception as e:
+            return str(e)
+        return None
+
+    @staticmethod
     def base_amount_ratio(trading_pair, balances):
         base, quote = trading_pair.split("-")
         base_amount = balances.get(base, 0)
