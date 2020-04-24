@@ -44,7 +44,6 @@ def main():
         "hummingbot.strategy",
         "hummingbot.strategy.arbitrage",
         "hummingbot.strategy.cross_exchange_market_making",
-        "hummingbot.strategy.discovery",
         "hummingbot.strategy.pure_market_making",
         "hummingbot.templates",
         "hummingbot.wallet",

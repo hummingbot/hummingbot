@@ -104,12 +104,24 @@ nav:
       - Cloud Server Guide: installation/cloud.md
       - Updating Hummingbot: installation/updating.md
     - Operation:
-      - Hummingbot Client: operation/client.md
-      - Configuring Hummingbot: operation/configuration.md
-      - Command Reference: operation/commands.md
-      - Performance Analysis: operation/performance-analysis.md
-      - Paper Trading Mode: operation/paper-trade.md
-      - Running Trading Bots: operation/running-bots.md
+      - The Hummingbot Client: operation/client.md
+      - Configuring the Client: operation/configuration.md
+      - Command Reference:
+        - Overview: operation/commands/index.md
+        - create: operation/commands/create.md
+        - connect: operation/commands/connect.md
+        - import: operation/commands/import.md
+        - balance: operation/commands/balance.md
+        - config: operation/commands/config.md
+        - start: operation/commands/start.md
+        - stop: operation/commands/stop.md
+        - status: operation/commands/status.md
+        - history: operation/commands/history.md
+        - exit: operation/commands/exit.md
+        - paper_trade: operation/commands/paper-trade.md
+        - export: operation/commands/export.md
+      - Keyboard Shortcuts: operation/keyboard-shortcuts.md
+      - Docker Commands: operation/docker-commands.md
     - Strategies:
       - Overview: strategies/index.md
       - Pure Market Making: strategies/pure-market-making.md
@@ -124,7 +136,6 @@ nav:
         - External Price Source: strategies/advanced-mm/price-source.md
       - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
       - Arbitrage: strategies/arbitrage.md
-      - Discovery: strategies/discovery.md
     - Connectors:
       - Overview: connectors/index.md
       - Binance: connectors/binance.md
@@ -173,7 +184,6 @@ nav:
         - Pure Market Making: developers/strategies/pure-market-making.md
         - Cross-Exchange Market Making: developers/strategies/cross-exchange-market-making.md
         - Arbitrage: developers/strategies/arbitrage.md
-        - Discovery: developers/strategies/discovery.md
         - TWAP: developers/strategies/twap.md
       - Connectors:
         - Intro: developers/connectors/index.md
