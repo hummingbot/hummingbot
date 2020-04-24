@@ -30,19 +30,19 @@ class FixtureBittrex:
     ]
 
     ORDER_PLACE_FILLED = {"id": "d7850281-0440-4478-879f-248499b2134d", "marketSymbol": "ETH-USDT", "direction": "BUY",
-                          "type": "LIMIT", "quantity": "0.02000000", "limit": "268.09208274",
-                          "timeInForce": "GOOD_TIL_CANCELLED", "fillQuantity": "0.02000000", "commission": "0.01333791",
+                          "type": "LIMIT", "quantity": "0.06000000", "limit": "268.09208274",
+                          "timeInForce": "GOOD_TIL_CANCELLED", "fillQuantity": "0.06000000", "commission": "0.01333791",
                           "proceeds": "5.33516582", "status": "CLOSED", "createdAt": "2020-02-24T09:38:13.1Z",
                           "updatedAt": "2020-02-24T09:38:13.1Z", "closedAt": "2020-02-24T09:38:13.1Z"}
 
     ORDER_PLACE_OPEN = {"id": "615aa7de-3ff9-486d-98d7-2d37aca212c9", "marketSymbol": "ETH-USDT", "direction": "BUY",
-                        "type": "LIMIT", "quantity": "0.02000000", "limit": "205.64319999",
+                        "type": "LIMIT", "quantity": "0.06000000", "limit": "205.64319999",
                         "timeInForce": "GOOD_TIL_CANCELLED", "fillQuantity": "0.00000000", "commission": "0.00000000",
                         "proceeds": "0.00000000", "status": "OPEN", "createdAt": "2020-02-25T11:13:32.12Z",
                         "updatedAt": "2020-02-25T11:13:32.12Z"}
 
     ORDER_CANCEL = {"id": "615aa7de-3ff9-486d-98d7-2d37aca212c9", "marketSymbol": "ETH-USDT", "direction": "BUY",
-                    "type": "LIMIT", "quantity": "0.02000000", "limit": "205.64319999",
+                    "type": "LIMIT", "quantity": "0.06000000", "limit": "205.64319999",
                     "timeInForce": "GOOD_TIL_CANCELLED", "fillQuantity": "0.00000000", "commission": "0.00000000",
                     "proceeds": "0.00000000", "status": "CLOSED", "createdAt": "2020-02-25T11:13:32.12Z",
                     "updatedAt": "2020-02-25T11:13:33.63Z", "closedAt": "2020-02-25T11:13:33.63Z"}
@@ -63,7 +63,7 @@ class FixtureBittrex:
                                         'o': {'U': '00000000-0000-0000-0000-000000000000',
                                               'I': 4551095126,
                                               'OU': 'd67c837e-56c5-41e2-b65b-fe590eb06eaf',
-                                              'E': 'ETH-USDT', 'OT': 'LIMIT_BUY', 'Q': 0.02, 'q': 0.0,
+                                              'E': 'ETH-USDT', 'OT': 'LIMIT_BUY', 'Q': 0.06, 'q': 0.0,
                                               'X': 269.05759499, 'n': 0.01338594, 'P': 5.35437999,
                                               'PU': 267.7189995, 'Y': 1582540341630,
                                               'C': 1582540341630, 'i': False, 'CI': False, 'K': False,
@@ -76,7 +76,7 @@ class FixtureBittrex:
         'event_type': 'uO', 'content': {'w': 'f8907116-4e24-4602-b691-d110b5ce1bf8', 'N': 13, 'TY': 0,
                                         'o': {'U': '00000000-0000-0000-0000-000000000000', 'I': 4564385840,
                                               'OU': '615aa7de-3ff9-486d-98d7-2d37aca212c9', 'E': 'ETH-USDT',
-                                              'OT': 'LIMIT_BUY', 'Q': 0.02, 'q': 0.02, 'X': 205.64319999, 'n': 0.0,
+                                              'OT': 'LIMIT_BUY', 'Q': 0.06, 'q': 0.06, 'X': 205.64319999, 'n': 0.0,
                                               'P': 0.0, 'PU': 0.0, 'Y': 1582629212120, 'C': None, 'i': True,
                                               'CI': False, 'K': False, 'k': False, 'J': None, 'j': None,
                                               'u': 1582629212120, 'PassthroughUuid': None}}, 'error': None,
@@ -87,7 +87,7 @@ class FixtureBittrex:
                             'content': {'w': 'f8907116-4e24-4602-b691-d110b5ce1bf8', 'N': 10, 'TY': 2,
                                         'o': {'U': '00000000-0000-0000-0000-000000000000', 'I': 4279414326,
                                               'OU': '447256cc-9335-41f3-bec9-7392804d30cd', 'E': 'ETH-USDT',
-                                              'OT': 'LIMIT_SELL', 'Q': 0.02, 'q': 0.0, 'X': 257.72689, 'n': 0.0129511,
+                                              'OT': 'LIMIT_SELL', 'Q': 0.06, 'q': 0.0, 'X': 257.72689, 'n': 0.0129511,
                                               'P': 5.18044, 'PU': 259.022, 'Y': 1582627522640, 'C': 1582627522640,
                                               'i': False, 'CI': False, 'K': False, 'k': False, 'J': None, 'j': None,
                                               'u': 1582627522640, 'PassthroughUuid': None}}, 'error': None,

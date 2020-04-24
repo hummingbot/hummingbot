@@ -70,7 +70,7 @@ HUOBI_ROOT_API = "https://api.huobi.pro/v1/"
 
 class HuobiAPIError(IOError):
     def __init__(self, error_payload: Dict[str, Any]):
-        super().__init__()
+        super().__init__(str(error_payload))
         self.error_payload = error_payload
 
 
@@ -363,9 +363,9 @@ cdef class HuobiMarket(MarketBase):
         # https://www.hbg.com/en-us/about/fee/
 
         if order_type is OrderType.LIMIT and fee_overrides_config_map["huobi_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["huobi_maker_fee"].value)
+            return TradeFee(percent=fee_overrides_config_map["huobi_maker_fee"].value / Decimal("100"))
         if order_type is OrderType.MARKET and fee_overrides_config_map["huobi_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["huobi_taker_fee"].value)
+            return TradeFee(percent=fee_overrides_config_map["huobi_taker_fee"].value / Decimal("100"))
         return TradeFee(percent=Decimal("0.002"))
 
     async def _update_trading_rules(self):

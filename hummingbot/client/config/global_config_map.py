@@ -1,5 +1,6 @@
 import random
 from typing import Callable
+from decimal import Decimal
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.settings import (
     required_exchanges,
@@ -7,7 +8,10 @@ from hummingbot.client.settings import (
     DEFAULT_KEY_FILE_PATH,
     DEFAULT_LOG_FILE_PATH,
 )
-from hummingbot.client.config.config_validators import is_valid_bool
+from hummingbot.client.config.config_validators import (
+    validate_bool,
+    validate_decimal
+)
 
 
 def generate_client_id() -> str:
@@ -18,10 +22,6 @@ def generate_client_id() -> str:
 # Required conditions
 def paper_trade_disabled():
     return global_config_map.get("paper_trade_enabled").value is False
-
-
-def using_strategy(strategy: str) -> Callable:
-    return lambda: global_config_map.get("strategy").value == strategy
 
 
 def using_exchange(exchange: str) -> Callable:
@@ -95,7 +95,7 @@ global_config_map = {
                   type_str="bool",
                   default=False,
                   required_if=lambda: True,
-                  validator=is_valid_bool),
+                  validator=validate_bool),
     "paper_trade_account_balance":
         ConfigVar(key="paper_trade_account_balance",
                   prompt="Enter paper trade balance settings (Input must be valid json: "
@@ -114,105 +114,135 @@ global_config_map = {
         ConfigVar(key="binance_api_key",
                   prompt="Enter your Binance API key >>> ",
                   required_if=using_exchange("binance"),
-                  is_secure=True),
+                  is_secure=True,
+                  is_connect_key=True),
     "binance_api_secret":
         ConfigVar(key="binance_api_secret",
                   prompt="Enter your Binance API secret >>> ",
                   required_if=using_exchange("binance"),
-                  is_secure=True),
+                  is_secure=True,
+                  is_connect_key=True),
     "coinbase_pro_api_key":
         ConfigVar(key="coinbase_pro_api_key",
                   prompt="Enter your Coinbase API key >>> ",
                   required_if=using_exchange("coinbase_pro"),
-                  is_secure=True),
+                  is_secure=True,
+                  is_connect_key=True),
     "coinbase_pro_secret_key":
         ConfigVar(key="coinbase_pro_secret_key",
                   prompt="Enter your Coinbase secret key >>> ",
                   required_if=using_exchange("coinbase_pro"),
-                  is_secure=True),
+                  is_secure=True,
+                  is_connect_key=True),
     "coinbase_pro_passphrase":
         ConfigVar(key="coinbase_pro_passphrase",
                   prompt="Enter your Coinbase passphrase >>> ",
                   required_if=using_exchange("coinbase_pro"),
-                  is_secure=True),
+                  is_secure=True,
+                  is_connect_key=True),
     "huobi_api_key":
         ConfigVar(key="huobi_api_key",
                   prompt="Enter your Huobi API key >>> ",
                   required_if=using_exchange("huobi"),
-                  is_secure=True),
+                  is_secure=True,
+                  is_connect_key=True),
     "huobi_secret_key":
         ConfigVar(key="huobi_secret_key",
                   prompt="Enter your Huobi secret key >>> ",
                   required_if=using_exchange("huobi"),
-                  is_secure=True),
+                  is_secure=True,
+                  is_connect_key=True),
     "liquid_api_key":
         ConfigVar(key="liquid_api_key",
                   prompt="Enter your Liquid API key >>> ",
                   required_if=using_exchange("liquid"),
-                  is_secure=True),
+                  is_secure=True,
+                  is_connect_key=True),
     "liquid_secret_key":
         ConfigVar(key="liquid_secret_key",
                   prompt="Enter your Liquid secret key >>> ",
                   required_if=using_exchange("liquid"),
-                  is_secure=True),
+                  is_secure=True,
+                  is_connect_key=True),
     "bamboo_relay_use_coordinator":
         ConfigVar(key="bamboo_relay_use_coordinator",
                   prompt="Would you like to use the Bamboo Relay Coordinator? (Yes/No) >>> ",
                   required_if=lambda: False,
                   type_str="bool",
                   default=False,
-                  validator=is_valid_bool),
+                  validator=validate_bool),
     "bamboo_relay_pre_emptive_soft_cancels":
         ConfigVar(key="bamboo_relay_pre_emptive_soft_cancels",
                   prompt="Would you like to pre-emptively soft cancel orders? (Yes/No) >>> ",
                   required_if=lambda: False,
                   type_str="bool",
                   default=False,
-                  validator=is_valid_bool),
+                  validator=validate_bool),
     "bittrex_api_key":
         ConfigVar(key="bittrex_api_key",
                   prompt="Enter your Bittrex API key >>> ",
                   required_if=using_exchange("bittrex"),
-                  is_secure=True),
+                  is_secure=True,
+                  is_connect_key=True),
     "bittrex_secret_key":
         ConfigVar(key="bittrex_secret_key",
                   prompt="Enter your Bittrex secret key >>> ",
                   required_if=using_exchange("bittrex"),
-                  is_secure=True),
+                  is_secure=True,
+                  is_connect_key=True),
     "kucoin_api_key":
         ConfigVar(key="kucoin_api_key",
                   prompt="Enter your KuCoin API key >>> ",
                   required_if=using_exchange("kucoin"),
-                  is_secure=True),
+                  is_secure=True,
+                  is_connect_key=True),
     "kucoin_secret_key":
         ConfigVar(key="kucoin_secret_key",
                   prompt="Enter your KuCoin secret key >>> ",
                   required_if=using_exchange("kucoin"),
-                  is_secure=True),
+                  is_secure=True,
+                  is_connect_key=True),
     "kucoin_passphrase":
         ConfigVar(key="kucoin_passphrase",
                   prompt="Enter your KuCoin passphrase >>> ",
                   required_if=using_exchange("kucoin"),
-                  is_secure=True),
+                  is_secure=True,
+                  is_connect_key=True),
     "bitcoin_com_api_key":
         ConfigVar(key="bitcoin_com_api_key",
                   prompt="Enter your bitcoin_com API key >>> ",
                   required_if=using_exchange("bitcoin_com"),
-                  is_secure=True),
+                  is_secure=True,
+                  is_connect_key=True),
     "bitcoin_com_secret_key":
         ConfigVar(key="bitcoin_com_secret_key",
                   prompt="Enter your bitcoin_com secret key >>> ",
                   required_if=using_exchange("bitcoin_com"),
-                  is_secure=True),
-    "wallet":
-        ConfigVar(key="wallet",
-                  prompt="Would you like to import an existing wallet or create a new wallet? (import/create) >>> ",
-                  required_if=using_wallet,
-                  is_secure=True),
+                  is_secure=True,
+                  is_connect_key=True),
+    "kraken_api_key":
+        ConfigVar(key="kraken_api_key",
+                  prompt="Enter your Kraken API key >>> ",
+                  required_if=using_exchange("kraken"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "kraken_secret_key":
+        ConfigVar(key="kraken_secret_key",
+                  prompt="Enter your Kraken secret key >>> ",
+                  required_if=using_exchange("kraken"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "ethereum_wallet":
+        ConfigVar(key="ethereum_wallet",
+                  prompt="Enter your wallet private key >>> ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  is_connect_key=True),
     "ethereum_rpc_url":
         ConfigVar(key="ethereum_rpc_url",
                   prompt="Which Ethereum node would you like your client to connect to? >>> ",
-                  required_if=using_wallet),
+                  required_if=lambda: global_config_map["ethereum_wallet"].value is not None,
+                  is_connect_key=True),
     "ethereum_chain_name":
         ConfigVar(key="ethereum_chain_name",
                   prompt="What is your preferred ethereum chain name? >>> ",
@@ -255,13 +285,14 @@ global_config_map = {
                   required_if=paper_trade_disabled,
                   type_str="bool",
                   default=False,
-                  validator=is_valid_bool),
+                  validator=validate_bool),
     "kill_switch_rate":
         ConfigVar(key="kill_switch_rate",
                   prompt="At what profit/loss rate would you like the bot to stop? "
-                         "(e.g. -0.05 equals 5 percent loss) >>> ",
-                  type_str="float",
-                  default=-1,
+                         "(e.g. -5 equals 5 percent loss) >>> ",
+                  type_str="decimal",
+                  default=-100,
+                  validator=lambda v: validate_decimal(v, Decimal(-100), Decimal(100)),
                   required_if=lambda: global_config_map["kill_switch_enabled"].value),
     "telegram_enabled":
         ConfigVar(key="telegram_enabled",
@@ -292,6 +323,5 @@ global_config_map = {
                   prompt=None,
                   required_if=lambda: False,
                   type_str="json",
-                  default=MIN_QUOTE_ORDER_AMOUNTS,
-                  migration_default=MIN_QUOTE_ORDER_AMOUNTS),
+                  default=MIN_QUOTE_ORDER_AMOUNTS),
 }

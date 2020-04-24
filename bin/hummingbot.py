@@ -13,13 +13,14 @@ from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import (
     create_yml_files,
-    read_configs_from_yml
+    read_system_configs_from_yml
 )
 from hummingbot import (
     init_logging,
     check_dev_mode,
     chdir_to_data_directory
 )
+from hummingbot.client.ui import login_prompt
 from hummingbot.client.ui.stdout_redirection import patch_stdout
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
@@ -40,14 +41,12 @@ def detect_available_port(starting_port: int) -> int:
 
 
 async def main():
-    chdir_to_data_directory()
-
     await create_yml_files()
 
     # This init_logging() call is important, to skip over the missing config warnings.
     init_logging("hummingbot_logs.yml")
 
-    read_configs_from_yml()
+    read_system_configs_from_yml()
     ExchangeRateConversion.get_instance().start()
 
     hb = HummingbotApplication.main_application()
@@ -70,6 +69,9 @@ async def main():
             tasks.append(start_management_console(locals(), host="localhost", port=management_port))
         await safe_gather(*tasks)
 
+
 if __name__ == "__main__":
-    ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-    ev_loop.run_until_complete(main())
+    chdir_to_data_directory()
+    if login_prompt():
+        ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        ev_loop.run_until_complete(main())
