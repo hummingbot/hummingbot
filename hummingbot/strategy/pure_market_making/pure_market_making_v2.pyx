@@ -120,6 +120,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             (market_info.market, market_info.trading_pair): market_info
             for market_info in market_infos
         }
+        self._cancel_timestamp = 0
+        self._refresh_timestamp = 0
         self._all_markets_ready = False
         self._order_refresh_time = order_refresh_time
         self._expiration_seconds = expiration_seconds
@@ -672,6 +674,41 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         return (do_not_place_order,
                 PricingProposal(buy_prices_with_tx_costs, sell_prices_with_tx_costs))
 
+    cdef object c_orders_proposal(self, object market_info, list active_orders):
+        active_non_hanging_orders = [o for o in active_orders if o.client_order_id not in self._hanging_order_ids]
+        asset_mid_price = Decimal("0")
+        if self._asset_price_delegate is None:
+            asset_mid_price = market_info.get_mid_price()
+        else:
+            asset_mid_price = self._asset_price_delegate.c_get_mid_price()
+        pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self,
+                                                                             market_info,
+                                                                             active_non_hanging_orders,
+                                                                             asset_mid_price)
+        # If jump orders is enabled, run the penny jumped pricing proposal
+        if self._order_optimization_enabled:
+            pricing_proposal = self.c_get_penny_jumped_pricing_proposal(market_info,
+                                                                        pricing_proposal,
+                                                                        active_non_hanging_orders)
+
+        sizing_proposal = self._sizing_delegate.c_get_order_size_proposal(self,
+                                                                          market_info,
+                                                                          active_non_hanging_orders,
+                                                                          pricing_proposal)
+        if self._add_transaction_costs_to_orders:
+            no_order_placement, pricing_proposal = self.c_check_and_add_transaction_costs_to_pricing_proposal(
+                market_info,
+                pricing_proposal,
+                sizing_proposal)
+        return OrdersProposal(0,
+                              OrderType.LIMIT,
+                              pricing_proposal.buy_order_prices,
+                              sizing_proposal.buy_order_sizes,
+                              OrderType.LIMIT,
+                              pricing_proposal.sell_order_prices,
+                              sizing_proposal.sell_order_sizes,
+                              [])
+
     cdef object c_get_orders_proposal_for_market_info(self, object market_info, list active_orders):
         cdef:
             int actions = 0
@@ -860,6 +897,40 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                 f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
             )
+
+    cdef bool c_is_within_tolerance(self, list pv_list_1, list pv_list_2):
+        cdef double tolerance_pct = 0.001
+        if len(pv_list_1) != len(pv_list_2):
+            return False
+        pv_list_1 = sorted(pv_list_1, key=lambda x: x[0])
+        pv_list_2 = sorted(pv_list_2, key=lambda x: x[0])
+        for pv1, pv2 in zip(pv_list_1, pv_list_2):
+            if abs(pv1[0] - pv2[0])/pv2[0] > tolerance_pct or pv1[1] != pv2[1]:
+                return False
+        return True
+
+    cdef c_cancel_active_orders(self, object market_info, object orders_proposal):
+        if self._current_timestamp > min(self._cancel_timestamp, self._refresh_timestamp):
+            return
+        active_orders = [o for o in self.active_maker_orders if o.client_order_id not in self._hanging_order_ids]
+        to_cancel = True
+        if orders_proposal is not None:
+            buy_proposals = list(zip(orders_proposal.buy_order_prices, orders_proposal.buy_order_sizes))
+            sell_proposals = list(zip(orders_proposal.sell_order_prices, orders_proposal.sell_order_sizes))
+            active_buys = [[o.price, o.quantity] for o in active_orders if o.is_buy]
+            active_sells = [[o.price, o.quantity] for o in active_orders if not o.is_buy]
+            if self.c_is_within_tolerance(buy_proposals, active_buys) and \
+                    self.c_is_within_tolerance(sell_proposals, active_sells):
+                to_cancel = False
+        if to_cancel:
+            for order in active_orders:
+                self.c_cancel_order(market_info, order.order_id)
+        market_mid_price = market_info.get_mid_price()
+        for h_order_id in self._hanging_order_ids:
+            order = [o for o in active_orders if o.client_order_id == h_order_id]
+            if (order and market_mid_price > 0
+                    and abs(order.price - market_mid_price)/market_mid_price > self._hanging_orders_cancel_pct):
+                self.c_cancel_order(market_info, order.order_id)
 
     cdef c_execute_orders_proposal(self, object market_info, object orders_proposal):
         cdef:
