@@ -1,6 +1,8 @@
 # Performance Analysis
 
-The `history` command in Hummingbot will show the current session's past trades, inventory, market trading pair performance, and portfolio performance. Profit percentage is calculated based on assets spent and acquired during trades, i.e. balance changes due to the inventory like deposits, withdrawals, and manual trades outside of Hummingbot do not affect the calculation.
+The `history` command in Hummingbot will show the current session's past trades, inventory, market trading pair performance, and return percentage.
+
+**Return percentage** is calculated based on assets spent and acquired during trades, i.e. balance changes due to the inventory like deposits, withdrawals, and manual trades outside of Hummingbot do not affect the calculation.
 
 As an example, let's say we are trading on ETH-DAI token pair and made 4 trades.
 
@@ -21,6 +23,13 @@ Final delta percentage for each asset is defined by `acquired_amount / spent_amo
 
 Portfolio performance is also calculated as `total acquired / total spent` on both sides, converting base asset to quote asset using the latest price.
 
-Assuming ETH price is 100 DAI, performance portfolio for ETH-DAI is 3.3%
+Assuming ETH price is 100 DAI, return percentage for ETH-DAI is 3.3%
 
 ![total-performance-sample](/assets/img/performance_total.png)
+
+
+**Trade Value Delta** is calculated as the difference between the total assets acquired and total assets spent, specified in quote value.
+
+In the sample below, we acquired 33.6754 USDT and spent 0.2001 ETH after executing 4 trades. Multiply the base asset 0.2001 ETH to the end price 168.205 to get its equivalent quote value 33.6578 USDT.
+
+![](/assets/img/trade_value_delta.png)
