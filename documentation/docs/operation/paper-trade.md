@@ -57,3 +57,4 @@ Paper trade assets can be added in two ways:
 - Dolomite
 - Liquid
 - KuCoin
+- Kraken
