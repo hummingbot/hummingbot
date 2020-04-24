@@ -145,8 +145,11 @@ nav:
       - Telegram: advanced/telegram.md
       - Ethereum Wallet: advanced/wallet.md
       - Ethereum Node: advanced/node.md
-    - Community Contributions:
-      - Community Contributions: community-contributions/contributions.md  
+    - Community:
+      - Overview: community/overview.md  
+      - Community Contributions: community/contributions.md
+      - Events: community/events.md
+      - Contribution Guide: community/how_to.md
   - Developer Manual:
       - Intro: developers/index.md
       - Getting Started:
