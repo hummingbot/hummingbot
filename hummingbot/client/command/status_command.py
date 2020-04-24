@@ -5,7 +5,6 @@ from collections import (
     OrderedDict
 )
 from typing import List, Dict
-
 from hummingbot import check_dev_mode
 from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.market.market_base import MarketBase
@@ -19,6 +18,7 @@ from hummingbot.client.config.config_helpers import (
 from hummingbot.client.config.security import Security
 from hummingbot.user.user_balances import UserBalances
 from hummingbot.client.settings import required_exchanges, DEXES
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -98,8 +98,13 @@ class StatusCommand:
         missing_configs = missing_required_configs(get_strategy_config_map(self.strategy_name))
         return missing_globals + missing_configs
 
-    async def status(self,  # type: HummingbotApplication
-                     notify_success= True) -> bool:
+    def status(self,  # type: HummingbotApplication
+               ):
+        safe_ensure_future(self.status_check_all(), loop=self.ev_loop)
+
+    async def status_check_all(self,  # type: HummingbotApplication
+                               notify_success=True) -> bool:
+
         if self.strategy is not None:
             return self.strategy_status()
 
