@@ -9,7 +9,6 @@ from os.path import join
 from hummingbot.client.settings import (
     GLOBAL_CONFIG_PATH,
     CONF_FILE_PATH,
-    EXCHANGES
 )
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import (
@@ -44,7 +43,7 @@ class ConfigCommand:
             self.list_configs()
             return
         else:
-            if key not in self.get_all_available_config_keys():
+            if key not in self.config_able_keys():
                 self._notify("Invalid key, please choose from the list.")
                 return
             safe_ensure_future(self._config_single_key(key, value), loop=self.ev_loop)
@@ -66,13 +65,13 @@ class ConfigCommand:
             lines = ["    " + line for line in df.to_string(index=False).split("\n")]
             self._notify("\n".join(lines))
 
-    def get_all_available_config_keys(self  # type: HummingbotApplication
-                                      ) -> List[str]:
+    def config_able_keys(self  # type: HummingbotApplication
+                         ) -> List[str]:
         """
-        Returns a list of configurable keys, excluding exchanges api keys (they are set from connect command).
+        Returns a list of configurable keys - using config command, excluding exchanges api keys
+        as they are set from connect command.
         """
-        keys = [c.key for c in global_config_map.values() if c.prompt is not None and
-                not any(ex in c.key for ex in EXCHANGES)]
+        keys = [c.key for c in global_config_map.values() if c.prompt is not None and not c.is_connect_key]
         if self.strategy_config_map is not None:
             keys += [c.key for c in self.strategy_config_map.values() if c.prompt is not None]
         return keys

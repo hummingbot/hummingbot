@@ -293,7 +293,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     def active_orders_df(self, market_info) -> pd.DataFrame:
         mid_price = market_info.get_mid_price()
         active_orders = self.market_info_to_active_orders.get(market_info, [])
-        no_sells = len([o for o in active_orders if not o.is_buy])
+        no_sells = len([o for o in active_orders if not o.is_buy and o.client_order_id not in self._hanging_order_ids])
         active_orders.sort(key=lambda x: x.price, reverse=True)
         columns = ["Level", "Type", "Price", "Spread", "Amount (Orig)", "Amount (Adj)", "Age", "Hang"]
         data = []
@@ -305,21 +305,29 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         order_step_size = 0
         if hasattr(self._sizing_delegate, "order_step_size"):
             order_step_size = self._sizing_delegate.order_step_size
+        lvl_buy, lvl_sell = 0, 0
         for idx in range(0, len(active_orders)):
             order = active_orders[idx]
-            level = no_sells - idx if not order.is_buy else idx + 1 - no_sells
+            level = None
+            if order.client_order_id not in self._hanging_order_ids:
+                if order.is_buy:
+                    level = lvl_buy + 1
+                    lvl_buy += 1
+                else:
+                    level = no_sells - lvl_sell
+                    lvl_sell += 1
             spread = 0 if mid_price == 0 else abs(order.price - mid_price)/mid_price
             age = "n/a"
             if "-" in order.client_order_id:
-                age = pd.Timestamp(int(time.time()) - int(order.client_order_id.split("-")[-1])/1e6,
+                age = pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:])/1e6,
                                    unit='s').strftime('%H:%M:%S')
-            amount_orig = order_start_size + ((level - 1) * order_step_size)
+            amount_orig = "" if level is None else order_start_size + ((level - 1) * order_step_size)
             data.append([
-                level,
+                "" if level is None else level,
                 "buy" if order.is_buy else "sell",
                 float(order.price),
                 f"{spread:.2%}",
-                float(amount_orig),
+                amount_orig,
                 float(order.quantity),
                 age,
                 "yes" if order.client_order_id in self._hanging_order_ids else "no"
