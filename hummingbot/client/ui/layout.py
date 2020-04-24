@@ -68,11 +68,17 @@ HEADER = """
 Welcome to Hummingbot, an open source software client that helps you build and run
 high-frequency trading (HFT) bots.
 
-* Get 24/7 support: https://discord.hummingbot.io
-* Documentation and guides: https://docs.hummingbot.io
-* Earn token rewards via liquidity mining: https://hummingbot.io
+Helpful Links:
+- Get 24/7 support: https://discord.hummingbot.io
+- Learn how to use Hummingbot: https://docs.hummingbot.io
+- Earn liquidity rewards: https://miner.hummingbot.io
 
-Enter "config" to create a bot or "help" to see a list of commands.
+Useful Commands:
+- connect     List available exchanges and add API keys to them
+- create      Create a new bot
+- import      Import a existing bot by loading the configuration file
+- help        List available commands
+
 """
 
 with open(realpath(join(dirname(__file__), '../../VERSION'))) as version_file:

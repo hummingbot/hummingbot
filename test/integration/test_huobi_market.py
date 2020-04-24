@@ -181,7 +181,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
         taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.002"), taker_fee.percent)
-        fee_overrides_config_map["huobi_taker_fee"].value = Decimal('0.001')
+        fee_overrides_config_map["huobi_taker_fee"].value = Decimal('0.1')
         taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.001"), taker_fee.percent)
@@ -189,7 +189,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
         maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.002"), maker_fee.percent)
-        fee_overrides_config_map["huobi_maker_fee"].value = Decimal('0.005')
+        fee_overrides_config_map["huobi_maker_fee"].value = Decimal('0.5')
         maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
@@ -236,7 +236,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
     def test_limit_buy(self):
         trading_pair = "ethusdt"
 
-        amount: Decimal = Decimal("0.04")
+        amount: Decimal = Decimal("0.06")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         current_bid_price: Decimal = self.market.get_price(trading_pair, True)
@@ -267,7 +267,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
 
     def test_limit_sell(self):
         trading_pair = "ethusdt"
-        amount: Decimal = Decimal("0.04")
+        amount: Decimal = Decimal("0.06")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         current_ask_price: Decimal = self.market.get_price(trading_pair, False)
@@ -298,7 +298,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
 
     def test_market_buy(self):
         trading_pair = "ethusdt"
-        amount: Decimal = Decimal("0.04")
+        amount: Decimal = Decimal("0.06")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.MARKET, 0, 10001,
@@ -325,7 +325,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
 
     def test_market_sell(self):
         trading_pair = "ethusdt"
-        amount: Decimal = Decimal("0.04")
+        amount: Decimal = Decimal("0.06")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         order_id, _ = self.place_order(False, trading_pair, amount, OrderType.MARKET, 0, 10001,
@@ -354,7 +354,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
         trading_pair = "ethusdt"
 
         current_bid_price: Decimal = self.market.get_price(trading_pair, True)
-        amount: Decimal = Decimal("0.04")
+        amount: Decimal = Decimal("0.05")
 
         bid_price: Decimal = current_bid_price - Decimal("0.1") * current_bid_price
         quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
@@ -374,7 +374,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
 
         bid_price: Decimal = self.market_2.get_price(trading_pair, True) * Decimal("0.5")
         ask_price: Decimal = self.market_2.get_price(trading_pair, False) * 2
-        amount: Decimal = Decimal("0.05")
+        amount: Decimal = Decimal("0.06")
         quantized_amount: Decimal = self.market_2.quantize_order_amount(trading_pair, amount)
 
         # Intentionally setting invalid price to prevent getting filled
@@ -411,7 +411,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
             bid_price: Decimal = current_bid_price * Decimal("0.8")
             quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
 
-            amount: Decimal = Decimal("0.04")
+            amount: Decimal = Decimal("0.06")
             quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
             order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT,
@@ -485,7 +485,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
 
         try:
             # Try to buy 0.04 ETH from the exchange, and watch for completion event.
-            amount: Decimal = Decimal("0.04")
+            amount: Decimal = Decimal("0.06")
             order_id, _ = self.place_order(True, trading_pair, amount, OrderType.MARKET, 0, 10001,
                                            FixtureHuobi.ORDER_GET_MARKET_BUY)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))

@@ -14,7 +14,6 @@ from hummingbot.strategy.pure_market_making import (
     InventorySkewMultipleSizeSizingDelegate,
     PassThroughFilterDelegate,
     OrderBookAssetPriceDelegate,
-    DataFeedAssetPriceDelegate,
     APIAssetPriceDelegate
 )
 from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map as c_map
@@ -25,89 +24,83 @@ from decimal import Decimal
 
 def start(self):
     try:
-        order_size = c_map.get("order_amount").value
-        cancel_order_wait_time = c_map.get("cancel_order_wait_time").value
-        bid_place_threshold = c_map.get("bid_place_threshold").value
-        ask_place_threshold = c_map.get("ask_place_threshold").value
-        expiration_seconds = c_map.get("expiration_seconds").value
-        mode = c_map.get("mode").value
-        number_of_orders = c_map.get("number_of_orders").value
-        order_start_size = c_map.get("order_start_size").value
-        order_step_size = c_map.get("order_step_size").value
-        order_interval_percent = c_map.get("order_interval_percent").value
-        maker_market = c_map.get("maker_market").value.lower()
-        raw_maker_trading_pair = c_map.get("maker_market_trading_pair").value
+        order_amount = c_map.get("order_amount").value
+        order_refresh_time = c_map.get("order_refresh_time").value
+        bid_spread = c_map.get("bid_spread").value / Decimal('100')
+        ask_spread = c_map.get("ask_spread").value / Decimal('100')
+        order_expiration_time = c_map.get("order_expiration_time").value
+        order_levels = c_map.get("order_levels").value
+        order_level_amount = c_map.get("order_level_amount").value
+        order_level_spread = c_map.get("order_level_spread").value / Decimal('100')
+        exchange = c_map.get("exchange").value.lower()
+        raw_trading_pair = c_map.get("market").value
         inventory_skew_enabled = c_map.get("inventory_skew_enabled").value
-        inventory_target_base_percent = c_map.get("inventory_target_base_percent").value / Decimal('100')
+        inventory_target_base_pct = 0 if c_map.get("inventory_target_base_pct").value is None else \
+            c_map.get("inventory_target_base_pct").value / Decimal('100')
         inventory_range_multiplier = c_map.get("inventory_range_multiplier").value
-        filled_order_replenish_wait_time = c_map.get("filled_order_replenish_wait_time").value
-        enable_order_filled_stop_cancellation = c_map.get("enable_order_filled_stop_cancellation").value
-        cancel_hanging_order_pct = c_map.get("cancel_hanging_order_pct").value
-        best_bid_ask_jump_mode = c_map.get("best_bid_ask_jump_mode").value
-        best_bid_ask_jump_orders_depth = c_map.get("best_bid_ask_jump_orders_depth").value
+        filled_order_delay = c_map.get("filled_order_delay").value
+        hanging_orders_enabled = c_map.get("hanging_orders_enabled").value
+        hanging_orders_cancel_pct = c_map.get("hanging_orders_cancel_pct").value / Decimal('100')
+        order_optimization_enabled = c_map.get("order_optimization_enabled").value
+        order_optimization_depth = c_map.get("order_optimization_depth").value
         add_transaction_costs_to_orders = c_map.get("add_transaction_costs").value
-        external_pricing_source = c_map.get("external_pricing_source").value
-        external_price_source_type = c_map.get("external_price_source_type").value
-        external_price_source_exchange = c_map.get("external_price_source_exchange").value
-        external_price_source_exchange_trading_pair = c_map.get("external_price_source_exchange_trading_pair").value
-        external_price_source_feed_base_asset = c_map.get("external_price_source_feed_base_asset").value
-        external_price_source_feed_quote_asset = c_map.get("external_price_source_feed_quote_asset").value
-        external_price_source_custom_api = c_map.get("external_price_source_custom_api").value
+        price_source_enabled = c_map.get("price_source_enabled").value
+        price_source_type = c_map.get("price_source_type").value
+        price_source_exchange = c_map.get("price_source_exchange").value
+        price_source_market = c_map.get("price_source_market").value
+        price_source_custom = c_map.get("price_source_custom").value
 
         pricing_delegate = None
         sizing_delegate = None
         filter_delegate = PassThroughFilterDelegate()
 
-        if mode == "multiple":
-            pricing_delegate = ConstantMultipleSpreadPricingDelegate(bid_place_threshold,
-                                                                     ask_place_threshold,
-                                                                     order_interval_percent,
-                                                                     number_of_orders)
+        if order_levels > 1:
+            pricing_delegate = ConstantMultipleSpreadPricingDelegate(bid_spread,
+                                                                     ask_spread,
+                                                                     order_level_spread,
+                                                                     order_levels)
             if inventory_skew_enabled:
-                sizing_delegate = InventorySkewMultipleSizeSizingDelegate(order_start_size,
-                                                                          order_step_size,
-                                                                          number_of_orders,
-                                                                          inventory_target_base_percent,
+                sizing_delegate = InventorySkewMultipleSizeSizingDelegate(order_amount,
+                                                                          order_level_amount,
+                                                                          order_levels,
+                                                                          inventory_target_base_pct,
                                                                           inventory_range_multiplier)
             else:
-                sizing_delegate = StaggeredMultipleSizeSizingDelegate(order_start_size,
-                                                                      order_step_size,
-                                                                      number_of_orders)
+                sizing_delegate = StaggeredMultipleSizeSizingDelegate(order_amount,
+                                                                      order_level_amount,
+                                                                      order_levels)
         else:  # mode == "single"
-            pricing_delegate = ConstantSpreadPricingDelegate(bid_place_threshold,
-                                                             ask_place_threshold)
+            pricing_delegate = ConstantSpreadPricingDelegate(bid_spread,
+                                                             ask_spread)
             if inventory_skew_enabled:
-                sizing_delegate = InventorySkewSingleSizeSizingDelegate(order_size,
-                                                                        inventory_target_base_percent,
+                sizing_delegate = InventorySkewSingleSizeSizingDelegate(order_amount,
+                                                                        inventory_target_base_pct,
                                                                         inventory_range_multiplier)
             else:
-                sizing_delegate = ConstantSizeSizingDelegate(order_size)
+                sizing_delegate = ConstantSizeSizingDelegate(order_amount)
         try:
-            trading_pair: str = self._convert_to_exchange_trading_pair(maker_market, [raw_maker_trading_pair])[0]
-            maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [trading_pair])[0]
+            trading_pair: str = self._convert_to_exchange_trading_pair(exchange, [raw_trading_pair])[0]
+            maker_assets: Tuple[str, str] = self._initialize_market_assets(exchange, [trading_pair])[0]
         except ValueError as e:
             self._notify(str(e))
             return
 
-        market_names: List[Tuple[str, List[str]]] = [(maker_market, [trading_pair])]
+        market_names: List[Tuple[str, List[str]]] = [(exchange, [trading_pair])]
         self._initialize_wallet(token_trading_pairs=list(set(maker_assets)))
         self._initialize_markets(market_names)
         self.assets = set(maker_assets)
-        maker_data = [self.markets[maker_market], trading_pair] + list(maker_assets)
+        maker_data = [self.markets[exchange], trading_pair] + list(maker_assets)
         self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
         asset_price_delegate = None
-        if external_pricing_source:
-            if external_price_source_type == "exchange":
+        if price_source_enabled:
+            if price_source_type == "exchange":
                 asset_trading_pair: str = self._convert_to_exchange_trading_pair(
-                    external_price_source_exchange, [external_price_source_exchange_trading_pair])[0]
-                ext_market = create_paper_trade_market(external_price_source_exchange, [asset_trading_pair])
-                self.markets[external_price_source_exchange]: MarketBase = ext_market
+                    price_source_exchange, [price_source_market])[0]
+                ext_market = create_paper_trade_market(price_source_exchange, [asset_trading_pair])
+                self.markets[price_source_exchange]: MarketBase = ext_market
                 asset_price_delegate = OrderBookAssetPriceDelegate(ext_market, asset_trading_pair)
-            elif external_price_source_type == "feed":
-                asset_price_delegate = DataFeedAssetPriceDelegate(external_price_source_feed_base_asset,
-                                                                  external_price_source_feed_quote_asset)
-            elif external_price_source_type == "custom_api":
-                asset_price_delegate = APIAssetPriceDelegate(external_price_source_custom_api)
+            elif price_source_type == "custom_api":
+                asset_price_delegate = APIAssetPriceDelegate(price_source_custom)
         else:
             asset_price_delegate = None
 
@@ -117,16 +110,16 @@ def start(self):
                                                    pricing_delegate=pricing_delegate,
                                                    filter_delegate=filter_delegate,
                                                    sizing_delegate=sizing_delegate,
-                                                   filled_order_replenish_wait_time=filled_order_replenish_wait_time,
-                                                   enable_order_filled_stop_cancellation=enable_order_filled_stop_cancellation,
-                                                   cancel_order_wait_time=cancel_order_wait_time,
-                                                   best_bid_ask_jump_mode=best_bid_ask_jump_mode,
-                                                   best_bid_ask_jump_orders_depth=best_bid_ask_jump_orders_depth,
+                                                   filled_order_delay=filled_order_delay,
+                                                   hanging_orders_enabled=hanging_orders_enabled,
+                                                   order_refresh_time=order_refresh_time,
+                                                   order_optimization_enabled=order_optimization_enabled,
+                                                   order_optimization_depth=order_optimization_depth,
                                                    add_transaction_costs_to_orders=add_transaction_costs_to_orders,
                                                    logging_options=strategy_logging_options,
                                                    asset_price_delegate=asset_price_delegate,
-                                                   expiration_seconds=expiration_seconds,
-                                                   cancel_hanging_order_pct=cancel_hanging_order_pct)
+                                                   expiration_seconds=order_expiration_time,
+                                                   hanging_orders_cancel_pct=hanging_orders_cancel_pct)
     except Exception as e:
         self._notify(str(e))
         self.logger().error("Unknown error during initialization.", exc_info=True)

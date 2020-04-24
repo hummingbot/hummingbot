@@ -195,7 +195,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
         taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.0025"), taker_fee.percent)
-        fee_overrides_config_map["bittrex_taker_fee"].value = Decimal('0.002')
+        fee_overrides_config_map["bittrex_taker_fee"].value = Decimal('0.2')
         taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.002"), taker_fee.percent)
@@ -203,7 +203,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
         maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.0025"), maker_fee.percent)
-        fee_overrides_config_map["bittrex_maker_fee"].value = Decimal('0.005')
+        fee_overrides_config_map["bittrex_maker_fee"].value = Decimal('0.5')
         maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
@@ -249,7 +249,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
         bid_price: Decimal = current_bid_price * Decimal('1.005')
         quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
 
-        amount: Decimal = Decimal("0.02")
+        amount: Decimal = Decimal("0.06")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price,
@@ -280,7 +280,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
         ask_price: Decimal = current_ask_price - Decimal('0.005') * current_ask_price
         quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price)
 
-        amount: Decimal = Decimal("0.02")
+        amount: Decimal = Decimal("0.06")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         order_id, _ = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT, quantize_ask_price,
@@ -308,7 +308,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
         self.assertGreater(self.market.get_balance("USDT"), 20)
         trading_pair = "ETH-USDT"
 
-        amount: Decimal = Decimal("0.02")
+        amount: Decimal = Decimal("0.06")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.MARKET, 0, 10001,
@@ -334,9 +334,9 @@ class BittrexMarketUnitTest(unittest.TestCase):
 
     def test_market_sell(self):
         trading_pair = "ETH-USDT"
-        self.assertGreater(self.market.get_balance("ETH"), 0.02)
+        self.assertGreater(self.market.get_balance("ETH"), 0.06)
 
-        amount: Decimal = Decimal("0.02")
+        amount: Decimal = Decimal("0.06")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         order_id, _ = self.place_order(False, trading_pair, quantized_amount, OrderType.MARKET, 0, 10001,
@@ -365,7 +365,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
         current_bid_price: Decimal = self.market.get_price(trading_pair, True) * Decimal('0.80')
         quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, current_bid_price)
 
-        amount: Decimal = Decimal("0.02")
+        amount: Decimal = Decimal("0.06")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT,
@@ -383,12 +383,12 @@ class BittrexMarketUnitTest(unittest.TestCase):
 
         current_bid_price: Decimal = self.market.get_price(trading_pair, True) * Decimal('0.80')
         quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, current_bid_price)
-        bid_amount: Decimal = Decimal('0.02')
+        bid_amount: Decimal = Decimal('0.06')
         quantized_bid_amount: Decimal = self.market.quantize_order_amount(trading_pair, bid_amount)
 
         current_ask_price: Decimal = self.market.get_price(trading_pair, False)
         quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, current_ask_price)
-        ask_amount: Decimal = Decimal('0.02')
+        ask_amount: Decimal = Decimal('0.06')
         quantized_ask_amount: Decimal = self.market.quantize_order_amount(trading_pair, ask_amount)
 
         _, exch_order_id_1 = self.place_order(True, trading_pair, quantized_bid_amount, OrderType.LIMIT,
@@ -416,7 +416,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
 
         current_bid_price: Decimal = self.market.get_price(trading_pair, True) * Decimal('0.80')
         quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, current_bid_price)
-        bid_amount: Decimal = Decimal('0.02')
+        bid_amount: Decimal = Decimal('0.06')
         quantized_bid_amount: Decimal = self.market.quantize_order_amount(trading_pair, bid_amount)
 
         self.market.buy(trading_pair, quantized_bid_amount, OrderType.LIMIT, quantize_bid_price)
@@ -442,7 +442,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
             self.assertEqual(0, len(self.market.tracking_states))
             current_bid_price: Decimal = self.market.get_price(trading_pair, True) * Decimal('0.80')
             quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, current_bid_price)
-            bid_amount: Decimal = Decimal('0.02')
+            bid_amount: Decimal = Decimal('0.06')
             quantized_bid_amount: Decimal = self.market.quantize_order_amount(trading_pair, bid_amount)
 
             order_id, exch_order_id = self.place_order(True, trading_pair, quantized_bid_amount, OrderType.LIMIT,
@@ -516,7 +516,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
 
         try:
 
-            amount: Decimal = Decimal("0.02")
+            amount: Decimal = Decimal("0.06")
             quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
             order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.MARKET, 0, 10001,
                                            FixtureBittrex.ORDER_PLACE_FILLED, FixtureBittrex.WS_ORDER_FILLED)

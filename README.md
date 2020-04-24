@@ -42,44 +42,41 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | [Pure market making](https://docs.hummingbot.io/strategies/pure-market-making/) | [![Build Status](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-strategy_pure_mm&subject=test)](https://jenkins-02.coinalpha.com/job/hb_test-strategy_pure_mm/) |
 | [Cross exchange market making](https://docs.hummingbot.io/strategies/cross-exchange-market-making/) | [![Build Status](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-strategy_xemm&subject=test)](https://jenkins-02.coinalpha.com/job/hb_test-strategy_xemm/) |
 | [Arbitrage](https://docs.hummingbot.io/strategies/arbitrage/) | [![Build Status](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-strategy_arbitrage&subject=test)](https://jenkins-02.coinalpha.com/job/hb_test-strategy_arbitrage/) |
-| [Discovery](https://docs.hummingbot.io/strategies/discovery/) | [![Build Status](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-strategy_discovery&subject=test)](https://jenkins-02.coinalpha.com/job/hb_test-strategy_discovery/) |
 
 ## Getting Started
 
 ### Learn more about Hummingbot
 
-- [Hummingbot website](https://hummingbot.io)
+- [Website](https://hummingbot.io)
 - [Documentation](https://docs.hummingbot.io)
-- [Read our blog](https://www.hummingbot.io/blog)
-- [Whitepaper](https://hummingbot.io/whitepaper.pdf)
 - [FAQs](https://docs.hummingbot.io/faq/)
-- [Roadmap](https://docs.hummingbot.io/roadmap/): including planned features
 
 ### Install Hummingbot
 
-- [Installation guide](https://docs.hummingbot.io/installation/)
+- [Quickstart guide](https://docs.hummingbot.io/quickstart/)
+- [All installation options](https://docs.hummingbot.io/installation/)
 - [Installation scripts](./installation/)
+
+### Get support
+- Chat with our support team on [Discord](https://discord.hummingbot.io)
+- Email us at support@hummingbot.io
+
+### Chat with other traders
+- Join our community on [Discord](https://discord.coinalpha.com) or [Reddit](https://www.reddit.com/r/Hummingbot/)
+- Follow Hummingbot on [Twitter](https://twitter.com/hummingbot_io)
 
 ## Contributions
 
 We welcome contributions from the community:
-- **Code contributions** via [pull requests](./pulls).
-- **Bug reports** / **feature requests** through [github issues](./issues).
-- **Development discussions**: visit the [Hummingbot Dev Forum](https://forum.hummingbot.io).
-- [**Hummingbot code base**](./hummingbot): located in the `hummingbot/` folder
-- When contributing, please review the [contributing guidelines](CONTRIBUTING.md).
+- **Code and documentation contributions** via [pull requests](https://github.com/CoinAlpha/hummingbot/pulls)
+- **Bug reports and feature requests** through [Github issues](https://github.com/CoinAlpha/hummingbot/issues)
+- When contributing, please review the [contributing guidelines](CONTRIBUTING.md)
 
-## Contact
+## About us
 
-### Hummingbot community
-- Join us on [Discord](https://discord.coinalpha.com).
-- Follow Hummingbot on [Twitter](https://twitter.com/hummingbot_io).
+Hummingbot was created and is maintained by CoinAlpha, Inc. We are [a global team of engineers and traders](https://hummingbot.io/about/).
 
-### CoinAlpha
-
-Hummingbot was created and is maintained by [CoinAlpha](https://www.coinalpha.com).
-
-- **General**: contact us at [dev@hummingbot.io](mailto:dev@hummingbot.io) or join our [Discord server](https://discord.coinalpha.com).
+- **General**: contact us at [dev@hummingbot.io](mailto:dev@hummingbot.io) or join our [Discord server](https://discord.hummingbot.io).
 - **Business inquiries**: contact us at [partnerships@hummingbot.io](mailto:partnerships@hummingbot.io).
 
 ## Legal
