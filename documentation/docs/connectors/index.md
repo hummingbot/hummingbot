@@ -18,6 +18,7 @@ Connectors are packages of code that link Hummingbot's internal trading algorith
 * [Bittrex Global](/connectors/bittrex)
 * [Liquid](/connectors/liquid)
 * [KuCoin](/connectors/kucoin)
+* [Kraken](/connectors/kraken)
 * [Radar Relay](/connectors/radar-relay)
 
 ## Community-Contributed Exchange Connectors
@@ -45,5 +46,3 @@ Please contact the support contact listed in the above table for support questio
 
 * Bitfinex
 * HitBTC
-* Kraken
-* gate.io
