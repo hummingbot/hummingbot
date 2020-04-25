@@ -104,12 +104,24 @@ nav:
       - Cloud Server Guide: installation/cloud.md
       - Updating Hummingbot: installation/updating.md
     - Operation:
-      - Hummingbot Client: operation/client.md
-      - Configuring Hummingbot: operation/configuration.md
-      - Command Reference: operation/commands.md
-      - Performance Analysis: operation/performance-analysis.md
-      - Paper Trading Mode: operation/paper-trade.md
-      - Running Trading Bots: operation/running-bots.md
+      - The Hummingbot Client: operation/client.md
+      - Configuring the Client: operation/configuration.md
+      - Command Reference:
+        - Overview: operation/commands/index.md
+        - create: operation/commands/create.md
+        - connect: operation/commands/connect.md
+        - import: operation/commands/import.md
+        - balance: operation/commands/balance.md
+        - config: operation/commands/config.md
+        - start: operation/commands/start.md
+        - stop: operation/commands/stop.md
+        - status: operation/commands/status.md
+        - history: operation/commands/history.md
+        - exit: operation/commands/exit.md
+        - paper_trade: operation/commands/paper-trade.md
+        - export: operation/commands/export.md
+      - Keyboard Shortcuts: operation/keyboard-shortcuts.md
+      - Docker Commands: operation/docker-commands.md
     - Strategies:
       - Overview: strategies/index.md
       - Pure Market Making: strategies/pure-market-making.md
@@ -117,8 +129,10 @@ nav:
         - Overview: strategies/advanced-mm/index.md
         - Multiple Orders: strategies/advanced-mm/multiple-orders.md
         - Inventory Skew: strategies/advanced-mm/inventory-skew.md
+        - Filled Order Delay: strategies/advanced-mm/filled-order-delay.md
         - Hanging Orders: strategies/advanced-mm/hanging-orders.md
-        - Best Bid Ask Jumping: strategies/advanced-mm/penny-jumping.md
+        - Order Optimization: strategies/advanced-mm/order-optimization.md
+        - Adding Transaction Costs: strategies/advanced-mm/add-transaction-costs.md
         - External Price Source: strategies/advanced-mm/price-source.md
       - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
       - Arbitrage: strategies/arbitrage.md
@@ -130,6 +144,7 @@ nav:
       - Bittrex Global: connectors/bittrex.md
       - Liquid: connectors/liquid.md
       - KuCoin: connectors/kucoin.md
+      - Kraken: connectors/kraken.md
       - Radar Relay: connectors/radar-relay.md
       - Community Connectors:
         - Bamboo Relay: connectors/bamboo-relay.md
@@ -185,6 +200,7 @@ nav:
       - Configuration: developers/config.md
   - Release Notes:
     - About Releases: release-notes/index.md
+    - 0.26.0: release-notes/0.26.0.md
     - 0.25.0: release-notes/0.25.0.md
     - 0.24.1: release-notes/0.24.1.md
     - 0.24.0: release-notes/0.24.0.md
