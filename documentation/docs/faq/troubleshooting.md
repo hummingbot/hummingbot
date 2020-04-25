@@ -283,6 +283,18 @@ This error occurs when the Binance API rate limit is reached. Causes include:
 
 Weight/Request error in logs happens when it encountered a warning or error and Hummingbot repeatedly sends the request (fetching status updates, placing/canceling orders, etc.) which resulted to getting banned. This should be lifted after a couple of hours or up to a maximum of 24 hours.
 
+### [Kraken] 0 Balance error
+
+**Sample log error message**<br/>
+```
+Failed connections:                                                                                      |
+    kraken: {'error': {'error': []}}
+
+10:12:24 - kraken_market - Error received from https://api.kraken.com/0/private/Balance. Response is {'error': []}.
+```
+
+This error occurs when Kraken account is not verified and no current funds on the exchange. Get verified and fund your account to fix the error. For more info visit this [article](https://support.kraken.com/hc/en-us/articles/360001491786-API-Error-Codes).
+
 ## Miscellaneous
 
 ### How do I resize my Hummingbot window without jumbling the text?
