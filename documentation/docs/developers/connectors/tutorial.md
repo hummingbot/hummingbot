@@ -282,7 +282,6 @@ Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | D
 `limit_orders` | `None` | `List[LimitOrder]` | Returns a list of active limit orders being tracked.
 `tracking_states` | `None` | `Dict[str, any]` | Returns a mapping of tracked client order IDs to the respective `InFlightOrder`. Used by the `MarketsRecorder` class to orchestrate market classes at a high level.
 `restore_tracking_states` | `None` | `None` | Updates InFlight order statuses from API results. This is used by the `MarketRecorder` class to orchestrate market classes at a higher level.
-`get_active_exchange_markets` | `None` | `pandas.DataFrame` | Used by the discovery strategy to read order books of all actively trading markets, and find opportunities for profit.
 `start_network` | `None` | `None` | An asynchronous wrapper function used by `NetworkBase` class to handle when a single market goes online.
 `stop_network` | `None` | `None` | An asynchronous wrapper function for `_stop_network`. Used by `NetworkBase` class to handle when a single market goes offline.
 `check_network` | `None` | `NetworkStatus` | `An asynchronous function used by `NetworkBase` class to check if the market is online/offline.

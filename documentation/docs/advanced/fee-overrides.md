@@ -16,7 +16,7 @@ Edit `conf_fee_overrides.yml` file using a text editor which is located in the `
 ### Fee override configuration by default
 
 ```
-# Exchange trading fees, the values are in precise decimal, e.g. 0.001 for 0.1%.
+# Exchange trading fees, the values are in precise decimal, e.g. 0.1 for 0.1%.
 # If the value is left blank, the default value (from corresponding market connector) will be used.
 
 binance_maker_fee:
