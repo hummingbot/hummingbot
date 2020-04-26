@@ -50,14 +50,12 @@ paper_trade_account_balance:
   - 1000
 ```
 
-!!! note
-    The [balance](/operation/commands/balance/) command does not work to get paper trading balances.
 
 Paper trade assets can be added in two ways:
 
 1. From the Hummingbot client run command `config paper_trade_account_balance` and enter values exactly as shown in the prompt.
 ![](/assets/img/paper_trade_balance.gif)
-2. Edit `conf_global.yml` in the `/conf` or `hummingbot_conf` folder using a text editor. **Strictly follow the same [format above](/operation/commands/paper-trade/#account-balance)**.
+2. Edit `conf_global.yml` in the `/conf` or `hummingbot_conf` folder using a text editor. **Strictly follow the same format above**.
 
 !!! warning
     When adding balances, make sure to exit and restart Hummingbot for the changes to take effect.
