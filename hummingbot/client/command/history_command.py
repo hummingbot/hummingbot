@@ -10,12 +10,15 @@ from typing import (
     Tuple,
     Optional,
     TYPE_CHECKING,
+    List
 )
 from hummingbot.client.performance_analysis import PerformanceAnalysis
 from hummingbot.market.market_base import MarketBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from datetime import datetime
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.settings import MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT
+from hummingbot.model.trade_fill import TradeFill
 
 s_float_0 = float(0)
 
@@ -153,3 +156,32 @@ class HistoryCommand:
         except Exception:
             self.logger().error("Unexpected error running performance analysis.", exc_info=True)
             self._notify("Error running performance analysis.")
+
+    def list_trades(self,  # type: HummingbotApplication
+                    ):
+        if threading.current_thread() != threading.main_thread():
+            self.ev_loop.call_soon_threadsafe(self.list_trades)
+            return
+
+        lines = []
+        if self.strategy is None:
+            self._notify("Bot not started. No past trades.")
+        else:
+            # Query for maximum number of trades to display + 1
+            queried_trades: List[TradeFill] = self._get_trades_from_session(self.init_time,
+                                                                            MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT + 1)
+            df: pd.DataFrame = TradeFill.to_pandas(queried_trades)
+
+            if len(df) > 0:
+                # Check if number of trades exceed maximum number of trades to display
+                if len(df) > MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT:
+                    df_lines = str(df[:MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT]).split("\n")
+                    self._notify(
+                        f"\n  Showing last {MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT} trades in the current session.")
+                else:
+                    df_lines = str(df).split("\n")
+                lines.extend(["", "  Recent trades:"] +
+                             ["    " + line for line in df_lines])
+            else:
+                lines.extend(["\n  No past trades in this session."])
+            self._notify("\n".join(lines))
