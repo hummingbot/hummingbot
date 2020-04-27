@@ -10,7 +10,7 @@ Liquidity mining is a community-based, data-driven approach to market making, in
 Liquidity mining sets forth an analytical framework for determining market maker compensation based on (1) time (order book consistency), (2) order spreads, and (3) order sizes, in order to create a fair model for compensation that aligns a miner's risk with rewards.
 
 ## Getting started
-- [Hummingbot Miners](https://hummingbot.io/liquidity-mining): The **official Liquidity Mining app** where you can see real-time rates of return and track your payouts
+- [Hummingbot Miners](https://miners.hummingbot.io/): The **official Liquidity Mining app** where you can see real-time rates of return and track your payouts
 - [Get help on Discord](https://discord.hummingbot.io): Join the **#liquidity-mining** channel for 24/7 support
 - [How it works](https://hummingbot.io/liquidity-mining)
 - [Hummingbot Quickstart Guide](https://docs.hummingbot.io/quickstart)
