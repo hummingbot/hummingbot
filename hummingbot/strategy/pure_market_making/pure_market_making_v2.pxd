@@ -39,9 +39,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         OrderSizingDelegate _sizing_delegate
         AssetPriceDelegate _asset_price_delegate
 
-    cdef object c_get_orders_proposal_for_market_info(self,
-                                                      object market_info,
-                                                      list active_maker_orders)
     cdef c_execute_orders_proposal(self,
                                    object market_info,
                                    object orders_proposal)
