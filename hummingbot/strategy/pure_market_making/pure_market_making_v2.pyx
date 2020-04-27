@@ -451,6 +451,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 self._sb_delegate_lock = True
                 orders_proposal = None
                 active_orders = market_info_to_active_orders.get(market_info, [])
+                active_non_hangings = [o for o in active_orders if o.client_order_id not in self._hanging_order_ids]
                 try:
                     if self._create_timestamp <= self._current_timestamp:
                         orders_proposal = self.c_create_orders_proposals(
@@ -465,13 +466,14 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 #                                                                    market_info,
                 #                                                                    market_info_to_active_orders.get(market_info, []),
                 #                                                                    orders_proposal)
-                canceled = self.c_cancel_active_orders(market_info, orders_proposal)
-                if orders_proposal is not None and (canceled or len(active_orders) == 0):
+                canceling_deferred = self.c_cancel_active_orders(market_info, orders_proposal)
+                self.c_cancel_hanging_orders(market_info)
+                if orders_proposal is not None and not canceling_deferred:
                     # if canceled:
                     #     time.sleep(0.1)
                     orders_proposal = self.c_filter_orders_proposal_for_takers(market_info, orders_proposal)
                     self.c_execute_orders_proposal(market_info, orders_proposal)
-                self.set_timers(market_info)
+                # self.set_timers(market_info)
         finally:
             self._last_timestamp = timestamp
 
@@ -820,10 +822,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                     )
 
     cdef c_did_complete_buy_order(self, object order_completed_event):
-        print(f"order_id: {order_completed_event.order_id}")
-        orders = self.market_info_to_active_orders.get(list(self._market_infos.values())[0], [])
-        for order in orders:
-            print(f"  active order: {order}")
         cdef:
             str order_id = order_completed_event.order_id
             object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
@@ -842,8 +840,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             if order_id in self._hanging_order_ids:
                 return
 
-        if len(active_sell_orders) > 0:
-            self._create_timestamp = self._current_timestamp + self._filled_order_delay
+        self._create_timestamp = self._current_timestamp + self._filled_order_delay
+        self._cancel_timestamp = min(self._cancel_timestamp, self._create_timestamp)
 
         # if filled order is buy, adjust the cancel time for sell order
         # For syncing buy and sell orders during order completed events
@@ -889,8 +887,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             if order_id in self._hanging_order_ids:
                 return
 
-        if len(active_buy_orders) > 0:
-            self._create_timestamp = self._current_timestamp + self._filled_order_delay
+        self._create_timestamp = self._current_timestamp + self._filled_order_delay
+        self._cancel_timestamp = min(self._cancel_timestamp, self._create_timestamp)
 
         # if filled order is sell, adjust the cancel time for buy order
         # For syncing buy and sell orders during order completed events
@@ -923,50 +921,58 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         pv_list_1 = sorted(pv_list_1, key=lambda x: x[0])
         pv_list_2 = sorted(pv_list_2, key=lambda x: x[0])
         for pv1, pv2 in zip(pv_list_1, pv_list_2):
-            self.logger().info(f"pv1 {pv1} pv2 {pv2}")
             if abs(pv1[0] - pv2[0])/pv2[0] > self._order_refresh_tolerance_spread or pv1[1] != pv2[1]:
                 return False
         return True
 
+    # Cancel active non hanging orders
+    # Return value: whether order refresh tolerance is triggered, i.e. defer canceling to the next cycle if
+    # the new order proposal is within a tolerance spread.
     cdef bint c_cancel_active_orders(self, object market_info, object orders_proposal):
         if self._cancel_timestamp > self._current_timestamp:
             return False
         active_orders = self.market_info_to_active_orders.get(market_info, [])
         active_orders = [o for o in active_orders if o.client_order_id not in self._hanging_order_ids]
+        if len(active_orders) == 0:
+            return False
         # active_orders = [o for o in self.active_maker_orders if o.client_order_id not in self._hanging_order_ids]
-        to_cancel = True
-        if orders_proposal is not None:
+        to_defer_canceling = False
+        if orders_proposal is not None and self._order_refresh_tolerance_spread >= 0:
             buy_proposals = list(zip(orders_proposal.buy_order_prices, orders_proposal.buy_order_sizes))
             sell_proposals = list(zip(orders_proposal.sell_order_prices, orders_proposal.sell_order_sizes))
             active_buys = [[o.price, o.quantity] for o in active_orders if o.is_buy]
             active_sells = [[o.price, o.quantity] for o in active_orders if not o.is_buy]
-            print(f"buy_proposals {buy_proposals}")
-            print(f"sell_proposals {sell_proposals}")
-            print(f"active_buys {active_buys}")
-            print(f"active_sells {active_sells}")
+            # print(f"buy_proposals {buy_proposals}")
+            # print(f"sell_proposals {sell_proposals}")
+            # print(f"active_buys {active_buys}")
+            # print(f"active_sells {active_sells}")
             if self.c_is_within_tolerance(buy_proposals, active_buys) and \
                     self.c_is_within_tolerance(sell_proposals, active_sells):
-                to_cancel = False
-        if to_cancel:
+                to_defer_canceling = True
+        if not to_defer_canceling:
             for order in active_orders:
+                # print(f"cancel order: {order}")
                 self.c_cancel_order(market_info, order.client_order_id)
-        # next_cycle = self._current_timestamp + self._order_refresh_time
-        # if self._create_timestamp > self._current_timestamp:
-        #     next_cycle = min(self._create_timestamp, next_cycle)
-        # self._cancel_timestamp = min(next_cycle, self._create_timestamp)
-        return to_cancel and len(active_orders) > 0
+            # increate create timer by a little bit for the order create to happen next tick cycle
+            if self._create_timestamp <= self._current_timestamp:
+                self._create_timestamp = self._current_timestamp + 1
+        else:
+            # print(f"defer cancelling, set timers.")
+            self.set_timers(market_info)
+        return to_defer_canceling
 
     cdef c_cancel_hanging_orders(self, object market_info):
-        # Cancel hanging orders at the same time when canceling normal orders is due
-        if self._cancel_timestamp > self._current_timestamp or not self._hanging_orders_enabled:
-            return False
-        market_mid_price = market_info.get_mid_price()
+        if not self._hanging_orders_enabled:
+            return
+        mid_price = market_info.get_mid_price()
         active_orders = self.market_info_to_active_orders.get(market_info, [])
         for h_order_id in self._hanging_order_ids:
-            order = [o for o in active_orders if o.client_order_id == h_order_id]
-            if (order and market_mid_price > 0
-                    and abs(order.price - market_mid_price)/market_mid_price > self._hanging_orders_cancel_pct):
-                self.c_cancel_order(market_info, order.order_id)
+            orders = [o for o in active_orders if o.client_order_id == h_order_id]
+            if orders and mid_price > 0:
+                order = orders[0]
+                if abs(order.price - mid_price)/mid_price >= self._hanging_orders_cancel_pct:
+                    # print(f"cancel hanging order: {order}")
+                    self.c_cancel_order(market_info, order.client_order_id)
 
     cdef c_execute_orders_proposal(self, object market_info, object orders_proposal):
         cdef:
@@ -976,10 +982,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                              (market_info.market.name == "bamboo_relay" and not market_info.market.use_coordinator))
                                          else NaN)
             str bid_order_id, ask_order_id
-
+            bint orders_created = False
         if self._create_timestamp > self._current_timestamp:
             return
-        # if actions & ORDER_PROPOSAL_ACTION_CREATE_ORDERS:
         if len(orders_proposal.buy_order_sizes) > 0 and orders_proposal.buy_order_sizes[0] > 0:
             if orders_proposal.buy_order_type is OrderType.LIMIT and orders_proposal.buy_order_prices[0] > 0:
                 if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
@@ -991,6 +996,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                         logging.INFO,
                         f"({market_info.trading_pair}) Creating limit bid orders at (Size, Price): {price_quote_str}"
                     )
+                    # print(f"order create: {price_quote_str}")
 
                 for idx in range(len(orders_proposal.buy_order_sizes)):
                     bid_order_id = self.c_buy_with_specific_market(
@@ -1001,6 +1007,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                         expiration_seconds=expiration_seconds
                     )
                     self._time_to_cancel[bid_order_id] = self._current_timestamp + self._order_refresh_time
+                    orders_created = True
+
             elif orders_proposal.buy_order_type is OrderType.MARKET:
                 raise RuntimeError("Market buy order in orders proposal is not supported yet.")
 
@@ -1015,6 +1023,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                         logging.INFO,
                         f"({market_info.trading_pair}) Creating limit ask orders at (Size, Price): {price_quote_str}"
                     )
+                    # print(f"order create: {price_quote_str}")
 
                 for idx in range(len(orders_proposal.sell_order_sizes)):
                     ask_order_id = self.c_sell_with_specific_market(
@@ -1025,18 +1034,17 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                         expiration_seconds=expiration_seconds
                     )
                     self._time_to_cancel[ask_order_id] = self._current_timestamp + self._order_refresh_time
+                    orders_created = True
             elif orders_proposal.sell_order_type is OrderType.MARKET:
                 raise RuntimeError("Market sell order in orders proposal is not supported yet.")
+        if orders_created:
+            # print(f"order created, set timers")
+            self.set_timers(market_info)
 
     def set_timers(self, market_info):
-        to_set = True
-        if self._create_timestamp == 0:
-            active_orders = self.market_info_to_active_orders.get(market_info, [])
-            if len(active_orders) == 0:
-                to_set = False
-        if to_set:
-            next_cycle = self._current_timestamp + self._order_refresh_time
-            if self._create_timestamp < self._current_timestamp:
-                self._create_timestamp = next_cycle
-            if self._cancel_timestamp < self._current_timestamp:
-                self._cancel_timestamp = min(self._create_timestamp, next_cycle)
+        next_cycle = self._current_timestamp + self._order_refresh_time
+        if self._create_timestamp <= self._current_timestamp:
+            self._create_timestamp = next_cycle
+        if self._cancel_timestamp <= self._current_timestamp:
+            self._cancel_timestamp = min(self._create_timestamp, next_cycle)
+        # print(f"set timers: _cancel_timestamp: {self._cancel_timestamp} _create_timestamp: {self._create_timestamp}")
