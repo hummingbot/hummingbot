@@ -10,7 +10,7 @@ The way that log files are structured is contained within `conf/hummingbot_logs.
 
 The only data Hummingbot requests from users is error logs. We collect error logs for the sole purpose of debugging and continuously improving hummingbot. We'll never share the data with a third party.
 
-You can choose to disable error logging. You will be prompted to configure whether to send error logs during the first setup.
+You can choose to disable error logging.
 
 ```
 Would you like to send error logs to hummingbot? (Yes/No) >>>

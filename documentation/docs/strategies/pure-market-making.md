@@ -35,54 +35,28 @@ When placing orders, if the size of the order determined by the order price and 
 
 Only a sell order will be created but no buy order.
 
-When using the [multiple order mode](/strategies/advanced-mm/multiple-orders), this may result in some (or none) of the orders being placed on one side.
 
-**Example:**
+## Basic and Advanced Configuration
 
-`bid order amount 1 * bid price 1` < `exchange's minimum order size`<br/>
-`bid order amount 2 * bid price 2` > `exchange's minimum order size`
+We aim to teach new users the basics of market making, while enabling experienced users to exercise more control over how their bots behave. By default, when you run `create` we ask you to enter the basic parameters needed for a market making bot.
 
-Only the 2nd buy order will be created.
-
-## Basic and Advanced Modes
-
-We aim to teach new users the basics of market making, while enabling experienced users to exercise more control over how their bots behave. By default, when you run `config`, we ask you to enter the basic parameters needed for a market making bot.
-
-Afterwards, you should see the following question:
-
-```
-Would you like to proceed with advanced configuration? (Yes/No) >>>
-```
-
-Responding `Yes` to this question will walk you through in setting up the advanced parameters for this strategy. Responding `No` will leave the advanced parameters to their default values.
-
-See [Advanced Market Making](/strategies/advanced-mm) for more information about these parameters and how to use them.
+See [Advanced Market Making](/strategies/advanced-mm) for more information about the advanced parameters and how to use them.
 
 
-## Basic Configuration Walkthrough
+## Basic Configuration Parameters and Walkthrough
+
+The following parameters are fields in Hummingbot configuration files located in the `/conf` folder (e.g. `conf_pure_mm_[#].yml`).
+
+| Parameter | Prompt | Definition |
+|-----------|--------|------------|
+| **exchange** | `Enter your maker exchange name` | The exchange where the bot will place bid and ask orders. |
+| **market** | `Enter the token trading pair you would like to trade on [exchange]` | Token trading pair symbol you would like to trade on the exchange. |
+| **bid_spread** | `How far away from the mid price do you want to place the first bid order?` | The strategy will place the buy (bid) order on a certain % away from the mid price. |
+| **ask_spread** | `How far away from the mid price do you want to place the first ask order?` | The strategy will place the sell (ask) order on a certain % away from the mid price. |
+| **order_refresh_time** | `How often do you want to cancel and replace bids and asks (in seconds)?` | An amount in seconds, which is the duration for the placed limit orders. <br/><br/> The limit bid and ask orders are cancelled and new orders are placed according to the current mid price and spreads at this interval. |
+| **order_amount** | `What is the amount of [base_asset] per order? (minimum [min_amount])` | The order amount for the limit bid and ask orders. <br/><br/> Ensure you have enough quote and base tokens to place the bid and ask orders. The strategy will not place any orders if you do not have sufficient balance on either sides of the order. <br/>
+| **inventory_skew_enabled** | `On [exchange], you have [amount of base assets] and [amount of quote assets]. By market value, your current inventory split is [base asset ratio] and [quote asset ratio]. Would you like to keep this ratio? (Yes/No)` | Allows the user to set and maintain a target inventory split between base and quote assets. <br/><br/> Enter `Yes` to keep your current inventory ratio. Enter `No` to specify the inventory ratio target. <br/><br/> This is an advanced parameter we added during basic configuration walkthrough. See [Inventory Skew](/advanced-mm/inventory-skew) for more information on this feature.
+| **inventory_target_base_pct** | `What is your target base asset percentage? Enter 50 for 50%` | Target amount held of the base asset, expressed as a percentage of the total base and quote asset value. <br/><br/> This question prompts when answering `No` to the above question.
 
 !!! tip "Tip: Autocomplete inputs during configuration"
     When going through the command line config process, pressing `<TAB>` at a prompt will display valid available inputs.
-
-| Prompt | Description |
-|-----|-----|
-| `What is your market making strategy >>>` | Enter `pure_market_making`. |
-| `Import previous configs or create a new config file? (import/create) >>>` | Enter `create` to create a new config file.<br/><br/>Enter `import` to specify the existing config file name you want to use. |
-| `Enter your maker exchange name >>>` | The exchange where the bot will place bid and ask orders.<br/><br/>Currently available options: `binance`, `radar_relay`, `coinbase_pro`, `bamboo_relay`, `huobi`, `bittrex`, `dolomite`, `liquid`, `kucoin` *(case sensitive)* |
-| `Enter the token symbol you would like to trade on [exchange name] >>>` | Enter the token symbol for the *maker exchange*.<br/>Example input: `ETH-USD`<br/> |
-| `How far away from the mid price do you want to place the first bid order? (Enter 0.01 to indicate 1%) >>>` | This sets `bid_place_threshold` ([see below](#configuration-parameters)). |
-| `How far away from the mid price do you want to place the first ask order? (Enter 0.01 to indicate 1%) >>>` | This sets `ask_place_threshold` ([see below](#configuration-parameters)). |
-| `How often do you want to cancel and replace bids and asks (in seconds)? >>>` | This sets the `cancel_order_wait_time` ([see below](#configuration-parameters)). |
-| `What is the amount of [base_asset] per order? (minimum [min_amount]) >>> ` | This sets `order_amount` ([see below](#configuration-parameters)). |
-
-
-## Basic Configuration Parameters
-
-The following parameters are fields in Hummingbot configuration files located in the `/conf` folder (e.g. `conf/conf_pure_market_making_strategy_[#].yml`).
-
-| Term | Definition |
-|------|------------|
-| **bid\_place\_threshold** | An amount expressed in decimals (i.e. input of `0.01` corresponds to 1%). The strategy will place the buy (bid) order 1% away from the mid price if set to 0.01. <br/><br/>*Example: Assuming the following, Top bid : 99, Top ask: 101 ; mid price: 100 ( (99+ 101)/2 ). If you set bid_place_threshold to 0.1 which is 10%, it will place your buy order (bid) at 10% below mid price of 100 which is 90.*
-| **ask\_place\_threshold** | An amount expressed in decimals (i.e. input of `0.01` corresponds to 1%). The strategy will place the sell (ask) order 1% away from the mid price if set to 0.01. <br/><br/>*Example: Assuming the following, Top bid : 99, Top ask: 101 ; mid price: 100 ( (99+ 101)/2 ). If you set ask_place_threshold to 0.1 which is 10%, it will place your sell order (ask) at 10% above mid price of 100 which is 110.*
-| **order\_amount** | The order amount for the limit bid and ask orders. <br/> Ensure you have enough quote and base tokens to place the bid and ask orders. The strategy will not place orders if you do not have sufficient balance for both sides of the order. <br/>
-| **cancel\_order\_wait\_time** | An amount in seconds, which is the duration for the placed limit orders. _Default value: 30 seconds_. <br/><br/> The limit bid and ask orders are cancelled and new bids and asks are placed according to the current mid price and settings at this interval.
