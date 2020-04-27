@@ -20,20 +20,19 @@ If the user's base asset value goes above the upper limit, then no bid orders wo
 
 The three bots below all share this base configuration:
 ```json
-- maker_market_trading_pair: BTC-USDT
-- mode: multiple
-- number_of_orders: 3
-- order_start_size: 0.002
-- order_step_size: 0.002
-- ask_place_threshold: 0.005
-- bid_place_threshold: 0.005
-- order_interval_percent: 0.01
+- market: BTC-USDT
+- bid_spread: 0.005
+- ask_spread: 0.005
+- order_amount: 0.002
+- order_levels: 3
+- order_level_amount: 0.002
+- order_level_spread: 0.01
 ```
 
 ### No Inventory Skew
 
 ```json
-- inventory_skew_enabled: false
+- inventory_skew_enabled: False
 ```
 ![](/assets/img/inventory-skew-none.png)
 
@@ -41,9 +40,9 @@ Without inventory skew, order amounts are always symmetrical between buy (outlin
 
 ### Inventory Skew, Multiplier = 1
 ```json
-- inventory_skew_enabled: true
-- inventory_skew_target_base_percent: 50
-- inventory_skew_range_multiplier: 1
+- inventory_skew_enabled: True
+- inventory_target_base_pct: 50
+- inventory_range_multiplier: 1.0
 ```
 ![](/assets/img/inventory-skew-1.png)
 
@@ -51,9 +50,9 @@ Since the current inventory percentage (36.5%) is outside of the target range (3
 
 ### Inventory Skew, Multiplier = 2
 ```json
-- inventory_skew_enabled: true
-- inventory_skew_target_base_percent: 50
-- inventory_skew_range_multiplier: 2
+- inventory_skew_enabled: True
+- inventory_target_base_pct: 50
+- inventory_range_multiplier: 2.0
 ```
 ![](/assets/img/inventory-skew-2.png)
 
@@ -61,11 +60,11 @@ By increasing the range multiplier to 2, the current inventory percentage fall i
 
 ## Relevant Parameters
 
-| Parameter | Prompt | Definition | Default Value |
-|-----------|--------|------------|---------------|
-| **inventory_skew_enabled** | `Would you like to enable inventory skew? (Yes/No) >>>` | Activates Inventory Skew if `true` | `false` |
-| **inventory_target_base_percent** | `What is your target base asset percentage? (Enter 50 to indicate 50%) >>>` | Target amount held of the base asset, expressed as a percentage of the total base and quote asset value | none |
-| **inventory_range_multiplier** | `What is your tolerable range of inventory around the target, expressed in multiples of your total order size?` | This expands the range of tolerable inventory level around your target base percent, as a multiple of your total order size. Larger values expand this range. | `1` |
+| Parameter | Prompt | Definition |
+|-----------|--------|------------|
+| **inventory_skew_enabled** | `Would you like to enable inventory skew? (Yes/No)` | Allows the user to set and maintain a target inventory split between base and quote assets. |
+| **inventory_target_base_pct** | `What is your target base asset percentage?` | Target amount held of the base asset, expressed as a percentage of the total base and quote asset value. |
+| **inventory_range_multiplier** | `What is your tolerable range of inventory around the target, expressed in multiples of your total order size?` | This expands the range of tolerable inventory level around your target base percent, as a multiple of your total order size. Larger values expand this range. |
 
 ## Order Size Calculation Math
 

@@ -148,28 +148,6 @@ pipeline {
           }
         }
         
-        stage('Run discovery_strategy test') {
-          steps {
-            echo 'Run discovery_strategy test'
-            sh "${envPath}/bin/nosetests -d -v test/test_discovery_strategy.py"
-          }
-          post {
-            success {
-              echo '=> [Run tests: discovery]: SUCCESS'
-            }
-            unstable {
-              script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Unstable: discovery_strategy test'
-              }
-            }
-            failure {
-              script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Failed: discovery_strategy test'
-              }
-            }
-          }
-        }
-
         stage('Run pure_market_making_v2 strategy test') {
           steps {
             echo 'Run pure_market_making_v2 strategy test'

@@ -36,7 +36,7 @@ class ConnectCommand:
         self.app.clear_input()
         self.placeholder_mode = True
         self.app.hide_input = True
-        exchange_configs = [c for c in global_config_map.values() if exchange in c.key]
+        exchange_configs = [c for c in global_config_map.values() if exchange in c.key and c.is_connect_key]
         to_connect = True
         if Security.encrypted_file_exists(exchange_configs[0].key):
             await Security.wait_til_decryption_done()
@@ -76,7 +76,7 @@ class ConnectCommand:
         columns = ["Exchange", "  Keys Added", "  Keys Confirmed"]
         data = []
         failed_msgs = {}
-        err_msgs = await UserBalances.instance().update_all(reconnect=True)
+        err_msgs = await UserBalances.instance().update_exchanges(reconnect=True)
         for option in sorted(OPTIONS):
             keys_added = "No"
             keys_confirmed = 'No'
@@ -84,7 +84,11 @@ class ConnectCommand:
                 eth_address = global_config_map["ethereum_wallet"].value
                 if eth_address is not None and eth_address in Security.private_keys():
                     keys_added = "Yes"
-                    keys_confirmed = "Yes"
+                    err_msg = UserBalances.validate_ethereum_wallet()
+                    if err_msg is not None:
+                        failed_msgs[option] = err_msg
+                    else:
+                        keys_confirmed = 'Yes'
             else:
                 api_keys = (await Security.api_keys(option)).values()
                 if len(api_keys) > 0:
@@ -110,13 +114,15 @@ class ConnectCommand:
                 to_connect = False
         if to_connect:
             private_key = await self.app.prompt(prompt="Enter your wallet private key >>> ", is_password=True)
-            try:
-                public_address = Security.add_private_key(private_key)
-                global_config_map["ethereum_wallet"].value = public_address
-                save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
+            public_address = Security.add_private_key(private_key)
+            global_config_map["ethereum_wallet"].value = public_address
+            await self.prompt_a_config(global_config_map["ethereum_rpc_url"])
+            save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
+            err_msg = UserBalances.validate_ethereum_wallet()
+            if err_msg is None:
                 self._notify(f"Wallet {public_address} connected to hummingbot.")
-            except Exception as e:
-                self._notify(f"Failed to connect wallet key: {e}")
+            else:
+                self._notify(f"\nError: {err_msg}")
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
