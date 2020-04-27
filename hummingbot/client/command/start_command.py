@@ -49,12 +49,16 @@ class StartCommand:
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.start, log_level)
             return
+        safe_ensure_future(self.start_check(log_level), loop=self.ev_loop)
+
+    async def start_check(self,  # type: HummingbotApplication
+                          log_level: Optional[str] = None):
 
         if self.strategy_task is not None and not self.strategy_task.done():
             self._notify('The bot is already running - please run "stop" first')
             return
 
-        is_valid = self.status()
+        is_valid = await self.status_check_all(notify_success=False)
         if not is_valid:
             return
 
@@ -72,10 +76,10 @@ class StartCommand:
 
         self._initialize_notifiers()
 
-        self._notify(f"\n  Status check complete. Starting '{self.strategy_name}' strategy...")
+        self._notify(f"\nStatus check complete. Starting '{self.strategy_name}' strategy...")
         if global_config_map.get("paper_trade_enabled").value:
-            self._notify("\n  Paper Trading ON: All orders are simulated, and no real orders are placed.")
-        safe_ensure_future(self.start_market_making(self.strategy_name), loop=self.ev_loop)
+            self._notify("\nPaper Trading ON: All orders are simulated, and no real orders are placed.")
+        await self.start_market_making(self.strategy_name)
 
     async def start_market_making(self,  # type: HummingbotApplication
                                   strategy_name: str):
@@ -98,13 +102,13 @@ class StartCommand:
                     self.clock.add_iterator(market)
                     self.markets_recorder.restore_market_states(config_path, market)
                     if len(market.limit_orders) > 0:
-                        self._notify(f"  Cancelling dangling limit orders on {market.name}...")
+                        self._notify(f"Cancelling dangling limit orders on {market.name}...")
                         await market.cancel_all(5.0)
             if self.strategy:
                 self.clock.add_iterator(self.strategy)
             self.strategy_task: asyncio.Task = safe_ensure_future(self._run_clock(), loop=self.ev_loop)
-            self._notify(f"\n  '{strategy_name}' strategy started.\n"
-                         f"  You can use the `status` command to query the progress.")
+            self._notify(f"\n'{strategy_name}' strategy started.\n"
+                         f"Run `status` command to query the progress.")
 
             if not self.starting_balances:
                 self.starting_balances = await self.wait_till_ready(self.balance_snapshot)
