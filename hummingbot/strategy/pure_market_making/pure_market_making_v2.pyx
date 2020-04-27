@@ -408,10 +408,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             self, market_info, active_orders, pricing_proposal
         )
 
-    def get_orders_proposal_for_market_info(self,
-                                            market_info: MarketTradingPairTuple,
-                                            active_orders: List[LimitOrder]) -> OrdersProposal:
-        return self.c_get_orders_proposal_for_market_info(market_info, active_orders)
     # ---------------------------------------------------------------
 
     cdef c_start(self, Clock clock, double timestamp):
@@ -462,18 +458,11 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                     self.logger().error("Unknown error while generating order proposals.", exc_info=True)
                 finally:
                     self._sb_delegate_lock = False
-                # filtered_proposal = self._filter_delegate.c_filter_orders_proposal(self,
-                #                                                                    market_info,
-                #                                                                    market_info_to_active_orders.get(market_info, []),
-                #                                                                    orders_proposal)
                 canceling_deferred = self.c_cancel_active_orders(market_info, orders_proposal)
                 self.c_cancel_hanging_orders(market_info)
                 if orders_proposal is not None and not canceling_deferred:
-                    # if canceled:
-                    #     time.sleep(0.1)
                     orders_proposal = self.c_filter_orders_proposal_for_takers(market_info, orders_proposal)
                     self.c_execute_orders_proposal(market_info, orders_proposal)
-                # self.set_timers(market_info)
         finally:
             self._last_timestamp = timestamp
 
@@ -720,82 +709,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                               sizing_proposal.sell_order_sizes,
                               [])
 
-    cdef object c_get_orders_proposal_for_market_info(self, object market_info, list active_orders):
-        cdef:
-            int actions = 0
-            list cancel_order_ids = []
-            bint no_order_placement = False
-
-        active_non_hanging_orders = [o for o in active_orders if o.client_order_id not in self._hanging_order_ids]
-
-        # Before doing anything, ask the filter delegate whether to proceed or not.
-        if not self._filter_delegate.c_should_proceed_with_processing(self, market_info, active_non_hanging_orders):
-            return self.NO_OP_ORDERS_PROPOSAL
-
-        # If there are no active orders, then do the following:
-        #  1. Ask the pricing delegate on what are the order prices.
-        #  2. Ask the sizing delegate on what are the order sizes.
-        #  3. Set the actions to carry out in the orders proposal to include create orders.
-
-        asset_mid_price = Decimal("0")
-        if self._asset_price_delegate is None:
-            asset_mid_price = market_info.get_mid_price()
-        else:
-            asset_mid_price = self._asset_price_delegate.c_get_mid_price()
-        pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self,
-                                                                             market_info,
-                                                                             active_non_hanging_orders,
-                                                                             asset_mid_price)
-        # If jump orders is enabled, run the penny jumped pricing proposal
-        if self._order_optimization_enabled:
-            pricing_proposal = self.c_get_penny_jumped_pricing_proposal(market_info,
-                                                                        pricing_proposal,
-                                                                        active_non_hanging_orders)
-
-        sizing_proposal = self._sizing_delegate.c_get_order_size_proposal(self,
-                                                                          market_info,
-                                                                          active_non_hanging_orders,
-                                                                          pricing_proposal)
-        if self._add_transaction_costs_to_orders:
-            no_order_placement, pricing_proposal = self.c_check_and_add_transaction_costs_to_pricing_proposal(
-                market_info,
-                pricing_proposal,
-                sizing_proposal)
-
-        if sizing_proposal.buy_order_sizes[0] > 0 or sizing_proposal.sell_order_sizes[0] > 0:
-            actions |= ORDER_PROPOSAL_ACTION_CREATE_ORDERS
-
-        if no_order_placement:
-            # Order creation bit is set to zero
-            actions = actions & (1 << 1)
-
-        if ((market_info.market.name not in self.RADAR_RELAY_TYPE_EXCHANGES) or
-                (market_info.market.display_name == "bamboo_relay" and market_info.market.use_coordinator)):
-            market_mid_price = market_info.get_mid_price()
-            for active_order in active_orders:
-                # If there are active orders, and active order cancellation is needed, then do the following:
-                #  1. Check the time to cancel for each order, and see if cancellation should be proposed.
-                #  2. Record each order id that needs to be cancelled.
-                #  3. Set action to include cancel orders.
-                if active_order.client_order_id in self._hanging_order_ids:
-                    if market_mid_price > 0 and abs(active_order.price - market_mid_price)/market_mid_price > \
-                            self._hanging_orders_cancel_pct:
-                        cancel_order_ids.append(active_order.client_order_id)
-                elif active_order.client_order_id in self._time_to_cancel and \
-                        self._current_timestamp >= self._time_to_cancel[active_order.client_order_id]:
-                    cancel_order_ids.append(active_order.client_order_id)
-            if len(cancel_order_ids) > 0:
-                actions |= ORDER_PROPOSAL_ACTION_CANCEL_ORDERS
-
-        return OrdersProposal(actions,
-                              OrderType.LIMIT,
-                              pricing_proposal.buy_order_prices,
-                              sizing_proposal.buy_order_sizes,
-                              OrderType.LIMIT,
-                              pricing_proposal.sell_order_prices,
-                              sizing_proposal.sell_order_sizes,
-                              cancel_order_ids)
-
     cdef c_did_fill_order(self, object order_filled_event):
         cdef:
             str order_id = order_filled_event.order_id
@@ -843,18 +756,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._create_timestamp = self._current_timestamp + self._filled_order_delay
         self._cancel_timestamp = min(self._cancel_timestamp, self._create_timestamp)
 
-        # if filled order is buy, adjust the cancel time for sell order
-        # For syncing buy and sell orders during order completed events
-        for other_order_id in active_sell_orders:
-            if other_order_id in self._time_to_cancel:
-
-                # If you want to stop cancelling orders remove it from the cancel list
-                if self._hanging_orders_enabled:
-                    self._hanging_order_ids.append(other_order_id)
-                    del self._time_to_cancel[other_order_id]
-                else:
-                    # cancel time is minimum of current cancel time and replenish time to sync up both
-                    self._time_to_cancel[other_order_id] = min(self._time_to_cancel[other_order_id], replenish_time_stamp)
+        if self._hanging_orders_enabled:
+            for other_order_id in active_sell_orders:
+                self._hanging_order_ids.append(other_order_id)
 
         if not isnan(replenish_time_stamp):
             self.filter_delegate.order_placing_timestamp = replenish_time_stamp
@@ -890,18 +794,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._create_timestamp = self._current_timestamp + self._filled_order_delay
         self._cancel_timestamp = min(self._cancel_timestamp, self._create_timestamp)
 
-        # if filled order is sell, adjust the cancel time for buy order
-        # For syncing buy and sell orders during order completed events
-        for other_order_id in active_buy_orders:
-            if other_order_id in self._time_to_cancel:
-
-                # If you want to stop cancelling orders remove it from the cancel list
-                if self._hanging_orders_enabled:
-                    self._hanging_order_ids.append(other_order_id)
-                    del self._time_to_cancel[other_order_id]
-                else:
-                    # cancel time is minimum of current cancel time and replenish time to sync up both
-                    self._time_to_cancel[other_order_id] = min(self._time_to_cancel[other_order_id], replenish_time_stamp)
+        if self._hanging_orders_enabled:
+            for other_order_id in active_buy_orders:
+                self._hanging_order_ids.append(other_order_id)
 
         if not isnan(replenish_time_stamp):
             self.filter_delegate.order_placing_timestamp = replenish_time_stamp
@@ -1006,7 +901,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                         price=orders_proposal.buy_order_prices[idx],
                         expiration_seconds=expiration_seconds
                     )
-                    self._time_to_cancel[bid_order_id] = self._current_timestamp + self._order_refresh_time
                     orders_created = True
 
             elif orders_proposal.buy_order_type is OrderType.MARKET:
@@ -1033,7 +927,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                         price=orders_proposal.sell_order_prices[idx],
                         expiration_seconds=expiration_seconds
                     )
-                    self._time_to_cancel[ask_order_id] = self._current_timestamp + self._order_refresh_time
                     orders_created = True
             elif orders_proposal.sell_order_type is OrderType.MARKET:
                 raise RuntimeError("Market sell order in orders proposal is not supported yet.")
