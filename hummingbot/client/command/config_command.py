@@ -71,7 +71,7 @@ class ConfigCommand:
         Returns a list of configurable keys - using config command, excluding exchanges api keys
         as they are set from connect command.
         """
-        keys = [c.key for c in global_config_map.values() if c.prompt is not None and not c.is_api_key]
+        keys = [c.key for c in global_config_map.values() if c.prompt is not None and not c.is_connect_key]
         if self.strategy_config_map is not None:
             keys += [c.key for c in self.strategy_config_map.values() if c.prompt is not None]
         return keys

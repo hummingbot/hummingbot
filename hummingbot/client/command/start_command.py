@@ -44,17 +44,21 @@ class StartCommand:
             else:
                 return func(*args, **kwargs)
 
-    async def start(self,  # type: HummingbotApplication
-                    log_level: Optional[str] = None):
+    def start(self,  # type: HummingbotApplication
+              log_level: Optional[str] = None):
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.start, log_level)
             return
+        safe_ensure_future(self.start_check(log_level), loop=self.ev_loop)
+
+    async def start_check(self,  # type: HummingbotApplication
+                          log_level: Optional[str] = None):
 
         if self.strategy_task is not None and not self.strategy_task.done():
             self._notify('The bot is already running - please run "stop" first')
             return
 
-        is_valid = await self.status(notify_success=False)
+        is_valid = await self.status_check_all(notify_success=False)
         if not is_valid:
             return
 
@@ -75,7 +79,7 @@ class StartCommand:
         self._notify(f"\nStatus check complete. Starting '{self.strategy_name}' strategy...")
         if global_config_map.get("paper_trade_enabled").value:
             self._notify("\nPaper Trading ON: All orders are simulated, and no real orders are placed.")
-        safe_ensure_future(self.start_market_making(self.strategy_name), loop=self.ev_loop)
+        await self.start_market_making(self.strategy_name)
 
     async def start_market_making(self,  # type: HummingbotApplication
                                   strategy_name: str):
