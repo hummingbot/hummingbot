@@ -406,7 +406,7 @@ def config_map_complete(config_map):
 
 
 def missing_required_configs(config_map):
-    return [c for c in config_map.values() if c.required and c.value is None]
+    return [c for c in config_map.values() if c.required and c.value is None and not c.is_connect_key]
 
 
 def load_all_secure_values(strategy):

@@ -38,8 +38,7 @@ DISABLED_COMMANDS = {
     "connect",             # disabled because telegram can't display secondary prompt
     "create",              # disabled because telegram can't display secondary prompt
     "import",              # disabled because telegram can't display secondary prompt
-    "export_trades",       # disabled for security
-    "export_private_key",  # disabled for security
+    "export",              # disabled for security
 }
 
 # Telegram does not allow sending messages longer than 4096 characters
