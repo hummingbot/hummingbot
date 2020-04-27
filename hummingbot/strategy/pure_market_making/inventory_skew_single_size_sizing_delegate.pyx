@@ -83,9 +83,6 @@ cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
                 has_active_ask = True
                 base_asset_balance += active_order.quantity
 
-        if has_active_bid and has_active_ask:
-            return SizingProposal([s_decimal_0], [s_decimal_0])
-
         if self._inventory_target_base_percent is not None:
             total_order_size = self.total_order_size
             bid_ask_ratios = c_calculate_bid_ask_ratios_from_base_asset_ratio(
@@ -135,6 +132,6 @@ cdef class InventorySkewSingleSizeSizingDelegate(OrderSizingDelegate):
                                                                       pricing_proposal.sell_order_prices[0])
 
         return SizingProposal(
-            ([quantized_bid_order_size] if not has_active_bid else [s_decimal_0]),
-            ([quantized_ask_order_size] if not has_active_ask else [s_decimal_0])
+            ([quantized_bid_order_size]),
+            ([quantized_ask_order_size])
         )

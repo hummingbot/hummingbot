@@ -155,6 +155,13 @@ pure_market_making_config_map = {
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
                   default=Decimal("1")),
+    "order_refresh_tolerance_spread":
+        ConfigVar(key="order_refresh_tolerance_spread",
+                  prompt="Enter the spread (from mid price) to defer order refresh process to the next "
+                         "cycle? (Enter 1 to indicate 1% or -1 to disable this feature) >>> ",
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, -10, 10, inclusive=False),
+                  default=Decimal("0")),
     "inventory_skew_enabled":
         ConfigVar(key="inventory_skew_enabled",
                   prompt="Would you like to enable inventory skew? (Yes/No) >>> ",
