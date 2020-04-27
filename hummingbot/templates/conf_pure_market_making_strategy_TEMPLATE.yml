@@ -2,7 +2,7 @@
 ###       Pure market making strategy config         ###
 ########################################################
 
-template_version: 12
+template_version: 13
 strategy: null
 
 # Exchange and token parameters.
@@ -29,6 +29,10 @@ order_refresh_time: null
 
 # Size of your bid and ask order.
 order_amount: null
+
+# The spread (from mid price) to defer order refresh process to the next cycle?
+# (Enter 1 to indicate 1% or -1 to disable this feature)
+order_refresh_tolerance_spread: null
 
 # Whether to enable Inventory skew feature (true/false).
 inventory_skew_enabled: null
