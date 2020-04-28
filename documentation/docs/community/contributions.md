@@ -18,8 +18,8 @@ Currently, Hummingbot has two community-contributed connectors that are created 
 
 | Exchange | Contributor's Github ID | First released | Status |  
 | --- |:---:|:---:|:---:|
-| ![Bamboo Relay](bb.png) | [Arctek](https://github.com/Arctek) | 0.7.0 | Active | 
-| ![Dolomite](dl.png) | [zrubenst](https://github.com/zrubenst) | 0.18.0 | Active | 
+| [Bamboo Relay](https://bamboorelay.com/) | [Arctek](https://github.com/Arctek) | 0.7.0 | Active | 
+| [Dolomite](https://dolomite.io/) | [zrubenst](https://github.com/zrubenst) | 0.18.0 | Active | 
 
 - Both connectors were last updated in Hummingbot v.0.21.0.
 - For more information, please refer to [this page](https://docs.hummingbot.io/connectors/#community-contributed-exchange-connectors). 
