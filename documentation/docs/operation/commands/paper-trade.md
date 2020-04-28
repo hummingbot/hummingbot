@@ -20,7 +20,11 @@ Alternatively, you can edit the `conf_global.yml` file using a text editor and s
 
 The top bar shows the status to indicate if paper trading mode is on or off.
 
-![](/assets/img/paper_trade_mode.png)
+![](/assets/img/paper_trade_mode2.png)
+
+Also shows a reminder that paper trade was enabled when doing a `status` or `history` command.
+
+![](/assets/img/paper_trade_warning.png)
 
 ## Account Balance
 
@@ -46,6 +50,7 @@ paper_trade_account_balance:
   - 1000
 ```
 
+
 Paper trade assets can be added in two ways:
 
 1. From the Hummingbot client run command `config paper_trade_account_balance` and enter values exactly as shown in the prompt.
@@ -67,3 +72,4 @@ Paper trade assets can be added in two ways:
 - Dolomite
 - Liquid
 - KuCoin
+- Kraken
