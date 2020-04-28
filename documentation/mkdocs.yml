@@ -111,6 +111,7 @@ nav:
         - create: operation/commands/create.md
         - connect: operation/commands/connect.md
         - import: operation/commands/import.md
+        - help: operation/commands/help.md
         - balance: operation/commands/balance.md
         - config: operation/commands/config.md
         - start: operation/commands/start.md
