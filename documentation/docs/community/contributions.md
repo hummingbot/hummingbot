@@ -1,41 +1,49 @@
 
-## List of community contributions
+# Community Contributions
 
-### Core Hummingbot connectors
+## Core connectors
 
-A bunch of community members have also worked on creating our core connectors such as Liquid and Kucoin. We would love to express our gratitude to below developers who have spent time and efforts to expand Hummingbot core team’s bandwidth and make Hummingbot better!
+Core connectors are certified, maintained and supported by the Hummingbot core team. 
 
-| Exchange | Contributor's Github ID | First released | Status | 
+We work with an extended team of developers all over the world to build these connectors. We would love to express our gratitude to below developers who have spent time and efforts to expand and improve Hummingbot!
+
+| Exchange | Contributor | Version first release | Status | 
 | --- |:---:|:---:|:---:|
-| ![KuCoin](kc.png) | [vic-en](https://github.com/vic-en)| 0.23.0 | Active | 
-| ![Liquid](lq.png) | [zeitgeistf](https://github.com/zeitgeistf)| 0.20.0 | Active |
-| ![Bitfinex](bf.png) | [nionis](https://github.com/nionis)  |  | In progress |  
-| ![HitBTC](hb.png) | [fengkie](https://github.com/fengkiej) |  | In progress |  
+| [KuCoin](https://kucoin.com) | [vic-en](https://github.com/vic-en)| 0.23.0 | Active | 
+| [Liquid](https://liquid.com) | [zeitgeistf](https://github.com/zeitgeistf)| 0.20.0 | Active |
+| [Bitfinex](https://bitfinex.com) | [nionis](https://github.com/nionis)  | N/A | [PR #1482](https://github.com/CoinAlpha/hummingbot/pull/1482) |  
+| [Kyber Network](https://kyber.network) | [rokso](https://github.com/rokso) | N/A | [PR #1224](https://github.com/CoinAlpha/hummingbot/pull/1224) |  
+| [HitBTC](https://hitbtc.com) | [fengkie](https://github.com/fengkiej) | N/A | [PR #1368](https://github.com/CoinAlpha/hummingbot/pull/1368) |  
 
-### Community-contributed connectors
+## Community connectors
 
-Currently, Hummingbot has two community-contributed connectors that are created and maintained by their developers. We would love to see more exchange developers join this game and connect their exchanges to Hummingbot in the future.   
+Community connectors are certified by the core Hummingbot team when we add them to the codebase, but they are maintained and supported by external developers.
 
-| Exchange | Contributor's Github ID | First released | Status |  
+Currently, Hummingbot has two community-contributed connectors. We welcome other exchanges to connect their exchanges to Hummingbot in the future. For more information, please refer to [this page](/connectors/#community-contributed-exchange-connectors). 
+
+| Exchange | Contributor | Version first released | Status |  
 | --- |:---:|:---:|:---:|
 | [Bamboo Relay](https://bamboorelay.com/) | [Arctek](https://github.com/Arctek) | 0.7.0 | Active | 
 | [Dolomite](https://dolomite.io/) | [zrubenst](https://github.com/zrubenst) | 0.18.0 | Active | 
 
-- Both connectors were last updated in Hummingbot v.0.21.0.
-- For more information, please refer to [this page](https://docs.hummingbot.io/connectors/#community-contributed-exchange-connectors). 
-
-### Bug fixes
+## Fixed and enhancements
 
 Some community members work on fixing bugs or creating new features. These efforts significantly improve our user experience and help the Hummingbot core team move faster. 
 
-| Contributor's Github ID | Issue title | Pull request | 
-| --- |:---:|:---:|
-| [fengkie](https://github.com/fengkiej) | [Pure-MM Strategy: Allow for Fewer than Total Quantity of Multiple Orders per Side](https://github.com/CoinAlpha/hummingbot/issues/517) | [PR #1613](https://github.com/CoinAlpha/hummingbot/pull/1613) | 
+| Issue | Contributor | Description | Pull request | 
+| --- | --- |:---|:---:|
+| [#517](https://github.com/CoinAlpha/hummingbot/issues/517) | [fengkie](https://github.com/fengkiej) | Allow for Fewer than Total Quantity of Multiple Orders per Side | [PR #1613](https://github.com/CoinAlpha/hummingbot/pull/1613) | 
 
-### Other contributions
+## Other contributions
 
-| Item | Contributor's Github ID | Description | Maintained by |
-| --- |:---:|:---:|:---:|
-| [Hummingbot performance calculator](https://github.com/Dominator008/hummingbot-trades-calculator) | [Dominator008](https://github.com/Dominator008) | This simple [Hummingbot performance calculator](https://github.com/Dominator008/hummingbot-trades-calculator) prints differences in the base and quote currencies, and calculates profitability in terms of the quote currency based on the final price of the base currency. | Dominator008 |
-| [Hummingbot Chinese wiki on github](https://github.com//CoinAlpha/hummingbot_chinese) | [syuukawa](https://github.com/syuukawa) | One of our very first projects that derived from the community is our Chinese Wiki on github | Hummingbot core team |
-| [Hummingbot Chinese website](http://hummingbot.cn/) | [syuukawa](https://github.com/syuukawa) | Independent from the official website | syuukawa |
+In addition to the contributions above, other community members have created unofficial Hummingbot resources that help the overall community.
+
+!!! warning
+    While we welcome contributions from our community, they are unofficial Hummingbot resources that we generally do not test and support. Please use them with caution.
+
+
+| Item | Contributor | Description |
+| --- |:---:|:---|
+| [Hummingbot performance calculator](https://github.com/Dominator008/hummingbot-trades-calculator) | [Dominator008](https://github.com/Dominator008) | This simple performance calculator prints differences in the base and quote currencies, and calculates profitability in terms of the quote currency based on the final price of the base currency. |
+| [Hummingbot Chinese wiki on github](https://github.com//CoinAlpha/hummingbot_chinese) | [syuukawa](https://github.com/syuukawa) | One of our very first projects that derived from the community is our Chinese Wiki on github |
+| [Hummingbot Chinese website](http://hummingbot.cn/) | [syuukawa](https://github.com/syuukawa) | Information about Hummingbot for Mandarin Chinese speakers. |

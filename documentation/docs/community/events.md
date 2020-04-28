@@ -1,5 +1,10 @@
+# Events
 
-## Past community events
+![](event1.jpeg)
+Hummingbot co-founder & COO Carlo Last Marias speaks at our Singapore meetup in November 2019
+
+## Past events
+
 | Event | City | Date | Organizer | 
 | --- |:---:|:---:|:---:|
 | Singapore market making meetup | Singapore | November 2019 | [Frederick Fung](https://twitter.com/tokenomist_sg) & Hummingbot | 
@@ -12,10 +17,3 @@
 | [Hummingbot launch party](https://www.youtube.com/watch?v=JkDR3J85QsY&list=PLDwlNkL_4MMcVIeTejMYIuuCUPrPLEAmF) | San Francisco | April 2019 | Hummingbot |
 | [Big data and cryptocurrency meetup](https://www.youtube.com/watch?v=m-936JkIBug&list=PLDwlNkL_4MMcVIeTejMYIuuCUPrPLEAmF&index=2) | Palo Alto | February 2019 | Hummingbot |
 | [What we learned from running a quant crypto hedge fund](https://www.slideshare.net/YingdanMoraLiang/what-we-learned-from-running-a-quant-crypto-hedge-fund) | San Francisco | January 2019 | Hummingbot |
-
-
-![](event1.jpeg)
-Carlo speaks at our Singapore meetup in November 2019
-
-![](event2.jpeg)
-Mike speaks at the DeFi meetup organized by Solana in November 2019

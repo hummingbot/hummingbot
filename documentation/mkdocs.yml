@@ -160,10 +160,10 @@ nav:
       - Ethereum Wallet: advanced/wallet.md
       - Ethereum Node: advanced/node.md
     - Community:
-      - Overview: community/overview.md  
-      - Community Contributions: community/contributions.md
+      - Overview: community/index.md  
+      - Contributions: community/contributions.md
       - Events: community/events.md
-      - Contribution Guide: community/how_to.md
+      - Contribution Guide: community/guide.md
   - Developer Manual:
       - Intro: developers/index.md
       - Getting Started:
