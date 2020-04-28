@@ -160,6 +160,11 @@ nav:
       - Telegram: advanced/telegram.md
       - Ethereum Wallet: advanced/wallet.md
       - Ethereum Node: advanced/node.md
+    - Community:
+      - Overview: community/index.md  
+      - Contributions: community/contributions.md
+      - Events: community/events.md
+      - Contribution Guide: community/guide.md
   - Developer Manual:
       - Intro: developers/index.md
       - Getting Started:
