@@ -119,6 +119,19 @@ pure_market_making_config_map = {
                   type_str="float",
                   validator=lambda v: validate_decimal(v, 0, inclusive=False),
                   prompt_on_new=True),
+    "order_refresh_tolerance_enabled":
+        ConfigVar(key="order_refresh_tolerance_enabled",
+                  prompt="Do you want to enable order refresh tolerance feature (Yes/No) >>> ",
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool),
+    "order_refresh_tolerance_spread":
+        ConfigVar(key="order_refresh_tolerance_spread",
+                  prompt="Enter the spread (from mid price) to defer order refresh process to the next "
+                         "cycle? (Enter 1 to indicate 1%) >>> ",
+                  type_str="decimal",
+                  required_if=lambda: pure_market_making_config_map.get("order_refresh_tolerance_enabled").value,
+                  validator=lambda v: validate_decimal(v, 0, 10, inclusive=True)),
     "order_amount":
         ConfigVar(key="order_amount",
                   prompt=order_amount_prompt,
@@ -155,13 +168,6 @@ pure_market_making_config_map = {
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
                   default=Decimal("1")),
-    "order_refresh_tolerance_spread":
-        ConfigVar(key="order_refresh_tolerance_spread",
-                  prompt="Enter the spread (from mid price) to defer order refresh process to the next "
-                         "cycle? (Enter 1 to indicate 1% or -1 to disable this feature) >>> ",
-                  type_str="decimal",
-                  validator=lambda v: validate_decimal(v, -10, 10, inclusive=False),
-                  default=Decimal("0")),
     "inventory_skew_enabled":
         ConfigVar(key="inventory_skew_enabled",
                   prompt="Would you like to enable inventory skew? (Yes/No) >>> ",
