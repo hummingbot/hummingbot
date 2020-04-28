@@ -818,19 +818,29 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
             )
 
-    cdef bint c_is_within_tolerance(self, list pv_list_1, list pv_list_2):
-        if len(pv_list_1) != len(pv_list_2):
+    cdef bint c_is_within_tolerance(self, list current_orders, list proposals):
+        if len(current_orders) != len(proposals):
             return False
-        pv_list_1 = sorted(pv_list_1, key=lambda x: x[0])
-        pv_list_2 = sorted(pv_list_2, key=lambda x: x[0])
-        for pv1, pv2 in zip(pv_list_1, pv_list_2):
-            if abs(pv1[0] - pv2[0])/pv2[0] > self._order_refresh_tolerance_spread or pv1[1] != pv2[1]:
+        current_orders = sorted(current_orders, key=lambda x: x[1])
+        proposals = sorted(proposals, key=lambda x: x[0])
+        tolerance = Decimal(str(self._order_refresh_tolerance_spread))
+        for current, proposal in zip(current_orders, proposals):
+            # if spread diff is more than the tolerance or order quantities are different, return false.
+            if abs(proposal[0] - current[1])/current[1] > tolerance or current[2] != proposal[1]:
                 return False
         return True
 
+    def notify_canceling_deferred(self, list current_orders, list proposals):
+        current_orders = sorted(current_orders, key=lambda x: x[1])
+        proposals = sorted(proposals, key=lambda x: x[0])
+        tolerance = Decimal(str(self._order_refresh_tolerance_spread))
+        for current, proposal in zip(current_orders, proposals):
+            self.logger().info(f"Not cancelling order {current[0]} since difference between new order price "
+                               f"{proposal[0]} and current order price {current[1]} is within "
+                               f"{tolerance:.2%} order_refresh_tolerance_spread")
+
     # Cancel active non hanging orders
-    # Return value: whether order refresh tolerance is triggered, i.e. defer canceling to the next cycle if
-    # the new order proposal is within a tolerance spread.
+    # Return value: whether order cancellation is deferred.
     cdef bint c_cancel_active_orders(self, object market_info, object orders_proposal):
         if self._cancel_timestamp > self._current_timestamp:
             return False
@@ -843,15 +853,20 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         if orders_proposal is not None and self._order_refresh_tolerance_spread >= 0:
             buy_proposals = list(zip(orders_proposal.buy_order_prices, orders_proposal.buy_order_sizes))
             sell_proposals = list(zip(orders_proposal.sell_order_prices, orders_proposal.sell_order_sizes))
-            active_buys = [[o.price, o.quantity] for o in active_orders if o.is_buy]
-            active_sells = [[o.price, o.quantity] for o in active_orders if not o.is_buy]
+            active_buys = [[o.client_order_id, Decimal(str(o.price)), Decimal(str(o.quantity))]
+                           for o in active_orders if o.is_buy]
+            active_sells = [[o.client_order_id, Decimal(str(o.price)), Decimal(str(o.quantity))]
+                            for o in active_orders if not o.is_buy]
             # print(f"buy_proposals {buy_proposals}")
             # print(f"sell_proposals {sell_proposals}")
             # print(f"active_buys {active_buys}")
             # print(f"active_sells {active_sells}")
-            if self.c_is_within_tolerance(buy_proposals, active_buys) and \
-                    self.c_is_within_tolerance(sell_proposals, active_sells):
+            if self.c_is_within_tolerance(active_buys, buy_proposals) and \
+                    self.c_is_within_tolerance(active_sells, sell_proposals):
                 to_defer_canceling = True
+            if to_defer_canceling:
+                self.notify_canceling_deferred(active_buys, buy_proposals)
+                self.notify_canceling_deferred(active_sells, sell_proposals)
         if not to_defer_canceling:
             for order in active_orders:
                 # print(f"cancel order: {order}")
