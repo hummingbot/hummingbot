@@ -255,7 +255,7 @@ Traceback (most recent call last):
 AttributeError: 'NoneType' object has no attribute 'actions'
 ```
 
-In this case, ZRX is not yet added to the list. See [this page](/operation/paper-trade/#account-balance) on how to add balances.
+In this case, ZRX is not yet added to the list. See [this page](https://docs.hummingbot.io/operation/commands/paper-trade/#account-balance) on how to add balances.
 
 ### Unable to convert token
 
