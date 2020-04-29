@@ -49,9 +49,7 @@ def start(self):
         price_source_exchange = c_map.get("price_source_exchange").value
         price_source_market = c_map.get("price_source_market").value
         price_source_custom = c_map.get("price_source_custom").value
-        order_refresh_tolerance_enabled = c_map.get("order_refresh_tolerance_enabled").value
-        order_refresh_tolerance_spread = -1.0 if not order_refresh_tolerance_enabled else \
-            c_map.get("order_refresh_tolerance_spread").value / Decimal('100')
+        order_refresh_tolerance_spread = c_map.get("order_refresh_tolerance_spread").value / Decimal('100')
 
         pricing_delegate = None
         sizing_delegate = None
