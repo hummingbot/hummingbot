@@ -111,6 +111,7 @@ nav:
         - create: operation/commands/create.md
         - connect: operation/commands/connect.md
         - import: operation/commands/import.md
+        - help: operation/commands/help.md
         - balance: operation/commands/balance.md
         - config: operation/commands/config.md
         - start: operation/commands/start.md
@@ -159,6 +160,11 @@ nav:
       - Telegram: advanced/telegram.md
       - Ethereum Wallet: advanced/wallet.md
       - Ethereum Node: advanced/node.md
+    - Community:
+      - Overview: community/index.md  
+      - Contributions: community/contributions.md
+      - Events: community/events.md
+      - Contribution Guide: community/guide.md
   - Developer Manual:
       - Intro: developers/index.md
       - Getting Started:
