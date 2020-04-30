@@ -2,6 +2,7 @@ from hummingbot.user.user_balances import UserBalances
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion as ERC
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.market.celo.celo_cli import CeloCli
 import pandas as pd
 from numpy import NaN
 from typing import TYPE_CHECKING
@@ -24,6 +25,12 @@ class BalanceCommand:
             bal = round(bal, 4)
             self._notify(f"Ethereum balance in ...{eth_address[-4:]} wallet: {bal} ETH")
             self._notify(f"Note: You may have other ERC 20 tokens in this same address (not shown here).")
+        celo_address = global_config_map["celo_address"].value
+        if celo_address is not None:
+            bals = CeloCli.balances()
+            self._notify("Celo balances:")
+            for token, amount in bals.items():
+                self._notify(f"  {token}: {amount}")
 
     async def balances_df(self  # type: HummingbotApplication
                           ):
