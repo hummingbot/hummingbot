@@ -83,7 +83,7 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 async for msg in self._inner_messages(ws):
                     yield msg
         except asyncio.CancelledError:
-            return
+            raise
 
     async def get_ws_connection(self) -> websockets.WebSocketClientProtocol:
         stream_url: str = f"{self._current_endpoint}?token={self._current_listen_key}&acceptUserMessage=true"

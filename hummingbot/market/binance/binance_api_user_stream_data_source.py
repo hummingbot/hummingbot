@@ -94,7 +94,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 async for msg in self._inner_messages(ws):
                     yield msg
         except asyncio.CancelledError:
-            return
+            raise
 
     async def get_ws_connection(self) -> websockets.WebSocketClientProtocol:
         stream_url: str = f"wss://stream.binance.com:9443/ws/{self._current_listen_key}"
