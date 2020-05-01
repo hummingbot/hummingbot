@@ -126,6 +126,7 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
                                         "5 seconds...", exc_info=True)
                     await asyncio.sleep(5)
         finally:
+            # Make sure no background task is leaked.
             if self._listen_for_user_stream_task is not None:
                 self._listen_for_user_stream_task.cancel()
                 self._listen_for_user_stream_task = None
