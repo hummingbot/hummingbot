@@ -20,7 +20,7 @@ def get_coro_name(coro: Union[Coroutine, Generator]) -> str:
 
 
 def get_wrapped_coroutine(t: asyncio.Task) -> Union[Coroutine, Generator]:
-    if "safe_ensure" in str(t):
+    if "safe_wrapper" in str(t):
         return t.get_coro().cr_frame.f_locals["c"]
     else:
         return t.get_coro()
