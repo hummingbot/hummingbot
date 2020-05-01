@@ -160,6 +160,7 @@ nav:
       - Telegram: advanced/telegram.md
       - Ethereum Wallet: advanced/wallet.md
       - Ethereum Node: advanced/node.md
+      - Advanced Database Configuration <sup>(BETA)</sup>: advanced/db-config.md
     - Community:
       - Overview: community/index.md  
       - Contributions: community/contributions.md
