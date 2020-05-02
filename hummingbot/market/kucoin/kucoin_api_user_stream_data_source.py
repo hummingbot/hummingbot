@@ -83,7 +83,7 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 async for msg in self._inner_messages(ws):
                     yield msg
         except asyncio.CancelledError:
-            return
+            raise
 
     async def get_ws_connection(self) -> websockets.WebSocketClientProtocol:
         stream_url: str = f"{self._current_endpoint}?token={self._current_listen_key}&acceptUserMessage=true"
@@ -93,37 +93,43 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
         return websockets.connect(stream_url)
 
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        while True:
-            try:
-                if self._current_listen_key is None:
-                    creds = await self.get_listen_key()
-                    self._current_listen_key = creds["data"]["token"]
-                    self._current_endpoint = creds["data"]["instanceServers"][0]["endpoint"]
-                    self.logger().debug(f"Obtained listen key {self._current_listen_key}.")
-                    if self._listen_for_user_stream_task is not None:
-                        self._listen_for_user_stream_task.cancel()
-                    self._listen_for_user_stream_task = safe_ensure_future(self.log_user_stream(output))
+        try:
+            while True:
+                try:
+                    if self._current_listen_key is None:
+                        creds = await self.get_listen_key()
+                        self._current_listen_key = creds["data"]["token"]
+                        self._current_endpoint = creds["data"]["instanceServers"][0]["endpoint"]
+                        self.logger().debug(f"Obtained listen key {self._current_listen_key}.")
+                        if self._listen_for_user_stream_task is not None:
+                            self._listen_for_user_stream_task.cancel()
+                        self._listen_for_user_stream_task = safe_ensure_future(self.log_user_stream(output))
+                        await self.wait_til_next_tick(seconds=40.0)
+
+                    success: bool = False
+                    async with (await self.get_ws_connection()) as ws2:
+                        success = await self.ping_listen_key(ws2)
+                    if not success:
+                        print("No pong")
+                        self._current_listen_key = None
+                        if self._listen_for_user_stream_task is not None:
+                            self._listen_for_user_stream_task.cancel()
+                            self._listen_for_user_stream_task = None
+                        continue
+                    self.logger().debug(f"Refreshed listen key {self._current_listen_key}.")
+
                     await self.wait_til_next_tick(seconds=40.0)
-
-                success: bool = False
-                async with (await self.get_ws_connection()) as ws2:
-                    success = await self.ping_listen_key(ws2)
-                if not success:
-                    print("No pong")
-                    self._current_listen_key = None
-                    if self._listen_for_user_stream_task is not None:
-                        self._listen_for_user_stream_task.cancel()
-                        self._listen_for_user_stream_task = None
-                    continue
-                self.logger().debug(f"Refreshed listen key {self._current_listen_key}.")
-
-                await self.wait_til_next_tick(seconds=40.0)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().error("Unexpected error while maintaining the user event listen key. Retrying after "
-                                    "5 seconds...", exc_info=True)
-                await asyncio.sleep(5)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    self.logger().error("Unexpected error while maintaining the user event listen key. Retrying after "
+                                        "5 seconds...", exc_info=True)
+                    await asyncio.sleep(5)
+        finally:
+            # Make sure no background task is leaked.
+            if self._listen_for_user_stream_task is not None:
+                self._listen_for_user_stream_task.cancel()
+                self._listen_for_user_stream_task = None
 
     async def log_user_stream(self, output: asyncio.Queue):
         while True:
