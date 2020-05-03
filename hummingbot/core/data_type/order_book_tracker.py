@@ -163,7 +163,7 @@ class OrderBookTracker(ABC):
             del self._tracking_tasks[trading_pair]
             del self._order_books[trading_pair]
             del self._tracking_message_queues[trading_pair]
-            self.logger().info("Stopped order book tracking for %s.", trading_pair)
+            self.logger().info("Stopped order book tracking for %s." % trading_pair)
 
     async def _refresh_tracking_loop(self):
         """

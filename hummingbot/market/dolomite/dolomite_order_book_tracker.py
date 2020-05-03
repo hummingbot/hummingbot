@@ -84,7 +84,7 @@ class DolomiteOrderBookTracker(OrderBookTracker):
             del self._order_books[trading_pair]
             del self._active_order_trackers[trading_pair]
             del self._tracking_message_queues[trading_pair]
-            self.logger().info("Stopped order book tracking for %s.", trading_pair)
+            self.logger().info("Stopped order book tracking for %s." % trading_pair)
 
     async def _track_single_book(self, trading_pair: str):
         message_queue: asyncio.Queue = self._tracking_message_queues[trading_pair]
