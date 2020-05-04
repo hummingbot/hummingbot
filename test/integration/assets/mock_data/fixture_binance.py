@@ -74,6 +74,8 @@ class FixtureBinance:
                                                    "commission": "0.00001510", "commissionAsset": "ETH",
                                                    "tradeId": 6043840}]}
 
+    LIMIT_MAKER_ERROR = {'code': -2010, 'msg': 'Order would immediately match and take.'}
+
     GET_DEPOSIT_INFO = {"address": "bnb136ns6lfw4zs5hg4n85vdthaad7hq5m4gtkgf23", "success": True,
                         "addressTag": "104312555", "asset": "BNB",
                         "url": "https://explorer.binance.org/address/bnb136ns6lfw4zs5hg4n85vdthaad7hq5m4gtkgf23"}
@@ -111,7 +113,7 @@ class FixtureBinance:
                            "side": "BUY", "fills": []}
 
     ORDER_BUY_PRECISION_GET = {"symbol": "LINKETH", "orderId": 154388421, "orderListId": -1,
-                               "clientOrderId": "buy-LINKETH-1580289856010707", "price": "0.00516884",
+                               "clientOrderId": "buy-LINKETH-1580289856010707", "price": "0.01447314",
                                "origQty": "3.00000000", "executedQty": "0.00000000",
                                "cummulativeQuoteQty": "0.00000000", "status": "NEW", "timeInForce": "GTC",
                                "type": "LIMIT", "side": "BUY", "stopPrice": "0.00000000", "icebergQty": "0.00000000",
@@ -125,7 +127,7 @@ class FixtureBinance:
                             "side": "SELL", "fills": []}
 
     ORDER_SELL_PRECISION_GET = {"symbol": "LINKETH", "orderId": 154388434, "orderListId": -1,
-                                "clientOrderId": "sell-LINKETH-1580289858445415", "price": "0.05333293",
+                                "clientOrderId": "sell-LINKETH-1580289858445415", "price": "0.01627079",
                                 "origQty": "1.00000000", "executedQty": "0.00000000",
                                 "cummulativeQuoteQty": "0.00000000", "status": "NEW", "timeInForce": "GTC",
                                 "type": "LIMIT", "side": "SELL", "stopPrice": "0.00000000", "icebergQty": "0.00000000",
