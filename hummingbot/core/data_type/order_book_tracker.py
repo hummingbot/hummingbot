@@ -136,6 +136,10 @@ class OrderBookTracker(ABC):
         if self._order_book_snapshot_router_task is not None:
             self._order_book_snapshot_router_task.cancel()
             self._order_book_snapshot_router_task = None
+        if len(self._tracking_tasks) > 0:
+            for _, task in self._tracking_tasks.items():
+                task.cancel()
+            self._tracking_tasks.clear()
 
     async def _refresh_tracking_tasks(self):
         """

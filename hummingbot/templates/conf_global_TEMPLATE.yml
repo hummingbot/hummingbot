@@ -105,3 +105,13 @@ min_quote_order_amount:
   - 11
 - - BNB
   - 0.5
+
+# Advanced database options, currently supports SQLAlchemy's included dialects
+# Reference: https://docs.sqlalchemy.org/en/13/dialects/
+db_engine: sqlite
+db_host: null
+db_port: null
+db_username: null
+db_password: null
+db_name: null
+
