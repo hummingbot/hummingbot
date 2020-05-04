@@ -32,9 +32,10 @@ class HummingbotLogger(PythonLogger):
     def network(self, log_msg: str, app_warning_msg: Optional[str] = None, *args, **kwargs):
         from hummingbot.client.hummingbot_application import HummingbotApplication
         from . import NETWORK
+        from os import getcwd
 
         self.log(NETWORK, log_msg, *args, **kwargs)
-        if app_warning_msg is not None:
+        if app_warning_msg is not None and "test" not in getcwd():
             app_warning: ApplicationWarning = ApplicationWarning(
                 time.time(),
                 self.name,
