@@ -22,8 +22,8 @@ Liquidity mining sets forth an analytical framework for determining market maker
 !!! warning "Terms subject to change"
     Please check this page for the most up-to-date terms.  We will notify participants of changes, if any, through email (for registered users) and on our [Discord](https://discord.hummingbot.io).
 
-!!! note "Terms updated for week 7"
-    **For the period starting April 14, 2020 12:00am UTC until April 21, 2020 12:00am UTC, the following changes were made:**<ol><li>**Zillqa**: the total amount of rewards for Zilliqa's campaigns was increased from USDC 750 per week to USDC 1,250 per week.  Please see updated amounts per trading pair below.<li>**Zcoin**: Zcoin listed a new trading pair, **XZC/USDT**, and has included this in its campaign.  *XZC/BNB is no longer eligible* and reward amounts for XZC/BTC and XZC/USDT are listed in the table below.</ul>
+!!! note "Terms updated for week 10"
+    **For the period starting May 5, 2020 12:00am UTC until May 12, 2020 12:00am UTC, the following changes were made:**<ol><li>**Zillqa**: the total amount of rewards for Zilliqa's campaigns has reverted to USDC 750 per week.  Please see updated amounts per trading pair below.<li>**Maximum spreads**: the maximum spread for all campaigns has been revised to 2%.</ul>
 
 <table>
   <thead>
@@ -38,58 +38,58 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td rowspan="3"><a href="#iexec">iExec</a><br></td>
       <td>RLC/BTC</td>
       <td>Binance.com</td>
-      <td>3%</td>
+      <td>2%</td>
       <td>USDC 250</td>
     </tr>
     <tr>
       <td>RLC/USDT</td>
       <td>Binance.com</td>
-      <td>3%</td>
+      <td>2%</td>
       <td>USDC 250</td>
     </tr>
     <tr>
       <td>RLC/ETH</td>
       <td>Binance.com</td>
-      <td>3%</td>
+      <td>2%</td>
       <td>USDC 250</td>
     </tr>
     <tr>
       <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
       <td>XZC/BTC</td>
       <td>Binance.com</td>
-      <td>3%</td>
+      <td>2%</td>
       <td>USDC 375¹</td>
     </tr>
     <tr>
       <td>XZC/USDT¹</td>
       <td>Binance.com</td>
-      <td>3%</td>
+      <td>2%</td>
       <td>USDC 375¹</td>
     </tr>
     <tr>
       <td rowspan="3"><a href="#zilliqa">Zilliqa</a><br></td>
       <td>ZIL/USDT</td>
       <td>Binance.com</td>
-      <td>3%</td>
-      <td>USDC 450¹</td>
+      <td>2%</td>
+      <td>USDC 250¹</td>
     </tr>
     <tr>
       <td>ZIL/ETH</td>
       <td>Binance.com</td>
-      <td>3%</td>
-      <td>USDC 400¹</td>
+      <td>2%</td>
+      <td>USDC 250¹</td>
     </tr>
     <tr>
       <td>ZIL/BNB</td>
       <td>Binance.com</td>
-      <td>3%</td>
-      <td>USDC 400¹</td>
+      <td>2%</td>
+      <td>USDC 250¹</td>
     </tr>
   </tbody>
 </table>
 
 ## Changes to campaign terms
-1. **April 14, 2020**: (1) the reward amounts for ZIL/USDT, ZIL/ETH, and ZIL/BNB were increased to USDC 450, USD 400, and USD 400 per week, respectively and (2) Zcoin (i) added a new pair (XZC/USDT), (ii) removed a previously eligible pair (XZC/BNB), as well as (iii) changed the reward amounts to USDC 375 per week per pair.  You can read more about the changes on our [reddit post](https://www.reddit.com/r/Hummingbot/comments/fy87ty/campaign_updates_for_week_7_increased_reward_pool/).
+1. **May 5, 2020**: (1) the reward amounts for ZIL/USDT, ZIL/ETH, and ZIL/BNB were reverted to USDC 250 per week for each pair.  The maximum spread for all campaigns was changed to 2% from 3%.  You can read more about the changes on our [reddit post](https://www.reddit.com/r/Hummingbot/comments/gd69fn/campaign_updates_for_week_10_max_spreads_now_2/).
 
 ## Program sponsors
 
