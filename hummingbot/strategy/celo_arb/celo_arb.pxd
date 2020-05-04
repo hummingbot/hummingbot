@@ -5,7 +5,10 @@ from libc.stdint cimport int64_t
 
 cdef class CeloArbStrategy(StrategyBase):
     cdef:
-        dict _market_infos
+        object _market_info
+        object _min_profitability
+        object _order_amount
+        double _last_timestamp
         str _asset_trading_pair
         bint _all_markets_ready
         double _status_report_interval
