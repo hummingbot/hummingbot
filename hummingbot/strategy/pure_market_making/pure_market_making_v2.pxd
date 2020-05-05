@@ -18,6 +18,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         bint _hanging_orders_enabled
         bint _order_optimization_enabled
         bint _add_transaction_costs_to_orders
+        object _limit_order_type
 
         double _cancel_timestamp
         double _create_timestamp

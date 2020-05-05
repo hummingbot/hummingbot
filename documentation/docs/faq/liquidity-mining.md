@@ -127,6 +127,13 @@ Each weekly epoch runs begins and ends at Tuesday 12am UTC. Rewards are distribu
 ### How do I verify my payouts?
 Your weekly payout email receipts contains links to the blockchain transaction confirmations. You can find these transaction confirmation links if you click on the Rewards Paid table in the Activity page.
 
+### I don't see my earnings on my metamask and on etherscan link from my email weekly reward.
+
+Click the etherscan link provided on email and navigate to `Erc20 Token Txns` as shown on image below, Or you may just need to add USDC token to MetaMask so you can view them. Please follow the instructions in this URL: [adding ERC20 Tokens](https://metamask.zendesk.com/hc/en-us/articles/360015489031-How-to-View-Your-Tokens)
+
+![](../assets/img/erc20token.png)
+
+
 ### Do you store data that you collect with my read-only API keys?
 At launch, we store individual orders and trades in order to isolate and prevent potential attempts to manipulate or abuse the system by malicious liquidity miners. After the system is more mature, we will adjust the data collection process so that we only store aggregate data and do not store individual orders and trades. We never share individual order and trade data with third parties.
 
