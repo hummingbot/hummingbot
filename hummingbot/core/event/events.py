@@ -65,6 +65,7 @@ class TradeType(Enum):
 class OrderType(Enum):
     MARKET = 1
     LIMIT = 2
+    LIMIT_MAKER = 3
 
 
 class MarketTransactionFailureEvent(NamedTuple):
