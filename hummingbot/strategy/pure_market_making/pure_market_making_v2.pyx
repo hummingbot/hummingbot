@@ -712,31 +712,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 pricing_proposal,
                 sizing_proposal)
 
-        if sizing_proposal.buy_order_sizes[0] > 0 or sizing_proposal.sell_order_sizes[0] > 0:
-            actions |= ORDER_PROPOSAL_ACTION_CREATE_ORDERS
-
-        if no_order_placement:
-            # Order creation bit is set to zero
-            actions = actions & (1 << 1)
-
-        if ((market_info.market.name not in self.RADAR_RELAY_TYPE_EXCHANGES) or
-                (market_info.market.display_name == "bamboo_relay" and market_info.market.use_coordinator)):
-            market_mid_price = market_info.get_mid_price()
-            for active_order in active_orders:
-                # If there are active orders, and active order cancellation is needed, then do the following:
-                #  1. Check the time to cancel for each order, and see if cancellation should be proposed.
-                #  2. Record each order id that needs to be cancelled.
-                #  3. Set action to include cancel orders.
-                if active_order.client_order_id in self._hanging_order_ids:
-                    if market_mid_price > 0 and abs(active_order.price - market_mid_price)/market_mid_price > \
-                            self._hanging_orders_cancel_pct:
-                        cancel_order_ids.append(active_order.client_order_id)
-                elif active_order.client_order_id in self._time_to_cancel and \
-                        self._current_timestamp >= self._time_to_cancel[active_order.client_order_id]:
-                    cancel_order_ids.append(active_order.client_order_id)
-            if len(cancel_order_ids) > 0:
-                actions |= ORDER_PROPOSAL_ACTION_CANCEL_ORDERS
-
         return OrdersProposal(0,
                               self._limit_order_type,
                               pricing_proposal.buy_order_prices,
