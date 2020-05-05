@@ -321,7 +321,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                     lvl_sell += 1
             spread = 0 if mid_price == 0 else abs(order.price - mid_price)/mid_price
             age = "n/a"
-            if "-" in order.client_order_id:
+            if "-" and "//" not in order.client_order_id:
                 age = pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:])/1e6,
                                    unit='s').strftime('%H:%M:%S')
             amount_orig = "" if level is None else order_start_size + ((level - 1) * order_step_size)
