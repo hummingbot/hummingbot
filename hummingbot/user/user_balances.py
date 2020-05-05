@@ -104,7 +104,12 @@ class UserBalances:
 
     async def balances(self, exchange, *symbols):
         if await self.update_exchange_balance(exchange) is None:
-            return {k: v for k, v in self.all_balances(exchange).items() if k in symbols}
+            results = {}
+            for token, bal in self.all_balances(exchange).items():
+                matches = [s for s in symbols if s.lower() == token.lower()]
+                if matches:
+                    results[matches[0]] = bal
+            return results
 
     @staticmethod
     def ethereum_balance():
@@ -131,9 +136,12 @@ class UserBalances:
 
     @staticmethod
     def base_amount_ratio(trading_pair, balances):
-        base, quote = trading_pair.split("-")
-        base_amount = balances.get(base, 0)
-        quote_amount = balances.get(quote, 0)
-        rate = ExchangeRateConversion.get_instance().convert_token_value_decimal(1, quote, base)
-        total_value = base_amount + (quote_amount * rate)
-        return None if total_value <= 0 else base_amount / total_value
+        try:
+            base, quote = trading_pair.split("-")
+            base_amount = balances.get(base, 0)
+            quote_amount = balances.get(quote, 0)
+            rate = ExchangeRateConversion.get_instance().convert_token_value_decimal(1, quote, base)
+            total_value = base_amount + (quote_amount * rate)
+            return None if total_value <= 0 else base_amount / total_value
+        except Exception:
+            return None
