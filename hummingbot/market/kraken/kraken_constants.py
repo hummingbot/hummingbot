@@ -61,7 +61,6 @@ HB_PAIR_TO_KRAKEN_PAIR = {
     'BAT-ZEUR': 'BATEUR',
     'BAT-ZUSD': 'BATUSD',
     'BAT-XXBT': 'BATXBT',
-    'BCH-XETH': 'BCHETH',
     'BCH-ZEUR': 'BCHEUR',
     'BCH-ZUSD': 'BCHUSD',
     'BCH-XXBT': 'BCHXBT',
