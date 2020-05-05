@@ -124,6 +124,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._order_refresh_tolerance_spread = order_refresh_tolerance_spread
         self._cancel_timestamp = 0
         self._create_timestamp = 0
+        self._limit_order_type = OrderType.LIMIT
+        if any(m.market.name == "binance" for m in market_infos):
+            self._limit_order_type = OrderType.LIMIT_MAKER
         self._all_markets_ready = False
         self._order_refresh_time = order_refresh_time
         self._expiration_seconds = expiration_seconds
@@ -708,11 +711,37 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 market_info,
                 pricing_proposal,
                 sizing_proposal)
+
+        if sizing_proposal.buy_order_sizes[0] > 0 or sizing_proposal.sell_order_sizes[0] > 0:
+            actions |= ORDER_PROPOSAL_ACTION_CREATE_ORDERS
+
+        if no_order_placement:
+            # Order creation bit is set to zero
+            actions = actions & (1 << 1)
+
+        if ((market_info.market.name not in self.RADAR_RELAY_TYPE_EXCHANGES) or
+                (market_info.market.display_name == "bamboo_relay" and market_info.market.use_coordinator)):
+            market_mid_price = market_info.get_mid_price()
+            for active_order in active_orders:
+                # If there are active orders, and active order cancellation is needed, then do the following:
+                #  1. Check the time to cancel for each order, and see if cancellation should be proposed.
+                #  2. Record each order id that needs to be cancelled.
+                #  3. Set action to include cancel orders.
+                if active_order.client_order_id in self._hanging_order_ids:
+                    if market_mid_price > 0 and abs(active_order.price - market_mid_price)/market_mid_price > \
+                            self._hanging_orders_cancel_pct:
+                        cancel_order_ids.append(active_order.client_order_id)
+                elif active_order.client_order_id in self._time_to_cancel and \
+                        self._current_timestamp >= self._time_to_cancel[active_order.client_order_id]:
+                    cancel_order_ids.append(active_order.client_order_id)
+            if len(cancel_order_ids) > 0:
+                actions |= ORDER_PROPOSAL_ACTION_CANCEL_ORDERS
+
         return OrdersProposal(0,
-                              OrderType.LIMIT,
+                              self._limit_order_type,
                               pricing_proposal.buy_order_prices,
                               sizing_proposal.buy_order_sizes,
-                              OrderType.LIMIT,
+                              self._limit_order_type,
                               pricing_proposal.sell_order_prices,
                               sizing_proposal.sell_order_sizes,
                               [])
@@ -904,7 +933,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         if self._create_timestamp > self._current_timestamp:
             return
         if len(orders_proposal.buy_order_sizes) > 0 and orders_proposal.buy_order_sizes[0] > 0:
-            if orders_proposal.buy_order_type is OrderType.LIMIT and orders_proposal.buy_order_prices[0] > 0:
+            if orders_proposal.buy_order_type is self._limit_order_type and orders_proposal.buy_order_prices[0] > 0:
                 if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                     order_price_quote = zip(orders_proposal.buy_order_sizes, orders_proposal.buy_order_prices)
                     price_quote_str = [
@@ -920,7 +949,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                     bid_order_id = self.c_buy_with_specific_market(
                         market_info,
                         orders_proposal.buy_order_sizes[idx],
-                        order_type=OrderType.LIMIT,
+                        order_type=self._limit_order_type,
                         price=orders_proposal.buy_order_prices[idx],
                         expiration_seconds=expiration_seconds
                     )
@@ -930,7 +959,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 raise RuntimeError("Market buy order in orders proposal is not supported yet.")
 
         if len(orders_proposal.sell_order_sizes) > 0 and orders_proposal.sell_order_sizes[0] > 0:
-            if orders_proposal.sell_order_type is OrderType.LIMIT and orders_proposal.sell_order_prices[0] > 0:
+            if orders_proposal.sell_order_type is self._limit_order_type and orders_proposal.sell_order_prices[0] > 0:
                 if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                     order_price_quote = zip(orders_proposal.sell_order_sizes, orders_proposal.sell_order_prices)
                     price_quote_str = [
@@ -946,7 +975,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                     ask_order_id = self.c_sell_with_specific_market(
                         market_info,
                         orders_proposal.sell_order_sizes[idx],
-                        order_type=OrderType.LIMIT,
+                        order_type=self._limit_order_type,
                         price=orders_proposal.sell_order_prices[idx],
                         expiration_seconds=expiration_seconds
                     )
