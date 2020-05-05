@@ -27,10 +27,13 @@ class BalanceCommand:
             self._notify(f"Note: You may have other ERC 20 tokens in this same address (not shown here).")
         celo_address = global_config_map["celo_address"].value
         if celo_address is not None:
-            bals = CeloCli.balances()
-            self._notify("Celo balances:")
-            for token, amount in bals.items():
-                self._notify(f"  {token}: {amount}")
+            try:
+                bals = CeloCli.balances()
+                self._notify("Celo balances:")
+                for token, amount in bals.items():
+                    self._notify(f"  {token}: {amount}")
+            except Exception as e:
+                self._notify(f"Celo CLI Error: {str(e)}")
 
     async def balances_df(self  # type: HummingbotApplication
                           ):

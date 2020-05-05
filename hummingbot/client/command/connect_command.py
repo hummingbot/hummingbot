@@ -81,6 +81,7 @@ class ConnectCommand:
         data = []
         failed_msgs = {}
         err_msgs = await UserBalances.instance().update_exchanges(reconnect=True)
+        CeloCli.remove_account()
         for option in sorted(OPTIONS):
             keys_added = "No"
             keys_confirmed = 'No'
@@ -97,6 +98,9 @@ class ConnectCommand:
                 celo_address = global_config_map["celo_address"].value
                 if celo_address is not None and Security.encrypted_file_exists("celo_password"):
                     keys_added = "Yes"
+                    CeloCli.set_account(global_config_map["celo_address"].value,
+                                        Security.decrypted_value("celo_password"))
+                    CeloCli.unlock_account()
                     err_msg = CeloCli.unlocked_msg
                     if err_msg is not None:
                         failed_msgs[option] = err_msg
