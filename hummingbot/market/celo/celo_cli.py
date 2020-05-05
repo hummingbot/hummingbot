@@ -3,10 +3,25 @@ from subprocess import CalledProcessError
 from decimal import Decimal
 
 
+symbols_map = {"CGLD": "gold", "CUSD": "usd"}
+
+
+def command(command_text: str):
+    try:
+        output = subprocess.check_output(command_text, stderr=subprocess.STDOUT, shell=True)
+        output = output.decode("utf-8").strip()
+        if output == "":
+            output = None
+        return output
+    except CalledProcessError as e:
+        raise Exception(e.output.decode("utf-8").split("\n")[0])
+
+
 class CeloCli:
+    UNLOCK_ERR_MSG = "Error: unlock_account has not been tried."
     address = None
     password = None
-    unlocked_msg = "Error: unlock_account has not been tried."
+    unlocked_msg = UNLOCK_ERR_MSG
 
     @classmethod
     def set_account(cls, address, password):
@@ -14,28 +29,29 @@ class CeloCli:
         cls.password = password
 
     @classmethod
+    def remove_account(cls):
+        cls.address = None
+        cls.password = None
+        cls.unlocked_msg = cls.UNLOCK_ERR_MSG
+
+    @classmethod
     def unlock_account(cls):
         try:
-            output = subprocess.check_output(f"celocli account:unlock {cls.address} --password={cls.password}",
-                                             stderr=subprocess.STDOUT, shell=True)
-            output = output.decode("utf-8")
-            if output.strip() == "":
-                output = None
-        except CalledProcessError as e:
-            output = e.output.decode("utf-8").split("\n")[0]
+            output = command(f"celocli account:unlock {cls.address} --password={cls.password}")
+        except Exception as e:
+            output = str(e)
         cls.unlocked_msg = output
 
     @classmethod
     def balances(cls):
-        balances = {"gold": Decimal("0"), "usd": Decimal("0")}
-        output = subprocess.check_output(f"celocli account:balance {cls.address}",
-                                         stderr=subprocess.STDOUT, shell=True)
-        lines = output.decode("utf-8").strip().split("\n")
+        balances = {}
+        output = command(f"celocli account:balance {cls.address}")
+        lines = output.split("\n")
         for line in lines:
-            matches = [token for token in balances if token in line]
-            if matches:
-                token = matches[0]
-                amount_str = line.split(":")[-1]
-                amount = Decimal(amount_str) / Decimal(10e18)
-                balances[token] = amount
+            if ":" not in line:
+                continue
+            asset, value = line.split(":")
+            symbols = [k for k, v in symbols_map.items() if v.lower() == asset.lower().strip()]
+            if symbols:
+                balances[symbols[0]] = Decimal(value) / Decimal(10e18)
         return balances
