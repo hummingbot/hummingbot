@@ -321,6 +321,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                     lvl_sell += 1
             spread = 0 if mid_price == 0 else abs(order.price - mid_price)/mid_price
             age = "n/a"
+            # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
             if "//" not in order.client_order_id:
                 age = pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:])/1e6,
                                    unit='s').strftime('%H:%M:%S')
