@@ -89,7 +89,7 @@ class UserBalances:
                 return "API keys have not been added."
 
     # returns error message for each exchange
-    async def update_exchanges(self, reconnect=False, exchanges=EXCHANGES) -> Dict[str, str]:
+    async def update_exchanges(self, reconnect=False, exchanges=EXCHANGES) -> Dict[str, Optional[str]]:
         tasks = []
         # We can only update user exchange balances on CEXes, for DEX we'll need to implement web3 wallet query later.
         exchanges = [ex for ex in exchanges if ex not in DEXES]
@@ -137,7 +137,7 @@ class UserBalances:
         return None
 
     @staticmethod
-    def base_amount_ratio(trading_pair, balances) -> Decimal:
+    def base_amount_ratio(trading_pair, balances) -> Optional[Decimal]:
         try:
             base, quote = trading_pair.split("-")
             base_amount = balances.get(base, 0)
