@@ -29,7 +29,7 @@ class CeloArbUnitTest(unittest.TestCase):
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
     start_timestamp: float = start.timestamp()
     end_timestamp: float = end.timestamp()
-    market_trading_pairs: List[str] = ["cGLD-cUSD", "cGLD", "cUSD"]
+    market_trading_pairs: List[str] = ["CGLD-CUSD", "CGLD", "CUSD"]
 
     @classmethod
     def setUpClass(cls):
@@ -45,8 +45,8 @@ class CeloArbUnitTest(unittest.TestCase):
 
         self.market.add_data(self.market_data)
 
-        self.market.set_balance("cGLD", 500)
-        self.market.set_balance("cUSD", 500)
+        self.market.set_balance("CGLD", 500)
+        self.market.set_balance("CUSD", 500)
         self.market.set_quantization_param(
             QuantizationParams(
                 self.market_trading_pairs[0], 5, 5, 5, 5
@@ -69,3 +69,6 @@ class CeloArbUnitTest(unittest.TestCase):
         self.market_order_fill_logger: EventLogger = EventLogger()
 
         self.market.add_listener(MarketEvent.OrderFilled, self.market_order_fill_logger)
+
+    def test_1(self):
+        pass
