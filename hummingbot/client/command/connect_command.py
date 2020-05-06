@@ -4,7 +4,7 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.user.user_balances import UserBalances
 from hummingbot.client.config.config_helpers import save_to_yml
 from hummingbot.client.settings import GLOBAL_CONFIG_PATH
-from hummingbot.market.celo.celo_cli import CeloCli
+from hummingbot.market.celo.celo_cli import CeloCLI
 import pandas as pd
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -81,7 +81,7 @@ class ConnectCommand:
         data = []
         failed_msgs = {}
         err_msgs = await UserBalances.instance().update_exchanges(reconnect=True)
-        CeloCli.remove_account()
+        CeloCLI.remove_account()
         for option in sorted(OPTIONS):
             keys_added = "No"
             keys_confirmed = 'No'
@@ -98,10 +98,10 @@ class ConnectCommand:
                 celo_address = global_config_map["celo_address"].value
                 if celo_address is not None and Security.encrypted_file_exists("celo_password"):
                     keys_added = "Yes"
-                    CeloCli.set_account(global_config_map["celo_address"].value,
+                    CeloCLI.set_account(global_config_map["celo_address"].value,
                                         Security.decrypted_value("celo_password"))
-                    CeloCli.unlock_account()
-                    err_msg = CeloCli.unlocked_msg
+                    CeloCLI.unlock_account()
+                    err_msg = CeloCLI.unlocked_msg
                     if err_msg is not None:
                         failed_msgs[option] = err_msg
                     else:
@@ -160,9 +160,9 @@ class ConnectCommand:
             await self.prompt_a_config(global_config_map["celo_password"])
             save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
 
-            CeloCli.set_account(global_config_map["celo_address"].value, global_config_map["celo_password"].value)
-            CeloCli.unlock_account()
-            err_msg = CeloCli.unlocked_msg
+            CeloCLI.set_account(global_config_map["celo_address"].value, global_config_map["celo_password"].value)
+            CeloCLI.unlock_account()
+            err_msg = CeloCLI.unlocked_msg
             if err_msg is None:
                 self._notify(f"You are now connected to Celo network.")
             else:

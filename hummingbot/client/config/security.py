@@ -16,7 +16,7 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 import asyncio
 from os import unlink
-from hummingbot.market.celo.celo_cli import CeloCli
+from hummingbot.market.celo.celo_cli import CeloCLI
 
 
 class Security:
@@ -92,8 +92,8 @@ class Security:
             cls.unlock_wallet(wallet)
         if "celo_password" in cls._secure_configs:
             celo_address = global_config_map["celo_address"].value
-            CeloCli.set_account(celo_address, cls._secure_configs["celo_password"])
-            CeloCli.unlock_account()
+            CeloCLI.set_account(celo_address, cls._secure_configs["celo_password"])
+            CeloCLI.unlock_account()
         cls._decryption_done.set()
 
     @classmethod
