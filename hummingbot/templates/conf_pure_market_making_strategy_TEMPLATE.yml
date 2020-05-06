@@ -29,7 +29,7 @@ order_refresh_time: null
 
 # The spread (from mid price) to defer order refresh process to the next cycle.
 # (Enter 1 to indicate 1%), value below 0, e.g. -1, is to disable this feature - not recommended.
-order_refresh_tolerance_spread: null
+order_refresh_tolerance_pct: null
 
 # Size of your bid and ask order.
 order_amount: null

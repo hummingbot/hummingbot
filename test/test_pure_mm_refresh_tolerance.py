@@ -81,7 +81,7 @@ class PureMMRefreshToleranceUnitTest(unittest.TestCase):
             hanging_orders_enabled=True,
             logging_options=logging_options,
             hanging_orders_cancel_pct=0.05,
-            order_refresh_tolerance_spread=0
+            order_refresh_tolerance_pct=0
         )
         self.multiple_order_pricing_delegate = ConstantMultipleSpreadPricingDelegate(
             bid_spread=Decimal(self.bid_spread),
@@ -104,7 +104,7 @@ class PureMMRefreshToleranceUnitTest(unittest.TestCase):
             hanging_orders_enabled=True,
             logging_options=logging_options,
             hanging_orders_cancel_pct=0.1,
-            order_refresh_tolerance_spread=0
+            order_refresh_tolerance_pct=0
         )
 
         self.replenish_delay_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
