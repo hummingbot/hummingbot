@@ -119,10 +119,10 @@ pure_market_making_config_map = {
                   type_str="float",
                   validator=lambda v: validate_decimal(v, 0, inclusive=False),
                   prompt_on_new=True),
-    "order_refresh_tolerance_spread":
-        ConfigVar(key="order_refresh_tolerance_spread",
-                  prompt="Enter the spread (from mid price) to defer order refresh process to the next "
-                         "cycle? (Enter 1 to indicate 1%) >>> ",
+    "order_refresh_tolerance_pct":
+        ConfigVar(key="order_refresh_tolerance_pct",
+                  prompt="Enter a price difference percentage between new orders and existing to defer order refresh "
+                         "process to the next cycle? (Enter 1 to indicate 1%) >>> ",
                   type_str="decimal",
                   default=Decimal("0"),
                   validator=lambda v: validate_decimal(v, -10, 10, inclusive=True)),

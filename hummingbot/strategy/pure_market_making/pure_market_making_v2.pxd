@@ -28,7 +28,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         double _last_timestamp
         double _filled_order_delay
         double _hanging_orders_cancel_pct
-        double _order_refresh_tolerance_spread
+        double _order_refresh_tolerance_pct
         object _order_optimization_depth
         dict _time_to_cancel
         list _hanging_order_ids
@@ -54,5 +54,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     cdef object c_filter_orders_proposal_for_takers(self, object market_info, object orders_proposal)
     cdef object c_create_orders_proposals(self, object market_info, list active_orders)
     cdef bint c_is_within_tolerance(self, list current_orders, list proposals)
-    cdef bint c_cancel_active_orders(self, object market_info, object orders_proposal)
+    cdef c_cancel_active_orders(self, object market_info, object orders_proposal)
     cdef c_cancel_hanging_orders(self, object market_info)
+    cdef bint c_to_create_orders(self, object market_info, object orders_proposal)
