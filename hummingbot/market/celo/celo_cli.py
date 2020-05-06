@@ -1,14 +1,15 @@
 import subprocess
 from subprocess import CalledProcessError
 from decimal import Decimal
+from typing import List
 
 
 symbols_map = {"CGLD": "gold", "CUSD": "usd"}
 
 
-def command(command_text: str):
+def command(commands: List[str]):
     try:
-        output = subprocess.check_output(command_text, stderr=subprocess.STDOUT, shell=True)
+        output = subprocess.check_output(commands, stderr=subprocess.STDOUT, shell=False)
         output = output.decode("utf-8").strip()
         if output == "":
             output = None
@@ -17,7 +18,7 @@ def command(command_text: str):
         raise Exception(e.output.decode("utf-8").split("\n")[0])
 
 
-class CeloCli:
+class CeloCLI:
     UNLOCK_ERR_MSG = "Error: unlock_account has not been tried."
     address = None
     password = None
@@ -37,7 +38,7 @@ class CeloCli:
     @classmethod
     def unlock_account(cls):
         try:
-            output = command(f"celocli account:unlock {cls.address} --password={cls.password}")
+            output = command(["celocli", "account:unlock", cls.address, "--password", cls.password])
         except Exception as e:
             output = str(e)
         cls.unlocked_msg = output
@@ -45,7 +46,7 @@ class CeloCli:
     @classmethod
     def balances(cls):
         balances = {}
-        output = command(f"celocli account:balance {cls.address}")
+        output = command(["celocli", "account:balance", cls.address])
         lines = output.split("\n")
         for line in lines:
             if ":" not in line:

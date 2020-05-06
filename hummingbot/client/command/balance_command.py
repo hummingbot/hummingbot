@@ -2,7 +2,7 @@ from hummingbot.user.user_balances import UserBalances
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion as ERC
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.market.celo.celo_cli import CeloCli
+from hummingbot.market.celo.celo_cli import CeloCLI
 import pandas as pd
 from numpy import NaN
 from typing import TYPE_CHECKING
@@ -28,7 +28,7 @@ class BalanceCommand:
         celo_address = global_config_map["celo_address"].value
         if celo_address is not None:
             try:
-                bals = CeloCli.balances()
+                bals = CeloCLI.balances()
                 self._notify("Celo balances:")
                 for token, amount in bals.items():
                     self._notify(f"  {token}: {amount}")
