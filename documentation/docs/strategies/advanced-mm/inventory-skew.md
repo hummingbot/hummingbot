@@ -21,12 +21,12 @@ If the user's base asset value goes above the upper limit, then no bid orders wo
 The three bots below all share this base configuration:
 ```json
 - market: BTC-USDT
-- bid_spread: 0.005
-- ask_spread: 0.005
+- bid_spread: 1
+- ask_spread: 1
 - order_amount: 0.002
 - order_levels: 3
 - order_level_amount: 0.002
-- order_level_spread: 0.01
+- order_level_spread: 1
 ```
 
 ### No Inventory Skew
@@ -34,7 +34,7 @@ The three bots below all share this base configuration:
 ```json
 - inventory_skew_enabled: False
 ```
-![](/assets/img/inventory-skew-none.png)
+![](/assets/img/no-inventory-skew.png)
 
 Without inventory skew, order amounts are always symmetrical between buy (outlined in green) and sell orders (outlined in red).
 
@@ -44,19 +44,19 @@ Without inventory skew, order amounts are always symmetrical between buy (outlin
 - inventory_target_base_pct: 50
 - inventory_range_multiplier: 1.0
 ```
-![](/assets/img/inventory-skew-1.png)
+![](/assets/img/skew-with-multiplier-1.png)
 
-Since the current inventory percentage (36.5%) is outside of the target range (38.2% to 61.8%), only buy orders are placed until the inventory split is within the range.
+Since the current inventory range of each asset is within the target range (8.7% - 91.3%), both buy and sell orders are placed. However, more buy orders will be created with larger order amounts than the sell order amounts.
 
-### Inventory Skew, Multiplier = 2
+### Inventory Skew, Multiplier = 0.5
 ```json
 - inventory_skew_enabled: True
 - inventory_target_base_pct: 50
-- inventory_range_multiplier: 2.0
+- inventory_range_multiplier: 0.5
 ```
-![](/assets/img/inventory-skew-2.png)
+![](/assets/img/skew-with-multiplier-0.5.png)
 
-By increasing the range multiplier to 2, the current inventory percentage fall inside the widened target range (26.5% to 73.5%), so both buy and sell orders are placed. However, the buy order amounts are larger than the sell order amounts.
+By decreasing the range multiplier to 0.5, the target range tightens (29.4% to 70.6%). Since the current inventory percentage (25.0% and 75%) falls off the range, only buy orders are placed until the inventory split is within range.
 
 ## Relevant Parameters
 
