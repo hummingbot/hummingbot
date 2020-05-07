@@ -18,6 +18,7 @@ from typing import (
 )
 from os import listdir
 import shutil
+import re
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.global_config_map import global_config_map
@@ -206,6 +207,10 @@ def strategy_name_from_file(file_path: str) -> str:
 def validate_strategy_file(file_path: str) -> Optional[str]:
     if not exists(file_path):
         return f"{file_path} file does not exist."
+    # print error when a blank value or any of the ff. special chars alone is entered during prompt
+    chars = re.compile(r'\./')
+    if file_path == "conf/" or chars:
+        return f"Enter a valid configuration file name."
     strategy = strategy_name_from_file(file_path)
     if strategy is None:
         return f"Invalid configuration file or 'strategy' field is missing."
