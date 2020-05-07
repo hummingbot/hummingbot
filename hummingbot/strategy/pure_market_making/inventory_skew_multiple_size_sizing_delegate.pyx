@@ -97,9 +97,6 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
                 has_active_ask = True
                 base_asset_balance += active_order.quantity
 
-        # if has_active_bid and has_active_ask:
-        #     return SizingProposal([s_decimal_0], [s_decimal_0])
-
         cdef:
             object bid_adjustment_ratio
             object ask_adjustment_ratio
