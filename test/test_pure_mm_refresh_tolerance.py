@@ -31,6 +31,7 @@ from hummingbot.strategy.pure_market_making import (
     ConstantSizeSizingDelegate,
     StaggeredMultipleSizeSizingDelegate,
 )
+from test.test_pure_market_making_v2 import simulate_limit_order_fill
 
 
 class PureMMRefreshToleranceUnitTest(unittest.TestCase):
@@ -107,24 +108,16 @@ class PureMMRefreshToleranceUnitTest(unittest.TestCase):
             order_refresh_tolerance_pct=0
         )
 
-        self.replenish_delay_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
-            [self.market_info],
-            filter_delegate=self.filter_delegate,
-            pricing_delegate=self.constant_pricing_delegate,
-            sizing_delegate=self.constant_sizing_delegate,
-            order_refresh_time=4,
-            filled_order_delay=8,
-            logging_options=logging_options
-        )
-
-        self.replenish_delay_multiple_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
+        self.hanging_order_multiple_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
             [self.market_info],
             filter_delegate=self.filter_delegate,
             pricing_delegate=self.multiple_order_pricing_delegate,
             sizing_delegate=self.equal_sizing_delegate,
             order_refresh_time=4,
             filled_order_delay=8,
-            logging_options=logging_options
+            hanging_orders_enabled=True,
+            logging_options=logging_options,
+            order_refresh_tolerance_pct=0
         )
         self.logging_options = logging_options
         self.clock.add_iterator(self.maker_market)
@@ -218,3 +211,47 @@ class PureMMRefreshToleranceUnitTest(unittest.TestCase):
         new_asks = strategy.active_asks
         self.assertEqual([o[1].client_order_id for o in old_asks], [o[1].client_order_id for o in new_asks])
         self.assertEqual([o[1].client_order_id for o in old_bids], [o[1].client_order_id for o in new_bids])
+
+    def test_hanging_orders_multiple_orders_with_refresh_tolerance(self):
+        strategy = self.hanging_order_multiple_strategy
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(5, len(strategy.active_bids))
+        self.assertEqual(5, len(strategy.active_asks))
+        ask_order = strategy.active_asks[0][1]
+
+        simulate_limit_order_fill(self.maker_market, ask_order)
+
+        # Ask is filled and due to delay is not replenished immediately
+        # Bid orders are now hanging and active
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size)
+        self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
+        self.assertEqual(5, len(strategy.active_bids))
+        self.assertEqual(4, len(strategy.active_asks))
+        self.assertEqual(5, len(strategy.hanging_order_ids))
+
+        # At order_refresh_time (4 seconds), hanging order remains, asks all got canceled
+        self.clock.backtest_til(self.start_timestamp + 5 * self.clock_tick_size)
+        self.assertEqual(5, len(strategy.active_bids))
+        self.assertEqual(0, len(strategy.active_asks))
+
+        # At filled_order_delay (8 seconds), new sets of bid and ask orders are created
+        self.clock.backtest_til(self.start_timestamp + 10 * self.clock_tick_size)
+        self.assertEqual(10, len(strategy.active_bids))
+        self.assertEqual(5, len(strategy.active_asks))
+
+        # Check all hanging order ids are indeed in active bids list
+        self.assertTrue(all(h in [order.client_order_id for market, order in strategy.active_bids]
+                            for h in strategy.hanging_order_ids))
+
+        old_bids = [o[1] for o in strategy.active_bids if o[1].client_order_id not in strategy.hanging_order_ids]
+        old_asks = [o[1] for o in strategy.active_asks if o[1].client_order_id not in strategy.hanging_order_ids]
+
+        self.clock.backtest_til(self.start_timestamp + 15 * self.clock_tick_size)
+        self.assertEqual(10, len(strategy.active_bids))
+        self.assertEqual(5, len(strategy.active_asks))
+
+        new_bids = [o[1] for o in strategy.active_bids if o[1].client_order_id not in strategy.hanging_order_ids]
+        new_asks = [o[1] for o in strategy.active_asks if o[1].client_order_id not in strategy.hanging_order_ids]
+        self.assertEqual([o.client_order_id for o in old_asks], [o.client_order_id for o in new_asks])
+        self.assertEqual([o.client_order_id for o in old_bids], [o.client_order_id for o in new_bids])
