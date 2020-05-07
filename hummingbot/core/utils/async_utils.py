@@ -34,3 +34,11 @@ async def wait_til(condition_func, timeout=10):
             raise Exception(f"{inspect.getsource(condition_func).strip()} condition is never met. Time out reached.")
         else:
             await asyncio.sleep(0.1)
+
+
+async def run_command(*args):
+    process = await asyncio.create_subprocess_exec(
+        *args,
+        stdout=asyncio.subprocess.PIPE)
+    stdout, stderr = await process.communicate()
+    return stdout.decode().strip()
