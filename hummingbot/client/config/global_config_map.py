@@ -232,6 +232,19 @@ global_config_map = {
                   required_if=using_exchange("kraken"),
                   is_secure=True,
                   is_connect_key=True),
+    "celo_address":
+        ConfigVar(key="celo_address",
+                  prompt="Enter your Celo account address >>> ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  is_connect_key=True),
+    "celo_password":
+        ConfigVar(key="celo_password",
+                  prompt="Enter your Celo account password >>> ",
+                  type_str="str",
+                  required_if=lambda: global_config_map["celo_address"].value is not None,
+                  is_secure=True,
+                  is_connect_key=True),
     "ethereum_wallet":
         ConfigVar(key="ethereum_wallet",
                   prompt="Enter your wallet private key >>> ",
