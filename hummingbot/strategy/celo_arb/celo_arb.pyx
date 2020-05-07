@@ -19,10 +19,36 @@ from hummingbot.market.market_base import MarketBase
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
+from hummingbot.market.celo.celo_cli import CeloCLI
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
 ds_logger = None
+
+
+def get_trade_profits(market, trading_pair: str, order_amount: Decimal):
+    order_amount = Decimal(str(order_amount))
+    results = []
+    # Find Celo counter party price for the order_amount
+    query_result = market.get_vwap_for_volume(trading_pair, True, float(order_amount))
+    ctp_buy = Decimal(str(query_result.result_price))
+    query_result = market.get_vwap_for_volume(trading_pair, False, float(order_amount))
+    ctp_sell = Decimal(str(query_result.result_price))
+    # Celo exchange rate show buy result in USD amount
+    celo_buy_amount = ctp_sell * order_amount
+    celo_ex_rates = CeloCLI.exchange_rate(celo_buy_amount)
+    print(celo_ex_rates)
+    celo_buy_ex_rate = [r for r in celo_ex_rates if r.to_token == "CGLD" and r.from_token == "CUSD"][0]
+    celo_buy = celo_buy_ex_rate.from_amount / celo_buy_ex_rate.to_amount
+    celo_ex_rates = CeloCLI.exchange_rate(order_amount)
+    print(celo_ex_rates)
+    celo_sell_ex_rate = [r for r in celo_ex_rates if r.from_token == "CGLD" and r.to_token == "CUSD"][0]
+    celo_sell = celo_sell_ex_rate.to_amount / celo_sell_ex_rate.from_amount
+    celo_buy_profit = (ctp_sell - celo_buy) / celo_buy
+    results.append((True, ctp_sell, celo_buy, celo_buy_profit))
+    celo_sell_profit = (celo_sell - ctp_buy) / ctp_buy
+    results.append((False, ctp_buy, celo_sell, celo_sell_profit))
+    return results
 
 
 cdef class CeloArbStrategy(StrategyBase):
