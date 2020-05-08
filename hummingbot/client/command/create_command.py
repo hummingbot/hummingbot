@@ -127,6 +127,8 @@ class CreateCommand:
         if balances is None:
             return
         base_ratio = UserBalances.base_amount_ratio(market, balances)
+        if base_ratio is None:
+            return
         base_ratio = round(base_ratio, 3)
         quote_ratio = 1 - base_ratio
         base, quote = config_map["market"].value.split("-")
