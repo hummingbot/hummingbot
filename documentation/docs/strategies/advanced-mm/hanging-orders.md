@@ -19,7 +19,7 @@ Let's see how this configuration works in the scenario below:
 ```json
 - filled_order_delay: 60.0
 - hanging_orders_enabled: True
-- hanging_orders_cancel_pct: 0.02
+- hanging_orders_cancel_pct: 2
 ```
 
 ![](/assets/img/hanging_order1.png)
