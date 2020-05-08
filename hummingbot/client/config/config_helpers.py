@@ -4,8 +4,7 @@ import ruamel.yaml
 from os import unlink
 from os.path import (
     join,
-    isfile,
-    exists
+    isfile
 )
 from collections import OrderedDict
 import json
@@ -204,12 +203,8 @@ def strategy_name_from_file(file_path: str) -> str:
 
 
 def validate_strategy_file(file_path: str) -> Optional[str]:
-    if not exists(file_path):
+    if not isfile(file_path):
         return f"{file_path} file does not exist."
-    # print error on blank or special character values input during import
-    invalid_import_path = ['conf/', 'conf/.', '/', '\\']
-    if file_path in invalid_import_path:
-        return f"Enter a valid configuration file name."
     strategy = strategy_name_from_file(file_path)
     if strategy is None:
         return f"Invalid configuration file or 'strategy' field is missing."
