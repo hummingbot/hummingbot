@@ -121,20 +121,20 @@ cdef class InFlightDeposit:
                f"tx_hash='{self.tx_hash}', has_tx_receipt={self.has_tx_receipt})"
 
 
-cdef class WithdrawRule:
-    cdef:
-        public str asset_name
-        public object min_withdraw_amount
-        public object withdraw_fee
-
-    def __init__(self, asset_name: str, min_withdraw_amount: float, withdraw_fee: float):
-        self.asset_name = asset_name
-        self.min_withdraw_amount = min_withdraw_amount
-        self.withdraw_fee = withdraw_fee
-
-    def __repr__(self) -> str:
-        return f"WithdrawRule(asset_name='{self.asset_name}', min_withdraw_amount={self.min_withdraw_amount}, " \
-               f"withdraw_fee={self.withdraw_fee})"
+# cdef class WithdrawRule:
+#     cdef:
+#         public str asset_name
+#         public object min_withdraw_amount
+#         public object withdraw_fee
+#
+#     def __init__(self, asset_name: str, min_withdraw_amount: float, withdraw_fee: float):
+#         self.asset_name = asset_name
+#         self.min_withdraw_amount = min_withdraw_amount
+#         self.withdraw_fee = withdraw_fee
+#
+#     def __repr__(self) -> str:
+#         return f"WithdrawRule(asset_name='{self.asset_name}', min_withdraw_amount={self.min_withdraw_amount}, " \
+#                f"withdraw_fee={self.withdraw_fee})"
 
 
 cdef class BinanceMarket(MarketBase):
@@ -190,7 +190,7 @@ cdef class BinanceMarket(MarketBase):
         self._in_flight_orders = {}  # Dict[client_order_id:str, BinanceInFlightOrder]
         self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
         self._tx_tracker = BinanceMarketTransactionTracker(self)
-        self._withdraw_rules = {}  # Dict[trading_pair:str, WithdrawRule]
+        # self._withdraw_rules = {}  # Dict[trading_pair:str, WithdrawRule]
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
         self._trade_fees = {}  # Dict[trading_pair:str, (maker_fee_percent:Decimal, taken_fee_percent:Decimal)]
         self._last_update_trade_fees_timestamp = 0
@@ -236,9 +236,9 @@ cdef class BinanceMarket(MarketBase):
     def binance_client(self) -> BinanceClient:
         return self._binance_client
 
-    @property
-    def withdraw_rules(self) -> Dict[str, WithdrawRule]:
-        return self._withdraw_rules
+    # @property
+    # def withdraw_rules(self) -> Dict[str, WithdrawRule]:
+    #     return self._withdraw_rules
 
     @property
     def trading_rules(self) -> Dict[str, TradingRule]:
@@ -387,23 +387,23 @@ cdef class BinanceMarket(MarketBase):
             maker_trade_fee, taker_trade_fee = self._trade_fees.get(trading_pair)
         return TradeFee(percent=maker_trade_fee if order_type is OrderType.LIMIT else taker_trade_fee)
 
-    async def _update_withdraw_rules(self):
-        cdef:
-            # The poll interval for withdraw rules is 60 seconds.
-            int64_t last_tick = <int64_t>(self._last_timestamp / 60.0)
-            int64_t current_tick = <int64_t>(self._current_timestamp / 60.0)
-        if current_tick > last_tick or len(self._withdraw_rules) < 1:
-            asset_rules = await self.query_url("https://www.binance.com/assetWithdraw/getAllAsset.html")
-            for asset_rule in asset_rules:
-                asset_name = asset_rule["assetCode"]
-                min_withdraw_amount = Decimal(asset_rule["minProductWithdraw"])
-                withdraw_fee = Decimal(asset_rule["transactionFee"])
-                if asset_name not in self._withdraw_rules:
-                    self._withdraw_rules[asset_name] = WithdrawRule(asset_name, min_withdraw_amount, withdraw_fee)
-                else:
-                    existing_rule = self._withdraw_rules[asset_name]
-                    existing_rule.min_withdraw_amount = min_withdraw_amount
-                    existing_rule.withdraw_fee = withdraw_fee
+    # async def _update_withdraw_rules(self):
+    #     cdef:
+    #         # The poll interval for withdraw rules is 60 seconds.
+    #         int64_t last_tick = <int64_t>(self._last_timestamp / 60.0)
+    #         int64_t current_tick = <int64_t>(self._current_timestamp / 60.0)
+    #     if current_tick > last_tick or len(self._withdraw_rules) < 1:
+    #         asset_rules = await self.query_url("https://www.binance.com/assetWithdraw/getAllAsset.html")
+    #         for asset_rule in asset_rules:
+    #             asset_name = asset_rule["assetCode"]
+    #             min_withdraw_amount = Decimal(asset_rule["minProductWithdraw"])
+    #             withdraw_fee = Decimal(asset_rule["transactionFee"])
+    #             if asset_name not in self._withdraw_rules:
+    #                 self._withdraw_rules[asset_name] = WithdrawRule(asset_name, min_withdraw_amount, withdraw_fee)
+    #             else:
+    #                 existing_rule = self._withdraw_rules[asset_name]
+    #                 existing_rule.min_withdraw_amount = min_withdraw_amount
+    #                 existing_rule.withdraw_fee = withdraw_fee
 
     async def _update_trading_rules(self):
         cdef:
@@ -792,7 +792,7 @@ cdef class BinanceMarket(MarketBase):
         while True:
             try:
                 await safe_gather(
-                    self._update_withdraw_rules(),
+                    # self._update_withdraw_rules(),
                     self._update_trading_rules(),
                     self._update_trade_fees()
                 )
@@ -810,7 +810,7 @@ cdef class BinanceMarket(MarketBase):
         return {
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "withdraw_rules_initialized": len(self._withdraw_rules) > 0,
+            # "withdraw_rules_initialized": len(self._withdraw_rules) > 0,
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "trade_fees_initialized": len(self._trade_fees) > 0
         }
@@ -842,37 +842,37 @@ cdef class BinanceMarket(MarketBase):
         del deposit_reply["address"]
         return DepositInfo(deposit_address, **deposit_reply)
 
-    async def execute_withdraw(self, tracking_id: str, to_address: str, currency: str, amount: Decimal):
-        decimal_amount = str(f"{amount:.12g}")
-        try:
-            withdraw_result = await self.query_api(self._binance_client.withdraw,
-                                                   asset=currency, address=to_address, amount=decimal_amount)
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.logger().network(
-                f"Error sending withdraw request to Binance for {currency}.",
-                exc_info=True,
-                app_warning_msg=f"Could not send {currency} withdrawal request to Binance. "
-                                f"Check network connection."
-            )
-            self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                                 MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
-            return
+    # async def execute_withdraw(self, tracking_id: str, to_address: str, currency: str, amount: Decimal):
+    #     decimal_amount = str(f"{amount:.12g}")
+    #     try:
+    #         withdraw_result = await self.query_api(self._binance_client.withdraw,
+    #                                                asset=currency, address=to_address, amount=decimal_amount)
+    #     except asyncio.CancelledError:
+    #         raise
+    #     except Exception:
+    #         self.logger().network(
+    #             f"Error sending withdraw request to Binance for {currency}.",
+    #             exc_info=True,
+    #             app_warning_msg=f"Could not send {currency} withdrawal request to Binance. "
+    #                             f"Check network connection."
+    #         )
+    #         self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
+    #                              MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
+    #         return
+    #
+    #     # Since the Binance API client already does some checking for us, if no exception has been raised... the
+    #     # withdraw result here should be valid.
+    #     withdraw_fee = self._withdraw_rules[currency].withdraw_fee if currency in self._withdraw_rules else s_decimal_0
+    #     self.c_trigger_event(self.MARKET_WITHDRAW_ASSET_EVENT_TAG,
+    #                          MarketWithdrawAssetEvent(self._current_timestamp, tracking_id, to_address, currency,
+    #                                                   amount, withdraw_fee))
 
-        # Since the Binance API client already does some checking for us, if no exception has been raised... the
-        # withdraw result here should be valid.
-        withdraw_fee = self._withdraw_rules[currency].withdraw_fee if currency in self._withdraw_rules else s_decimal_0
-        self.c_trigger_event(self.MARKET_WITHDRAW_ASSET_EVENT_TAG,
-                             MarketWithdrawAssetEvent(self._current_timestamp, tracking_id, to_address, currency,
-                                                      amount, withdraw_fee))
-
-    cdef str c_withdraw(self, str address, str currency, object amount):
-        cdef:
-            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
-            str tracking_id = str(f"withdraw://{currency}/{tracking_nonce}")
-        safe_ensure_future(self.execute_withdraw(tracking_id, address, currency, amount))
-        return tracking_id
+    # cdef str c_withdraw(self, str address, str currency, object amount):
+    #     cdef:
+    #         int64_t tracking_nonce = <int64_t> get_tracking_nonce()
+    #         str tracking_id = str(f"withdraw://{currency}/{tracking_nonce}")
+    #     safe_ensure_future(self.execute_withdraw(tracking_id, address, currency, amount))
+    #     return tracking_id
 
     cdef c_start(self, Clock clock, double timestamp):
         self._tx_tracker.c_start(clock, timestamp)
