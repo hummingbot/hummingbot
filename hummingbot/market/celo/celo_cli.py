@@ -7,6 +7,7 @@ from collections import namedtuple
 
 CeloExchangeRate = namedtuple("CeloExchangeRate", "from_token from_amount to_token to_amount")
 symbols_map = {"CGLD": "gold", "CUSD": "usd"}
+UNIT_MULTIPLIER = Decimal(1e18)
 
 
 def command(commands: List[str]) -> Optional[str]:
@@ -58,12 +59,12 @@ class CeloCLI:
             asset, value = line.split(":")
             symbols = [k for k, v in symbols_map.items() if v.lower() == asset.lower().strip()]
             if symbols:
-                balances[symbols[0]] = Decimal(value) / Decimal(10e18)
+                balances[symbols[0]] = Decimal(value) / UNIT_MULTIPLIER
         return balances
 
     @classmethod
     def exchange_rate(cls, amount: Decimal) -> List[CeloExchangeRate]:
-        amount *= Decimal(10e18)
+        amount *= UNIT_MULTIPLIER
         output = command(["celocli", "exchange:show", "--amount", str(int(amount))])
         lines = output.split("\n")
         rates = []
@@ -76,3 +77,15 @@ class CeloCLI:
             rates.append(CeloExchangeRate(from_token.upper(), Decimal(from_amount),
                                           to_token.upper(), Decimal(to_amount)))
         return rates
+
+    @classmethod
+    def buy_cgld(cls, cusd_value: Decimal):
+        cusd_value *= UNIT_MULTIPLIER
+        output = command(["celocli", "exchange:dollars", "--from", cls.address, "--value", str(int(cusd_value))])
+        return output
+
+    @classmethod
+    def sell_cgld(cls, cgld_value: Decimal):
+        cgld_value *= UNIT_MULTIPLIER
+        output = command(["celocli", "exchange:gold", "--from", cls.address, "--value", str(int(cgld_value))])
+        return output

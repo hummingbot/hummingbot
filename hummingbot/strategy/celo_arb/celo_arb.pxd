@@ -13,3 +13,5 @@ cdef class CeloArbStrategy(StrategyBase):
         bint _all_markets_ready
         double _status_report_interval
         int64_t _logging_options
+
+    cdef c_execute_buy_celo_sell_ctp(self, object trade_profit)

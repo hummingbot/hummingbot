@@ -20,12 +20,17 @@ from hummingbot.market.market_base cimport MarketBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.market.celo.celo_cli import CeloCLI
+from hummingbot.core.event.events import (
+    TradeType,
+    OrderType,
+)
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
 ds_logger = None
 
 
+# returns a list of tuple (is_celo_buy, ctp_price, celo_price, profit)
 def get_trade_profits(market, trading_pair: str, order_amount: Decimal):
     order_amount = Decimal(str(order_amount))
     results = []
@@ -171,3 +176,70 @@ cdef class CeloArbStrategy(StrategyBase):
             print(f"time: {self._current_timestamp}")
         finally:
             self._last_timestamp = timestamp
+
+    cdef c_find_arb_and_arb_it(self):
+        trade_profits = get_trade_profits(self._market_info.market, self._market_info.trading_pair, self._order_amount)
+        arb_trades = [t for t in trade_profits if t[3] > self._min_profitability]
+        if arb_trades > 1:
+            raise Exception("Found 2 profitable trades from 2 markets, something went wrong.")
+        if arb_trades == 0:
+            return
+        if arb_trades[0][0]:
+            self.c_execute_buy_celo_sell_ctp(arb_trades[0])
+        else:
+            self.c_execute_buy_ctp_sell_celo(arb_trades[0])
+
+    cdef c_execute_buy_celo_sell_ctp(self, object trade_profit):
+        """
+        Executes arbitrage trades for the input trade profit tuple.
+
+        :type trade_profit: tuple
+        """
+        cdef:
+            object quantized_buy_amount
+            object quantized_sell_amount
+            object quantized_order_amount = Decimal("0")
+
+        quantized_sell_amount = self._market_info.market.c_quantize_order_amount(self._market_info.trading_pair,
+                                                                                 self._order_amount)
+        buy_amount = min(quantized_sell_amount, self._order_amount)
+
+        if quantized_order_amount > 0:
+            if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
+                self.log_with_clock(logging.INFO,
+                                    f"Executing order buy at Celo and order sell of "
+                                    f"{self._market_info.trading_pair.trading_pair} "
+                                    f"at {self._market_info.market.name} "
+                                    f"with amount {quantized_order_amount}, "
+                                    f"and profitability of {trade_profit[3]}")
+            cusd_value = buy_amount * trade_profit[2]
+            CeloCLI.buy_cgld(cusd_value)
+            self.c_sell_with_specific_market(self._market_info, quantized_sell_amount,
+                                             order_type=OrderType.LIMIT, price=trade_profit[1])
+
+    cdef c_execute_buy_ctp_sell_celo(self, object trade_profit):
+        """
+        Executes arbitrage trades for the input trade profit tuple.
+
+        :type trade_profit: tuple
+        """
+        cdef:
+            object quantized_buy_amount
+            object quantized_sell_amount
+            object quantized_order_amount = Decimal("0")
+
+        quantized_buy_amount = self._market_info.market.c_quantize_order_amount(self._market_info.trading_pair,
+                                                                                self._order_amount)
+        sell_amount = min(quantized_buy_amount, self._order_amount)
+
+        if sell_amount > 0:
+            if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
+                self.log_with_clock(logging.INFO,
+                                    f"Executing order sell CGLD at Celo for amount of {sell_amount} and order buy of "
+                                    f"{self._market_info.trading_pair.trading_pair} "
+                                    f"at {self._market_info.market.name} "
+                                    f"for amount of {quantized_buy_amount}, "
+                                    f"and profitability of {trade_profit[3]}")
+            CeloCLI.sell_cgld(sell_amount)
+            self.c_buy_with_specific_market(self._market_info, quantized_buy_amount,
+                                            order_type=OrderType.LIMIT, price=trade_profit[1])
