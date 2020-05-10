@@ -120,10 +120,6 @@ cdef class ConstantSizeSizingDelegate(OrderSizingDelegate):
             self._log_warning_order_size = True
 
         return SizingProposal(
-            ([quantized_bid_order_size]
-             if quote_asset_balance >= required_quote_asset_balance and not has_active_bid
-             else [s_decimal_0]),
-            ([quantized_ask_order_size]
-             if base_asset_balance >= quantized_ask_order_size and not has_active_ask else
-             [s_decimal_0])
+            ([quantized_bid_order_size] if quote_asset_balance >= required_quote_asset_balance else [s_decimal_0]),
+            ([quantized_ask_order_size] if base_asset_balance >= quantized_ask_order_size else [s_decimal_0])
         )
