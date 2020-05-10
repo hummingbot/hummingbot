@@ -342,7 +342,7 @@ cdef class StrategyBase(TimeIterator):
             object order_type = order_failed_event.order_type
             object market_pair = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
 
-        if order_type in (OrderType.LIMIT, OrderType.LIMIT_MAKER):
+        if order_type.is_limit_type():
             self.c_stop_tracking_limit_order(market_pair, order_id)
         elif order_type == OrderType.MARKET:
             self.c_stop_tracking_market_order(market_pair, order_id)
@@ -364,7 +364,7 @@ cdef class StrategyBase(TimeIterator):
             object order_type = order_completed_event.order_type
 
         if market_pair is not None:
-            if order_type in (OrderType.LIMIT, OrderType.LIMIT_MAKER):
+            if order_type.is_limit_type():
                 self.c_stop_tracking_limit_order(market_pair, order_id)
             elif order_type == OrderType.MARKET:
                 self.c_stop_tracking_market_order(market_pair, order_id)
@@ -403,7 +403,7 @@ cdef class StrategyBase(TimeIterator):
                                         kwargs=kwargs)
 
         # Start order tracking
-        if order_type in (OrderType.LIMIT, OrderType.LIMIT_MAKER):
+        if order_type.is_limit_type():
             self.c_start_tracking_limit_order(market_trading_pair_tuple, order_id, True, price, amount)
         elif order_type == OrderType.MARKET:
             self.c_start_tracking_market_order(market_trading_pair_tuple, order_id, True, amount)
@@ -435,7 +435,7 @@ cdef class StrategyBase(TimeIterator):
                                          order_type=order_type, price=price, kwargs=kwargs)
 
         # Start order tracking
-        if order_type in (OrderType.LIMIT, OrderType.LIMIT_MAKER):
+        if order_type.is_limit_type():
             self.c_start_tracking_limit_order(market_trading_pair_tuple, order_id, False, price, amount)
         elif order_type == OrderType.MARKET:
             self.c_start_tracking_market_order(market_trading_pair_tuple, order_id, False, amount)
