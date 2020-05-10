@@ -58,3 +58,4 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     cdef c_cancel_hanging_orders(self, object market_info)
     cdef bint c_to_create_orders(self, object market_info, object orders_proposal)
     cdef set_timers(self)
+    cdef c_join_price_size_proposals(self, list prices, list sizes)
