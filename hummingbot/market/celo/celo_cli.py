@@ -6,8 +6,10 @@ from collections import namedtuple
 
 
 CeloExchangeRate = namedtuple("CeloExchangeRate", "from_token from_amount to_token to_amount")
-symbols_map = {"CGLD": "gold", "CUSD": "usd"}
 UNIT_MULTIPLIER = Decimal(1e18)
+CELO_BASE = "CGLD"
+CELO_QUOTE = "CUSD"
+SYMBOLS_MAP = {CELO_BASE: "gold", CELO_QUOTE: "usd"}
 
 
 def command(commands: List[str]) -> Optional[str]:
@@ -57,7 +59,7 @@ class CeloCLI:
             if ":" not in line:
                 continue
             asset, value = line.split(":")
-            symbols = [k for k, v in symbols_map.items() if v.lower() == asset.lower().strip()]
+            symbols = [k for k, v in SYMBOLS_MAP.items() if v.lower() == asset.lower().strip()]
             if symbols:
                 balances[symbols[0]] = Decimal(value) / UNIT_MULTIPLIER
         return balances

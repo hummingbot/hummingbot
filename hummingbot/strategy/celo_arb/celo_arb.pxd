@@ -10,8 +10,11 @@ cdef class CeloArbStrategy(StrategyBase):
         object _order_amount
         double _last_timestamp
         str _asset_trading_pair
+        str _exchange
         bint _all_markets_ready
         double _status_report_interval
         int64_t _logging_options
 
+    cdef c_main(self)
     cdef c_execute_buy_celo_sell_ctp(self, object trade_profit)
+    cdef c_execute_sell_celo_buy_ctp(self, object trade_profit)

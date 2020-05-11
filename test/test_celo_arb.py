@@ -122,14 +122,14 @@ class CeloArbUnitTest(unittest.TestCase):
         self.assertEqual(celo_buy_trade[3], Decimal("0"))
 
         # Buy price at CTP (counter party) 1 CGLD at 10.05 USD
-        # at Celo 1 CGLD will get you 11 USD, so the profit is (10.1 - 10.05)/10.05 = 0.00497512437
+        # at Celo 1 CGLD will get you 10.21 USD, so the profit is (10.2 - 10.05)/10.05 = 0.01492537313
         celo_sell_trade = trade_profits[1]
         self.assertFalse(celo_sell_trade[0])
         # Can buy price at CTP for 10.05
         self.assertEqual(celo_sell_trade[1], Decimal("10.05"))
-        # Can sell price celo at 10.1
-        self.assertEqual(celo_sell_trade[2], Decimal("10.1"))
-        self.assertAlmostEqual(celo_sell_trade[3], Decimal("0.00497512437"))
+        # Can sell price celo at 10.w
+        self.assertEqual(celo_sell_trade[2], Decimal("10.2"))
+        self.assertAlmostEqual(celo_sell_trade[3], Decimal("0.01492537313"))
 
         order_amount = 5
         trade_profits = get_trade_profits(self.market, self.trading_pair, order_amount)
