@@ -306,7 +306,7 @@ cdef class StrategyBase(TimeIterator):
                 )
         return total_flat_fees
 
-    # <editor-fold desc="+ Event handling functions">
+    # <editor-fold desc="+ Market event interfaces">
     # ----------------------------------------------------------------------------------------------------------
     cdef c_did_create_buy_order(self, object order_created_event):
         pass
@@ -334,7 +334,7 @@ cdef class StrategyBase(TimeIterator):
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
 
-    # <editor-fold desc="+ Event handling for order tracking">
+    # <editor-fold desc="+ Order tracking event handlers">
     # ----------------------------------------------------------------------------------------------------------
     cdef c_did_fail_order_tracker(self, object order_failed_event):
         cdef:
