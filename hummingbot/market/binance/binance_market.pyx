@@ -375,7 +375,7 @@ cdef class BinanceMarket(MarketBase):
             object taker_trade_fee = Decimal("0.001")
             str trading_pair = base_currency + quote_currency
 
-        if order_type is OrderType.LIMIT and fee_overrides_config_map["binance_maker_fee"].value is not None:
+        if order_type.is_limit_type() and fee_overrides_config_map["binance_maker_fee"].value is not None:
             return TradeFee(percent=fee_overrides_config_map["binance_maker_fee"].value / Decimal("100"))
         if order_type is OrderType.MARKET and fee_overrides_config_map["binance_taker_fee"].value is not None:
             return TradeFee(percent=fee_overrides_config_map["binance_taker_fee"].value / Decimal("100"))
@@ -385,7 +385,7 @@ cdef class BinanceMarket(MarketBase):
             self.logger().warning(f"Unable to find trade fee for {trading_pair}. Using default 0.1% maker/taker fee.")
         else:
             maker_trade_fee, taker_trade_fee = self._trade_fees.get(trading_pair)
-        return TradeFee(percent=maker_trade_fee if order_type is OrderType.LIMIT else taker_trade_fee)
+        return TradeFee(percent=maker_trade_fee if order_type.is_limit_type() else taker_trade_fee)
 
     async def _update_withdraw_rules(self):
         cdef:
@@ -502,7 +502,7 @@ cdef class BinanceMarket(MarketBase):
                     order_id = str(trade["orderId"])
                     if order_id in order_map:
                         tracked_order = order_map[order_id]
-                        order_type = OrderType.LIMIT if trade["isMaker"] else OrderType.MARKET
+                        order_type = tracked_order.order_type
                         applied_trade = order_map[order_id].update_with_trade_update(trade)
                         if applied_trade:
                             self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
@@ -568,7 +568,7 @@ cdef class BinanceMarket(MarketBase):
 
                 # Update order execution status
                 tracked_order.last_state = order_update["status"]
-                order_type = OrderType.LIMIT if order_update["type"] == "LIMIT" else OrderType.MARKET
+                order_type = BinanceMarket.to_hb_order_type(order_update["type"])
                 executed_amount_base = Decimal(order_update["executedQty"])
                 executed_amount_quote = Decimal(order_update["cummulativeQuoteQty"])
 
@@ -687,7 +687,7 @@ cdef class BinanceMarket(MarketBase):
                         order_filled_event = order_filled_event._replace(trade_fee=self.c_get_fee(
                             tracked_order.base_asset,
                             tracked_order.quote_asset,
-                            OrderType.LIMIT if event_message["o"] == "LIMIT" else OrderType.MARKET,
+                            BinanceMarket.to_hb_order_type(event_message["o"]),
                             TradeType.BUY if event_message["S"] == "BUY" else TradeType.SELL,
                             Decimal(event_message["l"]),
                             Decimal(event_message["L"])
@@ -948,12 +948,11 @@ cdef class BinanceMarket(MarketBase):
 
     @staticmethod
     def binance_order_type(order_type: OrderType) -> str:
-        if order_type == OrderType.LIMIT:
-            return BinanceClient.ORDER_TYPE_LIMIT
-        elif order_type == OrderType.MARKET:
-            return BinanceClient.ORDER_TYPE_MARKET
-        elif order_type == OrderType.LIMIT_MAKER:
-            return BinanceClient.ORDER_TYPE_LIMIT_MAKER
+        return order_type.name.upper()
+
+    @staticmethod
+    def to_hb_order_type(binance_type: str) -> OrderType:
+        return OrderType[binance_type]
 
     async def create_order(self,
                            trade_type: TradeType,
@@ -1016,7 +1015,6 @@ cdef class BinanceMarket(MarketBase):
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            print(f"Exception: {str(e)}")
             self.c_stop_tracking_order(order_id)
             self.logger().network(
                 f"Error submitting {side_str} {type_str} order to Binance for "
@@ -1027,7 +1025,6 @@ cdef class BinanceMarket(MarketBase):
             )
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
-            print("Market order failure event triggered.")
 
     async def execute_sell(self,
                            order_id: str,
