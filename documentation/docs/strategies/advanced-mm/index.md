@@ -13,6 +13,7 @@ There are two ways to configure these parameters:
 
 | Parameter | Prompt | Definition |
 |-----------|--------|------------|
+| [**order_refresh_tolerance_pct**](./order-refresh-tolerance) | `Enter the percent change in price needed to refresh orders at each cycle` | The spread (from mid price) to defer order refresh process to the next cycle. |
 | [**order_levels**](./multiple-orders) | `How many orders do you want to place on both sides?` | The number of order levels to place for each side of the order book. |
 | [**order_level_amount**](./multiple-orders) | `How much do you want to increase the order size for each additional order?` | The incremental size increase for subsequent order levels after the first level. |
 | [**order_level_spread**](./multiple-orders) | `Enter the price increments (as percentage) for subsequent orders?` | The incremental spread increases for subsequent order levels after the first level. |
