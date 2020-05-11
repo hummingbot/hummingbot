@@ -63,4 +63,8 @@ By default, trading fees are 0.1% on Binance for both market makers and takers. 
 
 Users can override the default fees by editing [`conf_fee_overrides.yml`](/advanced/fee-overrides/).
 
+### Sub-Accounts
 
+You can use an API key from a [Binance sub-account](https://medium.com/binanceexchange/binance-introduces-sub-account-support-d7bf2f95e28c) just like you do for a normal Binance account. Please ensure that you use the **sub-account API key** and not the master account API key.
+
+If you are participating in [Liquidity Mining](/liquidity-mining), please also use the **sub-account read-only API key** when you sign up. 
