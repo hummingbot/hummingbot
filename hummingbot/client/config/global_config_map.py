@@ -335,7 +335,7 @@ global_config_map = {
         ConfigVar(key="db_host",
                   prompt="Please enter your DB host address >>> ",
                   type_str="str",
-                  required_if=lambda: global_config_map.get("db_engine").value is not "sqlite",
+                  required_if=lambda: global_config_map.get("db_engine").value != "sqlite",
                   default="127.0.0.1"),
     "db_port":
         ConfigVar(key="db_port",
