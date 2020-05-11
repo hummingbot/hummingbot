@@ -36,6 +36,9 @@ bittrex_taker_fee:
 
 kucoin_maker_fee:
 kucoin_taker_fee:
+
+kraken_maker_fee:
+kraken_taker_fee:
 ```
 
 !!! note

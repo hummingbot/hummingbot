@@ -53,7 +53,7 @@ This command shows you:
 * **Inventory**: How your inventory has changed as a result of these trades
 * **Performance**: How much profit or loss your bot has made as a result of these trades
 
-For more information on how Hummingbot calculates performance, refer to [Performance Analysis](/operation/performance-analysis).
+For more information on how Hummingbot calculates performance, refer to [Performance Analysis](https://docs.hummingbot.io/operation/commands/history/#how-it-works).
 
 ## Exit Hummingbot
 
