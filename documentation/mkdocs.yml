@@ -128,6 +128,7 @@ nav:
       - Pure Market Making: strategies/pure-market-making.md
       - Advanced Market Making:
         - Overview: strategies/advanced-mm/index.md
+        - Order Refresh Tolerance: strategies/advanced-mm/order-refresh-tolerance.md
         - Multiple Orders: strategies/advanced-mm/multiple-orders.md
         - Inventory Skew: strategies/advanced-mm/inventory-skew.md
         - Filled Order Delay: strategies/advanced-mm/filled-order-delay.md
