@@ -822,6 +822,11 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 return False
         return True
 
+    cdef c_join_price_size_proposals(self, list prices, list sizes):
+        cdef list result = list(zip(prices, sizes))
+        result = [x for x in result if x[0] > 0 and x[1] > 0]
+        return result
+
     # Cancel active non hanging orders
     # Return value: whether order cancellation is deferred.
     cdef c_cancel_active_orders(self, object market_info, object orders_proposal):
@@ -838,8 +843,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         if len(active_orders) == 0:
             return
         if orders_proposal is not None and self._order_refresh_tolerance_pct >= 0:
-            buy_proposals = list(zip(orders_proposal.buy_order_prices, orders_proposal.buy_order_sizes))
-            sell_proposals = list(zip(orders_proposal.sell_order_prices, orders_proposal.sell_order_sizes))
+            buy_proposals = self.c_join_price_size_proposals(orders_proposal.buy_order_prices,
+                                                             orders_proposal.buy_order_sizes)
+            sell_proposals = self.c_join_price_size_proposals(orders_proposal.sell_order_prices,
+                                                              orders_proposal.sell_order_sizes)
             active_buys = [[o.client_order_id, Decimal(str(o.price)), Decimal(str(o.quantity))]
                            for o in active_orders if o.is_buy]
             active_sells = [[o.client_order_id, Decimal(str(o.price)), Decimal(str(o.quantity))]
