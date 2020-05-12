@@ -265,9 +265,13 @@ class TradingPairFetcher:
                         from hummingbot.market.kraken.kraken_market import KrakenMarket
                         data: Dict[str, Any] = await response.json()
                         raw_pairs = data.get("result", [])
-                        converted_pairs = [KrakenMarket.convert_from_exchange_trading_pair(pair)
-                                           for pair in raw_pairs
-                                           if ".d" not in pair]
+                        converted_pairs: List[str] = []
+                        for pair in raw_pairs:
+                            if ".d" not in pair:
+                                try:
+                                    converted_pairs.append(KrakenMarket.convert_from_exchange_trading_pair(pair))
+                                except IOError:
+                                    pass
                         return [item for item in converted_pairs]
         except Exception:
             pass
