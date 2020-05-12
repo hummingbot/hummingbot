@@ -204,6 +204,10 @@ class BinanceMarketUnitTest(unittest.TestCase):
         sell_trade_fee: TradeFee = self.market.get_fee("BTC", "USDT", OrderType.LIMIT, TradeType.SELL, Decimal(1), Decimal(4000))
         self.assertGreater(sell_trade_fee.percent, 0)
         self.assertEqual(len(sell_trade_fee.flat_fees), 0)
+        sell_trade_fee: TradeFee = self.market.get_fee("BTC", "USDT", OrderType.LIMIT_MAKER, TradeType.SELL, Decimal(1),
+                                                       Decimal(4000))
+        self.assertGreater(sell_trade_fee.percent, 0)
+        self.assertEqual(len(sell_trade_fee.flat_fees), 0)
 
     def test_fee_overrides_config(self):
         fee_overrides_config_map["binance_taker_fee"].value = None
@@ -222,6 +226,12 @@ class BinanceMarketUnitTest(unittest.TestCase):
         maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
+        l_maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
+                                                    Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.005"), l_maker_fee.percent)
+        l_maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.SELL, Decimal(1),
+                                                    Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.005"), l_maker_fee.percent)
 
     def test_buy_and_sell(self):
         self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
