@@ -2,10 +2,9 @@ import subprocess
 from subprocess import CalledProcessError
 from decimal import Decimal
 from typing import List, Optional, Dict
-from collections import namedtuple
+from hummingbot.market.celo.celo_data_types import CeloExchangeRate
 
 
-CeloExchangeRate = namedtuple("CeloExchangeRate", "from_token from_amount to_token to_amount")
 UNIT_MULTIPLIER = Decimal(1e18)
 CELO_BASE = "CGLD"
 CELO_QUOTE = "CUSD"
