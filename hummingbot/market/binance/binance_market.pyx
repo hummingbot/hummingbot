@@ -792,7 +792,7 @@ cdef class BinanceMarket(MarketBase):
         while True:
             try:
                 await safe_gather(
-                    self._update_withdraw_rules(),
+                    # self._update_withdraw_rules(),
                     self._update_trading_rules(),
                     self._update_trade_fees()
                 )
@@ -810,7 +810,7 @@ cdef class BinanceMarket(MarketBase):
         return {
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "withdraw_rules_initialized": len(self._withdraw_rules) > 0,
+            # "withdraw_rules_initialized": len(self._withdraw_rules) > 0,
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "trade_fees_initialized": len(self._trade_fees) > 0
         }
