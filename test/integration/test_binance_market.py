@@ -26,7 +26,6 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketEvent,
-    MarketWithdrawAssetEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
     OrderType,
@@ -47,7 +46,6 @@ from hummingbot.market.binance.binance_market import (
     BinanceTime,
     binance_client_module
 )
-from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.market.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
@@ -56,7 +54,6 @@ from hummingbot.model.sql_connection_manager import (
     SQLConnectionType
 )
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.wallet.ethereum.mock_wallet import MockWallet
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from test.integration.assets.mock_data.fixture_binance import FixtureBinance
 from test.integration.humming_web_app import HummingWebApp
@@ -77,7 +74,6 @@ class BinanceMarketUnitTest(unittest.TestCase):
         MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
-        MarketEvent.WithdrawAsset,
         MarketEvent.OrderFilled,
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
@@ -397,46 +393,6 @@ class BinanceMarketUnitTest(unittest.TestCase):
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
-
-    def test_deposit_info(self):
-        if API_MOCK_ENABLED:
-            self.web_app.update_response("get", self.base_api_url, "/wapi/v3/depositAddress.html",
-                                         FixtureBinance.GET_DEPOSIT_INFO)
-        [deposit_info] = self.run_parallel(
-            self.market.get_deposit_info("BNB")
-        )
-        deposit_info: DepositInfo = deposit_info
-        self.assertIsInstance(deposit_info, DepositInfo)
-        self.assertGreater(len(deposit_info.address), 0)
-        self.assertGreater(len(deposit_info.extras), 0)
-        self.assertTrue("addressTag" in deposit_info.extras)
-        self.assertEqual("BNB", deposit_info.extras["asset"])
-
-    @unittest.skipUnless(any("test_withdraw" in arg for arg in sys.argv), "Withdraw test requires manual action.")
-    def test_withdraw(self):
-        # ZRX_ABI contract file can be found in
-        # https://etherscan.io/address/0xe41d2489571d322189246dafa5ebde1f4699f498#code
-        with open(realpath(join(__file__, "../../../data/ZRXABI.json"))) as fd:
-            zrx_abi: str = fd.read()
-
-        local_wallet: MockWallet = MockWallet(conf.web3_test_private_key_a,
-                                              conf.test_web3_provider_list[0],
-                                              {"0xE41d2489571d322189246DaFA5ebDe1F4699F498": zrx_abi},
-                                              chain_id=1)
-
-        # Ensure the market account has enough balance for withdraw testing.
-        self.assertGreaterEqual(self.market.get_balance("ZRX"), Decimal('10'))
-
-        # Withdraw ZRX from Binance to test wallet.
-        self.market.withdraw(local_wallet.address, "ZRX", Decimal('10'))
-        [withdraw_asset_event] = self.run_parallel(
-            self.market_logger.wait_for(MarketWithdrawAssetEvent)
-        )
-        withdraw_asset_event: MarketWithdrawAssetEvent = withdraw_asset_event
-        self.assertEqual(local_wallet.address, withdraw_asset_event.to_address)
-        self.assertEqual("ZRX", withdraw_asset_event.asset_name)
-        self.assertEqual(Decimal('10'), withdraw_asset_event.amount)
-        self.assertGreater(withdraw_asset_event.fee_amount, Decimal(0))
 
     def fixture(self, fixture_data, **overwrites):
         data = fixture_data.copy()
