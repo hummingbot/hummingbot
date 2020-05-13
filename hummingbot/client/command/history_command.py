@@ -147,7 +147,7 @@ class HistoryCommand:
             trade_performance_status_line.extend(
                 ["", "  Performance:"] +
                 [f"    Started: {datetime.fromtimestamp(self.start_time//1e3)}"] +
-                [f"    Duration: {pd.Timestamp((time.time() - self.start_time/1e3), unit='s').strftime('%H:%M:%S')}"] +
+                [f"    Duration: {pd.Timedelta(seconds=abs(int(time.time() - self.start_time/1e3)))}"] +
                 [f"    Total Trade Value Delta: {portfolio_delta:.7g} {primary_quote_asset}"] +
                 [f"    Return %: {portfolio_delta_percentage:.4f} %"])
 

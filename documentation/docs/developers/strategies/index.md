@@ -10,7 +10,7 @@ Each `StrategyBase` object may be managing multiple [`MarketBase`](https://githu
 
 ## How It Works
 
-All strategy modules are child classes of [`TimeIterator`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/strategy_base.pyx), which is called via `c_tick()` every second.
+All strategy modules are child classes of [`TimeIterator`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/time_iterator.pyx), which is called via `c_tick()` every second.
 
 What this means is, a running strategy module is called every second via its `c_tick()` method to check on the markets and wallets, and decide whether it should perform any trades or not. One way to think about it is that a strategy module acts like it's watching a movie frame-by-frame via `c_tick()`, and reacts to what it sees in real time via trading actions.
 
@@ -32,9 +32,9 @@ Each `StrategyBase` object may be associated with multiple markets.
 
     List of `MarketBase` objects currently associated with this `StrategyBase` object.
 
-## Market Events Interface
+## Market Event Interfaces
 
-The `StrategyBase` class comes with a set of interfaces functions for handling market events from associated `MarketBase` objects, which may be overridded by child classes to receive and process market events.
+The `StrategyBase` class comes with a set of interface functions for handling market events from associated `MarketBase` objects, which may be overridded by child classes to receive and process market events.
 
 The event interface functions are as follows:
 
@@ -76,31 +76,44 @@ The event interface functions are as follows:
 
 It is highly encouraged to use these functions to create and remove orders, rather than calling functions like `c_buy()` and `c_sell()` on `MarketBase` objects directly - since the functions from `StrategyBase` provides order tracking functionalities as well.
 
-- `cdef str c_buy_with_specific_market(self, object market_trading_pair_tuple, object amount,
-                                       object order_type = *, object price = *, double expiration_seconds = *)`
+### Place order
+```cython
+cdef str c_buy_with_specific_market(self, 
+                                    object market_trading_pair_tuple,
+                                    object amount,
+                                    object order_type = *,
+                                    object price = *,
+                                    double expiration_seconds = *
+                                    )
 
-- `cdef str c_sell_with_specific_market(self, object market_trading_pair_tuple, object amount,
-                                        object order_type = *, object price = *, double expiration_seconds = *)`
+cdef str c_sell_with_specific_market(self,
+                                     object market_trading_pair_tuple,
+                                     object amount,
+                                     object order_type = *,
+                                     object price = *,
+                                     double expiration_seconds = *
+                                     )
+```
+Creates a buy or a sell order in the market specified by `market_trading_pair_tuple`and returns the order ID string.
 
-    Creates a buy or a sell order in the market specified by `market_trading_pair_tuple`, returns the order ID string.
+**Arguments**
 
-    Arguments:
+- **market_trading_pair_tuple**: a [`MarketTradingPairTuple`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/market_trading_pair_tuple.py) object specifying the `MarketBase` object and trading pair to create the order for.
+- **amount**: a `Decimal` object, specifying the order size in terms of the base asset.
+- **order_type**: an optional [`OrderType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py) enum specifying the order type. Default value is `OrderType.MARKET`.
+- **price**: an optional `Decimal` object, specifying the price for a limit order. This parameter is ignored if `order_type` is not `OrderType.LIMIT`.
+- **expiration_seconds**: an optional number, which specifies how long a limit should automatically expire. This is only used by Ethereum-based decentralized exchanges like Radar Relay where active order cancellation costs gas. By default, passive cancellation via expiration is used on these exchanges.
 
-    - `market_trading_pair_tuple`: a [`MarketTradingPairTuple`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/market_trading_pair_tuple.py) object specifying the `MarketBase` object and trading pair to create the order for.
-    - `amount`: a `Decimal` object, specifying the order size in terms of the base asset.
-    - `order_type`: an optional [`OrderType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py) enum specifying the order type. Default value is `OrderType.MARKET`.
-    - `price`: an optional `Decimal` object, specifying the price for a limit order. This parameter is ignored if `order_type` is not `OrderType.LIMIT`.
-    - `expiration_seconds`: an optional number, which specifies how long a limit should automatically expire. This is mostly only used by decentralized exchanges like RadarRelay, where active order cancellation costs gas and thus passive order cancellation via expiration is preferred.
+### Cancel order
+```cython
+ c_cancel_order(self, object market_pair, str order_id)
+```
+Cancels an active order from a market.
 
+**Arguments**
 
-- `cdef c_cancel_order(self, object market_pair, str order_id)`
-
-    Cancels an active order from a market.
-
-    Arguments:
-
-    - `market_pair`: a `MarketTradingPairTuple` object specifying the `MarketBase` object and the trading pair to cancel order from.
-    - `order_id`: Order ID string returned from a previous call to order creation functions above.
+- **market_pair**: a `MarketTradingPairTuple` object specifying the `MarketBase` object and the trading pair to cancel order from.
+- **order_id**: Order ID string returned from a previous call to order creation functions above.
 
 ## Order Tracking
 
