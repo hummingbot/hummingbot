@@ -7,7 +7,7 @@ import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
 import unittest
 import mock
-
+from nose.plugins.attrib import attr
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import (
     QuantizationParams
@@ -32,9 +32,12 @@ MOCK_CELO_COMMANDS = True
 
 def mock_command(commands):
     commands = tuple(commands)
+    print(f"command: {commands}")
+    print(f"output: {celo_outputs[commands]}")
     return celo_outputs[commands]
 
 
+@attr('stable')
 class CeloArbUnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
@@ -73,13 +76,13 @@ class CeloArbUnitTest(unittest.TestCase):
                 self.trading_pair, 5, 5, 5, 5
             )
         )
-        self.market_trading_pair_tuple = MarketTradingPairTuple(self.market, self.trading_pair,
-                                                                self.base_asset, self.quote_asset)
+        self.market_info = MarketTradingPairTuple(self.market, self.trading_pair,
+                                                  self.base_asset, self.quote_asset)
         self.logging_options: int = CeloArbStrategy.OPTION_LOG_ALL
         self.strategy = CeloArbStrategy(
-            self.market_trading_pair_tuple,
-            min_profitability=Decimal("0.03"),
-            order_amount=Decimal("100"),
+            self.market_info,
+            min_profitability=Decimal("0.01"),
+            order_amount=Decimal("1"),
             logging_options=self.logging_options
         )
         self.clock.add_iterator(self.market)
@@ -125,6 +128,8 @@ class CeloArbUnitTest(unittest.TestCase):
         self.assertFalse(celo_sell_trade.is_celo_buy)
         # Can buy price at CTP for 10.05
         self.assertEqual(celo_sell_trade.ctp_price, Decimal("10.05"))
+        # vwap price is 10.05
+        self.assertEqual(celo_sell_trade.ctp_vwap, Decimal("10.05"))
         # Can sell price celo at 10.w
         self.assertEqual(celo_sell_trade.celo_price, Decimal("10.5"))
         self.assertAlmostEqual(celo_sell_trade.profit, Decimal("0.0447761194"))
@@ -134,8 +139,9 @@ class CeloArbUnitTest(unittest.TestCase):
 
         celo_buy_trade = trade_profits[0]
         self.assertTrue(celo_buy_trade.is_celo_buy)
-        # VWAP Sell price (5 CGLD) at CTP is ((9.95 * 1) + (9.85 * 2) + (9.75 * 5))/5 = 9.83
-        self.assertEqual(celo_buy_trade.ctp_price, Decimal("9.83"))
+        # VWAP Sell price (5 CGLD) at CTP is ((9.95 * 1) + (9.85 * 2) + (9.75 * 2))/5 = 9.83
+        self.assertEqual(celo_buy_trade.ctp_vwap, Decimal("9.83"))
+        self.assertEqual(celo_buy_trade.ctp_price, Decimal("9.75"))
         # for 9.83 * 5 USD, you can get 0.99 * 5 CGLD at Celo, so the price is 9.83/0.99 = 9.92929292929
         self.assertAlmostEqual(celo_buy_trade.celo_price, Decimal("9.92929292929"))
         # profit is -0.00999999999
@@ -144,19 +150,63 @@ class CeloArbUnitTest(unittest.TestCase):
         celo_sell_trade = trade_profits[1]
         self.assertFalse(celo_sell_trade.is_celo_buy)
         # VWAP Buy price (5 CGLD) at CTP is ((10.05 * 1) + (10.15 * 2) + (10.25 * 2))/5 = 10.17
-        self.assertEqual(celo_sell_trade.ctp_price, Decimal("10.17"))
+        self.assertEqual(celo_sell_trade.ctp_vwap, Decimal("10.17"))
+        self.assertEqual(celo_sell_trade.ctp_price, Decimal("10.25"))
         # Can sell price celo at 10.1 each
         self.assertEqual(celo_sell_trade.celo_price, Decimal("10.1"))
         # profit = (10.1 - 10.17)/10.17 = -0.00688298918
         self.assertAlmostEqual(celo_sell_trade.profit, Decimal("-0.00688298918"))
 
-    def test_arbitrage_profitable(self):
+    def test_profitable_celo_sell_trade(self):
+        order_amount = 1
+        self.strategy.order_amount = order_amount
+        trade_profits = get_trade_profits(self.market, self.trading_pair, order_amount)
+        celo_sell_trade = [t for t in trade_profits if not t.is_celo_buy][0]
         self.clock.backtest_til(self.start_timestamp + 1)
-        active_asks = self.strategy.active_asks
-        self.assertEqual(len(active_asks), 2)
-        self.assertEqual(self.strategy.celo_orders, 2)
-        # self.assertTrue(len(market_orders) == 2)
-        # self.assertEqual(Decimal("5"), market_1_market_order.amount)
-        # self.assertEqual(self.start_timestamp + 1, market_1_market_order.timestamp)
-        # self.assertEqual(Decimal("5"), market_2_market_order.amount)
-        # self.assertEqual(self.start_timestamp + 1, market_2_market_order.timestamp)
+        ctp_active_orders = self.strategy.market_info_to_active_orders[self.market_info]
+        self.assertEqual(len(ctp_active_orders), 1)
+        self.assertTrue(ctp_active_orders[0].is_buy)
+        self.assertEqual(ctp_active_orders[0].price, celo_sell_trade.ctp_price)
+        self.assertEqual(ctp_active_orders[0].quantity, order_amount)
+        self.assertEqual(len(self.strategy.celo_orders), 1)
+        self.assertFalse(self.strategy.celo_orders[0].is_buy)
+        self.assertEqual(self.strategy.celo_orders[0].price, celo_sell_trade.celo_price)
+        self.assertEqual(self.strategy.celo_orders[0].amount, order_amount)
+
+    def test_profitable_celo_buy_trade(self):
+        order_amount = 2
+        self.strategy.order_amount = order_amount
+        trade_profits = get_trade_profits(self.market, self.trading_pair, order_amount)
+        celo_buy_trade = [t for t in trade_profits if t.is_celo_buy][0]
+        self.clock.backtest_til(self.start_timestamp + 1)
+        ctp_active_orders = self.strategy.market_info_to_active_orders[self.market_info]
+        self.assertEqual(len(ctp_active_orders), 1)
+        self.assertFalse(ctp_active_orders[0].is_buy)
+        self.assertEqual(ctp_active_orders[0].price, celo_buy_trade.ctp_price)
+        self.assertEqual(ctp_active_orders[0].quantity, order_amount)
+        self.assertEqual(len(self.strategy.celo_orders), 1)
+        self.assertTrue(self.strategy.celo_orders[0].is_buy)
+        self.assertEqual(self.strategy.celo_orders[0].price, celo_buy_trade.celo_price)
+        self.assertEqual(self.strategy.celo_orders[0].amount, order_amount)
+
+    def test_profitable_but_insufficient_balance(self):
+        order_amount = 2
+        trade_profits = get_trade_profits(self.market, self.trading_pair, order_amount)
+        celo_buy_trade = [t for t in trade_profits if t.is_celo_buy][0]
+        self.assertTrue(celo_buy_trade.profit > self.strategy.min_profitability)
+        self.market.set_balance(self.base_asset, 1)
+        self.market.set_balance(self.quote_asset, 1)
+        self.strategy.order_amount = order_amount
+        self.clock.backtest_til(self.start_timestamp + 1)
+        self.assertEqual(len(self.strategy.market_info_to_active_orders), 0)
+        self.assertEqual(len(self.strategy.celo_orders), 0)
+
+    def test_no_profitable_trade(self):
+        order_amount = 5
+        trade_profits = get_trade_profits(self.market, self.trading_pair, order_amount)
+        profitables = [t for t in trade_profits if t.profit >= self.strategy.min_profitability]
+        self.assertEqual(len(profitables), 0)
+        self.strategy.order_amount = order_amount
+        self.clock.backtest_til(self.start_timestamp + 1)
+        self.assertEqual(len(self.strategy.market_info_to_active_orders), 0)
+        self.assertEqual(len(self.strategy.celo_orders), 0)
