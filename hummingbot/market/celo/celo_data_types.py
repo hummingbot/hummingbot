@@ -11,7 +11,8 @@ class CeloExchangeRate(NamedTuple):
 
 class CeloArbTradeProfit(NamedTuple):
     is_celo_buy: bool
-    ctp_price: Decimal  # Counter party price, sell if is_celo_buy
+    ctp_price: Decimal  # Counter party order price, sell if is_celo_buy
+    ctp_vwap: Decimal  # Counter party avg price, used to calculate celo buy volume and profit
     celo_price: Decimal  # Celo price, buy if is_celo_buy
     profit: Decimal  # profit in percentage
 
