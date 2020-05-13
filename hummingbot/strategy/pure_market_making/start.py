@@ -28,6 +28,8 @@ def start(self):
         order_refresh_time = c_map.get("order_refresh_time").value
         bid_spread = c_map.get("bid_spread").value / Decimal('100')
         ask_spread = c_map.get("ask_spread").value / Decimal('100')
+        price_ceiling = c_map.get("price_ceiling").value
+        price_floor = c_map.get("price_floor").value
         order_expiration_time = c_map.get("order_expiration_time").value
         order_levels = c_map.get("order_levels").value
         order_level_amount = c_map.get("order_level_amount").value
@@ -120,6 +122,8 @@ def start(self):
                                                    logging_options=strategy_logging_options,
                                                    asset_price_delegate=asset_price_delegate,
                                                    expiration_seconds=order_expiration_time,
+                                                   price_ceiling=price_ceiling,
+                                                   price_floor=price_floor,
                                                    hanging_orders_cancel_pct=hanging_orders_cancel_pct,
                                                    order_refresh_tolerance_pct=order_refresh_tolerance_pct)
     except Exception as e:
