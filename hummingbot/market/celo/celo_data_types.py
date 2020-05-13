@@ -7,3 +7,18 @@ class CeloExchangeRate(NamedTuple):
     from_amount: Decimal
     to_token: str
     to_amount: Decimal
+
+
+class CeloArbTradeProfit(NamedTuple):
+    is_celo_buy: bool
+    ctp_price: Decimal  # Counter party price, sell if is_celo_buy
+    celo_price: Decimal  # Celo price, buy if is_celo_buy
+    profit: Decimal  # profit in percentage
+
+
+class CeloOrder(NamedTuple):
+    tx_hash: str
+    is_buy: bool
+    price: Decimal
+    amount: Decimal
+    timestamp: float

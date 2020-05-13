@@ -7,6 +7,7 @@ from typing import (
     Tuple,
     Dict
 )
+import time
 
 from hummingbot.core.clock cimport Clock
 from hummingbot.logger import HummingbotLogger
@@ -24,6 +25,10 @@ from hummingbot.market.celo.celo_cli import (
     CELO_BASE,
     CELO_QUOTE,
 )
+from hummingbot.market.celo.celo_data_types import (
+    CeloOrder,
+    CeloArbTradeProfit
+)
 from hummingbot.core.event.events import (
     TradeType,
     OrderType,
@@ -35,7 +40,7 @@ ds_logger = None
 
 
 # returns a list of tuple (is_celo_buy, ctp_price, celo_price, profit)
-def get_trade_profits(market, trading_pair: str, order_amount: Decimal):
+def get_trade_profits(market, trading_pair: str, order_amount: Decimal) -> List[CeloArbTradeProfit]:
     order_amount = Decimal(str(order_amount))
     results = []
     # Find Celo counter party price for the order_amount
@@ -47,16 +52,16 @@ def get_trade_profits(market, trading_pair: str, order_amount: Decimal):
     celo_buy_amount = ctp_sell * order_amount
     celo_ex_rates = CeloCLI.exchange_rate(celo_buy_amount)
     print(celo_ex_rates)
-    celo_buy_ex_rate = [r for r in celo_ex_rates if r.to_token == "CGLD" and r.from_token == "CUSD"][0]
+    celo_buy_ex_rate = [r for r in celo_ex_rates if r.to_token == CELO_BASE and r.from_token == CELO_QUOTE][0]
     celo_buy = celo_buy_ex_rate.from_amount / celo_buy_ex_rate.to_amount
     celo_ex_rates = CeloCLI.exchange_rate(order_amount)
     print(celo_ex_rates)
-    celo_sell_ex_rate = [r for r in celo_ex_rates if r.from_token == "CGLD" and r.to_token == "CUSD"][0]
+    celo_sell_ex_rate = [r for r in celo_ex_rates if r.from_token == CELO_BASE and r.to_token == CELO_QUOTE][0]
     celo_sell = celo_sell_ex_rate.to_amount / celo_sell_ex_rate.from_amount
     celo_buy_profit = (ctp_sell - celo_buy) / celo_buy
-    results.append((True, ctp_sell, celo_buy, celo_buy_profit))
+    results.append(CeloArbTradeProfit(True, ctp_sell, celo_buy, celo_buy_profit))
     celo_sell_profit = (celo_sell - ctp_buy) / ctp_buy
-    results.append((False, ctp_buy, celo_sell, celo_sell_profit))
+    results.append(CeloArbTradeProfit(False, ctp_buy, celo_sell, celo_sell_profit))
     return results
 
 
@@ -85,17 +90,21 @@ cdef class CeloArbStrategy(StrategyBase):
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900):
         super().__init__()
-        print("celo_arb init.")
         self._market_info = market_info
         self._exchange = market_info.market.name
         self._min_profitability = min_profitability
         self._order_amount = order_amount
+        self._celo_orders = []
         self._all_markets_ready = False
         self._logging_options = logging_options
 
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
         self.c_add_markets([market_info.market])
+
+    @property
+    def celo_orders(self) -> List[CeloOrder]:
+        return self._celo_orders
 
     @property
     def active_bids(self) -> List[Tuple[MarketBase, LimitOrder]]:
@@ -184,7 +193,7 @@ cdef class CeloArbStrategy(StrategyBase):
 
     cdef c_main(self):
         trade_profits = get_trade_profits(self._market_info.market, self._market_info.trading_pair, self._order_amount)
-        arb_trades = [t for t in trade_profits if t[3] > self._min_profitability]
+        arb_trades = [t for t in trade_profits if t.profit >= self._min_profitability]
         if arb_trades > 1:
             raise Exception("Found 2 profitable trades from 2 markets, something went wrong.")
         if arb_trades == 0:
@@ -217,7 +226,7 @@ cdef class CeloArbStrategy(StrategyBase):
                                                   f"({sell_balance}) is below required sell amount"
                                                   f" ({quantized_sell_amount}).")
                 return
-            cusd_required = buy_amount * trade_profit[2]
+            cusd_required = buy_amount * trade_profit.celo_price
             celo_bals = CeloCLI.balances()
             if celo_bals[CELO_QUOTE] < cusd_required:
                 self.log_with_clock(logging.INFO, f"Can't execute arbitrage, Celo {CELO_QUOTE} balance "
@@ -230,11 +239,14 @@ cdef class CeloArbStrategy(StrategyBase):
                                     f"Buying {CELO_BASE} at Celo for {cusd_required} {CELO_QUOTE} and selling "
                                     f"{quantized_order_amount} {self._market_info.base_asset} at "
                                     f"{self._market_info.market.name} ({self._market_info.trading_pair.trading_pair})"
-                                    f"at {trade_profit[1]} price, "
-                                    f"and profitability of {trade_profit[3]}")
-            CeloCLI.buy_cgld(cusd_required)
+                                    f"at {trade_profit.ctp_price} price, "
+                                    f"and profitability of {trade_profit.profit}")
+            tx_hash = CeloCLI.buy_cgld(cusd_required)
+            celo_order = CeloOrder(tx_hash, True, trade_profit.celo_price, buy_amount, time.time())
+            self._celo_orders.append(celo_order)
+
             self.c_sell_with_specific_market(self._market_info, quantized_sell_amount,
-                                             order_type=OrderType.LIMIT, price=trade_profit[1])
+                                             order_type=OrderType.LIMIT, price=trade_profit.ctp_price)
 
     cdef c_execute_sell_celo_buy_ctp(self, object trade_profit):
         """
@@ -253,7 +265,7 @@ cdef class CeloArbStrategy(StrategyBase):
 
         if sell_amount > 0:
             buy_balance = self._market_info.market.c_get_balance(self._market_info.quote_asset)
-            buy_required = trade_profit[1] * quantized_buy_amount
+            buy_required = trade_profit.ctp_price * quantized_buy_amount
             if buy_balance < buy_required:
                 self.log_with_clock(logging.INFO, f"Can't execute arbitrage, {self._exchange} "
                                                   f"{self._market_info.base_asset} balance "
@@ -271,8 +283,10 @@ cdef class CeloArbStrategy(StrategyBase):
                                     f"Selling {sell_amount} {CELO_BASE} at Celo and buying "
                                     f"{quantized_buy_amount} {self._market_info.base_asset} at "
                                     f"{self._market_info.market.name} ({self._market_info.trading_pair.trading_pair})"
-                                    f"at {trade_profit[1]} price, "
-                                    f"and profitability of {trade_profit[3]}")
-            CeloCLI.sell_cgld(sell_amount)
+                                    f"at {trade_profit.ctp_price} price, "
+                                    f"and profitability of {trade_profit.profit}")
+            tx_hash = CeloCLI.sell_cgld(sell_amount)
+            celo_order = CeloOrder(tx_hash, True, trade_profit.celo_price, sell_amount, time.time())
+            self._celo_orders.append(celo_order)
             self.c_buy_with_specific_market(self._market_info, quantized_buy_amount,
-                                            order_type=OrderType.LIMIT, price=trade_profit[1])
+                                            order_type=OrderType.LIMIT, price=trade_profit.ctp_price)

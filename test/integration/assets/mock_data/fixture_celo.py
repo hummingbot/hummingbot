@@ -32,5 +32,13 @@ outputs = {
         "txHash: 0xfd0777b214f4993c8f182e3d90ce15cee9db59aa0ec48621c68dadc880316c0e\n"
         "Sending Transaction: exchange... done\n"
         "SendTransaction: exchange\n"
-        "txHash: 0x7282127186c58d24657821ba00cfe20337774c820355ce568e9b7d13e0e55ec7\n"
+        "txHash: 0xTEST_TX_HASSHHHHHHHHHHH\n",
+
+    ('celocli', 'exchange:dollars', '--from', TEST_ADDRESS, '--value', str(int(1 * UNIT_MULTIPLIER))):
+        "SendTransaction: increaseAllowance\n"
+        "txHash: 0xc01bdc3a8059a26519db0448d05fbf585cc63bb1a762e0da1b94f2a118ca4035\n"
+        "Sending Transaction: increaseAllowance... done\n"
+        "SendTransaction: exchange\n"
+        "txHash: 0xTEST_TX_HASSHHHHHHHHHHH\n"
+        "Sending Transaction: exchange... done"
 }

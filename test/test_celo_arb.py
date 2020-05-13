@@ -111,55 +111,52 @@ class CeloArbUnitTest(unittest.TestCase):
         # Sell price at CTP (counter party) 1 CGLD is 9.95 CUSD
         # At Celo 9.95 CUSD will get you 1 CGLD, so the profit is 0%
         celo_buy_trade = trade_profits[0]
-        self.assertTrue(celo_buy_trade[0])
+        self.assertTrue(celo_buy_trade.is_celo_buy)
         # Can sell at CTP at 9.95
-        self.assertEqual(celo_buy_trade[1], Decimal("9.95"))
+        self.assertEqual(celo_buy_trade.ctp_price, Decimal("9.95"))
         # Can buy at celo for 9.95
-        self.assertEqual(celo_buy_trade[2], Decimal("9.95"))
+        self.assertEqual(celo_buy_trade.celo_price, Decimal("9.95"))
         # profit is 0
-        self.assertEqual(celo_buy_trade[3], Decimal("0"))
+        self.assertEqual(celo_buy_trade.profit, Decimal("0"))
 
         # Buy price at CTP (counter party) 1 CGLD at 10.05 USD
         # at Celo 1 CGLD will get you 10.5 USD, so the profit is (10.5 - 10.05)/10.05 = 0.0447761194
         celo_sell_trade = trade_profits[1]
-        self.assertFalse(celo_sell_trade[0])
+        self.assertFalse(celo_sell_trade.is_celo_buy)
         # Can buy price at CTP for 10.05
-        self.assertEqual(celo_sell_trade[1], Decimal("10.05"))
+        self.assertEqual(celo_sell_trade.ctp_price, Decimal("10.05"))
         # Can sell price celo at 10.w
-        self.assertEqual(celo_sell_trade[2], Decimal("10.5"))
-        self.assertAlmostEqual(celo_sell_trade[3], Decimal("0.0447761194"))
+        self.assertEqual(celo_sell_trade.celo_price, Decimal("10.5"))
+        self.assertAlmostEqual(celo_sell_trade.profit, Decimal("0.0447761194"))
 
         order_amount = 5
         trade_profits = get_trade_profits(self.market, self.trading_pair, order_amount)
 
         celo_buy_trade = trade_profits[0]
-        self.assertTrue(celo_buy_trade[0])
+        self.assertTrue(celo_buy_trade.is_celo_buy)
         # VWAP Sell price (5 CGLD) at CTP is ((9.95 * 1) + (9.85 * 2) + (9.75 * 5))/5 = 9.83
-        self.assertEqual(celo_buy_trade[1], Decimal("9.83"))
+        self.assertEqual(celo_buy_trade.ctp_price, Decimal("9.83"))
         # for 9.83 * 5 USD, you can get 0.99 * 5 CGLD at Celo, so the price is 9.83/0.99 = 9.92929292929
-        self.assertAlmostEqual(celo_buy_trade[2], Decimal("9.92929292929"))
+        self.assertAlmostEqual(celo_buy_trade.celo_price, Decimal("9.92929292929"))
         # profit is -0.00999999999
-        self.assertAlmostEqual(celo_buy_trade[3], Decimal("-0.00999999999"))
+        self.assertAlmostEqual(celo_buy_trade.profit, Decimal("-0.00999999999"))
 
         celo_sell_trade = trade_profits[1]
-        self.assertFalse(celo_sell_trade[0])
+        self.assertFalse(celo_sell_trade.is_celo_buy)
         # VWAP Buy price (5 CGLD) at CTP is ((10.05 * 1) + (10.15 * 2) + (10.25 * 2))/5 = 10.17
-        self.assertEqual(celo_sell_trade[1], Decimal("10.17"))
+        self.assertEqual(celo_sell_trade.ctp_price, Decimal("10.17"))
         # Can sell price celo at 10.1 each
-        self.assertEqual(celo_sell_trade[2], Decimal("10.1"))
+        self.assertEqual(celo_sell_trade.celo_price, Decimal("10.1"))
         # profit = (10.1 - 10.17)/10.17 = -0.00688298918
-        self.assertAlmostEqual(celo_sell_trade[3], Decimal("-0.00688298918"))
+        self.assertAlmostEqual(celo_sell_trade.profit, Decimal("-0.00688298918"))
 
     def test_arbitrage_profitable(self):
         self.clock.backtest_til(self.start_timestamp + 1)
-        market_orders = self.strategy.tracked_taker_orders
-        market_1_market_order = [order for market, order in self.strategy.tracked_taker_orders
-                                 if market == self.market_1][0]
-        market_2_market_order = [order for market, order in self.strategy.tracked_taker_orders
-                                 if market == self.market_2][0]
-
-        self.assertTrue(len(market_orders) == 2)
-        self.assertEqual(Decimal("5"), market_1_market_order.amount)
-        self.assertEqual(self.start_timestamp + 1, market_1_market_order.timestamp)
-        self.assertEqual(Decimal("5"), market_2_market_order.amount)
-        self.assertEqual(self.start_timestamp + 1, market_2_market_order.timestamp)
+        active_asks = self.strategy.active_asks
+        self.assertEqual(len(active_asks), 2)
+        self.assertEqual(self.strategy.celo_orders, 2)
+        # self.assertTrue(len(market_orders) == 2)
+        # self.assertEqual(Decimal("5"), market_1_market_order.amount)
+        # self.assertEqual(self.start_timestamp + 1, market_1_market_order.timestamp)
+        # self.assertEqual(Decimal("5"), market_2_market_order.amount)
+        # self.assertEqual(self.start_timestamp + 1, market_2_market_order.timestamp)

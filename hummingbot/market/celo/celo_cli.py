@@ -83,10 +83,14 @@ class CeloCLI:
     def buy_cgld(cls, cusd_value: Decimal):
         cusd_value *= UNIT_MULTIPLIER
         output = command(["celocli", "exchange:dollars", "--from", cls.address, "--value", str(int(cusd_value))])
-        return output
+        lines = output.split("\n")
+        tx_hash = ([l for l in lines if "txHash" in l][-1]).split(":")[-1].strip()
+        return tx_hash
 
     @classmethod
     def sell_cgld(cls, cgld_value: Decimal):
         cgld_value *= UNIT_MULTIPLIER
         output = command(["celocli", "exchange:gold", "--from", cls.address, "--value", str(int(cgld_value))])
-        return output
+        lines = output.split("\n")
+        tx_hash = ([l for l in lines if "txHash" in l][-1]).split(":")[-1].strip()
+        return tx_hash
