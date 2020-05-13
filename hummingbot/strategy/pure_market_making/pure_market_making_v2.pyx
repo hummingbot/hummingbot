@@ -740,10 +740,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                                           active_non_hanging_orders,
                                                                           pricing_proposal)
 
-        print(f"line {743}")
         sizing_proposal = self.c_check_and_apply_price_bands_to_sizing_proposal(market_info,
                                                                                 sizing_proposal)
-        print(f"line {745}")
 
         if self._add_transaction_costs_to_orders:
             no_order_placement, pricing_proposal = self.c_check_and_add_transaction_costs_to_pricing_proposal(
