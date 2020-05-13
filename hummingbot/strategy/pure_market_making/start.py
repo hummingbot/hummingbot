@@ -49,6 +49,7 @@ def start(self):
         price_source_exchange = c_map.get("price_source_exchange").value
         price_source_market = c_map.get("price_source_market").value
         price_source_custom = c_map.get("price_source_custom").value
+        order_refresh_tolerance_pct = c_map.get("order_refresh_tolerance_pct").value / Decimal('100')
 
         pricing_delegate = None
         sizing_delegate = None
@@ -119,7 +120,8 @@ def start(self):
                                                    logging_options=strategy_logging_options,
                                                    asset_price_delegate=asset_price_delegate,
                                                    expiration_seconds=order_expiration_time,
-                                                   hanging_orders_cancel_pct=hanging_orders_cancel_pct)
+                                                   hanging_orders_cancel_pct=hanging_orders_cancel_pct,
+                                                   order_refresh_tolerance_pct=order_refresh_tolerance_pct)
     except Exception as e:
         self._notify(str(e))
         self.logger().error("Unknown error during initialization.", exc_info=True)

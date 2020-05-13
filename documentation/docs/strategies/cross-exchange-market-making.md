@@ -48,7 +48,7 @@ You can find more information about this for each [Connector](https://docs.hummi
 If the user has the following configuration,
 
 order_amount: 1 ETH <br/>
-min_profitability: 0.05 <br/>
+min_profitability: 5 <br/>
 
 and as per market conditions we have the following,
 

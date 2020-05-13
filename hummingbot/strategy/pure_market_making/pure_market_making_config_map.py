@@ -119,6 +119,13 @@ pure_market_making_config_map = {
                   type_str="float",
                   validator=lambda v: validate_decimal(v, 0, inclusive=False),
                   prompt_on_new=True),
+    "order_refresh_tolerance_pct":
+        ConfigVar(key="order_refresh_tolerance_pct",
+                  prompt="Enter the percent change in price needed to refresh orders at each cycle "
+                         "(Enter 1 to indicate 1%) >>> ",
+                  type_str="decimal",
+                  default=Decimal("0"),
+                  validator=lambda v: validate_decimal(v, -10, 10, inclusive=True)),
     "order_amount":
         ConfigVar(key="order_amount",
                   prompt=order_amount_prompt,
