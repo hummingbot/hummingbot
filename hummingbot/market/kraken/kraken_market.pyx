@@ -194,7 +194,7 @@ cdef class KrakenMarket(MarketBase):
 
     @staticmethod
     def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
-        return KrakenMarket.convert_from_exchange_trading_pair(trading_pair).split("-")
+        return tuple(KrakenMarket.convert_from_exchange_trading_pair(trading_pair).split("-"))
 
     @staticmethod
     def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
