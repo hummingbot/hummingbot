@@ -373,13 +373,13 @@ cdef class KrakenMarket(MarketBase):
             list retval = []
         for trading_pair, rule in asset_pairs_dict.items():
             try:
-                base, quote = rule.get("base"), rule.get("quote")
+                base, quote = self.clean_symbol(rule.get("base")), self.clean_symbol(rule.get("quote"))
                 min_order_size = Decimal(constants.BASE_ORDER_MIN.get(base, 0))
                 min_price_increment = Decimal(f"1e-{rule.get('pair_decimals')}")
                 min_base_amount_increment = Decimal(f"1e-{rule.get('lot_decimals')}")
                 retval.append(
                     TradingRule(
-                        trading_pair,
+                        rule.get("altname"),
                         min_order_size=min_order_size,
                         min_price_increment=min_price_increment,
                         min_base_amount_increment=min_base_amount_increment,
@@ -808,8 +808,8 @@ cdef class KrakenMarket(MarketBase):
                           userref: int = 0):
         cdef:
             TradingRule trading_rule = self._trading_rules[trading_pair]
-            str base_currency = (await self.trading_pair_to_tuple(trading_pair))[0]
-            str quote_currency = (await self.trading_pair_to_tuple(trading_pair))[1]
+            str base_currency = self.split_trading_pair(trading_pair)[0]
+            str quote_currency = self.split_trading_pair(trading_pair)[1]
             object buy_fee = self.c_get_fee(base_currency, quote_currency, order_type, TradeType.BUY, amount, price)
 
         decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
