@@ -28,8 +28,6 @@ cdef class KrakenMarket(MarketBase):
         object _set_server_time_offset_task
         public object _kraken_auth
         object _shared_client
-        dict _trading_pair_wsname_map
-        dict _altname_wsname_map
         dict _asset_pairs
         int32_t _last_userref
 

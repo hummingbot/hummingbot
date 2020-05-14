@@ -146,8 +146,6 @@ cdef class KrakenMarket(MarketBase):
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._last_pull_timestamp = 0
         self._shared_client = None
-        self._trading_pair_wsname_map = {}
-        self._altname_wsname_map = {}
         self._asset_pairs = {}
         self._last_userref = 0
 
@@ -234,20 +232,6 @@ cdef class KrakenMarket(MarketBase):
         quote = KrakenMarket.clean_symbol(quote)
         exchange_trading_pair = f"{base}{delimiter}{quote}"
         return exchange_trading_pair
-
-    async def trading_pair_to_tuple(self, trading_pair: str) -> Tuple[str, str]:
-        pair_wsname_map, altname_wsname_map = await self.trading_pair_maps()
-        pair = pair_wsname_map.get(trading_pair) or altname_wsname_map.get(trading_pair)
-        return tuple(pair.split("/"))
-
-    async def trading_pair_maps(self) -> Tuple[Dict[str, str], Dict[str, str]]:
-        if not self._trading_pair_wsname_map or not self._altname_wsname_map:
-            asset_pairs = await self.asset_pairs()
-            for pair, details in asset_pairs.items():
-                if "." in pair:
-                    continue
-                self._altname_wsname_map[details["altname"]] = self._trading_pair_wsname_map[pair] = details["wsname"]
-        return self._trading_pair_wsname_map, self._altname_wsname_map
 
     async def asset_pairs(self) -> Dict[str, Any]:
         if not self._asset_pairs:
