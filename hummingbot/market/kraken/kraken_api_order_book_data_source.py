@@ -67,9 +67,14 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                               f"HTTP status is {trading_pairs_response.status}.")
 
             trading_pairs_data: Dict[str, Any] = await trading_pairs_response.json()
+            trading_pairs_data["result"] = {
+                pair: details for pair, details in trading_pairs_data["result"].items() if "." not in pair}
 
-            trading_pairs: Dict[str, Any] = {pair: {**{f"{k}Asset": trading_pairs_data["result"][pair][k] for k in ["base", "quote"]},
-                                                    "wsname": trading_pairs_data["result"][pair].get("wsname")}
+            wsname_dict: Dict[str, str] = {pair: details["wsname"]
+                                           for pair, details in trading_pairs_data["result"].items()}
+            trading_pairs: Dict[str, Any] = {pair: {"baseAsset": wsname_dict[pair].split("/")[0],
+                                                    "quoteAsset": wsname_dict[pair].split("/")[1],
+                                                    "wsname": wsname_dict[pair]}
                                              for pair in trading_pairs_data["result"]}
 
             trading_pairs_str: str = ','.join(trading_pairs.keys())
@@ -113,16 +118,16 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
         price_dict: Dict[str, float] = {base: None for base in row_dict}
 
         quote_prices: Dict[str, float] = {
-            quote: row_dict[quote]["ZUSD"].lastPrice for quote in constants.CRYPTO_QUOTES
+            quote: row_dict[quote]["USD"].lastPrice for quote in constants.CRYPTO_QUOTES
         }
 
         def get_price(base, depth=0) -> float:
             if price_dict.get(base) is not None:
                 return price_dict[base]
-            elif base == "ZUSD":
+            elif base == "USD":
                 return 1.
-            elif "ZUSD" in row_dict[base]:
-                return row_dict[base]["ZUSD"].lastPrice
+            elif "USD" in row_dict[base]:
+                return row_dict[base]["USD"].lastPrice
             else:
                 for quote in row_dict[base]:
                     if quote in quote_prices:
