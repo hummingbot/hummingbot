@@ -30,7 +30,7 @@ def show_welcome():
 
     =======================================================================================
 
-    Version:  [ {version} ]
+    Version: {version}
     Codebase: https://github.com/coinalpha/hummingbot
 
 
