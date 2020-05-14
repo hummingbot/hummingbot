@@ -1,46 +1,64 @@
 from decimal import Decimal
 
 CRYPTO_QUOTES = [
-    "XXBT",
-    "XETH",
+    "XBT",
+    "ETH",
     "USDT",
     "DAI",
     "USDC",
 ]
 
+ADDED_CRYPTO_QUOTES = [
+    "XXBT",
+    "XETH",
+]
+
+FIAT_QUOTES = [
+    "USD",
+    "EUR",
+    "CAD",
+    "JPY",
+    "GBP",
+    "CHF",
+]
+
+FIAT_QUOTES = FIAT_QUOTES + ["Z" + quote for quote in FIAT_QUOTES]
+
+QUOTES = CRYPTO_QUOTES + ADDED_CRYPTO_QUOTES + FIAT_QUOTES
+
 BASE_ORDER_MIN = {
     "ALGO": Decimal("50"),
     "XREP": Decimal("0.3"),
     "BAT": Decimal("50"),
-    "XXBT": Decimal("0.002"),
+    "BTC": Decimal("0.002"),
     "BCH": Decimal("0.000002"),
     "ADA": Decimal("1"),
     "LINK": Decimal("10"),
     "ATOM": Decimal("1"),
     "DAI": Decimal("10"),
     "DASH": Decimal("0.03"),
-    "XXDG": Decimal("3000"),
+    "XDG": Decimal("3000"),
     "EOS": Decimal("3"),
-    "XETH": Decimal("0.02"),
-    "XETC": Decimal("0.3"),
+    "ETH": Decimal("0.02"),
+    "ETC": Decimal("0.3"),
     "GNO": Decimal("0.02"),
     "ICX": Decimal("50"),
     "LSK": Decimal("10"),
-    "XLTC": Decimal("0.1"),
-    "XXMR": Decimal("0.1"),
+    "LTC": Decimal("0.1"),
+    "XMR": Decimal("0.1"),
     "NANO": Decimal("10"),
     "OMG": Decimal("10"),
     "PAXG": Decimal("0.01"),
     "QTUM": Decimal("0.1"),
-    "XXRP": Decimal("30"),
+    "XRP": Decimal("30"),
     "SC": Decimal("5000"),
-    "XXLM": Decimal("30"),
+    "XLM": Decimal("30"),
     "USDT": Decimal("5"),
     "XTZ": Decimal("1"),
     "USDC": Decimal("5"),
-    "XMLN": Decimal("0.1"),
+    "MLN": Decimal("0.1"),
     "WAVES": Decimal("10"),
-    "XZEC": Decimal("0.03"),
+    "ZEC": Decimal("0.03"),
     "TRX": Decimal("500")
 }
 
