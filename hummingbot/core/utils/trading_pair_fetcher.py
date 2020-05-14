@@ -267,7 +267,7 @@ class TradingPairFetcher:
                         raw_pairs = data.get("result", [])
                         converted_pairs: List[str] = []
                         for pair in raw_pairs:
-                            if ".d" not in pair:
+                            if "." not in pair:
                                 try:
                                     converted_pairs.append(KrakenMarket.convert_from_exchange_trading_pair(pair))
                                 except IOError:
