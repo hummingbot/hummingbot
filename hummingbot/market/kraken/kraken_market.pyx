@@ -397,6 +397,8 @@ cdef class KrakenMarket(MarketBase):
                     continue
 
                 if order_update.get("error") is not None:
+                    self.logger().warning(f"Error in fetched status update for order {client_order_id}: "
+                                          f"{order_update['error']}")
                     self.c_cancel(tracked_order.trading_pair, tracked_order.client_order_id)
                     continue
 
