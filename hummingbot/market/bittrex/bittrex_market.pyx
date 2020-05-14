@@ -320,35 +320,6 @@ cdef class BittrexMarket(MarketBase):
         result = await self._api_request("GET", path_url=path_url)
         return result
 
-    async def get_order(self, uuid: str) -> Dict[str, Any]:
-        # Used to retrieve a single order by uuid
-        """
-        Result:
-        {
-          "id": "string (uuid)",
-          "marketSymbol": "string",
-          "direction": "string",
-          "type": "string",
-          "quantity": "number (double)",
-          "limit": "number (double)",
-          "ceiling": "number (double)",
-          "timeInForce": "string",
-          "expiresAt": "string (date-time)",
-          "clientOrderId": "string (uuid)",
-          "fillQuantity": "number (double)",
-          "commission": "number (double)",
-          "proceeds": "number (double)",
-          "status": "string",
-          "createdAt": "string (date-time)",
-          "updatedAt": "string (date-time)",
-          "closedAt": "string (date-time)"
-        }
-        """
-        path_url = f"/orders/{uuid}"
-
-        result = await self._api_request("GET", path_url=path_url)
-        return result
-
     async def _update_order_status(self):
         cdef:
             # This is intended to be a backup measure to close straggler orders, in case Bittrex's user stream events
@@ -633,13 +604,6 @@ cdef class BittrexMarket(MarketBase):
                                       app_warning_msg=f"Could not fetch updates from Bitrrex. "
                                                       f"Check API key and network connection.")
                 await asyncio.sleep(0.5)
-
-    async def get_order(self, client_order_id: str) -> Dict[str, Any]:
-        order = self._in_flight_orders.get(client_order_id)
-        exchange_order_id = await order.get_exchange_order_id()
-        path_url = f"/order/{exchange_order_id}"
-        result = await self._api_request("GET", path_url=path_url)
-        return result
 
     async def get_deposit_address(self, currency: str) -> str:
         path_url = f"/addresses/{currency}"
