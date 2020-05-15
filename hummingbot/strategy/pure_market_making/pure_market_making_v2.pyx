@@ -586,9 +586,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             list sell_order_sizes = [order_size for order_size in sizing_proposal.sell_order_sizes]
 
         if self._asset_price_delegate is None:
-            top_bid_price = market_info.get_price(False)
-            top_ask_price = market_info.get_price(True)
-            asset_mid_price = (top_bid_price + top_ask_price) * Decimal("0.5")
+            asset_mid_price = market_info.get_mid_price()
         else:
             asset_mid_price = self._asset_price_delegate.c_get_mid_price()
 
