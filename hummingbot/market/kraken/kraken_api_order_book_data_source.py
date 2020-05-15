@@ -153,15 +153,20 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, limit: int = 1000) -> Dict[str, Any]:
+        original_trading_pair: str = trading_pair
+        if trading_pair[:3] == "BTC":
+            trading_pair = "XBT" + trading_pair[3:]
+        if trading_pair[-3:] == "BTC":
+            trading_pair = trading_pair[:-3] + "XBT"
         params: Dict[str, str] = {"count": str(limit), "pair": trading_pair} if limit != 0 else {"pair": trading_pair}
         async with client.get(SNAPSHOT_REST_URL, params=params) as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
-                raise IOError(f"Error fetching Kraken market snapshot for {trading_pair}. "
+                raise IOError(f"Error fetching Kraken market snapshot for {original_trading_pair}. "
                               f"HTTP status is {response.status}.")
             response_json = await response.json()
             if len(response_json["error"]) > 0:
-                raise IOError(f"Error fetching Kraken market snapshot for {trading_pair}. "
+                raise IOError(f"Error fetching Kraken market snapshot for {original_trading_pair}. "
                               f"Error is {response_json['error']}.")
             data: Dict[str, Any] = response_json["result"][trading_pair]
             data = {"trading_pair": trading_pair, **data}
