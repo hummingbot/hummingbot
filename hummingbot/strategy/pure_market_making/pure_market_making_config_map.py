@@ -138,14 +138,14 @@ pure_market_making_config_map = {
                          "(Enter -1 to deactivate this feature) >>> ",
                   type_str="decimal",
                   default=Decimal("-1"),
-                  validator=lambda v: validate_decimal(v, min_value=0, inclusive=False) if not v == -1 else None),
+                  validator=lambda v: validate_decimal(v, min_value=0, inclusive=False) if v != -1 else None),
     "price_floor":
         ConfigVar(key="price_floor",
                   prompt="Enter the price below which only buy orders will be placed "
                          "(Enter -1 to deactivate this feature) >>> ",
                   type_str="decimal",
                   default=Decimal("-1"),
-                  validator=lambda v: validate_decimal(v, min_value=0, inclusive=False) if not v == -1 else None),
+                  validator=lambda v: validate_decimal(v, min_value=0, inclusive=False) if v != -1 else None),
     "order_expiration_time":
         ConfigVar(key="order_expiration_time",
                   prompt="How long should your limit orders remain valid until they "
