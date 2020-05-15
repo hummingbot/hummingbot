@@ -416,6 +416,7 @@ cdef class KrakenMarket(MarketBase):
                         MarketOrderFailureEvent(self._current_timestamp, client_order_id, tracked_order.order_type)
                     )
                     self.c_stop_tracking_order(client_order_id)
+                    continue
 
                 # Update order execution status
                 tracked_order.last_state = update["status"]
