@@ -238,7 +238,8 @@ cdef class KrakenMarket(MarketBase):
             client = await self._http_client()
             asset_pairs_response = await client.get(ASSET_PAIRS_URI)
             asset_pairs_data: Dict[str, Any] = await asset_pairs_response.json()
-            self._asset_pairs = asset_pairs_data["result"]
+            asset_pairs: Dict[str, Any] = asset_pairs_data["result"]
+            self._asset_pairs = {pair: details for pair, details in asset_pairs.items() if "." not in pair}
         return self._asset_pairs
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
