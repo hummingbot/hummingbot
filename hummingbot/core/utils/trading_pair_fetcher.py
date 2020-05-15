@@ -266,10 +266,11 @@ class TradingPairFetcher:
                         data: Dict[str, Any] = await response.json()
                         raw_pairs = data.get("result", [])
                         converted_pairs: List[str] = []
-                        for pair in raw_pairs:
-                            if ".d" not in pair:
+                        for pair, details in raw_pairs.items():
+                            if "." not in pair:
                                 try:
-                                    converted_pairs.append(KrakenMarket.convert_from_exchange_trading_pair(pair))
+                                    wsname = details["wsname"]  # pair in format BASE/QUOTE
+                                    converted_pairs.append(KrakenMarket.convert_from_exchange_trading_pair(wsname))
                                 except IOError:
                                     pass
                         return [item for item in converted_pairs]
