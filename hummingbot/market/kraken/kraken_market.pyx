@@ -405,7 +405,9 @@ cdef class KrakenMarket(MarketBase):
                     )
                     continue
 
-                if order_update.get("error") is not None:
+                if order_update.get("error") is not None and "EOrder:Invalid order" not in order_update["error"]:
+                    self.logger().debug(f"Error in fetched status update for order {client_order_id}: "
+                                          f"{order_update['error']}")
                     self.c_cancel(tracked_order.trading_pair, tracked_order.client_order_id)
                     continue
 
@@ -423,6 +425,7 @@ cdef class KrakenMarket(MarketBase):
                         MarketOrderFailureEvent(self._current_timestamp, client_order_id, tracked_order.order_type)
                     )
                     self.c_stop_tracking_order(client_order_id)
+                    continue
 
                 # Update order execution status
                 tracked_order.last_state = update["status"]
