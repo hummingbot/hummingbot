@@ -528,7 +528,7 @@ cdef class KrakenMarket(MarketBase):
                         self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
                                              OrderFilledEvent(self._current_timestamp,
                                                               tracked_order.client_order_id,
-                                                              trade.get("pair"),
+                                                              self.convert_to_exchange_trading_pair(trade.get("pair")),
                                                               tracked_order.trade_type,
                                                               tracked_order.order_type,
                                                               Decimal(trade.get("price")),
