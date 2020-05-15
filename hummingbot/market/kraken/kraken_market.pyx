@@ -363,7 +363,7 @@ cdef class KrakenMarket(MarketBase):
                 min_base_amount_increment = Decimal(f"1e-{rule.get('lot_decimals')}")
                 retval.append(
                     TradingRule(
-                        rule.get("altname"),
+                        base + quote,
                         min_order_size=min_order_size,
                         min_price_increment=min_price_increment,
                         min_base_amount_increment=min_base_amount_increment,
