@@ -769,6 +769,10 @@ cdef class KrakenMarket(MarketBase):
                           order_type: OrderType,
                           is_buy: bool,
                           price: Optional[Decimal] = s_decimal_NaN):
+        if trading_pair[:3] == "BTC":
+            trading_pair = "XBT" + trading_pair[3:]
+        if trading_pair[-3:] == "BTC":
+            trading_pair = trading_pair[:-3] + "XBT"
         data = {
             "pair": trading_pair,
             "type": "buy" if is_buy else "sell",
