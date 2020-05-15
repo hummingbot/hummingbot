@@ -146,10 +146,8 @@ cdef class KrakenMarket(MarketBase):
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._last_pull_timestamp = 0
         self._shared_client = None
-        self._trading_pair_base_quote_map = {}
         self._asset_pairs = {}
         self._last_userref = 0
-        self._wsname_dict = {}
 
     @property
     def name(self) -> str:
@@ -197,41 +195,51 @@ cdef class KrakenMarket(MarketBase):
         return tuple(KrakenMarket.convert_from_exchange_trading_pair(trading_pair).split("-"))
 
     @staticmethod
-    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
-        try:
-            return next(key for key, value in constants.HB_PAIR_TO_KRAKEN_PAIR.items() if value == exchange_trading_pair)
-        except StopIteration:
-            raise IOError(f"Error converting {exchange_trading_pair} to Hummingbot trading pair.")
+    def clean_symbol(symbol: str) -> str:
+        if len(symbol) == 4 and symbol[0] == "X" or symbol[0] == "Z":
+            symbol = symbol[1:]
+        if symbol == "XBT":
+            symbol = "BTC"
+        return symbol
 
     @staticmethod
-    def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-        return constants.HB_PAIR_TO_KRAKEN_PAIR.get(hb_trading_pair, hb_trading_pair.replace("/", ""))
+    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
+        base, quote = "", ""
+        if "-" in exchange_trading_pair:
+            return exchange_trading_pair
+        if "/" in exchange_trading_pair:
+            base, quote = exchange_trading_pair.split("/")
+        else:
+            for quote_asset in constants.QUOTES:
+                if quote_asset == exchange_trading_pair[-len(quote_asset):]:
+                    base, quote = exchange_trading_pair[:-len(quote_asset)], exchange_trading_pair[-len(quote_asset):]
+                    break
+        if not base or not quote:
+            return None
+        base = KrakenMarket.clean_symbol(base)
+        quote = KrakenMarket.clean_symbol(quote)
+        return f"{base}-{quote}"
 
-    async def trading_pair_to_tuple(self, trading_pair: str) -> Tuple[str, str]:
-        trading_pair_base_quote_map = await self.trading_pair_base_quote_map()
-        return trading_pair_base_quote_map.get(trading_pair)
-
-    async def trading_pair_base_quote_map(self) -> Dict[str, Tuple[str, str]]:
-        if not self._trading_pair_base_quote_map:
-            asset_pairs = await self.asset_pairs()
-            for pair, details in asset_pairs.items():
-                self._trading_pair_base_quote_map[pair] = (details["base"], details["quote"])
-        return self._trading_pair_base_quote_map
-
-    async def wsname_dict(self) -> Dict[str, str]:
-        if not self._wsname_dict:
-            asset_pairs = await self.asset_pairs()
-            for pair, details in asset_pairs.items():
-                if "wsname" in details:
-                    self._wsname_dict[details["wsname"].replace("\\", "")] = pair
-        return self._wsname_dict
+    @staticmethod
+    def convert_to_exchange_trading_pair(hb_trading_pair: str, delimiter: str = "") -> str:
+        if "-" in hb_trading_pair:
+            base, quote = hb_trading_pair.split("-")
+        elif "/" in hb_trading_pair:
+            base, quote = hb_trading_pair.split("/")
+        else:
+            return hb_trading_pair
+        base = KrakenMarket.clean_symbol(base)
+        quote = KrakenMarket.clean_symbol(quote)
+        exchange_trading_pair = f"{base}{delimiter}{quote}"
+        return exchange_trading_pair
 
     async def asset_pairs(self) -> Dict[str, Any]:
         if not self._asset_pairs:
             client = await self._http_client()
             asset_pairs_response = await client.get(ASSET_PAIRS_URI)
             asset_pairs_data: Dict[str, Any] = await asset_pairs_response.json()
-            self._asset_pairs = asset_pairs_data["result"]
+            asset_pairs: Dict[str, Any] = asset_pairs_data["result"]
+            self._asset_pairs = {pair: details for pair, details in asset_pairs.items() if "." not in pair}
         return self._asset_pairs
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
@@ -263,7 +271,7 @@ cdef class KrakenMarket(MarketBase):
             if order.get("status") == "open":
                 details = order.get("descr")
                 if details.get("ordertype") == "limit":
-                    pair = await self.trading_pair_to_tuple(details.get("pair"))
+                    pair = self.split_trading_pair(details.get("pair"))
                     if pair is None:
                         self.logger().debug(f"Pair {details.get('pair')} could not be split.",
                                             exc_info=True)
@@ -276,11 +284,12 @@ cdef class KrakenMarket(MarketBase):
                         locked[quote] += vol_locked * Decimal(details.get("price"))
 
         for asset_name, balance in balances.items():
+            cleaned_name = self.clean_symbol(asset_name)
             total_balance = Decimal(balance)
-            free_balance = total_balance - Decimal(locked[asset_name])
-            self._account_available_balances[asset_name] = free_balance
-            self._account_balances[asset_name] = total_balance
-            remote_asset_names.add(asset_name)
+            free_balance = total_balance - Decimal(locked[cleaned_name])
+            self._account_available_balances[cleaned_name] = free_balance
+            self._account_balances[cleaned_name] = total_balance
+            remote_asset_names.add(cleaned_name)
 
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
         for asset_name in asset_names_to_remove:
@@ -349,13 +358,13 @@ cdef class KrakenMarket(MarketBase):
             list retval = []
         for trading_pair, rule in asset_pairs_dict.items():
             try:
-                base, quote = rule.get("base"), rule.get("quote")
+                base, quote = self.clean_symbol(rule.get("base")), self.clean_symbol(rule.get("quote"))
                 min_order_size = Decimal(constants.BASE_ORDER_MIN.get(base, 0))
                 min_price_increment = Decimal(f"1e-{rule.get('pair_decimals')}")
                 min_base_amount_increment = Decimal(f"1e-{rule.get('lot_decimals')}")
                 retval.append(
                     TradingRule(
-                        trading_pair,
+                        base + quote,
                         min_order_size=min_order_size,
                         min_price_increment=min_price_increment,
                         min_base_amount_increment=min_base_amount_increment,
@@ -512,12 +521,11 @@ cdef class KrakenMarket(MarketBase):
                             continue
 
                         tracked_order.update_with_trade_update(trade)
-                        wsname_dict = await self.wsname_dict()
 
                         self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
                                              OrderFilledEvent(self._current_timestamp,
                                                               tracked_order.client_order_id,
-                                                              wsname_dict[trade.get("pair")],
+                                                              self.convert_to_exchange_trading_pair(trade.get("pair")),
                                                               tracked_order.trade_type,
                                                               tracked_order.order_type,
                                                               Decimal(trade.get("price")),
@@ -762,6 +770,10 @@ cdef class KrakenMarket(MarketBase):
                           order_type: OrderType,
                           is_buy: bool,
                           price: Optional[Decimal] = s_decimal_NaN):
+        if trading_pair[:3] == "BTC":
+            trading_pair = "XBT" + trading_pair[3:]
+        if trading_pair[-3:] == "BTC":
+            trading_pair = trading_pair[:-3] + "XBT"
         data = {
             "pair": trading_pair,
             "type": "buy" if is_buy else "sell",
@@ -785,8 +797,8 @@ cdef class KrakenMarket(MarketBase):
                           userref: int = 0):
         cdef:
             TradingRule trading_rule = self._trading_rules[trading_pair]
-            str base_currency = (await self.trading_pair_to_tuple(trading_pair))[0]
-            str quote_currency = (await self.trading_pair_to_tuple(trading_pair))[1]
+            str base_currency = self.split_trading_pair(trading_pair)[0]
+            str quote_currency = self.split_trading_pair(trading_pair)[1]
             object buy_fee = self.c_get_fee(base_currency, quote_currency, order_type, TradeType.BUY, amount, price)
 
         decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
@@ -978,7 +990,10 @@ cdef class KrakenMarket(MarketBase):
 
     async def execute_cancel(self, trading_pair: str, order_id: str):
         try:
-            data: Dict[str, str] = {"txid": self._in_flight_orders.get(order_id).exchange_order_id}
+            tracked_order = self._in_flight_orders.get(order_id)
+            if tracked_order is None:
+                raise ValueError(f"Failed to cancel order – {order_id}. Order not found.")
+            data: Dict[str, str] = {"txid": tracked_order.exchange_order_id}
             cancel_result = await self._api_request("POST",
                                                     CANCEL_ORDER_URI,
                                                     data=data,
