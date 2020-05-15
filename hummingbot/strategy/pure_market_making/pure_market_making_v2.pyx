@@ -855,7 +855,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         cdef object tolerance = Decimal(str(self._order_refresh_tolerance_pct))
         for current, proposal in zip(current_orders, proposals):
             # if spread diff is more than the tolerance or order quantities are different, return false.
-            if abs(proposal[0] - current[1])/current[1] > tolerance or current[2] != proposal[1]:
+            if abs(proposal[0] - current[1])/current[1] > tolerance:
                 return False
         return True
 
@@ -948,7 +948,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                         for s, p in order_price_quote]
                     self.log_with_clock(
                         logging.INFO,
-                        f"({market_info.trading_pair}) Creating limit bid orders at (Size, Price): {price_quote_str}"
+                        f"({market_info.trading_pair}) Creating {len(orders_proposal.buy_order_sizes)} bid orders "
+                        f"at (Size, Price): {price_quote_str}"
                     )
 
                 for idx in range(len(orders_proposal.buy_order_sizes)):
@@ -973,7 +974,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                         for s, p in order_price_quote]
                     self.log_with_clock(
                         logging.INFO,
-                        f"({market_info.trading_pair}) Creating limit ask orders at (Size, Price): {price_quote_str}"
+                        f"({market_info.trading_pair}) Creating {len(orders_proposal.sell_order_sizes)} ask "
+                        f"orders at (Size, Price): {price_quote_str}"
                     )
 
                 for idx in range(len(orders_proposal.sell_order_sizes)):
