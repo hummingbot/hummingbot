@@ -118,7 +118,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         if len(market_infos) < 1:
             raise ValueError(f"market_infos must not be empty.")
         if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
-            raise ValueError(f"Parameter price_ceiling cannot be lower than price_floor.")
+            raise ValueError("Parameter price_ceiling cannot be lower than price_floor.")
 
         super().__init__()
         self._sb_order_tracker = PureMarketMakingOrderTracker()
