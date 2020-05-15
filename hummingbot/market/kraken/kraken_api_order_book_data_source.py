@@ -168,7 +168,7 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
             if len(response_json["error"]) > 0:
                 raise IOError(f"Error fetching Kraken market snapshot for {original_trading_pair}. "
                               f"Error is {response_json['error']}.")
-            data: Dict[str, Any] = response_json["result"][trading_pair]
+            data: Dict[str, Any] = next(iter(response_json["result"].values))
             data = {"trading_pair": trading_pair, **data}
             data["latest_update"] = max([*map(lambda x: x[2], data["bids"] + data["asks"])], default=0.)
 
