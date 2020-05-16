@@ -55,7 +55,7 @@ def validate_order_amount(value: str) -> Optional[str]:
         if Decimal(value) < min_amount:
             return f"Order amount must be at least {min_amount}."
     except Exception:
-        return f"Invalid order amount."
+        return "Invalid order amount."
 
 
 def price_source_market_prompt():
@@ -132,6 +132,20 @@ pure_market_making_config_map = {
                   type_str="decimal",
                   validator=validate_order_amount,
                   prompt_on_new=True),
+    "price_ceiling":
+        ConfigVar(key="price_ceiling",
+                  prompt="Enter the price point above which only sell orders will be placed "
+                         "(Enter -1 to deactivate this feature) >>> ",
+                  type_str="decimal",
+                  default=Decimal("-1"),
+                  validator=lambda v: validate_decimal(v, min_value=0, inclusive=False) if v != -1 else None),
+    "price_floor":
+        ConfigVar(key="price_floor",
+                  prompt="Enter the price below which only buy orders will be placed "
+                         "(Enter -1 to deactivate this feature) >>> ",
+                  type_str="decimal",
+                  default=Decimal("-1"),
+                  validator=lambda v: validate_decimal(v, min_value=0, inclusive=False) if v != -1 else None),
     "order_expiration_time":
         ConfigVar(key="order_expiration_time",
                   prompt="How long should your limit orders remain valid until they "
