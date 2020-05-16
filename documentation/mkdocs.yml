@@ -103,6 +103,7 @@ nav:
         - Windows: installation/source/windows.md
       - Cloud Server Guide: installation/cloud.md
       - Updating Hummingbot: installation/updating.md
+      - Unattended Configuration: installation/unattended.md
     - Operation:
       - The Hummingbot Client: operation/client.md
       - Configuring the Client: operation/configuration.md
