@@ -27,6 +27,7 @@ from hummingbot.market.market_base import (
 )
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
+from hummingbot.client.config.global_config_map import paper_trade_disabled
 from math import isnan
 
 from .data_types import (
@@ -125,7 +126,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._cancel_timestamp = 0
         self._create_timestamp = 0
         self._limit_order_type = OrderType.LIMIT
-        if any(m.market.name == "binance" for m in market_infos):
+        if any(m.market.name == "binance" for m in market_infos) and paper_trade_disabled():
             self._limit_order_type = OrderType.LIMIT_MAKER
         self._all_markets_ready = False
         self._order_refresh_time = order_refresh_time
