@@ -1,6 +1,8 @@
 # Order Refresh Tolerance
 
-This feature allows Hummingbot users to specify a percentage value that sets the minimum change in spread to adjust an order.
+**Updated as of `v0.27.0`**
+
+This feature allows you to specify a percentage value that sets the minimum change in spread to adjust an order.
 
 
 ## How It Works
@@ -8,7 +10,6 @@ This feature allows Hummingbot users to specify a percentage value that sets the
 By default, this parameter is set to 0 and Hummingbot will cancel outstanding orders except hanging orders every `order_refresh_time` seconds.
 
 As an example, setting `order_refresh_tolerance_pct` to `0.1` and an active order's spread changes from 1.0% to 0.9%-1.1% when it's time to refresh depending on `order_refresh_time`, this order is kept (not cancelled).
-
 
 ## Sample Configuration
 
