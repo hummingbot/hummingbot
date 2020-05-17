@@ -224,7 +224,9 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             sizing_delegate=self.constant_sizing_delegate,
             pricing_delegate=self.constant_pricing_delegate,
             order_refresh_time=45,
-            logging_options=logging_options
+            logging_options=logging_options,
+            price_ceiling=Decimal("105"),
+            price_floor=Decimal("95"),
         )
 
         self.multi_order_equal_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
@@ -233,7 +235,9 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             pricing_delegate=self.multiple_order_strategy_pricing_delegate,
             sizing_delegate=self.equal_strategy_sizing_delegate,
             order_refresh_time=45,
-            logging_options=logging_options
+            logging_options=logging_options,
+            price_ceiling=Decimal("105"),
+            price_floor=Decimal("95"),
         )
 
         self.multi_order_staggered_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
@@ -537,6 +541,40 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
 
         self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size + 1)
         self.assertEqual(0, len(self.strategy.active_bids))
+        self.assertEqual(0, len(self.strategy.active_asks))
+
+    def test_strategy_ask_cancelled_after_price_ceiling_breach(self):
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(1, len(self.strategy.active_bids))
+        self.assertEqual(1, len(self.strategy.active_asks))
+
+        simulate_order_book_widening(
+            self.maker_data.order_book,
+            self.mid_price,
+            115,
+        )
+
+        self.clock.backtest_til(
+            self.start_timestamp + 2 * self.clock_tick_size + 1
+        )
+        self.assertEqual(0, len(self.strategy.active_bids))
+        self.assertEqual(1, len(self.strategy.active_asks))
+
+    def test_strategy_bid_cancelled_after_price_floor_breach(self):
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(1, len(self.strategy.active_bids))
+        self.assertEqual(1, len(self.strategy.active_asks))
+
+        simulate_order_book_widening(
+            self.maker_data.order_book,
+            85,
+            self.mid_price,
+        )
+
+        self.clock.backtest_til(
+            self.start_timestamp + 2 * self.clock_tick_size + 1
+        )
+        self.assertEqual(1, len(self.strategy.active_bids))
         self.assertEqual(0, len(self.strategy.active_asks))
 
     def test_strategy_with_transaction_costs(self):
@@ -863,6 +901,44 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.clock.backtest_til(end_ts)
         self.assertEqual(5, len(self.multi_order_staggered_strategy.active_bids))
         self.assertEqual(5, len(self.multi_order_staggered_strategy.active_asks))
+
+    def test_multiple_orders_asks_cancelled_after_price_ceiling_breach(self):
+        self.clock.remove_iterator(self.strategy)
+        self.clock.add_iterator(self.multi_order_equal_strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(5, len(self.multi_order_equal_strategy.active_bids))
+        self.assertEqual(5, len(self.multi_order_equal_strategy.active_asks))
+
+        simulate_order_book_widening(
+            self.maker_data.order_book,
+            self.mid_price,
+            115,
+        )
+
+        self.clock.backtest_til(
+            self.start_timestamp + 2 * self.clock_tick_size + 1
+        )
+        self.assertEqual(0, len(self.multi_order_equal_strategy.active_bids))
+        self.assertEqual(5, len(self.multi_order_equal_strategy.active_asks))
+
+    def test_multiple_orders_bids_cancelled_after_price_floor_breach(self):
+        self.clock.remove_iterator(self.strategy)
+        self.clock.add_iterator(self.multi_order_equal_strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(5, len(self.multi_order_equal_strategy.active_bids))
+        self.assertEqual(5, len(self.multi_order_equal_strategy.active_asks))
+
+        simulate_order_book_widening(
+            self.maker_data.order_book,
+            85,
+            self.mid_price,
+        )
+
+        self.clock.backtest_til(
+            self.start_timestamp + 2 * self.clock_tick_size + 1
+        )
+        self.assertEqual(5, len(self.multi_order_equal_strategy.active_bids))
+        self.assertEqual(0, len(self.multi_order_equal_strategy.active_asks))
 
     def test_replenish_delay(self):
         self.clock.remove_iterator(self.strategy)

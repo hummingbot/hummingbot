@@ -2,7 +2,7 @@
 ###       Pure market making strategy config         ###
 ########################################################
 
-template_version: 13
+template_version: 14
 strategy: null
 
 # Exchange and token parameters.
@@ -33,6 +33,12 @@ order_refresh_tolerance_pct: null
 
 # Size of your bid and ask order.
 order_amount: null
+
+# Price band ceiling.
+price_ceiling: null
+
+# Price band floor.
+price_floor: null
 
 # Whether to enable Inventory skew feature (true/false).
 inventory_skew_enabled: null
