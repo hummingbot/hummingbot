@@ -54,6 +54,7 @@ from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_ass
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
+s_decimal_neg_one = Decimal(-1)
 s_logger = None
 
 
@@ -109,11 +110,15 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  status_report_interval: float = 900,
                  asset_price_delegate: AssetPriceDelegate = None,
                  expiration_seconds: float = NaN,
+                 price_ceiling: Decimal = s_decimal_neg_one,
+                 price_floor: Decimal = s_decimal_neg_one,
                  hanging_orders_cancel_pct: float = 0.1,
                  order_refresh_tolerance_pct: float = -1.0):
 
         if len(market_infos) < 1:
             raise ValueError(f"market_infos must not be empty.")
+        if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
+            raise ValueError("Parameter price_ceiling cannot be lower than price_floor.")
 
         super().__init__()
         self._sb_order_tracker = PureMarketMakingOrderTracker()
@@ -130,6 +135,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._all_markets_ready = False
         self._order_refresh_time = order_refresh_time
         self._expiration_seconds = expiration_seconds
+        self._price_ceiling = price_ceiling
+        self._price_floor = price_floor
         self._filled_order_delay = filled_order_delay
         self._add_transaction_costs_to_orders = add_transaction_costs_to_orders
 
@@ -564,6 +571,32 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
         return PricingProposal(updated_buy_order_prices, updated_sell_order_prices)
 
+    cdef object c_check_and_apply_price_bands_to_sizing_proposal(self,
+                                                                 object market_info,
+                                                                 object sizing_proposal):
+        """
+        Sets bid/ask order size to zero if current price is above/below price band limits.
+
+        :param market_info: Pure Market making Pair object.
+        :param sizing_proposal: The current sizing proposal.
+        :return: revised_sizing_proposal
+        """
+        cdef:
+            list buy_order_sizes = [order_size for order_size in sizing_proposal.buy_order_sizes]
+            list sell_order_sizes = [order_size for order_size in sizing_proposal.sell_order_sizes]
+
+        if self._asset_price_delegate is None:
+            asset_mid_price = market_info.get_mid_price()
+        else:
+            asset_mid_price = self._asset_price_delegate.c_get_mid_price()
+
+        if self._price_ceiling != s_decimal_neg_one and asset_mid_price > self._price_ceiling:
+            buy_order_sizes = [s_decimal_zero for order_size in sizing_proposal.buy_order_sizes]
+        if self._price_floor != s_decimal_neg_one and asset_mid_price < self._price_floor:
+            sell_order_sizes = [s_decimal_zero for order_size in sizing_proposal.sell_order_sizes]
+
+        return SizingProposal(buy_order_sizes, sell_order_sizes)
+
     cdef tuple c_check_and_add_transaction_costs_to_pricing_proposal(self,
                                                                      object market_info,
                                                                      object pricing_proposal,
@@ -704,6 +737,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                                           market_info,
                                                                           active_non_hanging_orders,
                                                                           pricing_proposal)
+
+        sizing_proposal = self.c_check_and_apply_price_bands_to_sizing_proposal(market_info,
+                                                                                sizing_proposal)
+
         if self._add_transaction_costs_to_orders:
             no_order_placement, pricing_proposal = self.c_check_and_add_transaction_costs_to_pricing_proposal(
                 market_info,
@@ -818,9 +855,14 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         cdef object tolerance = Decimal(str(self._order_refresh_tolerance_pct))
         for current, proposal in zip(current_orders, proposals):
             # if spread diff is more than the tolerance or order quantities are different, return false.
-            if abs(proposal[0] - current[1])/current[1] > tolerance or current[2] != proposal[1]:
+            if abs(proposal[0] - current[1])/current[1] > tolerance:
                 return False
         return True
+
+    cdef c_join_price_size_proposals(self, list prices, list sizes):
+        cdef list result = list(zip(prices, sizes))
+        result = [x for x in result if x[0] > 0 and x[1] > 0]
+        return result
 
     # Cancel active non hanging orders
     # Return value: whether order cancellation is deferred.
@@ -838,8 +880,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         if len(active_orders) == 0:
             return
         if orders_proposal is not None and self._order_refresh_tolerance_pct >= 0:
-            buy_proposals = list(zip(orders_proposal.buy_order_prices, orders_proposal.buy_order_sizes))
-            sell_proposals = list(zip(orders_proposal.sell_order_prices, orders_proposal.sell_order_sizes))
+            buy_proposals = self.c_join_price_size_proposals(orders_proposal.buy_order_prices,
+                                                             orders_proposal.buy_order_sizes)
+            sell_proposals = self.c_join_price_size_proposals(orders_proposal.sell_order_prices,
+                                                              orders_proposal.sell_order_sizes)
             active_buys = [[o.client_order_id, Decimal(str(o.price)), Decimal(str(o.quantity))]
                            for o in active_orders if o.is_buy]
             active_sells = [[o.client_order_id, Decimal(str(o.price)), Decimal(str(o.quantity))]
@@ -904,7 +948,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                         for s, p in order_price_quote]
                     self.log_with_clock(
                         logging.INFO,
-                        f"({market_info.trading_pair}) Creating limit bid orders at (Size, Price): {price_quote_str}"
+                        f"({market_info.trading_pair}) Creating {len(orders_proposal.buy_order_sizes)} bid orders "
+                        f"at (Size, Price): {price_quote_str}"
                     )
 
                 for idx in range(len(orders_proposal.buy_order_sizes)):
@@ -929,7 +974,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                         for s, p in order_price_quote]
                     self.log_with_clock(
                         logging.INFO,
-                        f"({market_info.trading_pair}) Creating limit ask orders at (Size, Price): {price_quote_str}"
+                        f"({market_info.trading_pair}) Creating {len(orders_proposal.sell_order_sizes)} ask "
+                        f"orders at (Size, Price): {price_quote_str}"
                     )
 
                 for idx in range(len(orders_proposal.sell_order_sizes)):

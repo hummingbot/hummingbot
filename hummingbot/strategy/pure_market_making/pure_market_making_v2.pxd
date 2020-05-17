@@ -24,6 +24,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         double _create_timestamp
         double _order_refresh_time
         double _expiration_seconds
+        object _price_ceiling
+        object _price_floor
         double _status_report_interval
         double _last_timestamp
         double _filled_order_delay
@@ -47,6 +49,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                     object market_info,
                                                     object pricing_proposal,
                                                     list active_orders)
+    cdef object c_check_and_apply_price_bands_to_sizing_proposal(self,
+                                                                 object market_info,
+                                                                 object sizing_proposal)
     cdef tuple c_check_and_add_transaction_costs_to_pricing_proposal(self,
                                                                      object market_info,
                                                                      object pricing_proposal,
@@ -58,3 +63,4 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     cdef c_cancel_hanging_orders(self, object market_info)
     cdef bint c_to_create_orders(self, object market_info, object orders_proposal)
     cdef set_timers(self)
+    cdef c_join_price_size_proposals(self, list prices, list sizes)
