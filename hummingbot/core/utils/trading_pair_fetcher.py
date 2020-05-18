@@ -258,21 +258,26 @@ class TradingPairFetcher:
 
     @staticmethod
     async def fetch_kraken_trading_pairs() -> List[str]:
-        async with aiohttp.ClientSession() as client:
-            async with client.get(KRAKEN_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
-                if response.status == 200:
-                    try:
+        try:
+            async with aiohttp.ClientSession() as client:
+                async with client.get(KRAKEN_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
+                    if response.status == 200:
                         from hummingbot.market.kraken.kraken_market import KrakenMarket
                         data: Dict[str, Any] = await response.json()
                         raw_pairs = data.get("result", [])
-                        converted_pairs = [KrakenMarket.convert_from_exchange_trading_pair(pair)
-                                           for pair in raw_pairs
-                                           if ".d" not in pair]
+                        converted_pairs: List[str] = []
+                        for pair, details in raw_pairs.items():
+                            if "." not in pair:
+                                try:
+                                    wsname = details["wsname"]  # pair in format BASE/QUOTE
+                                    converted_pairs.append(KrakenMarket.convert_from_exchange_trading_pair(wsname))
+                                except IOError:
+                                    pass
                         return [item for item in converted_pairs]
-                    except Exception:
-                        raise
-                        # Do nothing if the request fails -- there will be no autocomplete for kraken trading pairs
-                return []
+        except Exception:
+            pass
+            # Do nothing if the request fails -- there will be no autocomplete for kraken trading pairs
+        return []
 
     async def fetch_dolomite_trading_pairs(self) -> List[str]:
         try:

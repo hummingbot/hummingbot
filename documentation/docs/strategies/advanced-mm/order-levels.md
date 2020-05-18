@@ -1,4 +1,4 @@
-# Multiple Orders
+# Order Levels
 
 These parameters allow you to set multiple levels of orders on each side and gives you more fine-grained control over the spreads and sizes of each set of orders.
 
@@ -14,7 +14,7 @@ Users can also increase the size of subsequent orders starting from the first or
 
 The `order_level_spread` logic works the same as order step size but instead, it increases the spreads of your subsequent orders starting from the first order.
 
->**Example**: The spread of your first buy and sell order is `0.01` (1%) and your order interval amount is `0.02` (2%). The spread of your second order is `0.03` (3%), and the third order is `0.05` (5%).
+>**Example**: The spread of your first buy and sell order is `1` (1%) and your order interval amount is `2` (2%). The spread of your second order is `3` (3%), and the third order is `5` (5%).
 
 Given the sample scenarios above, your active orders will show as:
 
@@ -25,12 +25,12 @@ Given the sample scenarios above, your active orders will show as:
 
 ```json
 - market: BTC-USDT
-- bid_spread: 0.005
-- ask_spread: 0.005
+- bid_spread: 0.5
+- ask_spread: 0.5
 - order_amount: 0.002
 - order_levels: 3
 - order_levels_amount: 0.002
-- order_levels_spread: 0.01
+- order_levels_spread: 1
 ```
 
 Running a bot with the parameters above, the `status` command shows 3 levels of orders in the BTC-USDT trading pair: 
@@ -46,4 +46,4 @@ Running a bot with the parameters above, the `status` command shows 3 levels of 
 | **order_level_spread** | `Enter the price increments (as percentage) for subsequent orders?` | The incremental spread increases for subsequent order levels after the first level. |
 
 !!! warning "Low values for `order_level_spread`"
-    Setting `order_level_spread` to a very low number may cause multiple orders to be placed on the same price level. For example for an asset like SNM/BTC, if you set an order interval percent of 0.004 (~0.4%) because of low asset value the price of the next order will be rounded to the nearest price supported by the exchange, which in this case might lead to multiple orders being placed at the same price level.
+    Setting `order_level_spread` to a very low number may cause multiple orders to be placed on the same price level. For example for an asset like SNM/BTC, if you set an order interval percent of 0.4 (~0.4%) because of low asset value the price of the next order will be rounded to the nearest price supported by the exchange, which in this case might lead to multiple orders being placed at the same price level.
