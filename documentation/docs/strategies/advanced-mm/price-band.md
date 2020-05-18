@@ -14,5 +14,5 @@ Type `config price_ceiling` and `config price_floor` to set values for these par
 
 | Parameter | Prompt | Definition |
 |-----------|--------|------------|
-| `price_ceiling` | `Enter the percent change in price needed to refresh orders at each cycle` | The spread (from mid price) to defer order refresh process to the next cycle. |
-| `price_floor` | `Enter the percent change in price needed to refresh orders at each cycle` | The spread (from mid price) to defer order refresh process to the next cycle. |
+| **price_ceiling** | `Enter the percent change in price needed to refresh orders at each cycle` | Place only sell orders when market goes above this price. |
+| **price_floor** | `Enter the percent change in price needed to refresh orders at each cycle` | Place only buy orders when market falls below this price. |
