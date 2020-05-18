@@ -74,6 +74,15 @@ def validate_price_source_market(value: str) -> Optional[str]:
     return validate_market_trading_pair(market, value)
 
 
+def validate_price_floor_ceiling(value: str) -> Optional[str]:
+    try:
+        decimal_value = Decimal(value)
+    except Exception:
+        return f"{value} is not in decimal format."
+    if not (decimal_value == Decimal("-1") or decimal_value > Decimal("0")):
+        return "Value must be more than 0 or -1 to disable this feature."
+
+
 def exchange_on_validated(value: str):
     required_exchanges.append(value)
     ExchangePriceManager.set_exchanges_to_feed([value])
@@ -138,14 +147,14 @@ pure_market_making_config_map = {
                          "(Enter -1 to deactivate this feature) >>> ",
                   type_str="decimal",
                   default=Decimal("-1"),
-                  validator=lambda v: validate_decimal(v, min_value=0, inclusive=False) if v != -1 else None),
+                  validator=validate_price_floor_ceiling),
     "price_floor":
         ConfigVar(key="price_floor",
                   prompt="Enter the price below which only buy orders will be placed "
                          "(Enter -1 to deactivate this feature) >>> ",
                   type_str="decimal",
                   default=Decimal("-1"),
-                  validator=lambda v: validate_decimal(v, min_value=0, inclusive=False) if v != -1 else None),
+                  validator=validate_price_floor_ceiling),
     "order_expiration_time":
         ConfigVar(key="order_expiration_time",
                   prompt="How long should your limit orders remain valid until they "
