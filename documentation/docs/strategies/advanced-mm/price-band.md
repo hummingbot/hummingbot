@@ -8,11 +8,11 @@ This feature allows you to set a price band within which your bot places both bu
 
 `price_ceiling` and `price_floor` are two optional parameters that you can set. By default, these parameters have a value of -1, which means that they are not used.
 
-Type `config price_ceiling` and `config price_floor` to set values for these parameters. If the price exceeds `price_ceiling`, your bot only places sell orders. If the price falls below `price_floor`, your bot only places buy orders.
+Type `config price_ceiling` and `config price_floor` to set values for these parameters. If the mid price exceeds `price_ceiling`, your bot only places sell orders. If the price falls below `price_floor`, your bot only places buy orders.
 
 ## Relevant Parameters
 
 | Parameter | Prompt | Definition |
 |-----------|--------|------------|
-| **price_ceiling** | `Enter the percent change in price needed to refresh orders at each cycle` | Place only sell orders when market goes above this price. |
-| **price_floor** | `Enter the percent change in price needed to refresh orders at each cycle` | Place only buy orders when market falls below this price. |
+| **price_ceiling** | `Enter the percent change in price needed to refresh orders at each cycle` | Place only sell orders when mid price goes above this price. |
+| **price_floor** | `Enter the percent change in price needed to refresh orders at each cycle` | Place only buy orders when mid price falls below this price. |
