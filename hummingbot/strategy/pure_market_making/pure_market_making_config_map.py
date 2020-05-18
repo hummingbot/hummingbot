@@ -55,7 +55,7 @@ def validate_order_amount(value: str) -> Optional[str]:
         if Decimal(value) < min_amount:
             return f"Order amount must be at least {min_amount}."
     except Exception:
-        return f"Invalid order amount."
+        return "Invalid order amount."
 
 
 def price_source_market_prompt():
@@ -72,6 +72,15 @@ def validate_price_source_exchange(value: str) -> Optional[str]:
 def validate_price_source_market(value: str) -> Optional[str]:
     market = pure_market_making_config_map.get("price_source_exchange").value
     return validate_market_trading_pair(market, value)
+
+
+def validate_price_floor_ceiling(value: str) -> Optional[str]:
+    try:
+        decimal_value = Decimal(value)
+    except Exception:
+        return f"{value} is not in decimal format."
+    if not (decimal_value == Decimal("-1") or decimal_value > Decimal("0")):
+        return "Value must be more than 0 or -1 to disable this feature."
 
 
 def exchange_on_validated(value: str):
@@ -119,12 +128,33 @@ pure_market_making_config_map = {
                   type_str="float",
                   validator=lambda v: validate_decimal(v, 0, inclusive=False),
                   prompt_on_new=True),
+    "order_refresh_tolerance_pct":
+        ConfigVar(key="order_refresh_tolerance_pct",
+                  prompt="Enter the percent change in price needed to refresh orders at each cycle "
+                         "(Enter 1 to indicate 1%) >>> ",
+                  type_str="decimal",
+                  default=Decimal("0"),
+                  validator=lambda v: validate_decimal(v, -10, 10, inclusive=True)),
     "order_amount":
         ConfigVar(key="order_amount",
                   prompt=order_amount_prompt,
                   type_str="decimal",
                   validator=validate_order_amount,
                   prompt_on_new=True),
+    "price_ceiling":
+        ConfigVar(key="price_ceiling",
+                  prompt="Enter the price point above which only sell orders will be placed "
+                         "(Enter -1 to deactivate this feature) >>> ",
+                  type_str="decimal",
+                  default=Decimal("-1"),
+                  validator=validate_price_floor_ceiling),
+    "price_floor":
+        ConfigVar(key="price_floor",
+                  prompt="Enter the price below which only buy orders will be placed "
+                         "(Enter -1 to deactivate this feature) >>> ",
+                  type_str="decimal",
+                  default=Decimal("-1"),
+                  validator=validate_price_floor_ceiling),
     "order_expiration_time":
         ConfigVar(key="order_expiration_time",
                   prompt="How long should your limit orders remain valid until they "

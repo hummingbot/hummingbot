@@ -2,7 +2,7 @@
 ###       Pure market making strategy config         ###
 ########################################################
 
-template_version: 12
+template_version: 14
 strategy: null
 
 # Exchange and token parameters.
@@ -27,8 +27,18 @@ ask_spread: null
 # If the value is 60, the bot cancels active orders and placing new ones after a minute.
 order_refresh_time: null
 
+# The spread (from mid price) to defer order refresh process to the next cycle.
+# (Enter 1 to indicate 1%), value below 0, e.g. -1, is to disable this feature - not recommended.
+order_refresh_tolerance_pct: null
+
 # Size of your bid and ask order.
 order_amount: null
+
+# Price band ceiling.
+price_ceiling: null
+
+# Price band floor.
+price_floor: null
 
 # Whether to enable Inventory skew feature (true/false).
 inventory_skew_enabled: null

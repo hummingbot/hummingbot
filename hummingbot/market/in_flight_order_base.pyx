@@ -48,7 +48,7 @@ cdef class InFlightOrderBase:
                f"client_order_id='{self.client_order_id}', " \
                f"exchange_order_id='{self.exchange_order_id}', " \
                f"trading_pair='{self.trading_pair}', " \
-               f"order_type='{self.order_type}', " \
+               f"order_type={self.order_type}, " \
                f"trade_type={self.trade_type}, " \
                f"price={self.price}, " \
                f"amount={self.amount}, " \
