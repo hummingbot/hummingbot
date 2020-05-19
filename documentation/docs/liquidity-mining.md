@@ -22,8 +22,8 @@ Liquidity mining sets forth an analytical framework for determining market maker
 !!! warning "Terms subject to change"
     Please check this page for the most up-to-date terms.  We will notify participants of changes, if any, through email (for registered users) and on our [Discord](https://discord.hummingbot.io).
 
-!!! note "Terms updated for week 10"
-    **For the period starting May 5, 2020 12:00am UTC until May 12, 2020 12:00am UTC, the following changes were made:**<ol><li>**Zillqa**: the total amount of rewards for Zilliqa's campaigns has reverted to USDC 750 per week.  Please see updated amounts per trading pair below.<li>**Maximum spreads**: the maximum spread for all campaigns has been revised to 2%.</ul>
+!!! note "Terms updated for week 12"
+    **Solana liquidity mining campaign launched!** <br/> Starting May 26, 2020 12.00am UTC, SOL/BTC, SOL/BUSD, and SOL/BNB will be eligible pairs with a total of USDC 625/week of rewards available.
 
 <table>
   <thead>
@@ -54,42 +54,58 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>USDC 250</td>
     </tr>
     <tr>
+      <td rowspan="3"><a href="#solana">Solana</a><br></td>
+      <td>SOL/BTC</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 250</td>
+    </tr>
+    <tr>
+      <td>SOL/BUSD</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 250</td>
+    </tr>
+    <tr>
+      <td>SOL/BNB</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 125</td>
+    </tr>
+    <tr>
       <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
       <td>XZC/BTC</td>
       <td>Binance.com</td>
       <td>2%</td>
-      <td>USDC 375¹</td>
+      <td>USDC 375</td>
     </tr>
     <tr>
-      <td>XZC/USDT¹</td>
+      <td>XZC/USDT</td>
       <td>Binance.com</td>
       <td>2%</td>
-      <td>USDC 375¹</td>
+      <td>USDC 375</td>
     </tr>
     <tr>
       <td rowspan="3"><a href="#zilliqa">Zilliqa</a><br></td>
       <td>ZIL/USDT</td>
       <td>Binance.com</td>
       <td>2%</td>
-      <td>USDC 250¹</td>
+      <td>USDC 250</td>
     </tr>
     <tr>
       <td>ZIL/ETH</td>
       <td>Binance.com</td>
       <td>2%</td>
-      <td>USDC 250¹</td>
+      <td>USDC 250</td>
     </tr>
     <tr>
       <td>ZIL/BNB</td>
       <td>Binance.com</td>
       <td>2%</td>
-      <td>USDC 250¹</td>
+      <td>USDC 250</td>
     </tr>
   </tbody>
 </table>
-
-## Changes to campaign terms
-1. **May 5, 2020**: (1) the reward amounts for ZIL/USDT, ZIL/ETH, and ZIL/BNB were reverted to USDC 250 per week for each pair.  The maximum spread for all campaigns was changed to 2% from 3%.  You can read more about the changes on our [reddit post](https://www.reddit.com/r/Hummingbot/comments/gd69fn/campaign_updates_for_week_10_max_spreads_now_2/).
 
 ## Program sponsors
 
@@ -99,6 +115,12 @@ Liquidity mining sets forth an analytical framework for determining market maker
 [iExec (RLC)](https://iex.ec/) claims to have developed the first decentralized marketplace for cloud computing resources. Blockchain technology is used to organize a market network where users can monetize their computing power, applications, and datasets. By providing on-demand access to cloud computing resources, iExec is reportedly able to support compute-intensive applications in fields such as AI, big data, healthcare, rendering, or FinTech. iExec's RLC token has been listed on Binance, Bittrex, etc.
 
 [Whitepaper](https://iex.ec/wp-content/uploads/pdf/iExec-WPv3.0-English.pdf) | [Twitter](https://twitter.com/iEx_ec) | [Telegram](https://goo.gl/fH3EHT) | [Github](https://github.com/iExecBlockchainComputing) | [Explorer](https://etherscan.io/token/0x607F4C5BB672230e8672085532f7e901544a7375) | [CoinMarketCap](https://coinmarketcap.com/currencies/rlc/markets/) | [CoinGecko](https://www.coingecko.com/en/coins/iexec-rlc)
+
+### Solana
+
+[Solana (SOL)](https://solana.com) is a high-performance blockchain based out of San Francisco. The project was founded with the mission to support all high-growth and high-frequency blockchain applications, and to democratize the world’s financial systems. As of today, Solana can support up to 50,000 transactions per second, with 400ms block times and transaction fees estimated to be $0.00001 each, which will continue to scale further as its network architecture was designed from the ground up to leverage improvements in hardware and bandwidth.
+
+[Whitepaper](https://solana.com/solana-whitepaper.pdf) | [Blog](https://medium.com/solana-labs) | [Podcast](https://podcast.solana.com/) | [Twitter](https://twitter.com/solana) | [Telegram](https://t.me/solanaio) | [Discord](https://discordapp.com/invite/pquxPsq) | [Github](https://github.com/solana-labs) | [CoinMarketCap](https://coinmarketcap.com/currencies/solana/markets/) | [CoinGecko](https://www.coingecko.com/en/coins/solana)
 
 ### Zcoin
 
