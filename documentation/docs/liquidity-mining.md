@@ -23,7 +23,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
     Please check this page for the most up-to-date terms.  We will notify participants of changes, if any, through email (for registered users) and on our [Discord](https://discord.hummingbot.io).
 
 !!! note "Terms updated for week 12"
-    **Solana liquidity mining campaign launched!** <br/> Starting May 19, 2020 12.00am UTC, SOL/BTC, SOL/BUSD, and SOL/BNB are now eligible pairs with a total of USDC 625/week of rewards available.
+    **Solana liquidity mining campaign launched!** <br/> Starting May 26, 2020 12.00am UTC, SOL/BTC, SOL/BUSD, and SOL/BNB will be eligible pairs with a total of USDC 625/week of rewards available.
 
 <table>
   <thead>
