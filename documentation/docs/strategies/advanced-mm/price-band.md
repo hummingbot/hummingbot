@@ -14,5 +14,5 @@ Type `config price_ceiling` and `config price_floor` to set values for these par
 
 | Parameter | Prompt | Definition |
 |-----------|--------|------------|
-| **price_ceiling** | `Enter the percent change in price needed to refresh orders at each cycle` | Place only sell orders when mid price goes above this price. |
-| **price_floor** | `Enter the percent change in price needed to refresh orders at each cycle` | Place only buy orders when mid price falls below this price. |
+| **price_ceiling** | `Enter the price point above which only sell orders will be placed ` | Place only sell orders when mid price goes above this price. |
+| **price_floor** | `Enter the price point below which only sell orders will be placed` | Place only buy orders when mid price falls below this price. |
