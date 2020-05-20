@@ -912,7 +912,7 @@ cdef class PaperTradeMarket(MarketBase):
                 precision_quantum = Decimal(0)
             return max(precision_quantum, decimals_quantum)
         else:
-            return Decimal(f"1e-8")
+            return Decimal(f"1e-10")
 
     cdef object c_get_order_size_quantum(self,
                                          str trading_pair,

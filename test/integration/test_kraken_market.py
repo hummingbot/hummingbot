@@ -45,7 +45,7 @@ import unittest
 import conf
 
 PAIR = "ETHUSDC"
-BASE = "XETH"
+BASE = "ETH"
 QUOTE = "USDC"
 
 

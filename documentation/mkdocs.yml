@@ -128,10 +128,12 @@ nav:
       - Pure Market Making: strategies/pure-market-making.md
       - Advanced Market Making:
         - Overview: strategies/advanced-mm/index.md
-        - Multiple Orders: strategies/advanced-mm/multiple-orders.md
+        - Order Levels: strategies/advanced-mm/order-levels.md
         - Inventory Skew: strategies/advanced-mm/inventory-skew.md
         - Filled Order Delay: strategies/advanced-mm/filled-order-delay.md
         - Hanging Orders: strategies/advanced-mm/hanging-orders.md
+        - Order Refresh Tolerance: strategies/advanced-mm/order-refresh-tolerance.md
+        - Price Band: strategies/advanced-mm/price-band.md
         - Order Optimization: strategies/advanced-mm/order-optimization.md
         - Adding Transaction Costs: strategies/advanced-mm/add-transaction-costs.md
         - External Price Source: strategies/advanced-mm/price-source.md
@@ -152,15 +154,15 @@ nav:
         - Dolomite: connectors/dolomite.md
     - Advanced:
       - Multiple Bots: advanced/running-multiple-bots.md
-      - Trading Strategy Autostart: advanced/autostart.md
       - Kill Switch: advanced/kill-switch.md
       - Fee Overrides: advanced/fee-overrides.md
       - Logs and Logging: advanced/logging.md
       - Exchange Rates: advanced/exchange-rates.md
-      - Telegram: advanced/telegram.md
       - Ethereum Wallet: advanced/wallet.md
       - Ethereum Node: advanced/node.md
-      - Advanced Database Configuration <sup>(BETA)</sup>: advanced/db-config.md
+      - Telegram: advanced/telegram.md
+      - Docker Autostart <sup>(BETA)</sup>: advanced/autostart.md
+      - External Database <sup>(BETA)</sup>: advanced/db-config.md
     - Community:
       - Overview: community/index.md  
       - Contributions: community/contributions.md
@@ -206,6 +208,7 @@ nav:
       - Configuration: developers/config.md
   - Release Notes:
     - About Releases: release-notes/index.md
+    - 0.27.0: release-notes/0.27.0.md
     - 0.26.1: release-notes/0.26.1.md
     - 0.26.0: release-notes/0.26.0.md
     - 0.25.0: release-notes/0.25.0.md
