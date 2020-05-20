@@ -6,7 +6,7 @@ from typing import (
     Any,
     Optional,
 )
-
+from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
 import logging
 
@@ -14,7 +14,7 @@ from .async_utils import safe_ensure_future
 from .ssl_client_request import SSLClientRequest
 
 BINANCE_ENDPOINT = "https://api.binance.com/api/v1/exchangeInfo"
-RADAR_RELAY_ENDPOINT = "https://api.radarrelay.com/v2/markets"
+RADAR_RELAY_ENDPOINT = "https://api.radarrelay.com/v3/markets"
 BAMBOO_RELAY_ENDPOINT = "https://rest.bamboorelay.com/main/0x/markets"
 COINBASE_PRO_ENDPOINT = "https://api.pro.coinbase.com/products/"
 HUOBI_ENDPOINT = "https://api.huobi.pro/v1/common/symbols"
@@ -24,6 +24,7 @@ KUCOIN_ENDPOINT = "https://api.kucoin.com/api/v1/symbols"
 DOLOMITE_ENDPOINT = "https://exchange-api.dolomite.io/v1/markets"
 BITCOIN_COM_ENDPOINT = "https://api.exchange.bitcoin.com/api/2/public/symbol"
 BITFINEX_ENDPOINT = "https://api-pub.bitfinex.com/v2/conf/pub:list:pair:exchange"
+KRAKEN_ENDPOINT = "https://api.kraken.com/0/public/AssetPairs"
 
 API_CALL_TIMEOUT = 5
 
@@ -108,6 +109,8 @@ class TradingPairFetcher:
                             else:
                                 self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
                         return trading_pair_list
+                    else:
+                        break
         except Exception:
             # Do nothing if the request fails -- there will be no autocomplete for radar trading pairs
             pass
@@ -142,6 +145,8 @@ class TradingPairFetcher:
                             else:
                                 self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
                         return trading_pair_list
+                    else:
+                        break
 
         except Exception:
             # Do nothing if the request fails -- there will be no autocomplete for bamboo trading pairs
@@ -252,6 +257,29 @@ class TradingPairFetcher:
                         # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
                 return []
 
+    @staticmethod
+    async def fetch_kraken_trading_pairs() -> List[str]:
+        try:
+            async with aiohttp.ClientSession() as client:
+                async with client.get(KRAKEN_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
+                    if response.status == 200:
+                        from hummingbot.market.kraken.kraken_market import KrakenMarket
+                        data: Dict[str, Any] = await response.json()
+                        raw_pairs = data.get("result", [])
+                        converted_pairs: List[str] = []
+                        for pair, details in raw_pairs.items():
+                            if "." not in pair:
+                                try:
+                                    wsname = details["wsname"]  # pair in format BASE/QUOTE
+                                    converted_pairs.append(KrakenMarket.convert_from_exchange_trading_pair(wsname))
+                                except IOError:
+                                    pass
+                        return [item for item in converted_pairs]
+        except Exception:
+            pass
+            # Do nothing if the request fails -- there will be no autocomplete for kraken trading pairs
+        return []
+
     async def fetch_dolomite_trading_pairs(self) -> List[str]:
         try:
             from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
@@ -338,13 +366,15 @@ class TradingPairFetcher:
                  self.fetch_bittrex_trading_pairs(),
                  self.fetch_kucoin_trading_pairs(),
                  self.fetch_bitcoin_com_trading_pairs(),
-                 self.fetch_bitfinex_trading_pairs()]
+                 self.fetch_bitfinex_trading_pairs(),
+                 self.fetch_kraken_trading_pairs(),
+                 self.fetch_radar_relay_trading_pairs()]
 
         # Radar Relay has not yet been migrated to a new version
         # Endpoint needs to be updated after migration
         # radar_relay_trading_pairs = await self.fetch_radar_relay_trading_pairs()
 
-        results = await asyncio.gather(*tasks)
+        results = await safe_gather(*tasks, return_exceptions=True)
         self.trading_pairs = {
             "binance": results[0],
             "bamboo_relay": results[1],
@@ -355,6 +385,8 @@ class TradingPairFetcher:
             "bittrex": results[6],
             "kucoin": results[7],
             "bitcoin_com": results[8],
-            "bitfinex": results[9]
+            "bitfinex": results[9],
+            "kraken": results[10],
+            "radar_relay": results[11]
         }
         self.ready = True

@@ -5,11 +5,9 @@ from os.path import (
 from typing import List
 
 from hummingbot import get_strategy_list
-from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 
 # Global variables
 required_exchanges: List[str] = []
-trading_pair_fetcher = TradingPairFetcher.get_instance()
 
 # Global static values
 KEYFILE_PREFIX = "key_file_"
@@ -39,6 +37,7 @@ EXCHANGES = {
     "kucoin",
     "bitcoin_com",
     "bitfinex",
+    "kraken"
 }
 
 DEXES = {
@@ -61,6 +60,7 @@ EXAMPLE_PAIRS = {
     "liquid": "ETH-USD",
     "radar_relay": "ZRX-WETH",
     "bitfinex": "ETH-USD",
+    "kraken": "ETH-USDC"
 }
 
 EXAMPLE_ASSETS = {
@@ -75,6 +75,7 @@ EXAMPLE_ASSETS = {
     "liquid": "ETH",
     "radar_relay": "ZRX",
     "bitfinex": "ETH",
+    "kraken": "XETH"
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000

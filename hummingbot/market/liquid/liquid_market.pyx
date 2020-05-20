@@ -149,7 +149,6 @@ cdef class LiquidMarket(MarketBase):
         self._trading_rules = {}
         self._data_source_type = order_book_tracker_data_source_type
         self._status_polling_task = None
-        self._order_tracker_task = None
         self._user_stream_tracker_task = None
         self._user_stream_event_listener_task = None
         self._product_dict = {}
@@ -256,10 +255,8 @@ cdef class LiquidMarket(MarketBase):
         *required
         Async function used by NetworkBase class to handle when a single market goes online
         """
-        if self._order_tracker_task is not None:
-            self._stop_network()
-
-        self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
+        self._stop_network()
+        self._order_book_tracker.start()
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
@@ -270,15 +267,14 @@ cdef class LiquidMarket(MarketBase):
         """
         Synchronous function that handles when a single market goes offline
         """
-        if self._order_tracker_task is not None:
-            self._order_tracker_task.cancel()
+        self._order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
         if self._user_stream_tracker_task is not None:
             self._user_stream_tracker_task.cancel()
         if self._user_stream_event_listener_task is not None:
             self._user_stream_event_listener_task.cancel()
-        self._order_tracker_task = self._status_polling_task = self._user_stream_tracker_task = \
+        self._status_polling_task = self._user_stream_tracker_task = \
             self._user_stream_event_listener_task = None
 
     async def stop_network(self):
@@ -368,9 +364,9 @@ cdef class LiquidMarket(MarketBase):
             object taker_fee = Decimal("0.0010")
 
         if order_type is OrderType.LIMIT and fee_overrides_config_map["liquid_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["liquid_maker_fee"].value)
+            return TradeFee(percent=fee_overrides_config_map["liquid_maker_fee"].value / Decimal("100"))
         if order_type is OrderType.MARKET and fee_overrides_config_map["liquid_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["liquid_taker_fee"].value)
+            return TradeFee(percent=fee_overrides_config_map["liquid_taker_fee"].value / Decimal("100"))
         return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
 
     async def _update_balances(self):
@@ -646,7 +642,7 @@ cdef class LiquidMarket(MarketBase):
             new_confirmed_amount = Decimal(order_update["filled_quantity"])
             execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
             execute_price = s_decimal_0 if new_confirmed_amount == s_decimal_0 \
-                else Decimal(order_update["price"]) / new_confirmed_amount
+                else Decimal(order_update["average_price"])
 
             order_type_description = tracked_order.order_type_description
             order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
@@ -677,7 +673,7 @@ cdef class LiquidMarket(MarketBase):
             # Update the tracked order
             tracked_order.last_state = order_status if order_status in {"filled", "canceled"} else order_update["status"]
             tracked_order.executed_amount_base = new_confirmed_amount
-            tracked_order.executed_amount_quote = Decimal(order_update["price"])
+            tracked_order.executed_amount_quote = Decimal(order_update["average_price"]) * tracked_order.executed_amount_base
             tracked_order.fee_paid = Decimal(order_update["order_fee"])
             if tracked_order.is_done:
                 if not tracked_order.is_failure:

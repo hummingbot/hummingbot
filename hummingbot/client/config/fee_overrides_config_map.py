@@ -1,11 +1,6 @@
 from hummingbot.client.config.config_var import ConfigVar
-
-
-def is_valid_fee(value: str) -> bool:
-    try:
-        return -0.1 <= float(value) <= 0.1
-    except ValueError:
-        return False
+from hummingbot.client.config.config_validators import validate_decimal
+from decimal import Decimal
 
 
 def new_fee_config_var(key):
@@ -13,7 +8,7 @@ def new_fee_config_var(key):
                      prompt=None,
                      required_if=lambda x: x is not None,
                      type_str="decimal",
-                     validator=is_valid_fee)
+                     validator=lambda v: validate_decimal(v, Decimal(-0.1), Decimal(0.1)))
 
 
 # trade fees configs are not prompted during setup process
@@ -30,5 +25,7 @@ fee_overrides_config_map = {
     "bittrex_maker_fee": new_fee_config_var("bittrex_maker_fee"),
     "bittrex_taker_fee": new_fee_config_var("bittrex_taker_fee"),
     "kucoin_maker_fee": new_fee_config_var("kucoin_maker_fee"),
-    "kucoin_taker_fee": new_fee_config_var("kucoin_taker_fee")
+    "kucoin_taker_fee": new_fee_config_var("kucoin_taker_fee"),
+    "kraken_maker_fee": new_fee_config_var("kraken_maker_fee"),
+    "kraken_taker_fee": new_fee_config_var("kraken_taker_fee"),
 }

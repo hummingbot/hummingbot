@@ -15,18 +15,25 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     cdef:
         dict _market_infos
         bint _all_markets_ready
-        bint _enable_order_filled_stop_cancellation
-        bint _best_bid_ask_jump_mode
+        bint _hanging_orders_enabled
+        bint _order_optimization_enabled
         bint _add_transaction_costs_to_orders
+        object _limit_order_type
 
-        double _cancel_order_wait_time
+        double _cancel_timestamp
+        double _create_timestamp
+        double _order_refresh_time
         double _expiration_seconds
+        object _price_ceiling
+        object _price_floor
         double _status_report_interval
         double _last_timestamp
-        double _filled_order_replenish_wait_time
-        object _best_bid_ask_jump_orders_depth
-
+        double _filled_order_delay
+        double _hanging_orders_cancel_pct
+        double _order_refresh_tolerance_pct
+        object _order_optimization_depth
         dict _time_to_cancel
+        list _hanging_order_ids
 
         int64_t _logging_options
 
@@ -35,9 +42,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         OrderSizingDelegate _sizing_delegate
         AssetPriceDelegate _asset_price_delegate
 
-    cdef object c_get_orders_proposal_for_market_info(self,
-                                                      object market_info,
-                                                      list active_maker_orders)
     cdef c_execute_orders_proposal(self,
                                    object market_info,
                                    object orders_proposal)
@@ -45,8 +49,18 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                     object market_info,
                                                     object pricing_proposal,
                                                     list active_orders)
+    cdef object c_check_and_apply_price_bands_to_sizing_proposal(self,
+                                                                 object market_info,
+                                                                 object sizing_proposal)
     cdef tuple c_check_and_add_transaction_costs_to_pricing_proposal(self,
                                                                      object market_info,
                                                                      object pricing_proposal,
                                                                      object sizing_proposal)
     cdef object c_filter_orders_proposal_for_takers(self, object market_info, object orders_proposal)
+    cdef object c_create_orders_proposals(self, object market_info, list active_orders)
+    cdef bint c_is_within_tolerance(self, list current_orders, list proposals)
+    cdef c_cancel_active_orders(self, object market_info, object orders_proposal)
+    cdef c_cancel_hanging_orders(self, object market_info)
+    cdef bint c_to_create_orders(self, object market_info, object orders_proposal)
+    cdef set_timers(self)
+    cdef c_join_price_size_proposals(self, list prices, list sizes)

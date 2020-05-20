@@ -65,6 +65,10 @@ class TradeType(Enum):
 class OrderType(Enum):
     MARKET = 1
     LIMIT = 2
+    LIMIT_MAKER = 3
+
+    def is_limit_type(self):
+        return self in (OrderType.LIMIT, OrderType.LIMIT_MAKER)
 
 
 class MarketTransactionFailureEvent(NamedTuple):
@@ -261,7 +265,7 @@ class OrderFilledEvent(NamedTuple):
             execution_report["c"],
             execution_report["s"],
             TradeType.BUY if execution_report["S"] == "BUY" else TradeType.SELL,
-            OrderType.LIMIT if execution_report["o"] == "LIMIT" else OrderType.MARKET,
+            OrderType[execution_report["o"]],
             Decimal(execution_report["L"]),
             Decimal(execution_report["l"]),
             TradeFee(percent=Decimal(0.0), flat_fees=[(execution_report["N"], Decimal(execution_report["n"]))]),

@@ -98,7 +98,6 @@ cdef class BittrexMarket(MarketBase):
         self._order_book_tracker = BittrexOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
                                                            trading_pairs=trading_pairs)
         self._order_not_found_records = {}
-        self._order_tracker_task = None
         self._poll_notifier = asyncio.Event()
         self._poll_interval = poll_interval
         self._shared_client = None
@@ -189,9 +188,9 @@ cdef class BittrexMarket(MarketBase):
             object maker_fee = Decimal(0.0025)
             object taker_fee = Decimal(0.0025)
         if order_type is OrderType.LIMIT and fee_overrides_config_map["bittrex_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["bittrex_maker_fee"].value)
+            return TradeFee(percent=fee_overrides_config_map["bittrex_maker_fee"].value / Decimal("100"))
         if order_type is OrderType.MARKET and fee_overrides_config_map["bittrex_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["bittrex_taker_fee"].value)
+            return TradeFee(percent=fee_overrides_config_map["bittrex_taker_fee"].value / Decimal("100"))
 
         return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
 
@@ -317,35 +316,6 @@ cdef class BittrexMarket(MarketBase):
 
         """
         path_url = "/orders/open"
-
-        result = await self._api_request("GET", path_url=path_url)
-        return result
-
-    async def get_order(self, uuid: str) -> Dict[str, Any]:
-        # Used to retrieve a single order by uuid
-        """
-        Result:
-        {
-          "id": "string (uuid)",
-          "marketSymbol": "string",
-          "direction": "string",
-          "type": "string",
-          "quantity": "number (double)",
-          "limit": "number (double)",
-          "ceiling": "number (double)",
-          "timeInForce": "string",
-          "expiresAt": "string (date-time)",
-          "clientOrderId": "string (uuid)",
-          "fillQuantity": "number (double)",
-          "commission": "number (double)",
-          "proceeds": "number (double)",
-          "status": "string",
-          "createdAt": "string (date-time)",
-          "updatedAt": "string (date-time)",
-          "closedAt": "string (date-time)"
-        }
-        """
-        path_url = f"/orders/{uuid}"
 
         result = await self._api_request("GET", path_url=path_url)
         return result
@@ -634,13 +604,6 @@ cdef class BittrexMarket(MarketBase):
                                       app_warning_msg=f"Could not fetch updates from Bitrrex. "
                                                       f"Check API key and network connection.")
                 await asyncio.sleep(0.5)
-
-    async def get_order(self, client_order_id: str) -> Dict[str, Any]:
-        order = self._in_flight_orders.get(client_order_id)
-        exchange_order_id = await order.get_exchange_order_id()
-        path_url = f"/order/{exchange_order_id}"
-        result = await self._api_request("GET", path_url=path_url)
-        return result
 
     async def get_deposit_address(self, currency: str) -> str:
         path_url = f"/addresses/{currency}"
@@ -1058,25 +1021,22 @@ cdef class BittrexMarket(MarketBase):
         return NetworkStatus.CONNECTED
 
     def _stop_network(self):
-        if self._order_tracker_task is not None:
-            self._order_tracker_task.cancel()
+        self._order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
         if self._user_stream_tracker_task is not None:
             self._user_stream_tracker_task.cancel()
         if self._user_stream_event_listener_task is not None:
             self._user_stream_event_listener_task.cancel()
-        self._order_tracker_task = self._status_polling_task = self._user_stream_tracker_task = \
+        self._status_polling_task = self._user_stream_tracker_task = \
             self._user_stream_event_listener_task = None
 
     async def stop_network(self):
         self._stop_network()
 
     async def start_network(self):
-        if self._order_tracker_task is not None:
-            self._stop_network()
-
-        self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
+        self._stop_network()
+        self._order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())

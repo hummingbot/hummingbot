@@ -9,8 +9,8 @@
 
 Because Bamboo Relay is a decentralized exchange, you will need an independent cryptocurrency wallet and an ethereum node in order to use Hummingbot. See below for information on how to create these:
 
-* [Creating a crypto wallet](/installation/wallet)
-* [Creating an ethereum node](/installation/node/node)
+* [Creating a crypto wallet](/advanced/wallet)
+* [Creating an ethereum node](/advanced/node)
 
 ## Connector Operating Modes
 
