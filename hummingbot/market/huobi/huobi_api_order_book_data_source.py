@@ -17,10 +17,12 @@ from typing import (
 import websockets
 from websockets.exceptions import ConnectionClosed
 
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from hummingbot.core.utils import async_ttl_cache
+from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.huobi.huobi_order_book import HuobiOrderBook
 
@@ -43,19 +45,19 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._haobds_logger = logging.getLogger(__name__)
         return cls._haobds_logger
 
-    def __init__(self, symbols: Optional[List[str]] = None):
+    def __init__(self, trading_pairs: Optional[List[str]] = None):
         super().__init__()
-        self._symbols: Optional[List[str]] = symbols
+        self._trading_pairs: Optional[List[str]] = trading_pairs
 
     @classmethod
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
         """
-        Returned data frame should have symbol as index and include usd volume, baseAsset and quoteAsset
+        Returned data frame should have trading pair as index and include usd volume, baseAsset and quoteAsset
         """
         async with aiohttp.ClientSession() as client:
 
-            market_response, exchange_response = await asyncio.gather(
+            market_response, exchange_response = await safe_gather(
                 client.get(HUOBI_TICKER_URL),
                 client.get(HUOBI_SYMBOLS_URL)
             )
@@ -93,36 +95,32 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             return all_markets.sort_values("USDVolume", ascending=False)
 
-    @property
-    def order_book_class(self) -> HuobiOrderBook:
-        return HuobiOrderBook
-
     async def get_trading_pairs(self) -> List[str]:
-        if not self._symbols:
+        if not self._trading_pairs:
             try:
                 active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                self._symbols = active_markets.index.tolist()
+                self._trading_pairs = active_markets.index.tolist()
             except Exception:
-                self._symbols = []
+                self._trading_pairs = []
                 self.logger().network(
                     f"Error getting active exchange information.",
                     exc_info=True,
                     app_warning_msg=f"Error getting active exchange information. Check network connection."
                 )
-        return self._symbols
+        return self._trading_pairs
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
-            # when type is set to "step0", the default value of "depth" is 150
-            params: Dict = {"symbol": trading_pair, "type": "step0"}
-            async with client.get(HUOBI_DEPTH_URL, params=params) as response:
-                response: aiohttp.ClientResponse = response
-                if response.status != 200:
-                    raise IOError(f"Error fetching Huobi market snapshot for {trading_pair}. "
-                                  f"HTTP status is {response.status}.")
-                api_data = await response.read()
-                data: Dict[str, Any] = json.loads(api_data)
-                return data
+        # when type is set to "step0", the default value of "depth" is 150
+        params: Dict = {"symbol": trading_pair, "type": "step0"}
+        async with client.get(HUOBI_DEPTH_URL, params=params) as response:
+            response: aiohttp.ClientResponse = response
+            if response.status != 200:
+                raise IOError(f"Error fetching Huobi market snapshot for {trading_pair}. "
+                              f"HTTP status is {response.status}.")
+            api_data = await response.read()
+            data: Dict[str, Any] = json.loads(api_data)
+            return data
 
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
         # Get the currently active markets
@@ -134,11 +132,12 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
             for index, trading_pair in enumerate(trading_pairs):
                 try:
                     snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
-                    snapshot_msg: OrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
+                    snapshot_msg: OrderBookMessage = HuobiOrderBook.snapshot_message_from_exchange(
                         snapshot,
-                        metadata={"symbol": trading_pair}
+                        metadata={"trading_pair": trading_pair}
                     )
-                    order_book: HuobiOrderBook = self.order_book_class.from_snapshot(snapshot_msg)
+                    order_book: OrderBook = self.order_book_create_function()
+                    order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
                     retval[trading_pair] = OrderBookTrackerEntry(trading_pair, snapshot_msg.timestamp, order_book)
                     self.logger().info(f"Initialized order book for {trading_pair}. "
                                        f"{index + 1}/{number_of_pairs} completed.")
@@ -171,6 +170,44 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
         finally:
             await ws.close()
 
+    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        while True:
+            try:
+                trading_pairs: List[str] = await self.get_trading_pairs()
+                async with websockets.connect(HUOBI_WS_URI) as ws:
+                    ws: websockets.WebSocketClientProtocol = ws
+                    for trading_pair in trading_pairs:
+                        subscribe_request: Dict[str, Any] = {
+                            "sub": f"market.{trading_pair}.trade.detail",
+                            "id": trading_pair
+                        }
+                        await ws.send(json.dumps(subscribe_request))
+
+                    async for raw_msg in self._inner_messages(ws):
+                        # Huobi compresses their ws data
+                        encoded_msg: bytes = gzip.decompress(raw_msg)
+                        # Huobi's data value for id is a large int too big for ujson to parse
+                        msg: Dict[str, Any] = json.loads(encoded_msg.decode('utf-8'))
+                        if "ping" in msg:
+                            await ws.send(f'{{"op":"pong","ts": {str(msg["ping"])}}}')
+                        elif "subbed" in msg:
+                            pass
+                        elif "ch" in msg:
+                            trading_pair = msg["ch"].split(".")[1]
+                            for data in msg["tick"]["data"]:
+                                trade_message: OrderBookMessage = HuobiOrderBook.trade_message_from_exchange(
+                                    data, metadata={"trading_pair": trading_pair}
+                                )
+                                output.put_nowait(trade_message)
+                        else:
+                            self.logger().debug(f"Unrecognized message received from Huobi websocket: {msg}")
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
+                                    exc_info=True)
+                await asyncio.sleep(30.0)
+
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
@@ -194,7 +231,7 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         elif "subbed" in msg:
                             pass
                         elif "ch" in msg:
-                            order_book_message: OrderBookMessage = self.order_book_class.diff_message_from_exchange(msg)
+                            order_book_message: OrderBookMessage = HuobiOrderBook.diff_message_from_exchange(msg)
                             output.put_nowait(order_book_message)
                         else:
                             self.logger().debug(f"Unrecognized message received from Huobi websocket: {msg}")
@@ -213,9 +250,9 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     for trading_pair in trading_pairs:
                         try:
                             snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
-                            snapshot_message: OrderBookMessage = self.order_book_class.snapshot_message_from_exchange(
+                            snapshot_message: OrderBookMessage = HuobiOrderBook.snapshot_message_from_exchange(
                                 snapshot,
-                                metadata={"symbol": trading_pair}
+                                metadata={"trading_pair": trading_pair}
                             )
                             output.put_nowait(snapshot_message)
                             self.logger().debug(f"Saved order book snapshot for {trading_pair}")

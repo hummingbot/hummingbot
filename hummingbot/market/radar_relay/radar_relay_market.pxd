@@ -9,14 +9,13 @@ cdef class RadarRelayMarket(MarketBase):
         object _wallet
         object _provider
         object _weth_token
-        object _order_book_tracker
-        dict _account_balances
         object _ev_loop
         object _poll_notifier
         double _last_timestamp
         double _last_update_limit_order_timestamp
         double _last_update_market_order_timestamp
         double _last_update_trading_rules_timestamp
+        double _last_update_available_balance_timestamp
         double _poll_interval
         dict _in_flight_limit_orders
         dict _in_flight_market_orders
@@ -30,13 +29,12 @@ cdef class RadarRelayMarket(MarketBase):
         public object _status_polling_task
         public object _user_stream_event_listener_task
         public object _approval_tx_polling_task
-        public object _order_tracker_task
         int64_t _latest_salt
 
     cdef c_start_tracking_limit_order(self,
                                       str order_id,
                                       str exchange_order_id,
-                                      str symbol,
+                                      str trading_pair,
                                       object order_type,
                                       object trade_type,
                                       object price,
@@ -44,7 +42,7 @@ cdef class RadarRelayMarket(MarketBase):
                                       object zero_ex_order)
     cdef c_start_tracking_market_order(self,
                                        str order_id,
-                                       str symbol,
+                                       str trading_pair,
                                        object order_type,
                                        object trade_type,
                                        object price,
@@ -52,4 +50,3 @@ cdef class RadarRelayMarket(MarketBase):
                                        str tx_hash)
     cdef c_expire_order(self, str order_id)
     cdef c_check_and_remove_expired_orders(self)
-    cdef c_stop_tracking_order(self, str order_id)

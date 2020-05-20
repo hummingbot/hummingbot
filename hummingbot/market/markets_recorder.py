@@ -25,8 +25,8 @@ from hummingbot.core.event.events import (
     OrderCancelledEvent,
     OrderExpiredEvent,
     MarketEvent,
-    TradeFee,
-    TradeType)
+    TradeFee
+)
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.market.market_base import MarketBase
 from hummingbot.model.market_state import MarketState
@@ -109,7 +109,7 @@ class MarketsRecorder:
         query: Query = (session
                         .query(Order)
                         .filter(Order.config_file_path == config_file_path,
-                                Order.market == market.name)
+                                Order.market == market.display_name)
                         .order_by(Order.creation_timestamp))
         return query.all()
 
@@ -134,7 +134,7 @@ class MarketsRecorder:
             market_states.timestamp = timestamp
         else:
             market_states = MarketState(config_file_path=config_file_path,
-                                        market=market.name,
+                                        market=market.display_name,
                                         timestamp=timestamp,
                                         saved_state=market.tracking_states)
             session.add(market_states)
@@ -153,7 +153,7 @@ class MarketsRecorder:
         query: Query = (session
                         .query(MarketState)
                         .filter(MarketState.config_file_path == config_file_path,
-                                MarketState.market == market.name))
+                                MarketState.market == market.display_name))
         market_states: Optional[MarketState] = query.one_or_none()
         return market_states
 
@@ -166,21 +166,20 @@ class MarketsRecorder:
             return
 
         session: Session = self.session
-        base_asset, quote_asset = market.split_symbol(evt.symbol)
+        base_asset, quote_asset = market.split_trading_pair(evt.trading_pair)
         timestamp: int = self.db_timestamp
         event_type: MarketEvent = self.market_event_tag_map[event_tag]
-        trade_type: TradeType = TradeType.BUY if type(evt) == BuyOrderCreatedEvent else TradeType.SELL
         order_record: Order = Order(id=evt.order_id,
                                     config_file_path=self._config_file_path,
                                     strategy=self._strategy_name,
-                                    market=market.name,
-                                    symbol=evt.symbol,
+                                    market=market.display_name,
+                                    symbol=evt.trading_pair,
                                     base_asset=base_asset,
                                     quote_asset=quote_asset,
                                     creation_timestamp=timestamp,
                                     order_type=evt.type.name,
-                                    amount=evt.amount,
-                                    price=evt.price,
+                                    amount=float(evt.amount),
+                                    price=float(evt.price) if evt.price == evt.price else 0,
                                     last_status=event_type.name,
                                     last_update_timestamp=timestamp)
         order_status: OrderStatus = OrderStatus(order=order_record,
@@ -200,7 +199,7 @@ class MarketsRecorder:
             return
 
         session: Session = self.session
-        base_asset, quote_asset = market.split_symbol(evt.symbol)
+        base_asset, quote_asset = market.split_trading_pair(evt.trading_pair)
         timestamp: int = self.db_timestamp
         event_type: MarketEvent = self.market_event_tag_map[event_tag]
         order_id: str = evt.order_id
@@ -218,16 +217,16 @@ class MarketsRecorder:
                                                 status=event_type.name)
         trade_fill_record: TradeFill = TradeFill(config_file_path=self.config_file_path,
                                                  strategy=self.strategy_name,
-                                                 market=market.name,
-                                                 symbol=evt.symbol,
+                                                 market=market.display_name,
+                                                 symbol=evt.trading_pair,
                                                  base_asset=base_asset,
                                                  quote_asset=quote_asset,
                                                  timestamp=timestamp,
                                                  order_id=order_id,
                                                  trade_type=evt.trade_type.name,
                                                  order_type=evt.order_type.name,
-                                                 price=evt.price,
-                                                 amount=evt.amount,
+                                                 price=float(evt.price) if evt.price == evt.price else 0,
+                                                 amount=float(evt.amount),
                                                  trade_fee=TradeFee.to_json(evt.trade_fee),
                                                  exchange_trade_id=evt.exchange_trade_id)
         session.add(order_status)

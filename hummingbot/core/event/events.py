@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+from decimal import Decimal
 from enum import Enum
 from typing import (
     Tuple,
@@ -53,6 +53,10 @@ class OrderBookEvent(Enum):
     TradeEvent = 901
 
 
+class ZeroExEvent(Enum):
+    Fill = 1001
+
+
 class TradeType(Enum):
     BUY = 1
     SELL = 2
@@ -61,6 +65,10 @@ class TradeType(Enum):
 class OrderType(Enum):
     MARKET = 1
     LIMIT = 2
+    LIMIT_MAKER = 3
+
+    def is_limit_type(self):
+        return self in (OrderType.LIMIT, OrderType.LIMIT_MAKER)
 
 
 class MarketTransactionFailureEvent(NamedTuple):
@@ -80,7 +88,7 @@ class WalletReceivedAssetEvent(NamedTuple):
     from_address: str
     to_address: str
     asset_name: str
-    amount_received: float
+    amount_received: Decimal
     raw_amount_received: int
 
 
@@ -88,7 +96,7 @@ class WalletWrappedEthEvent(NamedTuple):
     timestamp: float
     tx_hash: str
     address: str
-    amount: float
+    amount: Decimal
     raw_amount: int
 
 
@@ -96,8 +104,27 @@ class WalletUnwrappedEthEvent(NamedTuple):
     timestamp: float
     tx_hash: str
     address: str
-    amount: float
+    amount: Decimal
     raw_amount: int
+
+
+class ZeroExFillEvent(NamedTuple):
+    timestamp: float
+    tx_hash: str
+    maker_address: str
+    fee_recipient_address: str
+    maker_asset_data: bytes
+    taker_asset_data: bytes
+    maker_fee_asset_data: bytes
+    taker_fee_asset_data: bytes
+    order_hash: str
+    taker_address: str
+    sender_address: str
+    maker_asset_filled_amount: Decimal
+    taker_asset_filled_amount: Decimal
+    maker_fee_paid: Decimal
+    taker_fee_paid: Decimal
+    protocol_fee_paid: Decimal
 
 
 class MarketReceivedAssetEvent(NamedTuple):
@@ -115,9 +142,9 @@ class BuyOrderCompletedEvent(NamedTuple):
     base_asset: str
     quote_asset: str
     fee_asset: str
-    base_asset_amount: float
-    quote_asset_amount: float
-    fee_amount: float
+    base_asset_amount: Decimal
+    quote_asset_amount: Decimal
+    fee_amount: Decimal
     order_type: OrderType
 
 
@@ -127,9 +154,9 @@ class SellOrderCompletedEvent(NamedTuple):
     base_asset: str
     quote_asset: str
     fee_asset: str
-    base_asset_amount: float
-    quote_asset_amount: float
-    fee_amount: float
+    base_asset_amount: Decimal
+    quote_asset_amount: Decimal
+    fee_amount: Decimal
     order_type: OrderType
 
 
@@ -148,8 +175,8 @@ class MarketWithdrawAssetEvent(NamedTuple):
     tracking_id: str
     to_address: str
     asset_name: str
-    amount: float
-    fee_amount: float
+    amount: Decimal
+    fee_amount: Decimal
 
 
 class EthereumGasUsedEvent(NamedTuple):
@@ -173,42 +200,42 @@ class TokenApprovedEvent(NamedTuple):
 
 
 class TradeFee(NamedTuple):
-    percent: float # 0.1 = 10%
-    flat_fees: List[Tuple[str, float]] = [] # list of (symbol, amount) ie: ("ETH", 0.05)
+    percent: Decimal  # 0.1 = 10%
+    flat_fees: List[Tuple[str, Decimal]] = []  # list of (asset, amount) ie: ("ETH", 0.05)
 
     @classmethod
     def to_json(cls, trade_fee: "TradeFee") -> Dict[str, any]:
         return {
-            "percent": trade_fee.percent,
-            "flat_fees": [{"symbol": symbol, "amount": amount}
-                          for symbol, amount in trade_fee.flat_fees]
+            "percent": float(trade_fee.percent),
+            "flat_fees": [{"asset": asset, "amount": float(amount)}
+                          for asset, amount in trade_fee.flat_fees]
         }
 
     @classmethod
     def from_json(cls, data: Dict[str, any]) -> "TradeFee":
         return TradeFee(
-            data["percent"],
-            [(fee_entry["symbol"], fee_entry["amount"])
+            Decimal(data["percent"]),
+            [(fee_entry["asset"], Decimal(fee_entry["amount"]))
              for fee_entry in data["flat_fees"]]
         )
 
 
 class OrderBookTradeEvent(NamedTuple):
-    symbol: str
+    trading_pair: str
     timestamp: float
     type: TradeType
-    price: float
-    amount: float
+    price: Decimal
+    amount: Decimal
 
 
 class OrderFilledEvent(NamedTuple):
     timestamp: float
     order_id: str
-    symbol: str
+    trading_pair: str
     trade_type: TradeType
     order_type: OrderType
-    price: float
-    amount: float
+    price: Decimal
+    amount: Decimal
     trade_fee: TradeFee
     exchange_trade_id: str = ""
 
@@ -216,15 +243,15 @@ class OrderFilledEvent(NamedTuple):
     def order_filled_events_from_order_book_rows(cls,
                                                  timestamp: float,
                                                  order_id: str,
-                                                 symbol: str,
+                                                 trading_pair: str,
                                                  trade_type: TradeType,
                                                  order_type: OrderType,
                                                  trade_fee: TradeFee,
                                                  order_book_rows: List[OrderBookRow],
                                                  exchange_trade_id: str = "") -> List["OrderFilledEvent"]:
         return [
-            OrderFilledEvent(timestamp, order_id, symbol, trade_type, order_type,
-                             r.price, r.amount, trade_fee, exchange_trade_id=exchange_trade_id)
+            OrderFilledEvent(timestamp, order_id, trading_pair, trade_type, order_type,
+                             Decimal(r.price), Decimal(r.amount), trade_fee, exchange_trade_id=exchange_trade_id)
             for r in order_book_rows
         ]
 
@@ -238,10 +265,10 @@ class OrderFilledEvent(NamedTuple):
             execution_report["c"],
             execution_report["s"],
             TradeType.BUY if execution_report["S"] == "BUY" else TradeType.SELL,
-            OrderType.LIMIT if execution_report["o"] == "LIMIT" else OrderType.MARKET,
-            float(execution_report["L"]),
-            float(execution_report["l"]),
-            TradeFee(percent=0.0, flat_fees=[(execution_report["N"], float(execution_report["n"]))]),
+            OrderType[execution_report["o"]],
+            Decimal(execution_report["L"]),
+            Decimal(execution_report["l"]),
+            TradeFee(percent=Decimal(0.0), flat_fees=[(execution_report["N"], Decimal(execution_report["n"]))]),
             exchange_trade_id=execution_report["t"]
         )
 
@@ -249,16 +276,16 @@ class OrderFilledEvent(NamedTuple):
 class BuyOrderCreatedEvent(NamedTuple):
     timestamp: float
     type: OrderType
-    symbol: str
-    amount: float
-    price: float
+    trading_pair: str
+    amount: Decimal
+    price: Decimal
     order_id: str
 
 
 class SellOrderCreatedEvent(NamedTuple):
     timestamp: float
     type: OrderType
-    symbol: str
-    amount: float
-    price: float
+    trading_pair: str
+    amount: Decimal
+    price: Decimal
     order_id: str

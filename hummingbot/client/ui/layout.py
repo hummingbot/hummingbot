@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from os.path import join, realpath, dirname
-import sys;sys.path.insert(0, realpath(join(__file__, "../../../")))
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 from prompt_toolkit.layout.containers import (
     VSplit,
@@ -17,7 +17,7 @@ from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import Completer
 from prompt_toolkit.utils import is_windows
 from prompt_toolkit.layout.controls import FormattedTextControl
-from prompt_toolkit.widgets import SearchToolbar, TextArea
+from prompt_toolkit.widgets import SearchToolbar
 
 from hummingbot.client.ui.custom_widgets import CustomTextArea as TextArea
 from hummingbot.client.settings import (
@@ -27,49 +27,61 @@ from hummingbot.client.settings import (
 
 
 HEADER = """
-                                                   *,.                     
-                                                 *,,,*                     
-                                                ,,,,,,,               *    
-                                              ,,,,,,,,            ,,,,     
-                                             *,,,,,,,,(        .,,,,,,     
-                                           /,,,,,,,,,,     .*,,,,,,,,      
-                                          .,,,,,,,,,,,.  ,,,,,,,,,,,*      
-                                         ,,,,,,,,,,,,,,,,,,,,,,,,,,,       
-                               //      ,,,,,,,,,,,,,,,,,,,,,,,,,,,,#*%     
-                           .,,,,,,,,. *,,,,,,,,,,,,,,,,,,,,,,,,,,,%%%%%%&@ 
-                         ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,%%%%%%%&  
-                       ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,%%%%%%%&   
-                     /*,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,(((((%%&     
-                  **.         #,,,,,,,,,,,,,,,,,,,,,,,,,,,,,((((((((((#.   
-               **               *,,,,,,,,,,,,,,,,,,,,,,,,**/(((((((((((((* 
-                                  ,,,,,,,,,,,,,,,,,,,,*********((((((((((((
-                                    ,,,,,,,,,,,,,,,**************((((((((@ 
-                                    (,,,,,,,,,,,,,,,***************(#      
-                                     *,,,,,,,,,,,,,,,,**************/      
-                                       ,,,,,,,,,,,,,,,***************/     
-                                         ,,,,,,,,,,,,,,****************    
-                                           .,,,,,,,,,,,,**************/    
-                                                ,,,,,,,,*******,           
-                                               *,,,,,,,,********           
-                                               ,,,,,,,,,/******/           
-                                              ,,,,,,,,,@  /****/           
-                                             ,,,,,,,,                      
-                                             , */  
+                                                *,.
+                                                *,,,*
+                                            ,,,,,,,               *
+                                            ,,,,,,,,            ,,,,
+                                            *,,,,,,,,(        .,,,,,,
+                                        /,,,,,,,,,,     .*,,,,,,,,
+                                        .,,,,,,,,,,,.  ,,,,,,,,,,,*
+                                        ,,,,,,,,,,,,,,,,,,,,,,,,,,,
+                            //      ,,,,,,,,,,,,,,,,,,,,,,,,,,,,#*%
+                        .,,,,,,,,. *,,,,,,,,,,,,,,,,,,,,,,,,,,,%%%%%%&@
+                        ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,%%%%%%%&
+                    ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,%%%%%%%&
+                    /*,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,(((((%%&
+                **.         #,,,,,,,,,,,,,,,,,,,,,,,,,,,,,((((((((((#.
+            **               *,,,,,,,,,,,,,,,,,,,,,,,,**/(((((((((((((*
+                                ,,,,,,,,,,,,,,,,,,,,*********((((((((((((
+                                ,,,,,,,,,,,,,,,**************((((((((@
+                                (,,,,,,,,,,,,,,,***************(#
+                                    *,,,,,,,,,,,,,,,,**************/
+                                    ,,,,,,,,,,,,,,,***************/
+                                        ,,,,,,,,,,,,,,****************
+                                        .,,,,,,,,,,,,**************/
+                                            ,,,,,,,,*******,
+                                            *,,,,,,,,********
+                                            ,,,,,,,,,/******/
+                                            ,,,,,,,,,@  /****/
+                                            ,,,,,,,,
+                                            , */
 
 
-    ██╗  ██╗██╗   ██╗███╗   ███╗███╗   ███╗██╗███╗   ██╗ ██████╗ ██████╗  ██████╗ ████████╗
-    ██║  ██║██║   ██║████╗ ████║████╗ ████║██║████╗  ██║██╔════╝ ██╔══██╗██╔═══██╗╚══██╔══╝
-    ███████║██║   ██║██╔████╔██║██╔████╔██║██║██╔██╗ ██║██║  ███╗██████╔╝██║   ██║   ██║   
-    ██╔══██║██║   ██║██║╚██╔╝██║██║╚██╔╝██║██║██║╚██╗██║██║   ██║██╔══██╗██║   ██║   ██║   
-    ██║  ██║╚██████╔╝██║ ╚═╝ ██║██║ ╚═╝ ██║██║██║ ╚████║╚██████╔╝██████╔╝╚██████╔╝   ██║   
-    ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═════╝  ╚═════╝    ╚═╝   
+██╗  ██╗██╗   ██╗███╗   ███╗███╗   ███╗██╗███╗   ██╗ ██████╗ ██████╗  ██████╗ ████████╗
+██║  ██║██║   ██║████╗ ████║████╗ ████║██║████╗  ██║██╔════╝ ██╔══██╗██╔═══██╗╚══██╔══╝
+███████║██║   ██║██╔████╔██║██╔████╔██║██║██╔██╗ ██║██║  ███╗██████╔╝██║   ██║   ██║
+██╔══██║██║   ██║██║╚██╔╝██║██║╚██╔╝██║██║██║╚██╗██║██║   ██║██╔══██╗██║   ██║   ██║
+██║  ██║╚██████╔╝██║ ╚═╝ ██║██║ ╚═╝ ██║██║██║ ╚████║╚██████╔╝██████╔╝╚██████╔╝   ██║
+╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═════╝  ╚═════╝    ╚═╝
 
-================================================================================================
-Press CTRL + C to quit at any time.
-Enter "help" for a list of commands.
+=======================================================================================
+Welcome to Hummingbot, an open source software client that helps you build and run
+high-frequency trading (HFT) bots.
+
+Helpful Links:
+- Get 24/7 support: https://discord.hummingbot.io
+- Learn how to use Hummingbot: https://docs.hummingbot.io
+- Earn liquidity rewards: https://miner.hummingbot.io
+
+Useful Commands:
+- connect     List available exchanges and add API keys to them
+- create      Create a new bot
+- import      Import a existing bot by loading the configuration file
+- help        List available commands
+
 """
 
-with open(join(dirname(__file__), '../../VERSION')) as version_file:
+with open(realpath(join(dirname(__file__), '../../VERSION'))) as version_file:
     version = version_file.read().strip()
 
 
@@ -122,13 +134,12 @@ def get_version():
     return [("class:title", f"Version: {version}")]
 
 
-def get_bounty_status():
-    from hummingbot.client.liquidity_bounty.liquidity_bounty_config_map import liquidity_bounty_config_map
-    enabled = liquidity_bounty_config_map["liquidity_bounty_enabled"].value is True and \
-        liquidity_bounty_config_map["liquidity_bounty_client_id"].value is not None
-    bounty_status = "ON" if enabled else "OFF"
+def get_paper_trade_status():
+    from hummingbot.client.config.global_config_map import global_config_map
+    enabled = global_config_map["paper_trade_enabled"].value is True
+    paper_trade_status = "ON" if enabled else "OFF"
     style = "class:primary" if enabled else "class:warning"
-    return [(style, f"bounty_status: {bounty_status}")]
+    return [(style, f"paper_trade_mode: {paper_trade_status}")]
 
 
 def get_title_bar_right_text():
@@ -147,7 +158,7 @@ def generate_layout(input_field: TextArea,
     root_container = HSplit([
         VSplit([
             Window(FormattedTextControl(get_version), style="class:title"),
-            Window(FormattedTextControl(get_bounty_status), style="class:title"),
+            Window(FormattedTextControl(get_paper_trade_status), style="class:title"),
             Window(FormattedTextControl(get_title_bar_right_text), align=WindowAlign.RIGHT, style="class:title"),
         ], height=1),
         VSplit([
@@ -176,4 +187,3 @@ def generate_layout(input_field: TextArea,
 
     ])
     return Layout(root_container, focused_element=input_field)
-

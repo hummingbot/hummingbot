@@ -1,11 +1,16 @@
 import random
 from typing import Callable
+from decimal import Decimal
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.settings import (
     required_exchanges,
     DEXES,
     DEFAULT_KEY_FILE_PATH,
     DEFAULT_LOG_FILE_PATH,
+)
+from hummingbot.client.config.config_validators import (
+    validate_bool,
+    validate_decimal
 )
 
 
@@ -15,164 +20,345 @@ def generate_client_id() -> str:
 
 
 # Required conditions
-def using_strategy(strategy: str) -> Callable:
-    return lambda: global_config_map.get("strategy").value == strategy
+def paper_trade_disabled():
+    return global_config_map.get("paper_trade_enabled").value is False
 
 
 def using_exchange(exchange: str) -> Callable:
-    return lambda: exchange in required_exchanges
+    return lambda: paper_trade_disabled() and exchange in required_exchanges
 
 
 def using_wallet() -> bool:
-    return any([e in DEXES for e in required_exchanges])
+    return paper_trade_disabled() and any([e in DEXES for e in required_exchanges])
 
+
+def using_bamboo_coordinator_mode() -> bool:
+    return global_config_map.get("bamboo_relay_use_coordinator").value
+
+
+MIN_QUOTE_ORDER_AMOUNTS = [["BTC", 0.0011],
+                           ["ETH", 0.05],
+                           ["USD", 11],
+                           ["BNB", 0.5]]
 
 # Main global config store
 global_config_map = {
     # The variables below are usually not prompted during setup process
-    "client_id":                        ConfigVar(key="client_id",
-                                                  prompt=None,
-                                                  required_if=lambda: False,
-                                                  default=generate_client_id()),
-    "log_level":                        ConfigVar(key="log_level",
-                                                  prompt=None,
-                                                  required_if=lambda: False,
-                                                  default="INFO"),
-    "debug_console":                    ConfigVar(key="debug_console",
-                                                  prompt=None,
-                                                  type_str="bool",
-                                                  required_if=lambda: False,
-                                                  default=False),
-    "strategy_report_interval":         ConfigVar(key="strategy_report_interval",
-                                                  prompt=None,
-                                                  type_str="float",
-                                                  required_if=lambda: False,
-                                                  default=900),
-    "reporting_aggregation_interval":   ConfigVar(key="reporting_aggregation_interval",
-                                                  prompt=None,
-                                                  default=60.0,
-                                                  required_if=lambda: False,
-                                                  type_str="float"),
-    "reporting_log_interval":           ConfigVar(key="reporting_log_interval",
-                                                  prompt=None,
-                                                  default=60.0,
-                                                  required_if=lambda: False,
-                                                  type_str="float"),
-    "logger_override_whitelist":        ConfigVar(key="logger_override_whitelist",
-                                                  prompt=None,
-                                                  required_if=lambda: False,
-                                                  default=["hummingbot.strategy",
-                                                           "hummingbot.market",
-                                                           "hummingbot.wallet",
-                                                           "conf"
-                                                           ],
-                                                  type_str="list"),
-    "key_file_path":                    ConfigVar(key="key_file_path",
-                                                  prompt="Where would you like to save your private key file? (default "
-                                                         "'%s') >>> " % (DEFAULT_KEY_FILE_PATH,),
-                                                  required_if=lambda: False,
-                                                  default=DEFAULT_KEY_FILE_PATH),
-    "log_file_path":                    ConfigVar(key="log_file_path",
-                                                  prompt="Where would you like to save your logs? (default '%s') >>> "
-                                                         % (DEFAULT_LOG_FILE_PATH,),
-                                                  required_if=lambda: False,
-                                                  default=DEFAULT_LOG_FILE_PATH),
+    "client_id":
+        ConfigVar(key="client_id",
+                  prompt=None,
+                  required_if=lambda: False,
+                  default=generate_client_id()),
+    "log_level":
+        ConfigVar(key="log_level",
+                  prompt=None,
+                  required_if=lambda: False,
+                  default="INFO"),
+    "debug_console":
+        ConfigVar(key="debug_console",
+                  prompt=None,
+                  type_str="bool",
+                  required_if=lambda: False,
+                  default=False),
+    "strategy_report_interval":
+        ConfigVar(key="strategy_report_interval",
+                  prompt=None,
+                  type_str="float",
+                  required_if=lambda: False,
+                  default=900),
+    "logger_override_whitelist":
+        ConfigVar(key="logger_override_whitelist",
+                  prompt=None,
+                  required_if=lambda: False,
+                  default=["hummingbot.strategy",
+                           "hummingbot.market",
+                           "hummingbot.wallet",
+                           "conf"
+                           ],
+                  type_str="list"),
+    "key_file_path":
+        ConfigVar(key="key_file_path",
+                  prompt=f"Where would you like to save your private key file? "
+                         f"(default '{DEFAULT_KEY_FILE_PATH}') >>> ",
+                  required_if=lambda: False,
+                  default=DEFAULT_KEY_FILE_PATH),
+    "log_file_path":
+        ConfigVar(key="log_file_path",
+                  prompt=f"Where would you like to save your logs? (default '{DEFAULT_LOG_FILE_PATH}') >>> ",
+                  required_if=lambda: False,
+                  default=DEFAULT_LOG_FILE_PATH),
 
     # Required by chosen CEXes or DEXes
-    "binance_api_key":                  ConfigVar(key="binance_api_key",
-                                                  prompt="Enter your Binance API key >>> ",
-                                                  required_if=using_exchange("binance"),
-                                                  is_secure=True),
-    "binance_api_secret":               ConfigVar(key="binance_api_secret",
-                                                  prompt="Enter your Binance API secret >>> ",
-                                                  required_if=using_exchange("binance"),
-                                                  is_secure=True),
-    "coinbase_pro_api_key":             ConfigVar(key="coinbase_pro_api_key",
-                                                  prompt="Enter your Coinbase API key >>> ",
-                                                  required_if=using_exchange("coinbase_pro"),
-                                                  is_secure=True),
-    "coinbase_pro_secret_key":          ConfigVar(key="coinbase_pro_secret_key",
-                                                  prompt="Enter your Coinbase secret key >>> ",
-                                                  required_if=using_exchange("coinbase_pro"),
-                                                  is_secure=True),
-    "coinbase_pro_passphrase":          ConfigVar(key="coinbase_pro_passphrase",
-                                                  prompt="Enter your Coinbase passphrase >>> ",
-                                                  required_if=using_exchange("coinbase_pro"),
-                                                  is_secure=True),
-    "huobi_api_key":                    ConfigVar(key="huobi_api_key",
-                                                  prompt="Enter your Huobi API key >>> ",
-                                                  required_if=using_exchange("huobi"),
-                                                  is_secure=True),
-    "huobi_secret_key":                 ConfigVar(key="huobi_secret_key",
-                                                  prompt="Enter your Huobi secret key >>> ",
-                                                  required_if=using_exchange("huobi"),
-                                                  is_secure=True),
-    "idex_api_key":                     ConfigVar(key="idex_api_key",
-                                                  prompt="Enter your IDEX API key >>> ",
-                                                  required_if=using_exchange("idex"),
-                                                  is_secure=True),
-    "bamboo_relay_use_coordinator":     ConfigVar(key="bamboo_relay_use_coordinator",
-                                                  prompt="Would you like to use the Bamboo Relay Coordinator (y/n) >>> ",
-                                                  required_if=using_exchange("bamboo_relay"),
-                                                  type_str="bool",
-                                                  default=True),
-    "bamboo_relay_pre_emptive_soft_cancels":      ConfigVar(key="bamboo_relay_pre_emptive_soft_cancels",
-                                                            prompt="Would you like to pre-emptively soft cancel orders (y/n) >>> ",
-                                                            required_if=using_exchange("bamboo_relay"),
-                                                            type_str="bool",
-                                                            default=True),
-    "wallet":                           ConfigVar(key="wallet",
-                                                  prompt="Would you like to import an existing wallet or create a new"
-                                                         " wallet? (import/create) >>> ",
-                                                  required_if=using_wallet,
-                                                  is_secure=True),
-    "ethereum_rpc_url":                 ConfigVar(key="ethereum_rpc_url",
-                                                  prompt="Which Ethereum node would you like your client to connect "
-                                                         "to? >>> ",
-                                                  required_if=using_wallet),
+    "paper_trade_enabled":
+        ConfigVar(key="paper_trade_enabled",
+                  prompt="Enable paper trading mode (Yes/No) ? >>> ",
+                  type_str="bool",
+                  default=False,
+                  required_if=lambda: True,
+                  validator=validate_bool),
+    "paper_trade_account_balance":
+        ConfigVar(key="paper_trade_account_balance",
+                  prompt="Enter paper trade balance settings (Input must be valid json: "
+                         "e.g. [[\"ETH\", 10.0], [\"USDC\", 100]]) >>> ",
+                  required_if=lambda: False,
+                  type_str="json",
+                  default=[["USDT", 3000],
+                           ["ONE", 1000],
+                           ["BTC", 1],
+                           ["ETH", 10],
+                           ["WETH", 10],
+                           ["USDC", 3000],
+                           ["TUSD", 3000],
+                           ["PAX", 3000]]),
+    "binance_api_key":
+        ConfigVar(key="binance_api_key",
+                  prompt="Enter your Binance API key >>> ",
+                  required_if=using_exchange("binance"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "binance_api_secret":
+        ConfigVar(key="binance_api_secret",
+                  prompt="Enter your Binance API secret >>> ",
+                  required_if=using_exchange("binance"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "coinbase_pro_api_key":
+        ConfigVar(key="coinbase_pro_api_key",
+                  prompt="Enter your Coinbase API key >>> ",
+                  required_if=using_exchange("coinbase_pro"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "coinbase_pro_secret_key":
+        ConfigVar(key="coinbase_pro_secret_key",
+                  prompt="Enter your Coinbase secret key >>> ",
+                  required_if=using_exchange("coinbase_pro"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "coinbase_pro_passphrase":
+        ConfigVar(key="coinbase_pro_passphrase",
+                  prompt="Enter your Coinbase passphrase >>> ",
+                  required_if=using_exchange("coinbase_pro"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "huobi_api_key":
+        ConfigVar(key="huobi_api_key",
+                  prompt="Enter your Huobi API key >>> ",
+                  required_if=using_exchange("huobi"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "huobi_secret_key":
+        ConfigVar(key="huobi_secret_key",
+                  prompt="Enter your Huobi secret key >>> ",
+                  required_if=using_exchange("huobi"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "liquid_api_key":
+        ConfigVar(key="liquid_api_key",
+                  prompt="Enter your Liquid API key >>> ",
+                  required_if=using_exchange("liquid"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "liquid_secret_key":
+        ConfigVar(key="liquid_secret_key",
+                  prompt="Enter your Liquid secret key >>> ",
+                  required_if=using_exchange("liquid"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "bamboo_relay_use_coordinator":
+        ConfigVar(key="bamboo_relay_use_coordinator",
+                  prompt="Would you like to use the Bamboo Relay Coordinator? (Yes/No) >>> ",
+                  required_if=lambda: False,
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool),
+    "bamboo_relay_pre_emptive_soft_cancels":
+        ConfigVar(key="bamboo_relay_pre_emptive_soft_cancels",
+                  prompt="Would you like to pre-emptively soft cancel orders? (Yes/No) >>> ",
+                  required_if=lambda: False,
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool),
+    "bittrex_api_key":
+        ConfigVar(key="bittrex_api_key",
+                  prompt="Enter your Bittrex API key >>> ",
+                  required_if=using_exchange("bittrex"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "bittrex_secret_key":
+        ConfigVar(key="bittrex_secret_key",
+                  prompt="Enter your Bittrex secret key >>> ",
+                  required_if=using_exchange("bittrex"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "kucoin_api_key":
+        ConfigVar(key="kucoin_api_key",
+                  prompt="Enter your KuCoin API key >>> ",
+                  required_if=using_exchange("kucoin"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "kucoin_secret_key":
+        ConfigVar(key="kucoin_secret_key",
+                  prompt="Enter your KuCoin secret key >>> ",
+                  required_if=using_exchange("kucoin"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "kucoin_passphrase":
+        ConfigVar(key="kucoin_passphrase",
+                  prompt="Enter your KuCoin passphrase >>> ",
+                  required_if=using_exchange("kucoin"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "bitcoin_com_api_key":
+        ConfigVar(key="bitcoin_com_api_key",
+                  prompt="Enter your bitcoin_com API key >>> ",
+                  required_if=using_exchange("bitcoin_com"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "bitcoin_com_secret_key":
+        ConfigVar(key="bitcoin_com_secret_key",
+                  prompt="Enter your bitcoin_com secret key >>> ",
+                  required_if=using_exchange("bitcoin_com"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "kraken_api_key":
+        ConfigVar(key="kraken_api_key",
+                  prompt="Enter your Kraken API key >>> ",
+                  required_if=using_exchange("kraken"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "kraken_secret_key":
+        ConfigVar(key="kraken_secret_key",
+                  prompt="Enter your Kraken secret key >>> ",
+                  required_if=using_exchange("kraken"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "ethereum_wallet":
+        ConfigVar(key="ethereum_wallet",
+                  prompt="Enter your wallet private key >>> ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  is_connect_key=True),
+    "ethereum_rpc_url":
+        ConfigVar(key="ethereum_rpc_url",
+                  prompt="Which Ethereum node would you like your client to connect to? >>> ",
+                  required_if=lambda: global_config_map["ethereum_wallet"].value is not None,
+                  is_connect_key=True),
+    "ethereum_chain_name":
+        ConfigVar(key="ethereum_chain_name",
+                  prompt="What is your preferred ethereum chain name? >>> ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  default="MAIN_NET"),
+    "ethereum_token_overrides":
+        ConfigVar(key="ethereum_token_overrides",
+                  prompt="What is your preferred ethereum token overrides? >>> ",
+                  type_str="json",
+                  required_if=lambda: False,
+                  default={}),
     # Whether or not to invoke cancel_all on exit if marketing making on a open order book DEX (e.g. Radar Relay)
-    "on_chain_cancel_on_exit":          ConfigVar(key="on_chain_cancel_on_exit",
-                                                  prompt="Would you like to cancel transactions on chain if using an "
-                                                         "open order books exchanges? >>> ",
-                                                  required_if=lambda: False,
-                                                  type_str="bool",
-                                                  default=False),
-    "exchange_rate_conversion":         ConfigVar(key="exchange_rate_conversion",
-                                                  prompt="Enter your custom exchange rate conversion settings >>> ",
-                                                  required_if=lambda: False,
-                                                  type_str="list",
-                                                  default=[["USD", 1.0, "manual"],
-                                                           ["DAI", 1.0, "coin_gecko_api"],
-                                                           ["USDT", 1.0, "coin_gecko_api"],
-                                                           ["USDC", 1.0, "coin_gecko_api"],
-                                                           ["TUSD", 1.0, "coin_gecko_api"]]),
-    "exchange_rate_fetcher":            ConfigVar(key="exchange_rate_fetcher",
-                                                  prompt="Enter your custom exchange rate fetcher settings >>> ",
-                                                  required_if=lambda: False,
-                                                  type_str="list",
-                                                  default=[["ETH", "coin_gecko_api"],
-                                                           ["DAI", "coin_gecko_api"]]),
-
-    "kill_switch_enabled":              ConfigVar(key="kill_switch_enabled",
-                                                  prompt="Would you like to enable the kill switch? (y/n) >>> ",
-                                                  type_str="bool",
-                                                  default=False),
-    "kill_switch_rate":                 ConfigVar(key="kill_switch_rate",
-                                                  prompt="At what profit/loss rate would you like the bot to "
-                                                         "stop? (e.g. -0.05 equals 5 percent loss) >>> ",
-                                                  type_str="float",
-                                                  default=-1,
-                                                  required_if=lambda: global_config_map["kill_switch_enabled"].value),
-
-    "telegram_enabled":                 ConfigVar(key="telegram_enabled",
-                                                  prompt="Would you like to enable telegram? >>> ",
-                                                  type_str="bool",
-                                                  default=False,
-                                                  required_if=lambda: False),
-    "telegram_token":                   ConfigVar(key="telegram_token",
-                                                  prompt="What is your telegram token? >>> ",
-                                                  required_if=lambda: False),
-    "telegram_chat_id":                 ConfigVar(key="telegram_chat_id",
-                                                  prompt="What is your telegram chat id? >>> ",
-                                                  required_if=lambda: False),
+    "on_chain_cancel_on_exit":
+        ConfigVar(key="on_chain_cancel_on_exit",
+                  prompt="Would you like to cancel transactions on chain if using an open order books exchanges? >>> ",
+                  required_if=lambda: False,
+                  type_str="bool",
+                  default=False),
+    "exchange_rate_conversion":
+        ConfigVar(key="exchange_rate_conversion",
+                  prompt="Enter your custom exchange rate conversion settings (Input must be valid json) >>> ",
+                  required_if=lambda: False,
+                  type_str="json",
+                  default=[["USD", 1.0, "manual"],
+                           ["DAI", 1.0, "coin_gecko_api"],
+                           ["USDT", 1.0, "coin_gecko_api"],
+                           ["USDC", 1.0, "coin_gecko_api"],
+                           ["TUSD", 1.0, "coin_gecko_api"]]),
+    "exchange_rate_fetcher":
+        ConfigVar(key="exchange_rate_fetcher",
+                  prompt="Enter your custom exchange rate fetcher settings >>> ",
+                  required_if=lambda: False,
+                  type_str="list",
+                  default=[["ETH", "coin_gecko_api"],
+                           ["DAI", "coin_gecko_api"]]),
+    "kill_switch_enabled":
+        ConfigVar(key="kill_switch_enabled",
+                  prompt="Would you like to enable the kill switch? (Yes/No) >>> ",
+                  required_if=paper_trade_disabled,
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool),
+    "kill_switch_rate":
+        ConfigVar(key="kill_switch_rate",
+                  prompt="At what profit/loss rate would you like the bot to stop? "
+                         "(e.g. -5 equals 5 percent loss) >>> ",
+                  type_str="decimal",
+                  default=-100,
+                  validator=lambda v: validate_decimal(v, Decimal(-100), Decimal(100)),
+                  required_if=lambda: global_config_map["kill_switch_enabled"].value),
+    "telegram_enabled":
+        ConfigVar(key="telegram_enabled",
+                  prompt="Would you like to enable telegram? >>> ",
+                  type_str="bool",
+                  default=False,
+                  required_if=lambda: False),
+    "telegram_token":
+        ConfigVar(key="telegram_token",
+                  prompt="What is your telegram token? >>> ",
+                  required_if=lambda: False),
+    "telegram_chat_id":
+        ConfigVar(key="telegram_chat_id",
+                  prompt="What is your telegram chat id? >>> ",
+                  required_if=lambda: False),
+    "exchange_rate_default_data_feed":
+        ConfigVar(key="exchange_rate_default_data_feed",
+                  prompt="What is your default exchange rate data feed name? >>> ",
+                  required_if=lambda: False,
+                  default="coin_gecko_api"),
+    "send_error_logs":
+        ConfigVar(key="send_error_logs",
+                  prompt="Would you like to send error logs to hummingbot? (Yes/No) >>> ",
+                  type_str="bool",
+                  default=True),
+    "min_quote_order_amount":
+        ConfigVar(key="min_quote_order_amount",
+                  prompt=None,
+                  required_if=lambda: False,
+                  type_str="json",
+                  default=MIN_QUOTE_ORDER_AMOUNTS),
+    # Database options
+    "db_engine":
+        ConfigVar(key="db_engine",
+                  prompt="Please enter database engine you want to use (reference: https://docs.sqlalchemy.org/en/13/dialects/) >>> ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  default="sqlite"),
+    "db_host":
+        ConfigVar(key="db_host",
+                  prompt="Please enter your DB host address >>> ",
+                  type_str="str",
+                  required_if=lambda: global_config_map.get("db_engine").value != "sqlite",
+                  default="127.0.0.1"),
+    "db_port":
+        ConfigVar(key="db_port",
+                  prompt="Please enter your DB port >>> ",
+                  type_str="str",
+                  required_if=lambda: global_config_map.get("db_engine").value != "sqlite",
+                  default="3306"),
+    "db_username":
+        ConfigVar(key="db_username",
+                  prompt="Please enter your DB username >>> ",
+                  type_str="str",
+                  required_if=lambda: global_config_map.get("db_engine").value != "sqlite",
+                  default="username"),
+    "db_password":
+        ConfigVar(key="db_password",
+                  prompt="Please enter your DB password >>> ",
+                  type_str="str",
+                  required_if=lambda: global_config_map.get("db_engine").value != "sqlite",
+                  default="password"),
+    "db_name":
+        ConfigVar(key="db_name",
+                  prompt="Please enter your the name of your DB >>> ",
+                  type_str="str",
+                  required_if=lambda: global_config_map.get("db_engine").value != "sqlite",
+                  default="dbname"),
 }

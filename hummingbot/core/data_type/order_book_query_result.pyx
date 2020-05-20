@@ -6,3 +6,11 @@ cdef class OrderBookQueryResult:
         self.query_volume = query_volume
         self.result_price = result_price
         self.result_volume = result_volume
+
+
+cdef class ClientOrderBookQueryResult:
+    def __cinit__(self, object query_price, object query_volume, object result_price, object result_volume):
+        self.query_price = query_price
+        self.query_volume = query_volume
+        self.result_price = result_price
+        self.result_volume = result_volume

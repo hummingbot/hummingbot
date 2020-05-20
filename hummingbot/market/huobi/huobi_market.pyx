@@ -1,4 +1,5 @@
 import aiohttp
+from aiohttp.test_utils import TestClient
 import asyncio
 from async_timeout import timeout
 import conf
@@ -44,6 +45,10 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
+from hummingbot.core.utils.async_utils import (
+    safe_ensure_future,
+    safe_gather,
+)
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.huobi.huobi_api_order_book_data_source import HuobiAPIOrderBookDataSource
 from hummingbot.market.huobi.huobi_auth import HuobiAuth
@@ -52,13 +57,21 @@ from hummingbot.market.huobi.huobi_order_book_tracker import HuobiOrderBookTrack
 from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.market.market_base import (
     MarketBase,
-    NaN
-)
+    NaN,
+    s_decimal_NaN)
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 
 hm_logger = None
 s_decimal_0 = Decimal(0)
-SYMBOL_SPLITTER = re.compile(r"^(\w+)(usdt|husd|btc|eth|ht|trx)$")
+TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(usdt|husd|btc|eth|ht|trx)$")
 HUOBI_ROOT_API = "https://api.huobi.pro/v1/"
+
+
+class HuobiAPIError(IOError):
+    def __init__(self, error_payload: Dict[str, Any]):
+        super().__init__(str(error_payload))
+        self.error_payload = error_payload
 
 
 cdef class HuobiMarketTransactionTracker(TransactionTracker):
@@ -100,26 +113,23 @@ cdef class HuobiMarket(MarketBase):
                  huobi_secret_key: str,
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
-                    OrderBookTrackerDataSourceType.EXCHANGE_API,
-                 symbols: Optional[List[str]] = None,
+                 OrderBookTrackerDataSourceType.EXCHANGE_API,
+                 trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
 
         super().__init__()
-        self._account_available_balances = {}
-        self._account_balances = {}
         self._account_id = ""
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._data_source_type = order_book_tracker_data_source_type
         self._ev_loop = asyncio.get_event_loop()
         self._huobi_auth = HuobiAuth(api_key=huobi_api_key, secret_key=huobi_secret_key)
         self._in_flight_orders = {}
-        self._last_pull_timestamp = 0
+        self._last_poll_timestamp = 0
         self._last_timestamp = 0
         self._order_book_tracker = HuobiOrderBookTracker(
             data_source_type=order_book_tracker_data_source_type,
-            symbols=symbols
+            trading_pairs=trading_pairs
         )
-        self._order_tracker_task = None
         self._poll_notifier = asyncio.Event()
         self._poll_interval = poll_interval
         self._shared_client = None
@@ -130,16 +140,34 @@ cdef class HuobiMarket(MarketBase):
         self._tx_tracker = HuobiMarketTransactionTracker(self)
 
     @staticmethod
-    def split_symbol(symbol: str) -> Tuple[str, str]:
+    def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
         try:
-            m = SYMBOL_SPLITTER.match(symbol)
+            m = TRADING_PAIR_SPLITTER.match(trading_pair)
             return m.group(1), m.group(2)
+        # Exceptions are now logged as warnings in trading pair fetcher
         except Exception as e:
-            raise ValueError(f"Error parsing symbol {symbol}: {str(e)}")
+            return None
+
+    @staticmethod
+    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
+        if HuobiMarket.split_trading_pair(exchange_trading_pair) is None:
+            return None
+        # Huobi uses lowercase (btcusdt)
+        base_asset, quote_asset = HuobiMarket.split_trading_pair(exchange_trading_pair)
+        return f"{base_asset.upper()}-{quote_asset.upper()}"
+
+    @staticmethod
+    def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
+        # Huobi uses lowercase (btcusdt)
+        return hb_trading_pair.replace("-", "").lower()
 
     @property
     def name(self) -> str:
         return "huobi"
+
+    @property
+    def order_book_tracker(self) -> HuobiOrderBookTracker:
+        return self._order_book_tracker
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -173,6 +201,14 @@ cdef class HuobiMarket(MarketBase):
             for key, value in saved_states.items()
         })
 
+    @property
+    def shared_client(self) -> str:
+        return self._shared_client
+
+    @shared_client.setter
+    def shared_client(self, client: aiohttp.ClientSession):
+        self._shared_client = client
+
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         return await HuobiAPIOrderBookDataSource.get_active_exchange_markets()
 
@@ -185,18 +221,15 @@ cdef class HuobiMarket(MarketBase):
         self._async_scheduler.stop()
 
     async def start_network(self):
-        if self._order_tracker_task is not None:
-            self._stop_network()
-        self._order_tracker_task = asyncio.ensure_future(self._order_book_tracker.start())
+        self._stop_network()
+        self._order_book_tracker.start()
+        self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             await self._update_account_id()
-            self._status_polling_task = asyncio.ensure_future(self._status_polling_loop())
-            self._trading_rules_polling_task = asyncio.ensure_future(self._trading_rules_polling_loop())
+            self._status_polling_task = safe_ensure_future(self._status_polling_loop())
 
     def _stop_network(self):
-        if self._order_tracker_task is not None:
-            self._order_tracker_task.cancel()
-            self._order_tracker_task = None
+        self._order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
@@ -233,23 +266,39 @@ cdef class HuobiMarket(MarketBase):
         return self._shared_client
 
     async def _api_request(self,
-                        method,
-                        path_url,
-                        params: Optional[Dict[str, Any]] = None,
-                        data = None,
-                        is_auth_required: bool = False) -> Dict[str, Any]:
+                           method,
+                           path_url,
+                           params: Optional[Dict[str, Any]] = None,
+                           data=None,
+                           is_auth_required: bool = False) -> Dict[str, Any]:
         content_type = "application/json" if method == "post" else "application/x-www-form-urlencoded"
         headers = {"Content-Type": content_type}
         url = HUOBI_ROOT_API + path_url
         client = await self._http_client()
         if is_auth_required:
             params = self._huobi_auth.add_auth_to_params(method, path_url, params)
-        async with client.request(method=method,
-                                  url=url,
-                                  headers=headers,
-                                  params=params,
-                                  data=ujson.dumps(data),
-                                  timeout=self.API_CALL_TIMEOUT) as response:
+
+        # aiohttp TestClient requires path instead of url
+        if isinstance(client, TestClient):
+            response_coro = client.request(
+                method=method.upper(),
+                path=f"/{path_url}",
+                headers=headers,
+                params=params,
+                data=ujson.dumps(data),
+                timeout=100
+            )
+        else:
+            response_coro = client.request(
+                method=method.upper(),
+                url=url,
+                headers=headers,
+                params=params,
+                data=ujson.dumps(data),
+                timeout=100
+            )
+
+        async with response_coro as response:
             if response.status != 200:
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
             try:
@@ -259,8 +308,9 @@ cdef class HuobiMarket(MarketBase):
 
             data = parsed_response.get("data")
             if data is None:
-                raise IOError(f"Error reading data from {url}. Response is {parsed_response}.")
-            return parsed_response["data"]
+                self.logger().error(f"Error received from {url}. Response is {parsed_response}.")
+                raise HuobiAPIError({"error": parsed_response})
+            return data
 
     async def _update_account_id(self) -> str:
         accounts = await self._api_request("get", path_url="account/accounts", is_auth_required=True)
@@ -274,13 +324,15 @@ cdef class HuobiMarket(MarketBase):
     async def _update_balances(self):
         cdef:
             str path_url = f"account/accounts/{self._account_id}/balance"
-            dict data = await self._api_request("get", path_url=path_url, is_auth_required=True)
-            list balances = data.get("list", [])
+            dict data
+            list balances
             dict new_available_balances = {}
             dict new_balances = {}
             str asset_name
             object balance
 
+        data = await self._api_request("get", path_url=path_url, is_auth_required=True)
+        balances = data.get("list", [])
         if len(balances) > 0:
             for balance_entry in balances:
                 asset_name = balance_entry["currency"]
@@ -306,10 +358,15 @@ cdef class HuobiMarket(MarketBase):
                           str quote_currency,
                           object order_type,
                           object order_side,
-                          double amount,
-                          double price):
+                          object amount,
+                          object price):
         # https://www.hbg.com/en-us/about/fee/
-        return TradeFee(percent=0.002)
+
+        if order_type is OrderType.LIMIT and fee_overrides_config_map["huobi_maker_fee"].value is not None:
+            return TradeFee(percent=fee_overrides_config_map["huobi_maker_fee"].value / Decimal("100"))
+        if order_type is OrderType.MARKET and fee_overrides_config_map["huobi_taker_fee"].value is not None:
+            return TradeFee(percent=fee_overrides_config_map["huobi_taker_fee"].value / Decimal("100"))
+        return TradeFee(percent=Decimal("0.002"))
 
     async def _update_trading_rules(self):
         cdef:
@@ -321,24 +378,25 @@ cdef class HuobiMarket(MarketBase):
             trading_rules_list = self._format_trading_rules(exchange_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
-                self._trading_rules[trading_rule.symbol] = trading_rule
+                self._trading_rules[trading_rule.trading_pair] = trading_rule
 
-    def _format_trading_rules(self, raw_symbol_info: List[Dict[str, Any]]) -> List[TradingRule]:
+    def _format_trading_rules(self, raw_trading_pair_info: List[Dict[str, Any]]) -> List[TradingRule]:
         cdef:
             list trading_rules = []
 
-        for info in raw_symbol_info:
+        for info in raw_trading_pair_info:
             try:
                 trading_rules.append(
-                    TradingRule(symbol=info["symbol"],
+                    TradingRule(trading_pair=info["symbol"],
                                 min_order_size=Decimal(info["min-order-amt"]),
                                 max_order_size=Decimal(info["max-order-amt"]),
                                 min_price_increment=Decimal(f"1e-{info['price-precision']}"),
                                 min_base_amount_increment=Decimal(f"1e-{info['amount-precision']}"),
-                                min_quote_amount_increment=Decimal(f"1e-{info['value-precision']}"))
+                                min_quote_amount_increment=Decimal(f"1e-{info['value-precision']}"),
+                                min_notional_size=Decimal(info["min-order-value"]))
                 )
             except Exception:
-                self.logger().error(f"Error parsing the symbol rule {info}. Skipping.", exc_info=True)
+                self.logger().error(f"Error parsing the trading pair rule {info}. Skipping.", exc_info=True)
         return trading_rules
 
     async def get_order_status(self, exchange_order_id: str) -> Dict[str, Any]:
@@ -370,14 +428,30 @@ cdef class HuobiMarket(MarketBase):
     async def _update_order_status(self):
         cdef:
             # The poll interval for order status is 10 seconds.
-            int64_t last_tick = <int64_t>(self._last_pull_timestamp / self.UPDATE_ORDERS_INTERVAL)
+            int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.UPDATE_ORDERS_INTERVAL)
             int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDERS_INTERVAL)
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
             for tracked_order in tracked_orders:
                 exchange_order_id = await tracked_order.get_exchange_order_id()
-                order_update = await self.get_order_status(exchange_order_id)
+                try:
+                    order_update = await self.get_order_status(exchange_order_id)
+                except HuobiAPIError as e:
+                    err_code = e.error_payload.get("error").get("err-code")
+                    self.c_stop_tracking_order(tracked_order.client_order_id)
+                    self.logger().info(f"The limit order {tracked_order.client_order_id} "
+                                       f"has failed according to order status API. - {err_code}")
+                    self.c_trigger_event(
+                        self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                        MarketOrderFailureEvent(
+                            self._current_timestamp,
+                            tracked_order.client_order_id,
+                            tracked_order.order_type
+                        )
+                    )
+                    continue
+
                 if order_update is None:
                     self.logger().network(
                         f"Error fetching status update for the order {tracked_order.client_order_id}: "
@@ -388,45 +462,52 @@ cdef class HuobiMarket(MarketBase):
                     continue
 
                 order_state = order_update["state"]
-                if order_state == "submitted":
-                    continue
+                # possible order states are "submitted", "partial-filled", "filled", "canceled"
+
+                if order_state not in ["submitted", "filled", "canceled"]:
+                    self.logger().debug(f"Unrecognized order update response - {order_update}")
 
                 # Calculate the newly executed amount for this update.
                 tracked_order.last_state = order_state
                 new_confirmed_amount = Decimal(order_update["field-amount"])  # probably typo in API (filled)
                 execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
-                
-
-                tracked_order.executed_amount_base = new_confirmed_amount
-                tracked_order.executed_amount_quote = Decimal(order_update["field-cash-amount"])
-                tracked_order.fee_paid = Decimal(order_update["field-fees"])
 
                 if execute_amount_diff > s_decimal_0:
+                    tracked_order.executed_amount_base = new_confirmed_amount
+                    tracked_order.executed_amount_quote = Decimal(order_update["field-cash-amount"])
+                    tracked_order.fee_paid = Decimal(order_update["field-fees"])
                     execute_price = Decimal(order_update["field-cash-amount"]) / new_confirmed_amount
                     order_filled_event = OrderFilledEvent(
                         self._current_timestamp,
                         tracked_order.client_order_id,
-                        tracked_order.symbol,
+                        tracked_order.trading_pair,
                         tracked_order.trade_type,
                         tracked_order.order_type,
-                        float(execute_price),
-                        float(execute_amount_diff),
+                        execute_price,
+                        execute_amount_diff,
                         self.c_get_fee(
                             tracked_order.base_asset,
                             tracked_order.quote_asset,
                             tracked_order.order_type,
                             tracked_order.trade_type,
-                            float(execute_price),
-                            float(execute_amount_diff),
-                        )
+                            execute_price,
+                            execute_amount_diff,
+                        ),
+                        # Unique exchange trade ID not available in client order status
+                        # But can use validate an order using exchange order ID:
+                        # https://huobiapi.github.io/docs/spot/v1/en/#query-order-by-order-id
+                        exchange_trade_id=exchange_order_id
                     )
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
-                                        f"order {tracked_order.client_order_id}.")
+                                       f"order {tracked_order.client_order_id}.")
                     self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
-                if order_state in ["canceled", "partially-canceled", "filled"]:
-                    self.c_stop_tracking_order(tracked_order.client_order_id)
-                    if tracked_order.executed_amount_base > s_decimal_0:
+                if tracked_order.is_open:
+                    continue
+
+                if tracked_order.is_done:
+                    if not tracked_order.is_cancelled:  # Handles "filled" order
+                        self.c_stop_tracking_order(tracked_order.client_order_id)
                         if tracked_order.trade_type is TradeType.BUY:
                             self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
                                                f"according to order status API.")
@@ -435,11 +516,10 @@ cdef class HuobiMarket(MarketBase):
                                                                         tracked_order.client_order_id,
                                                                         tracked_order.base_asset,
                                                                         tracked_order.quote_asset,
-                                                                        (tracked_order.fee_asset
-                                                                         or tracked_order.base_asset),
-                                                                        float(tracked_order.executed_amount_base),
-                                                                        float(tracked_order.executed_amount_quote),
-                                                                        float(tracked_order.fee_paid),
+                                                                        tracked_order.fee_asset or tracked_order.base_asset,
+                                                                        tracked_order.executed_amount_base,
+                                                                        tracked_order.executed_amount_quote,
+                                                                        tracked_order.fee_paid,
                                                                         tracked_order.order_type))
                         else:
                             self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
@@ -449,15 +529,15 @@ cdef class HuobiMarket(MarketBase):
                                                                          tracked_order.client_order_id,
                                                                          tracked_order.base_asset,
                                                                          tracked_order.quote_asset,
-                                                                         (tracked_order.fee_asset
-                                                                          or tracked_order.quote_asset),
-                                                                         float(tracked_order.executed_amount_base),
-                                                                         float(tracked_order.executed_amount_quote),
-                                                                         float(tracked_order.fee_paid),
+                                                                         tracked_order.fee_asset or tracked_order.quote_asset,
+                                                                         tracked_order.executed_amount_base,
+                                                                         tracked_order.executed_amount_quote,
+                                                                         tracked_order.fee_paid,
                                                                          tracked_order.order_type))
-                    else:
-                        self.logger().info(f"The market order {tracked_order.client_order_id} has been cancelled according"
-                                           f" to order status API.")
+                    else:  # Handles "canceled" or "partial-canceled" order
+                        self.c_stop_tracking_order(tracked_order.client_order_id)
+                        self.logger().info(f"The market order {tracked_order.client_order_id} "
+                                           f"has been cancelled according to order status API.")
                         self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                              OrderCancelledEvent(self._current_timestamp,
                                                                  tracked_order.client_order_id))
@@ -468,11 +548,11 @@ cdef class HuobiMarket(MarketBase):
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
 
-                await asyncio.gather(
+                await safe_gather(
                     self._update_balances(),
                     self._update_order_status(),
                 )
-                self._last_pull_timestamp = self._current_timestamp
+                self._last_poll_timestamp = self._current_timestamp
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -499,8 +579,8 @@ cdef class HuobiMarket(MarketBase):
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {
-            "account_id_initialized": self._account_id != "",
-            "order_books_initialized": len(self._order_book_tracker.order_books) > 0,
+            "account_id_initialized": self._account_id != "" if self._trading_required else True,
+            "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0
         }
@@ -509,12 +589,9 @@ cdef class HuobiMarket(MarketBase):
     def ready(self) -> bool:
         return all(self.status_dict.values())
 
-    def get_all_balances(self) -> Dict[str, Decimal]:
-        return self._account_balances.copy()
-
     async def place_order(self,
                           order_id: str,
-                          symbol: str,
+                          trading_pair: str,
                           amount: Decimal,
                           is_buy: bool,
                           order_type: OrderType,
@@ -524,13 +601,13 @@ cdef class HuobiMarket(MarketBase):
         order_type_str = "limit" if order_type is OrderType.LIMIT else "market"
         params = {
             "account-id": self._account_id,
-            "amount": str(amount),
+            "amount": f"{amount:f}",
             "client-order-id": order_id,
-            "symbol": symbol,
+            "symbol": trading_pair,
             "type": f"{side}-{order_type_str}",
         }
         if order_type is OrderType.LIMIT:
-            params["price"] = str(price)
+            params["price"] = f"{price:f}"
         exchange_order_id = await self._api_request(
             "post",
             path_url=path_url,
@@ -542,36 +619,35 @@ cdef class HuobiMarket(MarketBase):
 
     async def execute_buy(self,
                           order_id: str,
-                          symbol: str,
-                          amount: float,
+                          trading_pair: str,
+                          amount: Decimal,
                           order_type: OrderType,
-                          price: Optional[float] = NaN):
+                          price: Optional[Decimal] = s_decimal_0):
         cdef:
-            TradingRule trading_rule = self._trading_rules[symbol]
-            double quote_amount
+            TradingRule trading_rule = self._trading_rules[trading_pair]
+            object quote_amount
             object decimal_amount
             object decimal_price
             str exchange_order_id
             object tracked_order
 
         if order_type is OrderType.MARKET:
-            quote_amount = (<OrderBook>self.c_get_order_book(symbol)).c_get_quote_volume_for_base_amount(
-                True, amount).result_volume
+            quote_amount = self.c_get_quote_volume_for_base_amount(trading_pair, True, amount).result_volume
             # Quantize according to price rules, not base token amount rules.
-            decimal_amount = self.c_quantize_order_price(symbol, quote_amount)
+            decimal_amount = self.c_quantize_order_price(trading_pair, Decimal(quote_amount))
             decimal_price = s_decimal_0
         else:
-            decimal_amount = self.c_quantize_order_amount(symbol, amount)
-            decimal_price = self.c_quantize_order_price(symbol, price)
+            decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
+            decimal_price = self.c_quantize_order_price(trading_pair, price)
             if decimal_amount < trading_rule.min_order_size:
                 raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                                  f"{trading_rule.min_order_size}.")
         try:
-            exchange_order_id = await self.place_order(order_id, symbol, decimal_amount, True, order_type, decimal_price)
+            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, True, order_type, decimal_price)
             self.c_start_tracking_order(
                 client_order_id=order_id,
                 exchange_order_id=exchange_order_id,
-                symbol=symbol,
+                trading_pair=trading_pair,
                 order_type=order_type,
                 trade_type=TradeType.BUY,
                 price=decimal_price,
@@ -579,26 +655,24 @@ cdef class HuobiMarket(MarketBase):
             )
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
-                self.logger().info(f"Created {order_type} buy order {order_id} for {decimal_amount} {symbol}.")
+                self.logger().info(f"Created {order_type} buy order {order_id} for {decimal_amount} {trading_pair}.")
             self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
                                  BuyOrderCreatedEvent(
                                      self._current_timestamp,
                                      order_type,
-                                     symbol,
-                                     float(decimal_amount),
-                                     float(decimal_price),
+                                     trading_pair,
+                                     decimal_amount,
+                                     decimal_price,
                                      order_id
                                  ))
         except asyncio.CancelledError:
             raise
-        except asyncio.TimeoutError:
-            self.logger().network(f"Timeout Error encountered while submitting buy ",exc_info=True)
         except Exception:
             self.c_stop_tracking_order(order_id)
             order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Huobi for "
-                f"{decimal_amount} {symbol} "
+                f"{decimal_amount} {trading_pair} "
                 f"{decimal_price if order_type is OrderType.LIMIT else ''}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit buy order to Huobi. Check API key and network connection."
@@ -607,32 +681,33 @@ cdef class HuobiMarket(MarketBase):
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
     cdef str c_buy(self,
-                   str symbol,
-                   double amount,
-                   object order_type = OrderType.MARKET,
-                   double price = NaN,
-                   dict kwargs = {}):
+                   str trading_pair,
+                   object amount,
+                   object order_type=OrderType.MARKET,
+                   object price=s_decimal_0,
+                   dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
-            str order_id = str(f"buy-{symbol}-{tracking_nonce}")
-        asyncio.ensure_future(self.execute_buy(order_id, symbol, amount, order_type, price))
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
+            str order_id = f"buy-{trading_pair}-{tracking_nonce}"
+
+        safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
         return order_id
 
     async def execute_sell(self,
                            order_id: str,
-                           symbol: str,
-                           amount: float,
+                           trading_pair: str,
+                           amount: Decimal,
                            order_type: OrderType,
-                           price: Optional[float] = NaN):
+                           price: Optional[Decimal] = s_decimal_0):
         cdef:
-            TradingRule trading_rule = self._trading_rules[symbol]
+            TradingRule trading_rule = self._trading_rules[trading_pair]
             object decimal_amount
             object decimal_price
             str exchange_order_id
             object tracked_order
 
-        decimal_amount = self.quantize_order_amount(symbol, amount)
-        decimal_price = (self.c_quantize_order_price(symbol, price)
+        decimal_amount = self.quantize_order_amount(trading_pair, amount)
+        decimal_price = (self.c_quantize_order_price(trading_pair, price)
                          if order_type is OrderType.LIMIT
                          else s_decimal_0)
         if decimal_amount < trading_rule.min_order_size:
@@ -640,11 +715,11 @@ cdef class HuobiMarket(MarketBase):
                              f"{trading_rule.min_order_size}.")
 
         try:
-            exchange_order_id = await self.place_order(order_id, symbol, decimal_amount, False, order_type, decimal_price)
+            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, False, order_type, decimal_price)
             self.c_start_tracking_order(
                 client_order_id=order_id,
                 exchange_order_id=exchange_order_id,
-                symbol=symbol,
+                trading_pair=trading_pair,
                 order_type=order_type,
                 trade_type=TradeType.SELL,
                 price=decimal_price,
@@ -652,18 +727,16 @@ cdef class HuobiMarket(MarketBase):
             )
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
-                self.logger().info(f"Created {order_type} sell order {order_id} for {decimal_amount} {symbol}.")
+                self.logger().info(f"Created {order_type} sell order {order_id} for {decimal_amount} {trading_pair}.")
             self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
                                  SellOrderCreatedEvent(
                                      self._current_timestamp,
                                      order_type,
-                                     symbol,
-                                     float(decimal_amount),
-                                     float(decimal_price),
+                                     trading_pair,
+                                     decimal_amount,
+                                     decimal_price,
                                      order_id
                                  ))
-        except asyncio.TimeoutError:
-            self.logger().network(f"Timeout Error encountered while submitting sell ",exc_info=True)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -671,7 +744,7 @@ cdef class HuobiMarket(MarketBase):
             order_type_str = "MARKET" if order_type is OrderType.MARKET else "LIMIT"
             self.logger().network(
                 f"Error submitting sell {order_type_str} order to Huobi for "
-                f"{decimal_amount} {symbol} "
+                f"{decimal_amount} {trading_pair} "
                 f"{decimal_price if order_type is OrderType.LIMIT else ''}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit sell order to Huobi. Check API key and network connection."
@@ -680,23 +753,42 @@ cdef class HuobiMarket(MarketBase):
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
     cdef str c_sell(self,
-                    str symbol,
-                    double amount,
-                    object order_type = OrderType.MARKET, double price = NaN,
-                    dict kwargs = {}):
+                    str trading_pair,
+                    object amount,
+                    object order_type=OrderType.MARKET, object price=s_decimal_0,
+                    dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
-            str order_id = str(f"sell-{symbol}-{tracking_nonce}")
-        asyncio.ensure_future(self.execute_sell(order_id, symbol, amount, order_type, price))
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
+            str order_id = f"sell-{trading_pair}-{tracking_nonce}"
+        safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id
 
-    async def execute_cancel(self, symbol: str, order_id: str):
-        tracked_order = self._in_flight_orders.get(order_id)
-        if tracked_order is None:
-            raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
-        path_url = f"order/orders/{tracked_order.exchange_order_id}/submitcancel"
+    async def execute_cancel(self, trading_pair: str, order_id: str):
         try:
-            await self._api_request("post", path_url=path_url, is_auth_required=True)
+            tracked_order = self._in_flight_orders.get(order_id)
+            if tracked_order is None:
+                raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
+            path_url = f"order/orders/{tracked_order.exchange_order_id}/submitcancel"
+            response = await self._api_request("post", path_url=path_url, is_auth_required=True)
+
+        except HuobiAPIError as e:
+            order_state = e.error_payload.get("error").get("order-state")
+            if order_state == 7:
+                # order-state is canceled
+                self.c_stop_tracking_order(tracked_order.client_order_id)
+                self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled according"
+                                   f" to order status API. order_state - {order_state}")
+                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                     OrderCancelledEvent(self._current_timestamp,
+                                                         tracked_order.client_order_id))
+            else:
+                self.logger().network(
+                    f"Failed to cancel order {order_id}: {str(e)}",
+                    exc_info=True,
+                    app_warning_msg=f"Failed to cancel the order {order_id} on Huobi. "
+                                    f"Check API key and network connection."
+                )
+
         except Exception as e:
             self.logger().network(
                 f"Failed to cancel order {order_id}: {str(e)}",
@@ -705,13 +797,16 @@ cdef class HuobiMarket(MarketBase):
                                 f"Check API key and network connection."
             )
 
-    cdef c_cancel(self, str symbol, str order_id):
-        asyncio.ensure_future(self.execute_cancel(symbol, order_id))
+    cdef c_cancel(self, str trading_pair, str order_id):
+        safe_ensure_future(self.execute_cancel(trading_pair, order_id))
         return order_id
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
-        incomplete_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
-        cancel_order_ids = [o.exchange_order_id for o in incomplete_orders]
+        open_orders = [o for o in self._in_flight_orders.values() if o.is_open]
+        if len(open_orders) == 0:
+            return []
+        cancel_order_ids = [o.exchange_order_id for o in open_orders]
+        self.logger().debug(f"cancel_order_ids {cancel_order_ids} {open_orders}")
         path_url = "order/orders/batchcancel"
         params = {"order-ids": ujson.dumps(cancel_order_ids)}
         data = {"order-ids": cancel_order_ids}
@@ -724,9 +819,11 @@ cdef class HuobiMarket(MarketBase):
                 data=data,
                 is_auth_required=True
             )
-            for oid in cancel_all_results["success"]:
+
+            for oid in cancel_all_results.get("success", []):
                 cancellation_results.append(CancellationResult(oid, True))
-            for oid in cancel_all_results["failed"]:
+            for cancel_error in cancel_all_results.get("failed", []):
+                oid = cancel_error["order-id"]
                 cancellation_results.append(CancellationResult(oid, False))
         except Exception as e:
             self.logger().network(
@@ -736,25 +833,13 @@ cdef class HuobiMarket(MarketBase):
             )
         return cancellation_results
 
-    cdef double c_get_balance(self, str currency) except? -1:
-        return float(self._account_balances.get(currency, 0.0))
-
-    cdef double c_get_available_balance(self, str currency) except? -1:
-        return float(self._account_available_balances.get(currency, 0.0))
-
-    cdef double c_get_price(self, str symbol, bint is_buy) except? -1:
-        cdef:
-            OrderBook order_book = self.c_get_order_book(symbol)
-
-        return order_book.c_get_price(is_buy)
-
-    cdef OrderBook c_get_order_book(self, str symbol):
+    cdef OrderBook c_get_order_book(self, str trading_pair):
         cdef:
             dict order_books = self._order_book_tracker.order_books
 
-        if symbol not in order_books:
-            raise ValueError(f"No order book exists for '{symbol}'.")
-        return order_books.get(symbol)
+        if trading_pair not in order_books:
+            raise ValueError(f"No order book exists for '{trading_pair}'.")
+        return order_books.get(trading_pair)
 
     cdef c_did_timeout_tx(self, str tracking_id):
         self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
@@ -763,7 +848,7 @@ cdef class HuobiMarket(MarketBase):
     cdef c_start_tracking_order(self,
                                 str client_order_id,
                                 str exchange_order_id,
-                                str symbol,
+                                str trading_pair,
                                 object order_type,
                                 object trade_type,
                                 object price,
@@ -771,7 +856,7 @@ cdef class HuobiMarket(MarketBase):
         self._in_flight_orders[client_order_id] = HuobiInFlightOrder(
             client_order_id=client_order_id,
             exchange_order_id=exchange_order_id,
-            symbol=symbol,
+            trading_pair=trading_pair,
             order_type=order_type,
             trade_type=trade_type,
             price=price,
@@ -782,20 +867,22 @@ cdef class HuobiMarket(MarketBase):
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
 
-    cdef object c_get_order_price_quantum(self, str symbol, double price):
+    cdef object c_get_order_price_quantum(self, str trading_pair, object price):
         cdef:
-            TradingRule trading_rule = self._trading_rules[symbol]
+            TradingRule trading_rule = self._trading_rules[trading_pair]
         return trading_rule.min_price_increment
 
-    cdef object c_get_order_size_quantum(self, str symbol, double order_size):
+    cdef object c_get_order_size_quantum(self, str trading_pair, object order_size):
         cdef:
-            TradingRule trading_rule = self._trading_rules[symbol]
+            TradingRule trading_rule = self._trading_rules[trading_pair]
         return Decimal(trading_rule.min_base_amount_increment)
 
-    cdef object c_quantize_order_amount(self, str symbol, double amount, double price = 0.0):
+    cdef object c_quantize_order_amount(self, str trading_pair, object amount, object price=s_decimal_0):
         cdef:
-            TradingRule trading_rule = self._trading_rules[symbol]
-            object quantized_amount = MarketBase.c_quantize_order_amount(self, symbol, amount)
+            TradingRule trading_rule = self._trading_rules[trading_pair]
+            object quantized_amount = MarketBase.c_quantize_order_amount(self, trading_pair, amount)
+            object current_price = self.c_get_price(trading_pair, False)
+            object notional_size
 
         # Check against min_order_size. If not passing check, return 0.
         if quantized_amount < trading_rule.min_order_size:
@@ -804,5 +891,13 @@ cdef class HuobiMarket(MarketBase):
         # Check against max_order_size. If not passing check, return maximum.
         if quantized_amount > trading_rule.max_order_size:
             return trading_rule.max_order_size
+
+        if price == s_decimal_0:
+            notional_size = current_price * quantized_amount
+        else:
+            notional_size = price * quantized_amount
+        # Add 1% as a safety factor in case the prices changed while making the order.
+        if notional_size < trading_rule.min_notional_size * Decimal("1.01"):
+            return s_decimal_0
 
         return quantized_amount

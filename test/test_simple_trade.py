@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from os.path import join, realpath
-from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from decimal import Decimal
 import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
@@ -31,9 +31,8 @@ from hummingbot.core.event.events import (
     TradeFee
 )
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.strategy.simple_trade.simple_trade import SimpleTradeStrategy
-import sys
-sys.path.insert(0, realpath(join(__file__, "../../")))
+from hummingbot.strategy.dev_simple_trade.dev_simple_trade import SimpleTradeStrategy
+import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
 
 class SimpleTradeUnitTest(unittest.TestCase):
@@ -41,14 +40,14 @@ class SimpleTradeUnitTest(unittest.TestCase):
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
     start_timestamp: float = start.timestamp()
     end_timestamp: float = end.timestamp()
-    maker_symbols: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
+    maker_trading_pairs: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
     clock_tick_size = 10
 
     def setUp(self):
 
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
         self.market: BacktestMarket = BacktestMarket()
-        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_symbols)
+        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_trading_pairs)
         self.mid_price = 100
         self.time_delay = 15
         self.cancel_order_wait_time = 45
@@ -60,13 +59,13 @@ class SimpleTradeUnitTest(unittest.TestCase):
         self.market.set_balance("QETH", 500)
         self.market.set_quantization_param(
             QuantizationParams(
-                self.maker_symbols[0], 6, 6, 6, 6
+                self.maker_trading_pairs[0], 6, 6, 6, 6
             )
         )
 
-        self.market_info: MarketSymbolPair = MarketSymbolPair(
+        self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             *(
-                [self.market] + self.maker_symbols
+                [self.market] + self.maker_trading_pairs
             )
         )
 
@@ -77,21 +76,21 @@ class SimpleTradeUnitTest(unittest.TestCase):
         self.limit_buy_strategy: SimpleTradeStrategy = SimpleTradeStrategy(
             [self.market_info],
             order_type="limit",
-            order_price=99,
+            order_price=Decimal("99"),
             cancel_order_wait_time=self.cancel_order_wait_time,
             is_buy=True,
             time_delay=self.time_delay,
-            order_amount=1.0,
+            order_amount=Decimal("1.0"),
             logging_options=logging_options
         )
         self.limit_sell_strategy: SimpleTradeStrategy = SimpleTradeStrategy(
             [self.market_info],
             order_type="limit",
-            order_price=101,
+            order_price=Decimal("101"),
             cancel_order_wait_time=self.cancel_order_wait_time,
             is_buy=False,
             time_delay=self.time_delay,
-            order_amount=1.0,
+            order_amount=Decimal("1.0"),
             logging_options=logging_options
         )
         self.market_buy_strategy: SimpleTradeStrategy = SimpleTradeStrategy(
@@ -101,7 +100,7 @@ class SimpleTradeUnitTest(unittest.TestCase):
             cancel_order_wait_time=self.cancel_order_wait_time,
             is_buy=True,
             time_delay=self.time_delay,
-            order_amount=1.0,
+            order_amount=Decimal("1.0"),
             logging_options=logging_options
         )
         self.market_sell_strategy: SimpleTradeStrategy = SimpleTradeStrategy(
@@ -111,7 +110,7 @@ class SimpleTradeUnitTest(unittest.TestCase):
             cancel_order_wait_time=self.cancel_order_wait_time,
             is_buy=False,
             time_delay=self.time_delay,
-            order_amount=1.0,
+            order_amount=Decimal("1.0"),
             logging_options=logging_options
         )
         self.logging_options = logging_options
@@ -128,8 +127,8 @@ class SimpleTradeUnitTest(unittest.TestCase):
 
     @staticmethod
     def simulate_limit_order_fill(market: Market, limit_order: LimitOrder):
-        quote_currency_traded: float = float(float(limit_order.price) * float(limit_order.quantity))
-        base_currency_traded: float = float(limit_order.quantity)
+        quote_currency_traded: Decimal = limit_order.price * limit_order.quantity
+        base_currency_traded: Decimal = limit_order.quantity
         quote_currency: str = limit_order.quote_currency
         base_currency: str = limit_order.base_currency
         config: MarketConfig = market.config
@@ -140,12 +139,12 @@ class SimpleTradeUnitTest(unittest.TestCase):
             market.trigger_event(MarketEvent.OrderFilled, OrderFilledEvent(
                 market.current_timestamp,
                 limit_order.client_order_id,
-                limit_order.symbol,
+                limit_order.trading_pair,
                 TradeType.BUY,
                 OrderType.LIMIT,
-                float(limit_order.price),
-                float(limit_order.quantity),
-                TradeFee(0.0)
+                limit_order.price,
+                limit_order.quantity,
+                TradeFee(Decimal("0"))
             ))
             market.trigger_event(MarketEvent.BuyOrderCompleted, BuyOrderCompletedEvent(
                 market.current_timestamp,
@@ -155,7 +154,7 @@ class SimpleTradeUnitTest(unittest.TestCase):
                 base_currency if config.buy_fees_asset is AssetType.BASE_CURRENCY else quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
-                0.0,
+                Decimal("0"),
                 OrderType.LIMIT
             ))
         else:
@@ -164,12 +163,12 @@ class SimpleTradeUnitTest(unittest.TestCase):
             market.trigger_event(MarketEvent.OrderFilled, OrderFilledEvent(
                 market.current_timestamp,
                 limit_order.client_order_id,
-                limit_order.symbol,
+                limit_order.trading_pair,
                 TradeType.SELL,
                 OrderType.LIMIT,
-                float(limit_order.price),
-                float(limit_order.quantity),
-                TradeFee(0.0)
+                limit_order.price,
+                limit_order.quantity,
+                TradeFee(Decimal("0"))
             ))
             market.trigger_event(MarketEvent.SellOrderCompleted, SellOrderCompletedEvent(
                 market.current_timestamp,
@@ -179,7 +178,7 @@ class SimpleTradeUnitTest(unittest.TestCase):
                 base_currency if config.sell_fees_asset is AssetType.BASE_CURRENCY else quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
-                0.0,
+                Decimal("0"),
                 OrderType.LIMIT
             ))
 
@@ -248,7 +247,7 @@ class SimpleTradeUnitTest(unittest.TestCase):
         market_buy_events: List[BuyOrderCompletedEvent] = [t for t in self.buy_order_completed_logger.event_log
                                                            if isinstance(t, BuyOrderCompletedEvent)]
         self.assertEqual(1, len(market_buy_events))
-        amount: float = sum(t.base_asset_amount for t in market_buy_events)
+        amount: Decimal = sum(t.base_asset_amount for t in market_buy_events)
         self.assertEqual(1, amount)
         self.buy_order_completed_logger.clear()
 
@@ -267,7 +266,7 @@ class SimpleTradeUnitTest(unittest.TestCase):
         market_sell_events: List[SellOrderCompletedEvent] = [t for t in self.sell_order_completed_logger.event_log
                                                              if isinstance(t, SellOrderCompletedEvent)]
         self.assertEqual(1, len(market_sell_events))
-        amount: float = sum(t.base_asset_amount for t in market_sell_events)
+        amount: Decimal = sum(t.base_asset_amount for t in market_sell_events)
         self.assertEqual(1, amount)
         self.sell_order_completed_logger.clear()
 

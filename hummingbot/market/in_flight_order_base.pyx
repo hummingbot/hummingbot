@@ -21,7 +21,7 @@ cdef class InFlightOrderBase:
                  market_class: MarketBase,
                  client_order_id: str,
                  exchange_order_id: Optional[str],
-                 symbol: str,
+                 trading_pair: str,
                  order_type: OrderType,
                  trade_type: TradeType,
                  price: Decimal,
@@ -31,7 +31,7 @@ cdef class InFlightOrderBase:
         self.market_class = market_class
         self.client_order_id = client_order_id
         self.exchange_order_id = exchange_order_id
-        self.symbol = symbol
+        self.trading_pair = trading_pair
         self.order_type = order_type
         self.trade_type = trade_type
         self.price = price
@@ -47,8 +47,8 @@ cdef class InFlightOrderBase:
         return f"InFlightOrder(" \
                f"client_order_id='{self.client_order_id}', " \
                f"exchange_order_id='{self.exchange_order_id}', " \
-               f"symbol='{self.symbol}', " \
-               f"order_type='{self.order_type}', " \
+               f"trading_pair='{self.trading_pair}', " \
+               f"order_type={self.order_type}, " \
                f"trade_type={self.trade_type}, " \
                f"price={self.price}, " \
                f"amount={self.amount}, " \
@@ -72,11 +72,11 @@ cdef class InFlightOrderBase:
 
     @property
     def base_asset(self) -> str:
-        return self.market_class.split_symbol(self.symbol)[0]
+        return self.market_class.split_trading_pair(self.trading_pair)[0]
 
     @property
     def quote_asset(self) -> str:
-        return self.market_class.split_symbol(self.symbol)[1]
+        return self.market_class.split_trading_pair(self.trading_pair)[1]
 
     def update_exchange_order_id(self, exchange_id: str):
         self.exchange_order_id = exchange_id
@@ -90,7 +90,7 @@ cdef class InFlightOrderBase:
     def to_limit_order(self) -> LimitOrder:
         return LimitOrder(
             self.client_order_id,
-            self.symbol,
+            self.trading_pair,
             self.trade_type is TradeType.BUY,
             self.base_asset,
             self.quote_asset,
@@ -102,7 +102,7 @@ cdef class InFlightOrderBase:
         return {
             "client_order_id": self.client_order_id,
             "exchange_order_id": self.exchange_order_id,
-            "symbol": self.symbol,
+            "trading_pair": self.trading_pair,
             "order_type": self.order_type.name,
             "trade_type": self.trade_type.name,
             "price": str(self.price),

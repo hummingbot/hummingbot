@@ -8,6 +8,16 @@ Binance is a global cryptocurrency exchange that provides a platform for trading
 
 Because Binance is a centralized exchange, you will need to generate and provide your API key in order to trade using Hummingbot.
 
+```
+Enter your Binance API key >>>
+Enter your Binance secret key >>>
+```
+
+Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
+
+!!! tip "Copying and pasting into Hummingbot"
+    See [this page](/faq/troubleshooting/#paste-items-from-clipboard-in-putty) for more instructions in our Support section.
+
 ### Creating Binance API Keys
 
 1 - Log into your account at https://www.binance.com, then select **Account** (If you do not have an account, you will have to create one and verify your ID).
@@ -30,11 +40,15 @@ Because Binance is a centralized exchange, you will need to generate and provide
 <br />
 5 - Now you have created an API key. Please note that to trade on Binance using Hummingbot, **Enable Trading** must be selected.
 
+!!! warning "API key permissions"
+    We recommend using only **"trade"** enabled API keys; enabling **"withdraw", "transfer", or the equivalent is unnecessary** for current Hummingbot strategies.
+
 ![binance4](/assets/img/binance4.png)
+
 
 Make sure you store your Secret Key somewhere secure, and do not share it with anyone. Your Secret Key will only be displayed once at the time when you create the API.
 
-!!! tip
+!!! warning
     If you lose your Secret Key, you can delete the API and create a new one. However, it will be impossible to reuse the same API.
 
 ## Miscellaneous Info
@@ -43,6 +57,14 @@ Make sure you store your Secret Key somewhere secure, and do not share it with a
 
 See [this page](https://www.binance.com/en/trade-rule) for the minimum order size per trading pair. Typically, the minimum is around $10 equivalent of whichever currency you are trading in.
 
-## Transaction Fees
+### Transaction Fees
 
-By default, trading fees are 0.1% on Binance for both market makers and takers. However, users who trade high volumes and own substantial amounts of Binance Coin can receive discounts. More details can be found [here](https://www.binance.com/en/support/articles/115000429332-Fee-Structure-on-Binance).
+By default, trading fees are 0.1% on Binance for both market makers and takers. However, users who trade high volumes and own substantial amounts of Binance Coin can receive discounts. More details can be found [here](https://www.binance.com/en/support/articles/115000429332-Fee-Structure-on-Binance). 
+
+Users can override the default fees by editing [`conf_fee_overrides.yml`](/advanced/fee-overrides/).
+
+### Sub-Accounts
+
+You can use an API key from a [Binance sub-account](https://medium.com/binanceexchange/binance-introduces-sub-account-support-d7bf2f95e28c) just like you do for a normal Binance account. Please ensure that you use the **sub-account API key** and not the master account API key.
+
+If you are participating in [Liquidity Mining](/liquidity-mining), please also use the **sub-account read-only API key** when you sign up. 

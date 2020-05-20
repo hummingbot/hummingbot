@@ -13,7 +13,6 @@ from hummingsim.backtest.market_config import (
     MarketConfig,
     AssetType
 )
-from hummingsim.backtest.ddex_order_book_loader import DDEXOrderBookLoader
 from hummingbot.core.clock import (
     Clock,
     ClockMode
@@ -31,23 +30,17 @@ def main():
     # Define the parameters for the backtest.
     start = pd.Timestamp("2019-01-01", tz="UTC")
     end = pd.Timestamp("2019-01-02", tz="UTC")
-    binance_symbol = ("ETHUSDT", "ETH", "USDT")
-    #ddex_symbol = ("WETH-DAI", "WETH", "DAI")
+    binance_trading_pair = ("ETHUSDT", "ETH", "USDT")
 
     binance_market = BacktestMarket()
-    ddex_market = BacktestMarket()
     binance_market.config = MarketConfig(AssetType.BASE_CURRENCY, 0.001, AssetType.QUOTE_CURRENCY, 0.001, {})
-    ddex_market.config = MarketConfig(AssetType.BASE_CURRENCY, 0.001, AssetType.QUOTE_CURRENCY, 0.001, {})
-    binance_loader = BinanceOrderBookLoaderV2(*binance_symbol)
-    #ddex_loader = DDEXOrderBookLoader(*ddex_symbol)
+    binance_loader = BinanceOrderBookLoaderV2(*binance_trading_pair)
 
     binance_market.add_data(binance_loader)
-    #ddex_market.add_data(ddex_loader)
 
     binance_market.set_quantization_param(QuantizationParams("ETHUSDT", 5, 3, 5, 3))
-    #ddex_market.set_quantization_param(QuantizationParams("WETH-DAI", 5, 3, 5, 3))
 
-    market_pair = PureMarketPair(*([binance_market] + list(binance_symbol)))
+    market_pair = PureMarketPair(*([binance_market] + list(binance_trading_pair)))
     strategy = PureMarketMakingStrategy([market_pair],
                                         order_size = 50000,
                                         bid_place_threshold = 0.003,
@@ -57,13 +50,10 @@ def main():
     clock = Clock(ClockMode.BACKTEST, tick_size=60,
                   start_time=start.timestamp(), end_time=end.timestamp() )
     clock.add_iterator(binance_market)
-    #clock.add_iterator(ddex_market)
     clock.add_iterator(strategy)
 
     binance_market.set_balance("ETH", 100000.0)
     binance_market.set_balance("USDT", 100000000.0)
-    ddex_market.set_balance("WETH", 100000.0)
-    ddex_market.set_balance("DAI", 1000.0)
 
     current = start.timestamp()
     step = 60
@@ -77,7 +67,7 @@ def main():
 
 
     binance_loader.close()
-    #ddex_loader.close()
+
 
 
 if __name__ == "__main__":

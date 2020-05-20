@@ -5,6 +5,7 @@ import logging
 from os.path import join
 from sqlalchemy import (
     create_engine,
+    inspect,
     MetaData,
 )
 from sqlalchemy.engine.base import Engine
@@ -14,8 +15,9 @@ from sqlalchemy.orm import (
     Session,
     Query
 )
+from sqlalchemy.schema import DropConstraint, ForeignKeyConstraint, Table
 from typing import Optional
-
+from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot import data_path
 from hummingbot.logger.logger import HummingbotLogger
 from . import get_declarative_base
@@ -63,14 +65,64 @@ class SQLConnectionManager:
             cls._scm_trade_fills_instance = SQLConnectionManager(SQLConnectionType.TRADE_FILLS)
         return cls._scm_trade_fills_instance
 
-    def __init__(self, connection_type: SQLConnectionType, db_path: Optional[str] = None):
+    @classmethod
+    def get_db_engine(cls, 
+                      dialect: str, 
+                      params: dict) -> Engine:
+        # Fallback to `sqlite` if dialect is None
+        if dialect is None:
+            dialect = "sqlite"
+
+        if "sqlite" in dialect:
+            db_path = params.get("db_path")
+
+            return create_engine(f"{dialect}:///{db_path}")
+        else:
+            username = params.get("db_username")
+            password = params.get("db_password")
+            host = params.get("db_host")
+            port = params.get("db_port")
+            db_name = params.get("db_name")
+
+            return create_engine(f"{dialect}://{username}:{password}@{host}:{port}/{db_name}")
+
+    def __init__(self,
+                 connection_type: SQLConnectionType,
+                 db_path: Optional[str] = None):
         if db_path is None:
             db_path = join(data_path(), "hummingbot_trades.sqlite")
 
+        engine_options = {
+            "db_engine": global_config_map.get("db_engine").value,
+            "db_host": global_config_map.get("db_host").value,
+            "db_port": global_config_map.get("db_port").value,
+            "db_username": global_config_map.get("db_username").value,
+            "db_password": global_config_map.get("db_password").value,
+            "db_name": global_config_map.get("db_name").value,
+            "db_path": db_path
+        }
+
         if connection_type is SQLConnectionType.TRADE_FILLS:
-            self._engine: Engine = create_engine(f"sqlite:///{db_path}")
+            self._engine: Engine = self.get_db_engine(
+                                                engine_options.get("db_engine"),
+                                                engine_options)
             self._metadata: MetaData = self.get_declarative_base().metadata
             self._metadata.create_all(self._engine)
+
+            # SQLite does not enforce foreign key constraint, but for others engines, we need to drop it. 
+            # See: `hummingbot/market/markets_recorder.py`, at line 213.
+            with self._engine.begin() as conn:
+                inspector = inspect(conn)
+
+                for tname, fkcs in reversed(
+                        inspector.get_sorted_table_and_fkc_names()):
+                    if fkcs:
+                        if not self._engine.dialect.supports_alter:
+                            continue
+                        for fkc in fkcs:
+                            fk_constraint = ForeignKeyConstraint((), (), name=fkc)
+                            Table(tname, MetaData(), fk_constraint)
+                            conn.execute(DropConstraint(fk_constraint))
 
         self._session_cls = sessionmaker(bind=self._engine)
         self._shared_session: Session = self._session_cls()

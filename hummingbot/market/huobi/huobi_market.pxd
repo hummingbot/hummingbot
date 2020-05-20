@@ -6,18 +6,14 @@ from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 
 cdef class HuobiMarket(MarketBase):
     cdef:
-        dict _account_available_balances
-        dict _account_balances
         str _account_id
         object _async_scheduler
         object _data_source_type
         object _ev_loop
         object _huobi_auth
         dict _in_flight_orders
-        double _last_pull_timestamp
+        double _last_poll_timestamp
         double _last_timestamp
-        object _order_book_tracker
-        public object _order_tracker_task
         object _poll_notifier
         double _poll_interval
         object _shared_client
@@ -30,9 +26,8 @@ cdef class HuobiMarket(MarketBase):
     cdef c_start_tracking_order(self,
                                 str client_order_id,
                                 str exchange_order_id,
-                                str symbol,
+                                str trading_pair,
                                 object order_type,
                                 object trade_type,
                                 object price,
                                 object amount)
-    cdef c_stop_tracking_order(self, str order_id)

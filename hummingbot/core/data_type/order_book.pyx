@@ -1,18 +1,16 @@
 # distutils: language=c++
 # distutils: sources=hummingbot/core/cpp/OrderBookEntry.cpp
-
-import bisect
-import logging
-
-from cython.operator cimport (
+from cython.operator cimport(
     postincrement as inc,
     dereference as deref,
     address as ref
 )
-from aiokafka import ConsumerRecord
-import pandas as pd
-import numpy as np
-cimport numpy as np
+from hummingbot.core.data_type.OrderBookEntry cimport truncateOverlapEntries
+from hummingbot.logger import HummingbotLogger
+from hummingbot.core.event.events import (
+    OrderBookEvent,
+    OrderBookTradeEvent
+)
 from typing import (
     List,
     Iterator,
@@ -20,20 +18,19 @@ from typing import (
     Optional,
     Dict
 )
-
-from sqlalchemy.engine import RowProxy
-from hummingbot.core.data_type.OrderBookEntry cimport truncateOverlapEntries
-from hummingbot.core.event.events import (
-    OrderBookEvent,
-    OrderBookTradeEvent
-)
-from hummingbot.logger import HummingbotLogger
+from aiokafka import ConsumerRecord
+import pandas as pd
+import numpy as np
 from .order_book_message import OrderBookMessage
 from .order_book_row import OrderBookRow
 from .order_book_query_result import OrderBookQueryResult
-
+from sqlalchemy.engine import RowProxy
+import bisect
+import logging
+cimport numpy as np
 ob_logger = None
 NaN = float("nan")
+
 
 cdef class OrderBook(PubSub):
     ORDER_BOOK_TRADE_EVENT_TAG = OrderBookEvent.TradeEvent.value
@@ -45,11 +42,12 @@ cdef class OrderBook(PubSub):
             ob_logger = logging.getLogger(__name__)
         return ob_logger
 
-    def __init__(self):
+    def __init__(self, dex=False):
         super().__init__()
         self._snapshot_uid = 0
         self._last_diff_uid = 0
         self._best_bid = self._best_ask = float("NaN")
+        self._dex = dex
 
     cdef c_apply_diffs(self, vector[OrderBookEntry] bids, vector[OrderBookEntry] asks, int64_t update_id):
         cdef:
@@ -75,8 +73,8 @@ cdef class OrderBook(PubSub):
             if ask.getAmount() > 0:
                 self._ask_book.insert(ask)
 
-        # If there's any overlapping entries between the bid and ask books, the newer entries win.
-        truncateOverlapEntries(self._bid_book, self._ask_book)
+        # If any overlapping entries between the bid and ask books, centralised: newer entries win, dex: see OrderBookEntry.cpp
+        truncateOverlapEntries(self._bid_book, self._ask_book, self._dex)
 
         # Record the current best prices, for faster c_get_price() calls.
         bid_iterator = self._bid_book.rbegin()
@@ -95,6 +93,10 @@ cdef class OrderBook(PubSub):
         cdef:
             double best_bid_price = float("NaN")
             double best_ask_price = float("NaN")
+            set[OrderBookEntry].reverse_iterator bid_iterator
+            set[OrderBookEntry].iterator ask_iterator
+            OrderBookEntry top_bid
+            OrderBookEntry top_ask
 
         # Start with an empty order book, and then insert all entries.
         self._bid_book.clear()
@@ -107,6 +109,18 @@ cdef class OrderBook(PubSub):
             self._ask_book.insert(ask)
             if not (ask.getPrice() >= best_ask_price):
                 best_ask_price = ask.getPrice()
+
+        if self._dex:
+            truncateOverlapEntries(self._bid_book, self._ask_book, self._dex)
+            # Record the current best prices, for faster c_get_price() calls.
+            bid_iterator = self._bid_book.rbegin()
+            ask_iterator = self._ask_book.begin()
+            if bid_iterator != self._bid_book.rend():
+                top_bid = deref(bid_iterator)
+                best_bid_price = top_bid.getPrice()
+            if ask_iterator != self._ask_book.end():
+                top_ask = deref(ask_iterator)
+                best_ask_price = top_ask.getPrice()
 
         # Record the current best prices, for faster c_get_price() calls.
         self._best_bid = best_bid_price
@@ -297,18 +311,17 @@ cdef class OrderBook(PubSub):
 
     cdef OrderBookQueryResult c_get_vwap_for_volume(self, bint is_buy, double volume):
         cdef:
-            double total_cost  = 0
+            double total_cost = 0
             double total_volume = 0
             double result_vwap = NaN
-
         if is_buy:
             for order_book_row in self.ask_entries():
                 total_cost += order_book_row.amount * order_book_row.price
                 total_volume += order_book_row.amount
                 if total_volume >= volume:
-                    incremental_amount = total_volume - volume
                     total_cost -= order_book_row.amount * order_book_row.price
                     total_volume -= order_book_row.amount
+                    incremental_amount = volume - total_volume
                     total_cost += incremental_amount * order_book_row.price
                     total_volume += incremental_amount
                     result_vwap = total_cost / total_volume
@@ -318,9 +331,9 @@ cdef class OrderBook(PubSub):
                 total_cost += order_book_row.amount * order_book_row.price
                 total_volume += order_book_row.amount
                 if total_volume >= volume:
-                    incremental_amount = total_volume - volume
                     total_cost -= order_book_row.amount * order_book_row.price
                     total_volume -= order_book_row.amount
+                    incremental_amount = volume - total_volume
                     total_cost += incremental_amount * order_book_row.price
                     total_volume += incremental_amount
                     result_vwap = total_cost / total_volume
@@ -434,19 +447,19 @@ cdef class OrderBook(PubSub):
         return self.c_get_quote_volume_for_price(is_buy, price)
 
     @classmethod
-    def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict]=None) -> OrderBookMessage:
+    def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
         pass
 
     @classmethod
-    def diff_message_from_db(cls, record: RowProxy, metadata: Optional[Dict]=None) -> OrderBookMessage:
+    def diff_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
         pass
 
     @classmethod
-    def snapshot_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict]=None) -> OrderBookMessage:
+    def snapshot_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:
         pass
 
     @classmethod
-    def diff_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict]=None) -> OrderBookMessage:
+    def diff_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:
         pass
 
     @classmethod
@@ -459,4 +472,3 @@ cdef class OrderBook(PubSub):
         self.apply_snapshot(snapshot.bids, snapshot.asks, snapshot.update_id)
         for diff in replay_diffs:
             self.apply_diffs(diff.bids, diff.asks, diff.update_id)
-

@@ -13,6 +13,7 @@ cdef class OrderTracker(TimeIterator):
         dict _shadow_order_id_to_market_pair
         object _shadow_gc_requests
         object _in_flight_cancels
+        object _in_flight_pending_created
 
     cdef dict c_get_maker_orders(self)
     cdef dict c_get_taker_orders(self)
@@ -30,3 +31,5 @@ cdef class OrderTracker(TimeIterator):
     cdef c_start_tracking_market_order(self, object market_pair, str order_id, bint is_buy, object quantity)
     cdef c_stop_tracking_market_order(self, object market_pair, str order_id)
     cdef c_check_and_cleanup_shadow_records(self)
+    cdef c_add_create_order_pending(self, str order_id)
+    cdef c_remove_create_order_pending(self, str order_id)

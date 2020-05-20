@@ -1,0 +1,79 @@
+#!/usr/bin/env python
+
+import logging
+import os
+from os.path import (
+    realpath,
+    join,
+    exists
+)
+import platform
+import shutil
+from subprocess import (
+    check_call,
+    check_output
+)
+from typing import (
+    List,
+    Optional,
+)
+import sys
+
+
+def project_dir() -> str:
+    return realpath(join(__file__, "../../"))
+
+
+def generate_app_bundle():
+    template_bundle_path: str = join(project_dir(), "pyinstaller", "Hummingbot.app.template")
+    dst_bundle_path: str = join(project_dir(), "dist", "Hummingbot.app")
+    src_binary_path: str = join(project_dir(), "dist", "bot")
+    dst_binary_path: str = join(dst_bundle_path, "Contents", "Resources", "hummingbot")
+    logging.info("Generating Hummingbot.app bundle...")
+    shutil.copytree(template_bundle_path, dst_bundle_path)
+    shutil.copytree(src_binary_path, dst_binary_path)
+
+
+def main():
+    system_type: str = platform.system()
+
+    try:
+        check_call([join(project_dir(), "compile")], shell=True, cwd=project_dir())
+        if system_type == "Windows":
+            check_call([join(project_dir(), "compile")], shell=True, cwd=project_dir())
+    except Exception:
+        print("Error: compile failed.", file=sys.stderr)
+        sys.exit(1)
+
+    shutil.move(join(project_dir(), "bin", "hummingbot.py"), join(project_dir(), "bin", "bot"))
+
+    try:
+        spec_file_path: str = join(project_dir(), "pyinstaller", "bot.spec")
+        path_cmd: str = "which pyinstaller"
+        if system_type == "Windows":
+            path_cmd = "where pyinstaller"
+        pyinstaller_path: str = check_output(path_cmd, shell=True).decode("utf8").strip()
+        check_call([pyinstaller_path, "-y", spec_file_path], cwd=project_dir())
+    finally:
+        shutil.move(join(project_dir(), "bin", "bot"), join(project_dir(), "bin", "hummingbot.py"))
+
+    if system_type == "Darwin":
+        generate_app_bundle()
+    elif system_type == "Windows":
+        search_paths: List[str] = [f"{program_files}\\NSIS\\makensisw.exe" for program_files in
+                                   [os.environ["ProgramFiles"], os.environ["ProgramFiles(x86)"]]]
+        nsis_compiler: Optional[str] = None
+        for path in search_paths:
+            if exists(path):
+                nsis_compiler = path
+                break
+        if nsis_compiler is None:
+            print("Error: NSIS compiler not found.", file=sys.stderr)
+            sys.exit(1)
+        check_call([nsis_compiler, join(project_dir(), "pyinstaller/windows_installer.nsi")], cwd=project_dir())
+
+    logging.info("Done!")
+
+
+if __name__ == "__main__":
+    main()

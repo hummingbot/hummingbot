@@ -4,6 +4,7 @@ from typing import Optional
 import aiohttp
 
 from hummingbot.core.network_base import NetworkBase, NetworkStatus
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 
 
@@ -69,7 +70,7 @@ class LogServerClient(NetworkBase):
                 await asyncio.sleep(5.0)
 
     async def start_network(self):
-        self.consume_queue_task = asyncio.ensure_future(self.request_loop())
+        self.consume_queue_task = safe_ensure_future(self.request_loop())
 
     async def stop_network(self):
         if self.consume_queue_task is not None:
