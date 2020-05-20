@@ -1,4 +1,9 @@
-# Advanced Database Configuration <sup>(BETA)</sup>
+# Advanced Database Configuration
+
+**Updated in v0.27.0**
+
+!!! warning
+    This is a recently released experimental feature. Running any trading bots without manual supervision may incur additional risks. It is imperative that you thoroughly understand and test the strategy and parameters before deploying bots that can trade in an unattended manner.
 
 Hummingbot uses SQLite for database by default, but it may be limiting for some cases such as sharing data to external system, in some cases user may want to use their own preferred client/server RDBMS for it.
 

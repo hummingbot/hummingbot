@@ -1,6 +1,10 @@
 from prompt_toolkit.shortcuts import input_dialog, message_dialog
 from prompt_toolkit.styles import Style
+from os.path import join, realpath, dirname
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
+with open(realpath(join(dirname(__file__), '../../VERSION'))) as version_file:
+    version = version_file.read().strip()
 
 dialog_style = Style.from_dict({
     'dialog': 'bg:#171E2B',
@@ -26,11 +30,11 @@ def show_welcome():
 
     =======================================================================================
 
-    Version:  [version number]
+    Version: {version}
     Codebase: https://github.com/coinalpha/hummingbot
 
 
-        """,
+        """.format(version=version),
         style=dialog_style).run()
     message_dialog(
         title='Important Warning',
