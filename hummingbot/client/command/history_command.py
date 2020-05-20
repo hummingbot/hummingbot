@@ -12,7 +12,7 @@ from typing import (
     TYPE_CHECKING,
     List
 )
-from hummingbot.client.performance_analysis import PerformanceAnalysis
+from hummingbot.client.performance_analysis import calculate_trade_performance
 from hummingbot.market.market_base import MarketBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from datetime import datetime
@@ -87,8 +87,7 @@ class HistoryCommand:
                                      ) -> Tuple[Dict, Dict]:
         raw_queried_trades = self._get_trades_from_session(self.init_time)
         current_strategy_name: str = self.markets_recorder.strategy_name
-        performance_analysis: PerformanceAnalysis = PerformanceAnalysis()
-        trade_performance_stats, market_trading_pair_stats = performance_analysis.calculate_trade_performance(
+        trade_performance_stats, market_trading_pair_stats = calculate_trade_performance(
             current_strategy_name,
             self.market_trading_pair_tuples,
             raw_queried_trades,
