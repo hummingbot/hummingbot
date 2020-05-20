@@ -6,12 +6,20 @@ from typing import Dict
 
 
 class CoinbaseProAuth:
+    """
+    Auth class required by Coinbase Pro API
+    Learn more at https://docs.pro.coinbase.com/?python#signing-a-message
+    """
     def __init__(self, api_key: str, secret_key: str, passphrase: str):
         self.api_key = api_key
         self.secret_key = secret_key
         self.passphrase = passphrase
 
     def generate_auth_dict(self, method: str, path_url: str, body: str = "") -> Dict[str, any]:
+        """
+        Generates authentication signature and return it in a dictionary along with other inputs
+        :return: a dictionary of request info including the request signature
+        """
         timestamp = str(time.time())
         message = timestamp + method.upper() + path_url + body
         hmac_key = base64.b64decode(self.secret_key)
@@ -26,6 +34,13 @@ class CoinbaseProAuth:
         }
 
     def get_headers(self, method: str, path_url: str, body: str = "") -> Dict[str, any]:
+        """
+        Generates authentication headers required by coinbasse
+        :param method: GET / POST / etc.
+        :param path_url: e.g. "/accounts"
+        :param body: request payload
+        :return: a dictionary of auth headers
+        """
         header_dict = self.generate_auth_dict(method, path_url, body)
         return {
             "CB-ACCESS-SIGN": header_dict["signature"],

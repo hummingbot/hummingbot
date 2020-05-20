@@ -1,15 +1,9 @@
 #!/usr/bin/env python
 
 import asyncio
-from collections import (
-    deque,
-    defaultdict
-)
 import logging
 import time
 from typing import (
-    Deque,
-    Dict,
     List,
     Optional
 )
@@ -39,50 +33,30 @@ class HuobiOrderBookTracker(OrderBookTracker):
 
     def __init__(self,
                  data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
-                 symbols: Optional[List[str]] = None):
+                 trading_pairs: Optional[List[str]] = None):
         super().__init__(data_source_type=data_source_type)
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[OrderBookTrackerDataSource] = None
-        self._saved_message_queues: Dict[str, Deque[OrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
-        self._symbols: Optional[List[str]] = symbols
+        self._trading_pairs: Optional[List[str]] = trading_pairs
 
     @property
-    async def exchange_name(self) -> str:
+    def exchange_name(self) -> str:
         return "huobi"
 
     @property
     def data_source(self) -> OrderBookTrackerDataSource:
         if not self._data_source:
             if self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = HuobiAPIOrderBookDataSource(symbols=self._symbols)
+                self._data_source = HuobiAPIOrderBookDataSource(trading_pairs=self._trading_pairs)
             else:
                 raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
         return self._data_source
 
-    async def start(self):
-        self._order_book_diff_listener_task = asyncio.ensure_future(
-            self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
-        )
-        self._order_book_snapshot_listener_task = asyncio.ensure_future(
-            self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
-        )
-        self._refresh_tracking_task = asyncio.ensure_future(
-            self._refresh_tracking_loop()
-        )
-        self._order_book_diff_router_task = asyncio.ensure_future(
-            self._order_book_diff_router()
-        )
-        self._order_book_snapshot_router_task = asyncio.ensure_future(
-            self._order_book_snapshot_router()
-        )
-
-        await asyncio.gather(self._order_book_snapshot_listener_task,
-                             self._order_book_diff_listener_task,
-                             self._order_book_snapshot_router_task,
-                             self._order_book_diff_router_task,
-                             self._refresh_tracking_task)
+    @data_source.setter
+    def data_source(self, data_source):
+        self._data_source = data_source
 
     async def _order_book_diff_router(self):
         """
@@ -96,16 +70,13 @@ class HuobiOrderBookTracker(OrderBookTracker):
         while True:
             try:
                 ob_message: OrderBookMessage = await self._order_book_diff_stream.get()
-                symbol: str = ob_message.symbol
+                trading_pair: str = ob_message.trading_pair
 
-                if symbol not in self._tracking_message_queues:
-                    messages_queued += 1
-                    # Save diff messages received before snapshots are ready
-                    self._saved_message_queues[symbol].append(ob_message)
+                if trading_pair not in self._tracking_message_queues:
                     continue
-                message_queue: asyncio.Queue = self._tracking_message_queues[symbol]
+                message_queue: asyncio.Queue = self._tracking_message_queues[trading_pair]
                 # Check the order book's initial update ID. If it's larger, don't bother.
-                order_book: OrderBook = self._order_books[symbol]
+                order_book: OrderBook = self._order_books[trading_pair]
 
                 if order_book.snapshot_uid > ob_message.update_id:
                     messages_rejected += 1
@@ -135,49 +106,35 @@ class HuobiOrderBookTracker(OrderBookTracker):
                 )
                 await asyncio.sleep(5.0)
 
-    async def _track_single_book(self, symbol: str):
-        past_diffs_window: Deque[OrderBookMessage] = deque()
-        self._past_diffs_windows[symbol] = past_diffs_window
-
-        message_queue: asyncio.Queue = self._tracking_message_queues[symbol]
-        order_book: OrderBook = self._order_books[symbol]
+    async def _track_single_book(self, trading_pair: str):
+        message_queue: asyncio.Queue = self._tracking_message_queues[trading_pair]
+        order_book: OrderBook = self._order_books[trading_pair]
         last_message_timestamp: float = time.time()
         diff_messages_accepted: int = 0
 
         while True:
             try:
-                message: OrderBookMessage = None
-                saved_messages: Deque[OrderBookMessage] = self._saved_message_queues[symbol]
-
-                # Process saved messages first if there are any
-                if len(saved_messages) > 0:
-                    message = saved_messages.popleft()
-                else:
-                    message = await message_queue.get()
-
+                message: OrderBookMessage = await message_queue.get()
                 if message.type is OrderBookMessageType.DIFF:
-                    order_book.apply_diffs(message.bids, message.asks, message.update_id)
-                    past_diffs_window.append(message)
-                    while len(past_diffs_window) > self.PAST_DIFF_WINDOW_SIZE:
-                        past_diffs_window.popleft()
+                    # Huobi websocket messages contain the entire order book state so they should be treated as snapshots
+                    order_book.apply_snapshot(message.bids, message.asks, message.update_id)
                     diff_messages_accepted += 1
 
                     # Output some statistics periodically.
                     now: float = time.time()
                     if int(now / 60.0) > int(last_message_timestamp / 60.0):
                         self.logger().debug("Processed %d order book diffs for %s.",
-                                            diff_messages_accepted, symbol)
+                                            diff_messages_accepted, trading_pair)
                         diff_messages_accepted = 0
                     last_message_timestamp = now
                 elif message.type is OrderBookMessageType.SNAPSHOT:
-                    past_diffs: List[OrderBookMessage] = list(past_diffs_window)
-                    order_book.restore_from_snapshot_and_diffs(message, past_diffs)
-                    self.logger().debug("Processed order book snapshot for %s.", symbol)
+                    order_book.apply_snapshot(message.bids, message.asks, message.update_id)
+                    self.logger().debug("Processed order book snapshot for %s.", trading_pair)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().network(
-                    f"Unexpected error tracking order book for {symbol}.",
+                    f"Unexpected error tracking order book for {trading_pair}.",
                     exc_info=True,
                     app_warning_msg=f"Unexpected error tracking order book. Retrying after 5 seconds."
                 )

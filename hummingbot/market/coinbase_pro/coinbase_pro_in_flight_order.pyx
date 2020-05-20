@@ -17,7 +17,7 @@ cdef class CoinbaseProInFlightOrder(InFlightOrderBase):
     def __init__(self,
                  client_order_id: str,
                  exchange_order_id: Optional[str],
-                 symbol: str,
+                 trading_pair: str,
                  order_type: OrderType,
                  trade_type: TradeType,
                  price: Decimal,
@@ -27,7 +27,7 @@ cdef class CoinbaseProInFlightOrder(InFlightOrderBase):
             CoinbaseProMarket,
             client_order_id,
             exchange_order_id,
-            symbol,
+            trading_pair,
             order_type,
             trade_type,
             price,
@@ -37,7 +37,7 @@ cdef class CoinbaseProInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"filled", "canceled" "done"}
+        return self.last_state in {"filled", "canceled", "done"}
 
     @property
     def is_failure(self) -> bool:
@@ -50,17 +50,24 @@ cdef class CoinbaseProInFlightOrder(InFlightOrderBase):
 
     @property
     def order_type_description(self) -> str:
+        """
+        :return: Order description string . One of ["limit buy" / "limit sell" / "market buy" / "market sell"]
+        """
         order_type = "market" if self.order_type is OrderType.MARKET else "limit"
         side = "buy" if self.trade_type == TradeType.BUY else "sell"
         return f"{order_type} {side}"
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
+        """
+        :param data: json data from API
+        :return: formatted InFlightOrder
+        """
         cdef:
             CoinbaseProInFlightOrder retval = CoinbaseProInFlightOrder(
                 data["client_order_id"],
                 data["exchange_order_id"],
-                data["symbol"],
+                data["trading_pair"],
                 getattr(OrderType, data["order_type"]),
                 getattr(TradeType, data["trade_type"]),
                 Decimal(data["price"]),

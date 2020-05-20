@@ -31,15 +31,15 @@ def main():
     # Define the parameters for the backtest.
     start = pd.Timestamp("2018-12-12", tz="UTC")
     end = pd.Timestamp("2019-01-12", tz="UTC")
-    binance_symbol = ("ETHUSDT", "ETH", "USDT")
-    ddex_symbol = ("WETH-DAI", "WETH", "DAI")
+    binance_trading_pair = ("ETHUSDT", "ETH", "USDT")
+    ddex_trading_pair = ("WETH-DAI", "WETH", "DAI")
 
     binance_market = BacktestMarket()
     ddex_market = BacktestMarket()
     binance_market.config = MarketConfig(AssetType.BASE_CURRENCY, 0.001, AssetType.QUOTE_CURRENCY, 0.001, {})
     ddex_market.config = MarketConfig(AssetType.BASE_CURRENCY, 0.001, AssetType.QUOTE_CURRENCY, 0.001, {})
-    binance_loader = BinanceOrderBookLoaderV2(*binance_symbol)
-    ddex_loader = DDEXOrderBookLoader(*ddex_symbol)
+    binance_loader = BinanceOrderBookLoaderV2(*binance_trading_pair)
+    ddex_loader = DDEXOrderBookLoader(*ddex_trading_pair)
 
     binance_market.add_data(binance_loader)
     ddex_market.add_data(ddex_loader)
@@ -48,7 +48,7 @@ def main():
     ddex_market.set_quantization_param(QuantizationParams("WETH-DAI", 5, 3, 5, 3))
 
     market_pair = CrossExchangeMarketPair(*(
-            [ddex_market] + list(ddex_symbol) + [binance_market] + list(binance_symbol)))
+            [ddex_market] + list(ddex_trading_pair) + [binance_market] + list(binance_trading_pair)))
     strategy = CrossExchangeMarketMakingStrategy([market_pair], 0.003,
                                                  logging_options=
                                                  CrossExchangeMarketMakingStrategy.OPTION_LOG_MAKER_ORDER_FILLED)

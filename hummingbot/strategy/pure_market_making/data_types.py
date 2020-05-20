@@ -1,14 +1,10 @@
 #!/usr/bin/env python
-
 from typing import (
     NamedTuple,
     List
 )
-
 from decimal import Decimal
-
 from hummingbot.core.event.events import OrderType
-from hummingbot.market.market_base import MarketBase
 
 ORDER_PROPOSAL_ACTION_CREATE_ORDERS = 1
 ORDER_PROPOSAL_ACTION_CANCEL_ORDERS = 1 << 1
@@ -33,3 +29,8 @@ class PricingProposal(NamedTuple):
 class SizingProposal(NamedTuple):
     buy_order_sizes: List[Decimal]
     sell_order_sizes: List[Decimal]
+
+
+class InventorySkewBidAskRatios(NamedTuple):
+    bid_ratio: float
+    ask_ratio: float

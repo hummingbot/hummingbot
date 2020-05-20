@@ -1,4 +1,3 @@
-import aiohttp
 import asyncio
 import logging
 from typing import (
@@ -7,6 +6,7 @@ from typing import (
 )
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.logger import HummingbotLogger
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class CoinCapDataFeed(DataFeedBase):
@@ -70,15 +70,15 @@ class CoinCapDataFeed(DataFeedBase):
             async with client.request("GET", f"{self.COIN_CAP_BASE_URL}/assets") as resp:
                 rates_dict = await resp.json()
                 for rate_obj in rates_dict["data"]:
-                    symbol = rate_obj["symbol"].upper()
-                    self._price_dict[symbol] = float(rate_obj["priceUsd"])
+                    asset = rate_obj["symbol"].upper()
+                    self._price_dict[asset] = float(rate_obj["priceUsd"])
 
             # coincap does not include all coins in assets
             async with client.request("GET", f"{self.COIN_CAP_BASE_URL}/rates") as resp:
                 rates_dict = await resp.json()
                 for rate_obj in rates_dict["data"]:
-                    symbol = rate_obj["symbol"].upper()
-                    self._price_dict[symbol] = float(rate_obj["rateUsd"])
+                    asset = rate_obj["symbol"].upper()
+                    self._price_dict[asset] = float(rate_obj["rateUsd"])
 
             # CoinCap does not have a separate feed for WETH
             self._price_dict["WETH"] = self._price_dict["ETH"]
@@ -88,7 +88,7 @@ class CoinCapDataFeed(DataFeedBase):
 
     async def start_network(self):
         await self.stop_network()
-        self._fetch_price_task = asyncio.ensure_future(self.fetch_price_loop())
+        self._fetch_price_task = safe_ensure_future(self.fetch_price_loop())
 
     async def stop_network(self):
         if self._fetch_price_task is not None:

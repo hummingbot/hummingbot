@@ -25,11 +25,15 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.wallet.ethereum.erc20_token import ERC20Token
 from hummingbot.core.event.event_forwarder import EventForwarder
+from hummingbot.core.utils.async_utils import (
+    safe_ensure_future,
+    safe_gather,
+)
 from .base_watcher import BaseWatcher
 from .new_blocks_watcher import NewBlocksWatcher
 from .contract_event_logs import ContractEventLogger
 
-weth_dai_symbols: Set[str] = {"WETH", "DAI"}
+weth_sai_symbols: Set[str] = {"WETH", "SAI"}
 TRANSFER_EVENT_NAME = "Transfer"
 APPROVAL_EVENT_NAME = "Approval"
 
@@ -44,9 +48,9 @@ class ERC20EventsWatcher(BaseWatcher):
         return cls._w2ew_logger
 
     @staticmethod
-    def is_weth_dai(symbol: str) -> bool:
-        global weth_dai_symbols
-        return symbol in weth_dai_symbols
+    def is_weth_sai(symbol: str) -> bool:
+        global weth_sai_symbols
+        return symbol in weth_sai_symbols
 
     def __init__(self,
                  w3: Web3,
@@ -75,8 +79,16 @@ class ERC20EventsWatcher(BaseWatcher):
         if len(self._address_to_asset_name_map) < len(self._addresses_to_contracts):
             for address, contract in self._addresses_to_contracts.items():
                 contract: Contract = contract
-                asset_name: str = await self.call_async(ERC20Token.get_symbol_from_contract, contract)
-                decimals: int = await self.call_async(contract.functions.decimals().call)
+                try:
+                    asset_name: str = await self.call_async(ERC20Token.get_symbol_from_contract, contract)
+                    decimals: int = await self.call_async(contract.functions.decimals().call)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    self.logger().network("Error fetching ERC20 token information.",
+                                          app_warning_msg="Could not fetch ERC20 token information. Check Ethereum "
+                                                          "node connection.",
+                                          exc_info=True)
                 self._address_to_asset_name_map[address] = asset_name
                 self._asset_decimals[asset_name] = decimals
                 self._contract_event_loggers[address] = ContractEventLogger(self._w3, address, contract.abi)
@@ -85,7 +97,7 @@ class ERC20EventsWatcher(BaseWatcher):
             await self.stop_network()
 
         self._blocks_watcher.add_listener(NewBlocksWatcherEvent.NewBlocks, self._event_forwarder)
-        self._poll_erc20_logs_task = asyncio.ensure_future(self.poll_erc20_logs_loop())
+        self._poll_erc20_logs_task = safe_ensure_future(self.poll_erc20_logs_loop())
 
     async def stop_network(self):
 
@@ -101,7 +113,6 @@ class ERC20EventsWatcher(BaseWatcher):
         while True:
             try:
                 new_blocks: List[AttributeDict] = await self._new_blocks_queue.get()
-                block_hashes: List[HexBytes] = [block["hash"] for block in new_blocks]
 
                 transfer_tasks = []
                 approval_tasks = []
@@ -109,15 +120,15 @@ class ERC20EventsWatcher(BaseWatcher):
                     contract_event_logger: ContractEventLogger = self._contract_event_loggers[address]
                     transfer_tasks.append(
                         contract_event_logger.get_new_entries_from_logs(TRANSFER_EVENT_NAME,
-                                                                        block_hashes)
+                                                                        new_blocks)
                     )
                     approval_tasks.append(
                         contract_event_logger.get_new_entries_from_logs(APPROVAL_EVENT_NAME,
-                                                                        block_hashes)
+                                                                        new_blocks)
                     )
 
-                raw_transfer_entries = await asyncio.gather(*transfer_tasks)
-                raw_approval_entries = await asyncio.gather(*approval_tasks)
+                raw_transfer_entries = await safe_gather(*transfer_tasks)
+                raw_approval_entries = await safe_gather(*approval_tasks)
                 transfer_entries = list(cytoolz.concat(raw_transfer_entries))
                 approval_entries = list(cytoolz.concat(raw_approval_entries))
                 for transfer_entry in transfer_entries:
@@ -150,10 +161,10 @@ class ERC20EventsWatcher(BaseWatcher):
     def handle_incoming_tokens_event(self,
                                      timestamp: float, tx_hash: str, asset_name: str, event_data: AttributeDict):
         event_args: AttributeDict = event_data["args"]
-        is_weth_dai: bool = self.is_weth_dai(asset_name)
+        is_weth_sai: bool = self.is_weth_sai(asset_name)
         decimals: int = self._asset_decimals[asset_name]
 
-        if is_weth_dai and hasattr(event_args, 'wad'):
+        if is_weth_sai and hasattr(event_args, "wad"):
             raw_amount: int = event_args.wad
             normalized_amount: float = raw_amount * math.pow(10, -decimals)
             from_address: str = event_args.src
@@ -174,16 +185,22 @@ class ERC20EventsWatcher(BaseWatcher):
 
     def handle_approve_tokens_event(self, timestamp: float, tx_hash: str, asset_name: str, event_data: AttributeDict):
         event_args: AttributeDict = event_data["args"]
-        is_weth_dai: bool = self.is_weth_dai(asset_name)
-        raw_amount: int = event_args.value if not is_weth_dai else event_args.wad
+        is_weth_sai: bool = self.is_weth_sai(asset_name)
         decimals: int = self._asset_decimals[asset_name]
-        normalized_amount: float = raw_amount * math.pow(10, -decimals)
-        owner_address: str = event_args["owner"] if not is_weth_dai else event_args.src
-        spender_address: str = event_args["spender"] if not is_weth_dai else event_args.guy
+
+        if is_weth_sai and hasattr(event_args, "wad"):
+            raw_amount: int = event_args.wad
+            owner_address: str = event_args.src
+            spender_address: str = event_args.guy
+        else:
+            raw_amount: int = event_args["value"]
+            owner_address: str = event_args["owner"]
+            spender_address: str = event_args["spender"]
 
         if owner_address not in self._watch_addresses:
             return
 
+        normalized_amount: float = raw_amount * math.pow(10, -decimals)
         self.trigger_event(ERC20WatcherEvent.ApprovedToken,
                            TokenApprovedEvent(timestamp, tx_hash,
                                               owner_address, spender_address,

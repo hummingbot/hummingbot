@@ -2,8 +2,8 @@
 
 import asyncio
 from hexbytes import HexBytes
+from decimal import Decimal
 import logging
-import math
 from typing import (
     List,
     Dict,
@@ -23,6 +23,7 @@ from hummingbot.core.event.events import (
     WalletEvent
 )
 from hummingbot.core.event.event_forwarder import EventForwarder
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from .base_watcher import BaseWatcher
 from .new_blocks_watcher import NewBlocksWatcher
 from .contract_event_logs import ContractEventLogger
@@ -60,7 +61,7 @@ class WethWatcher(BaseWatcher):
         if self._poll_weth_logs_task is not None:
             await self.stop_network()
         self._blocks_watcher.add_listener(NewBlocksWatcherEvent.NewBlocks, self._event_forwarder)
-        self._poll_weth_logs_task = asyncio.ensure_future(self.poll_weth_logs_loop())
+        self._poll_weth_logs_task = safe_ensure_future(self.poll_weth_logs_loop())
 
     async def stop_network(self):
         if self._poll_weth_logs_task is not None:
@@ -75,16 +76,15 @@ class WethWatcher(BaseWatcher):
         while True:
             try:
                 new_blocks: List[AttributeDict] = await self._new_blocks_queue.get()
-                block_hashes: List[HexBytes] = [block["hash"] for block in new_blocks]
 
                 deposit_entries = await self._contract_event_logger.get_new_entries_from_logs(
                     DEPOSIT_EVENT_NAME,
-                    block_hashes
+                    new_blocks
                 )
 
                 withdrawal_entries = await self._contract_event_logger.get_new_entries_from_logs(
                     WITHDRAWAL_EVENT_NAME,
-                    block_hashes
+                    new_blocks
                 )
                 for deposit_entry in deposit_entries:
                     await self._handle_event_data(deposit_entry)
@@ -99,7 +99,7 @@ class WethWatcher(BaseWatcher):
                 self.logger().network(f"Unknown error trying to fetch new events from WETH contract.", exc_info=True,
                                       app_warning_msg=f"Unknown error trying to fetch new events from WETH contract. "
                                                       f"Check wallet network connection")
-    
+
     async def _handle_event_data(self, event_data: AttributeDict):
         event_type: str = event_data["event"]
         timestamp: float = float(await self._blocks_watcher.get_timestamp_for_block(event_data["blockHash"]))
@@ -117,7 +117,7 @@ class WethWatcher(BaseWatcher):
         if event_args["dst"] not in self._watch_addresses:
             return
         raw_amount: int = event_args["wad"]
-        normalized_amount: float = raw_amount * math.pow(10, -18)
+        normalized_amount: Decimal = Decimal(raw_amount) * Decimal("1e-18")
         address: str = event_args["dst"]
 
         self.trigger_event(WalletEvent.WrappedEth,
@@ -129,7 +129,7 @@ class WethWatcher(BaseWatcher):
         if event_args["src"] not in self._watch_addresses:
             return
         raw_amount: int = event_args["wad"]
-        normalized_amount: float = raw_amount * math.pow(10, -18)
+        normalized_amount: Decimal = Decimal(raw_amount) * Decimal("1e-18")
         address: str = event_args["src"]
 
         self.trigger_event(WalletEvent.UnwrappedEth,

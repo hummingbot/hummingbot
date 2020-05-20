@@ -12,8 +12,8 @@ from hummingbot.core.event.events import (
 )
 
 
-class Trade(namedtuple("_Trade", "symbol, side, price, amount, order_type, market, timestamp, trade_fee")):
-    symbol: str
+class Trade(namedtuple("_Trade", "trading_pair, side, price, amount, order_type, market, timestamp, trade_fee")):
+    trading_pair: str
     side: TradeType
     price: float
     amount: float
@@ -24,7 +24,7 @@ class Trade(namedtuple("_Trade", "symbol, side, price, amount, order_type, marke
 
     @classmethod
     def to_pandas(cls, trades: List):
-        columns: List[str] = ["symbol",
+        columns: List[str] = ["trading_pair",
                               "price",
                               "quantity",
                               "order_type",
@@ -42,7 +42,7 @@ class Trade(namedtuple("_Trade", "symbol, side, price, amount, order_type, marke
                 flat_fee_str = ",".join(fee_strs)
 
             data.append([
-                trade.symbol,
+                trade.trading_pair,
                 trade.price,
                 trade.amount,
                 "market" if trade.order_type is OrderType.MARKET else "limit",

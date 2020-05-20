@@ -2,8 +2,7 @@
 
 from typing import NamedTuple
 
-from hummingbot.market.market_base import MarketBase
-from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
 class CrossExchangeMarketPair(NamedTuple):
@@ -14,6 +13,5 @@ class CrossExchangeMarketPair(NamedTuple):
          CrossExchangeMarketPair(ddex, "WETH-DAI", "WETH", "DAI",
                           binance, "ETHUSDT", "ETH", "USDT")
     """
-    maker: MarketSymbolPair
-    taker: MarketSymbolPair
-    top_depth_tolerance: float = 0
+    maker: MarketTradingPairTuple
+    taker: MarketTradingPairTuple

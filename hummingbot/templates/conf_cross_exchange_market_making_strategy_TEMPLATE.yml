@@ -2,26 +2,24 @@
 ###   Cross exchange market making strategy config   ###
 ########################################################
 
+template_version: 3
+strategy: null
+
 # The following configuations are only required for the
 # cross exchange market making strategy
 
 # Exchange and token parameters
 maker_market: null
 taker_market: null
-maker_market_symbol: null
-taker_market_symbol: null
+maker_market_trading_pair: null
+taker_market_trading_pair: null
 
 # Minimum profitability target required to place an order
 # Expressed in decimals: 0.01 = 1% target profit
 min_profitability: null
 
-# Maximum order size in terms of quote currency
-trade_size_override: null
-
-# Maximum aggregate amount of orders in quote currency
-# that are allowed at a better price than Hummingbot's
-# order before Hummingbot adjusts its order and pricing
-top_depth_tolerance: null
+# Maximum order size in terms of base currency
+order_amount: null
 
 # Have Hummingbot actively adjust/cancel orders if necessary.
 # If set to true, outstanding orders are adjusted if
@@ -32,12 +30,35 @@ active_order_canceling: null
 
 # If active_order_canceling = false, this is the profitability/
 # loss threshold at which to cancel the order.
-# Expressed in decimals: 0.01 = 1% target profit
+# Expressed in decimals: 1 = 1% target profit
 cancel_order_threshold: null
 
 # An amount in seconds, which is the minimum duration for any
 # placed limit orders. Default value = 130 seconds.
 limit_order_min_expiration: null
+
+# If enabled (parameter set to `True`), the strategy will place the order on top of the top bid and ask,
+# if its more profitable to place it there
+adjust_order_enabled: null
+
+# An amount expressed in base currency which is used for getting the top bid and ask,
+# ignoring dust orders on top of the order book
+top_depth_tolerance: null
+
+# An amount in seconds, which is the minimum amount of time interval between adjusting limit order prices
+anti_hysteresis_duration: null
+
+# An amount expressed in decimals (i.e. input of `1` corresponds to 1%), which is the maximum size limit of new limit orders,
+# in terms of ratio of hedge-able volume on taker side.
+order_size_taker_volume_factor: null
+
+# An amount expressed in decimals (i.e. input of `1` corresponds to 1%), which is the maximum size limit of new limit orders,
+# in terms of ratio of asset balance available for hedging trade on taker side
+order_size_taker_balance_factor: null
+
+# An amount expressed in decimals (i.e. input of `1` corresponds to 1%), which is the maximum size limit of new limit orders,
+# in terms of ratio of total portfolio value on both maker and taker markets
+order_size_portfolio_ratio_limit: null
 
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/cross-exchange-market-making/#configuration-parameters

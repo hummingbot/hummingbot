@@ -2,11 +2,22 @@
 
 ## About Coinbase Pro
 
-Coinbase Pro is a highly popular, global cryptocurrency exchange designed for professional traders based out of San Francisco, California. It has a reputation for being secure and trustworthy, and accounts on the exchange backed by FDIC insurance.
+Based in San Francisco, CA, Coinbase Pro is a widely-used, global cryptocurrency exchange designed for professional traders. It has a reputation for being secure and trustworthy, is [regulated in all the jurisdictions in which it operates](https://www.coinbase.com/legal/insurance), and maintains some [insurance on assets and deposits](https://www.coinbase.com/legal/insurance).
 
 ## Using the Connector
 
 Because Coinbase Pro is a centralized exchange, you will need to generate and provide your API key in order to trade using Hummingbot.
+
+```
+Enter your Coinbase API key >>>
+Enter your Coinbase secret key >>>
+Enter your Coinbase passphrase >>>
+```
+
+Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
+
+!!! tip "Copying and pasting into Hummingbot"
+    See [this page](/faq/troubleshooting/#paste-items-from-clipboard-in-putty) for more instructions in our Support section.
 
 ### Creating Coinbase Pro API Keys
 
@@ -21,7 +32,10 @@ Because Coinbase Pro is a centralized exchange, you will need to generate and pr
 
 ![coinbase2](/assets/img/coinbase2.png)
 
-Make sure you give permissions to **View** and **Trade** (**Transfer** is optional), and enter your 2FA code.
+Make sure you give permissions to **View** and **Trade**, and enter your 2FA code.
+
+!!! warning "API key permissions"
+    We recommend using only **"trade"** enabled API keys; enabling **"withdraw", "transfer", or the equivalent** is unnecessary for current Hummingbot strategies.
 
 ![coinbase3](/assets/img/coinbase3.png)
 
@@ -37,7 +51,7 @@ When you close the API Secret screen, your API key will be shown in **My API Key
 
 The API Key, Secret, and Passphrase are required for using Hummingbot.
 
-!!! tip
+!!! warning
     If you lose your Secret Key, you can delete the API and create a new one. However, it will be impossible to reuse the same API.
 
 ## Miscellaneous Info
@@ -48,4 +62,10 @@ Pairs on Coinbase Pro generally require a minimum order size equivalent to betwe
 
 ### Transaction Fees
 
-Coinbase Pro charges 0.15% in maker fees and 0.25% in taker fees for most users. However, users who trade in high volumes can trade at discounted rates. See their [official fee structure](https://pro.coinbase.com/fees) for more details.
+Coinbase Pro charges 0.50% fees for both maker and taker orders. However, users who trade in high volumes can trade at discounted rates.
+
+Read through their article below related to trading fees and discounts.
+
+* [What are the fees on Coinbase Pro?](https://help.coinbase.com/en/pro/trading-and-funding/trading-rules-and-fees/fees.html)
+
+Users can override the default fees by editing [`conf_fee_overrides.yml`](/advanced/fee-overrides/).

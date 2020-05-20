@@ -12,6 +12,7 @@ from typing import (
 
 import hummingbot
 from hummingbot.logger import HummingbotLogger
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class AsyncCallSchedulerItem(NamedTuple):
@@ -58,7 +59,7 @@ class AsyncCallScheduler:
     def start(self):
         if self._coro_scheduler_task is not None:
             self.stop()
-        self._coro_scheduler_task = asyncio.ensure_future(
+        self._coro_scheduler_task = safe_ensure_future(
             self._coro_scheduler(
                 self._coro_queue,
                 self._call_interval
@@ -87,10 +88,11 @@ class AsyncCallScheduler:
                 # The future is already cancelled from outside. Ignore.
                 pass
             except Exception as e:
-                app_warning_msg = f"API call error: {str(e)}"
-                self.logger().network(app_warning_msg,
-                                      exc_info=True,
-                                      app_warning_msg=app_warning_msg)
+                # Add exception information.
+                app_warning_msg += f" [[Got exception: {str(e)}]]"
+                self.logger().debug(app_warning_msg,
+                                    exc_info=True,
+                                    app_warning_msg=app_warning_msg)
                 try:
                     fut.set_exception(e)
                 except Exception:

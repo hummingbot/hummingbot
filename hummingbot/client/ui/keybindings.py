@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import asyncio
 from prompt_toolkit.application.current import get_app
 from prompt_toolkit.filters import (
     is_searching,
@@ -14,6 +13,12 @@ from prompt_toolkit.search import (
     SearchDirection,
 )
 
+from hummingbot.client.ui.scroll_handlers import (
+    scroll_down,
+    scroll_up,
+)
+from hummingbot.core.utils.async_utils import safe_ensure_future
+
 
 def load_key_bindings(hb) -> KeyBindings:
     bindings = KeyBindings()
@@ -21,7 +26,7 @@ def load_key_bindings(hb) -> KeyBindings:
     @bindings.add("c-c", "c-c")
     def exit_(event):
         hb.app.log("\n[Double CTRL + C] keyboard exit")
-        asyncio.ensure_future(hb.exit_loop())
+        safe_ensure_future(hb.exit_loop())
 
     @bindings.add("c-s")
     def status(event):
@@ -61,5 +66,21 @@ def load_key_bindings(hb) -> KeyBindings:
         current_buffer.cursor_position = 0
         current_buffer.start_selection()
         current_buffer.cursor_position = len(current_buffer.text)
+
+    @bindings.add("c-d")
+    def scroll_down_output(event):
+        event.app.layout.current_window = hb.app.output_field.window
+        event.app.layout.focus = hb.app.output_field.buffer
+        scroll_down(event, hb.app.output_field.window, hb.app.output_field.buffer)
+        event.app.layout.current_window = hb.app.input_field.window
+        event.app.layout.focus = hb.app.input_field.buffer
+
+    @bindings.add("c-e")
+    def scroll_up_output(event):
+        event.app.layout.current_window = hb.app.output_field.window
+        event.app.layout.focus = hb.app.output_field.buffer
+        scroll_up(event, hb.app.output_field.window, hb.app.output_field.buffer)
+        event.app.layout.current_window = hb.app.input_field.window
+        event.app.layout.focus = hb.app.input_field.buffer
 
     return bindings

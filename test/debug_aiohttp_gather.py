@@ -11,6 +11,7 @@ from typing import (
     Dict,
     Optional
 )
+from hummingbot.core.utils.async_utils import safe_gather
 
 shared_client_session: Optional[aiohttp.ClientSession] = None
 
@@ -43,8 +44,8 @@ async def main():
     while True:
         try:
             tasks: List[FetchTask] = await generate_tasks(10)
-            results: List[aiohttp.ClientResponse] = await asyncio.gather(*[t.future for t in tasks])
-            data: List[Dict[str, any]] = await asyncio.gather(*[r.json() for r in results])
+            results: List[aiohttp.ClientResponse] = await safe_gather(*[t.future for t in tasks])
+            data: List[Dict[str, any]] = await safe_gather(*[r.json() for r in results])
             mismatches: int = 0
 
             for task, response in zip(tasks, data):

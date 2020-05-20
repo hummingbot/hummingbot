@@ -1,10 +1,10 @@
 ---
 version: 1
-template_version: 5
+template_version: 7
 
 formatters:
     simple:
-        format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        format: "%(asctime)s - %(process)d - %(name)s - %(levelname)s - %(message)s"
 
 handlers:
     console:
@@ -23,11 +23,14 @@ handlers:
         formatter: simple
         stream: ext://sys.stdout
     file_handler:
-        class: logging.FileHandler
+        class: logging.handlers.TimedRotatingFileHandler
         level: DEBUG
         formatter: simple
-        filename: $PROJECT_DIR/logs/hummingbot_logs_$DATETIME.log
+        filename: $PROJECT_DIR/logs/logs_$STRATEGY_FILE_PATH.log
         encoding: utf8
+        when: "D"
+        interval: 1
+        backupCount: 7
     report_proxy_handler:
         class: hummingbot.logger.reporting_proxy_handler.ReportingProxyHandler
         level: DEBUG
@@ -38,18 +41,6 @@ handlers:
         level: DEBUG
 
 loggers:
-    hummingbot.public_eth_address:
-        level: NETWORK
-        propagate: false
-        handlers: [report_proxy_handler]
-    hummingbot.command_history:
-        level: NETWORK
-        propagate: false
-        handlers: ["null"]
-    hummingbot.logger.report_aggregator:
-        level: NETWORK
-        handlers: [report_proxy_handler, console_warning, file_handler]
-        propagate: false
     hummingbot.logger.log_server_client:
         level: WARNING
         propagate: false
@@ -60,15 +51,15 @@ loggers:
         handlers: [console_info, file_handler]
     hummingbot.strategy:
         level: NETWORK
-        handlers: [console_info, file_handler]
+        handlers: [console_info, file_handler, report_proxy_handler]
         propagate: false
     hummingbot.market:
         level: NETWORK
-        handlers: [console_info, file_handler]
+        handlers: [console_info, file_handler, report_proxy_handler]
         propagate: false
     hummingbot.wallet:
         level: NETWORK
-        handlers: [console_info, file_handler]
+        handlers: [console_info, file_handler, report_proxy_handler]
         propagate: false
     hummingbot.core.event.event_reporter:
         level: EVENT_LOG

@@ -7,18 +7,18 @@
 #include <Python.h>
 
 class OrderExpirationEntry {
-    std::string symbol;
+    std::string tradingPair;
     std::string orderId;
     double timestamp;
     double expiration_timestamp;
 
     public:
         OrderExpirationEntry();
-        OrderExpirationEntry(std::string symbol, std::string orderId, double timestamp, double expiration_timestamp);
+        OrderExpirationEntry(std::string tradingPair, std::string orderId, double timestamp, double expiration_timestamp);
         OrderExpirationEntry(const OrderExpirationEntry &other);
         OrderExpirationEntry &operator=(const OrderExpirationEntry &other);
         friend bool operator<(OrderExpirationEntry const &a, OrderExpirationEntry const &b);
-        std::string getSymbol() const;
+        std::string getTradingPair() const;
         std::string getClientOrderID() const;
         double getTimestamp() const;
         double getExpirationTimestamp() const;

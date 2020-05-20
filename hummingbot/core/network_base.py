@@ -3,6 +3,7 @@ from enum import Enum
 import logging
 from typing import Optional
 from hummingbot.logger import HummingbotLogger
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 NaN = float("nan")
 s_logger = None
@@ -83,7 +84,6 @@ class NetworkBase:
 
     async def _check_network_loop(self):
         while True:
-            new_status = self._network_status
             last_status = self._network_status
             has_unexpected_error = False
 
@@ -119,7 +119,7 @@ class NetworkBase:
                 self.logger().error("Unexpected error starting or stopping network.", exc_info=True)
 
     def start(self):
-        self._check_network_task = asyncio.ensure_future(self._check_network_loop())
+        self._check_network_task = safe_ensure_future(self._check_network_loop())
         self._network_status = NetworkStatus.NOT_CONNECTED
         self._started = True
 
@@ -128,5 +128,5 @@ class NetworkBase:
             self._check_network_task.cancel()
             self._check_network_task = None
         self._network_status = NetworkStatus.STOPPED
-        asyncio.ensure_future(self.stop_network())
+        safe_ensure_future(self.stop_network())
         self._started = False

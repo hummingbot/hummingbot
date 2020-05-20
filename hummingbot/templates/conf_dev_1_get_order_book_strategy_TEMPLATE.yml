@@ -1,0 +1,16 @@
+########################################################
+###       Get Order Book strategy config               ###
+########################################################
+
+template_version: 3
+strategy: null
+
+# The following configuations are only required for the
+# simple trade strategy
+
+# Exchange and token parameters
+market: null
+market_trading_pair: null
+
+# For more detailed information, see:
+# https://docs.hummingbot.io/strategies/simple-trade/#configuration-parameters

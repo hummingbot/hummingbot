@@ -4,16 +4,18 @@ from os.path import (
 )
 from typing import List
 
-from hummingbot.core.utils.symbol_fetcher import SymbolFetcher
+from hummingbot import get_strategy_list
 
 # Global variables
 required_exchanges: List[str] = []
-symbol_fetcher = SymbolFetcher.get_instance()
 
 # Global static values
 KEYFILE_PREFIX = "key_file_"
 KEYFILE_POSTFIX = ".json"
+ENCYPTED_CONF_PREFIX = "encrypted_"
+ENCYPTED_CONF_POSTFIX = ".json"
 GLOBAL_CONFIG_PATH = "conf/conf_global.yml"
+TRADE_FEES_CONFIG_PATH = "conf/conf_fee_overrides.yml"
 TOKEN_ADDRESSES_FILE_PATH = realpath(join(__file__, "../../wallet/ethereum/erc20_tokens.json"))
 DEFAULT_KEY_FILE_PATH = "conf/"
 DEFAULT_LOG_FILE_PATH = "logs/"
@@ -27,49 +29,52 @@ EXCHANGES = {
     "bamboo_relay",
     "binance",
     "coinbase_pro",
-    "ddex",
     "huobi",
-    "idex",
+    "liquid",
     "radar_relay",
+    "dolomite",
+    "bittrex",
+    "kucoin",
+    "bitcoin_com",
+    "kraken"
 }
 
 DEXES = {
     "bamboo_relay",
-    "ddex",
-    "idex",
     "radar_relay",
+    "dolomite"
 }
 
-STRATEGIES = {
-    "cross_exchange_market_making",
-    "arbitrage",
-    "discovery",
-    "pure_market_making",
-    "simple_trade"
-}
+STRATEGIES: List[str] = get_strategy_list()
 
 EXAMPLE_PAIRS = {
-    "binance": "ZRXETH",
-    "ddex": "ZRX-WETH",
-    "idex": "ETH_ZRX",
-    "radar_relay": "ZRX-WETH",
     "bamboo_relay": "ZRX-WETH",
+    "binance": "ZRX-ETH",
+    "bitcoin_com": "ETH-BCH",
+    "bittrex": "ZRX-ETH",
+    "kucoin": "ETH-USDT",
     "coinbase_pro": "ETH-USDC",
+    "dolomite": "WETH-DAI",
+    "huobi": "ETH-USDT",
+    "liquid": "ETH-USD",
+    "radar_relay": "ZRX-WETH",
+    "kraken": "ETH-USDC"
+}
+
+EXAMPLE_ASSETS = {
+    "bamboo_relay": "ZRX",
+    "binance": "ZRX",
+    "bitcoin_com": "BCH",
+    "bittrex": "ZRX",
+    "kucoin": "ETH",
+    "coinbase_pro": "ETH",
+    "dolomite": "LRC",
+    "huobi": "eth",
+    "liquid": "ETH",
+    "radar_relay": "ZRX",
+    "kraken": "XETH"
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
 MAXIMUM_LOG_PANE_LINE_COUNT = 1000
 MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT = 100
-
-# Liquidity Bounties:
-LIQUIDITY_BOUNTY_CONFIG_PATH = "conf/conf_liquidity_bounty.yml"
-MIN_ETH_STAKED_REQUIREMENT = 0.05
-
-
-# Values that were once a part of configuration but no longer needed.
-# Keep them for reference in case a user is using outdated config files
-DEPRECATED_CONFIG_VALUES = {
-    "stop_loss_pct",
-    "stop_loss_price_type",
-    "stop_loss_base_token",
-}

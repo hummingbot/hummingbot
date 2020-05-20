@@ -34,19 +34,19 @@ The cancel order flow regularly monitors all active limit orders on the maker si
 
 #### Active order cancellation setting
 
-The [`active_order_canceling`](/strategies/corss-exchange-market-making/) setting changes how the cancel order flow operates. `active_order_canceling` should be enabled when the maker side is a centralized exchange (e.g. Binance, Coinbase Pro), and it should be disabled when the maker side is a decentralized exchange.
+The [`active_order_canceling`](/strategies/cross-exchange-market-making/) setting changes how the cancel order flow operates. `active_order_canceling` should be enabled when the maker side is a centralized exchange (e.g. Binance, Coinbase Pro), and it should be disabled when the maker side is a decentralized exchange.
 
 When `active_order_canceling` is enabled, the cross exchange market making strategy would refresh orders by actively cancelling them regularly. This is optimal for centralized exchanges because it allows the strategy to respond quickly when, for example, market prices have significantly changed. This should not be chosen for decentralized exchanges that charge gas for cancelling orders (such as Radar Relay).
 
 When `active_order_canceling` is disabled, the cross exchange market making strategy would emit limit orders that automatically expire after a predefined time period. This means the strategy can just wait for them to expire to refresh the maker orders, rather than having to cancel them actively. This is useful for decentralized exchanges because it avoids the potentially very long cancellation delays there, and it also does not cost any gas to wait for order expiration.
 
-It is still possible for the strategy to actively cancel orders with `active_order_canceling` disabled, via the [`cancel_order_threshold`](/strategies/corss-exchange-market-making/) setting. For example, you can set it to -0.05 s.t. the strategy would still cancel a limit order on a DEX when it's profitability dropped below -5%. This can be used as a safety switch to guard against sudden and large price changes on decentralized exchanges.
+It is still possible for the strategy to actively cancel orders with `active_order_canceling` disabled, via the [`cancel_order_threshold`](/strategies/cross-exchange-market-making/) setting. For example, you can set it to -0.05 such that the strategy would still cancel a limit order on a DEX when it's profitability dropped below -5%. This can be used as a safety switch to guard against sudden and large price changes on decentralized exchanges.
 
 #### Is hedging profitable?
 
 Assuming active order canceling is enabled, the first check the strategy does with each active maker order is whether it is still profitable or not. The current profitability of an order is calculated assuming the order is filled and hedged on the taker market immediately.
 
-If the profit ratio calculated for the maker order is less than the [`min_profitability`](/strategies/corss-exchange-market-making/) setting, then the order is canceled.
+If the profit ratio calculated for the maker order is less than the [`min_profitability`](/strategies/cross-exchange-market-making/) setting, then the order is canceled.
 
 The logic of this check can be found in the function `c_check_if_still_profitable()` in [`cross_exchange_market_making.pyx`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/cross_exchange_market_making/cross_exchange_market_making.pyx).
 

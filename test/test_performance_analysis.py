@@ -1,27 +1,73 @@
+import asyncio
 import math
 import unittest
 
 from hummingbot.client.performance_analysis import PerformanceAnalysis
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.core.utils.async_utils import (
+    safe_ensure_future,
+    safe_gather,
+)
+
+from hummingbot.data_feed.data_feed_base import DataFeedBase
+
+
+class MockDataFeed1(DataFeedBase):
+    _mdf_shared_instance: "MockDataFeed1" = None
+    @classmethod
+    def get_instance(cls) -> "MockDataFeed1":
+        if cls._mdf_shared_instance is None:
+            cls._mdf_shared_instance = MockDataFeed1()
+        return cls._mdf_shared_instance
+
+    @property
+    def name(self):
+        return "coin_alpha_feed"
+
+    @property
+    def price_dict(self):
+        return self.mock_price_dict
+
+    def __init__(self):
+        super().__init__()
+        self.mock_price_dict = {
+                "WETH": 1.0,
+                "ETH": 1.0,
+                "DAI": 0.95,
+                "USDC": 1.05,
+                "USD": 1.0
+            }
+
+    def get_price(self, trading_pair):
+        return self.mock_price_dict.get(trading_pair.upper())
 
 
 class TestPerformanceAnalysis(unittest.TestCase):
 
-    def setUp(self) -> None:
-        self._weth_price = 1.0
-        self._eth_price = 1.0
-        self._dai_price = 0.95
-        self._usdc_price = 1.05
-        self._price = 50
+    @staticmethod
+    async def run_parallel_async(*tasks):
+        future: asyncio.Future = safe_ensure_future(safe_gather(*tasks))
+        while not future.done():
+            await asyncio.sleep(1.0)
+        return future.result()
+
+    def run_parallel(self, *tasks):
+        return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
+
+    @classmethod
+    def setUpClass(cls):
+        cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
+        ExchangeRateConversion.get_instance().set_data_feeds([MockDataFeed1.get_instance()])
+        cls._weth_price = 1.0
+        cls._eth_price = 1.0
+        cls._dai_price = 0.95
+        cls._usdc_price = 1.05
+        cls._price = 50
         ExchangeRateConversion.set_global_exchange_rate_config({
-            "conversion_required": {
-                "WETH": {"default": self._weth_price, "source": "None"},
-                "ETH": {"default": self._eth_price, "source": "None"},
-                "DAI": {"default": self._dai_price, "source": "None"},
-                "USDC": {"default": self._usdc_price, "source": "None"},
-                "USD": {"default": 1.0, "source": "None"}
-            }
+            "default_data_feed": "coin_alpha_feed"
         })
+        ExchangeRateConversion.get_instance().start()
+        cls.ev_loop.run_until_complete(cls.run_parallel_async(ExchangeRateConversion.get_instance().wait_till_ready()))
 
     def test_basic_one_ex(self):
         """ Test performance analysis on a one exchange balance. """
