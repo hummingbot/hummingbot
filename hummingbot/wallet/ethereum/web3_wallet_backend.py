@@ -2,7 +2,7 @@ import asyncio
 from collections import OrderedDict
 from decimal import Decimal
 from eth_account import Account
-from eth_account.local import LocalAccount
+from eth_account.signers.local import LocalAccount
 from eth_account.messages import defunct_hash_message
 from hexbytes import HexBytes
 import logging
@@ -22,6 +22,7 @@ from web3.contract import (
     ContractFunction
 )
 from web3.datastructures import AttributeDict
+from web3.exceptions import BlockNotFound
 
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
@@ -221,46 +222,46 @@ class Web3WalletBackend(PubSub):
                 self._asset_decimals[symbol] = decimals
             self._weth_token = self._erc20_tokens.get("WETH")
 
-            # Fetch blockchain data.
-            self._local_nonce = await async_scheduler.call_async(
-                lambda: self.get_remote_nonce()
-            )
+        # Fetch blockchain data.
+        self._local_nonce = await async_scheduler.call_async(
+            lambda: self.get_remote_nonce()
+        )
 
             # Create event watchers.
-            self._new_blocks_watcher = NewBlocksWatcher(self._w3)
-            self._account_balance_watcher = AccountBalanceWatcher(
+        self._new_blocks_watcher = NewBlocksWatcher(self._w3)
+        self._account_balance_watcher = AccountBalanceWatcher(
+            self._w3,
+            self._new_blocks_watcher,
+            self._account.address,
+            [erc20_token.address for erc20_token in self._erc20_tokens.values()],
+            [token.abi for token in self._erc20_tokens.values()]
+        )
+        self._erc20_events_watcher = ERC20EventsWatcher(
+            self._w3,
+            self._new_blocks_watcher,
+            [token.address for token in self._erc20_tokens.values()],
+            [token.abi for token in self._erc20_tokens.values()],
+            [self._account.address]
+        )
+        self._incoming_eth_watcher = IncomingEthWatcher(
+            self._w3,
+            self._new_blocks_watcher,
+            [self._account.address]
+        )
+        if self._weth_token is not None:
+            self._weth_watcher = WethWatcher(
                 self._w3,
+                self._weth_token,
                 self._new_blocks_watcher,
-                self._account.address,
-                [erc20_token.address for erc20_token in self._erc20_tokens.values()],
-                [token.abi for token in self._erc20_tokens.values()]
-            )
-            self._erc20_events_watcher = ERC20EventsWatcher(
-                self._w3,
-                self._new_blocks_watcher,
-                [token.address for token in self._erc20_tokens.values()],
-                [token.abi for token in self._erc20_tokens.values()],
                 [self._account.address]
             )
-            self._incoming_eth_watcher = IncomingEthWatcher(
-                self._w3,
-                self._new_blocks_watcher,
-                [self._account.address]
-            )
-            if self._weth_token is not None:
-                self._weth_watcher = WethWatcher(
-                    self._w3,
-                    self._weth_token,
-                    self._new_blocks_watcher,
-                    [self._account.address]
-                )
-            self._zeroex_fill_watcher = ZeroExFillWatcher(
-                    self._w3,
-                    self._new_blocks_watcher
-                )
+        self._zeroex_fill_watcher = ZeroExFillWatcher(
+            self._w3,
+            self._new_blocks_watcher
+        )
 
         # Connect the event forwarders.
-        self._new_blocks_watcher.add_listener(NewBlocksWatcherEvent.NewBlocks, 
+        self._new_blocks_watcher.add_listener(NewBlocksWatcherEvent.NewBlocks,
                                               self._event_forwarder)
         self._erc20_events_watcher.add_listener(ERC20WatcherEvent.ReceivedToken,
                                                 self._received_asset_event_forwarder)
@@ -269,7 +270,7 @@ class Web3WalletBackend(PubSub):
         self._incoming_eth_watcher.add_listener(IncomingEthWatcherEvent.ReceivedEther,
                                                 self._received_asset_event_forwarder)
         self._zeroex_fill_watcher.add_listener(ZeroExEvent.Fill,
-                                                self._zeroex_fill_event_forwarder)
+                                               self._zeroex_fill_event_forwarder)
 
         if self._weth_watcher is not None:
             self._weth_watcher.add_listener(WalletEvent.WrappedEth,
@@ -655,7 +656,7 @@ class Web3WalletBackend(PubSub):
         async_scheduler: AsyncCallScheduler = AsyncCallScheduler.shared_instance()
         new_gas_price: int = await async_scheduler.call_async(getattr, self._w3.eth, "gasPrice")
         self._gas_price = new_gas_price
-    
+
     def get_remote_nonce(self):
         try:
             remote_nonce = self._w3.eth.getTransactionCount(self.address, block_identifier="pending")

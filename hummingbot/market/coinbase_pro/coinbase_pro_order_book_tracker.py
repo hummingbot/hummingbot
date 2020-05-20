@@ -79,29 +79,6 @@ class CoinbaseProOrderBookTracker(OrderBookTracker):
         """
         return "coinbase_pro"
 
-    async def start(self):
-        await super().start()
-        """
-        *required
-        Start all listeners and tasks
-        """
-
-        self._order_book_diff_listener_task = safe_ensure_future(
-            self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
-        )
-        self._order_book_snapshot_listener_task = safe_ensure_future(
-            self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
-        )
-        self._refresh_tracking_task = safe_ensure_future(
-            self._refresh_tracking_loop()
-        )
-        self._order_book_diff_router_task = safe_ensure_future(
-            self._order_book_diff_router()
-        )
-        self._order_book_snapshot_router_task = safe_ensure_future(
-            self._order_book_snapshot_router()
-        )
-
     async def _refresh_tracking_tasks(self):
         """
         Starts tracking for any new trading pairs, and stop tracking for any inactive trading pairs.
@@ -119,7 +96,7 @@ class CoinbaseProOrderBookTracker(OrderBookTracker):
             self._order_books[trading_pair] = order_book_tracker_entry.order_book
             self._tracking_message_queues[trading_pair] = asyncio.Queue()
             self._tracking_tasks[trading_pair] = safe_ensure_future(self._track_single_book(trading_pair))
-            self.logger().info("Started order book tracking for %s.", trading_pair)
+            self.logger().info("Started order book tracking for %s." % trading_pair)
 
         for trading_pair in deleted_trading_pairs:
             self._tracking_tasks[trading_pair].cancel()
@@ -127,7 +104,7 @@ class CoinbaseProOrderBookTracker(OrderBookTracker):
             del self._order_books[trading_pair]
             del self._active_order_trackers[trading_pair]
             del self._tracking_message_queues[trading_pair]
-            self.logger().info("Stopped order book tracking for %s.", trading_pair)
+            self.logger().info("Stopped order book tracking for %s." % trading_pair)
 
     async def _order_book_diff_router(self):
         """

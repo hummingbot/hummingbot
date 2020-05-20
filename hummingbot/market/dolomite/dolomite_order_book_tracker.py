@@ -58,17 +58,6 @@ class DolomiteOrderBookTracker(OrderBookTracker):
     async def exchange_name(self) -> str:
         return "dolomite"
 
-    async def start(self):
-        self._order_book_snapshot_listener_task = asyncio.ensure_future(
-            self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
-        )
-        self._refresh_tracking_task = asyncio.ensure_future(self._refresh_tracking_loop())
-        self._order_book_snapshot_router_task = asyncio.ensure_future(self._order_book_snapshot_router())
-
-        await asyncio.gather(
-            self._order_book_snapshot_listener_task, self._order_book_snapshot_router_task, self._refresh_tracking_task
-        )
-
     async def _refresh_tracking_tasks(self):
         """
         Starts tracking for any new trading pairs, and stop tracking for any inactive trading pairs.
@@ -87,7 +76,7 @@ class DolomiteOrderBookTracker(OrderBookTracker):
             self._order_books[trading_pair] = order_book_tracker_entry.order_book
             self._tracking_message_queues[trading_pair] = asyncio.Queue()
             self._tracking_tasks[trading_pair] = asyncio.ensure_future(self._track_single_book(trading_pair))
-            self.logger().info("Started order book tracking for %s.", trading_pair)
+            self.logger().info("Started order book tracking for %s." % trading_pair)
 
         for trading_pair in deleted_trading_pairs:
             self._tracking_tasks[trading_pair].cancel()
@@ -95,7 +84,7 @@ class DolomiteOrderBookTracker(OrderBookTracker):
             del self._order_books[trading_pair]
             del self._active_order_trackers[trading_pair]
             del self._tracking_message_queues[trading_pair]
-            self.logger().info("Stopped order book tracking for %s.", trading_pair)
+            self.logger().info("Stopped order book tracking for %s." % trading_pair)
 
     async def _track_single_book(self, trading_pair: str):
         message_queue: asyncio.Queue = self._tracking_message_queues[trading_pair]

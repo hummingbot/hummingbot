@@ -100,11 +100,11 @@ then
   j="0"
   while [ $j -le $i ]
   do
-    docker run -itd \
+    docker run -itd --log-opt max-size=10m --log-opt max-file=5 \
     --name ${INSTANCES[$j]} \
     --mount "type=bind,source=$(pwd)/${FOLDERS[$j]}/hummingbot_conf,destination=/conf/" \
     --mount "type=bind,source=$(pwd)/${FOLDERS[$j]}/hummingbot_logs,destination=/logs/" \
-    --mount "type=bind,source=$(pwd)/${FOLDERs[$j]}/hummingbot_data,destination=/data/" \
+    --mount "type=bind,source=$(pwd)/${FOLDERS[$j]}/hummingbot_data,destination=/data/" \
     coinalpha/hummingbot:$TAG
     j=$[$j+1]
   done

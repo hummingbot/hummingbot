@@ -4,7 +4,6 @@ import asyncio
 from collections import deque
 import logging
 import time
-from eth_account.local import LocalAccount
 from typing import List, Dict, Optional, Tuple, Set, Deque
 
 from hummingbot.client.command import __all__ as commands
@@ -26,6 +25,7 @@ from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
 from hummingbot.market.bitcoin_com.bitcoin_com_market import BitcoinComMarket
+from hummingbot.market.kraken.kraken_market import KrakenMarket
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
@@ -35,9 +35,8 @@ from hummingbot.client.ui.parser import load_parser, ThrowingArgumentParser
 from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.client.errors import InvalidCommandError, ArgumentParserError
-from hummingbot.client.config.in_memory_config_map import in_memory_config_map
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.config_helpers import get_erc20_token_addresses
+from hummingbot.client.config.global_config_map import global_config_map, using_wallet
+from hummingbot.client.config.config_helpers import get_erc20_token_addresses, get_strategy_config_map
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
 
@@ -47,6 +46,7 @@ from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.notifier.telegram_notifier import TelegramNotifier
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.market.markets_recorder import MarketsRecorder
+from hummingbot.client.config.security import Security
 
 
 s_logger = None
@@ -63,6 +63,7 @@ MARKET_CLASSES = {
     "kucoin": KucoinMarket,
     "bitcoin_com": BitcoinComMarket,
     "bitfinex": BitfinexMarket,
+    "kraken": KrakenMarket,
 }
 
 
@@ -93,9 +94,11 @@ class HummingbotApplication(*commands):
             input_handler=self._handle_command, bindings=load_key_bindings(self), completer=load_completer(self)
         )
 
-        self.acct: Optional[LocalAccount] = None
         self.markets: Dict[str, MarketBase] = {}
         self.wallet: Optional[Web3Wallet] = None
+        # strategy file name and name get assigned value after import or create command
+        self.strategy_file_name: str = None
+        self.strategy_name: str = None
         self.strategy_task: Optional[asyncio.Task] = None
         self.strategy: Optional[StrategyBase] = None
         self.market_pair: Optional[CrossExchangeMarketPair] = None
@@ -116,6 +119,12 @@ class HummingbotApplication(*commands):
 
         self.trade_fill_db: SQLConnectionManager = SQLConnectionManager.get_trade_fills_instance()
         self.markets_recorder: Optional[MarketsRecorder] = None
+
+    @property
+    def strategy_config_map(self):
+        if self.strategy_name is not None:
+            return get_strategy_config_map(self.strategy_name)
+        return None
 
     def _notify(self, msg: str):
         self.app.log(msg)
@@ -196,17 +205,21 @@ class HummingbotApplication(*commands):
         return [market_class.convert_to_exchange_trading_pair(trading_pair) for trading_pair in hb_trading_pair]
 
     def _initialize_wallet(self, token_trading_pairs: List[str]):
+        if not using_wallet():
+            return
+
+        ethereum_wallet = global_config_map.get("ethereum_wallet").value
+        private_key = Security._private_keys[ethereum_wallet]
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
         erc20_token_addresses = get_erc20_token_addresses(token_trading_pairs)
 
-        if self.acct is not None:
-            chain_name: str = global_config_map.get("ethereum_chain_name").value
-            self.wallet: Web3Wallet = Web3Wallet(
-                private_key=self.acct.privateKey,
-                backend_urls=[ethereum_rpc_url],
-                erc20_token_addresses=erc20_token_addresses,
-                chain=getattr(EthereumChain, chain_name),
-            )
+        chain_name: str = global_config_map.get("ethereum_chain_name").value
+        self.wallet: Web3Wallet = Web3Wallet(
+            private_key=private_key,
+            backend_urls=[ethereum_rpc_url],
+            erc20_token_addresses=erc20_token_addresses,
+            chain=getattr(EthereumChain, chain_name),
+        )
 
     def _initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
@@ -223,7 +236,6 @@ class HummingbotApplication(*commands):
 
         for market_name, trading_pairs in market_trading_pairs_map.items():
             if global_config_map.get("paper_trade_enabled").value:
-                self._notify(f"\nPaper trade is enabled for market {market_name}")
                 try:
                     market = create_paper_trade_market(market_name, trading_pairs)
                 except Exception:
@@ -338,6 +350,14 @@ class HummingbotApplication(*commands):
                                         order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                         trading_pairs=trading_pairs,
                                         trading_required=self._trading_required)
+            elif market_name == "kraken":
+                kraken_api_key = global_config_map.get("kraken_api_key").value
+                kraken_secret_key = global_config_map.get("kraken_secret_key").value
+                market = KrakenMarket(kraken_api_key,
+                                      kraken_secret_key,
+                                      order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                                      trading_pairs=trading_pairs,
+                                      trading_required=self._trading_required)
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")
 
@@ -346,8 +366,8 @@ class HummingbotApplication(*commands):
         self.markets_recorder = MarketsRecorder(
             self.trade_fill_db,
             list(self.markets.values()),
-            in_memory_config_map.get("strategy_file_path").value,
-            in_memory_config_map.get("strategy").value,
+            self.strategy_file_name,
+            self.strategy_name,
         )
         self.markets_recorder.start()
 
