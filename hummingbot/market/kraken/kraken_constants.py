@@ -11,6 +11,7 @@ CRYPTO_QUOTES = [
 ADDED_CRYPTO_QUOTES = [
     "XXBT",
     "XETH",
+    "BTC",
 ]
 
 FIAT_QUOTES = [
