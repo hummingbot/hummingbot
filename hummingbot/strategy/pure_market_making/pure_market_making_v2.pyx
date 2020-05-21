@@ -113,6 +113,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  expiration_seconds: float = NaN,
                  price_ceiling: Decimal = s_decimal_neg_one,
                  price_floor: Decimal = s_decimal_neg_one,
+                 ping_pong_enabled: bool = False,
                  hanging_orders_cancel_pct: float = 0.1,
                  order_refresh_tolerance_pct: float = -1.0):
 
@@ -138,6 +139,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._expiration_seconds = expiration_seconds
         self._price_ceiling = price_ceiling
         self._price_floor = price_floor
+        self._ping_pong_enabled = ping_pong_enabled
+        self._level_balance = 0
         self._filled_order_delay = filled_order_delay
         self._add_transaction_costs_to_orders = add_transaction_costs_to_orders
 
@@ -467,6 +470,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 orders_proposal = None
                 active_orders = market_info_to_active_orders.get(market_info, [])
                 active_non_hangings = [o for o in active_orders if o.client_order_id not in self._hanging_order_ids]
+
+                print(f"\n<c_tick> active_non_hangings -> {active_non_hangings}\n")
+
                 try:
                     if self._create_timestamp <= self._current_timestamp:
                         orders_proposal = self.c_create_orders_proposals(
@@ -571,6 +577,39 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                                            higher_sell_price)
 
         return PricingProposal(updated_buy_order_prices, updated_sell_order_prices)
+
+    cdef tuple c_check_and_apply_ping_pong_strategy(self, object sizing_proposal, object pricing_proposal):
+        """
+        Removes bid/ask orders in accordance with the ping-pong strategy.
+
+        :param sizing_proposal: The current sizing proposal.
+        :param pricing_proposal: The current pricing proposal.
+        :return: Revised sizing and pricing proposals.
+        """
+        cdef:
+            list buy_order_sizes = [order_size for order_size in sizing_proposal.buy_order_sizes]
+            list buy_order_prices = [order_price for order_price in pricing_proposal.buy_order_prices]
+            list sell_order_sizes = [order_size for order_size in sizing_proposal.sell_order_sizes]
+            list sell_order_prices = [order_price for order_price in pricing_proposal.sell_order_prices]
+
+        # print(f"initial sizing: {sizing_proposal}\ninitial pricing: {pricing_proposal}")
+
+        if self._ping_pong_enabled:
+
+            print(f"level balance: {self._level_balance}")
+
+            if self._level_balance < 0:
+                buy_order_sizes = buy_order_sizes[abs(self._level_balance):]
+                buy_order_prices = buy_order_prices[abs(self._level_balance):]
+            elif self._level_balance > 0:
+                sell_order_sizes = sell_order_sizes[self._level_balance:]
+                sell_order_prices = sell_order_prices[self._level_balance:]
+
+        # print(f"adjusted sizing: {SizingProposal(buy_order_sizes, sell_order_sizes)}"
+        #       f"\nadjusted pricing: {PricingProposal(buy_order_prices, sell_order_prices)}")
+
+        return (SizingProposal(buy_order_sizes, sell_order_sizes),
+                PricingProposal(buy_order_prices, sell_order_prices))
 
     cdef object c_check_and_apply_price_bands_to_sizing_proposal(self,
                                                                  object market_info,
@@ -738,7 +777,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                                           market_info,
                                                                           active_non_hanging_orders,
                                                                           pricing_proposal)
-
+        sizing_proposal, pricing_proposal = self.c_check_and_apply_ping_pong_strategy(sizing_proposal,
+                                                                                      pricing_proposal)
         sizing_proposal = self.c_check_and_apply_price_bands_to_sizing_proposal(market_info,
                                                                                 sizing_proposal)
 
@@ -806,6 +846,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             for other_order_id in active_sell_orders:
                 self._hanging_order_ids.append(other_order_id)
 
+        self._level_balance -= 1
+
         if market_info is not None:
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
             self.log_with_clock(
@@ -838,6 +880,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         if self._hanging_orders_enabled:
             for other_order_id in active_buy_orders:
                 self._hanging_order_ids.append(other_order_id)
+
+        self._level_balance += 1
 
         if market_info is not None:
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
@@ -878,6 +922,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             list active_sells = []
             bint to_defer_canceling = False
         active_orders = [o for o in active_orders if o.client_order_id not in self._hanging_order_ids]
+
+        print(f"active_orders {active_orders}")
+
         if len(active_orders) == 0:
             return
         if orders_proposal is not None and self._order_refresh_tolerance_pct >= 0:
@@ -892,6 +939,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             if self.c_is_within_tolerance(active_buys, buy_proposals) and \
                     self.c_is_within_tolerance(active_sells, sell_proposals):
                 to_defer_canceling = True
+
+        print(f"to_defer_canceling {to_defer_canceling}")
 
         if not to_defer_canceling:
             for order in active_orders:
@@ -923,10 +972,16 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
     cdef bint c_to_create_orders(self, object market_info, object orders_proposal):
         if self._create_timestamp > self._current_timestamp or orders_proposal is None:
+
+            print(f"c_to_create_orders returning False, {self._create_timestamp} > {self._current_timestamp}")
+
             return False
         cdef:
             list active_orders = self.market_info_to_active_orders.get(market_info, [])
         active_orders = [o for o in active_orders if o.client_order_id not in self._hanging_order_ids]
+
+        print(f"c_to_create_orders returning {len(active_orders) == 0} (check)")
+
         return len(active_orders) == 0
 
     cdef c_execute_orders_proposal(self, object market_info, object orders_proposal):
