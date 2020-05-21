@@ -41,10 +41,15 @@ class CreateCommand:
         self.placeholder_mode = True
         self.app.hide_input = True
         required_exchanges.clear()
+        # add self.stop_config to know if cancel is triggered
+        self.stop_config = None
         strategy_config = ConfigVar(key="strategy",
                                     prompt="What is your market making strategy? >>> ",
                                     validator=validate_strategy)
         await self.prompt_a_config(strategy_config)
+        if self.stop_config:
+            self.stop_configuration()
+            return
         strategy = strategy_config.value
         config_map = get_strategy_config_map(strategy)
         self._notify(f"Please see https://docs.hummingbot.io/strategies/{strategy.replace('_', '-')}/ "
@@ -57,7 +62,11 @@ class CreateCommand:
                 config.value = None
         for config in config_map.values():
             if config.prompt_on_new:
-                await self.prompt_a_config(config)
+                if not self.stop_config:
+                    await self.prompt_a_config(config)
+                else:
+                    self.stop_configuration()
+                    return
             else:
                 config.value = config.default
         if strategy == "pure_market_making" and not global_config_map.get("paper_trade_enabled").value:
@@ -80,6 +89,13 @@ class CreateCommand:
             self._notify("\nEnter \"start\" to start market making.")
             self.app.set_text("start")
 
+    def stop_configuration(self):
+        self.app.change_prompt(prompt=">>> ")
+        self.placeholder_mode = False
+        self.app.hide_input = False
+        self.app.set_text("create")
+        self.stop_config = None
+
     async def prompt_a_config(self,  # type: HummingbotApplication
                               config: ConfigVar,
                               input_value=None,
@@ -88,6 +104,10 @@ class CreateCommand:
             if assign_default:
                 self.app.set_text(parse_config_default_to_text(config))
             input_value = await self.app.prompt(prompt=config.prompt, is_password=config.is_secure)
+
+        if input_value == "exiting create command configuration...":
+            self.stop_config = True
+            return
         err_msg = config.validate(input_value)
         if err_msg is not None:
             self._notify(err_msg)
@@ -103,7 +123,7 @@ class CreateCommand:
         input = format_config_file_name(input)
         file_path = os.path.join(CONF_FILE_PATH, input)
         if input is None or input == "":
-            self._notify(f"Value is required.")
+            self._notify("Value is required.")
             return await self.prompt_new_file_name(strategy)
         elif os.path.exists(file_path):
             self._notify(f"{input} file already exists, please enter a new name.")

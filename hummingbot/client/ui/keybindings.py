@@ -28,6 +28,11 @@ def load_key_bindings(hb) -> KeyBindings:
         hb.app.log("\n[Double CTRL + C] keyboard exit")
         safe_ensure_future(hb.exit_loop())
 
+    @bindings.add("c-x")
+    def restart(event):
+        hb.app.log("\n[CTRL + X] Exiting config...")
+        hb.app.reset()
+
     @bindings.add("c-s")
     def status(event):
         hb.app.log("\n[CTRL + S] Status")
