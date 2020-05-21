@@ -2,7 +2,7 @@
 ###       Pure market making strategy config         ###
 ########################################################
 
-template_version: 14
+template_version: 15
 strategy: null
 
 # Exchange and token parameters.
@@ -39,6 +39,9 @@ price_ceiling: null
 
 # Price band floor.
 price_floor: null
+
+# Whether to alternate between buys and sells (true/false).
+ping_pong_enabled: null
 
 # Whether to enable Inventory skew feature (true/false).
 inventory_skew_enabled: null

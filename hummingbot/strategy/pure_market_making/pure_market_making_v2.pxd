@@ -26,6 +26,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         double _expiration_seconds
         object _price_ceiling
         object _price_floor
+        bint _ping_pong_enabled
+        int64_t _level_balance
         double _status_report_interval
         double _last_timestamp
         double _filled_order_delay
@@ -49,6 +51,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                     object market_info,
                                                     object pricing_proposal,
                                                     list active_orders)
+    cdef tuple c_check_and_apply_ping_pong_strategy(self,
+                                                    object sizing_proposal,
+                                                    object pricing_proposal)
     cdef object c_check_and_apply_price_bands_to_sizing_proposal(self,
                                                                  object market_info,
                                                                  object sizing_proposal)
