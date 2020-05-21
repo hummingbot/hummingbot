@@ -74,6 +74,10 @@ class HummingbotCLI:
         self.log(output)
         self.input_handler(self.input_field.text)
 
+    def reset(self):
+        self.pending_input = "exiting create command configuration..."
+        self.input_event.set()
+
     def clear_input(self):
         self.pending_input = None
 
