@@ -17,8 +17,6 @@ def command(commands: List[str]) -> Optional[str]:
         output = output.decode("utf-8").strip()
         if output == "":
             output = None
-        # logging.getLogger(__name__).info(f"command: {commands}")
-        # logging.getLogger(__name__).info(f"output: {output}")
         return output
     except CalledProcessError as e:
         raise Exception(e.output.decode("utf-8").split("\n")[0])
