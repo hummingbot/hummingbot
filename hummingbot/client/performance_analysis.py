@@ -18,6 +18,8 @@ s_decimal_0 = Decimal(0)
 
 
 class PerformanceAnalysis:
+    pfa_logger = None
+
     def __init__(self, sql: SQLConnectionManager = None):
         if sql:
             self.sql_manager = sql
