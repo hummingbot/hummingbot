@@ -234,7 +234,6 @@ cdef class CeloArbStrategy(StrategyBase):
 
     cdef c_main(self):
         trade_profits = get_trade_profits(self._market_info.market, self._market_info.trading_pair, self._order_amount)
-        # self.logger().info(f"trade_profits: {trade_profits}")
         arb_trades = [t for t in trade_profits if t.profit >= self._min_profitability]
         if len(arb_trades) > 1:
             raise Exception("Found 2 profitable trades from 2 markets, something went wrong.")
@@ -261,7 +260,6 @@ cdef class CeloArbStrategy(StrategyBase):
         quantized_sell_amount = market.c_quantize_order_amount(self._market_info.trading_pair,
                                                                self._order_amount)
         buy_amount = min(quantized_sell_amount, self._order_amount)
-        print(f"quantized_sell_amount {quantized_sell_amount} buy_amount {buy_amount}")
         if buy_amount > 0:
             sell_balance = market.c_get_balance(self._market_info.quote_asset)
             if sell_balance < quantized_sell_amount:
