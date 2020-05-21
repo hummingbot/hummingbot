@@ -40,7 +40,8 @@ class HistoryCommand:
         if global_config_map.get("paper_trade_enabled").value:
             self._notify("\n  Paper Trading ON: All orders are simulated, and no real orders are placed.")
         self.list_trades()
-        self.trade_performance_report()
+        if self.strategy_name != "celo_arb":
+            self.trade_performance_report()
 
     def balance_snapshot(self,  # type: HummingbotApplication
                          ) -> Dict[str, Dict[str, Decimal]]:
@@ -170,6 +171,9 @@ class HistoryCommand:
             # Query for maximum number of trades to display + 1
             queried_trades: List[TradeFill] = self._get_trades_from_session(self.init_time,
                                                                             MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT + 1)
+            if self.strategy_name == "celo_arb":
+                celo_trades = self.strategy.celo_orders_to_trade_fills()
+                queried_trades = queried_trades + celo_trades
             df: pd.DataFrame = TradeFill.to_pandas(queried_trades)
 
             if len(df) > 0:

@@ -2,7 +2,7 @@ import subprocess
 from subprocess import CalledProcessError
 from decimal import Decimal
 from typing import List, Optional, Dict
-from hummingbot.market.celo.celo_data_types import CeloExchangeRate
+from hummingbot.market.celo.celo_data_types import CeloExchangeRate, CeloBalance
 
 
 UNIT_MULTIPLIER = Decimal(1e18)
@@ -17,8 +17,8 @@ def command(commands: List[str]) -> Optional[str]:
         output = output.decode("utf-8").strip()
         if output == "":
             output = None
-        print(f"command: {commands}")
-        print(f"output: {output}")
+        # logging.getLogger(__name__).info(f"command: {commands}")
+        # logging.getLogger(__name__).info(f"output: {output}")
         return output
     except CalledProcessError as e:
         raise Exception(e.output.decode("utf-8").split("\n")[0])
@@ -50,21 +50,22 @@ class CeloCLI:
         cls.unlocked_msg = output
 
     @classmethod
-    def balances(cls) -> Dict[str, Decimal]:
+    def balances(cls) -> Dict[str, CeloBalance]:
         balances = {}
         output = command(["celocli", "account:balance", cls.address])
         lines = output.split("\n")
+        raw_balances = {}
         for line in lines:
             if ":" not in line:
                 continue
             asset, value = line.split(":")
-            symbols = [k for k, v in SYMBOLS_MAP.items() if v.lower() == asset.lower().strip()]
-            if symbols:
-                balances[symbols[0]] = Decimal(value) / UNIT_MULTIPLIER
+            raw_balances[asset.strip()] = Decimal(value) / UNIT_MULTIPLIER
+        balances[CELO_BASE] = CeloBalance(CELO_BASE, raw_balances["gold"], raw_balances["lockedGold"])
+        balances[CELO_QUOTE] = CeloBalance(CELO_QUOTE, raw_balances["usd"], Decimal("0"))
         return balances
 
     @classmethod
-    def exchange_rate(cls, amount: Decimal) -> List[CeloExchangeRate]:
+    def exchange_rate(cls, amount: Decimal = Decimal("1")) -> List[CeloExchangeRate]:
         amount *= UNIT_MULTIPLIER
         output = command(["celocli", "exchange:show", "--amount", str(int(amount))])
         lines = output.split("\n")
