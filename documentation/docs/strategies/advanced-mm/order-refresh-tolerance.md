@@ -7,7 +7,7 @@ This feature allows you to specify a percentage value that sets the minimum chan
 
 ## How It Works
 
-By default, this parameter is set to 0 and Hummingbot will cancel outstanding orders except hanging orders every `order_refresh_time` seconds.
+By default, this parameter is set to `0`. Setting it to `-1` will disable the feature and will normally refresh orders based on `order_refresh_time` seconds.
 
 As an example, setting `order_refresh_tolerance_pct` to `0.1` and an active order's spread changes from 1.0% to 0.9%-1.1% when it's time to refresh depending on `order_refresh_time`, this order is kept (not cancelled).
 
