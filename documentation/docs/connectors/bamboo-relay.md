@@ -23,7 +23,7 @@ For maximum order visibility it is advised to use the open order book mode at th
 Open order book mode allows for off-chain orders to be submitted and any taker to fill these orders on-chain.
 Orders may only be cancelled by submitting a transaction and paying gas network costs.
 
-Open orders submitted through the hummingbot connector are syndicated through the [0x Mesh Network](https://0x-org.gitbook.io/mesh/) as well as directly submitted to the [0x API](https://0x.org/docs/api).
+Open orders are syndicated through the [0x Mesh Network](https://0x-org.gitbook.io/mesh/) as well as directly submitted to the [0x API](https://0x.org/docs/api).
 
 ### Coordinated order book 
 
