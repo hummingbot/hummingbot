@@ -41,7 +41,7 @@ Orders:
        1   buy 9544.06  2.07%         0.003         0.003  00:00:00   no
 ```
 
-Since the mid price went above `price_ceiling` of 9750, the bot only created a buy order.
+Since the mid price went above `price_ceiling` of 9750, the bot only created a sell order.
 
 ```
 Markets:                                                                
