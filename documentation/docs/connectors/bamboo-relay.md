@@ -16,7 +16,7 @@ Because Bamboo Relay is a decentralized exchange, you will need an independent c
 
 The Bamboo Relay connector supports two modes of operation, [open order book](https://0x.org/wiki#Open-Orderbook) and [coordinated order book](https://github.com/0xProject/0x-protocol-specification/blob/master/v2/coordinator-specification.md).
 
-For maximum order visibility it is advised to use the open order book mode at this time.
+By default the open order book mode is on for maximum order visibility and network syndication.
 
 ### Open Order Book
 
@@ -31,6 +31,8 @@ The coordinated order book mode extends the open order book mode by adding the a
 This is achieved by the use of a coordinator server component and coordinator smart contracts.
 
 At this time coordinated orders are not supported through the [0x Mesh Network](https://0x-org.gitbook.io/mesh/) or [0x API](https://0x.org/docs/api).
+
+To enable coordinator mode set the `bamboo_relay_use_coordinator` parameter to `true` in `conf_global.yml` in the `/conf` directory.
 
 ## Pre-emptive Cancels
 
