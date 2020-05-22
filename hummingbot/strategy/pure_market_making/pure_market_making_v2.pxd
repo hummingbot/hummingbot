@@ -27,7 +27,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         object _price_ceiling
         object _price_floor
         bint _ping_pong_enabled
-        int64_t _level_balance
+        int64_t _executed_asks_balance
+        int64_t _executed_bids_balance
         double _status_report_interval
         double _last_timestamp
         double _filled_order_delay

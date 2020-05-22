@@ -140,7 +140,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._price_ceiling = price_ceiling
         self._price_floor = price_floor
         self._ping_pong_enabled = ping_pong_enabled
-        self._level_balance = 0
+        self._executed_bids_balance = 0
+        self._executed_asks_balance = 0
         self._filled_order_delay = filled_order_delay
         self._add_transaction_costs_to_orders = add_transaction_costs_to_orders
 
@@ -592,21 +593,17 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             list sell_order_sizes = [order_size for order_size in sizing_proposal.sell_order_sizes]
             list sell_order_prices = [order_price for order_price in pricing_proposal.sell_order_prices]
 
-        # print(f"initial sizing: {sizing_proposal}\ninitial pricing: {pricing_proposal}")
+        print(f"ask_balance {self._executed_asks_balance} - bid_balance {self._executed_bids_balance}")
 
+        if self._executed_asks_balance == self._executed_bids_balance:
+            self._executed_asks_balance = self._executed_bids_balance = 0
         if self._ping_pong_enabled:
-
-            print(f"level balance: {self._level_balance}")
-
-            if self._level_balance < 0:
-                buy_order_sizes = buy_order_sizes[abs(self._level_balance):]
-                buy_order_prices = buy_order_prices[abs(self._level_balance):]
-            elif self._level_balance > 0:
-                sell_order_sizes = sell_order_sizes[self._level_balance:]
-                sell_order_prices = sell_order_prices[self._level_balance:]
-
-        # print(f"adjusted sizing: {SizingProposal(buy_order_sizes, sell_order_sizes)}"
-        #       f"\nadjusted pricing: {PricingProposal(buy_order_prices, sell_order_prices)}")
+            if self._executed_bids_balance != 0:
+                buy_order_sizes = buy_order_sizes[self._executed_bids_balance:]
+                buy_order_prices = buy_order_prices[self._executed_bids_balance:]
+            elif self._executed_asks_balance != 0:
+                sell_order_sizes = sell_order_sizes[self._executed_asks_balance:]
+                sell_order_prices = sell_order_prices[self._executed_asks_balance:]
 
         return (SizingProposal(buy_order_sizes, sell_order_sizes),
                 PricingProposal(buy_order_prices, sell_order_prices))
@@ -846,9 +843,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             for other_order_id in active_sell_orders:
                 self._hanging_order_ids.append(other_order_id)
 
-        self._level_balance -= 1
-
         if market_info is not None:
+            self._executed_bids_balance += 1
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
             self.log_with_clock(
                 logging.INFO,
@@ -881,9 +877,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             for other_order_id in active_buy_orders:
                 self._hanging_order_ids.append(other_order_id)
 
-        self._level_balance += 1
-
         if market_info is not None:
+            self._executed_asks_balance += 1
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
             self.log_with_clock(
                 logging.INFO,

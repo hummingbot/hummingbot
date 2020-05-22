@@ -1045,24 +1045,21 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.assertEqual(3, len(self.ping_pong_enabled_multi_order_strategy.active_asks))
 
         bid_order = self.ping_pong_enabled_multi_order_strategy.active_bids[0][1]
-        ask_order = self.ping_pong_enabled_multi_order_strategy.active_asks[0][1]
         simulate_limit_order_fill(self.maker_market, bid_order)
-        simulate_limit_order_fill(self.maker_market, ask_order)
 
         self.clock.backtest_til(
-            self.start_timestamp + 6 * self.clock_tick_size + 1
+            self.start_timestamp + 5 * self.clock_tick_size + 1
+        )
+        self.assertEqual(4, len(self.ping_pong_enabled_multi_order_strategy.active_bids))
+        self.assertEqual(3, len(self.ping_pong_enabled_multi_order_strategy.active_asks))
+
+        bid_order = self.ping_pong_enabled_multi_order_strategy.active_bids[0][1]
+        simulate_limit_order_fill(self.maker_market, bid_order)
+
+        self.clock.backtest_til(
+            self.start_timestamp + 4 * self.clock_tick_size + 1
         )
         self.assertEqual(5, len(self.ping_pong_enabled_multi_order_strategy.active_bids))
-        self.assertEqual(4, len(self.ping_pong_enabled_multi_order_strategy.active_asks))
-
-        for i in range(3):
-            bid_order = self.ping_pong_enabled_multi_order_strategy.active_bids[i][1]
-            simulate_limit_order_fill(self.maker_market, bid_order)
-
-        self.clock.backtest_til(
-            self.start_timestamp + 6 * self.clock_tick_size + 1
-        )
-        self.assertEqual(3, len(self.ping_pong_enabled_multi_order_strategy.active_bids))
         self.assertEqual(5, len(self.ping_pong_enabled_multi_order_strategy.active_asks))
 
     def test_replenish_delay(self):
