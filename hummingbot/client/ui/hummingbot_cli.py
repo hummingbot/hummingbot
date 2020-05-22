@@ -40,6 +40,8 @@ class HummingbotCLI:
         self.output_field = create_output_field()
         self.log_field = create_log_field(self.search_field)
         self.layout = generate_layout(self.input_field, self.output_field, self.log_field, self.search_field)
+        # add self.to_stop_config to know if cancel is triggered
+        self.to_stop_config: bool = False
 
         self.bindings = bindings
         self.input_handler = input_handler
@@ -73,10 +75,6 @@ class HummingbotCLI:
 
         self.log(output)
         self.input_handler(self.input_field.text)
-
-    def reset(self):
-        self.pending_input = "exiting create command configuration..."
-        self.input_event.set()
 
     def clear_input(self):
         self.pending_input = None

@@ -29,10 +29,15 @@ def load_key_bindings(hb) -> KeyBindings:
         safe_ensure_future(hb.exit_loop())
 
     @bindings.add("c-x")
-    def restart(event):
+    def stop_configuration(event):
         hb.app.log("\n[CTRL + X] Exiting config...")
-        hb.app.reset()
-
+        hb.app.to_stop_config = True
+        hb.app.pending_input = " "
+        hb.app.input_event.set()
+        hb.app.change_prompt(prompt=">>> ")
+        hb.placeholder_mode = False
+        hb.app.hide_input = False
+        
     @bindings.add("c-s")
     def status(event):
         hb.app.log("\n[CTRL + S] Status")
