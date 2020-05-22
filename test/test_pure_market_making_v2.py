@@ -1045,12 +1045,12 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.assertEqual(3, len(self.ping_pong_enabled_multi_order_strategy.active_asks))
 
         bid_order = self.ping_pong_enabled_multi_order_strategy.active_bids[0][1]
+        ask_order = self.ping_pong_enabled_multi_order_strategy.active_asks[0][1]
         simulate_limit_order_fill(self.maker_market, bid_order)
-
-        print("second time-tick")
+        simulate_limit_order_fill(self.maker_market, ask_order)
 
         self.clock.backtest_til(
-            self.start_timestamp + 4 * self.clock_tick_size + 1
+            self.start_timestamp + 6 * self.clock_tick_size + 1
         )
         self.assertEqual(5, len(self.ping_pong_enabled_multi_order_strategy.active_bids))
         self.assertEqual(4, len(self.ping_pong_enabled_multi_order_strategy.active_asks))

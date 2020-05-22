@@ -124,6 +124,9 @@ cdef class OrderTracker(TimeIterator):
             list keys_to_delete = []
 
         if order_id in self._in_flight_pending_created:  # Checks if a Buy/SellOrderCreatedEvent has been received
+
+            print(f"order {order_id} in self._in_flight_pending_created")
+
             return False
 
         # Maintain the cancel expiry time invariant.
@@ -134,6 +137,9 @@ cdef class OrderTracker(TimeIterator):
             del self._in_flight_cancels[k]
 
         if order_id in self.in_flight_cancels:
+
+            print(f"order {order_id} in {self.in_flight_cancels}")
+
             return False
 
         # Track the cancel.
