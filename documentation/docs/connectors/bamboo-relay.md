@@ -16,11 +16,21 @@ Because Bamboo Relay is a decentralized exchange, you will need an independent c
 
 The Bamboo Relay connector supports two modes of operation, [open order book](https://0x.org/wiki#Open-Orderbook) and [coordinated order book](https://github.com/0xProject/0x-protocol-specification/blob/master/v2/coordinator-specification.md).
 
+For maximum order visibility it is advised to use the open order book mode at this time.
+
+### Open Order Book
+
 Open order book mode allows for off-chain orders to be submitted and any taker to fill these orders on-chain.
 Orders may only be cancelled by submitting a transaction and paying gas network costs.
 
+Open orders submitted through the hummingbot connector are syndicated through the [0x Mesh Network](https://0x-org.gitbook.io/mesh/) as well as directly submitted to the [0x API](https://0x.org/docs/api).
+
+### Coordinated order book 
+
 The coordinated order book mode extends the open order book mode by adding the ability to soft-cancel orders and a selective delay on order fills, while preserving network and contract fillable liquidity.
 This is achieved by the use of a coordinator server component and coordinator smart contracts.
+
+At this time coordinated orders are not supported through the [0x Mesh Network](https://0x-org.gitbook.io/mesh/) or [0x API](https://0x.org/docs/api).
 
 ## Pre-emptive Cancels
 
