@@ -601,7 +601,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             if self._executed_bids_balance != 0:
                 buy_order_sizes = buy_order_sizes[self._executed_bids_balance:]
                 buy_order_prices = buy_order_prices[self._executed_bids_balance:]
-            elif self._executed_asks_balance != 0:
+            if self._executed_asks_balance != 0:
                 sell_order_sizes = sell_order_sizes[self._executed_asks_balance:]
                 sell_order_prices = sell_order_prices[self._executed_asks_balance:]
 
