@@ -32,7 +32,7 @@ By default, Hummingbot uses the [CoinGecko API](https://www.coingecko.com/en/api
 
 When you run Hummingbot using DAI and/or USDT, the exchange rates are displayed in the client window when running the `status` command:
 
-![Exchange rate default](/assets/img/exchange-rate-default.png)
+![Exchange rate default](/assets/img/exchange-rate-default-new.png)
 
 ### Creating Custom Configurations
 
@@ -62,4 +62,4 @@ In the example above, 1 DAI is assumed to equal $0.97 USD, and 1 USDT is assumed
 You can also add new crypto-assets. As shown in the exchange rate class above, PAX has been added which allows Hummingbot to use the PAX/USD exchange rate from CoinGecko.
 
 You can see these custom exchange rates in the `status` command:
-![Exchange rate custom](/assets/img/exchange-rate-custom.png)
+![Exchange rate custom](/assets/img/exchange-rate-custom-new.png)
