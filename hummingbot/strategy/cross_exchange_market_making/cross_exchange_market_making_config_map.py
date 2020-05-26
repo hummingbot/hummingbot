@@ -43,16 +43,18 @@ def validate_taker_market_trading_pair(value: str) -> Optional[str]:
 
 
 def order_amount_prompt() -> str:
+    maker_exchange = cross_exchange_market_making_config_map["maker_market"].value
     trading_pair = cross_exchange_market_making_config_map["maker_market_trading_pair"].value
     base_asset, quote_asset = trading_pair.split("-")
-    min_amount = minimum_order_amount(trading_pair)
+    min_amount = minimum_order_amount(maker_exchange, trading_pair)
     return f"What is the amount of {base_asset} per order? (minimum {min_amount}) >>> "
 
 
 def validate_order_amount(value: str) -> Optional[str]:
     try:
+        maker_exchange = cross_exchange_market_making_config_map.get("maker_market").value
         trading_pair = cross_exchange_market_making_config_map["maker_market_trading_pair"].value
-        min_amount = minimum_order_amount(trading_pair)
+        min_amount = minimum_order_amount(maker_exchange, trading_pair)
         if Decimal(value) < min_amount:
             return f"Order amount must be at least {min_amount}."
     except Exception:
