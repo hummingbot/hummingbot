@@ -22,8 +22,9 @@ Liquidity mining sets forth an analytical framework for determining market maker
 !!! warning "Terms subject to change"
     Please check this page for the most up-to-date terms.  We will notify participants of changes, if any, through email (for registered users) and on our [Discord](https://discord.hummingbot.io).
 
-!!! note "Terms updated for week 12"
-    **Solana liquidity mining campaign launched!** <br/> Starting May 26, 2020 12.00am UTC, SOL/BTC, SOL/BUSD, and SOL/BNB will be eligible pairs with a total of USDC 625/week of rewards available.
+!!! note "Terms updated for week 13: starting May 26, 2020 12.00am UTC"
+    <li>**Solana liquidity mining campaign launched!** SOL/BTC, SOL/BUSD, and SOL/BNB will be eligible pairs with a total of USDC 625/week of rewards available.
+    <li>**Zcoin eliglble token pairs updated**: **XZC/BTC** will no longer be eligible, while **XZC/ETH** and **XZC/BNB** have been added as eligible pairs.
 
 <table>
   <thead>
@@ -73,17 +74,23 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>USDC 125</td>
     </tr>
     <tr>
-      <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
-      <td>XZC/BTC</td>
+      <td rowspan="3"><a href="#zcoin">Zcoin</a></td>
+      <td>XZC/USDT</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>USDC 375</td>
     </tr>
     <tr>
-      <td>XZC/USDT</td>
+      <td>XZC/ETH</td>
       <td>Binance.com</td>
       <td>2%</td>
-      <td>USDC 375</td>
+      <td>USDC 187.50</td>
+    </tr>
+    <tr>
+      <td>XZC/BNB</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 187.50</td>
     </tr>
     <tr>
       <td rowspan="3"><a href="#zilliqa">Zilliqa</a><br></td>
