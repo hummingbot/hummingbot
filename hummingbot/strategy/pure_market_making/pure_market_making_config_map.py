@@ -36,22 +36,18 @@ def validate_exchange_trading_pair(value: str) -> Optional[str]:
 
 
 def order_amount_prompt() -> str:
+    exchange = pure_market_making_config_map["exchange"].value
     trading_pair = pure_market_making_config_map["market"].value
     base_asset, quote_asset = trading_pair.split("-")
-    min_amount = minimum_order_amount(trading_pair)
+    min_amount = minimum_order_amount(exchange, trading_pair)
     return f"What is the amount of {base_asset} per order? (minimum {min_amount}) >>> "
-
-
-def order_start_size_prompt() -> str:
-    trading_pair = pure_market_making_config_map["market"].value
-    min_amount = minimum_order_amount(trading_pair)
-    return f"What is the size of the first bid and ask order? (minimum {min_amount}) >>> "
 
 
 def validate_order_amount(value: str) -> Optional[str]:
     try:
+        exchange = pure_market_making_config_map["exchange"].value
         trading_pair = pure_market_making_config_map["market"].value
-        min_amount = minimum_order_amount(trading_pair)
+        min_amount = minimum_order_amount(exchange, trading_pair)
         if Decimal(value) < min_amount:
             return f"Order amount must be at least {min_amount}."
     except Exception:

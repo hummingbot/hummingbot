@@ -86,7 +86,8 @@ class ArbitrageUnitTest(unittest.TestCase):
         self.strategy: ArbitrageStrategy = ArbitrageStrategy(
             [self.market_pair],
             min_profitability=Decimal("0.03"),
-            logging_options=self.logging_options
+            logging_options=self.logging_options,
+            secondary_to_primary_quote_conversion_rate=Decimal("0.95")
         )
 
         self.clock.add_iterator(self.market_1)
@@ -237,7 +238,9 @@ class ArbitrageUnitTest(unittest.TestCase):
         """
         profitable_orders = ArbitrageStrategy.find_profitable_arbitrage_orders(Decimal("0"),
                                                                                self.market_trading_pair_tuple_1,
-                                                                               self.market_trading_pair_tuple_2)
+                                                                               self.market_trading_pair_tuple_2,
+                                                                               Decimal("1"),
+                                                                               Decimal("0.95"))
         self.assertEqual(profitable_orders, [
             (Decimal("1.045"), Decimal("1.005"), Decimal("1.1"), Decimal("1.005"), Decimal("10.0")),
             (Decimal("1.045"), Decimal("1.015"), Decimal("1.1"), Decimal("1.015"), Decimal("20.0"))
@@ -264,7 +267,9 @@ class ArbitrageUnitTest(unittest.TestCase):
         )
         profitable_orders = ArbitrageStrategy.find_profitable_arbitrage_orders(Decimal("0"),
                                                                                self.market_trading_pair_tuple_1,
-                                                                               self.market_trading_pair_tuple_2)
+                                                                               self.market_trading_pair_tuple_2,
+                                                                               Decimal("1"),
+                                                                               Decimal("0.95"))
         self.assertEqual(profitable_orders, [
             (Decimal("1.045"), Decimal("0.9"), Decimal("1.1"), Decimal("0.9"), Decimal("5.0")),
             (Decimal("1.045"), Decimal("0.95"), Decimal("1.1"), Decimal("0.95"), Decimal("15.0")),
