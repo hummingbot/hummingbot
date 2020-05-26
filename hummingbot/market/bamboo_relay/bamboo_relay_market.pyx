@@ -973,7 +973,11 @@ cdef class BambooRelayMarket(MarketBase):
 
     def get_zero_ex_signature(self, order_hash_hex: str) -> str:
         signature = self._wallet.current_backend.sign_hash(hexstr=order_hash_hex)
-        fixed_signature = fix_signature(self._provider, self._wallet.address, order_hash_hex, signature)
+        fixed_signature = fix_signature(self._provider, 
+                                        self._wallet.address, 
+                                        order_hash_hex,
+                                        signature, 
+                                        self._chain_id)
         return fixed_signature
 
     cdef list c_get_orders_for_amount_price(self,

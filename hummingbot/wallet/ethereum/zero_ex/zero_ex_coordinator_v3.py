@@ -360,7 +360,11 @@ class ZeroExCoordinator:
         order_hash_hex = get_transaction_hash_hex(transaction)
 
         signature = self._wallet.current_backend.sign_hash(hexstr=order_hash_hex)
-        fixed_signature = fix_signature(self._provider, signerAddress, order_hash_hex, signature)
+        fixed_signature = fix_signature(self._provider,
+                                        signerAddress, 
+                                        order_hash_hex, 
+                                        signature,
+                                        chainId)
 
         transaction['signature'] = fixed_signature
 
