@@ -23,17 +23,13 @@ from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import (
     MarketBase,
     OrderType,
-    s_decimal_NaN
 )
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.client.config.global_config_map import paper_trade_disabled
-from math import isnan
 
 from .data_types import (
     OrdersProposal,
-    ORDER_PROPOSAL_ACTION_CANCEL_ORDERS,
-    ORDER_PROPOSAL_ACTION_CREATE_ORDERS,
     PricingProposal,
     SizingProposal
 )

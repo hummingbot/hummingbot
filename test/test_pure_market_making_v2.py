@@ -577,80 +577,6 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.strategy.active_bids))
         self.assertEqual(0, len(self.strategy.active_asks))
 
-    def test_strategy_ping_pong_on_ask_fill(self):
-        self.clock.remove_iterator(self.strategy)
-        self.strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
-            [self.market_info],
-            filter_delegate=self.filter_delegate,
-            sizing_delegate=self.constant_sizing_delegate,
-            pricing_delegate=self.constant_pricing_delegate,
-            order_refresh_time=self.order_refresh_time,
-            ping_pong_enabled=True,
-        )
-        self.clock.add_iterator(self.strategy)
-
-        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
-        self.assertEqual(1, len(self.strategy.active_bids))
-        self.assertEqual(1, len(self.strategy.active_asks))
-
-        ask_order = self.strategy.active_asks[0][1]
-
-        simulate_limit_order_fill(self.maker_market, ask_order)
-
-        self.clock.backtest_til(
-            self.start_timestamp + 2 * self.clock_tick_size + 1
-        )
-        self.assertEqual(1, len(self.strategy.active_bids))
-        self.assertEqual(0, len(self.strategy.active_asks))
-
-        bid_order = self.strategy.active_bids[0][1]
-
-        simulate_limit_order_fill(self.maker_market, bid_order)
-
-        self.clock.backtest_til(
-            self.start_timestamp + 3 * self.clock_tick_size + 1
-        )
-        self.assertEqual(1, len(self.strategy.active_bids))
-        self.assertEqual(1, len(self.strategy.active_asks))
-
-    def test_strategy_ping_pong_on_bid_fill(self):
-        self.clock.remove_iterator(self.strategy)
-        self.strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
-            [self.market_info],
-            filter_delegate=self.filter_delegate,
-            sizing_delegate=self.constant_sizing_delegate,
-            pricing_delegate=self.constant_pricing_delegate,
-            order_refresh_time=self.order_refresh_time,
-            ping_pong_enabled=True,
-        )
-        self.clock.add_iterator(self.strategy)
-
-        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
-        self.assertEqual(1, len(self.strategy.active_bids))
-        self.assertEqual(1, len(self.strategy.active_asks))
-
-        bid_order = self.strategy.active_bids[0][1]
-
-        simulate_limit_order_fill(self.maker_market, bid_order)
-
-        self.clock.backtest_til(
-            self.start_timestamp + 2 * self.clock_tick_size + 1
-        )
-        self.assertEqual(0, len(self.strategy.active_bids))
-        self.assertEqual(1, len(self.strategy.active_asks))
-
-        ask_order = self.strategy.active_asks[0][1]
-
-        simulate_limit_order_fill(self.maker_market, ask_order)
-
-        self.clock.backtest_til(
-            self.start_timestamp + 3 * self.clock_tick_size + 1
-        )
-        self.assertEqual(1, len(self.strategy.active_bids))
-        self.assertEqual(1, len(self.strategy.active_asks))
-
-        # TODO: test with transaction costs
-
     def test_strategy_with_transaction_costs(self):
         self.clock.remove_iterator(self.strategy)
         logging_options: int = (PureMarketMakingStrategyV2.OPTION_LOG_ALL &
@@ -1013,54 +939,6 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         )
         self.assertEqual(5, len(self.multi_order_equal_strategy.active_bids))
         self.assertEqual(0, len(self.multi_order_equal_strategy.active_asks))
-
-    def test_multiple_orders_ping_pong(self):
-        logging_options: int = (PureMarketMakingStrategyV2.OPTION_LOG_ALL &
-                                (~PureMarketMakingStrategyV2.OPTION_LOG_NULL_ORDER_SIZE))
-
-        self.clock.remove_iterator(self.strategy)
-        self.ping_pong_enabled_multi_order_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
-            [self.market_info],
-            logging_options=logging_options,
-            filter_delegate=self.filter_delegate,
-            pricing_delegate=self.multiple_order_strategy_pricing_delegate,
-            sizing_delegate=self.equal_strategy_sizing_delegate,
-            order_refresh_time=self.order_refresh_time,
-            ping_pong_enabled=True,
-        )
-        self.clock.add_iterator(self.ping_pong_enabled_multi_order_strategy)
-
-        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
-        self.assertEqual(5, len(self.ping_pong_enabled_multi_order_strategy.active_bids))
-        self.assertEqual(5, len(self.ping_pong_enabled_multi_order_strategy.active_asks))
-
-        for i in range(2):
-            ask_order = self.ping_pong_enabled_multi_order_strategy.active_asks[i][1]
-            simulate_limit_order_fill(self.maker_market, ask_order)
-
-        self.clock.backtest_til(
-            self.start_timestamp + 2 * self.clock_tick_size + 1
-        )
-        self.assertEqual(5, len(self.ping_pong_enabled_multi_order_strategy.active_bids))
-        self.assertEqual(3, len(self.ping_pong_enabled_multi_order_strategy.active_asks))
-
-        bid_order = self.ping_pong_enabled_multi_order_strategy.active_bids[0][1]
-        simulate_limit_order_fill(self.maker_market, bid_order)
-
-        self.clock.backtest_til(
-            self.start_timestamp + 5 * self.clock_tick_size + 1
-        )
-        self.assertEqual(4, len(self.ping_pong_enabled_multi_order_strategy.active_bids))
-        self.assertEqual(3, len(self.ping_pong_enabled_multi_order_strategy.active_asks))
-
-        bid_order = self.ping_pong_enabled_multi_order_strategy.active_bids[0][1]
-        simulate_limit_order_fill(self.maker_market, bid_order)
-
-        self.clock.backtest_til(
-            self.start_timestamp + 4 * self.clock_tick_size + 1
-        )
-        self.assertEqual(5, len(self.ping_pong_enabled_multi_order_strategy.active_bids))
-        self.assertEqual(5, len(self.ping_pong_enabled_multi_order_strategy.active_asks))
 
     def test_replenish_delay(self):
         self.clock.remove_iterator(self.strategy)
