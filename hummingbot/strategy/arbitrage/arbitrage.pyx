@@ -406,7 +406,7 @@ cdef class ArbitrageStrategy(StrategyBase):
         if market_info == self._market_pairs[0].first:
             return Decimal("1")
         elif market_info == self._market_pairs[0].second:
-            return self._secondary_to_primary_base_conversion_rate * self._secondary_to_primary_quote_conversion_rate
+            return self._secondary_to_primary_quote_conversion_rate / self._secondary_to_primary_base_conversion_rate
 
     cdef tuple c_find_best_profitable_amount(self, object buy_market_trading_pair_tuple, object sell_market_trading_pair_tuple):
         """
