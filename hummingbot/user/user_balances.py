@@ -5,7 +5,7 @@ from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.kucoin.kucoin_market import KucoinMarket
 from hummingbot.market.liquid.liquid_market import LiquidMarket
 from hummingbot.market.kraken.kraken_market import KrakenMarket
-from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.core.utils.market_mid_price import get_mid_price
 from hummingbot.client.settings import EXCHANGES, DEXES
 from hummingbot.client.config.security import Security
 from hummingbot.core.utils.async_utils import safe_gather
@@ -137,13 +137,13 @@ class UserBalances:
         return None
 
     @staticmethod
-    def base_amount_ratio(trading_pair, balances) -> Optional[Decimal]:
+    def base_amount_ratio(exchange, trading_pair, balances) -> Optional[Decimal]:
         try:
             base, quote = trading_pair.split("-")
             base_amount = balances.get(base, 0)
             quote_amount = balances.get(quote, 0)
-            rate = ExchangeRateConversion.get_instance().convert_token_value_decimal(1, quote, base)
-            total_value = base_amount + (quote_amount * rate)
+            price = get_mid_price(exchange, trading_pair)
+            total_value = base_amount + (quote_amount / price)
             return None if total_value <= 0 else base_amount / total_value
         except Exception:
             return None

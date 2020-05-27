@@ -32,6 +32,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         int64_t _logging_options
         object _exchange_rate_conversion
         OrderIDMarketPairTracker _market_pair_tracker
+        object _taker_to_maker_base_conversion_rate
+        object _taker_to_maker_quote_conversion_rate
 
     cdef c_process_market_pair(self,
                                object market_pair,
