@@ -177,5 +177,21 @@ cross_exchange_market_making_config_map = {
         default=Decimal("16.67"),
         type_str="decimal",
         required_if=lambda: False,
-    )
+    ),
+    "taker_to_maker_base_conversion_rate": ConfigVar(
+        key="taker_to_maker_base_conversion_rate",
+        prompt="Enter conversion rate for taker base asset value to maker base asset value, e.g. "
+               "if maker base asset is USD, taker is DAI and 1 USD is worth 1.25 DAI, "
+               "the conversion rate is 0.8 (1 / 1.25) >>> ",
+        default=1,
+        validator=lambda v: validate_decimal(v, Decimal(0), Decimal("100"), inclusive=False),
+        type_str="decimal"),
+    "taker_to_maker_quote_conversion_rate": ConfigVar(
+        key="taker_to_maker_quote_conversion_rate",
+        prompt="Enter conversion rate for taker quote asset value to maker quote asset value, e.g. "
+               "if taker quote asset is USD, maker is DAI and 1 USD is worth 1.25 DAI, "
+               "the conversion rate is 0.8 (1 / 1.25) >>> ",
+        default=1,
+        validator=lambda v: validate_decimal(v, Decimal(0), Decimal("100"), inclusive=False),
+        type_str="decimal"),
 }
