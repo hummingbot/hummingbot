@@ -467,9 +467,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 orders_proposal = None
                 active_orders = market_info_to_active_orders.get(market_info, [])
                 active_non_hangings = [o for o in active_orders if o.client_order_id not in self._hanging_order_ids]
-
-                print(f"\n<c_tick> active_non_hangings -> {active_non_hangings}\n")
-
                 try:
                     if self._create_timestamp <= self._current_timestamp:
                         orders_proposal = self.c_create_orders_proposals(
@@ -588,9 +585,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             list buy_order_prices = [order_price for order_price in pricing_proposal.buy_order_prices]
             list sell_order_sizes = [order_size for order_size in sizing_proposal.sell_order_sizes]
             list sell_order_prices = [order_price for order_price in pricing_proposal.sell_order_prices]
-
-        print(f"ask_balance {self._executed_asks_balance} - bid_balance {self._executed_bids_balance}")
-
         if self._executed_asks_balance == self._executed_bids_balance:
             self._executed_asks_balance = self._executed_bids_balance = 0
         if self._ping_pong_enabled:
@@ -913,9 +907,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             list active_sells = []
             bint to_defer_canceling = False
         active_orders = [o for o in active_orders if o.client_order_id not in self._hanging_order_ids]
-
-        print(f"active_orders {active_orders}")
-
         if len(active_orders) == 0:
             return
         if orders_proposal is not None and self._order_refresh_tolerance_pct >= 0:
@@ -930,9 +921,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             if self.c_is_within_tolerance(active_buys, buy_proposals) and \
                     self.c_is_within_tolerance(active_sells, sell_proposals):
                 to_defer_canceling = True
-
-        print(f"to_defer_canceling {to_defer_canceling}")
-
         if not to_defer_canceling:
             for order in active_orders:
                 self.c_cancel_order(market_info, order.client_order_id)
@@ -963,16 +951,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
     cdef bint c_to_create_orders(self, object market_info, object orders_proposal):
         if self._create_timestamp > self._current_timestamp or orders_proposal is None:
-
-            print(f"c_to_create_orders returning False, {self._create_timestamp} > {self._current_timestamp}")
-
             return False
         cdef:
             list active_orders = self.market_info_to_active_orders.get(market_info, [])
         active_orders = [o for o in active_orders if o.client_order_id not in self._hanging_order_ids]
-
-        print(f"c_to_create_orders returning {len(active_orders) == 0} (check)")
-
         return len(active_orders) == 0
 
     cdef c_execute_orders_proposal(self, object market_info, object orders_proposal):
