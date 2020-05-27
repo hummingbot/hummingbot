@@ -11,7 +11,7 @@ In a situation where the calculation of maker order prices from external sources
 
 >**Example**: If `ETH-USDC` market is currently displaying 109 bid and 111 ask. A specified external exchange is showing 99 bid and 101 ask on its book (mid price = 100). 2 maker orders will be proposed, a bid maker order at 98 (for 2% bid spread) and an ask maker order at 102 (for 2% ask spread). The 102 ask order will be ignored (as it would match the 109 bid order), only the bid order will be submitted to the exchange. 
 
-Type 
+Type `config price_source_enabled` to set the values for `price_source_enabled`, 
 
 ## Sample Configurations
 ```json
@@ -27,7 +27,7 @@ Type
 ![Exchange External Price Source Configuration](/assets/img/price_source_exchange_config.PNG)
 
 ###Custom API Pricing Source Configuration
-![Custom API Pricing Source Configuration](/assets/img/trans_cost_bid.PNG)
+![Custom API Pricing Source Configuration](/assets/img/price_source_custom_api_config.PNG)
 
 
 ## Relevant Parameters
