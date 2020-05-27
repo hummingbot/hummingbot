@@ -764,6 +764,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                                           market_info,
                                                                           active_non_hanging_orders,
                                                                           pricing_proposal)
+
         sizing_proposal, pricing_proposal = self.c_check_and_apply_ping_pong_strategy(sizing_proposal,
                                                                                       pricing_proposal)
         sizing_proposal = self.c_check_and_apply_price_bands_to_sizing_proposal(market_info,
@@ -921,6 +922,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             if self.c_is_within_tolerance(active_buys, buy_proposals) and \
                     self.c_is_within_tolerance(active_sells, sell_proposals):
                 to_defer_canceling = True
+
         if not to_defer_canceling:
             for order in active_orders:
                 self.c_cancel_order(market_info, order.client_order_id)
