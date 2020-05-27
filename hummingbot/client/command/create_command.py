@@ -74,6 +74,7 @@ class CreateCommand:
             file_name = await self.prompt_new_file_name(strategy)
             if self.app.to_stop_config:
                 self.app.to_stop_config = False
+                self.app.set_text("")
                 return
         self.app.change_prompt(prompt=">>> ")
         strategy_path = os.path.join(CONF_FILE_PATH, file_name)
