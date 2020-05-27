@@ -155,6 +155,12 @@ pure_market_making_config_map = {
                   type_str="decimal",
                   default=Decimal("-1"),
                   validator=validate_price_floor_ceiling),
+    "ping_pong_enabled":
+        ConfigVar(key="ping_pong_enabled",
+                  prompt="Do you want to alternate between buys and sells? (Yes/No) >>> ",
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool),
     "order_expiration_time":
         ConfigVar(key="order_expiration_time",
                   prompt="How long should your limit orders remain valid until they "
