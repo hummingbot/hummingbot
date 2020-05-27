@@ -407,9 +407,6 @@ cdef class StrategyBase(TimeIterator):
             self.c_start_tracking_limit_order(market_trading_pair_tuple, order_id, True, price, amount)
         elif order_type == OrderType.MARKET:
             self.c_start_tracking_market_order(market_trading_pair_tuple, order_id, True, amount)
-
-        print(f"created order {order_id}")
-
         return order_id
 
     cdef str c_sell_with_specific_market(self, object market_trading_pair_tuple, object amount,
@@ -441,9 +438,6 @@ cdef class StrategyBase(TimeIterator):
             self.c_start_tracking_limit_order(market_trading_pair_tuple, order_id, False, price, amount)
         elif order_type == OrderType.MARKET:
             self.c_start_tracking_market_order(market_trading_pair_tuple, order_id, False, amount)
-
-        print(f"created order {order_id}")
-
         return order_id
 
     cdef c_cancel_order(self, object market_trading_pair_tuple, str order_id):
@@ -455,9 +449,6 @@ cdef class StrategyBase(TimeIterator):
                 logging.INFO,
                 f"({market_trading_pair_tuple.trading_pair}) Cancelling the limit order {order_id}."
             )
-
-            print(f"cancelling {order_id}")
-
             market.c_cancel(market_trading_pair_tuple.trading_pair, order_id)
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
