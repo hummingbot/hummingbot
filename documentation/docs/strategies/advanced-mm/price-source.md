@@ -1,9 +1,33 @@
 # External Pricing Source Configuration
 
+**Updated as of `v0.28.0`**
+
 By default, Hummingbot uses the market orderbook mid price (between the top bid and the top ask) as a starting price to calculate maker order prices. 
 With external pricing sources, you can now use external sources for the starting mid price such as an external **exchange** or a **custom API**.
 
-In a situation where the calculation of maker order prices from external sources would result in the order matching any existing orders on the order book, such order will be ignored. For example, if ETH-USDC market is currently displaying 109 bid and 111 ask. A specified external exchange is showing 99 bid and 101 ask on its book (mid price = 100). 2 maker orders will be proposed, a bid maker order at 98 (for 2% bid spread) and an ask maker order at 102 (for 2% ask spread). The 102 ask order will be ignored (as it would match the 109 bid order), only the bid order will be submitted to the exchange. 
+##How It Works
+
+In a situation where the calculation of maker order prices from external sources would result in the order matching any existing orders on the order book, such order will be ignored. 
+
+>**Example**: If `ETH-USDC` market is currently displaying 109 bid and 111 ask. A specified external exchange is showing 99 bid and 101 ask on its book (mid price = 100). 2 maker orders will be proposed, a bid maker order at 98 (for 2% bid spread) and an ask maker order at 102 (for 2% ask spread). The 102 ask order will be ignored (as it would match the 109 bid order), only the bid order will be submitted to the exchange. 
+
+Type 
+
+## Sample Configurations
+```json
+- market: XRP-USD
+- bid_spread: 1
+- ask_spread: 1
+- order_amount: 56
+```
+###No External Pricing Source Configuration
+![No External Pricing Source Configuration](/assets/img/price_source_None_config.PNG)
+
+###Exchange External Price Source Configuration
+![Exchange External Price Source Configuration](/assets/img/price_source_exchange_config.PNG)
+
+###Custom API Pricing Source Configuration
+![Custom API Pricing Source Configuration](/assets/img/trans_cost_bid.PNG)
 
 
 ## Relevant Parameters
