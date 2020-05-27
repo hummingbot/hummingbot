@@ -407,6 +407,7 @@ cdef class StrategyBase(TimeIterator):
             self.c_start_tracking_limit_order(market_trading_pair_tuple, order_id, True, price, amount)
         elif order_type == OrderType.MARKET:
             self.c_start_tracking_market_order(market_trading_pair_tuple, order_id, True, amount)
+
         return order_id
 
     cdef str c_sell_with_specific_market(self, object market_trading_pair_tuple, object amount,
@@ -438,6 +439,7 @@ cdef class StrategyBase(TimeIterator):
             self.c_start_tracking_limit_order(market_trading_pair_tuple, order_id, False, price, amount)
         elif order_type == OrderType.MARKET:
             self.c_start_tracking_market_order(market_trading_pair_tuple, order_id, False, amount)
+
         return order_id
 
     cdef c_cancel_order(self, object market_trading_pair_tuple, str order_id):
