@@ -41,7 +41,7 @@ class CreateCommand:
         self.placeholder_mode = True
         self.app.hide_input = True
         required_exchanges.clear()
-        
+
         strategy_config = ConfigVar(key="strategy",
                                     prompt="What is your market making strategy? >>> ",
                                     validator=validate_strategy)
@@ -72,6 +72,9 @@ class CreateCommand:
             await self.asset_ratio_maintenance_prompt(config_map)
         if file_name is None:
             file_name = await self.prompt_new_file_name(strategy)
+            if self.app.to_stop_config:
+                self.app.to_stop_config = False
+                return
         self.app.change_prompt(prompt=">>> ")
         strategy_path = os.path.join(CONF_FILE_PATH, file_name)
         template = get_strategy_template_path(strategy)
@@ -88,7 +91,6 @@ class CreateCommand:
             self._notify("\nEnter \"start\" to start market making.")
             self.app.set_text("start")
 
-    
     async def prompt_a_config(self,  # type: HummingbotApplication
                               config: ConfigVar,
                               input_value=None,
