@@ -9,7 +9,6 @@ from decimal import Decimal
 from hummingbot.client.config.config_helpers import (
     minimum_order_amount
 )
-from hummingbot.data_feed.exchange_price_manager import ExchangePriceManager
 from typing import Optional
 
 
@@ -63,9 +62,6 @@ def validate_order_amount(value: str) -> Optional[str]:
 
 def taker_market_on_validated(value: str):
     required_exchanges.append(value)
-    maker_exchange = cross_exchange_market_making_config_map["maker_market"].value
-    ExchangePriceManager.set_exchanges_to_feed([maker_exchange, value])
-    ExchangePriceManager.start()
 
 
 cross_exchange_market_making_config_map = {

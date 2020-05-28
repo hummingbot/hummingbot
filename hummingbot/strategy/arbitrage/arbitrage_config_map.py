@@ -8,7 +8,6 @@ from hummingbot.client.settings import (
     required_exchanges,
     EXAMPLE_PAIRS,
 )
-from hummingbot.data_feed.exchange_price_manager import ExchangePriceManager
 from decimal import Decimal
 from typing import Optional
 
@@ -39,9 +38,6 @@ def secondary_trading_pair_prompt():
 
 def secondary_market_on_validated(value: str):
     required_exchanges.append(value)
-    primary_exchange = arbitrage_config_map["primary_market"].value
-    ExchangePriceManager.set_exchanges_to_feed([primary_exchange, value])
-    ExchangePriceManager.start()
 
 
 arbitrage_config_map = {

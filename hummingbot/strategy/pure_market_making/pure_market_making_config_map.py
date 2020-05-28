@@ -18,7 +18,6 @@ from hummingbot.client.config.global_config_map import (
 from hummingbot.client.config.config_helpers import (
     minimum_order_amount
 )
-from hummingbot.data_feed.exchange_price_manager import ExchangePriceManager
 from typing import Optional
 
 
@@ -81,8 +80,6 @@ def validate_price_floor_ceiling(value: str) -> Optional[str]:
 
 def exchange_on_validated(value: str):
     required_exchanges.append(value)
-    ExchangePriceManager.set_exchanges_to_feed([value])
-    ExchangePriceManager.start()
 
 
 pure_market_making_config_map = {

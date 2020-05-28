@@ -7,6 +7,7 @@ from typing import (
 from hummingbot.core.event.events import TradeType
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+
 s_float_nan = float("nan")
 s_float_0 = float(0)
 s_decimal_0 = Decimal(0)
@@ -104,7 +105,8 @@ def calculate_asset_delta_from_trades(current_strategy_name: str,
 def calculate_trade_performance(current_strategy_name: str,
                                 market_trading_pair_tuples: List[MarketTradingPairTuple],
                                 raw_queried_trades: List[TradeFill],
-                                starting_balances: Dict[str, Dict[str, Decimal]]) \
+                                starting_balances: Dict[str, Dict[str, Decimal]],
+                                secondary_market_conversion_rate: Decimal = Decimal("1")) \
         -> Tuple[Dict, Dict]:
     """
     Calculate total spent and acquired amount for the whole portfolio in quote value.
@@ -114,11 +116,13 @@ def calculate_trade_performance(current_strategy_name: str,
     :param raw_queried_trades: List of queried trades
     :param starting_balances: Dictionary of starting asset balance for each market, as balance_snapshot on
     history command.
+    :param secondary_market_conversion_rate: A conversion rate for a secondary market if it differs from the primary.
     :return: Dictionary consisting of total spent and acquired across whole portfolio in quote value,
              as well as individual assets
     """
     trade_performance_stats: Dict[str, Decimal] = {}
-    # The final stats will be in primary quote unit
+    # The final stats will be in primary quote unit for arbitrage and maker quote unit for xemm
+    primary_trading_pair: str = market_trading_pair_tuples[0].trading_pair
     market_trading_pair_stats: Dict[str, Dict[str, Decimal]] = calculate_asset_delta_from_trades(
         current_strategy_name,
         market_trading_pair_tuples,
@@ -132,6 +136,10 @@ def calculate_trade_performance(current_strategy_name: str,
         quote_rate: Decimal = market_trading_pair_tuple.get_mid_price()
         trading_pair_stats["end_quote_rate"] = quote_rate
         asset_stats: Dict[str, Decimal] = trading_pair_stats["asset"]
+
+        market_conversion_rate = Decimal("1")
+        if market_trading_pair_tuple.trading_pair != primary_trading_pair:
+            market_conversion_rate = secondary_market_conversion_rate
 
         # Calculate delta amount and delta percentage for each asset based on spent and acquired amount
         for asset, stats in asset_stats.items():
@@ -165,9 +173,9 @@ def calculate_trade_performance(current_strategy_name: str,
         starting_total = starting_quote + (starting_base * quote_rate)
         # Convert trading pair's spent and acquired amount into primary quote asset value
         # (primary quote asset is the quote asset of the first trading pair)
-        trading_pair_stats["acquired_quote_value"] = combined_acquired
-        trading_pair_stats["spent_quote_value"] = combined_spent
-        trading_pair_stats["starting_quote_value"] = starting_total
+        trading_pair_stats["acquired_quote_value"] = combined_acquired * market_conversion_rate
+        trading_pair_stats["spent_quote_value"] = combined_spent * market_conversion_rate
+        trading_pair_stats["starting_quote_value"] = starting_total * market_conversion_rate
         trading_pair_stats["trading_pair_delta"] = combined_acquired - combined_spent
 
         if combined_acquired == s_decimal_0 or combined_spent == s_decimal_0:
