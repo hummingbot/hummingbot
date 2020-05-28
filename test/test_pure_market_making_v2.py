@@ -9,7 +9,6 @@ import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
 from typing import List
 import unittest
-import time
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import (
     AssetType,
@@ -45,11 +44,9 @@ from hummingbot.strategy.pure_market_making import (
     StaggeredMultipleSizeSizingDelegate,
     InventorySkewSingleSizeSizingDelegate,
     InventorySkewMultipleSizeSizingDelegate,
-    OrderBookAssetPriceDelegate,
-    DataFeedAssetPriceDelegate
+    OrderBookAssetPriceDelegate
 )
 from hummingbot.data_feed.data_feed_base import DataFeedBase
-from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.core.network_base import NetworkStatus
 from hummingbot.client.command.config_command import ConfigCommand
 
@@ -300,44 +297,6 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             order_refresh_time=45,
             logging_options=logging_options,
             asset_price_delegate=self.asset_del
-        )
-
-        ExchangeRateConversion.set_global_exchange_rate_config({
-            "global_config": {
-                self.maker_trading_pairs[1]: {"default": 200, "source": "mock_data_feed"},
-                self.maker_trading_pairs[2]: {"default": 1, "source": "mock_data_feed"}
-            },
-            "default_data_feed": "mock_data_feed"
-        })
-        mock_feed = MockDataFeed("mock_data_feed", {self.maker_trading_pairs[1]: 200, self.maker_trading_pairs[2]: 1})
-        ExchangeRateConversion.set_data_feeds([
-            mock_feed
-        ])
-        ExchangeRateConversion.set_update_interval(0.1)
-        ExchangeRateConversion.get_instance().start()
-        time.sleep(1)
-        self.feed_asset_del = DataFeedAssetPriceDelegate(self.maker_trading_pairs[1], self.maker_trading_pairs[2])
-
-        self.ext_feed_price_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
-            [self.market_info],
-            filled_order_delay=self.order_refresh_time,
-            filter_delegate=self.filter_delegate,
-            sizing_delegate=self.constant_sizing_delegate,
-            pricing_delegate=self.constant_pricing_delegate,
-            order_refresh_time=45,
-            logging_options=logging_options,
-            asset_price_delegate=self.feed_asset_del
-        )
-
-        self.multi_orders_ext_feed_price_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
-            [self.market_info],
-            filled_order_delay=self.order_refresh_time,
-            filter_delegate=self.filter_delegate,
-            sizing_delegate=self.equal_strategy_sizing_delegate,
-            pricing_delegate=self.multiple_order_strategy_pricing_delegate,
-            order_refresh_time=45,
-            logging_options=logging_options,
-            asset_price_delegate=self.feed_asset_del
         )
 
         self.logging_options = logging_options
@@ -702,40 +661,6 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         last_ask_price = Decimal(50.5 * (1 + 0.01) ** 4).quantize(Decimal("0.001"))
         self.assertAlmostEqual(last_ask_price, last_ask_order.price, 3)
         self.assertEqual(Decimal("1.0"), last_ask_order.quantity)
-
-    def test_external_feed_price_source(self):
-        self.clock.remove_iterator(self.strategy)
-        self.clock.add_iterator(self.ext_feed_price_strategy)
-        end_ts = self.start_timestamp + self.clock_tick_size
-        self.clock.backtest_til(end_ts)
-
-        self.assertEqual(0, len(self.ext_feed_price_strategy.active_bids))
-        self.assertEqual(1, len(self.ext_feed_price_strategy.active_asks))
-
-        # check price data from external exchange is used for order placement
-        ask_order: LimitOrder = self.ext_feed_price_strategy.active_asks[0][1]
-        self.assertEqual(Decimal("202"), ask_order.price)
-        self.assertEqual(Decimal("1.0"), ask_order.quantity)
-
-    def test_external_feed_price_source_empty_orderbook(self):
-        simulate_order_book_widening(self.maker_data.order_book, 0, 10000)
-        self.assertEqual(0, len(list(self.maker_data.order_book.bid_entries())))
-        self.assertEqual(0, len(list(self.maker_data.order_book.ask_entries())))
-        self.clock.remove_iterator(self.strategy)
-        self.clock.add_iterator(self.ext_feed_price_strategy)
-        end_ts = self.start_timestamp + self.clock_tick_size
-        self.clock.backtest_til(end_ts)
-
-        self.assertEqual(1, len(self.ext_feed_price_strategy.active_bids))
-        self.assertEqual(1, len(self.ext_feed_price_strategy.active_asks))
-
-        # check price data from external exchange is used for order placement
-        bid_order: LimitOrder = self.ext_feed_price_strategy.active_bids[0][1]
-        self.assertEqual(Decimal("198"), bid_order.price)
-        self.assertEqual(Decimal("1.0"), bid_order.quantity)
-        ask_order: LimitOrder = self.ext_feed_price_strategy.active_asks[0][1]
-        self.assertEqual(Decimal("202"), ask_order.price)
-        self.assertEqual(Decimal("1.0"), ask_order.quantity)
 
     def test_spread_configs_update_multiple_mode(self):
         self.clock.remove_iterator(self.strategy)

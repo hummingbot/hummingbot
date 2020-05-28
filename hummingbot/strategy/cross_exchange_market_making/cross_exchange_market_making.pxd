@@ -30,7 +30,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         dict _suggested_price_samples
         dict _market_pairs
         int64_t _logging_options
-        object _exchange_rate_conversion
         OrderIDMarketPairTracker _market_pair_tracker
         object _taker_to_maker_base_conversion_rate
         object _taker_to_maker_quote_conversion_rate

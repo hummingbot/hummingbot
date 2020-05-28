@@ -27,8 +27,6 @@ from hummingbot.market.market_base import (
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.strategy.strategy_base cimport StrategyBase
 from hummingbot.strategy.strategy_base import StrategyBase
-from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from .cross_exchange_market_pair import CrossExchangeMarketPair
 from .order_id_market_pair_tracker import OrderIDMarketPairTracker
 
@@ -132,7 +130,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         self._last_timestamp = 0
         self._limit_order_min_expiration = limit_order_min_expiration
         self._status_report_interval = status_report_interval
-        self._exchange_rate_conversion = ExchangeRateConversion.get_instance()
         self._market_pair_tracker = OrderIDMarketPairTracker()
         self._adjust_orders_enabled = adjust_order_enabled
         self._taker_to_maker_base_conversion_rate = taker_to_maker_base_conversion_rate
@@ -166,10 +163,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     @logging_options.setter
     def logging_options(self, int64_t logging_options):
         self._logging_options = logging_options
-
-    @property
-    def exchange_rate_conversion(self) -> ExchangeRateConversion:
-        return self._exchange_rate_conversion
 
     def format_status(self) -> str:
         cdef:
