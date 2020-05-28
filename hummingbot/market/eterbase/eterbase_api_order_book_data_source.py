@@ -94,7 +94,7 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     crossrates_response: aiohttp.ClientResponse = crossrates_response
                     if crossrates_response.status == 200:
                         data = await crossrates_response.json()
-                        cross_rates: pd.DataFrame = pd.io.json.json_normalize(data, record_path ='rates', meta = ['base'])
+                        cross_rates: pd.DataFrame = pd.json_normalize(data, record_path ='rates', meta = ['base'])
                     else:
                         raise IOError(f"Error fetching cross-rates on Eterbase. "
                                       f"HTTP status is {crossrates_response.status}.")
