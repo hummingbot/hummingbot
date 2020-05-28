@@ -134,6 +134,7 @@ class PerformanceAnalysis:
         elif trade.trade_type == TradeType.BUY.name:
             net_base_delta: Decimal = amount * (Decimal("1") - Decimal(trade_fee["percent"]))
             net_quote_delta: Decimal = amount * price
+            # kraken fees are in quote asset, in addition to amount * price
             if trade.market == "kraken":
                 net_quote_delta += total_flat_fees
             else:
