@@ -25,8 +25,8 @@ Let us focus on one side our the order for now which is the "buy" side of the or
 
 ```json
 - market: BTC-USDT
-- bid_spread: 0.5
-- ask_spread: 0.5
+- bid_spread: 0.05
+- ask_spread: 0.05
 - order_amount: 0.002
 - order_levels: 3
 - order_levels_amount: 0.002
