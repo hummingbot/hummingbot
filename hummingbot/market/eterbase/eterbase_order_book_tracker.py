@@ -23,15 +23,16 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.market.eterbase.eterbase_api_order_book_data_source import EterbaseAPIOrderBookDataSource
 from hummingbot.market.eterbase.eterbase_order_book_message import EterbaseOrderBookMessage
 from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessageType,
-    OrderBookMessage)
+    OrderBookMessageType)
 from hummingbot.market.eterbase.eterbase_order_book_tracker_entry import EterbaseOrderBookTrackerEntry
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.market.eterbase.eterbase_order_book import EterbaseOrderBook
 from hummingbot.market.eterbase.eterbase_active_order_tracker import EterbaseActiveOrderTracker
 import hummingbot.market.eterbase.eterbase_constants as constants
 
+
 class EterbaseOrderBookTracker(OrderBookTracker):
+
     _cbpobt_logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -78,28 +79,6 @@ class EterbaseOrderBookTracker(OrderBookTracker):
         """
         return constants.EXCHANGE_NAME
 
-    async def start(self):
-        await super().start()
-        """
-        *required
-        Start all listeners and tasks
-        """
-        self._order_book_diff_listener_task = safe_ensure_future(
-            self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
-        )
-        self._order_book_snapshot_listener_task = safe_ensure_future(
-            self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
-        )
-        self._refresh_tracking_task = safe_ensure_future(
-            self._refresh_tracking_loop()
-        )
-        self._order_book_diff_router_task = safe_ensure_future(
-            self._order_book_diff_router()
-        )
-        self._order_book_snapshot_router_task = safe_ensure_future(
-            self._order_book_snapshot_router()
-        )
-
     async def _refresh_tracking_tasks(self):
         """
         Starts tracking for any new trading pairs, and stop tracking for any inactive trading pairs.
@@ -113,7 +92,7 @@ class EterbaseOrderBookTracker(OrderBookTracker):
         deleted_trading_pairs: Set[str] = tracking_trading_pairs - available_trading_pairs
 
         for trading_pair in new_trading_pairs:
-            order_book_tracker_entry: EterbaseProOrderBookTrackerEntry = available_pairs[trading_pair]
+            order_book_tracker_entry: EterbaseOrderBookTrackerEntry = available_pairs[trading_pair]
             self._active_order_trackers[trading_pair] = order_book_tracker_entry.active_order_tracker
             self._order_books[trading_pair] = order_book_tracker_entry.order_book
             self._tracking_message_queues[trading_pair] = asyncio.Queue()
@@ -157,22 +136,23 @@ class EterbaseOrderBookTracker(OrderBookTracker):
                 if ob_message.content["type"] == "match":  # put match messages to trade queue
                     trade_type = float(TradeType.SELL.value) if ob_message.content["side"].upper() == "SELL" \
                         else float(TradeType.BUY.value)
-                    self._order_book_trade_stream.put_nowait(OrderBookMessage(OrderBookMessageType.TRADE, {
-                        "trading_pair": ob_message.trading_pair ,
+                    self._order_book_trade_stream.put_nowait(EterbaseOrderBookMessage(OrderBookMessageType.TRADE, {
+                        "trading_pair": ob_message.trading_pair,
                         "trade_type": trade_type,
                         "trade_id": ob_message.update_id,
                         "update_id": ob_message.timestamp,
                         "price": ob_message.content["price"],
-                        "amount": ob_message.content["size"]
+                        "amount": ob_message.content["size"],
+                        "cost": ob_message.content["cost"]
                     }, timestamp=ob_message.timestamp))
 
                 # Log some statistics.
                 now: float = time.time()
                 if int(now / 60.0) > int(last_message_timestamp / 60.0):
                     self.logger().debug("Diff messages processed: %d, rejected: %d, queued: %d",
-                                       messages_accepted,
-                                       messages_rejected,
-                                       messages_queued)
+                                        messages_accepted,
+                                        messages_rejected,
+                                        messages_queued)
                     messages_accepted = 0
                     messages_rejected = 0
                     messages_queued = 0
@@ -182,9 +162,9 @@ class EterbaseOrderBookTracker(OrderBookTracker):
                 raise
             except Exception:
                 self.logger().network(
-                    f"Unexpected error routing order book messages.",
+                    "Unexpected error routing order book messages.",
                     exc_info=True,
-                    app_warning_msg=f"Unexpected error routing order book messages. Retrying after 5 seconds."
+                    app_warning_msg="Unexpected error routing order book messages. Retrying after 5 seconds."
                 )
                 await asyncio.sleep(5.0)
 
@@ -211,7 +191,6 @@ class EterbaseOrderBookTracker(OrderBookTracker):
                     message = saved_messages.popleft()
                 else:
                     message = await message_queue.get()
-
                 if message.type is OrderBookMessageType.DIFF:
                     bids, asks = active_order_tracker.convert_diff_message_to_order_book_row(message)
                     order_book.apply_diffs(bids, asks, message.update_id)
@@ -224,7 +203,7 @@ class EterbaseOrderBookTracker(OrderBookTracker):
                     now: float = time.time()
                     if int(now / 60.0) > int(last_message_timestamp / 60.0):
                         self.logger().debug("Processed %d order book diffs for %s.",
-                                           diff_messages_accepted, trading_pair)
+                                            diff_messages_accepted, trading_pair)
                         diff_messages_accepted = 0
                     last_message_timestamp = now
                 elif message.type is OrderBookMessageType.SNAPSHOT:
@@ -245,6 +224,6 @@ class EterbaseOrderBookTracker(OrderBookTracker):
                 self.logger().network(
                     f"Unexpected error processing order book messages for {trading_pair}.",
                     exc_info=True,
-                    app_warning_msg=f"Unexpected error processing order book messages. Retrying after 5 seconds."
+                    app_warning_msg="Unexpected error processing order book messages. Retrying after 5 seconds."
                 )
                 await asyncio.sleep(5.0)

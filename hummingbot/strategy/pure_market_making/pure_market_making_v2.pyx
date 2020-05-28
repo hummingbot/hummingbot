@@ -1,16 +1,18 @@
 from decimal import Decimal
 import logging
+import pandas as pd
 from typing import (
     List,
     Tuple,
-    Optional,
-    Dict
+    Dict,
+    Optional
 )
 from math import (
     floor,
     ceil
 )
-
+import time
+import numpy as np
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.limit_order cimport LimitOrder
@@ -47,6 +49,7 @@ from .inventory_skew_single_size_sizing_delegate cimport InventorySkewSingleSize
 from .inventory_skew_single_size_sizing_delegate import InventorySkewSingleSizeSizingDelegate
 from .asset_price_delegate cimport AssetPriceDelegate
 from .asset_price_delegate import AssetPriceDelegate
+from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
 
 
 NaN = float("nan")
@@ -79,7 +82,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     RADAR_RELAY_TYPE_EXCHANGES = {"radar_relay", "bamboo_relay"}
 
     # This is a temporary way to check if the mode of the strategy is of single order type,
-    # for the replenish delay & enable_order_filled_stop_cancellation feature
+    # for the replenish delay & hanging_orders_enabled feature
     # Eventually this will be removed, as these will be rolled out across all modes
     SINGLE_ORDER_SIZING_DELEGATES = (ConstantSizeSizingDelegate, InventorySkewSingleSizeSizingDelegate)
 
@@ -95,17 +98,18 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  filter_delegate: OrderFilterDelegate,
                  pricing_delegate: OrderPricingDelegate,
                  sizing_delegate: OrderSizingDelegate,
-                 cancel_order_wait_time: float = 60,
-                 filled_order_replenish_wait_time: float = 10,
-                 enable_order_filled_stop_cancellation: bool = False,
+                 order_refresh_time: float = 30,
+                 filled_order_delay: float = 60,
+                 hanging_orders_enabled: bool = False,
                  add_transaction_costs_to_orders: bool = False,
-                 best_bid_ask_jump_mode: bool = False,
-                 best_bid_ask_jump_orders_depth: Decimal = s_decimal_zero,
+                 order_optimization_enabled: bool = False,
+                 order_optimization_depth: Decimal = s_decimal_zero,
                  logging_options: int = OPTION_LOG_ALL,
                  limit_order_min_expiration: float = 130.0,
                  status_report_interval: float = 900,
                  asset_price_delegate: AssetPriceDelegate = None,
-                 expiration_seconds: float = NaN):
+                 expiration_seconds: float = NaN,
+                 hanging_orders_cancel_pct: float = 0.1):
 
         if len(market_infos) < 1:
             raise ValueError(f"market_infos must not be empty.")
@@ -116,13 +120,17 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             (market_info.market, market_info.trading_pair): market_info
             for market_info in market_infos
         }
+        self._limit_order_type = OrderType.LIMIT
+        if any(m.market.name == "binance" for m in market_infos):
+            self._limit_order_type = OrderType.LIMIT_MAKER
         self._all_markets_ready = False
-        self._cancel_order_wait_time = cancel_order_wait_time
+        self._order_refresh_time = order_refresh_time
         self._expiration_seconds = expiration_seconds
-        self._filled_order_replenish_wait_time = filled_order_replenish_wait_time
+        self._filled_order_delay = filled_order_delay
         self._add_transaction_costs_to_orders = add_transaction_costs_to_orders
 
         self._time_to_cancel = {}
+        self._hanging_order_ids = []
 
         self._logging_options = logging_options
         self._last_timestamp = 0
@@ -131,9 +139,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._filter_delegate = filter_delegate
         self._pricing_delegate = pricing_delegate
         self._sizing_delegate = sizing_delegate
-        self._enable_order_filled_stop_cancellation = enable_order_filled_stop_cancellation
-        self._best_bid_ask_jump_mode = best_bid_ask_jump_mode
-        self._best_bid_ask_jump_orders_depth = best_bid_ask_jump_orders_depth
+        self._hanging_orders_enabled = hanging_orders_enabled
+        self._hanging_orders_cancel_pct = hanging_orders_cancel_pct
+        self._order_optimization_enabled = order_optimization_enabled
+        self._order_optimization_depth = order_optimization_depth
         self._asset_price_delegate = asset_price_delegate
 
         self.limit_order_min_expiration = limit_order_min_expiration
@@ -142,6 +151,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             set all_markets = set([market_info.market for market_info in market_infos])
 
         self.c_add_markets(list(all_markets))
+
+    @property
+    def hanging_order_ids(self) -> List[str]:
+        return self._hanging_order_ids
 
     @property
     def active_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
@@ -195,6 +208,136 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     def order_tracker(self):
         return self._sb_order_tracker
 
+    def inventory_skew_stats_data_frame(self, market_info: MarketTradingPairTuple) -> Optional[pd.DataFrame]:
+        cdef:
+            MarketBase market = market_info.market
+
+        if (hasattr(self._sizing_delegate, "inventory_target_base_ratio") and
+                hasattr(self._sizing_delegate, "inventory_range_multiplier") and
+                hasattr(self._sizing_delegate, "total_order_size")):
+            trading_pair = market_info.trading_pair
+            mid_price = ((market.c_get_price(trading_pair, True) + market.c_get_price(trading_pair, False)) *
+                         Decimal("0.5"))
+            base_asset_amount = market.c_get_balance(market_info.base_asset)
+            quote_asset_amount = market.c_get_balance(market_info.quote_asset)
+            base_asset_value = base_asset_amount * mid_price
+            quote_asset_value = quote_asset_amount / mid_price if mid_price > s_decimal_zero else s_decimal_zero
+            total_value = base_asset_amount + quote_asset_value
+            total_value_in_quote = (base_asset_amount * mid_price) + quote_asset_amount
+
+            base_asset_ratio = (base_asset_amount / total_value
+                                if total_value > s_decimal_zero
+                                else s_decimal_zero)
+            quote_asset_ratio = Decimal("1") - base_asset_ratio if total_value > 0 else 0
+            target_base_ratio = self._sizing_delegate.inventory_target_base_ratio
+            inventory_range_multiplier = self._sizing_delegate.inventory_range_multiplier
+            target_base_amount = (total_value * target_base_ratio
+                                  if mid_price > s_decimal_zero
+                                  else s_decimal_zero)
+            target_base_amount_in_quote = target_base_ratio * total_value_in_quote
+            target_quote_amount = (1 - target_base_ratio) * total_value_in_quote
+            base_asset_range = (self._sizing_delegate.total_order_size *
+                                self._sizing_delegate.inventory_range_multiplier)
+            high_water_mark = target_base_amount + base_asset_range
+            low_water_mark = max(target_base_amount - base_asset_range, s_decimal_zero)
+            low_water_mark_ratio = (low_water_mark / total_value
+                                    if total_value > s_decimal_zero
+                                    else s_decimal_zero)
+            high_water_mark_ratio = (high_water_mark / total_value
+                                     if total_value > s_decimal_zero
+                                     else s_decimal_zero)
+            high_water_mark_ratio = min(1.0, high_water_mark_ratio)
+            total_order_size_ratio = (self._sizing_delegate.total_order_size / total_value
+                                      if total_value > s_decimal_zero
+                                      else s_decimal_zero)
+            bid_ask_ratios = c_calculate_bid_ask_ratios_from_base_asset_ratio(
+                float(base_asset_amount),
+                float(quote_asset_amount),
+                float(mid_price),
+                float(target_base_ratio),
+                float(base_asset_range)
+            )
+            inventory_skew_df = pd.DataFrame(data=[
+                [f"Target Value ({market_info.quote_asset})", f"{target_base_amount_in_quote:.4f}",
+                 f"{target_quote_amount:.4f}"],
+                ["Current %", f"{base_asset_ratio:.1%}", f"{quote_asset_ratio:.1%}"],
+                ["Target %", f"{target_base_ratio:.1%}", f"{1 - target_base_ratio:.1%}"],
+                ["Inventory Range", f"{low_water_mark_ratio:.1%} - {high_water_mark_ratio:.1%}",
+                 f"{1 - high_water_mark_ratio:.1%} - {1 - low_water_mark_ratio:.1%}"],
+                ["Order Adjust %", f"{bid_ask_ratios.bid_ratio:.1%}", f"{bid_ask_ratios.ask_ratio:.1%}"]
+            ])
+            return inventory_skew_df
+        else:
+            return None
+
+    def pure_mm_assets_df(self, market_info: MarketTradingPairTuple, to_show_current_pct: bool) -> pd.DataFrame:
+        market, trading_pair, base_asset, quote_asset = market_info
+        active_orders = self.market_info_to_active_orders.get(market_info, [])
+        mid_price = market_info.get_mid_price()
+        base_balance = float(market.get_balance(base_asset))
+        quote_balance = float(market.get_balance(quote_asset))
+        available_base_balance = float(market.get_available_balance(base_asset))
+        available_quote_balance = float(market.get_available_balance(quote_asset))
+        base_value = base_balance * float(mid_price)
+        total_in_quote = base_value + quote_balance
+        base_ratio = base_value / total_in_quote if total_in_quote > 0 else 0
+        quote_ratio = quote_balance / total_in_quote if total_in_quote > 0 else 0
+        data=[
+            ["", base_asset, quote_asset],
+            ["Total Balance", round(base_balance, 4), round(quote_balance, 4)],
+            ["Available Balance", round(available_base_balance, 4), round(available_quote_balance, 4)],
+            [f"Current Value ({quote_asset})", round(base_value, 4), round(quote_balance, 4)]
+        ]
+        if to_show_current_pct:
+            data.append(["Current %", f"{base_ratio:.1%}", f"{quote_ratio:.1%}"])
+        df = pd.DataFrame(data=data)
+        return df
+
+    def active_orders_df(self, market_info) -> pd.DataFrame:
+        mid_price = market_info.get_mid_price()
+        active_orders = self.market_info_to_active_orders.get(market_info, [])
+        no_sells = len([o for o in active_orders if not o.is_buy and o.client_order_id not in self._hanging_order_ids])
+        active_orders.sort(key=lambda x: x.price, reverse=True)
+        columns = ["Level", "Type", "Price", "Spread", "Amount (Orig)", "Amount (Adj)", "Age", "Hang"]
+        data = []
+        order_start_size = 0
+        if hasattr(self._sizing_delegate, "order_start_size"):
+            order_start_size = self._sizing_delegate.order_start_size
+        elif hasattr(self._sizing_delegate, "order_size"):
+            order_start_size = self._sizing_delegate.order_size
+        order_step_size = 0
+        if hasattr(self._sizing_delegate, "order_step_size"):
+            order_step_size = self._sizing_delegate.order_step_size
+        lvl_buy, lvl_sell = 0, 0
+        for idx in range(0, len(active_orders)):
+            order = active_orders[idx]
+            level = None
+            if order.client_order_id not in self._hanging_order_ids:
+                if order.is_buy:
+                    level = lvl_buy + 1
+                    lvl_buy += 1
+                else:
+                    level = no_sells - lvl_sell
+                    lvl_sell += 1
+            spread = 0 if mid_price == 0 else abs(order.price - mid_price)/mid_price
+            age = "n/a"
+            if "-" in order.client_order_id:
+                age = pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:])/1e6,
+                                   unit='s').strftime('%H:%M:%S')
+            amount_orig = "" if level is None else order_start_size + ((level - 1) * order_step_size)
+            data.append([
+                "" if level is None else level,
+                "buy" if order.is_buy else "sell",
+                float(order.price),
+                f"{spread:.2%}",
+                amount_orig,
+                float(order.quantity),
+                age,
+                "yes" if order.client_order_id in self._hanging_order_ids else "no"
+            ])
+
+        return pd.DataFrame(data=data, columns=columns)
+
     def format_status(self) -> str:
         cdef:
             list lines = []
@@ -207,17 +350,24 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             warning_lines.extend(self.network_warning([market_info]))
 
             markets_df = self.market_status_data_frame([market_info])
-            lines.extend(["", "  Markets:"] + ["    " + line for line in str(markets_df).split("\n")])
+            lines.extend(["", "  Markets:"] + ["    " + line for line in markets_df.to_string(index=False).split("\n")])
 
-            assets_df = self.wallet_balance_data_frame([market_info])
-            lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
+            inventory_skew_df = self.inventory_skew_stats_data_frame(market_info)
+            assets_df = self.pure_mm_assets_df(market_info, inventory_skew_df is None)
+
+            # append inventory skew stats.
+            if inventory_skew_df is not None:
+                assets_df = assets_df.append(inventory_skew_df)
+
+            first_col_length = max(*assets_df[0].apply(len))
+            df_lines = assets_df.to_string(index=False, header=False,
+                                           formatters={0: ("{:<" + str(first_col_length) + "}").format}).split("\n")
+            lines.extend(["", "  Assets:"] + ["    " + line for line in df_lines])
 
             # See if there're any open orders.
             if len(active_orders) > 0:
-                df = LimitOrder.to_pandas(active_orders)
-                df_lines = str(df).split("\n")
-                lines.extend(["", "  Active orders:"] +
-                             ["    " + line for line in df_lines])
+                df = self.active_orders_df(market_info)
+                lines.extend(["", "  Orders:"] + ["    " + line for line in df.to_string(index=False).split("\n")])
             else:
                 lines.extend(["", "  No active maker orders."])
 
@@ -380,9 +530,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             else:
                 own_sell_order_depth = order.quantity
 
-        # Get the top bid price in the market using best_bid_ask_jump_orders_depth and your buy order volume
+        # Get the top bid price in the market using order_optimization_depth and your buy order volume
         top_bid_price = market_info.get_price_for_volume(False,
-                                                         self._best_bid_ask_jump_orders_depth + own_buy_order_depth).result_price
+                                                         self._order_optimization_depth + own_buy_order_depth).result_price
         price_quantum = maker_market.c_get_order_price_quantum(
             market_info.trading_pair,
             top_bid_price
@@ -396,9 +546,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         updated_buy_order_prices[0] = maker_market.c_quantize_order_price(market_info.trading_pair,
                                                                           lower_buy_price)
 
-        # Get the top ask price in the market using best_bid_ask_jump_orders_depth and your sell order volume
+        # Get the top ask price in the market using order_optimization_depth and your sell order volume
         top_ask_price = market_info.get_price_for_volume(True,
-                                                         self._best_bid_ask_jump_orders_depth + own_sell_order_depth).result_price
+                                                         self._order_optimization_depth + own_sell_order_depth).result_price
         price_quantum = maker_market.c_get_order_price_quantum(
             market_info.trading_pair,
             top_ask_price
@@ -539,8 +689,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             list cancel_order_ids = []
             bint no_order_placement = False
 
+        active_non_hanging_orders = [o for o in active_orders if o.client_order_id not in self._hanging_order_ids]
+
         # Before doing anything, ask the filter delegate whether to proceed or not.
-        if not self._filter_delegate.c_should_proceed_with_processing(self, market_info, active_orders):
+        if not self._filter_delegate.c_should_proceed_with_processing(self, market_info, active_non_hanging_orders):
             return self.NO_OP_ORDERS_PROPOSAL
 
         # If there are no active orders, then do the following:
@@ -555,17 +707,17 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             asset_mid_price = self._asset_price_delegate.c_get_mid_price()
         pricing_proposal = self._pricing_delegate.c_get_order_price_proposal(self,
                                                                              market_info,
-                                                                             active_orders,
+                                                                             active_non_hanging_orders,
                                                                              asset_mid_price)
         # If jump orders is enabled, run the penny jumped pricing proposal
-        if self._best_bid_ask_jump_mode:
+        if self._order_optimization_enabled:
             pricing_proposal = self.c_get_penny_jumped_pricing_proposal(market_info,
                                                                         pricing_proposal,
-                                                                        active_orders)
+                                                                        active_non_hanging_orders)
 
         sizing_proposal = self._sizing_delegate.c_get_order_size_proposal(self,
                                                                           market_info,
-                                                                          active_orders,
+                                                                          active_non_hanging_orders,
                                                                           pricing_proposal)
         if self._add_transaction_costs_to_orders:
             no_order_placement, pricing_proposal = self.c_check_and_add_transaction_costs_to_pricing_proposal(
@@ -582,27 +734,27 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
         if ((market_info.market.name not in self.RADAR_RELAY_TYPE_EXCHANGES) or
                 (market_info.market.display_name == "bamboo_relay" and market_info.market.use_coordinator)):
+            market_mid_price = market_info.get_mid_price()
             for active_order in active_orders:
                 # If there are active orders, and active order cancellation is needed, then do the following:
                 #  1. Check the time to cancel for each order, and see if cancellation should be proposed.
                 #  2. Record each order id that needs to be cancelled.
                 #  3. Set action to include cancel orders.
-
-                # If Enable filled order stop cancellation is true and an order filled event happens when proposal is
-                # generated, then check if the order is still in time_to_cancel
-
-                if active_order.client_order_id in self._time_to_cancel and \
+                if active_order.client_order_id in self._hanging_order_ids:
+                    if market_mid_price > 0 and abs(active_order.price - market_mid_price)/market_mid_price > \
+                            self._hanging_orders_cancel_pct:
+                        cancel_order_ids.append(active_order.client_order_id)
+                elif active_order.client_order_id in self._time_to_cancel and \
                         self._current_timestamp >= self._time_to_cancel[active_order.client_order_id]:
                     cancel_order_ids.append(active_order.client_order_id)
-
             if len(cancel_order_ids) > 0:
                 actions |= ORDER_PROPOSAL_ACTION_CANCEL_ORDERS
 
         return OrdersProposal(actions,
-                              OrderType.LIMIT,
+                              self._limit_order_type,
                               pricing_proposal.buy_order_prices,
                               sizing_proposal.buy_order_sizes,
-                              OrderType.LIMIT,
+                              self._limit_order_type,
                               pricing_proposal.sell_order_prices,
                               sizing_proposal.sell_order_sizes,
                               cancel_order_ids)
@@ -639,39 +791,33 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             MarketBase maker_market = market_info.market
             LimitOrder limit_order_record
 
-        if isinstance(self.sizing_delegate, self.SINGLE_ORDER_SIZING_DELEGATES):
-            # Set the replenish time as current_timestamp + order replenish time
-            replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
+        # Set the replenish time as current_timestamp + order replenish time
+        replenish_time_stamp = self._current_timestamp + self._filled_order_delay
 
-            active_orders = self.market_info_to_active_orders.get(market_info, [])
-            active_buy_orders = [x.client_order_id for x in active_orders if x.is_buy]
-            active_sell_orders = [x.client_order_id for x in active_orders if not x.is_buy]
+        active_orders = self.market_info_to_active_orders.get(market_info, [])
+        active_buy_orders = [x.client_order_id for x in active_orders if x.is_buy]
+        active_sell_orders = [x.client_order_id for x in active_orders if not x.is_buy]
 
-            if self._enable_order_filled_stop_cancellation:
-                # If the filled order is a hanging order (not an active buy order)
-                # do nothing
-                if order_id not in active_buy_orders:
-                    return
+        if self._hanging_orders_enabled:
+            # If the filled order is a hanging order, do nothing
+            if order_id in self._hanging_order_ids:
+                return
 
-            # if filled order is buy, adjust the cancel time for sell order
-            # For syncing buy and sell orders during order completed events
-            for other_order_id in active_sell_orders:
-                if other_order_id in self._time_to_cancel:
+        # if filled order is buy, adjust the cancel time for sell order
+        # For syncing buy and sell orders during order completed events
+        for other_order_id in active_sell_orders:
+            if other_order_id in self._time_to_cancel:
 
-                    # If you want to stop cancelling orders remove it from the cancel list
-                    if self._enable_order_filled_stop_cancellation:
-                        del self._time_to_cancel[other_order_id]
-                    else:
-                        # cancel time is minimum of current cancel time and replenish time to sync up both
-                        self._time_to_cancel[other_order_id] = min(self._time_to_cancel[other_order_id], replenish_time_stamp)
+                # If you want to stop cancelling orders remove it from the cancel list
+                if self._hanging_orders_enabled:
+                    self._hanging_order_ids.append(other_order_id)
+                    del self._time_to_cancel[other_order_id]
+                else:
+                    # cancel time is minimum of current cancel time and replenish time to sync up both
+                    self._time_to_cancel[other_order_id] = min(self._time_to_cancel[other_order_id], replenish_time_stamp)
 
-                # Stop tracking the order
-                if self._enable_order_filled_stop_cancellation:
-                    self._sb_order_tracker.c_stop_tracking_limit_order(market_info, other_order_id)
-                    maker_market.c_stop_tracking_order(other_order_id)
-
-            if not isnan(replenish_time_stamp):
-                self.filter_delegate.order_placing_timestamp = replenish_time_stamp
+        if not isnan(replenish_time_stamp):
+            self.filter_delegate.order_placing_timestamp = replenish_time_stamp
 
         if market_info is not None:
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
@@ -689,39 +835,33 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             MarketBase maker_market = market_info.market
             LimitOrder limit_order_record
 
-        if isinstance(self.sizing_delegate, self.SINGLE_ORDER_SIZING_DELEGATES):
-            # Set the replenish time as current_timestamp + order replenish time
-            replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
+        # Set the replenish time as current_timestamp + order replenish time
+        replenish_time_stamp = self._current_timestamp + self._filled_order_delay
 
-            active_orders = self.market_info_to_active_orders.get(market_info, [])
-            active_buy_orders = [x.client_order_id for x in active_orders if x.is_buy]
-            active_sell_orders = [x.client_order_id for x in active_orders if not x.is_buy]
+        active_orders = self.market_info_to_active_orders.get(market_info, [])
+        active_buy_orders = [x.client_order_id for x in active_orders if x.is_buy]
+        active_sell_orders = [x.client_order_id for x in active_orders if not x.is_buy]
 
-            if self._enable_order_filled_stop_cancellation:
-                # If the filled order is a hanging order (not an active sell order)
-                # do nothing
-                if order_id not in active_sell_orders:
-                    return
+        if self._hanging_orders_enabled:
+            # If the filled order is a hanging order, do nothing
+            if order_id in self._hanging_order_ids:
+                return
 
-            # if filled order is sell, adjust the cancel time for buy order
-            # For syncing buy and sell orders during order completed events
-            for other_order_id in active_buy_orders:
-                if other_order_id in self._time_to_cancel:
+        # if filled order is sell, adjust the cancel time for buy order
+        # For syncing buy and sell orders during order completed events
+        for other_order_id in active_buy_orders:
+            if other_order_id in self._time_to_cancel:
 
-                    # If you want to stop cancelling orders remove it from the cancel list
-                    if self._enable_order_filled_stop_cancellation:
-                        del self._time_to_cancel[other_order_id]
-                    else:
-                        # cancel time is minimum of current cancel time and replenish time to sync up both
-                        self._time_to_cancel[other_order_id] = min(self._time_to_cancel[other_order_id], replenish_time_stamp)
+                # If you want to stop cancelling orders remove it from the cancel list
+                if self._hanging_orders_enabled:
+                    self._hanging_order_ids.append(other_order_id)
+                    del self._time_to_cancel[other_order_id]
+                else:
+                    # cancel time is minimum of current cancel time and replenish time to sync up both
+                    self._time_to_cancel[other_order_id] = min(self._time_to_cancel[other_order_id], replenish_time_stamp)
 
-                # Stop tracking the order
-                if self._enable_order_filled_stop_cancellation:
-                    self._sb_order_tracker.c_stop_tracking_limit_order(market_info, other_order_id)
-                    maker_market.c_stop_tracking_order(other_order_id)
-
-            if not isnan(replenish_time_stamp):
-                self.filter_delegate.order_placing_timestamp = replenish_time_stamp
+        if not isnan(replenish_time_stamp):
+            self.filter_delegate.order_placing_timestamp = replenish_time_stamp
 
         if market_info is not None:
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
@@ -735,7 +875,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     cdef c_execute_orders_proposal(self, object market_info, object orders_proposal):
         cdef:
             int64_t actions = orders_proposal.actions
-            double expiration_seconds = (self._cancel_order_wait_time
+            double expiration_seconds = (self._order_refresh_time
                                          if ((market_info.market.name in self.RADAR_RELAY_TYPE_EXCHANGES) or
                                              (market_info.market.name == "bamboo_relay" and not market_info.market.use_coordinator))
                                          else NaN)
@@ -749,7 +889,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         # Create orders.
         if actions & ORDER_PROPOSAL_ACTION_CREATE_ORDERS:
             if len(orders_proposal.buy_order_sizes) > 0 and orders_proposal.buy_order_sizes[0] > 0:
-                if orders_proposal.buy_order_type is OrderType.LIMIT and orders_proposal.buy_order_prices[0] > 0:
+                if orders_proposal.buy_order_type is self._limit_order_type and orders_proposal.buy_order_prices[0] > 0:
                     if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                         order_price_quote = zip(orders_proposal.buy_order_sizes, orders_proposal.buy_order_prices)
                         price_quote_str = [
@@ -764,17 +904,16 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                         bid_order_id = self.c_buy_with_specific_market(
                             market_info,
                             orders_proposal.buy_order_sizes[idx],
-                            order_type=OrderType.LIMIT,
+                            order_type=self._limit_order_type,
                             price=orders_proposal.buy_order_prices[idx],
                             expiration_seconds=expiration_seconds
                         )
-                        self._time_to_cancel[bid_order_id] = self._current_timestamp + self._cancel_order_wait_time
-
+                        self._time_to_cancel[bid_order_id] = self._current_timestamp + self._order_refresh_time
                 elif orders_proposal.buy_order_type is OrderType.MARKET:
                     raise RuntimeError("Market buy order in orders proposal is not supported yet.")
 
             if len(orders_proposal.sell_order_sizes) > 0 and orders_proposal.sell_order_sizes[0] > 0:
-                if orders_proposal.sell_order_type is OrderType.LIMIT and orders_proposal.sell_order_prices[0] > 0:
+                if orders_proposal.sell_order_type is self._limit_order_type and orders_proposal.sell_order_prices[0] > 0:
                     if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                         order_price_quote = zip(orders_proposal.sell_order_sizes, orders_proposal.sell_order_prices)
                         price_quote_str = [
@@ -789,11 +928,10 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                         ask_order_id = self.c_sell_with_specific_market(
                             market_info,
                             orders_proposal.sell_order_sizes[idx],
-                            order_type=OrderType.LIMIT,
+                            order_type=self._limit_order_type,
                             price=orders_proposal.sell_order_prices[idx],
                             expiration_seconds=expiration_seconds
                         )
-                        self._time_to_cancel[ask_order_id] = self._current_timestamp + self._cancel_order_wait_time
-
+                        self._time_to_cancel[ask_order_id] = self._current_timestamp + self._order_refresh_time
                 elif orders_proposal.sell_order_type is OrderType.MARKET:
                     raise RuntimeError("Market sell order in orders proposal is not supported yet.")

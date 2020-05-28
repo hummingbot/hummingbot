@@ -10,23 +10,28 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.logger import HummingbotLogger
 from .data_types import SizingProposal
+from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
+from .inventory_skew_calculator import calculate_total_order_size
 from .pure_market_making_v2 cimport PureMarketMakingStrategyV2
 
 s_logger = None
 s_decimal_0 = Decimal(0)
+s_decimal_1 = Decimal(1)
 
 
 cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
     def __init__(self,
                  order_start_size: Decimal,
                  order_step_size: Decimal,
-                 number_of_orders: int,
-                 inventory_target_base_percent: Optional[Decimal] = None):
+                 order_levels: int,
+                 inventory_target_base_percent: Optional[Decimal] = None,
+                 inventory_range_multiplier: Optional[Decimal] = s_decimal_1):
         super().__init__()
         self._order_start_size = order_start_size
         self._order_step_size = order_step_size
-        self._number_of_orders = number_of_orders
+        self._order_levels = order_levels
         self._inventory_target_base_percent = inventory_target_base_percent
+        self._inventory_range_multiplier = inventory_range_multiplier
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -44,8 +49,24 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
         return self._order_step_size
 
     @property
-    def number_of_orders(self) -> int:
-        return self._number_of_orders
+    def order_levels(self) -> int:
+        return self._order_levels
+
+    @property
+    def inventory_target_base_ratio(self) -> Decimal:
+        return self._inventory_target_base_percent
+
+    @property
+    def inventory_range_multiplier(self) -> Decimal:
+        return self._inventory_range_multiplier
+
+    @property
+    def total_order_size(self) -> Decimal:
+        return calculate_total_order_size(
+            self._order_start_size,
+            self._order_step_size,
+            self._order_levels
+        )
 
     cdef object c_get_order_size_proposal(self,
                                           PureMarketMakingStrategyV2 strategy,
@@ -57,26 +78,16 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
             str trading_pair = market_info.trading_pair
             object base_asset_balance = market.c_get_available_balance(market_info.base_asset)
             object quote_asset_balance = market.c_get_available_balance(market_info.quote_asset)
-            object current_quote_asset_order_size_total = s_decimal_0
+            object top_bid_price = market.c_get_price(trading_pair, False)
+            object top_ask_price = market.c_get_price(trading_pair, True)
+            object mid_price = (top_bid_price + top_ask_price) * Decimal("0.5")
             object quote_asset_order_size
+            object current_quote_asset_order_size_total = s_decimal_0
             object current_base_asset_order_size_total = s_decimal_0
-            object top_bid_price
-            object top_ask_price
-            object mid_price
-            object total_base_asset_quote_value
-            object total_quote_asset_quote_value
-            object current_base_percent
-            object current_quote_percent
-            object target_base_percent
-            object target_quote_percent
-            object current_target_base_ratio
-            object current_target_quote_ratio
             bint has_active_bid = False
             bint has_active_ask = False
             list buy_orders = []
             list sell_orders = []
-            current_bid_order_size
-            current_ask_order_size
 
         for active_order in active_orders:
             if active_order.is_buy:
@@ -89,42 +100,27 @@ cdef class InventorySkewMultipleSizeSizingDelegate(OrderSizingDelegate):
         if has_active_bid and has_active_ask:
             return SizingProposal([s_decimal_0], [s_decimal_0])
 
+        cdef:
+            object bid_adjustment_ratio
+            object ask_adjustment_ratio
+            object current_bid_order_size
+            object current_ask_order_size
+
         if self._inventory_target_base_percent is not None:
-            top_bid_price = market.c_get_price(trading_pair, False)
-            top_ask_price = market.c_get_price(trading_pair, True)
-            mid_price = (top_bid_price + top_ask_price) / Decimal(2)
+            total_order_size = self.total_order_size
+            bid_ask_ratios = c_calculate_bid_ask_ratios_from_base_asset_ratio(
+                float(base_asset_balance),
+                float(quote_asset_balance),
+                float(mid_price),
+                float(self._inventory_target_base_percent),
+                float(total_order_size * self._inventory_range_multiplier)
+            )
+            bid_adjustment_ratio = Decimal(bid_ask_ratios.bid_ratio)
+            ask_adjustment_ratio = Decimal(bid_ask_ratios.ask_ratio)
 
-            total_base_asset_quote_value = base_asset_balance * mid_price
-            total_quote_asset_quote_value = quote_asset_balance
-            total_quote_value = total_base_asset_quote_value + total_quote_asset_quote_value
-
-            if total_quote_value == s_decimal_0:
-                return SizingProposal([s_decimal_0], [s_decimal_0])
-
-            # Calculate percent value of base and quote
-            current_base_percent = total_base_asset_quote_value / total_quote_value
-            current_quote_percent = total_quote_asset_quote_value / total_quote_value
-
-            target_base_percent = self._inventory_target_base_percent
-            target_quote_percent = Decimal(1) - target_base_percent
-
-            # Calculate target ratio based on current percent vs. target percent
-            current_target_base_ratio = current_base_percent / target_base_percent \
-                if target_base_percent > s_decimal_0 else s_decimal_0
-            current_target_quote_ratio = current_quote_percent / target_quote_percent \
-                if target_quote_percent > s_decimal_0 else s_decimal_0
-
-            # By default 100% of order size is on both sides, therefore adjusted ratios should be 2 (100% + 100%).
-            # If target base percent is 0 (0%) target quote ratio is 200%.
-            # If target base percent is 1 (100%) target base ratio is 200%.
-            if current_target_base_ratio > Decimal(1) or current_target_quote_ratio == s_decimal_0:
-                current_target_base_ratio = Decimal(2) - current_target_quote_ratio
-            else:
-                current_target_quote_ratio = Decimal(2) - current_target_base_ratio
-
-        for i in range(self.number_of_orders):
-            current_bid_order_size = (self.order_start_size + self.order_step_size * i) * current_target_quote_ratio
-            current_ask_order_size = (self.order_start_size + self.order_step_size * i) * current_target_base_ratio
+        for i in range(self.order_levels):
+            current_bid_order_size = (self.order_start_size + self.order_step_size * i) * bid_adjustment_ratio
+            current_ask_order_size = (self.order_start_size + self.order_step_size * i) * ask_adjustment_ratio
             if market.name == "binance":
                 # For binance fees is calculated in base token, so need to adjust for that
                 quantized_bid_order_size = market.c_quantize_order_amount(

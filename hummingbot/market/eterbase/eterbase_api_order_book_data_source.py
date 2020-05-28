@@ -14,7 +14,6 @@ from typing import (
 import time
 import ujson
 import websockets
-import numpy
 from websockets.exceptions import ConnectionClosed
 
 from hummingbot.core.data_type.order_book import OrderBook
@@ -29,7 +28,6 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.market.eterbase.eterbase_active_order_tracker import EterbaseActiveOrderTracker
 from hummingbot.market.eterbase.eterbase_order_book_tracker_entry import EterbaseOrderBookTrackerEntry
 import hummingbot.market.eterbase.eterbase_constants as constants
-import pandas as pd
 
 MAX_RETRIES = 20
 NaN = float("nan")
@@ -52,7 +50,7 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def __init__(self, trading_pairs: Optional[List[str]] = None):
         super().__init__()
         self._trading_pairs: Optional[List[str]] = trading_pairs
-        self._tp_map_mrktid: Dict[str,str] = None
+        self._tp_map_mrktid: Dict[str, str] = None
 
     @classmethod
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
@@ -70,7 +68,7 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data, index="id")
                 all_markets.rename({"base": "baseAsset", "quote": "quoteAsset"},
                                    axis="columns", inplace=True)
-                all_markets = all_markets[all_markets.state != 'Inactive']
+                all_markets = all_markets[(all_markets.state != 'Inactive') & (all_markets.state != "Delisted")]
                 ids: List[str] = list(all_markets.index)
                 volumes: List[float] = []
                 prices: List[float] = []
@@ -85,45 +83,41 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         raise IOError(f"Error fetching tickers on Eterbase. "
                                       f"HTTP status is {tickers_response.status}.")
 
-
                 for product_id in ids:
                     volumes.append(float(tickers.loc[product_id].volume))
                     prices.append(float(tickers.loc[product_id].price))
                 all_markets["volume"] = volumes
                 all_markets["price"] = prices
 
-
                 cross_rates = None
                 async with client.get(f"{constants.REST_URL}/tickers/cross-rates") as crossrates_response:
                     crossrates_response: aiohttp.ClientResponse = crossrates_response
                     if crossrates_response.status == 200:
                         data = await crossrates_response.json()
-                        cross_rates: pd.DataFrame = pd.io.json.json_normalize(data, record_path='rates', meta=['base'])
+                        cross_rates: pd.DataFrame = pd.io.json.json_normalize(data, record_path ='rates', meta = ['base'])
                     else:
                         raise IOError(f"Error fetching cross-rates on Eterbase. "
                                       f"HTTP status is {crossrates_response.status}.")
 
-                btc_usd_price: float = cross_rates.loc[(cross_rates['base']=="BTC") & (cross_rates['quote'].str.startswith('USD'))].price
                 usd_volume: List[float] = []
-                cross_rates_ids:List[str] = list(cross_rates.base)
+                cross_rates_ids: List[str] = list(cross_rates.base)
                 for row in all_markets.itertuples():
                     quote_name: str = row.quoteAsset
                     quote_volume: float = row.volume
                     quote_price: float = row.price
-                    
+
                     found = False
                     for product_id in cross_rates_ids:
                         if quote_name == product_id:
-                            rate:float = cross_rates.loc[(cross_rates['base']==product_id) & (cross_rates['quote'].str.startswith("USD"))].iat[0,0]
+                            rate: float = cross_rates.loc[(cross_rates['base'] == product_id) & (cross_rates['quote'].str.startswith("USDT"))].iat[0, 1]
                             usd_volume.append(quote_volume * quote_price * rate)
                             found = True
                             break
-                    if found == False:
+                    if found is False:
                         usd_volume.append(NaN)
                         cls.logger().error(f"Unable to convert volume to USD for market - {quote_name}.")
                 all_markets["USDVolume"] = usd_volume
-                return all_markets.sort_values(by=["USDVolume"], ascending=False)
-
+                return all_markets.sort_values(by = ["USDVolume"], ascending = False)
 
     async def get_map_marketid(self) -> Dict[str, str]:
         """
@@ -135,14 +129,14 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
         if not self._tp_map_mrktid:
             try:
                 active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                active_markets.reset_index(level=0, inplace=True)
+                active_markets.reset_index(level = 0, inplace = True)
                 self._tp_map_mrktid = active_markets.set_index('symbol')['id'].to_dict()
             except Exception:
-                self._tp_map_mrktid={}
+                self._tp_map_mrktid = {}
                 self.logger().network(
-                    f"Error getting active exchange information.",
+                    "Error getting active exchange information.",
                     exc_info=True,
-                    app_warning_msg=f"Error getting active exchange information. Check network connection."
+                    app_warning_msg="Error getting active exchange information. Check network connection."
                 )
         return self._tp_map_mrktid
 
@@ -156,22 +150,22 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
         if not self._trading_pairs:
             try:
                 active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                active_markets.reset_index(level=0, inplace=True)
+                active_markets.reset_index(level = 0, inplace = True)
                 self._trading_pairs = active_markets.set_index('symbol')['id'].to_dict().keys()
             except Exception:
                 self._trading_pairs = []
                 self.logger().network(
-                    f"Error getting active exchange information.",
+                    "Error getting active exchange information.",
                     exc_info=True,
-                    app_warning_msg=f"Error getting active exchange information. Check network connection."
+                    app_warning_msg="Error getting active exchange information. Check network connection."
                 )
         return self._trading_pairs
 
     @staticmethod
-    async def get_map_market_id() -> Dict[str,str]:
+    async def get_map_market_id() -> Dict[str, str]:
         """
         """
-        tp_map_mid:Dict[str,str] = {}
+        tp_map_mid: Dict[str, str] = {}
         async with aiohttp.ClientSession() as client:
             async with client.get(f"{constants.REST_URL}/markets") as products_response:
                 products_response: aiohttp.ClientResponse = products_response
@@ -179,9 +173,8 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     raise IOError(f"Error fetching active Eterbase markets. HTTP status is {products_response.status}.")
                 data = await products_response.json()
                 for dt in data:
-                    tp_map_mid[dt['symbol']]=dt['id']
+                    tp_map_mid[dt['symbol']] = dt['id']
         return tp_map_mid
-
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, any]:
@@ -189,6 +182,7 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Fetches order book snapshot for a particular trading pair from the rest API
         :returns: Response from the rest API
         """
+
         map_market = await EterbaseAPIOrderBookDataSource.get_map_market_id()
         market_id = map_market[trading_pair]
         product_order_book_url: str = f"{constants.REST_URL}/markets/{market_id}/order-book"
@@ -211,19 +205,20 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
         async with aiohttp.ClientSession() as client:
             trading_pairs: List[str] = await self.get_trading_pairs()
             td_map_id: Dict[str, str] = await self.get_map_marketid()
+
             retval: Dict[str, OrderBookTrackerEntry] = {}
 
             number_of_pairs: int = len(trading_pairs)
-            index=0
+            index = 0
             for trading_pair in trading_pairs:
                 try:
-                    index=index+1
+                    index = index + 1
                     snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
                     snapshot_timestamp: float = time.time()
                     snapshot_msg: OrderBookMessage = EterbaseOrderBook.snapshot_message_from_exchange(
                         snapshot,
                         snapshot_timestamp,
-                        metadata={"trading_pair": trading_pair, "market_id": td_map_id[trading_pair]}
+                        metadata = {"trading_pair": trading_pair, "market_id": td_map_id[trading_pair]}
                     )
                     order_book: OrderBook = self.order_book_create_function()
                     active_order_tracker: EterbaseActiveOrderTracker = EterbaseActiveOrderTracker()
@@ -245,7 +240,7 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         app_warning_msg=f"Error getting snapshot for {trading_pair}. Check network connection."
                     )
                 except Exception:
-                    self.logger().error(f"Error initializing order book for {trading_pair}. ", exc_info=True)
+                    self.logger().error(f"Error initializing order book for {trading_pair}. ", exc_info = True)
             return retval
 
     async def _inner_messages(self,
@@ -259,7 +254,7 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             while True:
                 try:
-                    msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
+                    msg: str = await asyncio.wait_for(ws.recv(), timeout = self.MESSAGE_TIMEOUT)
                     yield msg
                 except asyncio.TimeoutError:
                     try:
@@ -315,15 +310,8 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             order_book_message: OrderBookMessage = EterbaseOrderBook.snapshot_message_from_exchange(msg, pd.Timestamp.now("UTC").timestamp())
                             output.put_nowait(order_book_message)
                         elif msg_type == "ob_update":
-                            msg["trading_pair"]=marketsDict[msg["marketId"]]
+                            msg["trading_pair"] = marketsDict[msg["marketId"]]
                             order_book_message: OrderBookMessage = EterbaseOrderBook.diff_message_from_exchange(msg, pd.Timestamp.now("UTC").timestamp())
-                            output.put_nowait(order_book_message)
-
-                        elif msg_type in ["open", "match", "change", "done"]:
-                            if msg_type == "done" and "price" not in msg:
-                            # done messages with no price are completed market orders which can be ignored
-                                continue
-                            order_book_message: OrderBookMessage = EterbaseOrderBook.diff_message_from_exchange(msg)
                             output.put_nowait(order_book_message)
                         else:
                             raise ValueError(f"Unrecognized Eterbase Websocket message received - {msg}")
@@ -331,10 +319,10 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 raise
             except Exception:
                 self.logger().network(
-                    f"Unexpected error with WebSocket connection.",
+                    "Unexpected error with WebSocket connection.",
                     exc_info=True,
-                    app_warning_msg=f"Unexpected error with WebSocket connection. Retrying in 30 seconds. "
-                                    f"Check network connection."
+                    app_warning_msg="Unexpected error with WebSocket connection. Retrying in 30 seconds. "
+                                    "Check network connection."
                 )
                 await asyncio.sleep(30.0)
 
@@ -366,18 +354,18 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             raise
                         except Exception:
                             self.logger().network(
-                                f"Unexpected error with WebSocket connection.",
+                                "Unexpected error with WebSocket connection.",
                                 exc_info=True,
-                                app_warning_msg=f"Unexpected error with WebSocket connection. Retrying in 5 seconds. "
-                                                f"Check network connection."
+                                app_warning_msg="Unexpected error with WebSocket connection. Retrying in 5 seconds. "
+                                                "Check network connection."
                             )
                             await asyncio.sleep(5.0)
-                    this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
-                    next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
+                    this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute = 0, second = 0, microsecond = 0)
+                    next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours = 1)
                     delta: float = next_hour.timestamp() - time.time()
                     await asyncio.sleep(delta)
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error.", exc_info=True)
+                self.logger().error("Unexpected error.", exc_info = True)
                 await asyncio.sleep(5.0)

@@ -13,8 +13,9 @@ from .application_warning import ApplicationWarning
 
 #  --- Copied from logging module ---
 if hasattr(sys, '_getframe'):
-    currentframe = lambda: sys._getframe(3)
-else: #pragma: no cover
+    def currentframe():
+        return sys._getframe(3)
+else:   # pragma: no cover
     def currentframe():
         """Return the frame object for the caller's stack frame."""
         try:
@@ -31,9 +32,10 @@ class HummingbotLogger(PythonLogger):
     def network(self, log_msg: str, app_warning_msg: Optional[str] = None, *args, **kwargs):
         from hummingbot.client.hummingbot_application import HummingbotApplication
         from . import NETWORK
+        from os import getcwd
 
         self.log(NETWORK, log_msg, *args, **kwargs)
-        if app_warning_msg is not None:
+        if app_warning_msg is not None and "test" not in getcwd():
             app_warning: ApplicationWarning = ApplicationWarning(
                 time.time(),
                 self.name,
@@ -45,16 +47,22 @@ class HummingbotLogger(PythonLogger):
             hummingbot_app.add_application_warning(app_warning)
 
     #  --- Copied from logging module ---
-    def findCaller(self, stack_info=False):
+    def findCaller(self, stack_info=False, stacklevel=1):
         """
         Find the stack frame of the caller so that we can note the source
         file name, line number and function name.
         """
         f = currentframe()
-        #On some versions of IronPython, currentframe() returns None if
-        #IronPython isn't run with -X:Frames.
+        # On some versions of IronPython, currentframe() returns None if
+        # IronPython isn't run with -X:Frames.
         if f is not None:
             f = f.f_back
+        orig_f = f
+        while f and stacklevel > 1:
+            f = f.f_back
+            stacklevel -= 1
+        if not f:
+            f = orig_f
         rv = "(unknown file)", 0, "(unknown function)", None
         while hasattr(f, "f_code"):
             co = f.f_code

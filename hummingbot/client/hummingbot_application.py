@@ -4,7 +4,6 @@ import asyncio
 from collections import deque
 import logging
 import time
-from eth_account.local import LocalAccount
 from typing import List, Dict, Optional, Tuple, Set, Deque
 
 from hummingbot.client.command import __all__ as commands
@@ -17,7 +16,6 @@ from hummingbot.market.binance.binance_market import BinanceMarket
 from hummingbot.market.bittrex.bittrex_market import BittrexMarket
 from hummingbot.market.kucoin.kucoin_market import KucoinMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
-from hummingbot.market.ddex.ddex_market import DDEXMarket
 from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.liquid.liquid_market import LiquidMarket
 from hummingbot.market.eterbase.eterbase_market import EterbaseMarket
@@ -25,9 +23,9 @@ from hummingbot.market.market_base import MarketBase
 from hummingbot.market.paper_trade import create_paper_trade_market
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
-from hummingbot.market.idex.idex_market import IDEXMarket
 from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
 from hummingbot.market.bitcoin_com.bitcoin_com_market import BitcoinComMarket
+from hummingbot.market.kraken.kraken_market import KrakenMarket
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
@@ -37,9 +35,8 @@ from hummingbot.client.ui.parser import load_parser, ThrowingArgumentParser
 from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.client.errors import InvalidCommandError, ArgumentParserError
-from hummingbot.client.config.in_memory_config_map import in_memory_config_map
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.config_helpers import get_erc20_token_addresses
+from hummingbot.client.config.global_config_map import global_config_map, using_wallet
+from hummingbot.client.config.config_helpers import get_erc20_token_addresses, get_strategy_config_map
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
 
@@ -49,6 +46,7 @@ from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.notifier.telegram_notifier import TelegramNotifier
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.market.markets_recorder import MarketsRecorder
+from hummingbot.client.config.security import Security
 
 
 s_logger = None
@@ -57,22 +55,20 @@ MARKET_CLASSES = {
     "bamboo_relay": BambooRelayMarket,
     "binance": BinanceMarket,
     "coinbase_pro": CoinbaseProMarket,
-    "ddex": DDEXMarket,
     "huobi": HuobiMarket,
     "liquid": LiquidMarket,
-    "idex": IDEXMarket,
     "radar_relay": RadarRelayMarket,
     "dolomite": DolomiteMarket,
     "bittrex": BittrexMarket,
     "kucoin": KucoinMarket,
     "bitcoin_com": BitcoinComMarket,
-    "eterbase": EterbaseMarket
+    "eterbase": EterbaseMarket,
+    "kraken": KrakenMarket
 }
 
 
 class HummingbotApplication(*commands):
     KILL_TIMEOUT = 10.0
-    IDEX_KILL_TIMEOUT = 30.0
     APP_WARNING_EXPIRY_DURATION = 3600.0
     APP_WARNING_STATUS_LIMIT = 6
 
@@ -98,9 +94,11 @@ class HummingbotApplication(*commands):
             input_handler=self._handle_command, bindings=load_key_bindings(self), completer=load_completer(self)
         )
 
-        self.acct: Optional[LocalAccount] = None
         self.markets: Dict[str, MarketBase] = {}
         self.wallet: Optional[Web3Wallet] = None
+        # strategy file name and name get assigned value after import or create command
+        self.strategy_file_name: str = None
+        self.strategy_name: str = None
         self.strategy_task: Optional[asyncio.Task] = None
         self.strategy: Optional[StrategyBase] = None
         self.market_pair: Optional[CrossExchangeMarketPair] = None
@@ -121,6 +119,12 @@ class HummingbotApplication(*commands):
 
         self.trade_fill_db: SQLConnectionManager = SQLConnectionManager.get_trade_fills_instance()
         self.markets_recorder: Optional[MarketsRecorder] = None
+
+    @property
+    def strategy_config_map(self):
+        if self.strategy_name is not None:
+            return get_strategy_config_map(self.strategy_name)
+        return None
 
     def _notify(self, msg: str):
         self.app.log(msg)
@@ -158,9 +162,6 @@ class HummingbotApplication(*commands):
             self._notify("Cancelling outstanding orders...")
 
             for market_name, market in self.markets.items():
-                if market_name == "idex":
-                    self._notify(f"IDEX cancellations may take up to {int(self.IDEX_KILL_TIMEOUT)} seconds...")
-                    kill_timeout = self.IDEX_KILL_TIMEOUT
                 # By default, the bot does not cancel orders on exit on Radar Relay or Bamboo Relay,
                 # since all open orders will expire in a short window
                 if not on_chain_cancel_on_exit and (market_name == "radar_relay" or (market_name == "bamboo_relay" and not bamboo_relay_use_coordinator)):
@@ -175,7 +176,7 @@ class HummingbotApplication(*commands):
                         '\n'.join(uncancelled_order_ids)
                     ))
         except Exception:
-            self.logger().error(f"Error canceling outstanding orders.", exc_info=True)
+            self.logger().error("Error canceling outstanding orders.", exc_info=True)
             success = False
 
         if success:
@@ -204,17 +205,21 @@ class HummingbotApplication(*commands):
         return [market_class.convert_to_exchange_trading_pair(trading_pair) for trading_pair in hb_trading_pair]
 
     def _initialize_wallet(self, token_trading_pairs: List[str]):
+        if not using_wallet():
+            return
+
+        ethereum_wallet = global_config_map.get("ethereum_wallet").value
+        private_key = Security._private_keys[ethereum_wallet]
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
         erc20_token_addresses = get_erc20_token_addresses(token_trading_pairs)
 
-        if self.acct is not None:
-            chain_name: str = global_config_map.get("ethereum_chain_name").value
-            self.wallet: Web3Wallet = Web3Wallet(
-                private_key=self.acct.privateKey,
-                backend_urls=[ethereum_rpc_url],
-                erc20_token_addresses=erc20_token_addresses,
-                chain=getattr(EthereumChain, chain_name),
-            )
+        chain_name: str = global_config_map.get("ethereum_chain_name").value
+        self.wallet: Web3Wallet = Web3Wallet(
+            private_key=private_key,
+            backend_urls=[ethereum_rpc_url],
+            erc20_token_addresses=erc20_token_addresses,
+            chain=getattr(EthereumChain, chain_name),
+        )
 
     def _initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
@@ -231,7 +236,6 @@ class HummingbotApplication(*commands):
 
         for market_name, trading_pairs in market_trading_pairs_map.items():
             if global_config_map.get("paper_trade_enabled").value:
-                self._notify(f"\nPaper trade is enabled for market {market_name}")
                 try:
                     market = create_paper_trade_market(market_name, trading_pairs)
                 except Exception:
@@ -239,31 +243,6 @@ class HummingbotApplication(*commands):
                 paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
                 for asset, balance in paper_trade_account_balance:
                     market.set_balance(asset, balance)
-
-            elif market_name == "ddex":
-                assert self.wallet is not None
-                market = DDEXMarket(
-                    wallet=self.wallet,
-                    ethereum_rpc_url=ethereum_rpc_url,
-                    order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                    trading_pairs=trading_pairs,
-                    trading_required=self._trading_required,
-                )
-
-            elif market_name == "idex":
-                assert self.wallet is not None
-                idex_api_key: str = global_config_map.get("idex_api_key").value
-                try:
-                    market = IDEXMarket(
-                        idex_api_key=idex_api_key,
-                        wallet=self.wallet,
-                        ethereum_rpc_url=ethereum_rpc_url,
-                        order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                        trading_pairs=trading_pairs,
-                        trading_required=self._trading_required,
-                    )
-                except Exception as e:
-                    self.logger().error(str(e))
 
             elif market_name == "binance":
                 binance_api_key = global_config_map.get("binance_api_key").value
@@ -350,11 +329,11 @@ class HummingbotApplication(*commands):
                 kucoin_secret_key = global_config_map.get("kucoin_secret_key").value
                 kucoin_passphrase = global_config_map.get("kucoin_passphrase").value
                 market = KucoinMarket(kucoin_api_key,
-                                       kucoin_passphrase,
-                                       kucoin_secret_key,
-                                       order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                                       trading_pairs=trading_pairs,
-                                       trading_required=self._trading_required)
+                                      kucoin_passphrase,
+                                      kucoin_secret_key,
+                                      order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                                      trading_pairs=trading_pairs,
+                                      trading_required=self._trading_required)
             elif market_name == "bitcoin_com":
                 bitcoin_com_api_key = global_config_map.get("bitcoin_com_api_key").value
                 bitcoin_com_secret_key = global_config_map.get("bitcoin_com_secret_key").value
@@ -367,11 +346,21 @@ class HummingbotApplication(*commands):
                 eterbase_api_key = global_config_map.get("eterbase_api_key").value
                 eterbase_secret_key = global_config_map.get("eterbase_secret_key").value
                 eterbase_account = global_config_map.get("eterbase_account").value
+                eterbase_tier = global_config_map.get("eterbase_tier").value
                 market = EterbaseMarket(eterbase_api_key,
                                         eterbase_secret_key,
                                         trading_pairs=trading_pairs,
                                         trading_required=self._trading_required,
-                                        eterbase_account=eterbase_account)
+                                        eterbase_account=eterbase_account,
+                                        eterbase_tier=eterbase_tier)
+            elif market_name == "kraken":
+                kraken_api_key = global_config_map.get("kraken_api_key").value
+                kraken_secret_key = global_config_map.get("kraken_secret_key").value
+                market = KrakenMarket(kraken_api_key,
+                                      kraken_secret_key,
+                                      order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                                      trading_pairs=trading_pairs,
+                                      trading_required=self._trading_required)
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")
 
@@ -380,8 +369,8 @@ class HummingbotApplication(*commands):
         self.markets_recorder = MarketsRecorder(
             self.trade_fill_db,
             list(self.markets.values()),
-            in_memory_config_map.get("strategy_file_path").value,
-            in_memory_config_map.get("strategy").value,
+            self.strategy_file_name,
+            self.strategy_name,
         )
         self.markets_recorder.start()
 

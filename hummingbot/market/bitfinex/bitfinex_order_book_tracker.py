@@ -76,31 +76,6 @@ class BitfinexOrderBookTracker(OrderBookTracker):
     def exchange_name(self) -> str:
         return "bitfinex"
 
-    async def start(self):
-        print("Bitfinex orderbook start")
-        await super().start()
-
-        self._order_book_trade_listener_task = safe_ensure_future(
-            self.data_source.listen_for_trades(self._ev_loop, self._order_book_trade_stream)
-        )
-        self._order_book_diff_listener_task = safe_ensure_future(
-            self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
-        )
-        self._order_book_snapshot_listener_task = safe_ensure_future(
-            self.data_source.listen_for_order_book_snapshots(
-                self._ev_loop, self._order_book_snapshot_stream
-            )
-        )
-        self._refresh_tracking_task = safe_ensure_future(
-            self._refresh_tracking_loop()
-        )
-        self._order_book_diff_router_task = safe_ensure_future(
-            self._order_book_diff_router()
-        )
-        self._order_book_snapshot_router_task = safe_ensure_future(
-            self._order_book_snapshot_router()
-        )
-
     async def _refresh_tracking_tasks(self):
         print("bitfinext: _refresh_tracking_tasks")
         tracking_trading_pair: Set[str] = set(
@@ -121,7 +96,7 @@ class BitfinexOrderBookTracker(OrderBookTracker):
             self._order_books[trading_pair] = order_book_tracker_entry.order_book
             self._tracking_message_queues[trading_pair] = asyncio.Queue()
             self._tracking_tasks[trading_pair] = safe_ensure_future(self._track_single_book(trading_pair))
-            self.logger().info("Started order book tracking for %s.", trading_pair)
+            self.logger().info("Started order book tracking for %s." % trading_pair)
 
         for trading_pair in deleted_trading_pair:
             self._tracking_tasks[trading_pair].cancel()
@@ -129,7 +104,7 @@ class BitfinexOrderBookTracker(OrderBookTracker):
             del self._order_books[trading_pair]
             del self._active_order_trackers[trading_pair]
             del self._tracking_message_queues[trading_pair]
-            self.logger().info("Stopped order book tracking for %s.", trading_pair)
+            self.logger().info("Stopped order book tracking for %s." % trading_pair)
 
     async def _order_book_diff_router(self):
         last_message_timestamp: float = time.time()
