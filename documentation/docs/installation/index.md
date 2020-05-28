@@ -1,6 +1,6 @@
-# Overview of Hummingbot Installation
+# Installing Hummingbot
 
-## Minimum System Requirements
+## System requirements
 
 Hummingbot has been successfully tested with the following specifications:
 
@@ -11,41 +11,34 @@ Resource | Requirement
 **Storage** | <li>**Install using Docker**: 5 GB per instance<li>**Install from source**: 3 GB per instance
 **Network** | A reliable internet connection is critical to keeping Hummingbot connected to exchanges.
 
-## Recommended Setup
+## For new users
 
-We recommend that users utilize the setup below for the best experience running Hummingbot:
+For new users, we recommending installing Hummingbot on a desktop or laptop computer in order to test it out.
 
-| | |
-|---|---|
-| **Cloud server** | Install on AWS, Google Cloud or another cloud provider for ease of 24/7 operation and network stability. |
-| **Linux (Ubuntu)** | Hummingbot was designed and optimized for UNIX-based systems such as Linux and MacOS. |
-| **Docker** | Run Hummingbot through Docker for easier setup, operation, operation of multiple bots, and updating. |
-| **tmux** | Use `tmux` for persistent operation to prevent the cloud server from going to sleep. |
+Windows and macOS users can download the installer, while Linux users can install Hummingbot via Docker.
 
+* **Windows**: [Download Hummingbot](https://hummingbot.io/download) | [Installation Guide](download/windows)
+* **macOS**: [Download Hummingbot](https://hummingbot.io/download) | [Installation Guide](download/macos)
+* **Linux**: [Install via Docker](docker/linux/)
 
-#### Installation Guides
+## For experienced users and developers
 
-Recommended setup:
+For experienced and technical users, we recommend setting up a cloud instance and installing the Docker version or from source. This enables Hummingbot to run 24/7. 
 
-1. [Setting up a Cloud server](/installation/cloud)
-2. [Install Docker + Hummingbot on Linux](/installation/via-docker/linux)
+See our [Cloud Server guide](cloud) for how to set up a server on the top cloud platforms (AWS, Google Cloud, and Azure).
 
-Alternative installations with Docker:
+### Install via Docker
+* [Linux](docker/linux/)
+* [Windows](docker/windows)
+* [macOS](docker/macOS)
 
-* [For macOS Systems](/installation/via-docker/macOS)
-* [For Windows Systems](/installation/via-docker/windows)
+### Install from source
+* [Linux](source/linux)
+* [Windows](source/windows)
+* [macOS](source/macOS)
 
-## Note for Windows Users
+## Updating Hummingbot
 
-Native Windows installation and operation is currenty not supported.  We recommend that Windows users either:
+We publish a new release of Hummingbot approximately once every month. 
 
-1. Install the Docker version in a Linux (Ubuntu) server in the cloud (see [Setup a Cloud Server](/installation/cloud/))
-2. Install the Docker version locally using Docker Toolbox (see [Install on Windows](/installation/via-docker/windows/))
-
-## Installation from Source (for Developers)
-
-For users who want to access to and intend to edit the codebase, you can install from source:
-
-* [For Linux Systems](/installation/from-source/linux)
-* [For macOS Systems](/installation/from-source/macOS)
-* [For Windows Systems](/installation/from-source/windows)
+See this article for instructions on keeping Hummingbot updated: [Updating Hummingbot](updating.md)

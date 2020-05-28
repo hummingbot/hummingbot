@@ -35,6 +35,7 @@ from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.market.market_base import NaN
 from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 
 bm_logger = None
 s_decimal_0 = Decimal(0)
@@ -97,7 +98,6 @@ cdef class BittrexMarket(MarketBase):
         self._order_book_tracker = BittrexOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
                                                            trading_pairs=trading_pairs)
         self._order_not_found_records = {}
-        self._order_tracker_task = None
         self._poll_notifier = asyncio.Event()
         self._poll_interval = poll_interval
         self._shared_client = None
@@ -187,6 +187,10 @@ cdef class BittrexMarket(MarketBase):
         cdef:
             object maker_fee = Decimal(0.0025)
             object taker_fee = Decimal(0.0025)
+        if order_type is OrderType.LIMIT and fee_overrides_config_map["bittrex_maker_fee"].value is not None:
+            return TradeFee(percent=fee_overrides_config_map["bittrex_maker_fee"].value / Decimal("100"))
+        if order_type is OrderType.MARKET and fee_overrides_config_map["bittrex_taker_fee"].value is not None:
+            return TradeFee(percent=fee_overrides_config_map["bittrex_taker_fee"].value / Decimal("100"))
 
         return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
 
@@ -1053,25 +1057,22 @@ cdef class BittrexMarket(MarketBase):
         return NetworkStatus.CONNECTED
 
     def _stop_network(self):
-        if self._order_tracker_task is not None:
-            self._order_tracker_task.cancel()
+        self._order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
         if self._user_stream_tracker_task is not None:
             self._user_stream_tracker_task.cancel()
         if self._user_stream_event_listener_task is not None:
             self._user_stream_event_listener_task.cancel()
-        self._order_tracker_task = self._status_polling_task = self._user_stream_tracker_task = \
+        self._status_polling_task = self._user_stream_tracker_task = \
             self._user_stream_event_listener_task = None
 
     async def stop_network(self):
         self._stop_network()
 
     async def start_network(self):
-        if self._order_tracker_task is not None:
-            self._stop_network()
-
-        self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
+        self._stop_network()
+        self._order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())

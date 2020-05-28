@@ -19,7 +19,7 @@ if is_posix:
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20200113"
+    version = "20200424"
     packages = [
         "hummingbot",
         "hummingbot.client",
@@ -38,14 +38,12 @@ def main():
         "hummingbot.market.binance",
         "hummingbot.market.bittrex",
         "hummingbot.market.coinbase_pro",
-        "hummingbot.market.ddex",
         "hummingbot.market.huobi",
-        "hummingbot.market.idex",
         "hummingbot.market.radar_relay",
+        "hummingbot.market.kraken",
         "hummingbot.strategy",
         "hummingbot.strategy.arbitrage",
         "hummingbot.strategy.cross_exchange_market_making",
-        "hummingbot.strategy.discovery",
         "hummingbot.strategy.pure_market_making",
         "hummingbot.templates",
         "hummingbot.wallet",
@@ -57,9 +55,7 @@ def main():
     package_data = {
         "hummingbot": [
             "core/cpp/*",
-            "wallet/ethereum/zero_ex/zero_ex_coordinator_abi.json",
-            "wallet/ethereum/zero_ex/zero_ex_coordinator_registry_abi.json",
-            "wallet/ethereum/zero_ex/zero_ex_exchange_abi.json",
+            "wallet/ethereum/zero_ex/*.json",
             "wallet/ethereum/token_abi/*.json",
             "wallet/ethereum/erc20_tokens.json",
             "VERSION",
@@ -73,6 +69,7 @@ def main():
         "cytoolz",
         "eth-abi",
         "eth-account",
+        "eth-bloom",
         "eth-hash",
         "eth-keyfile",
         "eth-keys",
@@ -95,7 +92,7 @@ def main():
         "attrs",
         "certifi",
         "chardet",
-        "cython==0.29.5",
+        "cython==0.29.15",
         "idna",
         "idna_ssl",
         "multidict",
@@ -103,7 +100,7 @@ def main():
         "pandas",
         "pytz",
         "pyyaml",
-        "python-binance==0.6.9",
+        "python-binance==0.7.1",
         "sqlalchemy",
         "ujson",
         "yarl",
@@ -129,11 +126,11 @@ def main():
 
     setup(name="hummingbot",
           version=version,
-          description="CoinAlpha Hummingbot",
+          description="Hummingbot",
           url="https://github.com/CoinAlpha/hummingbot",
-          author="Martin Kou",
-          author_email="martin@coinalpha.com",
-          license="Proprietary",
+          author="CoinAlpha, Inc.",
+          author_email="dev@hummingbot.io",
+          license="Apache 2.0",
           packages=packages,
           package_data=package_data,
           install_requires=install_requires,

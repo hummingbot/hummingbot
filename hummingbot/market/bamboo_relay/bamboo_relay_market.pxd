@@ -38,7 +38,6 @@ cdef class BambooRelayMarket(MarketBase):
         public object _status_polling_task
         public object _user_stream_event_listener_task
         public object _approval_tx_polling_task
-        public object _order_tracker_task
         int64_t _latest_salt
         str _api_endpoint
         str _api_prefix
@@ -67,8 +66,7 @@ cdef class BambooRelayMarket(MarketBase):
                                        object amount,
                                        str tx_hash,
                                        object protocol_fee_amount)
-    cdef c_expire_order(self, str order_id)
-    cdef c_expire_order_fast(self, str order_id)
+    cdef c_expire_order(self, str order_id, int seconds)
     cdef c_check_and_remove_expired_orders(self)
     cdef list c_get_orders_for_amount_price(self,
                                             str trading_pair,

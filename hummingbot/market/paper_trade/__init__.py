@@ -3,10 +3,8 @@ from typing import List
 from hummingbot.market.bamboo_relay.bamboo_relay_order_book_tracker import BambooRelayOrderBookTracker
 from hummingbot.market.binance.binance_order_book_tracker import BinanceOrderBookTracker
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
-from hummingbot.market.ddex.ddex_order_book_tracker import DDEXOrderBookTracker
 from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.huobi.huobi_order_book_tracker import HuobiOrderBookTracker
-# from hummingbot.market.idex.idex_order_book_tracker import IDEXOrderBookTracker
 from hummingbot.market.paper_trade.market_config import MarketConfig
 from hummingbot.market.paper_trade.paper_trade_market import PaperTradeMarket
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
@@ -17,17 +15,15 @@ from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.binance.binance_market import BinanceMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
-from hummingbot.market.ddex.ddex_market import DDEXMarket
-# from hummingbot.market.idex.idex_market import IDEXMarket
 
 from hummingbot.market.bittrex.bittrex_market import BittrexOrderBookTracker, BittrexMarket
 from hummingbot.market.bitcoin_com.bitcoin_com_market import BitcoinComOrderBookTracker, BitcoinComMarket
 from hummingbot.market.liquid.liquid_market import LiquidOrderBookTracker, LiquidMarket
 from hummingbot.market.kucoin.kucoin_market import KucoinOrderBookTracker, KucoinMarket
+from hummingbot.market.kraken.kraken_market import KrakenOrderBookTracker, KrakenMarket
 
 ORDER_BOOK_TRACKER_CLASS = {
     "binance": BinanceOrderBookTracker,
-    "ddex": DDEXOrderBookTracker,
     "coinbase_pro": CoinbaseProOrderBookTracker,
     "bamboo_relay": BambooRelayOrderBookTracker,
     "radar_relay": RadarRelayOrderBookTracker,
@@ -36,13 +32,13 @@ ORDER_BOOK_TRACKER_CLASS = {
     "dolomite": DolomiteOrderBookTracker,
     "bitcoin_com": BitcoinComOrderBookTracker,
     "liquid": LiquidOrderBookTracker,
-    "kucoin": KucoinOrderBookTracker
+    "kucoin": KucoinOrderBookTracker,
+    "kraken": KrakenOrderBookTracker
 }
 
 
 MARKET_CLASSES = {
     "binance": BinanceMarket,
-    "ddex": DDEXMarket,
     "coinbase_pro": CoinbaseProMarket,
     "bamboo_relay": BambooRelayMarket,
     "radar_relay": RadarRelayMarket,
@@ -51,7 +47,8 @@ MARKET_CLASSES = {
     "dolomite": DolomiteMarket,
     "bitcoin_com": BitcoinComMarket,
     "liquid": LiquidMarket,
-    "kucoin": KucoinMarket
+    "kucoin": KucoinMarket,
+    "kraken": KrakenMarket
 }
 
 

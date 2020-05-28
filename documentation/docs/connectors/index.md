@@ -12,21 +12,14 @@ Connectors are packages of code that link Hummingbot's internal trading algorith
 
 ## Hummingbot-Supported Connectors
 
-### Centralized Exchanges
-
 * [Binance](/connectors/binance)
 * [Coinbase Pro](/connectors/coinbase)
 * [Huobi Global](/connectors/huobi)
 * [Bittrex Global](/connectors/bittrex)
 * [Liquid](/connectors/liquid)
 * [KuCoin](/connectors/kucoin)
-
-### Decentralized Exchanges
-
-* [DDEX](/connectors/ddex)
-* [IDEX](/connectors/IDEX)
+* [Kraken](/connectors/kraken)
 * [Radar Relay](/connectors/radar-relay)
-* [0x Relayers](/connectors/0x)
 
 ## Community-Contributed Exchange Connectors
 
@@ -53,5 +46,3 @@ Please contact the support contact listed in the above table for support questio
 
 * Bitfinex
 * HitBTC
-* Kraken
-* gate.io

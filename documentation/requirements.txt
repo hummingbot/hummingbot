@@ -1,3 +1,5 @@
-mkdocs
-mkdocs-material
-pymdown-extensions
+mkdocs==1.0.4
+mkdocs-material==4.6
+pymdown-extensions==6.2
+markdown==3.0.1
+python-markdown-math==0.6

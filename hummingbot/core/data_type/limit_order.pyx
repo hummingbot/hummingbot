@@ -7,21 +7,30 @@ from libcpp.string cimport string
 from decimal import Decimal
 import pandas as pd
 from typing import List
+import time
 
 cdef class LimitOrder:
     @classmethod
-    def to_pandas(cls, limit_orders: List[LimitOrder]) -> pd.DataFrame:
+    def to_pandas(cls, limit_orders: List[LimitOrder], mid_price: float = 0.0, hanging_ids: List[str] = None) \
+            -> pd.DataFrame:
+        buys = [o for o in limit_orders if o.is_buy]
+        buys.sort(key=lambda x: x.price, reverse=True)
+        sells = [o for o in limit_orders if not o.is_buy]
+        sells.sort(key=lambda x: x.price, reverse=True)
+        limit_orders = sells + buys
         cdef:
-            list columns = ["Order_Id", "is_buy", "Trading_Pair", "Base_Asset", "Quote_Asset", "Price", "Quantity"]
+            list columns = ["Order ID", "Type", "Price", "Spread", "Amount", "Age", "Hang"]
             list data = [[
-                limit_order.client_order_id,
-                limit_order.is_buy,
-                limit_order.trading_pair,
-                limit_order.base_currency,
-                limit_order.quote_currency,
-                float(limit_order.price),
-                float(limit_order.quantity)
-            ] for limit_order in limit_orders]
+                f"...{order.client_order_id[-4:]}",
+                "buy" if order.is_buy else "sell",
+                float(order.price),
+                f"{(0 if mid_price == 0 else abs(float(order.price) - mid_price)/mid_price):.2%}",
+                float(order.quantity),
+                ("n/a" if "-" not in order.client_order_id else
+                 pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:])/1e6,
+                              unit='s', tz='UTC').strftime('%H:%M:%S')),
+                "n/a" if hanging_ids is None else ("yes" if order.client_order_id in hanging_ids else "no")
+            ] for order in limit_orders]
 
         return pd.DataFrame(data=data, columns=columns)
 

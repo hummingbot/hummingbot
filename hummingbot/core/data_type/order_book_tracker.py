@@ -57,25 +57,17 @@ class OrderBookTracker(ABC):
         self._order_book_trade_stream: asyncio.Queue = asyncio.Queue()
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
 
+        self._emit_trade_event_task: Optional[asyncio.Task] = None
+        self._refresh_tracking_task: Optional[asyncio.Task] = None
         self._order_book_diff_listener_task: Optional[asyncio.Task] = None
         self._order_book_trade_listener_task: Optional[asyncio.Task] = None
         self._order_book_snapshot_listener_task: Optional[asyncio.Task] = None
         self._order_book_diff_router_task: Optional[asyncio.Task] = None
         self._order_book_snapshot_router_task: Optional[asyncio.Task] = None
-        self._emit_trade_event_task: Optional[asyncio.Task] = None
-        self._refresh_tracking_task: Optional[asyncio.Task] = None
 
     @property
     @abstractmethod
     def data_source(self) -> OrderBookTrackerDataSource:
-        raise NotImplementedError
-
-    @abstractmethod
-    async def start(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    async def stop(self):
         raise NotImplementedError
 
     @property
@@ -95,21 +87,46 @@ class OrderBookTracker(ABC):
             for trading_pair, order_book in self._order_books.items()
         }
 
-    async def start(self):
+    def start(self):
+        self.stop()
         self._emit_trade_event_task = safe_ensure_future(
             self._emit_trade_event_loop()
+        )
+        self._refresh_tracking_task = safe_ensure_future(
+            self._refresh_tracking_loop()
+        )
+        self._order_book_diff_listener_task = safe_ensure_future(
+            self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
+        )
+        self._order_book_trade_listener_task = safe_ensure_future(
+            self.data_source.listen_for_trades(self._ev_loop, self._order_book_trade_stream)
+        )
+        self._order_book_snapshot_listener_task = safe_ensure_future(
+            self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
+        )
+        self._order_book_diff_router_task = safe_ensure_future(
+            self._order_book_diff_router()
+        )
+        self._order_book_snapshot_router_task = safe_ensure_future(
+            self._order_book_snapshot_router()
         )
 
     def stop(self):
         if self._emit_trade_event_task is not None:
             self._emit_trade_event_task.cancel()
             self._emit_trade_event_task = None
+        if self._refresh_tracking_task is not None:
+            self._refresh_tracking_task.cancel()
+            self._refresh_tracking_task = None
         if self._order_book_diff_listener_task is not None:
             self._order_book_diff_listener_task.cancel()
             self._order_book_diff_listener_task = None
         if self._order_book_snapshot_listener_task is not None:
             self._order_book_snapshot_listener_task.cancel()
             self._order_book_snapshot_listener_task = None
+        if self._order_book_trade_listener_task is not None:
+            self._order_book_trade_listener_task.cancel()
+            self._order_book_trade_listener_task = None
         if self._refresh_tracking_task is not None:
             self._refresh_tracking_task.cancel()
             self._refresh_tracking_task = None
@@ -119,13 +136,17 @@ class OrderBookTracker(ABC):
         if self._order_book_snapshot_router_task is not None:
             self._order_book_snapshot_router_task.cancel()
             self._order_book_snapshot_router_task = None
+        if len(self._tracking_tasks) > 0:
+            for _, task in self._tracking_tasks.items():
+                task.cancel()
+            self._tracking_tasks.clear()
 
     async def _refresh_tracking_tasks(self):
         """
         Starts tracking for any new trading pairs, and stop tracking for any inactive trading pairs.
         """
         tracking_trading_pairs: Set[str] = set([key for key in self._tracking_tasks.keys()
-                                          if not self._tracking_tasks[key].done()])
+                                                if not self._tracking_tasks[key].done()])
         available_pairs: Dict[str, OrderBookTrackerEntry] = await self.data_source.get_tracking_pairs()
         available_trading_pairs: Set[str] = set(available_pairs.keys())
         new_trading_pairs: Set[str] = available_trading_pairs - tracking_trading_pairs
@@ -135,14 +156,14 @@ class OrderBookTracker(ABC):
             self._order_books[trading_pair] = available_pairs[trading_pair].order_book
             self._tracking_message_queues[trading_pair] = asyncio.Queue()
             self._tracking_tasks[trading_pair] = safe_ensure_future(self._track_single_book(trading_pair))
-            self.logger().info("Started order book tracking for %s.", trading_pair)
+            self.logger().info("Started order book tracking for %s." % trading_pair)
 
         for trading_pair in deleted_trading_pairs:
             self._tracking_tasks[trading_pair].cancel()
             del self._tracking_tasks[trading_pair]
             del self._order_books[trading_pair]
             del self._tracking_message_queues[trading_pair]
-            self.logger().info("Stopped order book tracking for %s.", trading_pair)
+            self.logger().info("Stopped order book tracking for %s." % trading_pair)
 
     async def _refresh_tracking_loop(self):
         """

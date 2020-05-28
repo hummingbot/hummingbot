@@ -2,7 +2,8 @@
 ###   Cross exchange market making strategy config   ###
 ########################################################
 
-template_version: 2
+template_version: 3
+strategy: null
 
 # The following configuations are only required for the
 # cross exchange market making strategy
@@ -29,7 +30,7 @@ active_order_canceling: null
 
 # If active_order_canceling = false, this is the profitability/
 # loss threshold at which to cancel the order.
-# Expressed in decimals: 0.01 = 1% target profit
+# Expressed in decimals: 1 = 1% target profit
 cancel_order_threshold: null
 
 # An amount in seconds, which is the minimum duration for any
@@ -47,15 +48,15 @@ top_depth_tolerance: null
 # An amount in seconds, which is the minimum amount of time interval between adjusting limit order prices
 anti_hysteresis_duration: null
 
-# An amount expressed in decimals (i.e. input of `0.01` corresponds to 1%), which is the maximum size limit of new limit orders,
+# An amount expressed in decimals (i.e. input of `1` corresponds to 1%), which is the maximum size limit of new limit orders,
 # in terms of ratio of hedge-able volume on taker side.
 order_size_taker_volume_factor: null
 
-# An amount expressed in decimals (i.e. input of `0.01` corresponds to 1%), which is the maximum size limit of new limit orders,
+# An amount expressed in decimals (i.e. input of `1` corresponds to 1%), which is the maximum size limit of new limit orders,
 # in terms of ratio of asset balance available for hedging trade on taker side
 order_size_taker_balance_factor: null
 
-# An amount expressed in decimals (i.e. input of `0.01` corresponds to 1%), which is the maximum size limit of new limit orders,
+# An amount expressed in decimals (i.e. input of `1` corresponds to 1%), which is the maximum size limit of new limit orders,
 # in terms of ratio of total portfolio value on both maker and taker markets
 order_size_portfolio_ratio_limit: null
 

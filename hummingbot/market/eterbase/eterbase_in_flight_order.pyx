@@ -16,6 +16,7 @@ from hummingbot.core.event.events import (
 from hummingbot.market.eterbase.eterbase_market import EterbaseMarket
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 
+s_decimal_0 = Decimal(0)
 
 s_logger = None
 
@@ -28,8 +29,9 @@ cdef class EterbaseInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
+                 cost: Optional[Decimal],
                  initial_state: str = "open",
-                 fill_ids:Set[str] = set()):
+                 fill_ids: Set[str] = set()):
         super().__init__(
             EterbaseMarket,
             client_order_id,
@@ -41,8 +43,9 @@ cdef class EterbaseInFlightOrder(InFlightOrderBase):
             amount,
             initial_state,
         )
-        self.fill_ids=fill_ids
-
+        self.fill_ids = fill_ids
+        self.cost = cost
+        self.executed_cost_quote = s_decimal_0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -53,7 +56,13 @@ cdef class EterbaseInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"FILLED", "USER_REQUESTED_CANCEL","ADMINISTRATIVE_CANCEL","NOT_ENOUGH_LIQUIDITY","EXPIRED","ONE_CANCELS_OTHER","4"}
+        return self.last_state in {"FILLED",
+                                   "USER_REQUESTED_CANCEL",
+                                   "ADMINISTRATIVE_CANCEL",
+                                   "NOT_ENOUGH_LIQUIDITY",
+                                   "EXPIRED",
+                                   "ONE_CANCELS_OTHER",
+                                   "4"}
 
     @property
     def is_failure(self) -> bool:
@@ -62,7 +71,7 @@ cdef class EterbaseInFlightOrder(InFlightOrderBase):
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state == {"USER_REQUESTED_CANCEL","ADMINISTRATIVE_CANCEL","ONE_CANCELS_OTHER"}
+        return self.last_state == {"USER_REQUESTED_CANCEL", "ADMINISTRATIVE_CANCEL", "ONE_CANCELS_OTHER"}
 
     @property
     def order_type_description(self) -> str:
@@ -95,4 +104,12 @@ cdef class EterbaseInFlightOrder(InFlightOrderBase):
         retval.fee_asset = data["fee_asset"]
         retval.fee_paid = Decimal(data["fee_paid"])
         retval.last_state = data["last_state"]
+        if ("cost" in data):
+            retval.cost = data["cost"]
         return retval
+
+    def __repr__(self) -> str:
+        return super().__repr__() + \
+            f".EterbaseExtension(" \
+            f"fill_ids='{self.fill_ids}', " \
+            f"cost='{self.cost}')"

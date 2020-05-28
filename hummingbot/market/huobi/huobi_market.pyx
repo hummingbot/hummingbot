@@ -60,6 +60,7 @@ from hummingbot.market.market_base import (
     NaN,
     s_decimal_NaN)
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 
 hm_logger = None
 s_decimal_0 = Decimal(0)
@@ -69,7 +70,7 @@ HUOBI_ROOT_API = "https://api.huobi.pro/v1/"
 
 class HuobiAPIError(IOError):
     def __init__(self, error_payload: Dict[str, Any]):
-        super().__init__()
+        super().__init__(str(error_payload))
         self.error_payload = error_payload
 
 
@@ -129,7 +130,6 @@ cdef class HuobiMarket(MarketBase):
             data_source_type=order_book_tracker_data_source_type,
             trading_pairs=trading_pairs
         )
-        self._order_tracker_task = None
         self._poll_notifier = asyncio.Event()
         self._poll_interval = poll_interval
         self._shared_client = None
@@ -221,18 +221,15 @@ cdef class HuobiMarket(MarketBase):
         self._async_scheduler.stop()
 
     async def start_network(self):
-        if self._order_tracker_task is not None:
-            self._stop_network()
-        self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
+        self._stop_network()
+        self._order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             await self._update_account_id()
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
 
     def _stop_network(self):
-        if self._order_tracker_task is not None:
-            self._order_tracker_task.cancel()
-            self._order_tracker_task = None
+        self._order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
@@ -364,6 +361,11 @@ cdef class HuobiMarket(MarketBase):
                           object amount,
                           object price):
         # https://www.hbg.com/en-us/about/fee/
+
+        if order_type is OrderType.LIMIT and fee_overrides_config_map["huobi_maker_fee"].value is not None:
+            return TradeFee(percent=fee_overrides_config_map["huobi_maker_fee"].value / Decimal("100"))
+        if order_type is OrderType.MARKET and fee_overrides_config_map["huobi_taker_fee"].value is not None:
+            return TradeFee(percent=fee_overrides_config_map["huobi_taker_fee"].value / Decimal("100"))
         return TradeFee(percent=Decimal("0.002"))
 
     async def _update_trading_rules(self):

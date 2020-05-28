@@ -1,14 +1,12 @@
 #!/usr/bin/env python
 
 import asyncio
-import aiohttp
 import logging
 from typing import (
     AsyncIterable,
     Dict,
     Optional,
-    List,
-    Any
+    List
 )
 import ujson
 import websockets
@@ -41,12 +39,13 @@ class EterbaseAPIUserStreamDataSource(UserStreamTrackerDataSource):
             cls._cbpausds_logger = logging.getLogger(__name__)
         return cls._cbpausds_logger
 
-    def __init__(self, eterbase_auth: EterbaseAuth, eterbase_account:str, trading_pairs: Optional[List[str]] = [] ):
+    def __init__(self, eterbase_auth: EterbaseAuth, eterbase_account: str, trading_pairs: Optional[List[str]] = []):
         self._eterbase_auth: EterbaseAuth = eterbase_auth
         self._trading_pairs = trading_pairs
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
         self._eterbase_account = eterbase_account
+        self._last_recv_time: float = 0
         super().__init__()
 
     @property
@@ -67,7 +66,7 @@ class EterbaseAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         while True:
             try:
-                tp_map_mkrtid:Dict[str,str] = await EterbaseAPIOrderBookDataSource.get_map_market_id() 
+                tp_map_mkrtid: Dict[str, str] = await EterbaseAPIOrderBookDataSource.get_map_market_id()
 
                 mrktIds = []
                 for tp in self._trading_pairs:
@@ -84,6 +83,7 @@ class EterbaseAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     }
                     await ws.send(ujson.dumps(subscribe_request))
                     async for raw_msg in self._inner_messages(ws):
+                        self.logger().debug(f"websocket raw msg: {raw_msg}")
                         msg = ujson.loads(raw_msg)
                         msg_type: str = msg.get("type", None)
                         if msg_type is None:
@@ -140,7 +140,11 @@ class EterbaseAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         resp = await api_request("GET", "/wstoken", auth=self._eterbase_auth)
         wstoken = resp["wstoken"]
-        if (wstoken == None):
-            raise ValueError("Service /api/wstoken didn't received generated wstoken in response: "+ str(resp))
+        if (wstoken is None):
+            raise ValueError(f"Service /api/wstoken didn't received generated wstoken in response: {resp}")
         url = f"{constants.WSS_URL}?wstoken={wstoken}"
         return url
+
+    @property
+    def last_recv_time(self) -> float:
+        return self._last_recv_time

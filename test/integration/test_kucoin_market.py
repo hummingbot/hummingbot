@@ -47,9 +47,19 @@ from hummingbot.model.sql_connection_manager import (
     SQLConnectionType
 )
 from hummingbot.model.trade_fill import TradeFill
+from test.integration.humming_web_app import HummingWebApp
+from test.integration.assets.mock_data.fixture_kucoin import FixtureKucoin
+from unittest import mock
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
+API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
+API_KEY = "XXX" if API_MOCK_ENABLED else conf.kucoin_api_key
+API_SECRET = "YYY" if API_MOCK_ENABLED else conf.kucoin_secret_key
+API_PASSPHRASE = "ZZZ" if API_MOCK_ENABLED else conf.kucoin_passphrase
+API_BASE_URL = "api.kucoin.com"
+EXCHANGE_ORDER_ID = 20001
 
 
 class KucoinMarketUnitTest(unittest.TestCase):
@@ -72,21 +82,36 @@ class KucoinMarketUnitTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
+        if API_MOCK_ENABLED:
+            cls.web_app = HummingWebApp.get_instance()
+            cls.web_app.add_host_to_mock(API_BASE_URL, ["/api/v1/timestamp", "/api/v1/symbols",
+                                                        "/api/v1/bullet-public",
+                                                        "/api/v2/market/orderbook/level2"])
+            cls.web_app.start()
+            cls.ev_loop.run_until_complete(cls.web_app.wait_til_started())
+            cls._patcher = mock.patch("aiohttp.client.URL")
+            cls._url_mock = cls._patcher.start()
+            cls._url_mock.side_effect = cls.web_app.reroute_local
+            cls.web_app.update_response("get", API_BASE_URL, "/api/v1/accounts", FixtureKucoin.GET_ACCOUNT)
+
+            cls._t_nonce_patcher = unittest.mock.patch("hummingbot.market.kucoin.kucoin_market.get_tracking_nonce")
+            cls._t_nonce_mock = cls._t_nonce_patcher.start()
+            cls._exch_order_id = 20001
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: KucoinMarket = KucoinMarket(
-            kucoin_api_key=conf.kucoin_api_key,
-            kucoin_passphrase=conf.kucoin_passphrase,
-            kucoin_secret_key=conf.kucoin_secret_key,
+            kucoin_api_key=API_KEY,
+            kucoin_passphrase=API_PASSPHRASE,
+            kucoin_secret_key=API_SECRET,
             trading_pairs=["ETH-USDT"]
         )
         # Need 2nd instance of market to prevent events mixing up across tests
         cls.market_2: KucoinMarket = KucoinMarket(
-            kucoin_api_key=conf.kucoin_api_key,
-            kucoin_passphrase=conf.kucoin_passphrase,
-            kucoin_secret_key=conf.kucoin_secret_key,
+            kucoin_api_key=API_KEY,
+            kucoin_passphrase=API_PASSPHRASE,
+            kucoin_secret_key=API_SECRET,
             trading_pairs=["ETH-USDT"]
         )
-        cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.market)
         cls.clock.add_iterator(cls.market_2)
         cls.stack = contextlib.ExitStack()
@@ -96,6 +121,10 @@ class KucoinMarketUnitTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.stack.close()
+        if API_MOCK_ENABLED:
+            cls.web_app.stop()
+            cls._patcher.stop()
+            cls._t_nonce_patcher.stop()
 
     @classmethod
     async def wait_til_ready(cls):
@@ -151,16 +180,59 @@ class KucoinMarketUnitTest(unittest.TestCase):
         self.assertGreater(sell_trade_fee.percent, 0)
         self.assertEqual(len(sell_trade_fee.flat_fees), 0)
 
+    def order_response(self, fixture_data, nonce):
+        self._t_nonce_mock.return_value = nonce
+        order_resp = fixture_data.copy()
+        return order_resp
+
+    def place_order(self, is_buy, trading_pair, amount, order_type, price, nonce, post_resp, get_resp):
+        global EXCHANGE_ORDER_ID
+        order_id, exch_order_id = None, None
+        if API_MOCK_ENABLED:
+            exch_order_id = f"KUCOIN_{EXCHANGE_ORDER_ID}"
+            EXCHANGE_ORDER_ID += 1
+            resp = self.order_response(post_resp, nonce)
+            resp["data"]["orderId"] = exch_order_id
+            self.web_app.update_response("post", API_BASE_URL, "/api/v1/orders", resp)
+        if is_buy:
+            order_id = self.market.buy(trading_pair, amount, order_type, price)
+        else:
+            order_id = self.market.sell(trading_pair, amount, order_type, price)
+        if API_MOCK_ENABLED:
+            resp = get_resp.copy()
+            resp["data"]["id"] = exch_order_id
+            resp["data"]["clientOid"] = order_id
+            self.web_app.update_response("get", API_BASE_URL, f"/api/v1/orders/{exch_order_id}", resp)
+        return order_id, exch_order_id
+
+    def test_fee_overrides_config(self):
+        fee_overrides_config_map["kucoin_taker_fee"].value = None
+        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.001"), taker_fee.percent)
+        fee_overrides_config_map["kucoin_taker_fee"].value = Decimal('0.2')
+        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.002"), taker_fee.percent)
+        fee_overrides_config_map["kucoin_maker_fee"].value = None
+        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.001"), maker_fee.percent)
+        fee_overrides_config_map["kucoin_maker_fee"].value = Decimal('0.5')
+        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
+
     def test_limit_buy(self):
         trading_pair = "ETH-USDT"
-        amount: Decimal = Decimal(0.02)
+        amount: Decimal = Decimal(0.01)
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         current_bid_price: float = self.market.get_price(trading_pair, True)
         bid_price: Decimal = Decimal(current_bid_price + Decimal(0.05) * current_bid_price)
         quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
-
-        order_id = self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
+        order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price, 10001,
+                                       FixtureKucoin.ORDER_PLACE_2, FixtureKucoin.ORDER_GET_AFTER_BUY)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -183,14 +255,15 @@ class KucoinMarketUnitTest(unittest.TestCase):
 
     def test_limit_sell(self):
         trading_pair = "ETH-USDT"
-        amount: Decimal = Decimal(0.02)
+        amount: Decimal = Decimal(0.01)
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         current_ask_price: float = self.market.get_price(trading_pair, False)
         ask_price: Decimal = Decimal(current_ask_price - Decimal(0.05) * current_ask_price)
         quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price)
 
-        order_id = self.market.sell(trading_pair, amount, OrderType.LIMIT, quantize_ask_price)
+        order_id, _ = self.place_order(False, trading_pair, amount, OrderType.LIMIT, quantize_ask_price, 10001,
+                                       FixtureKucoin.ORDER_PLACE, FixtureKucoin.ORDER_GET_AFTER_SELL)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -212,11 +285,13 @@ class KucoinMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_market_buy(self):
+        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.05"))
         trading_pair = "ETH-USDT"
-        amount: Decimal = Decimal(0.02)
+        amount: Decimal = Decimal(0.01)
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        order_id = self.market.buy(trading_pair, quantized_amount, OrderType.MARKET, 0)
+        order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.MARKET, 0, 10001,
+                                       FixtureKucoin.ORDER_PLACE, FixtureKucoin.ORDER_GET_MARKET_BUY)
         [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         buy_order_completed_event: BuyOrderCompletedEvent = buy_order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -238,11 +313,12 @@ class KucoinMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_market_sell(self):
+        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.05"))
         trading_pair = "ETH-USDT"
-        amount: Decimal = Decimal(0.02)
+        amount: Decimal = Decimal(0.011)
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
-
-        order_id = self.market.sell(trading_pair, amount, OrderType.MARKET, 0)
+        order_id, _ = self.place_order(False, trading_pair, amount, OrderType.MARKET, 0, 10001,
+                                       FixtureKucoin.ORDER_PLACE, FixtureKucoin.ORDER_GET_MARKET_SELL)
         [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         sell_order_completed_event: SellOrderCompletedEvent = sell_order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -263,41 +339,62 @@ class KucoinMarketUnitTest(unittest.TestCase):
         # Reset the logs
         self.market_logger.clear()
 
-    def test_cancel_order(self):
+    def test_cancel(self):
         trading_pair = "ETH-USDT"
 
-        current_bid_price: float = self.market.get_price(trading_pair, True)
-        amount: Decimal = Decimal(0.02)
+        current_price: float = self.market.get_price(trading_pair, False)
+        amount: Decimal = Decimal(0.01)
 
-        bid_price: Decimal = Decimal(current_bid_price - Decimal(0.1) * current_bid_price)
-        quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
+        price: Decimal = Decimal(current_price) * Decimal(1.1)
+        quantized_price: Decimal = self.market.quantize_order_price(trading_pair, price)
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        client_order_id = self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
-        [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
-        self.market.cancel(trading_pair, client_order_id)
+        order_id, exch_order_id = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT,
+                                                   quantized_price, 10001,
+                                                   FixtureKucoin.ORDER_PLACE_2, FixtureKucoin.ORDER_GET_SELL_UNMATCHED)
+        [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
+        if API_MOCK_ENABLED:
+            resp = FixtureKucoin.ORDER_CANCEL.copy()
+            resp["data"]["cancelledOrderIds"] = [exch_order_id]
+            self.web_app.update_response("delete", API_BASE_URL, f"/api/v1/orders/{exch_order_id}", resp)
+        self.market.cancel(trading_pair, order_id)
+        if API_MOCK_ENABLED:
+            resp = FixtureKucoin.ORDER_GET_CANCELLED.copy()
+            resp["data"]["id"] = exch_order_id
+            resp["data"]["clientOid"] = order_id
+            self.web_app.update_response("get", API_BASE_URL, f"/api/v1/orders/{exch_order_id}", resp)
         [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
         order_cancelled_event: OrderCancelledEvent = order_cancelled_event
-        self.assertEqual(order_cancelled_event.order_id, client_order_id)
+        self.assertEqual(order_cancelled_event.order_id, order_id)
+        self.market_logger.clear()
 
     def test_cancel_all(self):
         trading_pair = "ETH-USDT"
 
-        bid_price: Decimal = Decimal(self.market_2.get_price(trading_pair, True) * Decimal(0.5))
-        ask_price: Decimal = Decimal(self.market_2.get_price(trading_pair, False) * 2)
-        amount: Decimal = Decimal(0.05)
+        bid_price: Decimal = Decimal(self.market_2.get_price(trading_pair, True))
+        ask_price: Decimal = Decimal(self.market_2.get_price(trading_pair, False))
+        amount: Decimal = Decimal(0.01)
         quantized_amount: Decimal = self.market_2.quantize_order_amount(trading_pair, amount)
 
         # Intentionally setting high price to prevent getting filled
-        quantize_bid_price: Decimal = self.market_2.quantize_order_price(trading_pair, bid_price * Decimal(0.7))
-        quantize_ask_price: Decimal = self.market_2.quantize_order_price(trading_pair, ask_price * Decimal(1.5))
+        quantize_bid_price: Decimal = self.market_2.quantize_order_price(trading_pair, bid_price * Decimal(0.8))
+        quantize_ask_price: Decimal = self.market_2.quantize_order_price(trading_pair, ask_price * Decimal(1.2))
 
-        self.market_2.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
-        self.market_2.sell(trading_pair, quantized_amount, OrderType.LIMIT, quantize_ask_price)
+        _, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price,
+                                            10001, FixtureKucoin.ORDER_PLACE, FixtureKucoin.ORDER_GET_BUY_UNMATCHED)
+
+        _, exch_order_id2 = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT, quantize_ask_price,
+                                             10002, FixtureKucoin.ORDER_PLACE, FixtureKucoin.ORDER_GET_SELL_UNMATCHED)
+
         self.run_parallel(asyncio.sleep(1))
+        if API_MOCK_ENABLED:
+            resp = FixtureKucoin.ORDER_CANCEL_ALL.copy()
+            resp["data"]["cancelledOrderIds"] = [exch_order_id, exch_order_id2]
+            self.web_app.update_response("delete", API_BASE_URL, f"/api/v1/orders", resp)
         [cancellation_results] = self.run_parallel(self.market_2.cancel_all(5))
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
+        self.market_2_logger.clear()
 
     def test_orders_saving_and_restoration(self):
         config_path: str = "test_config"
@@ -319,7 +416,10 @@ class KucoinMarketUnitTest(unittest.TestCase):
             amount: Decimal = Decimal(0.04)
             quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-            order_id = self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
+            order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT,
+                                                       quantize_bid_price,
+                                                       10001, FixtureKucoin.ORDER_PLACE,
+                                                       FixtureKucoin.ORDER_GET_BUY_UNMATCHED)
             [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
             order_created_event: BuyOrderCreatedEvent = order_created_event
             self.assertEqual(order_id, order_created_event.order_id)
@@ -344,9 +444,9 @@ class KucoinMarketUnitTest(unittest.TestCase):
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
             self.market: KucoinMarket = KucoinMarket(
-                kucoin_api_key=conf.kucoin_api_key,
-                kucoin_passphrase=conf.kucoin_passphrase,
-                kucoin_secret_key=conf.kucoin_secret_key,
+                kucoin_api_key=API_KEY,
+                kucoin_passphrase=API_PASSPHRASE,
+                kucoin_secret_key=API_SECRET,
                 trading_pairs=["ETH-USDT"]
             )
             for event_tag in self.events:
@@ -362,8 +462,17 @@ class KucoinMarketUnitTest(unittest.TestCase):
             self.assertEqual(1, len(self.market.limit_orders))
             self.assertEqual(1, len(self.market.tracking_states))
 
+            if API_MOCK_ENABLED:
+                resp = FixtureKucoin.ORDER_CANCEL.copy()
+                resp["data"]["cancelledOrderIds"] = exch_order_id
+                self.web_app.update_response("delete", API_BASE_URL, f"/api/v1/orders/{exch_order_id}", resp)
             # Cancel the order and verify that the change is saved.
             self.market.cancel(trading_pair, order_id)
+            if API_MOCK_ENABLED:
+                resp = FixtureKucoin.ORDER_GET_CANCELLED.copy()
+                resp["data"]["id"] = exch_order_id
+                resp["data"]["clientOid"] = order_id
+                self.web_app.update_response("get", API_BASE_URL, f"/api/v1/orders/{exch_order_id}", resp)
             self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
             order_id = None
             self.assertEqual(0, len(self.market.limit_orders))
@@ -377,6 +486,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
 
             recorder.stop()
             os.unlink(self.db_path)
+            self.market_logger.clear()
 
     def test_order_fill_record(self):
         config_path: str = "test_config"
@@ -388,9 +498,10 @@ class KucoinMarketUnitTest(unittest.TestCase):
         recorder.start()
 
         try:
-            # Try to buy 0.04 ETH from the exchange, and watch for completion event.
-            amount: Decimal = Decimal(1.04)
-            order_id = self.market.buy(trading_pair, amount)
+            # Try to buy 0.01 ETH from the exchange, and watch for completion event.
+            amount: Decimal = Decimal(0.01)
+            order_id, _ = self.place_order(True, trading_pair, amount, OrderType.MARKET, 0, 10001,
+                                           FixtureKucoin.ORDER_PLACE, FixtureKucoin.ORDER_GET_MARKET_BUY)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
             # Reset the logs
@@ -398,7 +509,8 @@ class KucoinMarketUnitTest(unittest.TestCase):
 
             # Try to sell back the same amount of ETH to the exchange, and watch for completion event.
             amount: Decimal = Decimal(buy_order_completed_event.base_asset_amount)
-            order_id = self.market.sell(trading_pair, amount)
+            order_id, _ = self.place_order(False, trading_pair, amount, OrderType.MARKET, 0, 10002,
+                                           FixtureKucoin.ORDER_PLACE, FixtureKucoin.ORDER_GET_MARKET_SELL)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 
             # Query the persisted trade logs
@@ -418,6 +530,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
 
             recorder.stop()
             os.unlink(self.db_path)
+            self.market_logger.clear()
 
 
 if __name__ == "__main__":

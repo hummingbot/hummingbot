@@ -23,12 +23,12 @@ from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.market.bittrex.bittrex_active_order_tracker import BittrexActiveOrderTracker
 from hummingbot.market.bittrex.bittrex_api_order_book_data_source import BittrexAPIOrderBookDataSource
 from hummingbot.market.bittrex.bittrex_order_book import BittrexOrderBook
 from hummingbot.market.bittrex.bittrex_order_book_message import BittrexOrderBookMessage
 from hummingbot.market.bittrex.bittrex_order_book_tracker_entry import BittrexOrderBookTrackerEntry
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class BittrexOrderBookTracker(OrderBookTracker):
@@ -230,8 +230,8 @@ class BittrexOrderBookTracker(OrderBookTracker):
                 )
                 await asyncio.sleep(5.0)
 
-    async def start(self):
-        await super().start()
+    def start(self):
+        self.stop()
         self._order_book_snapshot_listener_task = safe_ensure_future(
             self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
         )

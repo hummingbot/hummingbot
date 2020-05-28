@@ -34,6 +34,9 @@ order_books_db_2 = {
 
 kafka_bootstrap_server = "***REMOVED***"
 
+# whether to enable api mocking in unit test cases
+mock_api_enabled = os.getenv("MOCK_API_ENABLED")
+
 # Binance Tests
 binance_api_key = os.getenv("BINANCE_API_KEY")
 binance_api_secret = os.getenv("BINANCE_API_SECRET")
@@ -43,11 +46,6 @@ coinbase_pro_api_key = os.getenv("COINBASE_PRO_API_KEY")
 coinbase_pro_secret_key = os.getenv("COINBASE_PRO_SECRET_KEY")
 coinbase_pro_passphrase = os.getenv("COINBASE_PRO_PASSPHRASE")
 
-# IDEX Tests
-idex_api_key = os.getenv("IDEX_API_KEY")
-test_idex_erc20_token_address_1 = os.getenv("IDEX_TOKEN_ADDRESS_1")
-test_idex_erc20_token_address_2 = os.getenv("IDEX_TOKEN_ADDRESS_2")
-web3_test_private_key_idex = os.getenv("IDEX_WALLET_PRIVATE_KEY")
 
 # Huobi Tests
 huobi_api_key = os.getenv("HUOBI_API_KEY")
@@ -79,6 +77,16 @@ test_web3_provider_list = [os.getenv("WEB3_PROVIDER")]
 # Liquid Tests
 liquid_api_key = os.getenv("LIQUID_API_KEY")
 liquid_secret_key = os.getenv("LIQUID_SECRET_KEY")
+
+# Kraken Tests
+kraken_api_key = os.getenv("KRAKEN_API_KEY")
+kraken_secret_key = os.getenv("KRAKEN_SECRET_KEY")
+
+# Eterbase Test
+eterbase_api_key = os.getenv("ETERBASE_API_KEY")
+eterbase_secret_key = os.getenv("ETERBASE_SECRET_KEY")
+eterbase_account = os.getenv("ETERBASE_ACCOUNT")
+eterbase_tier = os.getenv("ETERBASE_TIER")
 
 # Wallet Tests
 test_erc20_token_address = os.getenv("TEST_ERC20_TOKEN_ADDRESS")
