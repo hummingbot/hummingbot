@@ -11,7 +11,9 @@ In a situation where the calculation of maker order prices from external sources
 
 >**Example**: If `ETH-USDC` market is currently displaying 109 bid and 111 ask. A specified external exchange is showing 99 bid and 101 ask on its book (mid price = 100). 2 maker orders will be proposed, a bid maker order at 98 (for 2% bid spread) and an ask maker order at 102 (for 2% ask spread). The 102 ask order will be ignored (as it would match the 109 bid order), only the bid order will be submitted to the exchange. 
 
-Type `config price_source_enabled` to set the values for `price_source_enabled`, 
+Type `config price_source_enabled` to set the values for `price_source_enabled`, `price_source_type`, `price_source_exchange` and `price_source_market`, or `price_source_custom` (if source type is exchange). Type `config` + `price_source_type`, `price_source_exchange`, `price_source_market`, or `price_source_custom` to set values for these parameters.
+
+Note that the external price source cannot be the same as the maker exchange (i.e. if the bot is trading on Binance, the `price_source_exchange` cannot be Binance). 
 
 ## Sample Configurations
 ```json
@@ -28,6 +30,8 @@ Type `config price_source_enabled` to set the values for `price_source_enabled`,
 
 ###Custom API Pricing Source Configuration
 ![Custom API Pricing Source Configuration](/assets/img/price_source_custom_api_config.PNG)
+
+Create your own custom API or use services such as [CoinApi](https://www.coinapi.io/), [CoinMarketCap](https://coinmarketcap.com/api/), or [Nomics](https://nomics.com/) for data accross different exchanges and assets.
 
 
 ## Relevant Parameters
