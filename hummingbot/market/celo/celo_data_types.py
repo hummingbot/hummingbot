@@ -9,12 +9,27 @@ class CeloExchangeRate(NamedTuple):
     to_amount: Decimal
 
 
+class CeloBalance(NamedTuple):
+    token: str
+    total: Decimal
+    locked: Decimal
+
+    def available(self):
+        return self.total - self.locked
+
+
 class CeloArbTradeProfit(NamedTuple):
-    is_celo_buy: bool
-    ctp_price: Decimal  # Counter party order price, sell if is_celo_buy
-    ctp_vwap: Decimal  # Counter party avg price, used to calculate celo buy volume and profit
-    celo_price: Decimal  # Celo price, buy if is_celo_buy
+    is_celo_buy: bool  # Celo order side, buy if this is true, else sell.
+    ctp_price: Decimal  # Counter party order price, the opposite side of Celo order, so sell if is_celo_buy is true.
+    ctp_vwap: Decimal  # Counter party vwap price, used to calculate celo buy volume and profit
+    celo_price: Decimal  # Celo order price.
     profit: Decimal  # profit in percentage
+
+    def __repr__(self) -> str:
+        return (
+            f"Celo side: {'Buy' if self.is_celo_buy else 'Sell'}, Celo price: {self.celo_price:.2f}, "
+            f"Counter party price: {self.ctp_price:.2f}, Profit: {self.profit:.2%}"
+        )
 
 
 class CeloOrder(NamedTuple):
@@ -23,3 +38,9 @@ class CeloOrder(NamedTuple):
     price: Decimal
     amount: Decimal
     timestamp: float
+
+    def __repr__(self) -> str:
+        return (
+            f"Celo Order - tx_hash: {self.tx_hash}, side: {'buy' if self.is_buy else 'sell'}, "
+            f"price: {self.price}, amount: {self.amount}."
+        )

@@ -30,8 +30,8 @@ class BalanceCommand:
             try:
                 bals = CeloCLI.balances()
                 self._notify("Celo balances:")
-                for token, amount in bals.items():
-                    self._notify(f"  {token}: {amount}")
+                for token, bal in bals.items():
+                    self._notify(f"  {token} - total: {bal.total} locked: {bal.locked}")
             except Exception as e:
                 self._notify(f"Celo CLI Error: {str(e)}")
 
