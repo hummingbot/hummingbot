@@ -23,17 +23,13 @@ from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import (
     MarketBase,
     OrderType,
-    s_decimal_NaN
 )
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.client.config.global_config_map import paper_trade_disabled
-from math import isnan
 
 from .data_types import (
     OrdersProposal,
-    ORDER_PROPOSAL_ACTION_CANCEL_ORDERS,
-    ORDER_PROPOSAL_ACTION_CREATE_ORDERS,
     PricingProposal,
     SizingProposal
 )
@@ -113,6 +109,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  expiration_seconds: float = NaN,
                  price_ceiling: Decimal = s_decimal_neg_one,
                  price_floor: Decimal = s_decimal_neg_one,
+                 ping_pong_enabled: bool = False,
                  hanging_orders_cancel_pct: float = 0.1,
                  order_refresh_tolerance_pct: float = -1.0):
 
@@ -138,6 +135,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._expiration_seconds = expiration_seconds
         self._price_ceiling = price_ceiling
         self._price_floor = price_floor
+        self._ping_pong_enabled = ping_pong_enabled
+        self._executed_bids_balance = 0
+        self._executed_asks_balance = 0
         self._filled_order_delay = filled_order_delay
         self._add_transaction_costs_to_orders = add_transaction_costs_to_orders
 
@@ -572,6 +572,32 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
         return PricingProposal(updated_buy_order_prices, updated_sell_order_prices)
 
+    cdef tuple c_check_and_apply_ping_pong_strategy(self, object sizing_proposal, object pricing_proposal):
+        """
+        Removes bid/ask orders in accordance with the ping-pong strategy.
+
+        :param sizing_proposal: The current sizing proposal.
+        :param pricing_proposal: The current pricing proposal.
+        :return: Revised sizing and pricing proposals.
+        """
+        cdef:
+            list buy_order_sizes = [order_size for order_size in sizing_proposal.buy_order_sizes]
+            list buy_order_prices = [order_price for order_price in pricing_proposal.buy_order_prices]
+            list sell_order_sizes = [order_size for order_size in sizing_proposal.sell_order_sizes]
+            list sell_order_prices = [order_price for order_price in pricing_proposal.sell_order_prices]
+        if self._executed_asks_balance == self._executed_bids_balance:
+            self._executed_asks_balance = self._executed_bids_balance = 0
+        if self._ping_pong_enabled:
+            if self._executed_bids_balance != 0:
+                buy_order_sizes = buy_order_sizes[self._executed_bids_balance:]
+                buy_order_prices = buy_order_prices[self._executed_bids_balance:]
+            if self._executed_asks_balance != 0:
+                sell_order_sizes = sell_order_sizes[self._executed_asks_balance:]
+                sell_order_prices = sell_order_prices[self._executed_asks_balance:]
+
+        return (SizingProposal(buy_order_sizes, sell_order_sizes),
+                PricingProposal(buy_order_prices, sell_order_prices))
+
     cdef object c_check_and_apply_price_bands_to_sizing_proposal(self,
                                                                  object market_info,
                                                                  object sizing_proposal):
@@ -739,6 +765,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                                           active_non_hanging_orders,
                                                                           pricing_proposal)
 
+        sizing_proposal, pricing_proposal = self.c_check_and_apply_ping_pong_strategy(sizing_proposal,
+                                                                                      pricing_proposal)
         sizing_proposal = self.c_check_and_apply_price_bands_to_sizing_proposal(market_info,
                                                                                 sizing_proposal)
 
@@ -807,6 +835,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 self._hanging_order_ids.append(other_order_id)
 
         if market_info is not None:
+            self._executed_bids_balance += 1
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
             self.log_with_clock(
                 logging.INFO,
@@ -840,6 +869,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                 self._hanging_order_ids.append(other_order_id)
 
         if market_info is not None:
+            self._executed_asks_balance += 1
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)
             self.log_with_clock(
                 logging.INFO,
