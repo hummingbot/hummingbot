@@ -83,7 +83,8 @@ class CeloArbUnitTest(unittest.TestCase):
             self.market_info,
             min_profitability=Decimal("0.01"),
             order_amount=Decimal("1"),
-            logging_options=self.logging_options
+            logging_options=self.logging_options,
+            hb_app_notification=False
         )
         self.clock.add_iterator(self.market)
         self.clock.add_iterator(self.strategy)
