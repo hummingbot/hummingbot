@@ -4,72 +4,81 @@ See the past performance of the current bot.
 ```
 >>>  history
 
-  Recent trades:
-        symbol      price  amount order_type  side   market            timestamp  fee_percent flat_fee / gas
-    0   ETHBTC 0.02553374       1      limit   buy  binance  2020-04-23 16:17:58         0.01          None
-    1   ETHBTC 0.02553974       1      limit   buy  binance  2020-04-23 16:19:02         0.01          None
-    2   ETHBTC 0.02554026       1      limit  sell  binance  2020-04-23 16:19:21         0.01          None
-    3   ETHBTC 0.02553724       1      limit   buy  binance  2020-04-23 16:20:32         0.01          None
-    4   ETHBTC 0.02553776       1      limit  sell  binance  2020-04-23 16:20:40         0.01          None
-    5   ETHBTC 0.02553974       1      limit   buy  binance  2020-04-23 16:21:48         0.01          None
-    6   ETHBTC 0.02553426       1      limit  sell  binance  2020-04-23 16:22:50         0.01          None
-    7   ETHBTC 0.02553374       1      limit   buy  binance  2020-04-23 16:22:56         0.01          None
-    8   ETHBTC 0.02552824       1      limit   buy  binance  2020-04-23 16:24:01         0.01          None
-    9   ETHBTC 0.02551224       1      limit   buy  binance  2020-04-23 16:25:04         0.01          None
-    10  ETHBTC 0.02551276       1      limit  sell  binance  2020-04-23 16:25:11         0.01          None
-    11  ETHBTC 0.02552324       1      limit   buy  binance  2020-04-23 16:26:14         0.01          None
-    12  ETHBTC 0.02552776       1      limit  sell  binance  2020-04-23 16:27:20         0.01          None
-    13  ETHBTC 0.02553874       1      limit   buy  binance  2020-04-23 16:28:21         0.01          None
-    14  ETHBTC 0.02553926       1      limit  sell  binance  2020-04-23 16:28:23         0.01          None
-    15  ETHBTC 0.02554824       1      limit   buy  binance  2020-04-23 16:29:25         0.01          None
-
-  Inventory:
-        Market Asset Starting Current Net Delta Trade Delta
-    0  binance   ETH   4.3725  8.3725    4.0000      4.0000
-    1  binance   BTC   0.1274  0.0253   -0.1021     -0.1021
-
-  Markets:
-        Market    Pair Start Price   End Price  Trades Trade Value Delta
-    0  binance  ETHBTC  0.02553374  0.02554850      16    0.00005116 BTC
-
-  Performance:
-    Started: 2020-04-23 16:15:21
-    Duration: 00:14:20
-    Total Trade Value Delta: 0.00005116 BTC
-    Return %: 0.0214 %
+  Recent trades:                                                                                     
+      symbol   price  amount order_type  side   market            timestamp  fee_percent	flat_fee / gas
+  0  ETHUSDT 203.913       1      limit   buy  binance  2020-05-26 08:30:19            0          None  
+  1  ETHUSDT 203.863       1      limit   buy  binance  2020-05-26 08:30:32            0          None  
+  2  ETHUSDT 203.597       1      limit  sell  binance  2020-05-26 08:31:44            0          None  
+  3  ETHUSDT 203.613       1      limit   buy  binance  2020-05-26 08:31:59            0          None  
+                                                                                                   
+Inventory:                                                                                         
+      Market Asset  Starting   Current Net Delta Trade Delta                            
+  0  binance   ETH   10.0000   10.0000    0.0000      2.0000                            
+  1  binance  USDT  500.0000  499.9840   -0.0160   -407.7920                            
+                                                                                                   
+Markets:                                                                                           
+      Market     Pair Start Price       End Price  Trades Trade Value Delta             
+  0  binance  ETHUSDT     203.913  203.6150000000       4  -0.56200000 USDT             
+                                                                                                   
+Performance:                                                                                       
+  Started: 2020-05-26 08:31:34                                                                     
+  Duration: 0 days 00:00:29                                                                        
+  Total Trade Value Delta: -0.562 USDT                                                             
+  Return %: -0.0222 % 
 ```
 
-## How it works
+## How It Works
 
-The `history` command in Hummingbot will show the current session's past trades, inventory, market trading pair performance, and return percentage.
+The `history` command in Hummingbot will show the current session's past trades, inventory, duration, market trading pair performance, and return percentage.
 
-**Return %** is calculated based on assets spent and acquired during trades, i.e. balance changes due to the inventory like deposits, withdrawals, and manual trades outside of Hummingbot do not affect the calculation.
 
-As an example, let's say we are trading on ETH-DAI token pair and made 4 trades.
+## Trade Value Delta
+
+Total Trade Value Delta is calculated as the difference between the total assets acquired and total assets spent, specified in quote value.
+
+$trade\_value\_delta = (acquired - spent)$
+
+To get the quote value of base asset (acquired or spent), multiply the base value to end price.
 
 ```
-trade1: buy 1 ETH (acquired) for 100 DAI (spent)
-trade2: sell 0.9 ETH (spent) for 100 DAI (acquired)
-trade3: buy 0.1 ETH (acquired) for 10 DAI (spent)
-trade4: sell 1 ETH (spent) for 100 DAI (acquired)
+Inventory:                                                                 
+      Market Asset  Starting   Current Net Delta Trade Delta               
+  0  binance   ETH   10.0000   10.0000    0.0000      2.0000               
+  1  binance  USDT  500.0000  499.9840   -0.0160   -407.7920               
+                                                                           
+Markets:                                                                   
+      Market     Pair Start Price       End Price  Trades Trade Value Delta
+  0  binance  ETHUSDT     203.913  203.6150000000       4  -0.56200000 USDT
 ```
 
-* Total `spent_amount` for DAI = 110 and total `acquired_amount` = 200
-* Total `spent_amount` for ETH = 1.9 and total `acquired_amount` = 1.1
+After executing these trades we acquired **2 ETH** equivalent to 407.23 USDT `(2 ETH * 203.615)` and spent **407.7920 USDT** tokens.
 
-Final delta percentage for each asset is defined by `acquired_amount / spent_amount`.
+```
+Trade Value Delta = (407.23 USDT - 407.7920 USDT)
+Trade Value Delta = -0.562 USDT
+```
 
-* Performance for DAI = 200/110 = 81.8%
-* Performance for ETH = 1.1/1.9 = 42.1%
 
-Portfolio performance is also calculated as `total acquired / total spent` on both sides, converting base asset to quote asset using the latest price.
+## Return Percentage
 
-Assuming ETH price is 100 DAI, return percentage for ETH-DAI is 3.3%
+Return is calculated based on assets spent and acquired during trades, i.e. balance changes due to the inventory like deposits, withdrawals, and manual trades outside of Hummingbot do not affect the calculation.
 
-![total-performance-sample](/assets/img/performance_total.png)
+$Return\ \% = trade\_value\_delta / starting\_quote\_value$
 
-**Trade Value Delta** is calculated as the difference between the total assets acquired and total assets spent, specified in quote value.
+```
+Inventory:                                                                 
+      Market Asset  Starting   Current Net Delta Trade Delta               
+  0  binance   ETH   10.0000   10.0000    0.0000      2.0000               
+  1  binance  USDT  500.0000  499.9840   -0.0160   -407.7920               
+                                                                           
+Markets:                                                                   
+      Market     Pair Start Price       End Price  Trades Trade Value Delta
+  0  binance  ETHUSDT     203.913  203.6150000000       4  -0.56200000 USDT
+```
 
-In the sample below, we acquired 33.6754 USDT and spent 0.2001 ETH after executing 4 trades. Multiply the base asset 0.2001 ETH to the end price 168.205 to get its equivalent quote value 33.6578 USDT.
+Using the same example, get the starting quote value. Convert the starting ETH amount to USDT by multiplying to the start price and add the amount of quote assets. So we started with 2,039.13 USDT worth of ETH `(10 ETH * 203.913)` and 500 USDT total of **2539.13 USDT**.
 
-![](/assets/img/trade_value_delta.png)
+```
+Return % = -0.562 USDT / 2539.13 USDT
+Return % = -0.0222 %
+```
