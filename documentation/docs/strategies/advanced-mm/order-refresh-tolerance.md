@@ -2,7 +2,7 @@
 
 **Updated as of `v0.28.0`**
 
-This feature allows you to specify a range of spreads that is "tolerable" - not cancelled and left on the order books - every refresh cycle. It allows you to specify a percentage value that sets the minimum change in spread to adjust an order. If there is movement in the mid-market price, you can create flexibility with your trading strategy and when orders are canceled/replaced (refreshed) with a tolerance percent change to capture additional profit (see [Illustrative Example](./#illustrative-example) below). 
+This feature allows you to specify a range of spreads that is "tolerable" - not cancelled and left on the order books - every refresh cycle. It allows you to specify the allowed minimum percentage change in spread to adjust an order. If there is movement in the mid-market price, you can create flexibility with your trading strategy to control when orders are canceled/replaced (refreshed) with a tolerance percent change to capture additional profit (see [How Is This Parameter Helpful](./#how-is-this-parameter-helpful) below). 
 
 
 
@@ -93,7 +93,7 @@ and current order prices is within 1.00% order_refresh_tolerance_pct
 ```
 Lets say that a market taker thinks the market price will decrease substantially and likes your bid-spread. They then can to fill your buy order at 195.02.
 
-###**How Was This Parameter Helpful**
+###**How Is This Parameter Helpful**
 
 The default for this parameter is a tolerance of 0%. Thus, at each refresh cycle, if the spreads changes *at all*, then the bot will cancel the orders and place new orders at the configuration spread. Because the spread resets at every refresh cycle, this increases the likelyhood that the bid and ask spread are closer to the original bid and ask spread. This reduces the risk that the spread substantially strays away from the original spread, perhaps preventing a loss. *However*, as we have seen above, the strategy can capitalize on the flexibility (tolerance) of the bid and asks spreads because price takers could be looking for some range of spreads that is unknown to you.
 
