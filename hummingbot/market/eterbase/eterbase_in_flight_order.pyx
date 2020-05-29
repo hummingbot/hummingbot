@@ -104,6 +104,7 @@ cdef class EterbaseInFlightOrder(InFlightOrderBase):
         retval.fee_asset = data["fee_asset"]
         retval.fee_paid = Decimal(data["fee_paid"])
         retval.last_state = data["last_state"]
+
         if ("cost" in data):
             retval.cost = data["cost"]
         return retval
