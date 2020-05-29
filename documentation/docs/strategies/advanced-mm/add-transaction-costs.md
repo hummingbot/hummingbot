@@ -2,13 +2,13 @@
 
 **Updated as of `v0.28.0`**
 
-This feature lets you take into account the transaction cost incurred on the exchange from bid and ask orders. For a bid order, it reduces the bid order price and increases the ask order price to take into account the transaction cost.
+This feature lets you take into account the transaction cost incurred on the exchange from bid and ask orders. For a bid order, it reduces the bid order price by the fee. For the ask order, it reduces the price by the fee. This allows you to take into account the transaction cost in order to profit (or not incur a loss).
 
 Note that this puts your order prices further away from the mid price.
 
 ##How It Works
 
-When the `add_transaction_costs` parameter is set to True, the client adds the transaction costs to the prices and adjusts the `PricingProposal`.
+When the `add_transaction_costs` parameter is set to True, the client adds the transaction costs to the prices and adjusts the price proposal.
 
 Type `config add_transaction_costs` to set the value for the parameter. If you respond `Yes`, the parameter is set to `True`, and if you type `No`, the parameter is set to `False`. This parameter is set to `False` by default.
 
