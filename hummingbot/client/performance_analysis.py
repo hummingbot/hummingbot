@@ -18,6 +18,8 @@ s_decimal_0 = Decimal(0)
 
 
 class PerformanceAnalysis:
+    pfa_logger = None
+
     def __init__(self, sql: SQLConnectionManager = None):
         if sql:
             self.sql_manager = sql
@@ -130,8 +132,13 @@ class PerformanceAnalysis:
             net_base_delta: Decimal = amount
             net_quote_delta: Decimal = amount * price * (Decimal("1") - Decimal(trade_fee["percent"])) - total_flat_fees
         elif trade.trade_type == TradeType.BUY.name:
-            net_base_delta: Decimal = amount * (Decimal("1") - Decimal(trade_fee["percent"])) - total_flat_fees
+            net_base_delta: Decimal = amount * (Decimal("1") - Decimal(trade_fee["percent"]))
             net_quote_delta: Decimal = amount * price
+            # kraken fees are in quote asset, in addition to amount * price
+            if trade.market == "kraken":
+                net_quote_delta += total_flat_fees
+            else:
+                net_base_delta -= total_flat_fees
         else:
             raise Exception(f"Unsupported trade type {trade.trade_type}")
         return net_base_delta, net_quote_delta

@@ -1,4 +1,4 @@
-# Multiple Orders
+# Order Levels
 
 These parameters allow you to set multiple levels of orders on each side and gives you more fine-grained control over the spreads and sizes of each set of orders.
 
@@ -16,9 +16,9 @@ The `order_level_spread` logic works the same as order step size but instead, it
 
 >**Example**: The spread of your first buy and sell order is `1` (1%) and your order interval amount is `2` (2%). The spread of your second order is `3` (3%), and the third order is `5` (5%).
 
-Given the sample scenarios above, your active orders will show as:
+Let us focus on one side our the order for now which is the "buy" side of the order book. Given the sample scenarios above, your active orders will show as:
 
-![](/assets/img/multiple_orders1.png)
+![](/assets/img/order_level_spread_amount.png)
 
 
 ## Sample Configuration
@@ -34,8 +34,12 @@ Given the sample scenarios above, your active orders will show as:
 ```
 
 Running a bot with the parameters above, the `status` command shows 3 levels of orders in the BTC-USDT trading pair: 
-![Market making with 3 order levels for BTC-USDT](/assets/img/multiple-orders.png)
+![Market making with 3 order levels for BTC-USDT](/assets/img/order_level_spread_amount1.png)
 
+
+You might notice that the actual spread in our output is not exactly similar from the parameters we have configured for the percentage. This is because of two things:
+1) quantization: Hummingbot adjusts order prices to match exchange tick rules and 
+2) changes in market price after order is placed.
 
 ## Relevant Parameters
 

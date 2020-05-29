@@ -67,9 +67,14 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                               f"HTTP status is {trading_pairs_response.status}.")
 
             trading_pairs_data: Dict[str, Any] = await trading_pairs_response.json()
+            trading_pairs_data["result"] = {
+                pair: details for pair, details in trading_pairs_data["result"].items() if "." not in pair}
 
-            trading_pairs: Dict[str, Any] = {pair: {**{f"{k}Asset": trading_pairs_data["result"][pair][k] for k in ["base", "quote"]},
-                                                    "wsname": trading_pairs_data["result"][pair].get("wsname")}
+            wsname_dict: Dict[str, str] = {pair: details["wsname"]
+                                           for pair, details in trading_pairs_data["result"].items()}
+            trading_pairs: Dict[str, Any] = {pair: {"baseAsset": wsname_dict[pair].split("/")[0],
+                                                    "quoteAsset": wsname_dict[pair].split("/")[1],
+                                                    "wsname": wsname_dict[pair]}
                                              for pair in trading_pairs_data["result"]}
 
             trading_pairs_str: str = ','.join(trading_pairs.keys())
@@ -113,16 +118,16 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
         price_dict: Dict[str, float] = {base: None for base in row_dict}
 
         quote_prices: Dict[str, float] = {
-            quote: row_dict[quote]["ZUSD"].lastPrice for quote in constants.CRYPTO_QUOTES
+            quote: row_dict[quote]["USD"].lastPrice for quote in constants.CRYPTO_QUOTES
         }
 
         def get_price(base, depth=0) -> float:
             if price_dict.get(base) is not None:
                 return price_dict[base]
-            elif base == "ZUSD":
+            elif base == "USD":
                 return 1.
-            elif "ZUSD" in row_dict[base]:
-                return row_dict[base]["ZUSD"].lastPrice
+            elif "USD" in row_dict[base]:
+                return row_dict[base]["USD"].lastPrice
             else:
                 for quote in row_dict[base]:
                     if quote in quote_prices:
@@ -148,17 +153,22 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, limit: int = 1000) -> Dict[str, Any]:
+        original_trading_pair: str = trading_pair
+        if trading_pair[:3] == "BTC":
+            trading_pair = "XBT" + trading_pair[3:]
+        if trading_pair[-3:] == "BTC":
+            trading_pair = trading_pair[:-3] + "XBT"
         params: Dict[str, str] = {"count": str(limit), "pair": trading_pair} if limit != 0 else {"pair": trading_pair}
         async with client.get(SNAPSHOT_REST_URL, params=params) as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
-                raise IOError(f"Error fetching Kraken market snapshot for {trading_pair}. "
+                raise IOError(f"Error fetching Kraken market snapshot for {original_trading_pair}. "
                               f"HTTP status is {response.status}.")
             response_json = await response.json()
             if len(response_json["error"]) > 0:
-                raise IOError(f"Error fetching Kraken market snapshot for {trading_pair}. "
+                raise IOError(f"Error fetching Kraken market snapshot for {original_trading_pair}. "
                               f"Error is {response_json['error']}.")
-            data: Dict[str, Any] = response_json["result"][trading_pair]
+            data: Dict[str, Any] = next(iter(response_json["result"].values()))
             data = {"trading_pair": trading_pair, **data}
             data["latest_update"] = max([*map(lambda x: x[2], data["bids"] + data["asks"])], default=0.)
 

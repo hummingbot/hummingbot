@@ -1,179 +1,83 @@
+![Hummingbot](https://i.ibb.co/X5zNkKw/blacklogo-with-text.png)
 
-Hummingbot for ETERBASE Exchange
-## Install Hummingbot
-Actual possibility to install it is via source code installation
+----
+[![Jenkins](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-master_branch&subject=jenkins:master)](https://jenkins-02.coinalpha.com/job/hb_test-master_branch)
+[![Jenkins](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-development_branch&subject=:development)](https://jenkins-02.coinalpha.com/job/hb_test-development_branch)
+[![Discord](https://img.shields.io/discord/530578568154054663.svg?color=768AD4&label=discord&logo=https%3A%2F%2Fdiscordapp.com%2Fassets%2F8c9701b98ad4372b58f13fd9f65f966e.svg)](https://discord.hummingbot.io/)
+[![License](https://img.shields.io/badge/License-Apache%202.0-informational.svg)](https://github.com/CoinAlpha/hummingbot/blob/master/LICENSE)
+[![Twitter Follow](https://img.shields.io/twitter/follow/hummingbot_io.svg?style=social&label=hummingbot)](https://twitter.com/hummingbot_io)
 
-## [Installation guideline]
-#### **Ubuntu** (16.04 LTS, 18.04 LTS, 19.04) & **Debian** (Debian GNU/Linux 9) 
+Hummingbot is an open-source project that integrates cryptocurrency trading on both **centralized exchanges** and **decentralized protocols**. It allows users to run a client that executes customized, automated trading strategies for cryptocurrencies.
 
-**1. Install dependencies**
+We created hummingbot to promote **decentralized market-making**: enabling members of the community to contribute to the liquidity and trading efficiency in cryptocurrency markets.
 
-`sudo apt-get update`
+## Supported centralized exchanges
 
-`sudo apt-get install -y build-essential`
+| logo | id | name | ver | doc|
+|:---:|:---:|:---:|:---:|:---:|
+| <img src="https://i.ibb.co/m0YDQLd/Screen-Shot-2019-03-14-at-10-53-42-AM.png" alt="Binance" width="90" /> | binance | [Binance](https://www.binance.com/) | 3 | [API](https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md) | [![Build Status](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-exchange_binance&subject=test)](https://jenkins-02.coinalpha.com/job/hb_test-exchange_binance/) |
+| <img src="https://i.ibb.co/h9JdGDW/cbp.jpg" alt="Coinbase Pro" width="90" /> | coinbase_pro | [Coinbase Pro](https://pro.coinbase.com/) | * | [API](https://docs.pro.coinbase.com/) | [![Build Status](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-exchange_coinbase&subject=test)](https://jenkins-02.coinalpha.com/job/hb_test-exchange_coinbase/) |
+|<img src="documentation/docs/assets/img/huobi_logo.png" alt="Huobi Global" width="90" />| huobi | [Huobi Global](https://www.hbg.com) | 1 | [API](https://huobiapi.github.io/docs/spot/v1/en/) | [![Build Status](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-exchange_huobi&subject=test)](https://jenkins-02.coinalpha.com/job/hb_test-exchange_huobi/) |
+|<img src="documentation/docs/assets/img/bittrex_logo.png" alt="Bittrex Global" width="90" height="30" />| bittrex | [Bittrex Global](https://global.bittrex.com/) | 1 | [API](https://bittrex.github.io/api/v1-1) |
+| <img src="documentation/docs/assets/img/liquid_logo.png" alt="Liquid" width="90" /> | liquid | [Liquid](https://www.liquid.com/) | 2 | [API](https://developers.liquid.com/) |
+| <img src="documentation/docs/assets/img/kucoin_logo.png" alt="KuCoin" width="90" /> | kucoin | [KuCoin](https://www.kucoin.com/) | 1 | [API](https://docs.kucoin.com/#general) |
 
-**2. Install Miniconda3**
+## Supported decentralized exchanges
 
-`wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh`
+| logo | id | name | ver | doc|
+|:---:|:---:|:---:|:---:|:---:|
+| <img src="documentation/docs/assets/img/radar_logo.png" alt="Radar Relay" width="90" height="30" /> | radar_relay | [Radar Relay](https://radarrelay.com/) | 2 | [API](https://developers.radarrelay.com/api/trade-api) | [![Build Status](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-exchange_radar_relay&subject=test)](https://jenkins-02.coinalpha.com/job/hb_test-exchange_radar_relay/) |
 
-`sh Miniconda3-latest-Linux-x86_64.sh`
+## Community contributed exchange connectors
 
-**3. Reload .bashrc to register "conda" command**
+| logo | id | name | ver | doc| maintainer |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| <img src="https://i.ibb.co/1sPt940/Screen-Shot-2019-06-06-at-17-50-04.png" alt="Bamboo Relay" width="90" /> | bamboo_relay | [Bamboo Relay](https://bamboorelay.com/) | 3 | [API](https://sra.bamboorelay.com/) | [dex@bamboorelay.com](mailto:dex@bamboorelay.com)
+|<img src="documentation/docs/assets/img/dolomite_logo.png" alt="Dolomite" width="90" />| dolomite | [Dolomite](https://dolomite.io/) | 1 | [API](https://docs.dolomite.io/) | [corey@dolomite.io](mailto:corey@dolomite.io)
 
-`exec bash`
+## Currently available strategies
 
-**4. Clone Hummingbot**
+| Strategy | Test |
+|--|--|
+| [Pure market making](https://docs.hummingbot.io/strategies/pure-market-making/) | [![Build Status](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-strategy_pure_mm&subject=test)](https://jenkins-02.coinalpha.com/job/hb_test-strategy_pure_mm/) |
+| [Cross exchange market making](https://docs.hummingbot.io/strategies/cross-exchange-market-making/) | [![Build Status](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-strategy_xemm&subject=test)](https://jenkins-02.coinalpha.com/job/hb_test-strategy_xemm/) |
+| [Arbitrage](https://docs.hummingbot.io/strategies/arbitrage/) | [![Build Status](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-strategy_arbitrage&subject=test)](https://jenkins-02.coinalpha.com/job/hb_test-strategy_arbitrage/) |
 
-`git clone https://github.com/eterbase/hummingbot.git`
+## Getting Started
 
-**5. Install Hummingbot**
+### Learn more about Hummingbot
 
-`cd hummingbot && ./clean && ./install`
+- [Website](https://hummingbot.io)
+- [Documentation](https://docs.hummingbot.io)
+- [FAQs](https://docs.hummingbot.io/faq/)
 
-**6. Activate environment and compile code**
+### Install Hummingbot
 
-`conda activate hummingbot && ./compile`
+- [Quickstart guide](https://docs.hummingbot.io/quickstart/)
+- [All installation options](https://docs.hummingbot.io/installation/)
+- [Installation scripts](./installation/)
 
-**7. Start Hummingbot**
+### Get support
+- Chat with our support team on [Discord](https://discord.hummingbot.io)
+- Email us at support@hummingbot.io
 
-`bin/hummingbot.py`
+### Chat with other traders
+- Join our community on [Discord](https://discord.coinalpha.com) or [Reddit](https://www.reddit.com/r/Hummingbot/)
+- Follow Hummingbot on [Twitter](https://twitter.com/hummingbot_io)
 
-------------
-#### CentOS 7
-**1. Install dependencies**
+## Contributions
 
-`sudo yum install -y wget bzip2 git`
+We welcome contributions from the community:
+- **Code and documentation contributions** via [pull requests](https://github.com/CoinAlpha/hummingbot/pulls)
+- **Bug reports and feature requests** through [Github issues](https://github.com/CoinAlpha/hummingbot/issues)
+- When contributing, please review the [contributing guidelines](CONTRIBUTING.md)
 
-`sudo yum groupinstall -y 'Development Tools'`
+## About us
 
-**2. Install Miniconda3**
+Hummingbot was created and is maintained by CoinAlpha, Inc. We are [a global team of engineers and traders](https://hummingbot.io/about/).
 
-`wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh`
-
-`sh Miniconda3-latest-Linux-x86_64.sh`
-
-**3. Reload .bashrc to register "conda" command**
-
-`exec bash`
-
-**4. Clone Hummingbot**
-
-`git clone https://github.com/eterbase/hummingbot.git`
-
-**5. Install Hummingbot**
-
-`cd hummingbot && ./clean && ./install`
-
-**6. Activate environment and compile code**
-
-`conda activate hummingbot && ./compile`
-
-**7. Start Hummingbot**
-
-`bin/hummingbot.py`
-
-------------
-#### **MacOS**
-Running Hummingbot on Mac OSX requires Xcode and Xcode command line tools.
-
-**1. Install Xcode command line tools**
-
-`xcode-select --install`
-
-**2. Install Anaconda3**
-
-Hummingbot requires Python 3 and other Python libraries. To manage these dependencies, Hummingbot uses Anaconda, an open source environment and package manager for Python that is the current industry standard for data scientists and data engineers.
-
-To install Anaconda, go to the Anaconda site and download the Python 3.7 installer for your operating system. Both the graphical installer and the command line installer will work. Run the installer, and it will guide you through the installation process.
-
-Afterwards, open a Terminal window and try the conda command. If the command is valid, then Anaconda has been successfully installed, even if the graphical installer says that it failed.
-
-**Warning**
-
-If you use ZSH or another Unix shell, copy the code snippet below to your .zshrc or similar file. By default, Anaconda only adds it to your .bash_profile file. This makes the conda command available in your root path.
-```bash
-__conda_setup="$(CONDA_REPORT_ERRORS=false '/anaconda3/bin/conda' shell.bash hook 2> /dev/null)"
-if [ $? -eq 0 ]; then
-    \eval "$__conda_setup"
-else
-    if [ -f "/anaconda3/etc/profile.d/conda.sh" ]; then
-        . "/anaconda3/etc/profile.d/conda.sh"
-        CONDA_CHANGEPS1=false conda activate base
-    else
-        \export PATH="/anaconda3/bin:$PATH"
-    fi
-fi
-unset __conda_setup
-```
-**3. Install Hummingbot**
-
-**3.1. Clone Hummingbot repo**
-
-`git clone https://github.com/eterbase/hummingbot.git`
-
-**3.2. Navigate into the hummingbot folder**
-
-`cd hummingbot`
-
-**3.3. Run install script**
-
-`./install`
-
-**3.4. Activate environment**
-
-`conda activate hummingbot`
-
-**3.5. Compile**
-
-`./compile`
-
-**3.6. Run Hummingbot**
-
-`bin/hummingbot.py`
-
-
-## Configure Hummingbot for Eterbase
-Prerequisite is started hummingbot.
-
-**1. Start configuration**
-
-type command: `config`
-
-**2. Enter password to secure keys**
-
-**3. Choose strategy**
-
-What is your market making strategy? >>> e.g. `pure_market_making`
-
-**4. Import previous configs or create a new config file? (import/create)**
-
-Type `create`.
-
-**4.1. Choose exchange name**
-
-Enter your maker exchange name >>> `eterbase`
-
-**4.2. Select trading pair**
-
-Type e.g. `ETHEUR`
-
-**4.3. Configure strategy**
-
-How to setup market making strategy refer to [Hummingbot configuration manual](https://docs.hummingbot.io/operation/configuration/ "Hummingbot configuration manual").
-
-**4.4. Enter Eterbase API key**
-
-**4.5. Enter Eterbase secret key**
-
-**4.6 Enter Eterbase account of API key**
-
-**4.7 Configure global configuration**
-
-Refer to [Hummingbot configuration manual ](https://docs.hummingbot.io/operation/configuration/ "Hummingbot configuration manual").
-
-**5. Run strategy with given market**
-
-Type: `start`
+- **General**: contact us at [dev@hummingbot.io](mailto:dev@hummingbot.io) or join our [Discord server](https://discord.hummingbot.io).
+- **Business inquiries**: contact us at [partnerships@hummingbot.io](mailto:partnerships@hummingbot.io).
 
 ## Legal
 
