@@ -15,13 +15,32 @@ The hanging order will be cancelled in the following conditions:
 
 Type `config hanging_orders_enabled` and `config hanging_orders_cancel_pct` to set values for these parameters. 
 
-## Illustrative Example
-Suppose you are market making for the `ETH-USD` pair with a mid-market price of 200 USD ($t_0$). You set your bid spread and ask spread to 1%. Thus, the bid price is 198 USD and the ask price is 202 USD. Now suppose that a market taker (someone taking a position in the market) thinks the price of Ethereum will rise, so they fill your ask order 202 ($t_1$). If `hanging_orders_enabled` is set to False, the bid-order you just placed at 198 would be cancelled. If `hanging_orders_enabled` is set to True, the bid order stays on the order book. Suppose now that the mid-market price rises to 201 ($t_2$). The hanging bid order, priced at 198, is about a 1.5% spread. If another market taker thinks that the market will decrease substantially as a reaction, then they may fill your bid order ($t_3$). At this point, if you sell at market, you can profit an additional $3 having set `hanging_orders_enabled` is set to True.
+## Illustrative Examples
+
+###Example 1 (Basic)
+
+Suppose you are market making for the `ETH-USDT` pair with a mid-market price of 200 USD ($t_0$). You set your bid spread and ask spread to 1%. Thus, the bid price is 198 USD and the ask price is 202 USD. Now suppose that a market taker (someone taking a position in the market) thinks the price of Ethereum will rise, so they fill your ask order 202 ($t_1$). If `hanging_orders_enabled` is set to False, the bid-order you just placed at 198 would be cancelled. If `hanging_orders_enabled` is set to True, the bid order stays on the order book. Suppose now that the mid-market price rises to 201 ($t_2$). The hanging bid order, priced at 198, is about a 1.5% spread. If another market taker thinks that the market will decrease substantially as a reaction, then they may fill your bid order ($t_3$). At this point, if you sell at market, you can profit an additional $3 having set `hanging_orders_enabled` is set to True.
 
 ![Sample Market](/assets/img/hanging_orders_example_market.png)
 
 Note that if an open hanging order spread exceeds the `hanging_orders_cancel_pct` parameter, the hanging order will be canceled.
 
+###Example 2 (Advanced)
+
+Suppose that you are again market making for `ETH-USDT` pair. The bid and ask spread is set to 1%. Consider the two strategies below, the former the default and the latter with hanging orders. The white line in the center is the mid market price in USDT; The dashed lines above the mid-market price are the active ask-orders; And the dotted lines below the mid-market price are the active bid-orders.
+
+####Market *Without* Hanging Orders
+
+![Advanced Market With No Hang](/assets/img/hanging_orders_example_market_adv_no_hang.png)
+
+In this strategy, the `hanging_orders_enabled` parameter is False. At each interval $t_i$, the order is either cancelled or filled, then refreshed with a new set of bid and ask orders (each with a 1% spread from the mid-market price). There are only two orders at a time, an ask order and a bid order. This is a great strategy as a default, however, price takers need to be willing to fill orders relatively close to your chosen spread. It may require you to tighten your spread to get more price takers to fill your orders. 
+
+####Market *With* Hanging Orders
+![Advanced Market With Hanging Orders](/assets/img/hanging_orders_example_market_adv_with_hang.png)
+
+In this strategy, the `hanging_orders_enabled` parameter is True. We set the `hanging_orders_cancel_pct` parameter to 2% and make the assumption that an order is filled by a market-taker if the spread is within 0.55%. When a bid order is filled or canceled, unlike the default, the ask order is left open. Similarly, when a ask order is filled or cancelled, the bid order is left open. As you can see above, from $t_0$ to $t_{10}$ generally the bid orders are "hanging" until their spreads are greater than 2% from the mid-market price line (or are filled). From $t_0$ to $t_{10}$, the ask orders are being filled as they fall within 0.55% of spread to the mid-market price line. The opposite is true from $t_{10}$ to $t_{20}$, where bid orders are being filled as they fall within 0.55% of the spread to the mid-market price line and the ask orders are "hanging" until they are cancelled when their spreads are greater than 2%. 
+
+This strategy allows for a range of spreads between the cancel percentage parameter and when a price taker fills your order (presumably when the order price is closer to the mid-market price). It is ultimately a more flexible strategy and can capture profitable trades that are lost without hanging orders. For example, in the Sample Markets above, the purple bid order starting at $t_8$ is lost without allowing it to be a hanging order, whereas in the second chart, the bid order is filled at $t_{13}$.
 
 ## Sample Configurations
 
