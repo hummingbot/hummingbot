@@ -172,8 +172,8 @@ class EterbaseUserStreamTrackerUnitTest(unittest.TestCase):
         self.assertEqual(placed_message.trading_pair, trading_pair)
         self.assertEqual(placed_message.content["type"], "o_placed")
         self.assertEqual(placed_message.content["marketId"], market_id)
-        self.assertGreaterEqual(Decimal(placed_message.content["limitPrice"]), quantize_bid_price)
-        self.assertEqual(Decimal(placed_message.content["qty"]), quantized_amount)
+        self.assertLessEqual(Decimal(placed_message.content["limitPrice"]), quantize_bid_price)
+        self.assertLessEqual(Decimal(placed_message.content["qty"]), quantized_amount)
 
         self.assertEqual(match_message.trading_pair, trading_pair)
         self.assertEqual(match_message.content["type"], "o_fill")
@@ -185,7 +185,7 @@ class EterbaseUserStreamTrackerUnitTest(unittest.TestCase):
         self.assertEqual(done_message.trading_pair, trading_pair)
         self.assertEqual(done_message.content["type"], "o_closed")
         self.assertEqual(done_message.content["marketId"], market_id)
-        self.assertEqual(Decimal(done_message.content["price"]), quantize_bid_price)
+        self.assertLessEqual(Decimal(done_message.content["price"]), quantize_bid_price)
         self.assertEqual(done_message.content["closeReason"], "FILLED")
 
     @unittest.skip
