@@ -489,7 +489,6 @@ cdef class EterbaseMarket(MarketBase):
                                                   min_price_increment = Decimal(f"1e-{priceSigDigs}"),
                                                   min_base_amount_increment = Decimal(f"1e-{qtySigDigs}"),
                                                   min_quote_amount_increment = Decimal(f"1e-{costSigDigs}")))
-
             except Exception as ex:
                 self.logger().error(f"Error parsing the trading_pair rule {rule}. Skipping.", exc_info=True)
                 self.logger().error(str(ex))

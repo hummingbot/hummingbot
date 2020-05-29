@@ -102,7 +102,6 @@ cdef class EterbaseActiveOrderTracker:
         price = None
         if (price_raw is not None):
             price = Decimal(price_raw)
-
         if msg_type!="ob_update":
             if (content.get("side") is not None):
                 order_side = content.get("side")
@@ -168,6 +167,7 @@ cdef class EterbaseActiveOrderTracker:
             if order_side == SIDE_BUY:
                 if price in self._active_bids and order_id in self._active_bids[price]:
                     remaining_size = self._active_bids[price][order_id]["remaining_size"]
+
                     if (self._active_bids[price][order_id]["order_type"] == ORDER_TYPE_MARKET):
                         self._active_bids[price][order_id]["remaining_size"] = str(float(content["remainingCost"]))
                     else:
