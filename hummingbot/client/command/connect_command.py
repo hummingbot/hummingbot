@@ -48,11 +48,17 @@ class ConnectCommand:
             api_key = Security.decrypted_value(api_key_config.key)
             answer = await self.app.prompt(prompt=f"Would you like to replace your existing {exchange} API key "
                                                   f"...{api_key[-4:]} (Yes/No)? >>> ")
+            if self.app.to_stop_config:
+                self.app.to_stop_config = False
+                return
             if answer.lower() not in ("yes", "y"):
                 to_connect = False
         if to_connect:
             for config in exchange_configs:
                 await self.prompt_a_config(config)
+                if self.app.to_stop_config:
+                    self.app.to_stop_config = False
+                    return
                 Security.update_secure_config(config.key, config.value)
             api_keys = (await Security.api_keys(exchange)).values()
             err_msg = await UserBalances.instance().add_exchange(exchange, *api_keys)
@@ -127,6 +133,9 @@ class ConnectCommand:
         if ether_wallet is not None:
             answer = await self.app.prompt(prompt=f"Would you like to replace your existing Ethereum wallet "
                                                   f"...{ether_wallet[-4:]} (Yes/No)? >>> ")
+            if self.app.to_stop_config:
+                self.app.to_stop_config = False
+                return
             if answer.lower() not in ("yes", "y"):
                 to_connect = False
         if to_connect:
@@ -134,6 +143,9 @@ class ConnectCommand:
             public_address = Security.add_private_key(private_key)
             global_config_map["ethereum_wallet"].value = public_address
             await self.prompt_a_config(global_config_map["ethereum_rpc_url"])
+            if self.app.to_stop_config:
+                self.app.to_stop_config = False
+                return
             save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
             err_msg = UserBalances.validate_ethereum_wallet()
             if err_msg is None:
