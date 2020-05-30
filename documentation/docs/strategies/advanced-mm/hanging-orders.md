@@ -15,7 +15,7 @@ The hanging order will be cancelled in the following conditions:
 
 Type `config hanging_orders_enabled` and `config hanging_orders_cancel_pct` to set values for these parameters. 
 
-## Illustrative Examples
+## Illustrative Examples - When Hanging Orders are Important
 
 ###Example 1 (Basic)
 
