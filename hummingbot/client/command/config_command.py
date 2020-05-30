@@ -119,6 +119,9 @@ class ConfigCommand:
             if input_value is not None:
                 self._notify("Please follow the prompt to complete configurations: ")
             await self.prompt_a_config(config_var, input_value=input_value, assign_default=False)
+            if self.app.to_stop_config:
+                self.app.to_stop_config = False
+                return
             await self.update_all_secure_configs()
             missings = missing_required_configs(config_map)
             if missings:
@@ -148,6 +151,9 @@ class ConfigCommand:
         missings = missing_required_configs(config_map)
         for config in missings:
             await self.prompt_a_config(config)
+            if self.app.to_stop_config:
+                self.app.to_stop_config = False
+                return
         if missing_required_configs(config_map):
             return missings + (await self._prompt_missing_configs(config_map))
         return missings
