@@ -25,16 +25,16 @@ Let us focus on one side our the order for now which is the "buy" side of the or
 
 ```json
 - market: BTC-USDT
-- bid_spread: 0.05
-- ask_spread: 0.05
+- bid_spread: 1
+- ask_spread: 1
 - order_amount: 0.002
 - order_levels: 3
 - order_levels_amount: 0.002
-- order_levels_spread: 1
+- order_levels_spread: 0.5
 ```
 
 Running a bot with the parameters above, the `status` command shows 3 levels of orders in the BTC-USDT trading pair: 
-![Market making with 3 order levels for BTC-USDT](/assets/img/order_level_spread_amount1.png)
+![Market making with 3 order levels for BTC-USDT](/assets/img/order_level_spread_amount1-new.png)
 
 
 You might notice that the actual spread in our output is not exactly similar from the parameters we have configured for the percentage. This is because of two things:
