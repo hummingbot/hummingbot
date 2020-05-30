@@ -7,13 +7,15 @@ With external pricing sources, you can now use external sources for the starting
 
 ##How It Works
 
-In a situation where the calculation of maker order prices from external sources would result in the order matching any existing orders on the order book, such order will be ignored. 
-
->**Example**: If `ETH-USDT` market is currently displaying 109 bid and 111 ask. A specified external exchange is showing 99 bid and 101 ask on its book (mid price = 100). 2 maker orders will be proposed, a bid maker order at 98 (for 2% bid spread) and an ask maker order at 102 (for 2% ask spread). The 102 ask order will be ignored (as it would match the 109 bid order), only the bid order will be submitted to the exchange. 
+In a situation where the calculation of maker order prices from external sources would result in the order matching any existing orders on the order book, such order will be ignored.
 
 Type `config price_source_enabled` to set the values for `price_source_enabled`, `price_source_type`, `price_source_exchange` and `price_source_market`, or `price_source_custom` (if source type is exchange). Type `config` + `price_source_type`, `price_source_exchange`, `price_source_market`, or `price_source_custom` to set values for these parameters.
 
 Note that the external price source cannot be the same as the maker exchange (i.e. if the bot is trading on Binance, the `price_source_exchange` cannot be Binance). 
+
+###Example - When Price Sourcing is Important
+Suppose we are market making on the `ETH-USDT` trading pair. The exchange we are trading on, denote as **Exchange A**, is currently displaying a 109 bid and 111 ask price. Now let us consider an **Exchange B** that is showing 99 bid and 101 ask prices on its book. This discrepancy often happens between liquid (B) and illiquid (A) exchanges. When this kind of discrepancy occurs, traders on both exchanges will arbitrage out the discrepancy naturally. Thus, one would want to position their trades with respect to the liquid exchange (**Exchange B**) because the price is likely going to move toward the liquid exchange. Now, when we trade using our market-making bot, we also want to position ourselves towards the more liquid exchange. So, we use **Exchange B** as an *External Price Source*. The trading strategy thus proposes two maker orders, a bid maker order at 98 (for 2% bid spread above the mid-market price of Exchange B) and an ask maker order at 102 (for 2% ask spread on Exchange B). The 102 ask order will be ignored (as it would match the 109 bid order), only the bid order will be submitted to the exchange. Ultimately, this tool is extremely valuable when your bot is trading on illiquid exchanges.
+
 
 ## Sample Configurations
 ```json
