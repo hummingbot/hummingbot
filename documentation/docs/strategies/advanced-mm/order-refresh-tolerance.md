@@ -14,7 +14,7 @@ For example, setting `order_refresh_tolerance_pct` to `0.1` and an active order'
 
 Note that one can set `order_refresh_tolerance_pct` to be greater than the bid and ask spreads. If so, the spread can be negative and put you in a **position of loss**.
 
-##Illustrative Example
+##Illustrative Example - When Refresh Tolerance is Important
 Imagine you are trading the `ETH-USDT` asset pair on an exchange with a starting mid-market price of 200 USDT ($t_0$). 
 
 ###Sample Market
