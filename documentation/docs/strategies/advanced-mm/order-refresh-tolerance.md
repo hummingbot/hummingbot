@@ -7,8 +7,7 @@ This feature allows you to specify a range of spreads that is "tolerable" - not 
 
 
 ## How It Works
-
-Type `config order_refresh_tolerance_pct` to set this parameter. By default, this parameter is set to 0 and Hummingbot will cancel outstanding orders except hanging orders every `order_refresh_time` seconds.
+Type `config order_refresh_tolerance_pct` to set this parameter. By default, this parameter is set to `0`. Hummingbot will cancel outstanding orders except hanging orders every `order_refresh_time` seconds.  Setting it to `-1` will disable the feature and will normally refresh orders based on `order_refresh_time` seconds.
 
 For example, setting `order_refresh_tolerance_pct` to `0.1` and an active order's spread changes from 1.0% to 0.9%-1.1% when it's time to refresh depending on `order_refresh_time`, this order is kept on the order books (not cancelled). If the spread exceeds 1.1% or goes below 0.9%, then the order is cancelled.
 

@@ -18,6 +18,3 @@ Go to `http://localhost:8000`
 ```
 mkdocs build
 ```
-
-## Deploy
-Drag the `/site` directory to a Netlify repo
