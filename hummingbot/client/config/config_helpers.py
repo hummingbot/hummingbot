@@ -453,5 +453,5 @@ def secondary_market_conversion_rate(strategy) -> Decimal:
         base_rate = config_map["taker_to_maker_base_conversion_rate"].value
         quote_rate = config_map["taker_to_maker_quote_conversion_rate"].value
     else:
-        raise Exception("Invalid strategy config map.")
+        return Decimal("1")
     return quote_rate / base_rate
