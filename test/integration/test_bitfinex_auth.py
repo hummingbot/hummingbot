@@ -19,10 +19,6 @@ class TestAuth(unittest.TestCase):
         secret_key = conf.bitfinex_secret_key
         cls.auth = BitfinexAuth(api_key, secret_key)
 
-    def test_auth(self):
-        result: List[str] = self.ev_loop.run_until_complete(self.con_auth())
-        assert "serverId" in result
-
     async def con_auth(self):
         async with websockets.connect(BITFINEX_WS_AUTH_URI) as ws:
             ws: websockets.WebSocketClientProtocol = ws
@@ -30,3 +26,7 @@ class TestAuth(unittest.TestCase):
             await ws.send(json.dumps(payload))
             msg = await asyncio.wait_for(ws.recv(), timeout=30)  # response
             return msg
+
+    def test_auth(self):
+        result: List[str] = self.ev_loop.run_until_complete(self.con_auth())
+        assert "serverId" in result
