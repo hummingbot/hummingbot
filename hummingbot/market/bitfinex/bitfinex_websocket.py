@@ -45,7 +45,7 @@ class BitfinexWebsocket():
         if self._client is None:
             return
 
-        self._client.close()
+        await self._client.wait_closed()
 
     # listen for new websocket messages and add them to queue
     async def _listen_to_ws(self) -> AsyncIterable[Any]:

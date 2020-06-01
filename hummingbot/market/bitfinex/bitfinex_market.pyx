@@ -1283,8 +1283,8 @@ cdef class BitfinexMarket(MarketBase):
                 continue
 
             # Calculate the newly executed amount for this update.
-            original_amount = Decimal(order_update.amount_orig)
-            rest_amount = Decimal(order_update.amount)
+            original_amount = Decimal(abs(order_update.amount_orig))
+            rest_amount = Decimal(abs(order_update.amount))
             base_execute_amount_diff = original_amount - rest_amount
             base_execute_price = Decimal(order_update.price_exec)
 

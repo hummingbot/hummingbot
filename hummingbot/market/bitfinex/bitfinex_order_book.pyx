@@ -87,7 +87,7 @@ cdef class BitfinexOrderBook(OrderBook):
 
         timestamp = msg["mts"]
         trade_type = TradeType.SELL if int(msg["amount"]) < 0 else TradeType.BUY
-        return OrderBookMessage(
+        return BitfinexOrderBookMessage(
             OrderBookMessageType.TRADE,
             {
                 "trading_pair": msg["symbol"],
