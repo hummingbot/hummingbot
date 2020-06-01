@@ -42,7 +42,10 @@ class BitfinexOrderBookMessage(OrderBookMessage):
 
     @property
     def trading_pair(self) -> str:
-        return self.content["symbol"]
+        if "trading_pair" in self.content:
+            return self.content["trading_pair"]
+        elif "symbol" in self.content:
+            return self.content["symbol"]
 
     @property
     def event_info(self):

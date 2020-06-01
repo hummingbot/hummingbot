@@ -287,8 +287,13 @@ class BitfinexMarketUnitTest(unittest.TestCase):
 
         try:
             self.assertEqual(0, len(self.market.tracking_states))
-            bid_price: Decimal = self.market.get_price(trading_pair, True)
-            order_id = self.market.buy("ETHUSD", Decimal("0.04"), OrderType.LIMIT, bid_price * Decimal("0.08"),)
+
+            amount: Decimal = Decimal("0.04")
+            current_ask_price: Decimal = self.market.get_price(trading_pair, False)
+            bid_price: Decimal = Decimal("0.9") * current_ask_price
+            quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
+            order_id = self.market.buy(trading_pair, amount, OrderType.LIMIT, quantize_ask_price)
+
             [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
             order_created_event: BuyOrderCreatedEvent = order_created_event
             self.assertEqual(order_id, order_created_event.order_id)
@@ -312,32 +317,33 @@ class BitfinexMarketUnitTest(unittest.TestCase):
             self.clock.remove_iterator(self.market)
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
-
-            market: BitfinexMarket = BitfinexMarket(
-                conf.bitfinex_api_key, conf.bitfinex_secret_key, trading_pairs=["ETHUSD"]
+            self.market: BitfinexMarket = BitfinexMarket(
+                conf.bitfinex_api_key,
+                conf.bitfinex_secret_key,
+                trading_pairs=[trading_pair]
             )
             for event_tag in self.events:
-                market.add_listener(event_tag, self.market_logger)
+                self.market.add_listener(event_tag, self.market_logger)
             recorder.stop()
-            recorder = MarketsRecorder(sql, [market], config_path, strategy_name)
+            recorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
             recorder.start()
-            saved_market_states = recorder.get_market_states(config_path, market)
-            self.clock.add_iterator(market)
-            self.assertEqual(0, len(market.limit_orders))
-            self.assertEqual(0, len(market.tracking_states))
-            market.restore_tracking_states(saved_market_states.saved_state)
-            self.assertEqual(1, len(market.limit_orders))
-            self.assertEqual(1, len(market.tracking_states))
+            saved_market_states = recorder.get_market_states(config_path, self.market)
+            self.clock.add_iterator(self.market)
+            self.assertEqual(0, len(self.market.limit_orders))
+            self.assertEqual(0, len(self.market.tracking_states))
+            self.market.restore_tracking_states(saved_market_states.saved_state)
+            self.assertEqual(1, len(self.market.limit_orders))
+            self.assertEqual(1, len(self.market.tracking_states))
 
             # Cancel the order and verify that the change is saved.
-            market.cancel(trading_pair, order_id)
+            self.run_parallel(asyncio.sleep(5.0))
+            self.market.cancel(trading_pair, order_id)
             self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
             order_id = None
-            self.assertEqual(0, len(market.limit_orders))
-            self.assertEqual(0, len(market.tracking_states))
-            saved_market_states = recorder.get_market_states(config_path, market)
+            self.assertEqual(0, len(self.market.limit_orders))
+            self.assertEqual(0, len(self.market.tracking_states))
+            saved_market_states = recorder.get_market_states(config_path, self.market)
             self.assertEqual(0, len(saved_market_states.saved_state))
-            print("FINISH")
         finally:
             if order_id is not None:
                 self.market.cancel(trading_pair, order_id)
