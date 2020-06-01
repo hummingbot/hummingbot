@@ -210,25 +210,21 @@ class Web3WalletBackend(PubSub):
         async_scheduler: AsyncCallScheduler = AsyncCallScheduler.shared_instance()
         if len(self._erc20_tokens) < len(self._erc20_token_list):
             # Fetch token data.
-            print("GETTING SYMBOLS")
             fetch_symbols_tasks: List[Coroutine] = [
                 token.get_symbol()
                 for token in self._erc20_token_list
             ]
 
             token_symbols: List[str] = await safe_gather(*fetch_symbols_tasks)
-            print("GOT SYMBOLS")
             fetch_decimals_tasks: List[Coroutine] = [
                 token.get_decimals()
                 for token in self._erc20_token_list
             ]
             token_decimals: List[int] = await safe_gather(*fetch_decimals_tasks)
-            print("GETTING DECIMALZ")
             for token, symbol, decimals in zip(self._erc20_token_list, token_symbols, token_decimals):
                 self._erc20_tokens[symbol] = token
                 self._asset_decimals[symbol] = decimals
             self._weth_token = self._erc20_tokens.get("WETH")
-            print("GOT STUFF")
 
         # Fetch blockchain data.
         self._local_nonce = await async_scheduler.call_async(
@@ -291,18 +287,12 @@ class Web3WalletBackend(PubSub):
         self._check_transaction_receipts_task = safe_ensure_future(self.check_transaction_receipts_loop())
 
         # Start the event watchers.
-        print("GO1")
         await self._new_blocks_watcher.start_network()
-        print("GO2")
         await self._account_balance_watcher.start_network()
-        print("GO3")
         await self._erc20_events_watcher.start_network()
-        print("GO4")
         await self._incoming_eth_watcher.start_network()
-        print("GO5")
         if self._weth_watcher is not None:
             await self._weth_watcher.start_network()
-        print("started")
 
     async def stop_network(self):
         # Disconnect the event forwarders.
