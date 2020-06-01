@@ -130,6 +130,9 @@ class BitfinexWebsocket():
 
     # emit messages
     async def emit(self, data):
+        if (self._listening is False):
+            await self.connect()
+
         await self._client.send(ujson.dumps(data))
 
     # authenticate: authenticate session
