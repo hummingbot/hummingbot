@@ -34,3 +34,13 @@ class SizingProposal(NamedTuple):
 class InventorySkewBidAskRatios(NamedTuple):
     bid_ratio: float
     ask_ratio: float
+
+
+class PriceSize(NamedTuple):
+    price: Decimal
+    size: Decimal
+
+
+class Proposal(NamedTuple):
+    buys: List[PriceSize]
+    sells: List[PriceSize]
