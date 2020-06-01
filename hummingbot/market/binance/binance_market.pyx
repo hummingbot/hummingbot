@@ -149,8 +149,6 @@ cdef class BinanceMarket(MarketBase):
         self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
         self._tx_tracker = BinanceMarketTransactionTracker(self)
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
-        self._trade_fees = {}  # Dict[trading_pair:str, (maker_fee_percent:Decimal, taken_fee_percent:Decimal)]
-        self._last_update_trade_fees_timestamp = 0
         self._data_source_type = order_book_tracker_data_source_type
         self._status_polling_task = None
         self._user_stream_event_listener_task = None
@@ -298,24 +296,6 @@ cdef class BinanceMarket(MarketBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-    async def _update_trade_fees(self):
-        cdef:
-            double current_timestamp = self._current_timestamp
-
-        if current_timestamp - self._last_update_trade_fees_timestamp > 60.0 * 60.0 or len(self._trade_fees) < 1:
-            try:
-                res = await self.query_api(self._binance_client.get_trade_fee)
-                for fee in res["tradeFee"]:
-                    self._trade_fees[fee["symbol"]] = (Decimal(fee["maker"]), Decimal(fee["taker"]))
-                self._last_update_trade_fees_timestamp = current_timestamp
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().network("Error fetching Binance trade fees.", exc_info=True,
-                                      app_warning_msg=f"Could not fetch Binance trading fees. "
-                                                      f"Check network connection.")
-                raise
-
     cdef object c_get_fee(self,
                           str base_currency,
                           str quote_currency,
@@ -323,22 +303,13 @@ cdef class BinanceMarket(MarketBase):
                           object order_side,
                           object amount,
                           object price):
-        cdef:
-            object maker_trade_fee = Decimal("0.001")
-            object taker_trade_fee = Decimal("0.001")
-            str trading_pair = base_currency + quote_currency
 
         if order_type.is_limit_type() and fee_overrides_config_map["binance_maker_fee"].value is not None:
             return TradeFee(percent=fee_overrides_config_map["binance_maker_fee"].value / Decimal("100"))
         if order_type is OrderType.MARKET and fee_overrides_config_map["binance_taker_fee"].value is not None:
             return TradeFee(percent=fee_overrides_config_map["binance_taker_fee"].value / Decimal("100"))
 
-        if trading_pair not in self._trade_fees:
-            # https://www.binance.com/en/fee/schedule
-            self.logger().warning(f"Unable to find trade fee for {trading_pair}. Using default 0.1% maker/taker fee.")
-        else:
-            maker_trade_fee, taker_trade_fee = self._trade_fees.get(trading_pair)
-        return TradeFee(percent=maker_trade_fee if order_type.is_limit_type() else taker_trade_fee)
+        return TradeFee(percent=Decimal("0.001"))
 
     async def _update_trading_rules(self):
         cdef:
@@ -725,10 +696,7 @@ cdef class BinanceMarket(MarketBase):
     async def _trading_rules_polling_loop(self):
         while True:
             try:
-                await safe_gather(
-                    self._update_trading_rules(),
-                    self._update_trade_fees()
-                )
+                await self._update_trading_rules(),
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
                 raise
