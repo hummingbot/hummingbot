@@ -2,7 +2,8 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     validate_exchange,
     validate_market_trading_pair,
-    validate_decimal
+    validate_decimal,
+    validate_bool
 )
 from hummingbot.client.settings import required_exchanges, EXAMPLE_PAIRS
 from decimal import Decimal
@@ -31,6 +32,12 @@ def taker_trading_pair_prompt():
     )
 
 
+def top_depth_tolerance_prompt() -> str:
+    maker_market = cross_exchange_market_making_config_map["maker_market_trading_pair"].value
+    base_asset, quote_asset = maker_market.split("-")
+    return f"What is your top depth tolerance? (in {base_asset}) >>> "
+
+
 # strategy specific validators
 def validate_maker_market_trading_pair(value: str) -> Optional[str]:
     maker_market = cross_exchange_market_making_config_map.get("maker_market").value
@@ -56,7 +63,7 @@ def validate_order_amount(value: str) -> Optional[str]:
         if Decimal(value) < min_amount:
             return f"Order amount must be at least {min_amount}."
     except Exception:
-        return f"Invalid order amount."
+        return "Invalid order amount."
 
 
 def taker_market_on_validated(value: str):
@@ -113,67 +120,79 @@ cross_exchange_market_making_config_map = {
     ),
     "adjust_order_enabled": ConfigVar(
         key="adjust_order_enabled",
-        prompt="",
+        prompt="Do you want to enable adjust order? (Yes/No) >>> ",
         default=True,
         type_str="bool",
+        validator=validate_bool,
         required_if=lambda: False,
     ),
     "active_order_canceling": ConfigVar(
         key="active_order_canceling",
-        prompt="",
+        prompt="Do you want to enable active order canceling? (Yes/No) >>> ",
         type_str="bool",
         default=True,
         required_if=lambda: False,
+        validator=validate_bool,
     ),
     # Setting the default threshold to 0.05 when to active_order_canceling is disabled
     # prevent canceling orders after it has expired
     "cancel_order_threshold": ConfigVar(
         key="cancel_order_threshold",
-        prompt="",
+        prompt="What is the threshold of profitability to cancel a trade? (Enter 1 to indicate 1%) >>> ",
         default=5,
         type_str="decimal",
         required_if=lambda: False,
+        validator=lambda v: validate_decimal(v, min_value=Decimal(-100), max_value=Decimal(100), inclusive=False),
     ),
     "limit_order_min_expiration": ConfigVar(
         key="limit_order_min_expiration",
-        prompt="",
+        prompt="How often do you want limit orders to expire (in seconds)? >>> ",
         default=130.0,
         type_str="float",
         required_if=lambda: False,
+        validator=lambda v: validate_decimal(v, min_value=0, inclusive=False)
     ),
     "top_depth_tolerance": ConfigVar(
         key="top_depth_tolerance",
-        prompt="",
+        prompt=top_depth_tolerance_prompt,
         default=0,
         type_str="decimal",
         required_if=lambda: False,
+        validator=lambda v: validate_decimal(v, min_value=0, inclusive=False)
     ),
     "anti_hysteresis_duration": ConfigVar(
         key="anti_hysteresis_duration",
-        prompt="",
+        prompt="What is the minimum time interval you want limit orders to be adjusted? (in seconds) >>> ",
         default=60,
         type_str="float",
         required_if=lambda: False,
+        validator=lambda v: validate_decimal(v, min_value=0, inclusive=False)
     ),
     "order_size_taker_volume_factor": ConfigVar(
         key="order_size_taker_volume_factor",
-        prompt="",
+        prompt="What percentage of hedge-able volume would you like to be considered on the taker market? "
+               "(Enter 1 to indicate 1%) >>> ",
         default=25,
         type_str="decimal",
         required_if=lambda: False,
+        validator=lambda v: validate_decimal(v, Decimal(0), Decimal(100), inclusive=False)
     ),
     "order_size_taker_balance_factor": ConfigVar(
         key="order_size_taker_balance_factor",
-        prompt="",
+        prompt="What percentage of asset balance would you like to use for hedging trades on the taker market? "
+               "(Enter 1 to indicate 1%) >>> ",
         default=Decimal("99.5"),
         type_str="decimal",
         required_if=lambda: False,
+        validator=lambda v: validate_decimal(v, Decimal(0), Decimal(100), inclusive=False)
     ),
     "order_size_portfolio_ratio_limit": ConfigVar(
         key="order_size_portfolio_ratio_limit",
-        prompt="",
+        prompt="What ratio of total portfolio value you would like for both maker and taker markets? "
+               "Enter 50 for 50% >>> ",
         default=Decimal("16.67"),
         type_str="decimal",
         required_if=lambda: False,
+        validator=lambda v: validate_decimal(v, Decimal(0), Decimal(100), inclusive=False)
     )
 }
