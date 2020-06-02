@@ -153,7 +153,6 @@ cdef class BitcoinComMarket(MarketBase):
         self._in_flight_orders = {}
         self._tx_tracker = BitcoinComMarketTransactionTracker(self)
         self._trading_rules = {}
-        self._trade_fees = {}  # Dict[trading_pair:str, (maker_fee_percent:Decimal, taken_fee_percent:Decimal)]
         self._withdraw_fees = {}  # Dict[currency:str, (payoutEnabled:bool, payoutFee:Decimal)]
         self._data_source_type = order_book_tracker_data_source_type
         self._status_polling_task = None
@@ -220,7 +219,6 @@ cdef class BitcoinComMarket(MarketBase):
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0 if self._trading_required else True,
-            "trade_fees_initialized": len(self._trade_fees) > 0 if self._trading_required else True,
             "withdraw_fees_initialized": len(self._withdraw_fees) > 0 if self._trading_required else True
         }
 
@@ -380,30 +378,23 @@ cdef class BitcoinComMarket(MarketBase):
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {data}")
             return data
 
-    cdef object c_get_fee(self,
-                          str base_currency,
-                          str quote_currency,
-                          object order_type,
-                          object order_side,
-                          object amount,
-                          object price):
+    @staticmethod
+    def c_get_fee(base_currency: str,
+            quote_currency: str,
+            is_maker: bool,
+            order_side: object,
+            amount: object,
+            price: object):
         """
         *required
         function to calculate fees for a particular order
         :returns: TradeFee class that includes fee percentage and flat fees
         """
-        # Fee info from https://api.exchange.bitcoin.com/#create-new-order
-        cdef:
-            object maker_fee = None
-            object taker_fee = None
-            str trading_pair = base_currency + quote_currency
+        # 0.15%/0.2% maker/taker fee from https://exchange.bitcoin.com/fees-and-limits
+        maker_fee = Decimal("0.0015")
+        taker_fee = Decimal("0.002")
 
-        if trading_pair not in self._trade_fees:
-            raise ValueError(f"Unable to find trade fees for {trading_pair}.")
-        else:
-            maker_fee, taker_fee = self._trade_fees.get(trading_pair)
-
-        return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
+        return TradeFee(percent=maker_fee if is_maker else taker_fee)
 
     async def _update_balances(self):
         """
@@ -454,10 +445,6 @@ cdef class BitcoinComMarket(MarketBase):
             for trading_rule in trading_rules_list:
                 self._trading_rules[trading_rule.trading_pair] = trading_rule
 
-            # update trade_fees
-            self._trade_fees.clear()
-            for item in product_info:
-                self._trade_fees[item["id"]] = (Decimal(item["provideLiquidityRate"]), Decimal(item["takeLiquidityRate"]))
 
     def _format_trading_rules(self, raw_trading_rules: List[Any]) -> List[TradingRule]:
         """
@@ -576,10 +563,10 @@ cdef class BitcoinComMarket(MarketBase):
                     order_type,
                     execute_price,
                     execute_amount_diff,
-                    self.c_get_fee(
+                    BitcoinComMarket.c_get_fee(
                         tracked_order.base_asset,
                         tracked_order.quote_asset,
-                        order_type,
+                        tracked_order.order_type is OrderType.LIMIT,
                         tracked_order.trade_type,
                         execute_price,
                         execute_amount_diff,
@@ -702,10 +689,10 @@ cdef class BitcoinComMarket(MarketBase):
                                              tracked_order.order_type,
                                              execute_price,
                                              execute_amount_diff,
-                                             self.c_get_fee(
+                                             BitcoinComMarket.c_get_fee(
                                                  tracked_order.base_asset,
                                                  tracked_order.quote_asset,
-                                                 tracked_order.order_type,
+                                                 tracked_order.order_type is OrderType.LIMIT,
                                                  tracked_order.trade_type,
                                                  execute_price,
                                                  execute_amount_diff,
