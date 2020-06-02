@@ -170,7 +170,7 @@ cross_exchange_market_making_config_map = {
     ),
     "order_size_taker_volume_factor": ConfigVar(
         key="order_size_taker_volume_factor",
-        prompt="What percentage of hedge-able volume would you like to be considered on the taker market? "
+        prompt="What percentage of hedge-able volume would you like to be traded on the taker market? "
                "(Enter 1 to indicate 1%) >>> ",
         default=25,
         type_str="decimal",
@@ -188,7 +188,7 @@ cross_exchange_market_making_config_map = {
     ),
     "order_size_portfolio_ratio_limit": ConfigVar(
         key="order_size_portfolio_ratio_limit",
-        prompt="What ratio of total portfolio value you would like for both maker and taker markets? "
+        prompt="What ratio of your total portfolio value would you like to trade on the maker and taker markets? "
                "Enter 50 for 50% >>> ",
         default=Decimal("16.67"),
         type_str="decimal",
