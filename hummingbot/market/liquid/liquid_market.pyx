@@ -347,27 +347,26 @@ cdef class LiquidMarket(MarketBase):
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {data}")
             return data
 
-    cdef object c_get_fee(self,
-                          str base_currency,
-                          str quote_currency,
-                          object order_type,
-                          object order_side,
-                          object amount,
-                          object price):
+    @staticmethod
+    def c_get_fee(base_currency: str,
+            quote_currency: str,
+            is_maker: bool,
+            order_side: object,
+            amount: object,
+            price: object):
         """
         *required
         function to calculate fees for a particular order
         :returns: TradeFee class that includes fee percentage and flat fees
         """
-        cdef:
-            object maker_fee = Decimal("0.0010")
-            object taker_fee = Decimal("0.0010")
+        maker_fee: object = Decimal("0.0010")
+        taker_fee: object = Decimal("0.0010")
 
-        if order_type is OrderType.LIMIT and fee_overrides_config_map["liquid_maker_fee"].value is not None:
+        if is_maker and fee_overrides_config_map["liquid_maker_fee"].value is not None:
             return TradeFee(percent=fee_overrides_config_map["liquid_maker_fee"].value / Decimal("100"))
-        if order_type is OrderType.MARKET and fee_overrides_config_map["liquid_taker_fee"].value is not None:
+        if not is_maker and fee_overrides_config_map["liquid_taker_fee"].value is not None:
             return TradeFee(percent=fee_overrides_config_map["liquid_taker_fee"].value / Decimal("100"))
-        return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
+        return TradeFee(percent=maker_fee if is_maker else taker_fee)
 
     async def _update_balances(self):
         """
@@ -656,10 +655,10 @@ cdef class LiquidMarket(MarketBase):
                     order_type,
                     execute_price,
                     execute_amount_diff,
-                    self.c_get_fee(
+                    LiquidMarket.c_get_fee(
                         tracked_order.base_asset,
                         tracked_order.quote_asset,
-                        order_type,
+                        order_type is OrderType.LIMIT,
                         tracked_order.trade_type,
                         execute_price,
                         execute_amount_diff,
@@ -805,7 +804,7 @@ cdef class LiquidMarket(MarketBase):
                                              self.c_get_fee(
                                                  tracked_order.base_asset,
                                                  tracked_order.quote_asset,
-                                                 tracked_order.order_type,
+                                                 tracked_order.order_type is OrderType.LIMIT,
                                                  tracked_order.trade_type,
                                                  execute_price,
                                                  execute_amount_diff,

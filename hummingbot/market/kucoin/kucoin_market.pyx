@@ -321,18 +321,18 @@ cdef class KucoinMarket(MarketBase):
             self._account_balances.clear()
             self._account_balances = new_balances
 
-    cdef object c_get_fee(self,
-                          str base_currency,
-                          str quote_currency,
-                          object order_type,
-                          object order_side,
-                          object amount,
-                          object price):
+    @staticmethod
+    def c_get_fee(base_currency: str,
+            quote_currency: str,
+            is_maker: bool,
+            order_side: object,
+            amount: object,
+            price: object):
         # There is no API for checking user's fee tier
         # Fee info from https://www.kucoin.com/vip/fee
-        if order_type is OrderType.LIMIT and fee_overrides_config_map["kucoin_maker_fee"].value is not None:
+        if is_maker and fee_overrides_config_map["kucoin_maker_fee"].value is not None:
             return TradeFee(percent=fee_overrides_config_map["kucoin_maker_fee"].value / Decimal("100"))
-        if order_type is OrderType.MARKET and fee_overrides_config_map["kucoin_taker_fee"].value is not None:
+        if not is_maker and fee_overrides_config_map["kucoin_taker_fee"].value is not None:
             return TradeFee(percent=fee_overrides_config_map["kucoin_taker_fee"].value / Decimal("100"))
         return TradeFee(percent=Decimal("0.001"))
 
@@ -419,10 +419,10 @@ cdef class KucoinMarket(MarketBase):
                         tracked_order.order_type,
                         float(execute_price),
                         float(execute_amount_diff),
-                        self.c_get_fee(
+                        KucoinMarket.c_get_fee(
                             tracked_order.base_asset,
                             tracked_order.quote_asset,
-                            tracked_order.order_type,
+                            tracked_order.order_type is OrderType.LIMIT,
                             tracked_order.trade_type,
                             float(execute_price),
                             float(execute_amount_diff),

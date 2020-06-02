@@ -296,17 +296,17 @@ cdef class BinanceMarket(MarketBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-    cdef object c_get_fee(self,
-                          str base_currency,
-                          str quote_currency,
-                          object order_type,
-                          object order_side,
-                          object amount,
-                          object price):
+    @staticmethod
+    def c_get_fee(base_currency: str,
+            quote_currency: str,
+            is_maker: bool,
+            order_side: object,
+            amount: object,
+            price: object):
 
-        if order_type.is_limit_type() and fee_overrides_config_map["binance_maker_fee"].value is not None:
+        if is_maker and fee_overrides_config_map["binance_maker_fee"].value is not None:
             return TradeFee(percent=fee_overrides_config_map["binance_maker_fee"].value / Decimal("100"))
-        if order_type is OrderType.MARKET and fee_overrides_config_map["binance_taker_fee"].value is not None:
+        if not is_maker and fee_overrides_config_map["binance_taker_fee"].value is not None:
             return TradeFee(percent=fee_overrides_config_map["binance_taker_fee"].value / Decimal("100"))
 
         return TradeFee(percent=Decimal("0.001"))
@@ -419,10 +419,10 @@ cdef class BinanceMarket(MarketBase):
                                                      order_type,
                                                      Decimal(trade["price"]),
                                                      Decimal(trade["qty"]),
-                                                     self.c_get_fee(
+                                                     BinanceMarket.c_get_fee(
                                                          tracked_order.base_asset,
                                                          tracked_order.quote_asset,
-                                                         order_type,
+                                                         order_type is OrderType.LIMIT,
                                                          tracked_order.trade_type,
                                                          Decimal(trade["price"]),
                                                          Decimal(trade["qty"])),
@@ -589,10 +589,10 @@ cdef class BinanceMarket(MarketBase):
 
                     if execution_type == "TRADE":
                         order_filled_event = OrderFilledEvent.order_filled_event_from_binance_execution_report(event_message)
-                        order_filled_event = order_filled_event._replace(trade_fee=self.c_get_fee(
+                        order_filled_event = order_filled_event._replace(trade_fee=BinanceMarket.c_get_fee(
                             tracked_order.base_asset,
                             tracked_order.quote_asset,
-                            BinanceMarket.to_hb_order_type(event_message["o"]),
+                            BinanceMarket.to_hb_order_type(event_message["o"]) is OrderType.LIMIT,
                             TradeType.BUY if event_message["S"] == "BUY" else TradeType.SELL,
                             Decimal(event_message["l"]),
                             Decimal(event_message["L"])
@@ -711,8 +711,7 @@ cdef class BinanceMarket(MarketBase):
         return {
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "trading_rule_initialized": len(self._trading_rules) > 0,
-            "trade_fees_initialized": len(self._trade_fees) > 0
+            "trading_rule_initialized": len(self._trading_rules) > 0
         }
 
     @property

@@ -140,6 +140,8 @@ cdef class RadarRelayMarket(MarketBase):
         self._status_polling_task = None
         self._approval_tx_polling_task = None
         self._wallet = wallet
+        #define wallet at class level to be accessed by static method c_get_fee
+        RadarRelayMarket.class_wallet_object = wallet
         self._wallet_spender_address = wallet_spender_address
         self._exchange = ZeroExExchange(self._w3, ZERO_EX_MAINNET_EXCHANGE_ADDRESS, wallet)
         self._latest_salt = -1
@@ -253,22 +255,22 @@ cdef class RadarRelayMarket(MarketBase):
                 )
                 await asyncio.sleep(0.5)
 
-    cdef object c_get_fee(self,
-                          str base_currency,
-                          str quote_currency,
-                          object order_type,
-                          object trade_type,
-                          object amount,
-                          object price):
-        cdef:
-            int gas_estimate = 130000  # approximate gas used for 0x market orders
-            double transaction_cost_eth
+    @staticmethod
+    def c_get_fee(base_currency: str,
+            str quote_currency: str,
+            is_maker: bool,
+            trade_type: object,
+            amount: object,
+            price: object):
+        
+        gas_estimate: int = 130000  # approximate gas used for 0x market orders
+        transaction_cost_eth: double
 
         # there are no fees for makers on Radar Relay
-        if order_type is OrderType.LIMIT:
+        if is_maker:
             return TradeFee(percent=Decimal(0.0))
         # only fee for takers is gas cost of transaction
-        transaction_cost_eth = self._wallet.gas_price * gas_estimate / 1e18
+        transaction_cost_eth = RadarRelayMarket.class_wallet_object.gas_price * gas_estimate / 1e18
         return TradeFee(percent=Decimal(0.0), flat_fees=[("ETH", transaction_cost_eth)])
 
     def _update_balances(self):

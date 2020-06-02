@@ -158,8 +158,8 @@ cdef class CoinbaseProMarket(MarketBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._shared_client = None
-        self._maker_fee_percentage = Decimal(self.MAKER_FEE_PERCENTAGE_DEFAULT)
-        self._taker_fee_percentage = Decimal(self.TAKER_FEE_PERCENTAGE_DEFAULT)
+        CoinbaseProMarket._maker_fee_percentage = Decimal(self.MAKER_FEE_PERCENTAGE_DEFAULT)
+        CoinbaseProMarket._taker_fee_percentage = Decimal(self.TAKER_FEE_PERCENTAGE_DEFAULT)
 
     @property
     def name(self) -> str:
@@ -351,13 +351,13 @@ cdef class CoinbaseProMarket(MarketBase):
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {data}")
             return data
 
-    cdef object c_get_fee(self,
-                          str base_currency,
-                          str quote_currency,
-                          object order_type,
-                          object order_side,
-                          object amount,
-                          object price):
+    @staticmethod
+    def c_get_fee(base_currency: str,
+            quote_currency: str,
+            is_maker: bool,
+            order_side: object,
+            amount: object,
+            price: object):
         """
         *required
         function to calculate fees for a particular order
@@ -365,14 +365,13 @@ cdef class CoinbaseProMarket(MarketBase):
         """
         # There is no API for checking user's fee tier
         # Fee info from https://pro.coinbase.com/fees
-        cdef:
-            object maker_fee = self._maker_fee_percentage
-            object taker_fee = self._taker_fee_percentage
-        if order_type is OrderType.LIMIT and fee_overrides_config_map["coinbase_pro_maker_fee"].value is not None:
+        maker_fee = CoinbaseProMarket._maker_fee_percentage
+        taker_fee = CoinbaseProMarket._taker_fee_percentage
+        if is_maker and fee_overrides_config_map["coinbase_pro_maker_fee"].value is not None:
             return TradeFee(percent=fee_overrides_config_map["coinbase_pro_maker_fee"].value / Decimal("100"))
-        if order_type is OrderType.MARKET and fee_overrides_config_map["coinbase_pro_taker_fee"].value is not None:
+        if not is_maker and fee_overrides_config_map["coinbase_pro_taker_fee"].value is not None:
             return TradeFee(percent=fee_overrides_config_map["coinbase_pro_taker_fee"].value / Decimal("100"))
-        return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
+        return TradeFee(percent=maker_fee if is_maker else taker_fee)
 
     async def _update_fee_percentage(self):
         """
@@ -386,8 +385,8 @@ cdef class CoinbaseProMarket(MarketBase):
 
         path_url = "/fees"
         fee_info = await self._api_request("get", path_url=path_url)
-        self._maker_fee_percentage = Decimal(fee_info["maker_fee_rate"])
-        self._taker_fee_percentage = Decimal(fee_info["taker_fee_rate"])
+        CoinbaseProMarket._maker_fee_percentage = Decimal(fee_info["maker_fee_rate"])
+        CoinbaseProMarket._taker_fee_percentage = Decimal(fee_info["taker_fee_rate"])
         self._last_fee_percentage_update_timestamp = current_timestamp
 
     async def _update_balances(self):
@@ -504,7 +503,7 @@ cdef class CoinbaseProMarket(MarketBase):
                 else Decimal(order_update["executed_value"]) / new_confirmed_amount
 
             order_type_description = tracked_order.order_type_description
-            order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
+            order_type = tracked_order.order_type is OrderType.LIMIT
             # Emit event if executed amount is greater than 0.
             if execute_amount_diff > s_decimal_0:
                 order_filled_event = OrderFilledEvent(
@@ -515,10 +514,10 @@ cdef class CoinbaseProMarket(MarketBase):
                     order_type,
                     execute_price,
                     execute_amount_diff,
-                    self.c_get_fee(
+                    CoinbaseProMarket.c_get_fee(
                         tracked_order.base_asset,
                         tracked_order.quote_asset,
-                        order_type,
+                        order_type is OrderType.LIMIT,
                         tracked_order.trade_type,
                         execute_price,
                         execute_amount_diff,
@@ -651,10 +650,10 @@ cdef class CoinbaseProMarket(MarketBase):
                                              tracked_order.order_type,
                                              execute_price,
                                              execute_amount_diff,
-                                             self.c_get_fee(
+                                             CoinbaseProMarket.c_get_fee(
                                                  tracked_order.base_asset,
                                                  tracked_order.quote_asset,
-                                                 tracked_order.order_type,
+                                                 tracked_order.order_type is OrderType.LIMIT,
                                                  tracked_order.trade_type,
                                                  execute_price,
                                                  execute_amount_diff,
