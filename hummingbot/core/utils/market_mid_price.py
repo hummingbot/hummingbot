@@ -1,6 +1,7 @@
 import requests
 from decimal import Decimal
 from typing import Optional
+import cachetools.func
 from hummingbot.market.binance.binance_market import BinanceMarket
 from hummingbot.market.kraken.kraken_market import KrakenMarket
 
@@ -30,6 +31,7 @@ def get_mid_price(exchange: str, trading_pair: str) -> Optional[Decimal]:
         return binance_mid_price(trading_pair)
 
 
+@cachetools.func.ttl_cache(ttl=10)
 def binance_mid_price(trading_pair: str) -> Optional[Decimal]:
     resp = requests.get(url=BINANCE_PRICE_URL)
     records = resp.json()
@@ -42,6 +44,7 @@ def binance_mid_price(trading_pair: str) -> Optional[Decimal]:
     return result
 
 
+@cachetools.func.ttl_cache(ttl=10)
 def kucoin_mid_price(trading_pair: str) -> Optional[Decimal]:
     resp = requests.get(url=KUCOIN_PRICE_URL)
     records = resp.json()
@@ -53,6 +56,7 @@ def kucoin_mid_price(trading_pair: str) -> Optional[Decimal]:
     return result
 
 
+@cachetools.func.ttl_cache(ttl=10)
 def liquid_mid_price(trading_pair: str) -> Optional[Decimal]:
     resp = requests.get(url=LIQUID_PRICE_URL)
     records = resp.json()
@@ -65,6 +69,7 @@ def liquid_mid_price(trading_pair: str) -> Optional[Decimal]:
     return result
 
 
+@cachetools.func.ttl_cache(ttl=10)
 def bittrex_mid_price(trading_pair: str) -> Optional[Decimal]:
     resp = requests.get(url=BITTREX_PRICE_URL)
     records = resp.json()
@@ -78,6 +83,7 @@ def bittrex_mid_price(trading_pair: str) -> Optional[Decimal]:
     return result
 
 
+@cachetools.func.ttl_cache(ttl=10)
 def kraken_mid_price(trading_pair: str) -> Optional[Decimal]:
     k_pair = KrakenMarket.convert_to_exchange_trading_pair(trading_pair)
     resp = requests.get(url=KRAKEN_PRICE_URL + k_pair)
@@ -88,6 +94,7 @@ def kraken_mid_price(trading_pair: str) -> Optional[Decimal]:
         return result
 
 
+@cachetools.func.ttl_cache(ttl=10)
 def coinbase_pro_mid_price(trading_pair: str) -> Optional[Decimal]:
     resp = requests.get(url=COINBASE_PRO_PRICE_URL.replace("TO_BE_REPLACED", trading_pair))
     record = resp.json()
