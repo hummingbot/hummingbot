@@ -115,10 +115,11 @@ cdef class CoinbaseProMarket(MarketBase):
     API_CALL_TIMEOUT = 10.0
     UPDATE_ORDERS_INTERVAL = 10.0
     UPDATE_FEE_PERCENTAGE_INTERVAL = 60.0
-    MAKER_FEE_PERCENTAGE_DEFAULT = 0.005
-    TAKER_FEE_PERCENTAGE_DEFAULT = 0.005
 
     COINBASE_API_ENDPOINT = "https://api.pro.coinbase.com"
+
+    maker_fee_percentage = Decimal("0.005")
+    taker_fee_percentage = Decimal("0.005")
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -158,8 +159,6 @@ cdef class CoinbaseProMarket(MarketBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._shared_client = None
-        CoinbaseProMarket._maker_fee_percentage = Decimal(self.MAKER_FEE_PERCENTAGE_DEFAULT)
-        CoinbaseProMarket._taker_fee_percentage = Decimal(self.TAKER_FEE_PERCENTAGE_DEFAULT)
 
     @property
     def name(self) -> str:
@@ -365,8 +364,8 @@ cdef class CoinbaseProMarket(MarketBase):
         """
         # There is no API for checking user's fee tier
         # Fee info from https://pro.coinbase.com/fees
-        maker_fee = CoinbaseProMarket._maker_fee_percentage
-        taker_fee = CoinbaseProMarket._taker_fee_percentage
+        maker_fee = CoinbaseProMarket.maker_fee_percentage
+        taker_fee = CoinbaseProMarket.taker_fee_percentage
         if is_maker and fee_overrides_config_map["coinbase_pro_maker_fee"].value is not None:
             return TradeFee(percent=fee_overrides_config_map["coinbase_pro_maker_fee"].value / Decimal("100"))
         if not is_maker and fee_overrides_config_map["coinbase_pro_taker_fee"].value is not None:
@@ -385,8 +384,8 @@ cdef class CoinbaseProMarket(MarketBase):
 
         path_url = "/fees"
         fee_info = await self._api_request("get", path_url=path_url)
-        CoinbaseProMarket._maker_fee_percentage = Decimal(fee_info["maker_fee_rate"])
-        CoinbaseProMarket._taker_fee_percentage = Decimal(fee_info["taker_fee_rate"])
+        CoinbaseProMarket.maker_fee_percentage = Decimal(fee_info["maker_fee_rate"])
+        CoinbaseProMarket.taker_fee_percentage = Decimal(fee_info["taker_fee_rate"])
         self._last_fee_percentage_update_timestamp = current_timestamp
 
     async def _update_balances(self):
