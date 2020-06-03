@@ -158,7 +158,7 @@ cross_exchange_market_making_config_map = {
         default=0,
         type_str="decimal",
         required_if=lambda: False,
-        validator=lambda v: validate_decimal(v, min_value=0, inclusive=False)
+        validator=lambda v: validate_decimal(v, min_value=0, inclusive=True)
     ),
     "anti_hysteresis_duration": ConfigVar(
         key="anti_hysteresis_duration",
