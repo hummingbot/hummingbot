@@ -821,7 +821,6 @@ cdef class PaperTradeMarket(MarketBase):
                 inc(orders_it)
 
         for orders_it in process_order_its:
-            cpp_limit_order_ptr = address(deref(orders_it))
             self.c_process_limit_order(is_maker_buy, limit_orders_map_ptr, address(map_it), orders_it)
 
     # </editor-fold>
