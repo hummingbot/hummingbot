@@ -469,9 +469,12 @@ cdef class PaperTradeMarket(MarketBase):
         self.c_set_balance(quote_asset, quote_balance - total_quote_needed)
         self.c_set_balance(base_asset, base_balance + total_base_acquired)
 
+        #add fee
+        fees = self.c_get_fee(base_asset, quote_asset, False, TradeType.BUY, amount, 0)
+
         order_filled_events = OrderFilledEvent.order_filled_events_from_order_book_rows(
             self._current_timestamp, order_id, trading_pair, TradeType.BUY, OrderType.MARKET,
-            TradeFee(s_decimal_0), buy_entries
+            fees, buy_entries
         )
 
         for order_filled_event in order_filled_events:
@@ -526,9 +529,12 @@ cdef class PaperTradeMarket(MarketBase):
         self.c_set_balance(base_asset,
                            base_asset_amount - amount)
 
+        #add fee
+        fees = self.c_get_fee(base_asset, quote_asset, False, TradeType.SELL, amount, 0)
+
         order_filled_events = OrderFilledEvent.order_filled_events_from_order_book_rows(
             self._current_timestamp, order_id, trading_pair_str, TradeType.SELL,
-            OrderType.MARKET, TradeFee(s_decimal_0), sell_entries
+            OrderType.MARKET, fees, sell_entries
         )
 
         for order_filled_event in order_filled_events:
@@ -606,6 +612,9 @@ cdef class PaperTradeMarket(MarketBase):
         self.c_set_balance(quote_asset, self.c_get_balance(quote_asset) - quote_asset_traded)
         self.c_set_balance(base_asset, self.c_get_balance(base_asset) + base_asset_traded)
 
+        #add fee
+        fees = self.c_get_fee(base_asset, quote_asset, True, TradeType.BUY, quote_asset_traded, 0)
+
         # Emit the trade and order completed events.
         config = self._config
         self.c_trigger_event(
@@ -618,7 +627,7 @@ cdef class PaperTradeMarket(MarketBase):
                 OrderType.LIMIT,
                 <object> cpp_limit_order_ptr.getPrice(),
                 <object> cpp_limit_order_ptr.getQuantity(),
-                TradeFee(s_decimal_0)
+                fees
             ))
 
         self.c_trigger_event(
@@ -663,6 +672,9 @@ cdef class PaperTradeMarket(MarketBase):
         self.c_set_balance(quote_asset, self.c_get_balance(quote_asset) + quote_asset_traded)
         self.c_set_balance(base_asset, self.c_get_balance(base_asset) - base_asset_traded)
 
+        #add fee
+        fees = self.c_get_fee(base_asset, quote_asset, True, TradeType.SELL, quote_asset_traded, 0)
+
         # Emit the trade and order completed events.
         config = self._config
         self.c_trigger_event(
@@ -675,7 +687,7 @@ cdef class PaperTradeMarket(MarketBase):
                 OrderType.LIMIT,
                 <object> cpp_limit_order_ptr.getPrice(),
                 <object> cpp_limit_order_ptr.getQuantity(),
-                TradeFee(s_decimal_0)
+                fees
             ))
 
         self.c_trigger_event(
@@ -773,9 +785,13 @@ cdef class PaperTradeMarket(MarketBase):
         """
         cdef:
             string cpp_trading_pair = order_book_trade_event.trading_pair.encode("utf8")
+            
             bint is_maker_buy = order_book_trade_event.type is TradeType.SELL
+            
             object trade_price = order_book_trade_event.price
+            
             object trade_quantity = order_book_trade_event.amount
+            
             LimitOrders *limit_orders_map_ptr = (address(self._bid_limit_orders)
                                                  if is_maker_buy
                                                  else address(self._ask_limit_orders))
@@ -789,6 +805,7 @@ cdef class PaperTradeMarket(MarketBase):
         if map_it == limit_orders_map_ptr.end():
             return
 
+        
         orders_collection_ptr = address(deref(map_it).second)
         if is_maker_buy:
             orders_rit = orders_collection_ptr.rbegin()
@@ -805,10 +822,15 @@ cdef class PaperTradeMarket(MarketBase):
                 cpp_limit_order_ptr = address(deref(orders_it))
                 if <object>cpp_limit_order_ptr.getPrice() >= trade_price:
                     break
+                print("buy")
+                print(<object>cpp_limit_order_ptr.getPrice())
                 process_order_its.push_back(orders_it)
                 inc(orders_it)
 
         for orders_it in process_order_its:
+            cpp_limit_order_ptr = address(deref(orders_it))
+            print("process")
+            print(<object>cpp_limit_order_ptr.getPrice())
             self.c_process_limit_order(is_maker_buy, limit_orders_map_ptr, address(map_it), orders_it)
 
     # </editor-fold>
@@ -886,14 +908,14 @@ cdef class PaperTradeMarket(MarketBase):
                                                  else address(self._ask_limit_orders))
         self.c_cancel_order_from_orders_map(limit_orders_map_ptr, trading_pair_str, client_order_id)
 
-    cdef object c_get_fee(self,
-                          str base_asset,
-                          str quote_asset,
-                          object order_type,
-                          object order_side,
-                          object amount,
-                          object price):
-        return TradeFee(Decimal(0))
+    def c_get_fee(self,
+            base_asset: str,
+            quote_asset:str,
+            is_maker: bool,
+            order_side: object,
+            amount: object,
+            price: object):
+        return self._target_market.c_get_fee(base_asset, quote_asset, is_maker, order_side, amount, price)
 
     cdef OrderBook c_get_order_book(self, str trading_pair):
         if trading_pair not in self._trading_pairs:
