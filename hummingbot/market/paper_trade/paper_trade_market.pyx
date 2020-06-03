@@ -785,13 +785,9 @@ cdef class PaperTradeMarket(MarketBase):
         """
         cdef:
             string cpp_trading_pair = order_book_trade_event.trading_pair.encode("utf8")
-            
             bint is_maker_buy = order_book_trade_event.type is TradeType.SELL
-            
             object trade_price = order_book_trade_event.price
-            
             object trade_quantity = order_book_trade_event.amount
-            
             LimitOrders *limit_orders_map_ptr = (address(self._bid_limit_orders)
                                                  if is_maker_buy
                                                  else address(self._ask_limit_orders))
@@ -805,7 +801,6 @@ cdef class PaperTradeMarket(MarketBase):
         if map_it == limit_orders_map_ptr.end():
             return
 
-        
         orders_collection_ptr = address(deref(map_it).second)
         if is_maker_buy:
             orders_rit = orders_collection_ptr.rbegin()
@@ -822,15 +817,11 @@ cdef class PaperTradeMarket(MarketBase):
                 cpp_limit_order_ptr = address(deref(orders_it))
                 if <object>cpp_limit_order_ptr.getPrice() >= trade_price:
                     break
-                print("buy")
-                print(<object>cpp_limit_order_ptr.getPrice())
                 process_order_its.push_back(orders_it)
                 inc(orders_it)
 
         for orders_it in process_order_its:
             cpp_limit_order_ptr = address(deref(orders_it))
-            print("process")
-            print(<object>cpp_limit_order_ptr.getPrice())
             self.c_process_limit_order(is_maker_buy, limit_orders_map_ptr, address(map_it), orders_it)
 
     # </editor-fold>
