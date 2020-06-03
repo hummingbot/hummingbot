@@ -354,12 +354,7 @@ cdef class HuobiMarket(MarketBase):
             self._account_balances = new_balances
 
     @staticmethod
-    def c_get_fee(base_currency: str,
-                quote_currency: str,
-                is_maker: bool,
-                order_side: object,
-                amount: object,
-                price: object):
+    cdef object c_estimate_fee(object is_maker):
         # https://www.hbg.com/en-us/about/fee/
 
         if is_maker and fee_overrides_config_map["huobi_maker_fee"].value is not None:
@@ -485,13 +480,8 @@ cdef class HuobiMarket(MarketBase):
                         tracked_order.order_type,
                         execute_price,
                         execute_amount_diff,
-                        HuobiMarket.c_get_fee(
-                            tracked_order.base_asset,
-                            tracked_order.quote_asset,
-                            tracked_order.order_type is OrderType.LIMIT,
-                            tracked_order.trade_type,
-                            execute_price,
-                            execute_amount_diff,
+                        HuobiMarket.c_estimate_fee(
+                            tracked_order.order_type is OrderType.LIMIT
                         ),
                         # Unique exchange trade ID not available in client order status
                         # But can use validate an order using exchange order ID:

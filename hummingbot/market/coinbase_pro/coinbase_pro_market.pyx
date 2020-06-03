@@ -351,15 +351,10 @@ cdef class CoinbaseProMarket(MarketBase):
             return data
 
     @staticmethod
-    def c_get_fee(base_currency: str,
-            quote_currency: str,
-            is_maker: bool,
-            order_side: object,
-            amount: object,
-            price: object):
+    cdef object c_estimate_fee(object is_maker):
         """
         *required
-        function to calculate fees for a particular order
+        function to estimate fees for a particular order
         :returns: TradeFee class that includes fee percentage and flat fees
         """
         # There is no API for checking user's fee tier
@@ -513,13 +508,8 @@ cdef class CoinbaseProMarket(MarketBase):
                     order_type,
                     execute_price,
                     execute_amount_diff,
-                    CoinbaseProMarket.c_get_fee(
-                        tracked_order.base_asset,
-                        tracked_order.quote_asset,
-                        order_type is OrderType.LIMIT,
-                        tracked_order.trade_type,
-                        execute_price,
-                        execute_amount_diff,
+                    CoinbaseProMarket.c_estimate_fee(
+                        order_type is OrderType.LIMIT
                     ),
                     # Coinbase Pro's websocket stream tags events with order_id rather than trade_id
                     # Using order_id here for easier data validation
@@ -649,13 +639,8 @@ cdef class CoinbaseProMarket(MarketBase):
                                              tracked_order.order_type,
                                              execute_price,
                                              execute_amount_diff,
-                                             CoinbaseProMarket.c_get_fee(
-                                                 tracked_order.base_asset,
-                                                 tracked_order.quote_asset,
-                                                 tracked_order.order_type is OrderType.LIMIT,
-                                                 tracked_order.trade_type,
-                                                 execute_price,
-                                                 execute_amount_diff,
+                                             CoinbaseProMarket.c_estimate_fee(
+                                                 tracked_order.order_type is OrderType.LIMIT
                                              ),
                                              exchange_trade_id=exchange_order_id
                                          ))

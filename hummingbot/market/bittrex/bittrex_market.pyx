@@ -176,12 +176,7 @@ cdef class BittrexMarket(MarketBase):
         self._last_timestamp = timestamp
 
     @staticmethod
-    def c_get_fee(base_currency: str,
-            quote_currency: str,
-            is_maker: bool,
-            order_side: object,
-            amount: object,
-            price: object):
+    cdef object c_estimate_fee(object is_maker):
         # There is no API for checking fee
         # Fee info from https://bittrex.zendesk.com/hc/en-us/articles/115003684371
         maker_fee = Decimal(0.0025)
@@ -393,13 +388,8 @@ cdef class BittrexMarket(MarketBase):
                                              tracked_order.order_type,
                                              executed_price,
                                              executed_amount_diff,
-                                             BittrexMarket.c_get_fee(
-                                                 tracked_order.base_asset,
-                                                 tracked_order.quote_asset,
-                                                 tracked_order.order_type is OrderType.LIMIT,
-                                                 tracked_order.trade_type,
-                                                 executed_price,
-                                                 executed_amount_diff
+                                             BittrexMarket.c_estimate_fee(
+                                                 tracked_order.order_type is OrderType.LIMIT
                                              )
                                          ))
 
@@ -508,13 +498,8 @@ cdef class BittrexMarket(MarketBase):
                                                  tracked_order.order_type,
                                                  execute_price,
                                                  execute_amount_diff,
-                                                 BittrexMarket.c_get_fee(
-                                                     tracked_order.base_asset,
-                                                     tracked_order.quote_asset,
-                                                     tracked_order.order_type is OrderType.LIMIT,
-                                                     tracked_order.trade_type,
-                                                     execute_price,
-                                                     execute_amount_diff
+                                                 BittrexMarket.c_estimate_fee(
+                                                     tracked_order.order_type is OrderType.LIMIT
                                                  )
                                              ))
 

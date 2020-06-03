@@ -322,12 +322,7 @@ cdef class KucoinMarket(MarketBase):
             self._account_balances = new_balances
 
     @staticmethod
-    def c_get_fee(base_currency: str,
-            quote_currency: str,
-            is_maker: bool,
-            order_side: object,
-            amount: object,
-            price: object):
+    cdef object c_estimate_fee(object is_maker):
         # There is no API for checking user's fee tier
         # Fee info from https://www.kucoin.com/vip/fee
         if is_maker and fee_overrides_config_map["kucoin_maker_fee"].value is not None:
@@ -419,13 +414,8 @@ cdef class KucoinMarket(MarketBase):
                         tracked_order.order_type,
                         float(execute_price),
                         float(execute_amount_diff),
-                        KucoinMarket.c_get_fee(
-                            tracked_order.base_asset,
-                            tracked_order.quote_asset,
-                            tracked_order.order_type is OrderType.LIMIT,
-                            tracked_order.trade_type,
-                            float(execute_price),
-                            float(execute_amount_diff),
+                        KucoinMarket.c_estimate_fee(
+                            tracked_order.order_type is OrderType.LIMIT
                         ),
                         exchange_trade_id=exchange_order_id,
                     )

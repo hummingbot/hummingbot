@@ -144,12 +144,7 @@ cdef class MarketBase(NetworkIterator):
         raise NotImplementedError
 
     @staticmethod
-    def c_get_fee(base_currency: str,
-            quote_currency: str,
-            is_maker: bool,
-            order_side: object,
-            amount: object,
-            price: object):
+    cdef object c_estimate_fee(object is_maker):
         raise NotImplementedError
 
     def get_all_balances(self) -> Dict[str, Decimal]:
@@ -335,14 +330,9 @@ cdef class MarketBase(NetworkIterator):
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)
 
-    def get_fee(self,
-                base_currency: str,
-                quote_currency: str,
-                order_type: OrderType,
-                order_side: TradeType,
-                amount: Decimal,
-                price: Decimal = NaN) -> TradeFee:
-        return MarketBase.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+    def estimate_fee(self,
+            is_maker: bool) -> TradeFee:
+        return MarketBase.c_estimate_fee(is_maker)
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
         return self.c_get_order_price_quantum(trading_pair, price)

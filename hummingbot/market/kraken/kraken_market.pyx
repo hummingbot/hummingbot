@@ -297,16 +297,10 @@ cdef class KrakenMarket(MarketBase):
             del self._account_balances[asset_name]
 
     @staticmethod
-    def c_get_fee(base_currency: str,
-            quote_currency: str,
-            is_maker: bool,
-            order_side: object,
-            amount: object,
-            price: object):
+    cdef object c_estimate_fee(object is_maker):
         
         maker_trade_fee = Decimal("0.0016")
         taker_trade_fee = Decimal("0.0026")
-        trading_pair = base_currency + quote_currency
 
         if is_maker and fee_overrides_config_map["kraken_maker_fee"].value is not None:
             return TradeFee(percent=fee_overrides_config_map["kraken_maker_fee"].value / Decimal("100"))
@@ -802,7 +796,7 @@ cdef class KrakenMarket(MarketBase):
             TradingRule trading_rule = self._trading_rules[trading_pair]
             str base_currency = self.split_trading_pair(trading_pair)[0]
             str quote_currency = self.split_trading_pair(trading_pair)[1]
-            object buy_fee = KrakenMarket.c_get_fee(base_currency, quote_currency, order_type is OrderType.LIMIT, TradeType.BUY, amount, price)
+            object buy_fee = KrakenMarket.c_estimate_fee(order_type is OrderType.LIMIT)
 
         decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
         decimal_price = (self.c_quantize_order_price(trading_pair, price)
