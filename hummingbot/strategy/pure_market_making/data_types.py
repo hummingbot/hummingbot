@@ -42,7 +42,7 @@ class PriceSize:
         self.size: Decimal = size
 
     def __repr__(self):
-        return f"price: {self.price} size: {self.size}"
+        return f"[ p: {self.price} s: {self.size} ]"
 
 
 class Proposal:
@@ -51,5 +51,5 @@ class Proposal:
         self.sells: List[PriceSize] = sells
 
     def __repr__(self):
-        return f"{len(self.buys)} buys: {', '.join([str(o) for o in self.buys])}\n" \
+        return f"{len(self.buys)} buys: {', '.join([str(o) for o in self.buys])} " \
                f"{len(self.sells)} sells: {', '.join([str(o) for o in self.sells])}"

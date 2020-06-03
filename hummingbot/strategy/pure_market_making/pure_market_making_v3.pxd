@@ -12,8 +12,6 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
         object _ask_spread
         object _order_amount
         int _order_levels
-        int _buy_levels
-        int _sell_levels
         object _order_level_spread
         object _order_level_amount
         double _order_refresh_time
@@ -37,20 +35,22 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
         object _limit_order_type
         bint _all_markets_ready
         double _expiration_seconds
-        int _filled_buys_sells_balance
+        int _filled_buys_balance
+        int _filled_sells_balance
         list _hanging_order_ids
         double _last_timestamp
         double _status_report_interval
         int64_t _logging_options
 
-    cdef c_set_buy_sell_levels(self)
-    cdef c_apply_price_band(self)
-    cdef c_apply_ping_pong(self)
     cdef object c_create_base_proposal(self)
+    cdef c_apply_order_levels_modifiers(self, object proposal)
+    cdef c_apply_price_band(self, object proposal)
+    cdef c_apply_ping_pong(self, object proposal)
     cdef c_apply_order_price_modifiers(self, object proposal)
     cdef c_apply_order_size_modifiers(self, object proposal)
     cdef c_apply_inventory_skew(self, object proposal)
-    cdef c_filter_proposal_for_takers(self, object proposal)
+    cdef c_apply_budget_constraint(self, object proposal)
+    cdef c_filter_out_takers(self, object proposal)
     cdef c_apply_order_optimization(self, object proposal)
     cdef c_apply_add_transaction_costs(self, object proposal)
     cdef bint c_is_within_tolerance(self, list current_prices, list proposal_prices)

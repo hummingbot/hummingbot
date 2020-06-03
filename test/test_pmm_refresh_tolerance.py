@@ -19,7 +19,9 @@ from hummingbot.core.clock import (
 )
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
-    MarketEvent
+    MarketEvent,
+    OrderBookTradeEvent,
+    TradeType
 )
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.strategy.pure_market_making.pure_market_making_v3 import PureMarketMakingStrategyV3
@@ -33,6 +35,17 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
     trading_pair = "HBOT-ETH"
     base_asset = trading_pair.split("-")[0]
     quote_asset = trading_pair.split("-")[1]
+
+    def simulate_maker_market_trade(self, is_buy: bool, quantity: Decimal, price: Decimal):
+        order_book = self.market.get_order_book(self.trading_pair)
+        trade_event = OrderBookTradeEvent(
+            self.trading_pair,
+            self.clock.current_timestamp,
+            TradeType.BUY if is_buy else TradeType.SELL,
+            price,
+            quantity
+        )
+        order_book.apply_trade(trade_event)
 
     def setUp(self):
         self.clock_tick_size = 1
@@ -49,8 +62,8 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
                                                price_step_size=1,
                                                volume_step_size=10)
         self.market.add_data(self.book_data)
-        self.market.set_balance("HBOT", 50)
-        self.market.set_balance("ETH", 500)
+        self.market.set_balance("HBOT", 500)
+        self.market.set_balance("ETH", 5000)
         self.market.set_quantization_param(
             QuantizationParams(
                 self.trading_pair, 6, 6, 6, 6
@@ -85,6 +98,18 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
             order_refresh_time=4,
             filled_order_delay=8,
             order_refresh_tolerance_pct=0
+        )
+        self.hanging_order_multiple_strategy = PureMarketMakingStrategyV3(
+            self.market_info,
+            bid_spread=Decimal("0.01"),
+            ask_spread=Decimal("0.01"),
+            order_amount=Decimal("1"),
+            order_levels=5,
+            order_level_spread=Decimal("0.01"),
+            order_refresh_time=4,
+            filled_order_delay=8,
+            order_refresh_tolerance_pct=0,
+            hanging_orders_enabled=True
         )
 
     def test_active_orders_are_cancelled_when_mid_price_moves(self):
@@ -180,7 +205,7 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
         self.assertEqual(5, len(strategy.active_buys))
         self.assertEqual(5, len(strategy.active_sells))
 
-        # simulate_limit_order_fill(self.maker_market, ask_order)
+        self.simulate_maker_market_trade(True, Decimal("100"), Decimal("101.1"))
 
         # Ask is filled and due to delay is not replenished immediately
         # Bid orders are now hanging and active
@@ -201,17 +226,17 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
         self.assertEqual(5, len(strategy.active_sells))
 
         # Check all hanging order ids are indeed in active bids list
-        self.assertTrue(all(h in [order.client_order_id for market, order in strategy.active_buys]
+        self.assertTrue(all(h in [order.client_order_id for order in strategy.active_buys]
                             for h in strategy.hanging_order_ids))
 
-        old_buys = [o[1] for o in strategy.active_buys if o[1].client_order_id not in strategy.hanging_order_ids]
-        old_sells = [o[1] for o in strategy.active_sells if o[1].client_order_id not in strategy.hanging_order_ids]
+        old_buys = [o for o in strategy.active_buys if o.client_order_id not in strategy.hanging_order_ids]
+        old_sells = [o for o in strategy.active_sells if o.client_order_id not in strategy.hanging_order_ids]
 
         self.clock.backtest_til(self.start_timestamp + 15 * self.clock_tick_size)
         self.assertEqual(10, len(strategy.active_buys))
         self.assertEqual(5, len(strategy.active_sells))
 
-        new_buys = [o[1] for o in strategy.active_buys if o[1].client_order_id not in strategy.hanging_order_ids]
-        new_sells = [o[1] for o in strategy.active_sells if o[1].client_order_id not in strategy.hanging_order_ids]
+        new_buys = [o for o in strategy.active_buys if o.client_order_id not in strategy.hanging_order_ids]
+        new_sells = [o for o in strategy.active_sells if o.client_order_id not in strategy.hanging_order_ids]
         self.assertEqual([o.client_order_id for o in old_sells], [o.client_order_id for o in new_sells])
         self.assertEqual([o.client_order_id for o in old_buys], [o.client_order_id for o in new_buys])
