@@ -234,10 +234,10 @@ def jsdict_order_to_struct(jsdict: dict) -> Order:
 
 
 def convert_order_to_tuple(order: Order) -> Tuple[str, any]:
-    order_tuple = (order["makerAddress"],
-                   order["takerAddress"],
-                   order["feeRecipientAddress"],
-                   order["senderAddress"],
+    order_tuple = (to_checksum_address(order["makerAddress"]),
+                   to_checksum_address(order["takerAddress"]),
+                   to_checksum_address(order["feeRecipientAddress"]),
+                   to_checksum_address(order["senderAddress"]),
                    int(order["makerAssetAmount"]),
                    int(order["takerAssetAmount"]),
                    int(order["makerFee"]),
