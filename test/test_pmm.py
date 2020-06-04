@@ -20,9 +20,11 @@ from hummingbot.core.event.events import (
     OrderBookTradeEvent,
     TradeType
 )
-from hummingbot.strategy.pure_market_making.pure_market_making_v3 import PureMarketMakingStrategyV3
+from hummingbot.strategy.pure_market_making.pure_market_making import PureMarketMakingStrategy
+from hummingbot.strategy.pure_market_making.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
+from hummingbot.client.command.config_command import ConfigCommand
 
 
 # Update the orderbook so that the top bids and asks are lower than actual for a wider bid ask spread
@@ -44,7 +46,7 @@ def simulate_order_book_widening(order_book: OrderBook, top_bid: float, top_ask:
     order_book.apply_diffs(bid_diffs, ask_diffs, update_id)
 
 
-class PMMV3UnitTest(unittest.TestCase):
+class PMMUnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
     start_timestamp: float = start.timestamp()
@@ -83,7 +85,7 @@ class PMMV3UnitTest(unittest.TestCase):
         self.market.add_listener(MarketEvent.OrderFilled, self.order_fill_logger)
         self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
-        self.one_level_strategy = PureMarketMakingStrategyV3(
+        self.one_level_strategy = PureMarketMakingStrategy(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
@@ -93,7 +95,7 @@ class PMMV3UnitTest(unittest.TestCase):
             order_refresh_tolerance_pct=-1
         )
 
-        self.multi_levels_strategy = PureMarketMakingStrategyV3(
+        self.multi_levels_strategy = PureMarketMakingStrategy(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
@@ -105,6 +107,16 @@ class PMMV3UnitTest(unittest.TestCase):
             order_level_spread=Decimal("0.01"),
             order_level_amount=Decimal("1")
         )
+
+        self.ext_market: BacktestMarket = BacktestMarket()
+        self.ext_data: MockOrderBookLoader = MockOrderBookLoader(self.trading_pair, self.base_asset, self.quote_asset)
+        self.ext_market_info: MarketTradingPairTuple = MarketTradingPairTuple(
+            self.ext_market, self.trading_pair, self.base_asset, self.quote_asset
+        )
+        self.ext_data.set_balanced_order_book(mid_price=50, min_price=1, max_price=400, price_step_size=1,
+                                              volume_step_size=10)
+        self.ext_market.add_data(self.ext_data)
+        self.order_book_asset_del = OrderBookAssetPriceDelegate(self.ext_market, self.trading_pair)
 
     def simulate_maker_market_trade(self, is_buy: bool, quantity: Decimal, price: Decimal):
         order_book = self.market.get_order_book(self.trading_pair)
@@ -304,26 +316,36 @@ class PMMV3UnitTest(unittest.TestCase):
 
     def test_filled_order_delay(self):
         strategy = self.one_level_strategy
-        strategy.filled_order_delay = 10.0
+        strategy.filled_order_delay = 60.0
         self.clock.add_iterator(strategy)
         self.clock.backtest_til(self.start_timestamp + 1)
         self.assertEqual(1, len(strategy.active_buys))
         self.assertEqual(1, len(strategy.active_sells))
 
-        self.simulate_maker_market_trade(True, 100, Decimal("101.1"))
+        self.clock.backtest_til(self.start_timestamp + 7)
         # Ask is filled and due to delay is not replenished immediately
-        self.clock.backtest_til(self.start_timestamp + 2)
+        self.simulate_maker_market_trade(True, 100, Decimal("101.1"))
         self.assertEqual(1, len(self.order_fill_logger.event_log))
         self.assertEqual(1, len(strategy.active_buys))
         self.assertEqual(0, len(strategy.active_sells))
 
+        self.clock.backtest_til(self.start_timestamp + 15)
         # After order_refresh_time, buy order gets canceled
-        self.clock.backtest_til(self.start_timestamp + 7)
+        self.assertEqual(0, len(strategy.active_buys))
+        self.assertEqual(0, len(strategy.active_sells))
+
+        # still no orders
+        self.clock.backtest_til(self.start_timestamp + 30)
+        self.assertEqual(0, len(strategy.active_buys))
+        self.assertEqual(0, len(strategy.active_sells))
+
+        # still no orders
+        self.clock.backtest_til(self.start_timestamp + 45)
         self.assertEqual(0, len(strategy.active_buys))
         self.assertEqual(0, len(strategy.active_sells))
 
         # Orders are placed after replenish delay
-        self.clock.backtest_til(self.start_timestamp + 12)
+        self.clock.backtest_til(self.start_timestamp + 69)
         self.assertEqual(1, len(strategy.active_buys))
         self.assertEqual(1, len(strategy.active_sells))
 
@@ -502,12 +524,21 @@ class PMMV3UnitTest(unittest.TestCase):
         self.assertEqual(Decimal("1.34865"), first_ask_order.quantity)
 
     def test_inventory_skew_multiple_orders(self):
-        strategy = self.multi_levels_strategy
-        strategy.order_levels = 5
-        strategy.order_level_amount = Decimal("0.5")
-        strategy.inventory_skew_enabled = True
-        strategy.inventory_target_base_pct = Decimal("0.9")
-        strategy.inventory_range_multiplier = Decimal("0.5")
+        strategy = PureMarketMakingStrategy(
+            self.market_info,
+            bid_spread=Decimal("0.01"),
+            ask_spread=Decimal("0.01"),
+            order_amount=Decimal("1"),
+            order_refresh_time=5.0,
+            filled_order_delay=5.0,
+            order_refresh_tolerance_pct=-1,
+            order_levels=5,
+            order_level_spread=Decimal("0.01"),
+            order_level_amount=Decimal("0.5"),
+            inventory_skew_enabled=True,
+            inventory_target_base_pct=Decimal("0.9"),
+            inventory_range_multiplier=Decimal("0.5")
+        )
         self.clock.add_iterator(strategy)
         self.clock.backtest_til(self.start_timestamp + 1)
         self.assertEqual(5, len(strategy.active_buys))
@@ -522,8 +553,8 @@ class PMMV3UnitTest(unittest.TestCase):
 
         last_bid_order = strategy.active_buys[-1]
         last_ask_order = strategy.active_sells[-1]
-        last_bid_price = Decimal(99 * (1 - 0.01) ** 4).quantize(Decimal("0.001"))
-        last_ask_price = Decimal(101 * (1 + 0.01) ** 4).quantize(Decimal("0.001"))
+        last_bid_price = Decimal(100 * (1 - 0.01 - (0.01 * 4))).quantize(Decimal("0.001"))
+        last_ask_price = Decimal(100 * (1 + 0.01 + (0.01 * 4))).quantize(Decimal("0.001"))
         self.assertAlmostEqual(last_bid_price, last_bid_order.price, 3)
         self.assertAlmostEqual(last_ask_price, last_ask_order.price, 3)
         self.assertEqual(Decimal("1.5"), last_bid_order.quantity)
@@ -553,9 +584,118 @@ class PMMV3UnitTest(unittest.TestCase):
         self.assertEqual(Decimal("101"), first_ask_order.price)
         self.assertEqual(Decimal("0.651349"), first_bid_order.quantity)
         self.assertEqual(Decimal("1.34865"), first_ask_order.quantity)
-        last_bid_price = Decimal(99 * (1 - 0.01) ** 4).quantize(Decimal("0.001"))
-        last_ask_price = Decimal(101 * (1 + 0.01) ** 4).quantize(Decimal("0.001"))
+        last_bid_price = Decimal(100 * (1 - 0.01 - (0.01 * 4))).quantize(Decimal("0.001"))
+        last_ask_price = Decimal(100 * (1 + 0.01 + (0.01 * 4))).quantize(Decimal("0.001"))
         self.assertAlmostEqual(last_bid_price, last_bid_order.price, 3)
         self.assertAlmostEqual(last_ask_price, last_ask_order.price, 3)
         self.assertEqual(Decimal("1.95404"), last_bid_order.quantity)
         self.assertEqual(Decimal("4.04595"), last_ask_order.quantity)
+
+    def test_external_exchange_price_source(self):
+        strategy = self.one_level_strategy
+        strategy.asset_price_delegate = self.order_book_asset_del
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        self.assertEqual(1, len(strategy.active_buys))
+        # There should be no sell order, since its price will be below first bid order on the order book.
+        self.assertEqual(0, len(strategy.active_sells))
+
+        # check price data from external exchange is used for order placement
+        bid_order = strategy.active_buys[0]
+        self.assertEqual(Decimal("49.5"), bid_order.price)
+        self.assertEqual(Decimal("1.0"), bid_order.quantity)
+
+    def test_external_exchange_price_source_empty_orderbook(self):
+        simulate_order_book_widening(self.book_data.order_book, 0, 10000)
+        self.assertEqual(0, len(list(self.book_data.order_book.bid_entries())))
+        self.assertEqual(0, len(list(self.book_data.order_book.ask_entries())))
+        strategy = self.one_level_strategy
+        strategy.asset_price_delegate = self.order_book_asset_del
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+
+        # check price data from external exchange is used for order placement
+        bid_order = strategy.active_buys[0]
+        self.assertEqual(Decimal("49.5"), bid_order.price)
+        self.assertEqual(Decimal("1.0"), bid_order.quantity)
+        ask_order = strategy.active_sells[0]
+        self.assertEqual(Decimal("50.5"), ask_order.price)
+        self.assertEqual(Decimal("1.0"), ask_order.quantity)
+
+    def test_multi_order_external_exchange_price_source(self):
+        strategy = self.multi_levels_strategy
+        strategy.asset_price_delegate = self.order_book_asset_del
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        self.assertEqual(3, len(strategy.active_buys))
+        # There should be no sell order, since its price will be below first bid order on the order book.
+        self.assertEqual(0, len(strategy.active_sells))
+
+        # check price data from external exchange is used for order placement
+        bid_order = strategy.active_buys[0]
+        self.assertEqual(Decimal("49.5"), bid_order.price)
+        self.assertEqual(Decimal("1.0"), bid_order.quantity)
+
+        last_bid_order = strategy.active_buys[-1]
+        last_bid_price = Decimal(50 * (1 - 0.01 - (0.01 * 2))).quantize(Decimal("0.001"))
+        self.assertAlmostEqual(last_bid_price, last_bid_order.price, 3)
+        self.assertEqual(Decimal("3.0"), last_bid_order.quantity)
+
+    def test_multi_order_external_exchange_price_source_empty_order_book(self):
+        simulate_order_book_widening(self.book_data.order_book, 0, 10000)
+        self.assertEqual(0, len(list(self.book_data.order_book.bid_entries())))
+        self.assertEqual(0, len(list(self.book_data.order_book.ask_entries())))
+        strategy = self.multi_levels_strategy
+        strategy.asset_price_delegate = self.order_book_asset_del
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        self.assertEqual(3, len(strategy.active_buys))
+        self.assertEqual(3, len(strategy.active_sells))
+
+        # check price data from external exchange is used for order placement
+        bid_order = strategy.active_buys[0]
+        self.assertEqual(Decimal("49.5"), bid_order.price)
+        self.assertEqual(Decimal("1.0"), bid_order.quantity)
+
+        last_bid_order = strategy.active_buys[-1]
+        last_bid_price = Decimal(50 * (1 - 0.01 - (0.01 * 2))).quantize(Decimal("0.001"))
+        self.assertAlmostEqual(last_bid_price, last_bid_order.price, 3)
+        self.assertEqual(Decimal("3.0"), last_bid_order.quantity)
+
+    def test_config_spread_on_the_fly_multiple_orders(self):
+        strategy = self.multi_levels_strategy
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(3, len(strategy.active_buys))
+        self.assertEqual(3, len(strategy.active_sells))
+
+        first_bid_order = strategy.active_buys[0]
+        first_ask_order = strategy.active_sells[0]
+        self.assertEqual(Decimal("99"), first_bid_order.price)
+        self.assertEqual(Decimal("101"), first_ask_order.price)
+
+        last_bid_order = strategy.active_buys[-1]
+        last_ask_order = strategy.active_sells[-1]
+        self.assertAlmostEqual(Decimal("97"), last_bid_order.price, 2)
+        self.assertAlmostEqual(Decimal("103"), last_ask_order.price, 2)
+
+        ConfigCommand.update_running_pure_mm(strategy, "bid_spread", Decimal('2'))
+        ConfigCommand.update_running_pure_mm(strategy, "ask_spread", Decimal('2'))
+        self.clock.backtest_til(self.start_timestamp + 7)
+        first_bid_order = strategy.active_buys[0]
+        first_ask_order = strategy.active_sells[0]
+        self.assertEqual(Decimal("98"), first_bid_order.price)
+        self.assertEqual(Decimal("102"), first_ask_order.price)
+
+        last_bid_order = strategy.active_buys[-1]
+        last_ask_order = strategy.active_sells[-1]
+        self.assertAlmostEqual(Decimal("96"), last_bid_order.price, 2)
+        self.assertAlmostEqual(Decimal("104"), last_ask_order.price, 2)

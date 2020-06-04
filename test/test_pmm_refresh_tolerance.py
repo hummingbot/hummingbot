@@ -24,7 +24,7 @@ from hummingbot.core.event.events import (
     TradeType
 )
 from hummingbot.core.data_type.order_book_row import OrderBookRow
-from hummingbot.strategy.pure_market_making.pure_market_making_v3 import PureMarketMakingStrategyV3
+from hummingbot.strategy.pure_market_making.pure_market_making import PureMarketMakingStrategy
 
 
 class PMMRefreshToleranceUnitTest(unittest.TestCase):
@@ -77,7 +77,7 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
         self.market.add_listener(MarketEvent.OrderFilled, self.maker_order_fill_logger)
         self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
-        self.one_level_strategy: PureMarketMakingStrategyV3 = PureMarketMakingStrategyV3(
+        self.one_level_strategy: PureMarketMakingStrategy = PureMarketMakingStrategy(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
@@ -88,7 +88,7 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
             hanging_orders_cancel_pct=0.05,
             order_refresh_tolerance_pct=0
         )
-        self.multi_levels_strategy: PureMarketMakingStrategyV3 = PureMarketMakingStrategyV3(
+        self.multi_levels_strategy: PureMarketMakingStrategy = PureMarketMakingStrategy(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
@@ -99,7 +99,7 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
             filled_order_delay=8,
             order_refresh_tolerance_pct=0
         )
-        self.hanging_order_multiple_strategy = PureMarketMakingStrategyV3(
+        self.hanging_order_multiple_strategy = PureMarketMakingStrategy(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
