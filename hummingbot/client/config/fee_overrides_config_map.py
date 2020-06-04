@@ -28,4 +28,10 @@ fee_overrides_config_map = {
     "kucoin_taker_fee": new_fee_config_var("kucoin_taker_fee"),
     "kraken_maker_fee": new_fee_config_var("kraken_maker_fee"),
     "kraken_taker_fee": new_fee_config_var("kraken_taker_fee"),
+    "dolomite_maker_fee": new_fee_config_var("dolomite_maker_fee"),
+    "dolomite_taker_fee": new_fee_config_var("dolomite_taker_fee"),
+    "bamboo_relay_maker_fee": new_fee_config_var("bamboo_relay_maker_fee"),
+    "bamboo_relay_taker_fee": new_fee_config_var("bamboo_relay_taker_fee"),
+    "radar_relay_maker_fee": new_fee_config_var("radar_relay_maker_fee"),
+    "radar_relay_taker_fee": new_fee_config_var("radar_relay_taker_fee")
 }
