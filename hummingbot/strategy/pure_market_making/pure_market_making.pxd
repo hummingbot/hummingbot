@@ -4,7 +4,7 @@ from libc.stdint cimport int64_t
 from hummingbot.strategy.strategy_base cimport StrategyBase
 
 
-cdef class PureMarketMakingStrategyV3(StrategyBase):
+cdef class PureMarketMakingStrategy(StrategyBase):
     cdef:
         object _market_info
 
@@ -41,7 +41,7 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
         double _last_timestamp
         double _status_report_interval
         int64_t _logging_options
-
+    cdef object c_get_mid_price(self)
     cdef object c_create_base_proposal(self)
     cdef c_apply_order_levels_modifiers(self, object proposal)
     cdef c_apply_price_band(self, object proposal)

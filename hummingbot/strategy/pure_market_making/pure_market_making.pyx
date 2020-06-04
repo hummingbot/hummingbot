@@ -35,6 +35,7 @@ from .pure_market_making_order_tracker import PureMarketMakingOrderTracker
 from .asset_price_delegate cimport AssetPriceDelegate
 from .asset_price_delegate import AssetPriceDelegate
 from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
+from .inventory_skew_calculator import calculate_total_order_size
 
 
 NaN = float("nan")
@@ -43,7 +44,7 @@ s_decimal_neg_one = Decimal(-1)
 s_logger = None
 
 
-cdef class PureMarketMakingStrategyV3(StrategyBase):
+cdef class PureMarketMakingStrategy(StrategyBase):
     OPTION_LOG_CREATE_ORDER = 1 << 3
     OPTION_LOG_MAKER_ORDER_FILLED = 1 << 4
     OPTION_LOG_STATUS_REPORT = 1 << 5
@@ -279,11 +280,17 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
     def trading_pair(self):
         return self._market_info.trading_pair
 
-    @property
-    def mid_price(self):
-        mid_price = self._market_info.get_mid_price()
+    def get_mid_price(self):
+        return self.c_get_mid_price()
+
+    cdef object c_get_mid_price(self):
+        cdef:
+            AssetPriceDelegate delegate = self._asset_price_delegate
+            object mid_price
         if self._asset_price_delegate is not None:
-            mid_price = self._asset_price_delegate.c_get_mid_price()
+            mid_price = delegate.c_get_mid_price()
+        else:
+            mid_price = self._market_info.get_mid_price()
         return mid_price
 
     @property
@@ -341,11 +348,9 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
         cdef:
             MarketBase market = self._market_info.market
 
-        trading_pair = self._market_info.trading_pair
-        mid_price = ((market.c_get_price(trading_pair, True) + market.c_get_price(trading_pair, False)) *
-                     Decimal("0.5"))
-        base_asset_amount = market.c_get_balance(self._market_info.base_asset)
-        quote_asset_amount = market.c_get_balance(self._market_info.quote_asset)
+        mid_price = self.get_mid_price()
+        base_asset_amount = market.c_get_balance(self.base_asset)
+        quote_asset_amount = market.c_get_balance(self.quote_asset)
         base_asset_value = base_asset_amount * mid_price
         quote_asset_value = quote_asset_amount / mid_price if mid_price > s_decimal_zero else s_decimal_zero
         total_value = base_asset_amount + quote_asset_value
@@ -383,7 +388,7 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
             float(base_asset_range)
         )
         inventory_skew_df = pd.DataFrame(data=[
-            [f"Target Value ({self._market_info.quote_asset})", f"{target_base_amount_in_quote:.4f}",
+            [f"Target Value ({self.quote_asset})", f"{target_base_amount_in_quote:.4f}",
              f"{target_quote_amount:.4f}"],
             ["Current %", f"{base_asset_ratio:.1%}", f"{quote_asset_ratio:.1%}"],
             ["Target %", f"{target_base_ratio:.1%}", f"{1 - target_base_ratio:.1%}"],
@@ -395,7 +400,7 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
 
     def pure_mm_assets_df(self, to_show_current_pct: bool) -> pd.DataFrame:
         market, trading_pair, base_asset, quote_asset = self._market_info
-        mid_price = self.mid_price
+        mid_price = self.get_mid_price()
         base_balance = float(market.get_balance(base_asset))
         quote_balance = float(market.get_balance(quote_asset))
         available_base_balance = float(market.get_available_balance(base_asset))
@@ -416,7 +421,7 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
         return df
 
     def active_orders_df(self) -> pd.DataFrame:
-        mid_price = self.mid_price()
+        mid_price = self.get_mid_price()
         active_orders = self.active_orders
         no_sells = len([o for o in active_orders if not o.is_buy and o.client_order_id not in self._hanging_order_ids])
         active_orders.sort(key=lambda x: x.price, reverse=True)
@@ -459,7 +464,7 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
             list warning_lines = []
         warning_lines.extend(self.network_warning([self._market_info]))
 
-        markets_df = self.market_status_data_frame()
+        markets_df = self.market_status_data_frame([self._market_info])
         lines.extend(["", "  Markets:"] + ["    " + line for line in markets_df.to_string(index=False).split("\n")])
 
         assets_df = self.pure_mm_assets_df(not self._inventory_skew_enabled)
@@ -510,7 +515,6 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
                                            (self._logging_options & self.OPTION_LOG_STATUS_REPORT))
             cdef object proposal
         try:
-            print(f"time: {self._current_timestamp}")
             if not self._all_markets_ready:
                 self._all_markets_ready = all([market.ready for market in self._sb_markets])
                 if self._asset_price_delegate is not None and self._all_markets_ready:
@@ -542,7 +546,6 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
                 self.c_apply_budget_constraint(proposal)
 
                 self.c_filter_out_takers(proposal)
-                print(f"Proposal: {proposal}")
             self.c_cancel_active_orders(proposal)
             self.c_cancel_hanging_orders()
             if self.c_to_create_orders(proposal):
@@ -553,20 +556,19 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
     cdef object c_create_base_proposal(self):
         cdef:
             MarketBase market = self._market_info.market
-            str trading_pair = self._market_info.trading_pair
             list buys = []
             list sells = []
         for level in range(0, self._order_levels):
-            price = self.mid_price * (Decimal("1") - self._bid_spread - (level * self._order_level_spread))
-            price = market.c_quantize_order_price(trading_pair, price)
+            price = self.c_get_mid_price() * (Decimal("1") - self._bid_spread - (level * self._order_level_spread))
+            price = market.c_quantize_order_price(self.trading_pair, price)
             size = self._order_amount + (self._order_level_amount * level)
-            market.c_quantize_order_amount(trading_pair, size)
+            market.c_quantize_order_amount(self.trading_pair, size)
             buys.append(PriceSize(price, size))
         for level in range(0, self._order_levels):
-            price = self.mid_price * (Decimal("1") + self._ask_spread + (level * self._order_level_spread))
-            price = market.c_quantize_order_price(trading_pair, price)
+            price = self.c_get_mid_price() * (Decimal("1") + self._ask_spread + (level * self._order_level_spread))
+            price = market.c_quantize_order_price(self.trading_pair, price)
             size = self._order_amount + (self._order_level_amount * level)
-            market.c_quantize_order_amount(trading_pair, size)
+            market.c_quantize_order_amount(self.trading_pair, size)
             sells.append(PriceSize(price, size))
 
         return Proposal(buys, sells)
@@ -577,9 +579,9 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
             self.c_apply_ping_pong(proposal)
 
     cdef c_apply_price_band(self, proposal):
-        if self._price_ceiling > 0 and self.mid_price >= self._price_ceiling:
+        if self._price_ceiling > 0 and self.c_get_mid_price() >= self._price_ceiling:
             proposal.buys = []
-        if self._price_floor > 0 and self.mid_price <= self._price_floor:
+        if self._price_floor > 0 and self.c_get_mid_price() <= self._price_floor:
             proposal.sells = []
 
     cdef c_apply_ping_pong(self, object proposal):
@@ -604,10 +606,8 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
     cdef c_apply_inventory_skew(self, object proposal):
         cdef:
             MarketBase market = self._market_info.market
-            str base = self._market_info.trading_pair.split("-")[0]
-            str quote = self._market_info.trading_pair.split("-")[1]
-            object base_balance = market.c_get_available_balance(base)
-            object quote_balance = market.c_get_available_balance(quote)
+            object base_balance = market.c_get_available_balance(self.base_asset)
+            object quote_balance = market.c_get_available_balance(self.quote_asset)
 
         for active_order in self.active_orders:
             if active_order.is_buy:
@@ -620,11 +620,11 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
             object ask_adj_ratio
             object size
 
-        total_order_size = self._order_amount * Decimal("2")
+        total_order_size = calculate_total_order_size(self._order_amount, self._order_level_amount, self._order_levels)
         bid_ask_ratios = c_calculate_bid_ask_ratios_from_base_asset_ratio(
             float(base_balance),
             float(quote_balance),
-            float(self.mid_price),
+            float(self.c_get_mid_price()),
             float(self._inventory_target_base_pct),
             float(total_order_size * self._inventory_range_multiplier)
         )
@@ -633,12 +633,12 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
 
         for buy in proposal.buys:
             size = buy.size * bid_adj_ratio
-            size = market.c_quantize_order_amount(self._market_info.trading_pair, size)
+            size = market.c_quantize_order_amount(self.trading_pair, size)
             buy.size = size
 
         for sell in proposal.sells:
             size = sell.size * ask_adj_ratio
-            size = market.c_quantize_order_amount(self._market_info.trading_pair, size, sell.price)
+            size = market.c_quantize_order_amount(self.trading_pair, size, sell.price)
             sell.size = size
 
     cdef c_apply_budget_constraint(self, object proposal):
@@ -651,15 +651,11 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
             object quote_size_total = Decimal("0")
             object base_size_total = Decimal("0")
 
-        print(f"available base: {base_balance}")
-        print(f"available quote: {quote_balance}")
         for order in self.active_non_hanging_orders:
             if order.is_buy:
                 quote_balance += order.quantity * order.price
             else:
                 base_balance += order.quantity
-        print(f"base total: {base_balance}")
-        print(f"quote total: {quote_balance}")
 
         for buy in proposal.buys:
             buy_fees = market.c_get_fee(self.base_asset, self.quote_asset, OrderType.MARKET, TradeType.BUY,
@@ -684,10 +680,12 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
             MarketBase market = self._market_info.market
             list new_buys = []
             list new_sells = []
-        top_ask = market.c_get_price(self._market_info.trading_pair, True)
-        proposal.buys = [buy for buy in proposal.buys if buy.price < top_ask]
-        top_bid = market.c_get_price(self._market_info.trading_pair, False)
-        proposal.sells = [sell for sell in proposal.sells if sell.price > top_bid]
+        top_ask = market.c_get_price(self.trading_pair, True)
+        if not top_ask.is_nan():
+            proposal.buys = [buy for buy in proposal.buys if buy.price < top_ask]
+        top_bid = market.c_get_price(self.trading_pair, False)
+        if not top_bid.is_nan():
+            proposal.sells = [sell for sell in proposal.sells if sell.price > top_bid]
 
     # Compare the market price with the top bid and top ask price
     cdef c_apply_order_optimization(self, object proposal):
@@ -710,7 +708,7 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
         top_bid_price = self._market_info.get_price_for_volume(
             False, self._order_optimization_depth + own_buy_size).result_price
         price_quantum = market.c_get_order_price_quantum(
-            self._market_info.trading_pair,
+            self.trading_pair,
             top_bid_price
         )
         # Get the price above the top bid
@@ -719,13 +717,13 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
         # If the price_above_bid is lower than the price suggested by the pricing proposal,
         # lower your price to this
         lower_buy_price = min(proposal.buys[0].price, price_above_bid)
-        proposal.buys[0].price = market.c_quantize_order_price(self._market_info.trading_pair, lower_buy_price)
+        proposal.buys[0].price = market.c_quantize_order_price(self.trading_pair, lower_buy_price)
 
         # Get the top ask price in the market using order_optimization_depth and your sell order volume
         top_ask_price = self._market_info.get_price_for_volume(
             True, self._order_optimization_depth + own_sell_size).result_price
         price_quantum = market.c_get_order_price_quantum(
-            self._market_info.trading_pair,
+            self.trading_pair,
             top_ask_price
         )
         # Get the price below the top ask
@@ -734,21 +732,21 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
         # If the price_below_ask is higher than the price suggested by the pricing proposal,
         # increase your price to this
         higher_sell_price = max(proposal.sells[0].price, price_below_ask)
-        proposal.sells[0].price = market.c_quantize_order_price(self._market_info.trading_pair, higher_sell_price)
+        proposal.sells[0].price = market.c_quantize_order_price(self.trading_pair, higher_sell_price)
 
     cdef object c_apply_add_transaction_costs(self, object proposal):
         cdef:
             MarketBase market = self._market_info.market
         for buy in proposal.buys:
-            fee = market.c_get_fee(self._market_info.base_asset, self._market_info.quote_asset,
+            fee = market.c_get_fee(self.base_asset, self.quote_asset,
                                    OrderType.LIMIT, TradeType.BUY, buy.size, buy.price)
             price = buy.price * (Decimal(1) - fee.percent)
-            buy.price = market.c_quantize_order_price(self._market_info.trading_pair, price)
+            buy.price = market.c_quantize_order_price(self.trading_pair, price)
         for sell in proposal.sells:
-            fee = market.c_get_fee(self._market_info.base_asset, self._market_info.quote_asset,
+            fee = market.c_get_fee(self.base_asset, self.quote_asset,
                                    OrderType.LIMIT, TradeType.SELL, sell.size, sell.price)
             price = sell.price * (Decimal(1) + fee.percent)
-            sell.price = market.c_quantize_order_price(self._market_info.trading_pair, price)
+            sell.price = market.c_quantize_order_price(self.trading_pair, price)
 
     cdef c_did_fill_order(self, object order_filled_event):
         cdef:
@@ -781,7 +779,6 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
             limit_order_record = self._sb_order_tracker.c_get_limit_order(self._market_info, order_id)
         if limit_order_record is None:
             return
-        print(f"c_did_complete_buy_order order_id: {order_id}")
         active_sell_ids = [x.client_order_id for x in self.active_orders if not x.is_buy]
 
         if self._hanging_orders_enabled:
@@ -801,7 +798,7 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
 
         self.log_with_clock(
             logging.INFO,
-            f"({self._market_info.trading_pair}) Maker buy order {order_id} "
+            f"({self.trading_pair}) Maker buy order {order_id} "
             f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
         )
@@ -812,7 +809,6 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
             LimitOrder limit_order_record = self._sb_order_tracker.c_get_limit_order(self._market_info, order_id)
         if limit_order_record is None:
             return
-        print(f"c_did_complete_sell_order order_id: {order_id}")
         active_buy_ids = [x.client_order_id for x in self.active_orders if x.is_buy]
         if self._hanging_orders_enabled:
             # If the filled order is a hanging order, do nothing
@@ -831,7 +827,7 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
 
         self.log_with_clock(
             logging.INFO,
-            f"({self._market_info.trading_pair}) Maker sell order {order_id} "
+            f"({self.trading_pair}) Maker sell order {order_id} "
             f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
         )
@@ -868,7 +864,6 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
             if self.c_is_within_tolerance(active_buy_prices, proposal_buys) and \
                     self.c_is_within_tolerance(active_sell_prices, proposal_sells):
                 to_defer_canceling = True
-            print(f"to_defer_canceling: {to_defer_canceling}")
         if not to_defer_canceling:
             for order in active_orders:
                 self.c_cancel_order(self._market_info, order.client_order_id)
@@ -880,7 +875,7 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
 
     cdef c_cancel_hanging_orders(self):
         cdef:
-            object mid_price = self.mid_price
+            object mid_price = self.c_get_mid_price()
             list active_orders = self.active_orders
             list orders
             LimitOrder order
@@ -908,15 +903,14 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
 
         if len(proposal.buys) > 0:
             if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
-                price_quote_str = [f"{buy.size.normalize()} {self._market_info.base_asset}, "
-                                   f"{buy.price.normalize()} {self._market_info.quote_asset}"
+                price_quote_str = [f"{buy.size.normalize()} {self.base_asset}, "
+                                   f"{buy.price.normalize()} {self.quote_asset}"
                                    for buy in proposal.buys]
                 self.logger().info(
-                    f"({self._market_info.trading_pair}) Creating {len(proposal.buys)} bid orders "
+                    f"({self.trading_pair}) Creating {len(proposal.buys)} bid orders "
                     f"at (Size, Price): {price_quote_str}"
                 )
             for buy in proposal.buys:
-                print(f"buying: {buy}")
                 bid_order_id = self.c_buy_with_specific_market(
                     self._market_info,
                     buy.size,
@@ -927,15 +921,14 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
                 orders_created = True
         if len(proposal.sells) > 0:
             if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
-                price_quote_str = [f"{sell.size.normalize()} {self._market_info.base_asset}, "
-                                   f"{sell.price.normalize()} {self._market_info.quote_asset}"
+                price_quote_str = [f"{sell.size.normalize()} {self.base_asset}, "
+                                   f"{sell.price.normalize()} {self.quote_asset}"
                                    for sell in proposal.sells]
                 self.logger().info(
-                    f"({self._market_info.trading_pair}) Creating {len(proposal.sells)} ask "
+                    f"({self.trading_pair}) Creating {len(proposal.sells)} ask "
                     f"orders at (Size, Price): {price_quote_str}"
                 )
             for sell in proposal.sells:
-                print(f"selling: {sell}")
                 ask_order_id = self.c_sell_with_specific_market(
                     self._market_info,
                     sell.size,
