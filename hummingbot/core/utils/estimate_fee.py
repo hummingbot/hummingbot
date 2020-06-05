@@ -23,7 +23,7 @@ default_dex_estimate = {
 def estimate_fee(exchange, is_maker):
     override_config_name_suffix = "_maker_fee" if is_maker else "_taker_fee"
     override_config_name = exchange + override_config_name_suffix
-    if exchange not in default_dex_estimate:
+    if exchange in default_dex_estimate:
         override_config_name += "_amount"
     s_decimal_0 = Decimal(0)
     s_decimal_100 = Decimal(100)
