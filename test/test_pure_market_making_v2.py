@@ -1550,3 +1550,59 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
         self.assertAlmostEqual(last_ask_price, last_ask_order.price, 3)
         self.assertEqual(Decimal("1.95404"), last_bid_order.quantity)
         self.assertEqual(Decimal("4.04595"), last_ask_order.quantity)
+
+
+class PureMarketMakingV2MinimumSpreadUnitTest(unittest.TestCase):
+    start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
+    end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
+    start_timestamp: float = start.timestamp()
+    end_timestamp: float = end.timestamp()
+    maker_trading_pairs: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
+
+    def setUp(self):
+        self.clock_tick_size = 1
+        self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
+        self.maker_market: BacktestMarket = BacktestMarket()
+        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_trading_pairs)
+        self.mid_price = 100
+        self.order_refresh_time = 30
+        self.bid_threshold = 0.05
+        self.ask_threshold = 0.05
+        self.maker_data.set_balanced_order_book(mid_price=self.mid_price, min_price=1,
+                                                max_price=200, price_step_size=1, volume_step_size=10)
+        self.constant_pricing_delegate = ConstantSpreadPricingDelegate(Decimal(self.bid_threshold),
+                                                                       Decimal(self.ask_threshold))
+        self.constant_sizing_delegate = ConstantSizeSizingDelegate(Decimal("1.0"))
+        self.filter_delegate = PassThroughFilterDelegate()
+        self.maker_market.add_data(self.maker_data)
+        self.maker_market.set_balance("COINALPHA", 500)
+        self.maker_market.set_balance("WETH", 5000)
+        self.maker_market.set_balance("QETH", 500)
+        self.maker_market.set_quantization_param(
+            QuantizationParams(
+                self.maker_trading_pairs[0], 6, 6, 6, 6
+            )
+        )
+        self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
+            *([self.maker_market] + self.maker_trading_pairs)
+        )
+
+        self.strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
+            [self.market_info],
+            filter_delegate=self.filter_delegate,
+            pricing_delegate=self.constant_pricing_delegate,
+            sizing_delegate=self.constant_sizing_delegate,
+            order_refresh_time=30,
+            minimum_spread=.01,
+        )
+
+    def test_minimum_spread_orders_cancelled_when_mid_price_moves(self):
+        strategy = self.strategy
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(1, len(strategy.active_bids))
+        self.assertEqual(1, len(strategy.active_asks))
+        # old_bid = strategy.active_bids[0][1]
+        # old_ask = strategy.active_asks[0][1]
+
+        # self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size)

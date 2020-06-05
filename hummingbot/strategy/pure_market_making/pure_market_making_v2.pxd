@@ -37,6 +37,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         object _order_optimization_depth
         dict _time_to_cancel
         list _hanging_order_ids
+        double _minimum_spread
 
         int64_t _logging_options
 
@@ -67,6 +68,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     cdef bint c_is_within_tolerance(self, list current_orders, list proposals)
     cdef c_cancel_active_orders(self, object market_info, object orders_proposal)
     cdef c_cancel_hanging_orders(self, object market_info)
+    cdef c_cancel_orders_below_min_spread(self, object market_info)
     cdef bint c_to_create_orders(self, object market_info, object orders_proposal)
     cdef set_timers(self)
     cdef c_join_price_size_proposals(self, list prices, list sizes)

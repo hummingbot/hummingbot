@@ -111,7 +111,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                  price_floor: Decimal = s_decimal_neg_one,
                  ping_pong_enabled: bool = False,
                  hanging_orders_cancel_pct: float = 0.1,
-                 order_refresh_tolerance_pct: float = -1.0):
+                 order_refresh_tolerance_pct: float = -1.0,
+                 minimum_spread: float = 0):
 
         if len(market_infos) < 1:
             raise ValueError(f"market_infos must not be empty.")
@@ -156,6 +157,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         self._order_optimization_enabled = order_optimization_enabled
         self._order_optimization_depth = order_optimization_depth
         self._asset_price_delegate = asset_price_delegate
+
+        self._minimum_spread = minimum_spread
 
         self.limit_order_min_expiration = limit_order_min_expiration
 
@@ -479,6 +482,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                     self._sb_delegate_lock = False
                 self.c_cancel_active_orders(market_info, orders_proposal)
                 self.c_cancel_hanging_orders(market_info)
+                self.c_cancel_orders_below_min_spread(market_info)
                 self.c_execute_orders_proposal(market_info, orders_proposal)
         finally:
             self._last_timestamp = timestamp
@@ -889,6 +893,25 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
             if abs(proposal[0] - current[1])/current[1] > tolerance:
                 return False
         return True
+
+    # Cancel Non-Hanging, Active Orders if Spreads are below minimum_spread
+    cdef c_cancel_orders_below_min_spread(self, object market_info):
+        if self._minimum_spread < 0:
+            return
+        cdef:
+            list active_orders = self.market_info_to_active_orders.get(market_info, [])
+            object mid_price = market_info.get_mid_price()
+            bint cancel_orders = False
+        active_orders = [order for order in active_orders
+                         if order.client_order_id not in self._hanging_order_ids]
+        for order in active_orders:
+            if abs(mid_price - order.price) / mid_price < self._minimum_spread:
+                cancel_orders = True
+        if cancel_orders:
+            self.logger().info(f"Orders are below minimum spread ({self._minimum_spread}."
+                               f"Cancelling Active Orders.")
+            map(lambda order: self.c_cancel_order(market_info, order.client_order_id),
+                active_orders)
 
     cdef c_join_price_size_proposals(self, list prices, list sizes):
         cdef list result = list(zip(prices, sizes))
