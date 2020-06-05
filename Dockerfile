@@ -23,8 +23,8 @@ ENV WALLET=${WALLET}
 ENV CONFIG_PASSWORD=${CONFIG_PASSWORD}
 
 # Create mount points
-RUN mkdir /conf && mkdir /logs
-VOLUME /conf /logs
+RUN mkdir /conf && mkdir /logs && mkdir /data
+VOLUME /conf /logs /data
 
 COPY bin/ bin/
 COPY hummingbot/ hummingbot/
