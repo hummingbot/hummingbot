@@ -604,6 +604,11 @@ cdef list c_find_profitable_arbitrage_orders(object min_profitability,
                 break
 
             step_amount = min(bid_leftover_amount, ask_leftover_amount)
+
+            #skip cases where step_amount=0 for exchages like binance that include orders with 0 amount
+            if step_amount == 0:
+                continue
+
             profitable_orders.append((current_bid_price_adjusted,
                                       current_ask_price_adjusted,
                                       current_bid.price,
