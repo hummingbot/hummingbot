@@ -72,7 +72,7 @@ The minimum order size is the value next to `minimum_order_quantity`. For exampl
 
 ### Transaction Fees
 
-In this [blog post](https://blog.liquid.com/liquid-progressive-fee-update?utm_medium=email&_hsmi=87624281&_hsenc=p2ANqtz-9Pmo-7bZp66cE4nFBRxA4x8ZxNPL-H1t7LgFpsnbKGDAse1NkfvQzM_1dCBTw9cd2zSoxU&utm_content=87624281&utm_source=hs_email), Liquid announced their [new fee structure](https://www.liquid.com/fees/) that offers 0 trading fees on maker orders if a user's 30-day trading volume is less than $10,000 and 0.30% on taker. All users can get a 50% discount on trading fees if paid in QASH.
+In this [blog post](https://blog.liquid.com/liquid-progressive-fee-update), Liquid announced their [new fee structure](https://www.liquid.com/fees/) that offers 0 trading fees on maker orders if a user's 30-day trading volume is less than $10,000 and 0.30% on taker. All users can get a 50% discount on trading fees if paid in QASH.
 
 QASH is an ERC20 token designed to be used services on the Quione and Liquid platform. Effective April 1 2019, high-volume traders can also get rebates on trading fees.
 
