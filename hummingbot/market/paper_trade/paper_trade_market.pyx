@@ -471,7 +471,7 @@ cdef class PaperTradeMarket(MarketBase):
         self.c_set_balance(base_asset, base_balance + total_base_acquired)
 
         #add fee
-        fees = estimate_fee(self.name(), False)
+        fees = estimate_fee(self.name, False)
 
         order_filled_events = OrderFilledEvent.order_filled_events_from_order_book_rows(
             self._current_timestamp, order_id, trading_pair, TradeType.BUY, OrderType.MARKET,
@@ -531,7 +531,7 @@ cdef class PaperTradeMarket(MarketBase):
                            base_asset_amount - amount)
 
         #add fee
-        fees = estimate_fee(self.name(), False)
+        fees = estimate_fee(self.name, False)
 
         order_filled_events = OrderFilledEvent.order_filled_events_from_order_book_rows(
             self._current_timestamp, order_id, trading_pair_str, TradeType.SELL,
@@ -614,7 +614,7 @@ cdef class PaperTradeMarket(MarketBase):
         self.c_set_balance(base_asset, self.c_get_balance(base_asset) + base_asset_traded)
 
         #add fee
-        fees = estimate_fee(self.name(), False)
+        fees = estimate_fee(self.name, True)
 
         # Emit the trade and order completed events.
         config = self._config
@@ -674,7 +674,7 @@ cdef class PaperTradeMarket(MarketBase):
         self.c_set_balance(base_asset, self.c_get_balance(base_asset) - base_asset_traded)
 
         #add fee
-        fees = estimate_fee(self.name(), True)
+        fees = estimate_fee(self.name, True)
 
         # Emit the trade and order completed events.
         config = self._config
@@ -906,7 +906,7 @@ cdef class PaperTradeMarket(MarketBase):
                           object order_side,
                           object amount,
                           object price):
-        return estimate_fee(self.name(), order_type is OrderType.LIMIT)
+        return estimate_fee(self.name, order_type is OrderType.LIMIT)
 
     cdef OrderBook c_get_order_book(self, str trading_pair):
         if trading_pair not in self._trading_pairs:
