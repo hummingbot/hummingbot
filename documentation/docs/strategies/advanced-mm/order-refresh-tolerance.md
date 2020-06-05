@@ -7,13 +7,15 @@ This feature allows you to specify a range of spreads that is "tolerable" - not 
 
 
 ## How It Works
-Type `config order_refresh_tolerance_pct` to set this parameter. By default, this parameter is set to `0`. Hummingbot will cancel outstanding orders except hanging orders every `order_refresh_time` seconds.  Setting it to `-1` will disable the feature and will normally refresh orders based on `order_refresh_time` seconds.
+Type `config order_refresh_tolerance_pct` to set this parameter. By default, this parameter is set to `0`. 
+
+This means that Hummingbot will cancel active orders (excluding hanging orders) every `order_refresh_time` seconds. However, if the price has not changed since the last cycle, Hummingbot will leave the orders there. Setting it to `-1` will disable the feature, which means Hummingbot will always cancel and create orders every `order_refresh_time` seconds.
 
 For example, setting `order_refresh_tolerance_pct` to `0.1` and an active order's spread changes from 1.0% to 0.9%-1.1% when it's time to refresh depending on `order_refresh_time`, this order is kept on the order books (not cancelled). If the spread exceeds 1.1% or goes below 0.9%, then the order is cancelled.
 
 Note that one can set `order_refresh_tolerance_pct` to be greater than the bid and ask spreads. If so, the spread can be negative and put you in a **position of loss**.
 
-##Illustrative Example - When Refresh Tolerance is Important
+## Example
 Imagine you are trading the `ETH-USDT` asset pair on an exchange with a starting mid-market price of 200 USDT ($t_0$). 
 
 ###Sample Market
@@ -27,7 +29,7 @@ Imagine you are trading the `ETH-USDT` asset pair on an exchange with a starting
 - order_refresh_tolerance_pct: 1
 ```
 
-###**Sample Status Output/Log**
+### Sample Status Output/Log
 
 The ask and bid spread is 2%, so your bot will place orders at the ask price of 204 and your bid price to 196 ($t_1$). This configuration creates your orders as follows.
 
@@ -92,7 +94,7 @@ and current order prices is within 1.00% order_refresh_tolerance_pct
 ```
 Lets say that a market taker thinks the market price will decrease substantially and likes your bid-spread. They then can to fill your buy order at 195.02.
 
-###**How Is This Parameter Helpful**
+## How Is This Parameter Helpful
 
 The default for this parameter is a tolerance of 0%. Thus, at each refresh cycle, if the spreads changes *at all*, then the bot will cancel the orders and place new orders at the configuration spread. Because the spread resets at every refresh cycle, this increases the likelyhood that the bid and ask spread are closer to the original bid and ask spread. This reduces the risk that the spread substantially strays away from the original spread, perhaps preventing a loss. *However*, as we have seen above, the strategy can capitalize on the flexibility (tolerance) of the bid and asks spreads because price takers could be looking for some range of spreads that is unknown to you.
 

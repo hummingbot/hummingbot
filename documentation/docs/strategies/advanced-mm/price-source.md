@@ -2,19 +2,29 @@
 
 **Updated as of `v0.28.0`**
 
-By default, Hummingbot uses the market orderbook mid price (between the top bid and the top ask) as a starting price to calculate maker order prices. 
-With external pricing sources, you can now use external sources for the starting mid price such as an external **exchange** or a **custom API**.
+By default, Hummingbot uses the order book you're trading in to generate the **mid price** (between the top bid and the top ask) as a starting price to calculate maker order prices.
+
+With this feature, you can now use a different order book for the starting mid price, such as an external **exchange** or a **custom API**.
 
 ##How It Works
 
 In a situation where the calculation of maker order prices from external sources would result in the order matching any existing orders on the order book, such order will be ignored.
 
-Type `config price_source_enabled` to set the values for `price_source_enabled`, `price_source_type`, `price_source_exchange` and `price_source_market`, or `price_source_custom` (if source type is exchange). Type `config` + `price_source_type`, `price_source_exchange`, `price_source_market`, or `price_source_custom` to set values for these parameters.
+Type `config price_source_enabled` to start the configuration process.
 
-Note that the external price source cannot be the same as the maker exchange (i.e. if the bot is trading on Binance, the `price_source_exchange` cannot be Binance). 
+First, set `price_source_type`: choose whether you want to use another exchange (`exchange`) or a custom API (`custom`). Based on your answer, you can set the exchange order book or enter an API endpoint.
 
-###Example - When Price Sourcing is Important
-Suppose we are market making on the `ETH-USDT` trading pair. The exchange we are trading on, denote as **Exchange A**, is currently displaying a 109 bid and 111 ask price. Now let us consider an **Exchange B** that is showing 99 bid and 101 ask prices on its book. This discrepancy often happens between liquid (B) and illiquid (A) exchanges. When this kind of discrepancy occurs, traders on both exchanges will arbitrage out the discrepancy naturally. Thus, one would want to position their trades with respect to the liquid exchange (**Exchange B**) because the price is likely going to move toward the liquid exchange. Now, when we trade using our market-making bot, we also want to position ourselves towards the more liquid exchange. So, we use **Exchange B** as an *External Price Source*. The trading strategy thus proposes two maker orders, a bid maker order at 98 (for 2% bid spread above the mid-market price of Exchange B) and an ask maker order at 102 (for 2% ask spread on Exchange B). The 102 ask order will be ignored (as it would match the 109 bid order), only the bid order will be submitted to the exchange. Ultimately, this tool is extremely valuable when your bot is trading on illiquid exchanges.
+!!! note
+    Currently, the external price source cannot be the same as the maker exchange (i.e. if the bot is trading on Binance, the `price_source_exchange` cannot be Binance).
+
+### When to use an external price source
+External price source is valuable when your bot is market making for a relatively illiquid trading pair, but a more liquid pair with the same underlying exposure is available on a different exchange.
+
+Suppose we are market making for the `ETH-USDT` trading pair. The exchange we are trading on, denoted as **Exchange A**, has the top bid order at $198 and the top ask order at $202, so the mid price is $200.
+
+Let's suppose there is **Exchange B** with an `ETH-USD` trading pair. That pair has a top bid order at $200 while the top ask order is $202, so the mid price is $201. These discrepancies often happens between different exchanges as market conditions change. Some exchanges may react more slowly or quickly to market changes due to differences in the trading pair, liquidity, geography.
+
+If you believe that `ETH-USD` on Exchange B is more liquid and responds more quickly to market information than `ETH-USDT` on Exchange A, you may want to market make on Exchange A but use `ETH-USD` on Exchange B as the price source. This helps you position your orders based on where the market might go in the future. 
 
 
 ## Sample Configurations
