@@ -1107,7 +1107,8 @@ class PureMarketMakingV2HangingOrderUnitTest(unittest.TestCase):
             filled_order_delay=8,
             hanging_orders_enabled=True,
             logging_options=logging_options,
-            hanging_orders_cancel_pct=0.05
+            hanging_orders_cancel_pct=0.05,
+            minimum_spread=-1,
         )
         self.multiple_order_pricing_delegate = ConstantMultipleSpreadPricingDelegate(
             bid_spread=Decimal(self.bid_threshold),
@@ -1129,7 +1130,8 @@ class PureMarketMakingV2HangingOrderUnitTest(unittest.TestCase):
             filled_order_delay=8,
             hanging_orders_enabled=True,
             logging_options=logging_options,
-            hanging_orders_cancel_pct=0.1
+            hanging_orders_cancel_pct=0.1,
+            minimum_spread=-1,
         )
 
         self.replenish_delay_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
@@ -1139,7 +1141,8 @@ class PureMarketMakingV2HangingOrderUnitTest(unittest.TestCase):
             sizing_delegate=self.constant_sizing_delegate,
             order_refresh_time=4,
             filled_order_delay=8,
-            logging_options=logging_options
+            logging_options=logging_options,
+            minimum_spread=-1,
         )
 
         self.replenish_delay_multiple_strategy: PureMarketMakingStrategyV2 = PureMarketMakingStrategyV2(
@@ -1149,7 +1152,8 @@ class PureMarketMakingV2HangingOrderUnitTest(unittest.TestCase):
             sizing_delegate=self.equal_sizing_delegate,
             order_refresh_time=4,
             filled_order_delay=8,
-            logging_options=logging_options
+            logging_options=logging_options,
+            minimum_spread=-1,
         )
         self.logging_options = logging_options
         self.clock.add_iterator(self.maker_market)
@@ -1616,7 +1620,6 @@ class PureMarketMakingV2MinimumSpreadUnitTest(unittest.TestCase):
         # t = 3, Mid Market Price Moves Down - Below Min Spread (Old Bid) => Orders Cancelled
         self.maker_data.order_book.apply_diffs([OrderBookRow(50, 1000, 2)], [OrderBookRow(50, 1000, 2)], 2)
         self.clock.backtest_til(self.start_timestamp + 3 * self.clock_tick_size)
-        print(f"MID MARKET PRICE: {self.market_info.get_mid_price()}")
         self.assertEqual(0, len(strategy.active_bids))
         self.assertEqual(0, len(strategy.active_asks))
         # t = 30, New Set of Orders
@@ -1647,6 +1650,5 @@ class PureMarketMakingV2MinimumSpreadUnitTest(unittest.TestCase):
         self.assertEqual(old_ask.client_order_id, strategy.active_asks[0][1].client_order_id)
         # Simulate Minimum Spread Threshold Cancellation
         self.clock.backtest_til(self.start_timestamp + 40 * self.clock_tick_size)
-        print(f"MID MARKET PRICE: {self.market_info.get_mid_price()}")
         self.assertEqual(0, len(strategy.active_bids))
         self.assertEqual(0, len(strategy.active_asks))
