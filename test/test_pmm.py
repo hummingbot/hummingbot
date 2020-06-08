@@ -92,7 +92,8 @@ class PMMUnitTest(unittest.TestCase):
             order_amount=Decimal("1"),
             order_refresh_time=5.0,
             filled_order_delay=5.0,
-            order_refresh_tolerance_pct=-1
+            order_refresh_tolerance_pct=-1,
+            minimum_spread=-1,
         )
 
         self.multi_levels_strategy = PureMarketMakingStrategy(
@@ -105,7 +106,8 @@ class PMMUnitTest(unittest.TestCase):
             order_refresh_tolerance_pct=-1,
             order_levels=3,
             order_level_spread=Decimal("0.01"),
-            order_level_amount=Decimal("1")
+            order_level_amount=Decimal("1"),
+            minimum_spread=-1,
         )
 
         self.ext_market: BacktestMarket = BacktestMarket()
@@ -537,7 +539,8 @@ class PMMUnitTest(unittest.TestCase):
             order_level_amount=Decimal("0.5"),
             inventory_skew_enabled=True,
             inventory_target_base_pct=Decimal("0.9"),
-            inventory_range_multiplier=Decimal("0.5")
+            inventory_range_multiplier=Decimal("0.5"),
+            minimum_spread=-1,
         )
         self.clock.add_iterator(strategy)
         self.clock.backtest_til(self.start_timestamp + 1)
@@ -711,29 +714,30 @@ class PureMarketMakingMinimumSpreadUnitTest(unittest.TestCase):
     def setUp(self):
         self.clock_tick_size = 1
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.maker_market: BacktestMarket = BacktestMarket()
+        self.market: BacktestMarket = BacktestMarket()
         self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_trading_pairs)
         self.mid_price = 100
-        self.order_refresh_time = 30
-        self.bid_threshold = 0.05
-        self.ask_threshold = 0.05
         self.maker_data.set_balanced_order_book(mid_price=self.mid_price, min_price=1,
                                                 max_price=200, price_step_size=1, volume_step_size=10)
-        self.maker_market.add_data(self.maker_data)
-        self.maker_market.set_balance("COINALPHA", 500)
-        self.maker_market.set_balance("WETH", 5000)
-        self.maker_market.set_balance("QETH", 500)
-        self.maker_market.set_quantization_param(
+        self.market.add_data(self.maker_data)
+        self.market.set_balance("COINALPHA", 500)
+        self.market.set_balance("WETH", 5000)
+        self.market.set_balance("QETH", 500)
+        self.market.set_quantization_param(
             QuantizationParams(
                 self.maker_trading_pairs[0], 6, 6, 6, 6
             )
         )
         self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
-            *([self.maker_market] + self.maker_trading_pairs)
+            self.market, self.maker_trading_pairs[0],
+            self.maker_trading_pairs[1], self.maker_trading_pairs[2]
         )
 
         self.strategy: PureMarketMakingStrategy = PureMarketMakingStrategy(
-            [self.market_info],
+            self.market_info,
+            bid_spread=Decimal(.05),
+            ask_spread=Decimal(.05),
+            order_amount=Decimal(1),
             order_refresh_time=30,
             minimum_spread=0,
         )
@@ -742,50 +746,49 @@ class PureMarketMakingMinimumSpreadUnitTest(unittest.TestCase):
         strategy = self.strategy
         self.clock.add_iterator(strategy)
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
-        self.assertEqual(1, len(strategy.active_bids))
-        self.assertEqual(1, len(strategy.active_asks))
-        old_bid = strategy.active_bids[0][1]
-        old_ask = strategy.active_asks[0][1]
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+        old_bid = strategy.active_buys[0]
+        old_ask = strategy.active_sells[0]
         # t = 2, No Change => orders should stay the same
         self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size)
-        self.assertEqual(1, len(strategy.active_bids))
-        self.assertEqual(1, len(strategy.active_asks))
-        self.assertEqual(old_bid.client_order_id, strategy.active_bids[0][1].client_order_id)
-        self.assertEqual(old_ask.client_order_id, strategy.active_asks[0][1].client_order_id)
-        orderRow: OrderBookRow
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+        self.assertEqual(old_bid.client_order_id, strategy.active_buys[0].client_order_id)
+        self.assertEqual(old_ask.client_order_id, strategy.active_sells[0].client_order_id)
         # Minimum Spread Threshold Cancellation
         # t = 3, Mid Market Price Moves Down - Below Min Spread (Old Bid) => Orders Cancelled
         self.maker_data.order_book.apply_diffs([OrderBookRow(50, 1000, 2)], [OrderBookRow(50, 1000, 2)], 2)
         self.clock.backtest_til(self.start_timestamp + 3 * self.clock_tick_size)
-        self.assertEqual(0, len(strategy.active_bids))
-        self.assertEqual(0, len(strategy.active_asks))
+        self.assertEqual(0, len(strategy.active_buys))
+        self.assertEqual(0, len(strategy.active_sells))
         # t = 30, New Set of Orders
-        self.clock.backtest_til(self.start_timestamp + 31 * self.clock_tick_size)
-        self.assertEqual(1, len(strategy.active_bids))
-        self.assertEqual(1, len(strategy.active_asks))
-        new_bid = strategy.active_bids[0][1]
-        new_ask = strategy.active_asks[0][1]
+        self.clock.backtest_til(self.start_timestamp + 32 * self.clock_tick_size)
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+        new_bid = strategy.active_buys[0]
+        new_ask = strategy.active_sells[0]
         self.assertNotEqual(old_bid.client_order_id, new_bid.client_order_id)
         self.assertNotEqual(old_ask.client_order_id, new_ask.client_order_id)
         old_ask = new_ask
         old_bid = new_bid
         # t = 35, No Change
         self.clock.backtest_til(self.start_timestamp + 36 * self.clock_tick_size)
-        self.assertEqual(1, len(strategy.active_bids))
-        self.assertEqual(1, len(strategy.active_asks))
-        self.assertEqual(old_bid.client_order_id, strategy.active_bids[0][1].client_order_id)
-        self.assertEqual(old_ask.client_order_id, strategy.active_asks[0][1].client_order_id)
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+        self.assertEqual(old_bid.client_order_id, strategy.active_buys[0].client_order_id)
+        self.assertEqual(old_ask.client_order_id, strategy.active_sells[0].client_order_id)
         # t = 36, Mid Market Price Moves Up - Below Min Spread (Old Ask) => Orders Cancelled
         # Clear Order Book (setting all orders above price 0, to quantity 0)
         simulate_order_book_widening(self.maker_data.order_book, 0, 0)
         # New Mid-Market Price
         self.maker_data.order_book.apply_diffs([OrderBookRow(99, 1000, 3)], [OrderBookRow(101, 1000, 3)], 3)
         # Check That Order Book Manipulations Didn't Affect Strategy Orders Yet
-        self.assertEqual(1, len(strategy.active_bids))
-        self.assertEqual(1, len(strategy.active_asks))
-        self.assertEqual(old_bid.client_order_id, strategy.active_bids[0][1].client_order_id)
-        self.assertEqual(old_ask.client_order_id, strategy.active_asks[0][1].client_order_id)
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+        self.assertEqual(old_bid.client_order_id, strategy.active_buys[0].client_order_id)
+        self.assertEqual(old_ask.client_order_id, strategy.active_sells[0].client_order_id)
         # Simulate Minimum Spread Threshold Cancellation
         self.clock.backtest_til(self.start_timestamp + 40 * self.clock_tick_size)
-        self.assertEqual(0, len(strategy.active_bids))
-        self.assertEqual(0, len(strategy.active_asks))
+        self.assertEqual(0, len(strategy.active_buys))
+        self.assertEqual(0, len(strategy.active_sells))
