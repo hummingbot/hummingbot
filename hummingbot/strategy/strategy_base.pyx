@@ -8,7 +8,6 @@ from hummingbot.core.clock cimport Clock
 from hummingbot.core.event.events import MarketEvent
 from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.core.time_iterator cimport TimeIterator
 from hummingbot.market.market_base cimport MarketBase
@@ -187,7 +186,7 @@ cdef class StrategyBase(TimeIterator):
             double base_asset_conversion_rate
             double quote_asset_conversion_rate
             list assets_data = []
-            list assets_columns = ["Exchange", "Asset", "Total Balance", "Available Balance", "Conversion Rate"]
+            list assets_columns = ["Exchange", "Asset", "Total Balance", "Available Balance"]
         try:
             for market_trading_pair_tuple in market_trading_pair_tuples:
                 market, trading_pair, base_asset, quote_asset = market_trading_pair_tuple
@@ -195,11 +194,9 @@ cdef class StrategyBase(TimeIterator):
                 quote_balance = float(market.get_balance(quote_asset))
                 available_base_balance = float(market.get_available_balance(base_asset))
                 available_quote_balance = float(market.get_available_balance(quote_asset))
-                base_asset_conversion_rate = ExchangeRateConversion.get_instance().adjust_token_rate(base_asset, Decimal(1))
-                quote_asset_conversion_rate = ExchangeRateConversion.get_instance().adjust_token_rate(quote_asset, Decimal(1))
                 assets_data.extend([
-                    [market.display_name, base_asset, base_balance, available_base_balance, base_asset_conversion_rate],
-                    [market.display_name, quote_asset, quote_balance, available_quote_balance, quote_asset_conversion_rate]
+                    [market.display_name, base_asset, base_balance, available_base_balance],
+                    [market.display_name, quote_asset, quote_balance, available_quote_balance]
                 ])
 
             return pd.DataFrame(data=assets_data, columns=assets_columns)
@@ -298,12 +295,9 @@ cdef class StrategyBase(TimeIterator):
             if flat_fee_currency == quote_asset:
                 total_flat_fees += flat_fee_amount
             else:
-                # if the flat fee currency asset does not match quote asset, convert to quote currency value
-                total_flat_fees += ExchangeRateConversion.get_instance().convert_token_value_decimal(
-                    amount=flat_fee_amount,
-                    from_currency=flat_fee_currency,
-                    to_currency=quote_asset
-                )
+                # if the flat fee currency asset does not match quote asset, raise exception for now
+                # as we don't support different token conversion atm.
+                raise Exception("Flat fee in other token than quote asset is not supported.")
         return total_flat_fees
 
     # <editor-fold desc="+ Market event interfaces">
