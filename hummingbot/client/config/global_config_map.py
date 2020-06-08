@@ -361,4 +361,10 @@ global_config_map = {
                   type_str="str",
                   required_if=lambda: global_config_map.get("db_engine").value != "sqlite",
                   default="dbname"),
+    "0x_exchange_actively_cancel_orders":
+        ConfigVar(key="0x_exchange_actively_cancel_orders",
+                  prompt="Enable active order cancellation for Decentraliced Exchanges lke BambooRelay and RadarRelay? (Yes/No) >>> ",
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool),
 }
