@@ -32,7 +32,6 @@ from bin.hummingbot import (
     detect_available_port,
 )
 from hummingbot.client.settings import CONF_FILE_PATH
-from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.client.config.security import Security
 
 
@@ -73,8 +72,6 @@ async def quick_start(args):
     init_logging("hummingbot_logs.yml")
     read_system_configs_from_yml()
 
-    ExchangeRateConversion.get_instance().start()
-    await ExchangeRateConversion.get_instance().wait_till_ready()
     hb = HummingbotApplication.main_application()
     # Todo: validate strategy and config_file_name before assinging
 
