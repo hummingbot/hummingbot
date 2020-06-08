@@ -26,7 +26,8 @@ if TYPE_CHECKING:
 
 
 no_restart_pmm_keys = ["bid_spread", "ask_spread"]
-global_configs_to_display = ["kill_switch_enabled",
+global_configs_to_display = ["0x_exchange_actively_cancel_orders",
+                             "kill_switch_enabled",
                              "kill_switch_rate",
                              "telegram_enabled",
                              "telegram_token",
