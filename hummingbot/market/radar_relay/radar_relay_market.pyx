@@ -60,6 +60,7 @@ from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.wallet.ethereum.zero_ex.zero_ex_custom_utils_v3 import fix_signature
 from hummingbot.wallet.ethereum.zero_ex.zero_ex_exchange_v3 import ZeroExExchange
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.core.utils.estimate_fee import estimate_fee
 
 rrm_logger = None
 s_decimal_0 = Decimal(0)
@@ -260,6 +261,7 @@ cdef class RadarRelayMarket(MarketBase):
                           object trade_type,
                           object amount,
                           object price):
+        """
         cdef:
             int gas_estimate = 130000  # approximate gas used for 0x market orders
             double transaction_cost_eth
@@ -270,6 +272,9 @@ cdef class RadarRelayMarket(MarketBase):
         # only fee for takers is gas cost of transaction
         transaction_cost_eth = self._wallet.gas_price * gas_estimate / 1e18
         return TradeFee(percent=Decimal(0.0), flat_fees=[("ETH", transaction_cost_eth)])
+        """
+        is_maker = order_type is OrderType.LIMIT
+        return estimate_fee("radar_relay", is_maker)
 
     def _update_balances(self):
         self._account_balances = self.wallet.get_all_balances().copy()
