@@ -25,6 +25,7 @@ from hummingbot.market.market_base import (
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.client.config.global_config_map import paper_trade_disabled
+from hummingbot.client.config.global_config_map import global_config_map
 
 from .data_types import (
     Proposal,
@@ -848,6 +849,11 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     cdef c_cancel_active_orders(self, object proposal):
         if self._cancel_timestamp > self._current_timestamp:
             return
+        if not global_config_map.get("0x_exchange_actively_cancel_orders").value:
+            if ((self._market_info.market.name in self.RADAR_RELAY_TYPE_EXCHANGES) or
+                    (self._market_info.market.name == "bamboo_relay" and not self._market_info.market.use_coordinator)):
+                return
+
         cdef:
             list active_orders = self.active_non_hanging_orders
             list active_buy_prices = []
@@ -864,6 +870,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             if self.c_is_within_tolerance(active_buy_prices, proposal_buys) and \
                     self.c_is_within_tolerance(active_sell_prices, proposal_sells):
                 to_defer_canceling = True
+
+        
         if not to_defer_canceling:
             for order in active_orders:
                 self.c_cancel_order(self._market_info, order.client_order_id)
@@ -874,6 +882,11 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             self.set_timers()
 
     cdef c_cancel_hanging_orders(self):
+        if not global_config_map.get("0x_exchange_actively_cancel_orders").value:
+            if ((self._market_info.market.name in self.RADAR_RELAY_TYPE_EXCHANGES) or
+                    (self._market_info.market.name == "bamboo_relay" and not self._market_info.market.use_coordinator)):
+                return
+
         cdef:
             object mid_price = self.c_get_mid_price()
             list active_orders = self.active_orders
