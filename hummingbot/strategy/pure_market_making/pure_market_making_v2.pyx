@@ -905,13 +905,14 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         active_orders = [order for order in active_orders
                          if order.client_order_id not in self._hanging_order_ids]
         for order in active_orders:
-            if abs(mid_price - order.price) / mid_price < self._minimum_spread:
+            negation = -1 if order.is_buy else 1
+            if (negation * (order.price - mid_price) / mid_price) < self._minimum_spread:
                 cancel_orders = True
         if cancel_orders:
-            self.logger().info(f"Orders are below minimum spread ({self._minimum_spread}."
+            self.logger().info(f"Orders are below minimum spread ({self._minimum_spread})."
                                f"Cancelling Active Orders.")
-            map(lambda order: self.c_cancel_order(market_info, order.client_order_id),
-                active_orders)
+            for order in active_orders:
+                self.c_cancel_order(market_info, order.client_order_id)
 
     cdef c_join_price_size_proposals(self, list prices, list sizes):
         cdef list result = list(zip(prices, sizes))

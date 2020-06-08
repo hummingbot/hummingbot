@@ -1552,6 +1552,7 @@ class PureMarketMakingV2InventorySkewUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("4.04595"), last_ask_order.quantity)
 
 
+# noinspection DuplicatedCode
 class PureMarketMakingV2MinimumSpreadUnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
@@ -1593,16 +1594,59 @@ class PureMarketMakingV2MinimumSpreadUnitTest(unittest.TestCase):
             pricing_delegate=self.constant_pricing_delegate,
             sizing_delegate=self.constant_sizing_delegate,
             order_refresh_time=30,
-            minimum_spread=.01,
+            minimum_spread=0,
         )
 
-    def test_minimum_spread_orders_cancelled_when_mid_price_moves(self):
+    def test_minimum_spread_param(self):
         strategy = self.strategy
         self.clock.add_iterator(strategy)
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
         self.assertEqual(1, len(strategy.active_bids))
         self.assertEqual(1, len(strategy.active_asks))
-        # old_bid = strategy.active_bids[0][1]
-        # old_ask = strategy.active_asks[0][1]
-
-        # self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size)
+        old_bid = strategy.active_bids[0][1]
+        old_ask = strategy.active_asks[0][1]
+        # t = 2, No Change => orders should stay the same
+        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size)
+        self.assertEqual(1, len(strategy.active_bids))
+        self.assertEqual(1, len(strategy.active_asks))
+        self.assertEqual(old_bid.client_order_id, strategy.active_bids[0][1].client_order_id)
+        self.assertEqual(old_ask.client_order_id, strategy.active_asks[0][1].client_order_id)
+        orderRow: OrderBookRow
+        # Minimum Spread Threshold Cancellation
+        # t = 3, Mid Market Price Moves Down - Below Min Spread (Old Bid) => Orders Cancelled
+        self.maker_data.order_book.apply_diffs([OrderBookRow(50, 1000, 2)], [OrderBookRow(50, 1000, 2)], 2)
+        self.clock.backtest_til(self.start_timestamp + 3 * self.clock_tick_size)
+        print(f"MID MARKET PRICE: {self.market_info.get_mid_price()}")
+        self.assertEqual(0, len(strategy.active_bids))
+        self.assertEqual(0, len(strategy.active_asks))
+        # t = 30, New Set of Orders
+        self.clock.backtest_til(self.start_timestamp + 31 * self.clock_tick_size)
+        self.assertEqual(1, len(strategy.active_bids))
+        self.assertEqual(1, len(strategy.active_asks))
+        new_bid = strategy.active_bids[0][1]
+        new_ask = strategy.active_asks[0][1]
+        self.assertNotEqual(old_bid.client_order_id, new_bid.client_order_id)
+        self.assertNotEqual(old_ask.client_order_id, new_ask.client_order_id)
+        old_ask = new_ask
+        old_bid = new_bid
+        # t = 35, No Change
+        self.clock.backtest_til(self.start_timestamp + 36 * self.clock_tick_size)
+        self.assertEqual(1, len(strategy.active_bids))
+        self.assertEqual(1, len(strategy.active_asks))
+        self.assertEqual(old_bid.client_order_id, strategy.active_bids[0][1].client_order_id)
+        self.assertEqual(old_ask.client_order_id, strategy.active_asks[0][1].client_order_id)
+        # t = 36, Mid Market Price Moves Up - Below Min Spread (Old Ask) => Orders Cancelled
+        # Clear Order Book (setting all orders above price 0, to quantity 0)
+        simulate_order_book_widening(self.maker_data.order_book, 0, 0)
+        # New Mid-Market Price
+        self.maker_data.order_book.apply_diffs([OrderBookRow(99, 1000, 3)], [OrderBookRow(101, 1000, 3)], 3)
+        # Check That Order Book Manipulations Didn't Affect Strategy Orders Yet
+        self.assertEqual(1, len(strategy.active_bids))
+        self.assertEqual(1, len(strategy.active_asks))
+        self.assertEqual(old_bid.client_order_id, strategy.active_bids[0][1].client_order_id)
+        self.assertEqual(old_ask.client_order_id, strategy.active_asks[0][1].client_order_id)
+        # Simulate Minimum Spread Threshold Cancellation
+        self.clock.backtest_til(self.start_timestamp + 40 * self.clock_tick_size)
+        print(f"MID MARKET PRICE: {self.market_info.get_mid_price()}")
+        self.assertEqual(0, len(strategy.active_bids))
+        self.assertEqual(0, len(strategy.active_asks))
