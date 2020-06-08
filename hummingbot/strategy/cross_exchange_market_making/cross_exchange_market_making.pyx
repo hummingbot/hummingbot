@@ -228,11 +228,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     def get_effective_hedging_price(self, market_pair: CrossExchangeMarketPair, bint is_bid, size: Decimal) -> Decimal:
         return self.c_calculate_effective_hedging_price(market_pair, is_bid, size)
 
-    def check_if_still_profitable(self, market_pair: CrossExchangeMarketPair,
-                                  LimitOrder active_order,
-                                  current_hedging_price: Decimal) -> bool:
-        return self.c_check_if_still_profitable(market_pair, active_order, current_hedging_price)
-
     def check_if_sufficient_balance(self, market_pair: CrossExchangeMarketPair,
                                     LimitOrder active_order) -> bool:
         return self.c_check_if_sufficient_balance(market_pair, active_order)
@@ -353,10 +348,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 is_buy,
                 active_order.quantity
             )
-
-            # See if it's still profitable to keep the order on maker market. If not, remove it.
-            if not self.c_check_if_still_profitable(market_pair, active_order, current_hedging_price):
-                continue
 
             if not self._active_order_canceling:
                 continue
@@ -969,58 +960,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             top_ask_price = current_top_ask_price
 
         return top_bid_price, top_ask_price
-
-    cdef bint c_check_if_still_profitable(self,
-                                          object market_pair,
-                                          LimitOrder active_order,
-                                          object current_hedging_price):
-        """
-        Check whether a currently active limit order should be cancelled or not, according to profitability metric.
-
-        If active order canceling is enabled (e.g. for centralized exchanges), then the min profitability config is
-        used as the threshold. If it is disabled (e.g. for decentralized exchanges), then the cancel order threshold
-        is used instead.
-
-        :param market_pair: cross exchange market pair
-        :param active_order: the currently active order to check for cancellation
-        :param current_hedging_price: the current average hedging price on taker market for the limit order
-        :return: True if the limit order stays, False if the limit order is being cancelled.
-        """
-        cdef:
-            bint is_buy = active_order.is_buy
-            str limit_order_type_str = "bid" if is_buy else "ask"
-            object order_price = active_order.price
-            object cancel_order_threshold
-
-        if not self._active_order_canceling:
-            cancel_order_threshold = self._cancel_order_threshold
-        else:
-            cancel_order_threshold = self._min_profitability
-
-        if current_hedging_price is None:
-            if self._logging_options & self.OPTION_LOG_REMOVING_ORDER:
-                self.log_with_clock(
-                    logging.INFO,
-                    f"({market_pair.maker.trading_pair}) Limit {limit_order_type_str} order at "
-                    f"{order_price:.8g} {market_pair.maker.quote_asset} is no longer profitable. "
-                    f"Removing the order."
-                )
-            self.c_cancel_order(market_pair, active_order.client_order_id)
-            return False
-
-        if ((is_buy and current_hedging_price < order_price * (1 + cancel_order_threshold)) or
-                (not is_buy and order_price < current_hedging_price * (1 + cancel_order_threshold))):
-
-            if self._logging_options & self.OPTION_LOG_REMOVING_ORDER:
-                self.log_with_clock(
-                    logging.INFO,
-                    f"({market_pair.maker.trading_pair}) Limit {limit_order_type_str} order at "
-                    f"{order_price:.8g} {market_pair.maker.quote_asset} is no longer profitable. "
-                    f"Removing the order."
-                )
-            self.c_cancel_order(market_pair, active_order.client_order_id)
-            return False
-        return True
 
     cdef bint c_check_if_sufficient_balance(self, object market_pair, LimitOrder active_order):
         """
