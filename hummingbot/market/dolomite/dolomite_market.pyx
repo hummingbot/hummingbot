@@ -53,6 +53,7 @@ from hummingbot.market.dolomite.dolomite_util import (
     DolomiteExchangeRates,
     DolomiteExchangeInfo
 )
+from hummingbot.core.utils.estimate_fee import estimate_fee
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -471,6 +472,7 @@ cdef class DolomiteMarket(MarketBase):
                           object order_side,
                           object amount,
                           object price):
+        """
         cdef:
             tuple order_fill_and_fee_result = self.calculate_order_fill_and_fee(
                 trading_pair=f"{base_currency}-{quote_currency}",
@@ -479,6 +481,9 @@ cdef class DolomiteMarket(MarketBase):
                 amount=Decimal(amount),
                 price=(None if price is None else Decimal(price)))
         return order_fill_and_fee_result[0]
+        """
+        is_maker = order_type is OrderType.LIMIT
+        return estimate_fee("dolomite", is_maker)
 
     cdef object c_get_price(self, str trading_pair, bint is_buy):
         cdef OrderBook order_book = self.c_get_order_book(trading_pair)

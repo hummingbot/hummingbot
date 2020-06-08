@@ -44,12 +44,12 @@ cdef class PaperTradeMarket(MarketBase):
     cdef c_process_market_orders(self)
     cdef c_set_balance(self, str currency, object amount)
     cdef object c_get_fee(self,
-                          str base_asset,
-                          str quote_asset,
-                          object order_type,
-                          object order_side,
-                          object amount,
-                          object price)
+            str base_asset,
+            str quote_asset,
+            object order_type,
+            object order_side,
+            object amount,
+            object price)
     cdef c_delete_limit_order(self,
                               LimitOrders *limit_orders_map_ptr,
                               LimitOrdersIterator *map_it_ptr,
