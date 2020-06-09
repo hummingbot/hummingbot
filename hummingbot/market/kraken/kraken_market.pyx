@@ -55,6 +55,7 @@ from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
+from hummingbot.core.utils.estimate_fee import estimate_fee
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -303,6 +304,7 @@ cdef class KrakenMarket(MarketBase):
                           object order_side,
                           object amount,
                           object price):
+        """
         cdef:
             object maker_trade_fee = Decimal("0.0016")
             object taker_trade_fee = Decimal("0.0026")
@@ -316,6 +318,9 @@ cdef class KrakenMarket(MarketBase):
         if trading_pair in self._trade_fees:
             maker_trade_fee, taker_trade_fee = self._trade_fees.get(trading_pair)
         return TradeFee(percent=maker_trade_fee if order_type is OrderType.LIMIT else taker_trade_fee)
+        """
+        is_maker = order_type is OrderType.LIMIT
+        return estimate_fee("kraken", is_maker)
 
     async def _update_trading_rules(self):
         cdef:

@@ -101,6 +101,7 @@ from hummingbot.market.bamboo_relay.bamboo_relay_constants import (
     BAMBOO_RELAY_TEST_FEE_RECIPIENT_ADDRESS
 )
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.core.utils.estimate_fee import estimate_fee
 
 brm_logger = None
 s_decimal_0 = Decimal(0)
@@ -401,6 +402,7 @@ cdef class BambooRelayMarket(MarketBase):
             bint is_coordinated = False
             list valid_orders
 
+        """
         # there are no fees for makers on Bamboo Relay
         if order_type is OrderType.LIMIT:
             return TradeFee(percent=s_decimal_0)
@@ -425,6 +427,9 @@ cdef class BambooRelayMarket(MarketBase):
 
         return TradeFee(percent=s_decimal_0, flat_fees=[("ETH", protocol_fee),
                                                         ("ETH", transaction_cost_eth)])
+        """
+        is_maker = order_type is OrderType.LIMIT
+        return estimate_fee("bamboo_relay", is_maker)
 
     def _update_balances(self):
         self._account_balances = self.wallet.get_all_balances().copy()
