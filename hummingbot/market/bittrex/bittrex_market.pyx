@@ -36,6 +36,7 @@ from hummingbot.market.market_base import NaN
 from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
+from hummingbot.core.utils.estimate_fee import estimate_fee
 
 bm_logger = None
 s_decimal_0 = Decimal(0)
@@ -184,6 +185,7 @@ cdef class BittrexMarket(MarketBase):
                           object price):
         # There is no API for checking fee
         # Fee info from https://bittrex.zendesk.com/hc/en-us/articles/115003684371
+        """
         cdef:
             object maker_fee = Decimal(0.0025)
             object taker_fee = Decimal(0.0025)
@@ -193,6 +195,10 @@ cdef class BittrexMarket(MarketBase):
             return TradeFee(percent=fee_overrides_config_map["bittrex_taker_fee"].value / Decimal("100"))
 
         return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
+        """
+        is_maker = order_type is OrderType.LIMIT
+        return estimate_fee("bittrex", is_maker)
+
 
     async def _update_balances(self):
         cdef:
