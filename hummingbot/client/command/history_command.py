@@ -12,13 +12,14 @@ from typing import (
     TYPE_CHECKING,
     List
 )
-from hummingbot.client.performance_analysis import PerformanceAnalysis
+from hummingbot.client.performance_analysis import calculate_trade_performance
 from hummingbot.market.market_base import MarketBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from datetime import datetime
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.settings import MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT
 from hummingbot.model.trade_fill import TradeFill
+from hummingbot.client.config.config_helpers import secondary_market_conversion_rate
 
 s_float_0 = float(0)
 
@@ -87,12 +88,13 @@ class HistoryCommand:
                                      ) -> Tuple[Dict, Dict]:
         raw_queried_trades = self._get_trades_from_session(self.init_time)
         current_strategy_name: str = self.markets_recorder.strategy_name
-        performance_analysis: PerformanceAnalysis = PerformanceAnalysis()
-        trade_performance_stats, market_trading_pair_stats = performance_analysis.calculate_trade_performance(
+        conversion_rate = secondary_market_conversion_rate(current_strategy_name)
+        trade_performance_stats, market_trading_pair_stats = calculate_trade_performance(
             current_strategy_name,
             self.market_trading_pair_tuples,
             raw_queried_trades,
-            self.starting_balances
+            self.starting_balances,
+            secondary_market_conversion_rate=conversion_rate
         )
         return trade_performance_stats, market_trading_pair_stats
 
