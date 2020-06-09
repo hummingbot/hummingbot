@@ -17,7 +17,6 @@ from hummingbot.client.config.security import Security
 from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map
 from hummingbot.client.config.global_config_map import global_config_map
 from test.integration.assets.mock_data.fixture_configs import FixtureConfigs
-from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 
 
 async def wait_til(condition_func, timeout=10):
@@ -88,7 +87,6 @@ class ConfigProcessTest(unittest.TestCase):
         add_files_extension(settings.CONF_FILE_PATH, [".yml", ".json"], ".temp")
         asyncio.ensure_future(hb_main())
         cls.hb = HummingbotApplication.main_application()
-        await wait_til(lambda: ExchangeRateConversion.get_instance()._ready_notifier.is_set(), 20)
         await wait_til(lambda: 'Enter "config" to create a bot' in cls.hb.app.output_field.document.text)
 
     async def check_prompt_and_input(self, expected_prompt_text, input_text):
