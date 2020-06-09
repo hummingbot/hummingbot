@@ -8,14 +8,11 @@ from hummingbot.client.settings import (
     required_exchanges,
     EXAMPLE_PAIRS,
 )
-from hummingbot.data_feed.exchange_price_manager import ExchangePriceManager
 from decimal import Decimal
 
 
 def exchange_on_validated(value: str) -> None:
     required_exchanges.append(value)
-    ExchangePriceManager.set_exchanges_to_feed([value])
-    ExchangePriceManager.start()
 
 
 def market_trading_pair_prompt() -> str:
