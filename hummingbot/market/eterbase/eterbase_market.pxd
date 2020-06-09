@@ -25,6 +25,8 @@ cdef class EterbaseMarket(MarketBase):
         public object _shared_client
         object _eterbase_account
         object _eterbase_tier
+        object _maker_fee
+        object _taker_fee
 
     cdef c_start_tracking_order(self,
                                 str order_id,

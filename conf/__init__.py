@@ -86,7 +86,6 @@ kraken_secret_key = os.getenv("KRAKEN_SECRET_KEY")
 eterbase_api_key = os.getenv("ETERBASE_API_KEY")
 eterbase_secret_key = os.getenv("ETERBASE_SECRET_KEY")
 eterbase_account = os.getenv("ETERBASE_ACCOUNT")
-eterbase_tier = os.getenv("ETERBASE_TIER")
 
 # Wallet Tests
 test_erc20_token_address = os.getenv("TEST_ERC20_TOKEN_ADDRESS")

@@ -187,7 +187,7 @@ class TradingPairFetcher:
             async with client.get(ETERBASE_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                 if response.status == 200:
                     markets = await response.json()
-                    raw_trading_pairs: List[str] = list(map(lambda details: details.get('symbol'), markets))
+                    raw_trading_pairs: List[str] = list(map(lambda trading_market: trading_market.get('symbol'), filter(lambda details: details.get('state') == 'Trading', markets)))
                     trading_pair_list: List[str] = []
                     for raw_trading_pair in raw_trading_pairs:
                         converted_trading_pair: Optional[str] = \

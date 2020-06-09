@@ -47,7 +47,6 @@ class EterbaseUserStreamTrackerUnitTest(unittest.TestCase):
             conf.eterbase_api_key,
             conf.eterbase_secret_key,
             conf.eterbase_account,
-            conf.eterbase_tier,
             trading_pairs=cls.trading_pairs
         )
         print("Initializing Eterbase market... this will take about a minute.")
