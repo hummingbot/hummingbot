@@ -238,12 +238,6 @@ global_config_map = {
                   required_if=using_exchange("eterbase"),
                   is_secure=True,
                   is_connect_key=True),
-    "eterbase_tier":
-        ConfigVar(key="eterbase_tier",
-                  prompt="Enter your Eterbase tier. (Basic/P1/P2/P3/P4/P5/P6/P7/P8/P9) >>> ",
-                  required_if=using_exchange("eterbase"),
-                  is_secure=False,
-                  is_connect_key=True),
     "kraken_api_key":
         ConfigVar(key="kraken_api_key",
                   prompt="Enter your Kraken API key >>> ",

@@ -38,7 +38,7 @@ class UserBalances:
         elif exchange == "kraken":
             market = KrakenMarket(api_details[0], api_details[1])
         elif exchange == "eterbase":
-            market = EterbaseMarket(api_details[0], api_details[1], api_details[2], api_details[3])
+            market = EterbaseMarket(api_details[0], api_details[1], api_details[2])
 
         return market
 

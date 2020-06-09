@@ -68,7 +68,7 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data, index="id")
                 all_markets.rename({"base": "baseAsset", "quote": "quoteAsset"},
                                    axis="columns", inplace=True)
-                all_markets = all_markets[(all_markets.state != 'Inactive') & (all_markets.state != "Delisted")]
+                all_markets = all_markets[(all_markets.state == 'Trading')]
                 ids: List[str] = list(all_markets.index)
                 volumes: List[float] = []
                 prices: List[float] = []
@@ -129,10 +129,10 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
         if not self._tp_map_mrktid:
             try:
                 active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                active_markets.reset_index(level = 0, inplace = True)
-                self._tp_map_mrktid = active_markets.set_index('symbol')['id'].to_dict()
+                active_markets['id'] = active_markets.index
+                self._tp_map_mrktid = dict(zip(active_markets.symbol, active_markets.id))
             except Exception:
-                self._tp_map_mrktid = {}
+                self._tp_map_mrktid = None
                 self.logger().network(
                     "Error getting active exchange information.",
                     exc_info=True,
@@ -150,8 +150,7 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
         if not self._trading_pairs:
             try:
                 active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                active_markets.reset_index(level = 0, inplace = True)
-                self._trading_pairs = active_markets.set_index('symbol')['id'].to_dict().keys()
+                self._trading_pairs = active_markets['symbol'].tolist()
             except Exception:
                 self._trading_pairs = []
                 self.logger().network(

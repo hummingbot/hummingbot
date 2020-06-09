@@ -78,7 +78,6 @@ class EterbaseMarketUnitTest(unittest.TestCase):
             conf.eterbase_api_key,
             conf.eterbase_secret_key,
             conf.eterbase_account,
-            conf.eterbase_tier,
             trading_pairs=["ETHEUR"]
         )
         print("Initializing Eterbase market... this will take about a minute.")
@@ -389,7 +388,6 @@ class EterbaseMarketUnitTest(unittest.TestCase):
                 eterbase_api_key=conf.eterbase_api_key,
                 eterbase_secret_key=conf.eterbase_secret_key,
                 eterbase_account=conf.eterbase_account,
-                eterbase_tier=conf.eterbase_tier,
                 trading_pairs=["ETHUSDT", "ETHEUR"]
             )
             for event_tag in self.events:

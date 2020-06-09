@@ -346,13 +346,11 @@ class HummingbotApplication(*commands):
                 eterbase_api_key = global_config_map.get("eterbase_api_key").value
                 eterbase_secret_key = global_config_map.get("eterbase_secret_key").value
                 eterbase_account = global_config_map.get("eterbase_account").value
-                eterbase_tier = global_config_map.get("eterbase_tier").value
                 market = EterbaseMarket(eterbase_api_key,
                                         eterbase_secret_key,
                                         trading_pairs=trading_pairs,
                                         trading_required=self._trading_required,
-                                        eterbase_account=eterbase_account,
-                                        eterbase_tier=eterbase_tier)
+                                        eterbase_account=eterbase_account)
             elif market_name == "kraken":
                 kraken_api_key = global_config_map.get("kraken_api_key").value
                 kraken_secret_key = global_config_map.get("kraken_secret_key").value

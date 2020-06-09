@@ -143,7 +143,6 @@ cdef class EterbaseMarket(MarketBase):
                  eterbase_api_key: str,
                  eterbase_secret_key: str,
                  eterbase_account: str,
-                 eterbase_tier: str,
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
                  OrderBookTrackerDataSourceType.EXCHANGE_API,
@@ -152,7 +151,6 @@ cdef class EterbaseMarket(MarketBase):
         super().__init__()
         self._trading_required = trading_required
         self._eterbase_account = eterbase_account
-        self._eterbase_tier = eterbase_tier
         self._eterbase_auth = EterbaseAuth(eterbase_api_key,
                                            eterbase_secret_key)
         self._order_book_tracker = EterbaseOrderBookTracker(data_source_type = order_book_tracker_data_source_type,
@@ -175,6 +173,8 @@ cdef class EterbaseMarket(MarketBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._shared_client = None
+        self._maker_fee = None
+        self._taker_fee = None
 
     @property
     def name(self) -> str:
@@ -349,45 +349,29 @@ cdef class EterbaseMarket(MarketBase):
         :returns: TradeFee class that includes fee percentage and flat fees
         """
 
-        # There is no API for checking user's fee tier
-        # Fee info from
         cdef:
             object maker_fee = None
             object taker_fee = None
-        if (self._eterbase_tier == 'Basic'):
-            maker_fee = Decimal("0.0035")
-            taker_fee = Decimal("0.0035")
-        elif (self._eterbase_tier == 'P1'):
-            maker_fee = Decimal("0.003")
-            taker_fee = Decimal("0.003")
-        elif (self._eterbase_tier == 'P2'):
-            maker_fee = Decimal("0.0025")
-            taker_fee = Decimal("0.0025")
-        elif (self._eterbase_tier == 'P3'):
-            maker_fee = Decimal("0.002")
-            taker_fee = Decimal("0.002")
-        elif (self._eterbase_tier == 'P4'):
-            maker_fee = Decimal("0.0015")
-            taker_fee = Decimal("0.0015")
-        elif (self._eterbase_tier == 'P5'):
-            maker_fee = Decimal("0.001")
-            taker_fee = Decimal("0.0015")
-        elif (self._eterbase_tier == 'P6'):
-            maker_fee = Decimal("0.0005")
-            taker_fee = Decimal("0.0015")
-        elif (self._eterbase_tier == 'P7'):
-            maker_fee = Decimal("0.0")
-            taker_fee = Decimal("0.0015")
-        elif (self._eterbase_tier == 'P8'):
-            maker_fee = Decimal("0.0")
-            taker_fee = Decimal("0.0015")
-        elif (self._eterbase_tier == 'P9'):
-            maker_fee = Decimal("0.0")
-            taker_fee = Decimal("0.0005")
-        else:
-            self.logger().error(f"Unknown Eterbase client tier: '{self._eterbase_tier}'", exc_info=True)
 
-        return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
+        if ((self._maker_fee is None) or (self._taker_fee is None)):
+            path_url = f"/accounts/{self._eterbase_account}/customer-profile"
+
+            loop = asyncio.new_event_loop()
+            t = Thread(target=start_background_loop, args=(loop, ), daemon=True)
+            t.start()
+            future = asyncio.run_coroutine_threadsafe(api_request("get", path_url=path_url, auth=self._eterbase_auth, loop=loop), loop)
+            customer_profile = future.result(constants.API_TIMEOUT_SEC)
+            loop.stop()
+
+            maker_fee = Decimal(customer_profile['membership']['current']['makerFee'])
+            if (maker_fee > 1):
+                maker_fee = Decimal(0)
+            taker_fee = Decimal(customer_profile['membership']['current']['takerFee'])
+            self.logger().debug(f"makerFee: {maker_fee}, takerFee: {taker_fee}")
+            self._maker_fee = maker_fee
+            self._taker_fee = taker_fee
+
+        return TradeFee(percent=self._maker_fee if order_type is OrderType.LIMIT else self._taker_fee)
 
     async def _update_balances(self):
         """
@@ -1258,6 +1242,13 @@ cdef class EterbaseMarket(MarketBase):
 
         global s_decimal_0
         quantized_amount = MarketBase.c_quantize_order_amount(self, trading_pair, amount)
+
+        str_amount = ("{0:." + str(trading_rule.max_quantity_significant_digits) + "g}").format(quantized_amount)
+        if re.search(r'e+', str_amount):
+            quantized_amount = Decimal("{:.0f}".format(Decimal(str_amount)))
+        else:
+            quantized_amount = Decimal(str_amount)
+
         # Check against min_order_size. If not passing either check, return 0.
         if quantized_amount < trading_rule.min_order_size:
             return s_decimal_0
@@ -1281,6 +1272,12 @@ cdef class EterbaseMarket(MarketBase):
 
         cost = amount * price
 
+        str_cost = ("{0:." + str(trading_rule.max_cost_significant_digits) + "g}").format(cost)
+        if re.search(r'e+', str_cost):
+            cost = Decimal("{:.0f}".format(Decimal(str_cost)))
+        else:
+            cost = Decimal(str_cost)
+
         # Check against min_order_value. If not passing either check, return 0.
         if cost < trading_rule.min_order_value:
             return s_decimal_0
@@ -1290,6 +1287,25 @@ cdef class EterbaseMarket(MarketBase):
             return s_decimal_0
 
         return cost
+
+    cdef object c_quantize_order_price(self, str trading_pair, object price):
+        """
+        *required
+        Check current order amount against trading rule, and correct any rule violations
+        :return: Valid order amount in Decimal format
+        """
+        cdef:
+            EterbaseTradingRule trading_rule = self._trading_rules[trading_pair]
+
+        quantized_price = MarketBase.c_quantize_order_price(self, trading_pair, price)
+
+        # convert price according significant digits
+        str_price = ("{0:." + str(trading_rule.max_price_significant_digits) + "g}").format(quantized_price)
+        if re.search(r'e+', str_price):
+            quantized_price = Decimal("{:.0f}".format(Decimal(str_price)))
+        else:
+            quantized_price = Decimal(str_price)
+        return quantized_price
 
     @staticmethod
     def prepare_trading_pairs_split(markets: List):
