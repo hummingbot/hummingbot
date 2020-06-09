@@ -19,7 +19,6 @@ from hummingbot.client.config.global_config_map import (
 from hummingbot.client.config.config_helpers import (
     minimum_order_amount
 )
-from hummingbot.data_feed.exchange_price_manager import ExchangePriceManager
 from typing import Optional
 
 
@@ -37,22 +36,18 @@ def validate_exchange_trading_pair(value: str) -> Optional[str]:
 
 
 def order_amount_prompt() -> str:
+    exchange = pure_market_making_config_map["exchange"].value
     trading_pair = pure_market_making_config_map["market"].value
     base_asset, quote_asset = trading_pair.split("-")
-    min_amount = minimum_order_amount(trading_pair)
+    min_amount = minimum_order_amount(exchange, trading_pair)
     return f"What is the amount of {base_asset} per order? (minimum {min_amount}) >>> "
-
-
-def order_start_size_prompt() -> str:
-    trading_pair = pure_market_making_config_map["market"].value
-    min_amount = minimum_order_amount(trading_pair)
-    return f"What is the size of the first bid and ask order? (minimum {min_amount}) >>> "
 
 
 def validate_order_amount(value: str) -> Optional[str]:
     try:
+        exchange = pure_market_making_config_map["exchange"].value
         trading_pair = pure_market_making_config_map["market"].value
-        min_amount = minimum_order_amount(trading_pair)
+        min_amount = minimum_order_amount(exchange, trading_pair)
         if Decimal(value) < min_amount:
             return f"Order amount must be at least {min_amount}."
     except Exception:
@@ -86,8 +81,6 @@ def validate_price_floor_ceiling(value: str) -> Optional[str]:
 
 def exchange_on_validated(value: str):
     required_exchanges.append(value)
-    ExchangePriceManager.set_exchanges_to_feed([value])
-    ExchangePriceManager.start()
 
 
 pure_market_making_config_map = {
