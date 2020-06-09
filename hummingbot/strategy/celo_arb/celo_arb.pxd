@@ -17,6 +17,8 @@ cdef class CeloArbStrategy(StrategyBase):
         int64_t _logging_options
         list _celo_orders
         bint _hb_app_notification
+        object _async_scheduler
+        object _main_task
 
     cdef c_main(self)
     cdef c_execute_buy_celo_sell_ctp(self, object trade_profit)

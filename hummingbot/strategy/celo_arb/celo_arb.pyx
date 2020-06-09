@@ -10,13 +10,15 @@ from typing import (
 import time
 from enum import Enum
 import pandas as pd
+import asyncio
+from functools import partial
 from hummingbot.core.clock cimport Clock
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
-from libc.stdint cimport int64_t
 from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler, safe_ensure_future
 from hummingbot.market.market_base import MarketBase
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
@@ -36,6 +38,7 @@ from hummingbot.core.event.events import (
     TradeFee
 )
 from hummingbot.model.trade_fill import TradeFill
+import selectors
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -106,6 +109,8 @@ cdef class CeloArbStrategy(StrategyBase):
         self._all_markets_ready = False
         self._logging_options = logging_options
 
+        self._async_scheduler = None
+        self._main_task = None
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
         self._hb_app_notification = hb_app_notification
@@ -185,7 +190,7 @@ cdef class CeloArbStrategy(StrategyBase):
         celo_bals = CeloCLI.balances()
         series = []
         for token, bal in celo_bals.items():
-            series.append(pd.Series(["Celo", token, round(bal.total, 2), round(bal.available(), 2), 1],
+            series.append(pd.Series(["Celo", token, round(bal.total, 2), round(bal.available(), 2)],
                                     index=assets_df.columns))
         assets_df = assets_df.append(series, ignore_index=True)
         lines.extend(["", "  Assets:"] +
@@ -197,6 +202,11 @@ cdef class CeloArbStrategy(StrategyBase):
             lines.extend(["", "*** WARNINGS ***"] + warning_lines)
 
         return "\n".join(lines)
+
+    cdef c_stop(self, Clock clock):
+        if self._main_task is not None and not self._main_task.done():
+            self._main_task.cancel()
+        StrategyBase.c_stop(self, clock)
 
     cdef c_tick(self, double timestamp):
         """
@@ -212,6 +222,8 @@ cdef class CeloArbStrategy(StrategyBase):
             bint should_report_warnings = ((current_tick > last_tick) and
                                            (self._logging_options & self.OPTION_LOG_STATUS_REPORT))
         try:
+            if self._async_scheduler is None:
+                self._async_scheduler = AsyncCallScheduler(call_interval=1)
             if not self._all_markets_ready:
                 self._all_markets_ready = all([market.ready for market in self._sb_markets])
                 if not self._all_markets_ready:
@@ -233,6 +245,11 @@ cdef class CeloArbStrategy(StrategyBase):
             self._last_timestamp = timestamp
 
     cdef c_main(self):
+        if self._main_task is None or self._main_task.done():
+            coro = self._async_scheduler.call_async(self.main_process, timeout_seconds=30)
+            self._main_task = safe_ensure_future(coro)
+
+    def main_process(self):
         trade_profits = get_trade_profits(self._market_info.market, self._market_info.trading_pair, self._order_amount)
         arb_trades = [t for t in trade_profits if t.profit >= self._min_profitability]
         if len(arb_trades) > 1:
