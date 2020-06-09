@@ -19,7 +19,6 @@ from hummingbot.client.config.config_helpers import (
 from hummingbot.client.settings import (
     STRATEGIES,
 )
-from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
@@ -83,8 +82,6 @@ class StartCommand:
 
     async def start_market_making(self,  # type: HummingbotApplication
                                   strategy_name: str):
-        await ExchangeRateConversion.get_instance().ready_notifier.wait()
-
         start_strategy: Callable = get_strategy_starter_file(strategy_name)
         if strategy_name in STRATEGIES:
             start_strategy(self)
