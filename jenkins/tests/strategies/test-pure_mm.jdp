@@ -3,7 +3,7 @@ def path = '/root/miniconda'
 def envPath = "${path}/envs/hummingbot"
 
 // test parameters
-def strategy = 'pure_market_making_v2'
+def strategy = 'pure_market_making'
 def testName = "${strategy} strategy test"
 def testFile = "test_${strategy}.py"
 
