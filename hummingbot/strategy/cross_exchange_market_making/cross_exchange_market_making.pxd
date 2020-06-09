@@ -54,6 +54,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                                     object market_pair,
                                                     bint is_bid,
                                                     object size)
+    cdef bint c_check_if_still_profitable(self,
+                                          object market_pair,
+                                          LimitOrder active_order,
+                                          object current_hedging_price)
     cdef bint c_check_if_sufficient_balance(self,
                                             object market_pair,
                                             LimitOrder active_order)
