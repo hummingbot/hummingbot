@@ -153,7 +153,7 @@ pipeline {
         stage('Run pure_market_making strategy test') {
           steps {
             echo 'Run pure_market_making strategy test'
-            sh "${envPath}/bin/nosetests -d -v -m test/test_pmm*.py"
+            sh "${envPath}/bin/nosetests -d -v -m test/test_pmm*"
           }
           post {
             success {
