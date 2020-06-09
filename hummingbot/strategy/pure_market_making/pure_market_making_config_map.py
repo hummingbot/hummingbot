@@ -122,8 +122,7 @@ pure_market_making_config_map = {
                   prompt_on_new=True),
     "minimum_spread":
         ConfigVar(key="minimum_spread",
-                  prompt="How close to the mid price do you want to cancel active orders? "
-                         "(Enter 1 to indicate 1%) >>> ",
+                  prompt="At what minimum spread should the bot automatically cancel orders? (Enter 1 for 1%) >>> ",
                   required_if=lambda: False,
                   type_str="decimal",
                   default=Decimal(0),
