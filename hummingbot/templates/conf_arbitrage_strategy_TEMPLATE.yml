@@ -2,7 +2,7 @@
 ###   Arbitrage strategy config   ###
 #####################################
 
-template_version: 3
+template_version: 4
 strategy: null
 
 # The following configuations are only required for the
@@ -17,6 +17,16 @@ secondary_market_trading_pair: null
 # Minimum profitability target required to place an order
 # Expressed in percentage value, e.g. 1 = 1% target profit
 min_profitability: null
+
+# The conversion rate for secondary base asset value to primary base asset value.
+# e.g. if primary base asset is USD, secondary is DAI and 1 USD is worth 1.25 DAI, "
+# the conversion rate is 0.8 (1 / 1.25)
+secondary_to_primary_base_conversion_rate: null
+
+# The conversion rate for secondary quote asset value to primary quote asset value.
+# e.g. if primary quote asset is USD, secondary is DAI and 1 USD is worth 1.25 DAI, "
+# the conversion rate is 0.8 (1 / 1.25)
+secondary_to_primary_quote_conversion_rate: null
 
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/arbitrage/#configuration-parameters

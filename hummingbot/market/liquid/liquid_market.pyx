@@ -59,6 +59,7 @@ from hummingbot.market.liquid.liquid_in_flight_order import LiquidInFlightOrder
 from hummingbot.market.liquid.liquid_in_flight_order cimport LiquidInFlightOrder
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
+from hummingbot.core.utils.estimate_fee import estimate_fee
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -359,6 +360,7 @@ cdef class LiquidMarket(MarketBase):
         function to calculate fees for a particular order
         :returns: TradeFee class that includes fee percentage and flat fees
         """
+        """
         cdef:
             object maker_fee = Decimal("0.0010")
             object taker_fee = Decimal("0.0010")
@@ -368,6 +370,9 @@ cdef class LiquidMarket(MarketBase):
         if order_type is OrderType.MARKET and fee_overrides_config_map["liquid_taker_fee"].value is not None:
             return TradeFee(percent=fee_overrides_config_map["liquid_taker_fee"].value / Decimal("100"))
         return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
+        """
+        is_maker = order_type is OrderType.LIMIT
+        return estimate_fee("liquid", is_maker)
 
     async def _update_balances(self):
         """

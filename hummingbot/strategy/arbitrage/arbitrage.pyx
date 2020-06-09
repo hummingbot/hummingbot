@@ -15,11 +15,9 @@ from hummingbot.core.event.events import (
 from hummingbot.core.data_type.market_order import MarketOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.strategy import market_trading_pair_tuple
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.arbitrage.arbitrage_market_pair import ArbitrageMarketPair
-from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 
 NaN = float("nan")
 s_decimal_0 = Decimal(0)
@@ -50,7 +48,9 @@ cdef class ArbitrageStrategy(StrategyBase):
                  logging_options: int = OPTION_LOG_ORDER_COMPLETED,
                  status_report_interval: float = 60.0,
                  next_trade_delay_interval: float = 15.0,
-                 failed_order_tolerance: int = 1):
+                 failed_order_tolerance: int = 1,
+                 secondary_to_primary_base_conversion_rate: Decimal = Decimal("1"),
+                 secondary_to_primary_quote_conversion_rate: Decimal = Decimal("1")):
         """
         :param market_pairs: list of arbitrage market pairs
         :param min_profitability: minimum profitability limit, for calculating arbitrage order sizes
@@ -76,6 +76,9 @@ cdef class ArbitrageStrategy(StrategyBase):
 
         self._failed_market_order_count = 0
         self._last_failed_market_order_timestamp = 0
+
+        self._secondary_to_primary_base_conversion_rate = secondary_to_primary_base_conversion_rate
+        self._secondary_to_primary_quote_conversion_rate = secondary_to_primary_quote_conversion_rate
 
         cdef:
             set all_markets = {
@@ -248,14 +251,12 @@ cdef class ArbitrageStrategy(StrategyBase):
         :return: (double, double) that indicates profitability of arbitraging on each side
         """
         cdef:
-            object market_1_bid_price = ExchangeRateConversion.get_instance().adjust_token_rate(
-                market_pair.first.quote_asset, market_pair.first.get_price(False))
-            object market_1_ask_price = ExchangeRateConversion.get_instance().adjust_token_rate(
-                market_pair.first.quote_asset, market_pair.first.get_price(True))
-            object market_2_bid_price = ExchangeRateConversion.get_instance().adjust_token_rate(
-                market_pair.second.quote_asset, market_pair.second.get_price(False))
-            object market_2_ask_price = ExchangeRateConversion.get_instance().adjust_token_rate(
-                market_pair.second.quote_asset, market_pair.second.get_price(True))
+            object market_1_bid_price = market_pair.first.get_price(False)
+            object market_1_ask_price = market_pair.first.get_price(True)
+            object market_2_bid_price = self.market_conversion_rate(market_pair.second) * \
+                market_pair.second.get_price(False)
+            object market_2_ask_price = self.market_conversion_rate(market_pair.second) * \
+                market_pair.second.get_price(True)
         profitability_buy_2_sell_1 = market_1_bid_price / market_2_ask_price - 1
         profitability_buy_1_sell_2 = market_2_bid_price / market_1_ask_price - 1
         return profitability_buy_2_sell_1, profitability_buy_1_sell_2
@@ -386,15 +387,24 @@ cdef class ArbitrageStrategy(StrategyBase):
             self._last_trade_timestamps[sell_market_trading_pair_tuple] = self._current_timestamp
             self.logger().info(self.format_status())
 
-    @classmethod
-    def find_profitable_arbitrage_orders(cls,
-                                         min_profitability: Decimal,
+    @staticmethod
+    def find_profitable_arbitrage_orders(min_profitability: Decimal,
                                          buy_market_trading_pair: MarketTradingPairTuple,
-                                         sell_market_trading_pair: MarketTradingPairTuple):
+                                         sell_market_trading_pair: MarketTradingPairTuple,
+                                         buy_market_conversion_rate,
+                                         sell_market_conversion_rate):
 
         return c_find_profitable_arbitrage_orders(min_profitability,
                                                   buy_market_trading_pair,
-                                                  sell_market_trading_pair)
+                                                  sell_market_trading_pair,
+                                                  buy_market_conversion_rate,
+                                                  sell_market_conversion_rate)
+
+    def market_conversion_rate(self, market_info: MarketTradingPairTuple) -> Decimal:
+        if market_info == self._market_pairs[0].first:
+            return Decimal("1")
+        elif market_info == self._market_pairs[0].second:
+            return self._secondary_to_primary_quote_conversion_rate / self._secondary_to_primary_base_conversion_rate
 
     cdef tuple c_find_best_profitable_amount(self, object buy_market_trading_pair_tuple, object sell_market_trading_pair_tuple):
         """
@@ -430,9 +440,13 @@ cdef class ArbitrageStrategy(StrategyBase):
             OrderBook buy_order_book = buy_market_trading_pair_tuple.order_book
             OrderBook sell_order_book = sell_market_trading_pair_tuple.order_book
 
+        buy_market_conversion_rate = self.market_conversion_rate(buy_market_trading_pair_tuple)
+        sell_market_conversion_rate = self.market_conversion_rate(sell_market_trading_pair_tuple)
         profitable_orders = c_find_profitable_arbitrage_orders(self._min_profitability,
                                                                buy_market_trading_pair_tuple,
-                                                               sell_market_trading_pair_tuple)
+                                                               sell_market_trading_pair_tuple,
+                                                               buy_market_conversion_rate,
+                                                               sell_market_conversion_rate)
 
         # check if each step meets the profit level after fees, and is within the wallet balance
         # fee must be calculated at every step because fee might change a potentially profitable order to unprofitable
@@ -531,14 +545,11 @@ cdef class ArbitrageStrategy(StrategyBase):
     # ---------------------------------------------------------------
 
 
-def find_profitable_arbitrage_orders(min_profitability: Decimal, buy_market_trading_pair: market_trading_pair_tuple,
-                                     sell_market_trading_pair: market_trading_pair_tuple):
-    return c_find_profitable_arbitrage_orders(min_profitability, buy_market_trading_pair, sell_market_trading_pair)
-
-
 cdef list c_find_profitable_arbitrage_orders(object min_profitability,
                                              object buy_market_trading_pair_tuple,
-                                             object sell_market_trading_pair_tuple):
+                                             object sell_market_trading_pair_tuple,
+                                             object buy_market_conversion_rate,
+                                             object sell_market_conversion_rate):
     """
     Iterates through sell and buy order books and returns a list of matched profitable sell and buy order
     pairs with sizes.
@@ -546,8 +557,10 @@ cdef list c_find_profitable_arbitrage_orders(object min_profitability,
     If no profitable trades can be done between the buy and sell order books, then returns an empty list.
 
     :param min_profitability: Minimum profit ratio
-    :param buy_market_trading_pair: trading pair for buy side
-    :param sell_market_trading_pair: trading pair for sell side
+    :param buy_market_trading_pair_tuple: trading pair for buy side
+    :param sell_market_trading_pair_tuple: trading pair for sell side
+    :param buy_market_conversion_rate: conversion rate for buy market price
+    :param sell_market_conversion_rate: conversion rate for sell market price
     :return: ordered list of (bid_price:Decimal, ask_price:Decimal, amount:Decimal)
     """
     cdef:
@@ -592,10 +605,8 @@ cdef list c_find_profitable_arbitrage_orders(object min_profitability,
                 break
 
             # adjust price based on the quote token rates
-            current_bid_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(
-                sell_market_quote_asset, current_bid.price)
-            current_ask_price_adjusted = ExchangeRateConversion.get_instance().adjust_token_rate(
-                buy_market_quote_asset, current_ask.price)
+            current_bid_price_adjusted = current_bid.price * sell_market_conversion_rate
+            current_ask_price_adjusted = current_ask.price * buy_market_conversion_rate
             # arbitrage not possible
             if current_bid_price_adjusted < current_ask_price_adjusted:
                 break
@@ -604,6 +615,11 @@ cdef list c_find_profitable_arbitrage_orders(object min_profitability,
                 break
 
             step_amount = min(bid_leftover_amount, ask_leftover_amount)
+
+            #skip cases where step_amount=0 for exchages like binance that include orders with 0 amount
+            if step_amount == 0:
+                continue
+
             profitable_orders.append((current_bid_price_adjusted,
                                       current_ask_price_adjusted,
                                       current_bid.price,

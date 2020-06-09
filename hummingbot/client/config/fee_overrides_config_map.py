@@ -30,6 +30,10 @@ fee_overrides_config_map = {
     "kraken_taker_fee": new_fee_config_var("kraken_taker_fee"),
     "eterbase_maker_fee": new_fee_config_var("eterbase_maker_fee"),
     "eterbase_taker_fee": new_fee_config_var("eterbase_taker_fee"),
-
-
+    "dolomite_maker_fee_amount": new_fee_config_var("dolomite_maker_fee_amount"),
+    "dolomite_taker_fee_amount": new_fee_config_var("dolomite_taker_fee_amount"),
+    "bamboo_relay_maker_fee_amount": new_fee_config_var("bamboo_relay_maker_fee_amount"),
+    "bamboo_relay_taker_fee_amount": new_fee_config_var("bamboo_relay_taker_fee_amount"),
+    "radar_relay_maker_fee_amount": new_fee_config_var("radar_relay_maker_fee_amount"),
+    "radar_relay_taker_fee_amount": new_fee_config_var("radar_relay_taker_fee_amount")
 }
