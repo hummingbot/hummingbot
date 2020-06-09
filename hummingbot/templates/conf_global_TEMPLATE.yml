@@ -47,7 +47,7 @@ kill_switch_enabled: null
 kill_switch_rate: null
 
 #DEX active order cancellation
-0x_exchange_actively_cancel_orders: false
+0x_active_cancels: false
 
 # Paper Trading
 paper_trade_enabled: false
