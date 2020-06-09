@@ -849,7 +849,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     cdef c_cancel_active_orders(self, object proposal):
         if self._cancel_timestamp > self._current_timestamp:
             return
-        if not global_config_map.get("0x_exchange_actively_cancel_orders").value:
+        if not global_config_map.get("0x_active_cancels").value:
             if ((self._market_info.market.name in self.RADAR_RELAY_TYPE_EXCHANGES) or
                     (self._market_info.market.name == "bamboo_relay" and not self._market_info.market.use_coordinator)):
                 return
@@ -882,7 +882,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             self.set_timers()
 
     cdef c_cancel_hanging_orders(self):
-        if not global_config_map.get("0x_exchange_actively_cancel_orders").value:
+        if not global_config_map.get("0x_active_cancels").value:
             if ((self._market_info.market.name in self.RADAR_RELAY_TYPE_EXCHANGES) or
                     (self._market_info.market.name == "bamboo_relay" and not self._market_info.market.use_coordinator)):
                 return
