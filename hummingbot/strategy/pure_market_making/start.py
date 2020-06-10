@@ -21,6 +21,7 @@ def start(self):
         order_refresh_time = c_map.get("order_refresh_time").value
         bid_spread = c_map.get("bid_spread").value / Decimal('100')
         ask_spread = c_map.get("ask_spread").value / Decimal('100')
+        minimum_spread = c_map.get("minimum_spread").value / Decimal('100')
         price_ceiling = c_map.get("price_ceiling").value
         price_floor = c_map.get("price_floor").value
         ping_pong_enabled = c_map.get("ping_pong_enabled").value
@@ -92,7 +93,8 @@ def start(self):
             price_floor=price_floor,
             ping_pong_enabled=ping_pong_enabled,
             hanging_orders_cancel_pct=hanging_orders_cancel_pct,
-            order_refresh_tolerance_pct=order_refresh_tolerance_pct
+            order_refresh_tolerance_pct=order_refresh_tolerance_pct,
+            minimum_spread=minimum_spread,
         )
     except Exception as e:
         self._notify(str(e))
