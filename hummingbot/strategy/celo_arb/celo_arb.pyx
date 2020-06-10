@@ -7,16 +7,13 @@ from typing import (
     Tuple,
     Dict
 )
-import time
-from enum import Enum
 import pandas as pd
 from hummingbot.core.clock cimport Clock
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
-from libc.stdint cimport int64_t
-from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler, safe_ensure_future
 from hummingbot.market.market_base import MarketBase
 from hummingbot.market.market_base cimport MarketBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
@@ -37,9 +34,13 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.model.trade_fill import TradeFill
 
+
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
 ds_logger = None
+# This error margin is for --forAtLeast argument in celocli exchange:usd and exchange:gold commands
+# This is reduce a number of rejected exchange transactions.
+CELO_FOR_AT_LEST_ERR_MARGIN = Decimal("0.001")
 
 
 def get_trade_profits(market, trading_pair: str, order_amount: Decimal) -> List[CeloArbTradeProfit]:
@@ -96,16 +97,21 @@ cdef class CeloArbStrategy(StrategyBase):
                  order_amount: Decimal,
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900,
-                 hb_app_notification: bool = True):
+                 hb_app_notification: bool = True,
+                 mock_celo_cli_mode: bool = False):
         super().__init__()
         self._market_info = market_info
         self._exchange = market_info.market.name
         self._min_profitability = min_profitability
         self._order_amount = order_amount
+        self._last_no_arb_reported = 0
         self._celo_orders = []
         self._all_markets_ready = False
         self._logging_options = logging_options
 
+        self._async_scheduler = None
+        self._main_task = None
+        self._mock_celo_cli_mode = mock_celo_cli_mode
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
         self._hb_app_notification = hb_app_notification
@@ -185,7 +191,7 @@ cdef class CeloArbStrategy(StrategyBase):
         celo_bals = CeloCLI.balances()
         series = []
         for token, bal in celo_bals.items():
-            series.append(pd.Series(["Celo", token, round(bal.total, 2), round(bal.available(), 2), 1],
+            series.append(pd.Series(["Celo", token, round(bal.total, 2), round(bal.available(), 2)],
                                     index=assets_df.columns))
         assets_df = assets_df.append(series, ignore_index=True)
         lines.extend(["", "  Assets:"] +
@@ -197,6 +203,11 @@ cdef class CeloArbStrategy(StrategyBase):
             lines.extend(["", "*** WARNINGS ***"] + warning_lines)
 
         return "\n".join(lines)
+
+    cdef c_stop(self, Clock clock):
+        if self._main_task is not None and not self._main_task.done():
+            self._main_task.cancel()
+        StrategyBase.c_stop(self, clock)
 
     cdef c_tick(self, double timestamp):
         """
@@ -212,6 +223,8 @@ cdef class CeloArbStrategy(StrategyBase):
             bint should_report_warnings = ((current_tick > last_tick) and
                                            (self._logging_options & self.OPTION_LOG_STATUS_REPORT))
         try:
+            if self._async_scheduler is None:
+                self._async_scheduler = AsyncCallScheduler(call_interval=1)
             if not self._all_markets_ready:
                 self._all_markets_ready = all([market.ready for market in self._sb_markets])
                 if not self._all_markets_ready:
@@ -233,11 +246,22 @@ cdef class CeloArbStrategy(StrategyBase):
             self._last_timestamp = timestamp
 
     cdef c_main(self):
+        if self._mock_celo_cli_mode:
+            self.main_process()
+        else:
+            if self._main_task is None or self._main_task.done():
+                coro = self._async_scheduler.call_async(self.main_process, timeout_seconds=30)
+                self._main_task = safe_ensure_future(coro)
+
+    def main_process(self):
         trade_profits = get_trade_profits(self._market_info.market, self._market_info.trading_pair, self._order_amount)
         arb_trades = [t for t in trade_profits if t.profit >= self._min_profitability]
         if len(arb_trades) > 1:
             raise Exception("Found 2 profitable trades from 2 markets, something went wrong.")
         if len(arb_trades) == 0:
+            if self._last_no_arb_reported < self._current_timestamp - 20:
+                self.logger().info(f"No arbitrage opportunity: {trade_profits[0]} {trade_profits[1]}")
+                self._last_no_arb_reported = self._current_timestamp
             return
         if arb_trades[0].is_celo_buy:
             self.logger().info(f"Found arbitrage opportunity!: {arb_trades[0]}")
@@ -281,12 +305,13 @@ cdef class CeloArbStrategy(StrategyBase):
                                   f"{market.name} ({self._market_info.trading_pair})"
                                   f"at {celo_buy_trade.ctp_price:.2f} price. "
                                   f"Arb profit: {celo_buy_trade.profit:.2%}")
-            tx_hash = CeloCLI.buy_cgld(cusd_required)
+            self.c_sell_with_specific_market(self._market_info, quantized_sell_amount,
+                                             order_type=OrderType.LIMIT, price=celo_buy_trade.ctp_price)
+            min_cgld_returned = buy_amount * (Decimal("1") - CELO_FOR_AT_LEST_ERR_MARGIN)
+            tx_hash = CeloCLI.buy_cgld(cusd_required, min_cgld_returned=min_cgld_returned)
             celo_order = CeloOrder(tx_hash, True, celo_buy_trade.celo_price, buy_amount, self._current_timestamp)
             self._celo_orders.append(celo_order)
             self.logger().info(f"Successfully executed {celo_order}")
-            self.c_sell_with_specific_market(self._market_info, quantized_sell_amount,
-                                             order_type=OrderType.LIMIT, price=celo_buy_trade.ctp_price)
 
     cdef c_execute_sell_celo_buy_ctp(self, object celo_sell_trade):
         """
@@ -325,12 +350,14 @@ cdef class CeloArbStrategy(StrategyBase):
                                   f"{market.name} ({self._market_info.trading_pair})"
                                   f"at {celo_sell_trade.ctp_price:.2f} price. "
                                   f"Arb profit: {celo_sell_trade.profit:.2%}")
-            tx_hash = CeloCLI.sell_cgld(sell_amount)
+            self.c_buy_with_specific_market(self._market_info, quantized_buy_amount,
+                                            order_type=OrderType.LIMIT, price=celo_sell_trade.ctp_price)
+            min_cusd_returned = sell_amount * celo_sell_trade.celo_price * (Decimal("1") -
+                                                                            CELO_FOR_AT_LEST_ERR_MARGIN)
+            tx_hash = CeloCLI.sell_cgld(sell_amount, min_cusd_returned=min_cusd_returned)
             celo_order = CeloOrder(tx_hash, False, celo_sell_trade.celo_price, sell_amount, self._current_timestamp)
             self._celo_orders.append(celo_order)
             self.logger().info(f"Successfully executed {celo_order}")
-            self.c_buy_with_specific_market(self._market_info, quantized_buy_amount,
-                                            order_type=OrderType.LIMIT, price=celo_sell_trade.ctp_price)
 
     def log_n_notify(self, msg: str):
         self.log_with_clock(logging.INFO, msg)

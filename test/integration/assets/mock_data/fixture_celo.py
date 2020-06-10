@@ -47,7 +47,8 @@ outputs = {
         "total: 12014917632492453465\n"
         "pending: 0",
 
-    ('celocli', 'exchange:gold', '--from', TEST_ADDRESS, '--value', str(int(1 * UNIT_MULTIPLIER))):
+    ('celocli', 'exchange:gold', '--from', TEST_ADDRESS, '--value', str(int(1 * UNIT_MULTIPLIER)),
+     '--forAtLeast', '10489500000000000000'):
         "Sending Transaction: increaseAllowance... done\n"
         "SendTransaction: increaseAllowance\n"
         "txHash: 0xfd0777b214f4993c8f182e3d90ce15cee9db59aa0ec48621c68dadc880316c0e\n"
@@ -63,7 +64,8 @@ outputs = {
         "txHash: 0xTEST_TX_HASSHHHHHHHHHHH\n"
         "Sending Transaction: exchange... done",
 
-    ('celocli', 'exchange:dollars', '--from', TEST_ADDRESS, '--value', '18857142857142857142'):
+    ('celocli', 'exchange:dollars', '--from', TEST_ADDRESS, '--value', '18857142857142857142',
+     '--forAtLeast', '1998000000000000000'):
         "SendTransaction: increaseAllowance\n"
         "txHash: 0xc01bdc3a8059a26519db0448d05fbf585cc63bb1a762e0da1b94f2a118ca4035\n"
         "Sending Transaction: increaseAllowance... done\n"
