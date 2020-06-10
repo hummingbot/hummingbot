@@ -35,7 +35,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         double _create_timestamp
         object _limit_order_type
         bint _all_markets_ready
-        double _expiration_seconds
         int _filled_buys_balance
         int _filled_sells_balance
         list _hanging_order_ids
