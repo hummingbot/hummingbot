@@ -296,12 +296,14 @@ class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
     def test_batch_market_buy(self):
         trading_pair: str = self.base_token_asset + "-" + self.quote_token_asset
         amount = Decimal("0.002")
-        current_price: Decimal = self.market.get_price(trading_pair, True)
+        current_buy_price: Decimal = self.market.get_price(trading_pair, True)
+        current_sell_price: Decimal = self.market.get_price(trading_pair, False)
+        current_price: Decimal = current_sell_price - (current_sell_price - current_buy_price) / 2
         expires = int(time.time() + 60 * 3)
         sell_order_id = self.market.sell(trading_pair=trading_pair,
                                          amount=amount,
                                          order_type=OrderType.LIMIT,
-                                         price=current_price - Decimal("0.2") * current_price,
+                                         price=current_price,
                                          expiration_ts=expires)
         self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
 
@@ -345,12 +347,14 @@ class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
     def test_batch_market_sell(self):
         trading_pair: str = self.base_token_asset + "-" + self.quote_token_asset
         amount = Decimal("0.002")
-        current_price: Decimal = self.market.get_price(trading_pair, False)
+        current_buy_price: Decimal = self.market.get_price(trading_pair, True)
+        current_sell_price: Decimal = self.market.get_price(trading_pair, False)
+        current_price: Decimal = current_buy_price + (current_sell_price - current_buy_price) / 2
         expires = int(time.time() + 60 * 3)
         buy_order_id = self.market.buy(trading_pair=trading_pair,
                                        amount=amount,
                                        order_type=OrderType.LIMIT,
-                                       price=current_price + Decimal("0.2") * current_price,
+                                       price=current_price,
                                        expiration_ts=expires)
         self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
 

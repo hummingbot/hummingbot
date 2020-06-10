@@ -361,4 +361,10 @@ global_config_map = {
                   type_str="str",
                   required_if=lambda: global_config_map.get("db_engine").value != "sqlite",
                   default="dbname"),
+    "0x_active_cancels":
+        ConfigVar(key="0x_active_cancels",
+                prompt="Enable active order cancellations for 0x exchanges (warning: this costs gas)?  >>> ",
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool),
 }
