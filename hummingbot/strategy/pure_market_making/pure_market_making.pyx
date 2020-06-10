@@ -86,7 +86,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                  ping_pong_enabled: bool = False,
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900,
-                 expiration_seconds: float = NaN,
                  minimum_spread: Decimal = Decimal(0)
                  ):
 
@@ -125,7 +124,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         if market_info.market.name == "binance" and paper_trade_disabled():
             self._limit_order_type = OrderType.LIMIT_MAKER
         self._all_markets_ready = False
-        self._expiration_seconds = expiration_seconds
         self._filled_buys_balance = 0
         self._filled_sells_balance = 0
         self._hanging_order_ids = []
@@ -874,7 +872,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     self.c_is_within_tolerance(active_sell_prices, proposal_sells):
                 to_defer_canceling = True
 
-        
         if not to_defer_canceling:
             for order in active_orders:
                 self.c_cancel_order(self._market_info, order.client_order_id)
