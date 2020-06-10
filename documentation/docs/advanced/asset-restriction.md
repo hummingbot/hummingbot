@@ -2,7 +2,7 @@
 
 **Updated as of `v0.28.0`**
 
-This feature allows you to restrict the amounts of certain assets that Hummingbot is allowed to use from your wallet and on exchanges. You can specify the amount of each currency/asset that the bot can trade. This enables you to secure your assets and avoid unexpected losses.
+This feature allows you to restrict the amounts of certain assets that Hummingbot is allowed to use on exchanges. You can specify the amount of each currency/asset that the bot can trade. This enables you to secure your assets and avoid unexpected losses.
 
 ## How It Works
 ### Enabling and Disabling
