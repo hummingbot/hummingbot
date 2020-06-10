@@ -17,14 +17,13 @@ Liquidity mining sets forth an analytical framework for determining market maker
 - [Liquidity Mining FAQs](https://docs.hummingbot.io/faq/liquidity-mining/)
 - [Liquidity Mining whitepaper](https://hummingbot.io/liquidity-mining.pdf)
 
-## Active programs
+## Active campaigns
 
 !!! warning "Terms subject to change"
     Please check this page for the most up-to-date terms.  We will notify participants of changes, if any, through email (for registered users) and on our [Discord](https://discord.hummingbot.io).
 
-!!! note "Terms updated for week 13: starting May 26, 2020 12.00am UTC"
-    <li>**Solana liquidity mining campaign launched!** SOL/BTC, SOL/BUSD, and SOL/BNB will be eligible pairs with a total of USDC 625/week of rewards available.
-    <li>**Zcoin eliglble token pairs updated**: **XZC/BTC** will no longer be eligible, while **XZC/ETH** and **XZC/BNB** have been added as eligible pairs.
+!!! note "New Mainframe campaign: starting June 16, 2020 12.00am UTC"
+    **[Mainframe liquidity mining campaign](#upcoming-campaign):** MFT/USDT, MFT/ETH, and MFT/BNB will be eligible pairs *starting June 16, 2020* with a total of USDC 750/week of rewards available.
 
 <table>
   <thead>
@@ -114,6 +113,42 @@ Liquidity mining sets forth an analytical framework for determining market maker
   </tbody>
 </table>
 
+## Upcoming campaign
+
+**Launching June 16, 2020 12.00am UTC**
+
+<table>
+  <thead>
+    <th>Sponsor</th>
+    <th>Trading pair</th>
+    <th>Exchange</th>
+    <th>Maximum spread</th>
+    <th>Weekly rewards</th>
+  </thead>
+  <tbody>
+    <tr>
+      <td rowspan="3"><a href="#mainframe">Mainframe</a><br></td>
+      <td>MFT/USDT</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 200</td>
+    </tr>
+    <tr>
+      <td>MFT/ETH</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 275</td>
+    </tr>
+    <tr>
+      <td>MFT/BNB</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 275</td>
+    </tr>
+  </tbody>
+</table>
+
+
 ## Program sponsors
 
 
@@ -122,6 +157,12 @@ Liquidity mining sets forth an analytical framework for determining market maker
 [iExec (RLC)](https://iex.ec/) claims to have developed the first decentralized marketplace for cloud computing resources. Blockchain technology is used to organize a market network where users can monetize their computing power, applications, and datasets. By providing on-demand access to cloud computing resources, iExec is reportedly able to support compute-intensive applications in fields such as AI, big data, healthcare, rendering, or FinTech. iExec's RLC token has been listed on Binance, Bittrex, etc.
 
 [Whitepaper](https://iex.ec/wp-content/uploads/pdf/iExec-WPv3.0-English.pdf) | [Twitter](https://twitter.com/iEx_ec) | [Telegram](https://goo.gl/fH3EHT) | [Github](https://github.com/iExecBlockchainComputing) | [Explorer](https://etherscan.io/token/0x607F4C5BB672230e8672085532f7e901544a7375) | [CoinMarketCap](https://coinmarketcap.com/currencies/rlc/markets/) | [CoinGecko](https://www.coingecko.com/en/coins/iexec-rlc)
+
+### Mainframe
+
+The [Mainframe (MFT)](https://mainframe.com/) Lending Protocol allows anyone to borrow against their crypto. Mainframe uses a bond-like instrument, representing an on-chain obligation that settles on a specific future date. Buying and selling the tokenized debt enables fixed-rate lending and borrowing — something much needed in decentralized finance today.
+
+[Blog](https://blog.mainframe.com) | [Twitter](https://twitter.com/Mainframe_HQ) | [Telegram](https://t.me/MainframeCommunity) | [Github](https://github.com/MainframeHQ) | [CoinMarketCap](https://coinmarketcap.com/currencies/mainframe/) | [CoinGecko](https://www.coingecko.com/en/coins/mainframe)
 
 ### Solana
 
