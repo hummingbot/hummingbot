@@ -46,6 +46,9 @@ kill_switch_enabled: null
 ## The rate of performance at which you would want the bot to stop trading (-20 = 20%)
 kill_switch_rate: null
 
+#DEX active order cancellation
+0x_active_cancels: false
+
 # Paper Trading
 paper_trade_enabled: false
 paper_trade_account_balance:
