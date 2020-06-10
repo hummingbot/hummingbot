@@ -370,7 +370,7 @@ cdef class HuobiMarket(MarketBase):
             return TradeFee(percent=fee_overrides_config_map["huobi_taker_fee"].value / Decimal("100"))
         return TradeFee(percent=Decimal("0.002"))
         """
-        is_maker = order_type is OrderType.LLIMIT
+        is_maker = order_type is OrderType.LIMIT
         return estimate_fee("huobi", is_maker)
 
     async def _update_trading_rules(self):

@@ -49,6 +49,9 @@ kill_switch_enabled: null
 ## The rate of performance at which you would want the bot to stop trading (-20 = 20%)
 kill_switch_rate: null
 
+#DEX active order cancellation
+0x_active_cancels: false
+
 # Paper Trading
 paper_trade_enabled: false
 paper_trade_account_balance:
@@ -73,11 +76,6 @@ paper_trade_account_balance:
 telegram_enabled: false
 telegram_token: null
 telegram_chat_id: null
-
-# Exchange rate
-exchange_rate_default_data_feed: coin_gecko_api
-exchange_rate_conversion:
-exchange_rate_fetcher:
 
 # Error log sharing
 send_error_logs: null
