@@ -24,7 +24,6 @@ def start(self):
         price_ceiling = c_map.get("price_ceiling").value
         price_floor = c_map.get("price_floor").value
         ping_pong_enabled = c_map.get("ping_pong_enabled").value
-        order_expiration_time = c_map.get("order_expiration_time").value
         order_levels = c_map.get("order_levels").value
         order_level_amount = c_map.get("order_level_amount").value
         order_level_spread = c_map.get("order_level_spread").value / Decimal('100')
@@ -87,7 +86,6 @@ def start(self):
             add_transaction_costs_to_orders=add_transaction_costs_to_orders,
             logging_options=strategy_logging_options,
             asset_price_delegate=asset_price_delegate,
-            expiration_seconds=order_expiration_time,
             price_ceiling=price_ceiling,
             price_floor=price_floor,
             ping_pong_enabled=ping_pong_enabled,
