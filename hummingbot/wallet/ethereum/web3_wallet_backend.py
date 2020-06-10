@@ -22,8 +22,10 @@ from web3.contract import (
     ContractFunction
 )
 from web3.datastructures import AttributeDict
-from web3.exceptions import BlockNotFound
-from web3.exceptions import TransactionNotFound
+from web3.exceptions import (
+    BlockNotFound,
+    TransactionNotFound
+)
 
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
@@ -128,7 +130,7 @@ class Web3WalletBackend(PubSub):
         self._outgoing_transactions_queue: asyncio.Queue = asyncio.Queue()
         self._outgoing_transactions_task: Optional[asyncio.Task] = None
         self._check_transaction_receipts_task: Optional[asyncio.Task] = None
-        self._pending_tx_dict: Dict[str, int] = {}
+        self._pending_tx_dict: Dict[str, any] = {}
         self._gas_price: int = self.DEFAULT_GAS_PRICE
         self._last_timestamp_received_blocks: float = 0.0
         self._event_forwarder: EventForwarder = EventForwarder(self._did_receive_new_blocks)
@@ -212,11 +214,12 @@ class Web3WalletBackend(PubSub):
                 token.get_symbol()
                 for token in self._erc20_token_list
             ]
+
+            token_symbols: List[str] = await safe_gather(*fetch_symbols_tasks)
             fetch_decimals_tasks: List[Coroutine] = [
                 token.get_decimals()
                 for token in self._erc20_token_list
             ]
-            token_symbols: List[str] = await safe_gather(*fetch_symbols_tasks)
             token_decimals: List[int] = await safe_gather(*fetch_decimals_tasks)
             for token, symbol, decimals in zip(self._erc20_token_list, token_symbols, token_decimals):
                 self._erc20_tokens[symbol] = token
@@ -378,6 +381,19 @@ class Web3WalletBackend(PubSub):
                                     f"Check wallet network connection")
                 await asyncio.sleep(5.0)
 
+    async def _check_transaction_receipt(self, tx_hash: str, timestamp: int):
+        """
+        Look for transaction receipt, only raise not found error if they are missing for longer than two minutes.
+        """
+        async_scheduler: AsyncCallScheduler = AsyncCallScheduler.shared_instance()
+        try:
+            return await async_scheduler.call_async(self._w3.eth.getTransactionReceipt, tx_hash)
+        except TransactionNotFound:
+            now: float = time.time()
+            if now - timestamp > 120:
+                raise
+            return None
+
     async def check_transaction_receipts(self):
         """
         Look for failed transactions, and emit transaction fail event if any are found.
@@ -406,7 +422,7 @@ class Web3WalletBackend(PubSub):
         for receipt in transaction_receipts:
             # Emit gas used event.
             tx_hash: str = receipt.transactionHash.hex()
-            gas_price_wei: int = self._pending_tx_dict[tx_hash]
+            gas_price_wei: int = self._pending_tx_dict[tx_hash]['gas_price']
             gas_used: int = receipt.gasUsed
             gas_eth_amount_raw: int = gas_price_wei * gas_used
 
@@ -447,7 +463,10 @@ class Web3WalletBackend(PubSub):
                 self._local_nonce -= 1
 
     def _start_tx_tracking(self, tx_hash: str, gas_price: int):
-        self._pending_tx_dict[tx_hash] = gas_price
+        self._pending_tx_dict[tx_hash] = {
+            'gas_price': gas_price,
+            'timestamp': time.time()
+        }
 
     def _stop_tx_tracking(self, tx_hash: str):
         if tx_hash in self._pending_tx_dict:
