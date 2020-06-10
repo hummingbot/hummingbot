@@ -105,7 +105,6 @@ cdef class StrategyBase(TimeIterator):
         self._sb_complete_buy_order_listener = BuyOrderCompletedListener(self)
         self._sb_complete_sell_order_listener = SellOrderCompletedListener(self)
 
-        self._sb_limit_order_min_expiration = 130.0
         self._sb_delegate_lock = False
 
         self._sb_order_tracker = OrderTracker()
@@ -113,14 +112,6 @@ cdef class StrategyBase(TimeIterator):
     @property
     def active_markets(self) -> List[MarketBase]:
         return list(self._sb_markets)
-
-    @property
-    def limit_order_min_expiration(self) -> float:
-        return self._sb_limit_order_min_expiration
-
-    @limit_order_min_expiration.setter
-    def limit_order_min_expiration(self, double value):
-        self._sb_limit_order_min_expiration = value
 
     def format_status(self):
         raise NotImplementedError
@@ -382,7 +373,7 @@ cdef class StrategyBase(TimeIterator):
 
         cdef:
             dict kwargs = {
-                "expiration_ts": self._current_timestamp + max(self._sb_limit_order_min_expiration, expiration_seconds)
+                "expiration_ts": self._current_timestamp + expiration_seconds
             }
             MarketBase market = market_trading_pair_tuple.market
 
@@ -416,7 +407,7 @@ cdef class StrategyBase(TimeIterator):
 
         cdef:
             dict kwargs = {
-                "expiration_ts": self._current_timestamp + max(self._sb_limit_order_min_expiration, expiration_seconds)
+                "expiration_ts": self._current_timestamp + expiration_seconds
             }
 
             MarketBase market = market_trading_pair_tuple.market
