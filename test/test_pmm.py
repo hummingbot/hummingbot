@@ -757,11 +757,11 @@ class PureMarketMakingMinimumSpreadUnitTest(unittest.TestCase):
         self.assertEqual(old_bid.client_order_id, strategy.active_buys[0].client_order_id)
         self.assertEqual(old_ask.client_order_id, strategy.active_sells[0].client_order_id)
         # Minimum Spread Threshold Cancellation
-        # t = 3, Mid Market Price Moves Down - Below Min Spread (Old Bid) => Orders Cancelled
+        # t = 3, Mid Market Price Moves Down - Below Min Spread (Old Bid) => Buy Order Cancelled
         self.maker_data.order_book.apply_diffs([OrderBookRow(50, 1000, 2)], [OrderBookRow(50, 1000, 2)], 2)
         self.clock.backtest_til(self.start_timestamp + 3 * self.clock_tick_size)
         self.assertEqual(0, len(strategy.active_buys))
-        self.assertEqual(0, len(strategy.active_sells))
+        self.assertEqual(1, len(strategy.active_sells))
         # t = 30, New Set of Orders
         self.clock.backtest_til(self.start_timestamp + 32 * self.clock_tick_size)
         self.assertEqual(1, len(strategy.active_buys))
@@ -778,7 +778,7 @@ class PureMarketMakingMinimumSpreadUnitTest(unittest.TestCase):
         self.assertEqual(1, len(strategy.active_sells))
         self.assertEqual(old_bid.client_order_id, strategy.active_buys[0].client_order_id)
         self.assertEqual(old_ask.client_order_id, strategy.active_sells[0].client_order_id)
-        # t = 36, Mid Market Price Moves Up - Below Min Spread (Old Ask) => Orders Cancelled
+        # t = 36, Mid Market Price Moves Up - Below Min Spread (Old Ask) => Sell Order Cancelled
         # Clear Order Book (setting all orders above price 0, to quantity 0)
         simulate_order_book_widening(self.maker_data.order_book, 0, 0)
         # New Mid-Market Price
@@ -790,5 +790,5 @@ class PureMarketMakingMinimumSpreadUnitTest(unittest.TestCase):
         self.assertEqual(old_ask.client_order_id, strategy.active_sells[0].client_order_id)
         # Simulate Minimum Spread Threshold Cancellation
         self.clock.backtest_til(self.start_timestamp + 40 * self.clock_tick_size)
-        self.assertEqual(0, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_buys))
         self.assertEqual(0, len(strategy.active_sells))
