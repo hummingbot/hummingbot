@@ -33,7 +33,7 @@ global_configs_to_display = ["kill_switch_enabled",
                              "telegram_chat_id",
                              "send_error_logs",
                              "asset_restriction_enabled",
-                             "asset_restriction_pct"]
+                             "asset_restriction"]
 
 
 class ConfigCommand:

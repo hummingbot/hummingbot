@@ -112,3 +112,26 @@ db_username: null
 db_password: null
 db_name: null
 
+# Asset Restriction
+asset_restriction_enabled: false
+asset_restriction:
+- - RLC
+  - 30
+- - BTC
+  - 1
+- - USDT
+  - 1000
+- - ONE
+  - 1000
+- - USDQ
+  - 1000
+- - TUSD
+  - 1000
+- - ETH
+  - 10
+- - WETH
+  - 10
+- - USDC
+  - 1000
+- - DAI
+  - 1000

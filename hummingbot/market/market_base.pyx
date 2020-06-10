@@ -26,6 +26,7 @@ from hummingbot.core.network_iterator import NetworkIterator
 from hummingbot.core.data_type.order_book import OrderBook
 
 from .deposit_info import DepositInfo
+from ..client.config.global_config_map import global_config_map
 
 NaN = float("nan")
 s_decimal_NaN = Decimal("nan")
@@ -170,7 +171,17 @@ cdef class MarketBase(NetworkIterator):
         :returns: Balance available for trading for a specific asset
         (balances used to place open orders are not available for trading)
         """
-        return self._account_available_balances.get(currency, s_decimal_0)
+        cdef object balance
+        balance = self._account_available_balances.get(currency, s_decimal_0)
+        if global_config_map.get("asset_restriction_enabled").value:
+            # cdef dict restriction_setting
+            restriction_setting = {curr: bal for curr, bal in global_config_map.get("asset_restriction").value}
+            if currency in restriction_setting:
+                balance = min(balance, restriction_setting.get(currency))
+            else:
+                balance = 0
+        self.logger().info(f"BALANCE: {currency} - {balance}")
+        return balance
 
     cdef str c_withdraw(self, str address, str currency, object amount):
         raise NotImplementedError
