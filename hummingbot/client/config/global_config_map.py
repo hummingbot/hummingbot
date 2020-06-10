@@ -294,6 +294,20 @@ global_config_map = {
                   default=-100,
                   validator=lambda v: validate_decimal(v, Decimal(-100), Decimal(100)),
                   required_if=lambda: global_config_map["kill_switch_enabled"].value),
+    "asset_restriction_enabled":
+        ConfigVar(key="asset_restriction_enabled",
+                  prompt="Would you like to restrict the amount of assets Hummingbot can access? (Yes/No) >>> ",
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool),
+    "asset_restriction_pct":
+        ConfigVar(key="asset_restriction_pct",
+                  prompt="What percentage of your assets would you like to give Hummingbot? "
+                         "(Enter 50 for 50%) >>> ",
+                  type_str="decimal",
+                  default=100,
+                  validator=lambda v: validate_decimal(v, Decimal(0), Decimal(100), True),
+                  required_if=lambda: global_config_map["asset_restriction_enabled"].value),
     "telegram_enabled":
         ConfigVar(key="telegram_enabled",
                   prompt="Would you like to enable telegram? >>> ",

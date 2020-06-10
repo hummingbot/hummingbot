@@ -31,7 +31,9 @@ global_configs_to_display = ["kill_switch_enabled",
                              "telegram_enabled",
                              "telegram_token",
                              "telegram_chat_id",
-                             "send_error_logs"]
+                             "send_error_logs",
+                             "asset_restriction_enabled",
+                             "asset_restriction_pct"]
 
 
 class ConfigCommand:
@@ -61,7 +63,7 @@ class ConfigCommand:
         if self.strategy_name is not None:
             data = [[cv.key, cv.value] for cv in self.strategy_config_map.values() if not cv.is_secure]
             df = pd.DataFrame(data=data, columns=columns)
-            self._notify(f"\nStrategy Configurations:")
+            self._notify("\nStrategy Configurations:")
             lines = ["    " + line for line in df.to_string(index=False).split("\n")]
             self._notify("\n".join(lines))
 
@@ -125,10 +127,10 @@ class ConfigCommand:
             await self.update_all_secure_configs()
             missings = missing_required_configs(config_map)
             if missings:
-                self._notify(f"\nThere are other configuration required, please follow the prompt to complete them.")
+                self._notify("\nThere are other configuration required, please follow the prompt to complete them.")
             missings = await self._prompt_missing_configs(config_map)
             save_to_yml(file_path, config_map)
-            self._notify(f"\nNew configuration saved:")
+            self._notify("\nNew configuration saved:")
             self._notify(f"{key}: {str(config_var.value)}")
             for config in missings:
                 self._notify(f"{config.key}: {str(config.value)}")
