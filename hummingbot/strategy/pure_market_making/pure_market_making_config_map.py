@@ -155,15 +155,6 @@ pure_market_making_config_map = {
                   type_str="bool",
                   default=False,
                   validator=validate_bool),
-    "order_expiration_time":
-        ConfigVar(key="order_expiration_time",
-                  prompt="How long should your limit orders remain valid until they "
-                         "expire and are replaced? (Minimum / Default is 130 seconds) >>> ",
-                  default=130.0,
-                  required_if=lambda: using_exchange("radar_relay")() or (using_exchange("bamboo_relay")() and
-                                                                          not using_bamboo_coordinator_mode()),
-                  type_str="float",
-                  validator=lambda v: validate_decimal(v, 130)),
     "order_levels":
         ConfigVar(key="order_levels",
                   prompt="How many orders do you want to place on both sides? >>> ",
