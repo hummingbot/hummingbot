@@ -6,7 +6,7 @@ from hummingbot.client.config.config_helpers import save_to_yml
 from hummingbot.client.settings import GLOBAL_CONFIG_PATH
 from hummingbot.market.celo.celo_cli import CeloCLI
 import pandas as pd
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -87,7 +87,6 @@ class ConnectCommand:
         data = []
         failed_msgs = {}
         err_msgs = await UserBalances.instance().update_exchanges(reconnect=True)
-        CeloCLI.remove_account()
         for option in sorted(OPTIONS):
             keys_added = "No"
             keys_confirmed = 'No'
@@ -104,10 +103,7 @@ class ConnectCommand:
                 celo_address = global_config_map["celo_address"].value
                 if celo_address is not None and Security.encrypted_file_exists("celo_password"):
                     keys_added = "Yes"
-                    CeloCLI.set_account(global_config_map["celo_address"].value,
-                                        Security.decrypted_value("celo_password"))
-                    CeloCLI.unlock_account()
-                    err_msg = CeloCLI.unlocked_msg
+                    err_msg = await self.validate_n_connect_celo()
                     if err_msg is not None:
                         failed_msgs[option] = err_msg
                     else:
@@ -164,7 +160,7 @@ class ConnectCommand:
         to_connect = True
         if celo_address is not None:
             answer = await self.app.prompt(prompt=f"Would you like to replace your existing Celo account address "
-                                                  f"...{celo_address[-4:]} (Yes/No)? >>> ")
+                                                  f"...{celo_address} (Yes/No)? >>> ")
             if answer.lower() not in ("yes", "y"):
                 to_connect = False
         if to_connect:
@@ -172,9 +168,9 @@ class ConnectCommand:
             await self.prompt_a_config(global_config_map["celo_password"])
             save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
 
-            CeloCLI.set_account(global_config_map["celo_address"].value, global_config_map["celo_password"].value)
-            CeloCLI.unlock_account()
-            err_msg = CeloCLI.unlocked_msg
+            err_msg = await self.validate_n_connect_celo(True,
+                                                         global_config_map["celo_address"].value,
+                                                         global_config_map["celo_password"].value)
             if err_msg is None:
                 self._notify(f"You are now connected to Celo network.")
             else:
@@ -182,3 +178,20 @@ class ConnectCommand:
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
+
+    async def validate_n_connect_celo(self, to_reconnect: bool = False, celo_address: str = None,
+                                      celo_password: str = None) -> Optional[str]:
+        if celo_address is None:
+            celo_address = global_config_map["celo_address"].value
+        if celo_password is None:
+            await Security.wait_til_decryption_done()
+            celo_password = Security.decrypted_value("celo_password")
+        if celo_address is None or celo_password is None:
+            return "Celo address and/or password have not been added."
+        if CeloCLI.unlocked and not to_reconnect:
+            return None
+        err_msg = CeloCLI.validate_node_synced()
+        if err_msg is not None:
+            return err_msg
+        err_msg = CeloCLI.unlock_account(celo_address, celo_password)
+        return err_msg
