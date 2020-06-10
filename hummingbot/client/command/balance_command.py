@@ -27,6 +27,8 @@ class BalanceCommand:
         celo_address = global_config_map["celo_address"].value
         if celo_address is not None:
             try:
+                if not CeloCLI.unlocked:
+                    await self.validate_n_connect_celo()
                 bals = CeloCLI.balances()
                 self._notify("Celo balances:")
                 for token, bal in bals.items():

@@ -14,11 +14,13 @@ cdef class CeloArbStrategy(StrategyBase):
         str _exchange
         bint _all_markets_ready
         double _status_report_interval
+        double _last_no_arb_reported
         int64_t _logging_options
         list _celo_orders
         bint _hb_app_notification
         object _async_scheduler
         object _main_task
+        bint _mock_celo_cli_mode
 
     cdef c_main(self)
     cdef c_execute_buy_celo_sell_ctp(self, object trade_profit)

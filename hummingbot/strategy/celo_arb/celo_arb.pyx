@@ -13,6 +13,7 @@ import pandas as pd
 import asyncio
 from functools import partial
 from hummingbot.core.clock cimport Clock
+from hummingbot.core.clock import ClockMode
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -99,18 +100,21 @@ cdef class CeloArbStrategy(StrategyBase):
                  order_amount: Decimal,
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900,
-                 hb_app_notification: bool = True):
+                 hb_app_notification: bool = True,
+                 mock_celo_cli_mode: bool = False):
         super().__init__()
         self._market_info = market_info
         self._exchange = market_info.market.name
         self._min_profitability = min_profitability
         self._order_amount = order_amount
+        self._last_no_arb_reported = 0
         self._celo_orders = []
         self._all_markets_ready = False
         self._logging_options = logging_options
 
         self._async_scheduler = None
         self._main_task = None
+        self._mock_celo_cli_mode = mock_celo_cli_mode
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
         self._hb_app_notification = hb_app_notification
@@ -245,9 +249,12 @@ cdef class CeloArbStrategy(StrategyBase):
             self._last_timestamp = timestamp
 
     cdef c_main(self):
-        if self._main_task is None or self._main_task.done():
-            coro = self._async_scheduler.call_async(self.main_process, timeout_seconds=30)
-            self._main_task = safe_ensure_future(coro)
+        if self._mock_celo_cli_mode:
+            self.main_process()
+        else:
+            if self._main_task is None or self._main_task.done():
+                coro = self._async_scheduler.call_async(self.main_process, timeout_seconds=30)
+                self._main_task = safe_ensure_future(coro)
 
     def main_process(self):
         trade_profits = get_trade_profits(self._market_info.market, self._market_info.trading_pair, self._order_amount)
@@ -255,6 +262,9 @@ cdef class CeloArbStrategy(StrategyBase):
         if len(arb_trades) > 1:
             raise Exception("Found 2 profitable trades from 2 markets, something went wrong.")
         if len(arb_trades) == 0:
+            if self._last_no_arb_reported < self._current_timestamp - 20:
+                self.logger().info(f"No arbitrage opportunity: {trade_profits[0]} {trade_profits[1]}")
+                self._last_no_arb_reported = self._current_timestamp
             return
         if arb_trades[0].is_celo_buy:
             self.logger().info(f"Found arbitrage opportunity!: {arb_trades[0]}")
