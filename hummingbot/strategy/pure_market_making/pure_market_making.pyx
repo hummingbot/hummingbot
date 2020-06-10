@@ -899,10 +899,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         for order in active_orders:
             negation = -1 if order.is_buy else 1
             if (negation * (order.price - mid_price) / mid_price) < self._minimum_spread:
-                self.c_cancel_order(self._market_info, order.client_order_id)
                 self.logger().info(f"Order is below minimum spread ({self._minimum_spread})."
                                    f" Cancelling Order: ({'Buy' if order.is_buy else 'Sell'}) "
                                    f"ID - {order.client_order_id}")
+                self.c_cancel_order(self._market_info, order.client_order_id)
 
     cdef bint c_to_create_orders(self, object proposal):
         return self._create_timestamp < self._current_timestamp and \
