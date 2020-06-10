@@ -7,18 +7,12 @@ from typing import (
     Tuple,
     Dict
 )
-import time
-from enum import Enum
 import pandas as pd
-import asyncio
-from functools import partial
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.clock import ClockMode
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler, safe_ensure_future
 from hummingbot.market.market_base import MarketBase
 from hummingbot.market.market_base cimport MarketBase
@@ -39,11 +33,14 @@ from hummingbot.core.event.events import (
     TradeFee
 )
 from hummingbot.model.trade_fill import TradeFill
-import selectors
+
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
 ds_logger = None
+# This error margin is for --forAtLeast argument in celocli exchange:usd and exchange:gold commands
+# This is reduce a number of rejected exchange transactions.
+CELO_FOR_AT_LEST_ERR_MARGIN = Decimal("0.001")
 
 
 def get_trade_profits(market, trading_pair: str, order_amount: Decimal) -> List[CeloArbTradeProfit]:
@@ -308,12 +305,13 @@ cdef class CeloArbStrategy(StrategyBase):
                                   f"{market.name} ({self._market_info.trading_pair})"
                                   f"at {celo_buy_trade.ctp_price:.2f} price. "
                                   f"Arb profit: {celo_buy_trade.profit:.2%}")
-            tx_hash = CeloCLI.buy_cgld(cusd_required)
+            self.c_sell_with_specific_market(self._market_info, quantized_sell_amount,
+                                             order_type=OrderType.LIMIT, price=celo_buy_trade.ctp_price)
+            min_cgld_returned = buy_amount * (Decimal("1") - CELO_FOR_AT_LEST_ERR_MARGIN)
+            tx_hash = CeloCLI.buy_cgld(cusd_required, min_cgld_returned=min_cgld_returned)
             celo_order = CeloOrder(tx_hash, True, celo_buy_trade.celo_price, buy_amount, self._current_timestamp)
             self._celo_orders.append(celo_order)
             self.logger().info(f"Successfully executed {celo_order}")
-            self.c_sell_with_specific_market(self._market_info, quantized_sell_amount,
-                                             order_type=OrderType.LIMIT, price=celo_buy_trade.ctp_price)
 
     cdef c_execute_sell_celo_buy_ctp(self, object celo_sell_trade):
         """
@@ -352,12 +350,14 @@ cdef class CeloArbStrategy(StrategyBase):
                                   f"{market.name} ({self._market_info.trading_pair})"
                                   f"at {celo_sell_trade.ctp_price:.2f} price. "
                                   f"Arb profit: {celo_sell_trade.profit:.2%}")
-            tx_hash = CeloCLI.sell_cgld(sell_amount)
+            self.c_buy_with_specific_market(self._market_info, quantized_buy_amount,
+                                            order_type=OrderType.LIMIT, price=celo_sell_trade.ctp_price)
+            min_cusd_returned = sell_amount * celo_sell_trade.celo_price * (Decimal("1") -
+                                                                            CELO_FOR_AT_LEST_ERR_MARGIN)
+            tx_hash = CeloCLI.sell_cgld(sell_amount, min_cusd_returned=min_cusd_returned)
             celo_order = CeloOrder(tx_hash, False, celo_sell_trade.celo_price, sell_amount, self._current_timestamp)
             self._celo_orders.append(celo_order)
             self.logger().info(f"Successfully executed {celo_order}")
-            self.c_buy_with_specific_market(self._market_info, quantized_buy_amount,
-                                            order_type=OrderType.LIMIT, price=celo_sell_trade.ctp_price)
 
     def log_n_notify(self, msg: str):
         self.log_with_clock(logging.INFO, msg)
