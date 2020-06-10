@@ -161,6 +161,7 @@ nav:
       - Ethereum Wallet: advanced/wallet.md
       - Ethereum Node: advanced/node.md
       - Telegram: advanced/telegram.md
+      - Asset Restriction: advanced/asset-restriction.md
       - Docker Autostart <sup>(BETA)</sup>: advanced/autostart.md
       - External Database <sup>(BETA)</sup>: advanced/db-config.md
     - Community:
