@@ -891,23 +891,18 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     # Cancel Non-Hanging, Active Orders if Spreads are below minimum_spread
     cdef c_cancel_orders_below_min_spread(self):
-        if self._minimum_spread < 0:
-            return
         cdef:
             list active_orders = self.market_info_to_active_orders.get(self._market_info, [])
             object mid_price = self._market_info.get_mid_price()
-            bint cancel_orders = False
         active_orders = [order for order in active_orders
                          if order.client_order_id not in self._hanging_order_ids]
         for order in active_orders:
             negation = -1 if order.is_buy else 1
             if (negation * (order.price - mid_price) / mid_price) < self._minimum_spread:
-                cancel_orders = True
-        if cancel_orders:
-            self.logger().info(f"Orders are below minimum spread ({self._minimum_spread})."
-                               f"Cancelling Active Orders.")
-            for order in active_orders:
                 self.c_cancel_order(self._market_info, order.client_order_id)
+                self.logger().info(f"Order is below minimum spread ({self._minimum_spread})."
+                                   f" Cancelling Order: ({'Buy' if order.is_buy else 'Sell'}) "
+                                   f"ID - {order.client_order_id}")
 
     cdef bint c_to_create_orders(self, object proposal):
         return self._create_timestamp < self._current_timestamp and \

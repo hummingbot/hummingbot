@@ -118,8 +118,8 @@ pure_market_making_config_map = {
                   prompt="At what minimum spread should the bot automatically cancel orders? (Enter 1 for 1%) >>> ",
                   required_if=lambda: False,
                   type_str="decimal",
-                  default=Decimal(0),
-                  validator=lambda v: validate_decimal(v, -1, 100, True)),
+                  default=Decimal(-100),
+                  validator=lambda v: validate_decimal(v, -100, 100, True)),
     "order_refresh_time":
         ConfigVar(key="order_refresh_time",
                   prompt="How often do you want to cancel and replace bids and asks "
