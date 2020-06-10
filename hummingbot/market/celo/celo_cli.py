@@ -23,29 +23,19 @@ def command(commands: List[str]) -> Optional[str]:
 
 
 class CeloCLI:
-    UNLOCK_ERR_MSG = "Error: unlock_account has not been tried."
+    unlocked = False
     address = None
-    password = None
-    unlocked_msg = UNLOCK_ERR_MSG
 
     @classmethod
-    def set_account(cls, address, password):
-        cls.address = address
-        cls.password = password
-
-    @classmethod
-    def remove_account(cls):
-        cls.address = None
-        cls.password = None
-        cls.unlocked_msg = cls.UNLOCK_ERR_MSG
-
-    @classmethod
-    def unlock_account(cls):
+    def unlock_account(cls, address: str, password: str) -> Optional[str]:
         try:
-            output = command(["celocli", "account:unlock", cls.address, "--password", cls.password])
+            cls.address = address
+            command(["celocli", "account:unlock", address, "--password", password])
+            cls.unlocked = True
+            return None
         except Exception as e:
-            output = str(e)
-        cls.unlocked_msg = output
+            cls.unlocked = False
+            return str(e)
 
     @classmethod
     def balances(cls) -> Dict[str, CeloBalance]:
@@ -93,3 +83,10 @@ class CeloCLI:
         lines = output.split("\n")
         tx_hash = ([l for l in lines if "txHash" in l][-1]).split(":")[-1].strip()
         return tx_hash
+
+    @classmethod
+    def validate_node_synced(cls) -> Optional[str]:
+        output = command(["celocli", "node:synced"])
+        lines = output.split("\n")
+        if lines[0].strip().lower() != "true":
+            return lines[0]

@@ -84,14 +84,14 @@ class CeloArbUnitTest(unittest.TestCase):
             min_profitability=Decimal("0.01"),
             order_amount=Decimal("1"),
             logging_options=self.logging_options,
-            hb_app_notification=False
+            hb_app_notification=False,
+            mock_celo_cli_mode=True
         )
         self.clock.add_iterator(self.market)
         self.clock.add_iterator(self.strategy)
         self.market_order_fill_logger: EventLogger = EventLogger()
         self.market.add_listener(MarketEvent.OrderFilled, self.market_order_fill_logger)
-        CeloCLI.set_account(TEST_ADDRESS, TEST_PASSWORD)
-        CeloCLI.unlock_account()
+        CeloCLI.unlock_account(TEST_ADDRESS, TEST_PASSWORD)
 
     def test_get_trade_profits(self):
         """
