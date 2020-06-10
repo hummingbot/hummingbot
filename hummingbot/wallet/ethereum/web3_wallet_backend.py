@@ -23,6 +23,7 @@ from web3.contract import (
 )
 from web3.datastructures import AttributeDict
 from web3.exceptions import BlockNotFound
+from web3.exceptions import TransactionNotFound
 
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
@@ -383,9 +384,17 @@ class Web3WalletBackend(PubSub):
         """
         async_scheduler: AsyncCallScheduler = AsyncCallScheduler.shared_instance()
         tasks = [async_scheduler.call_async(self._w3.eth.getTransactionReceipt, tx_hash)
-                 for tx_hash in self._pending_tx_dict.keys()]
-        transaction_receipts: List[AttributeDict] = [tr for tr in await safe_gather(*tasks)
-                                                     if (tr is not None and tr.get("blockHash") is not None)]
+                for tx_hash in self._pending_tx_dict.keys()]
+        transaction_receipts: List[AttributeDict] = []
+        try:
+             transactions = await safe_gather(*tasks)
+             for tr in transactions:
+                 if (tr is not None and tr.get("blockHash") is not None):
+                     transaction_receipts.append(tr)
+        except TransactionNotFound as e:
+            stop_tx_hash = e.args[0].split(" ")[3]
+            self._stop_tx_tracking(stop_tx_hash)
+            self.logger().info(f"Stopped tracking transaction with hash: {stop_tx_hash}.")
         block_hash_set: Set[HexBytes] = set(tr.blockHash for tr in transaction_receipts)
         fetch_block_tasks = [async_scheduler.call_async(self._w3.eth.getBlock, block_hash)
                              for block_hash in block_hash_set]
