@@ -171,16 +171,16 @@ cdef class MarketBase(NetworkIterator):
         :returns: Balance available for trading for a specific asset
         (balances used to place open orders are not available for trading)
         """
-        cdef object balance
+        cdef:
+            object balance
+            dict restriction_setting
         balance = self._account_available_balances.get(currency, s_decimal_0)
         if global_config_map.get("asset_restriction_enabled").value:
-            # cdef dict restriction_setting
             restriction_setting = {curr: bal for curr, bal in global_config_map.get("asset_restriction").value}
             if currency in restriction_setting:
                 balance = min(balance, restriction_setting.get(currency))
             else:
                 balance = 0
-        self.logger().info(f"BALANCE: {currency} - {balance}")
         return balance
 
     cdef str c_withdraw(self, str address, str currency, object amount):
