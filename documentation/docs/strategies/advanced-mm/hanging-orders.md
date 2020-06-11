@@ -23,7 +23,7 @@ Suppose you are market making for the `ETH-USDT` pair with a mid-market price of
 
 Now suppose that a market taker (someone taking a position in the market) thinks the price of Ethereum will rise, so they fill your ask order 202 ($t_1$). 
 
-At the next order refresh cycle, normally Hummingbot would cancel the 198 USD bid order and create 2 new bid and ask orders. However, if `hanging_orders_enabled` is set to False, the bid order is not cancelled and stays on the order book until it is filled. Note that if an open hanging order spread exceeds the `hanging_orders_cancel_pct` parameter, the hanging order will be canceled.
+At the next order refresh cycle, normally Hummingbot would cancel the 198 USD bid order and create 2 new bid and ask orders. However, if `hanging_orders_enabled` is set to True, the bid order is not cancelled and stays on the order book until it is filled. Note that if an open hanging order spread exceeds the `hanging_orders_cancel_pct` parameter, the hanging order will be canceled.
 
 ###Example 2 (Advanced)
 
