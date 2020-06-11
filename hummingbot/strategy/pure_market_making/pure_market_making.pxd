@@ -10,6 +10,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         object _bid_spread
         object _ask_spread
+        object _minimum_spread
         object _order_amount
         int _order_levels
         object _order_level_spread
@@ -34,7 +35,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         double _create_timestamp
         object _limit_order_type
         bint _all_markets_ready
-        double _expiration_seconds
         int _filled_buys_balance
         int _filled_sells_balance
         list _hanging_order_ids
@@ -56,6 +56,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     cdef bint c_is_within_tolerance(self, list current_prices, list proposal_prices)
     cdef c_cancel_active_orders(self, object proposal)
     cdef c_cancel_hanging_orders(self)
+    cdef c_cancel_orders_below_min_spread(self)
     cdef bint c_to_create_orders(self, object proposal)
     cdef c_execute_orders_proposal(self, object proposal)
     cdef set_timers(self)
