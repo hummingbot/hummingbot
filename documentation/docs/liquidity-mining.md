@@ -24,6 +24,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
 
 !!! note "Campaign updates for upcoming week starting June 16, 2020 12.00am UTC"
     <li>**[Launch of Mainframe liquidity mining campaign](#upcoming-changes-to-campaign-terms):** **MFT/USDT**, **MFT/ETH**, and **MFT/BNB** will be eligible pairs *starting June 16, 2020* with a total of USDC 750/week of rewards available.
+    <li>**[Doubling Solana rewards!](#upcoming-changes-to-campaign-terms):** total rewards for SOL trading pairs will now be USDC 1,250 per week (from a previous USDC 625 per week).
     <li>**[Change of eligible Zilliga trading pairs](#upcoming-changes-to-campaign-terms):** eligibe trading pairs are changing from <s>ZIL/USDT</s>, <s>ZIL/ETH</S>, and <em>ZIL/BNB</em> to **ZIL/BNB** and **ZIL/BUSD**.
     <li>**[Removing XZC/ETH from eligibility](#upcoming-changes-to-campaign-terms):** Zcoin's campaign will change to include only **XZC/USDT** and **XZC/BNB** only.
 
@@ -148,6 +149,25 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>Binance.com</td>
       <td>2%</td>
       <td>USDC 275</td>
+    </tr>
+    <tr>
+      <td rowspan="3"><a href="#solana">Solana</a><br></td>
+      <td>SOL/BTC</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 500</td>
+    </tr>
+    <tr>
+      <td>SOL/BUSD</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 500</td>
+    </tr>
+    <tr>
+      <td>SOL/BNB</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 250</td>
     </tr>
     <tr>
       <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
