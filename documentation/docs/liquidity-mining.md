@@ -23,8 +23,9 @@ Liquidity mining sets forth an analytical framework for determining market maker
     Please check this page for the most up-to-date terms.  We will notify participants of changes, if any, through email (for registered users) and on our [Discord](https://discord.hummingbot.io).
 
 !!! note "Campaign updates for upcoming week starting June 16, 2020 12.00am UTC"
-    <li>**[Launch of Mainframe liquidity mining campaign](#upcoming-changes-to-campaign-terms):** MFT/USDT, MFT/ETH, and MFT/BNB will be eligible pairs *starting June 16, 2020* with a total of USDC 750/week of rewards available.
-    <li>**[Change of eligible Zilliga trading pairs](#upcoming-changes-to-campaign-terms):** eligibe trading pairs are changing from ZIL/USDT, ZIL/ETH, and ZIL/BNB to ZIL/BNB and ZIL/BUSD.
+    <li>**[Launch of Mainframe liquidity mining campaign](#upcoming-changes-to-campaign-terms):** **MFT/USDT**, **MFT/ETH**, and **MFT/BNB** will be eligible pairs *starting June 16, 2020* with a total of USDC 750/week of rewards available.
+    <li>**[Change of eligible Zilliga trading pairs](#upcoming-changes-to-campaign-terms):** eligibe trading pairs are changing from <s>ZIL/USDT</s>, <s>ZIL/ETH</S>, and <em>ZIL/BNB</em> to **ZIL/BNB** and **ZIL/BUSD**.
+    <li>**[Removing XZC/ETH from eligibility](#upcoming-changes-to-campaign-terms):** Zcoin's campaign will change to include only **XZC/USDT** and **XZC/BNB** only.
 
 **Current reward period: June 9, 2020 12.00am UTC to June 16, 2020 12.00am UTC**
 
@@ -147,6 +148,19 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>Binance.com</td>
       <td>2%</td>
       <td>USDC 275</td>
+    </tr>
+    <tr>
+      <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
+      <td>XZC/USDT</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 375</td>
+    </tr>
+    <tr>
+      <td>XZC/BNB</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 375</td>
     </tr>
     <tr>
       <td rowspan="2"><a href="#zilliqa">Zilliqa</a><br></td>
