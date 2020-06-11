@@ -86,7 +86,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                  ping_pong_enabled: bool = False,
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900,
-                 minimum_spread: Decimal = Decimal(0)
+                 minimum_spread: Decimal = Decimal(0),
+                 hb_app_notification: bool = False,
                  ):
 
         if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
@@ -117,6 +118,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._price_ceiling = price_ceiling
         self._price_floor = price_floor
         self._ping_pong_enabled = ping_pong_enabled
+        self._hb_app_notification = hb_app_notification
 
         self._cancel_timestamp = 0
         self._create_timestamp = 0
@@ -804,6 +806,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
         )
+        self.notify_hb_app(
+            f"Maker BUY order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
+            f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
+        )
 
     cdef c_did_complete_sell_order(self, object order_completed_event):
         cdef:
@@ -832,6 +838,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             f"({self.trading_pair}) Maker sell order {order_id} "
             f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
+        )
+        self.notify_hb_app(
+            f"Maker SELL order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
+            f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
         )
 
     cdef bint c_is_within_tolerance(self, list current_prices, list proposal_prices):
@@ -974,3 +984,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             self._create_timestamp = next_cycle
         if self._cancel_timestamp <= self._current_timestamp:
             self._cancel_timestamp = min(self._create_timestamp, next_cycle)
+
+    def notify_hb_app(self, msg: str):
+        if self._hb_app_notification:
+            from hummingbot.client.hummingbot_application import HummingbotApplication
+            HummingbotApplication.main_application()._notify(msg)
