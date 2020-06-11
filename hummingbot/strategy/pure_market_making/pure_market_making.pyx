@@ -86,7 +86,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                  ping_pong_enabled: bool = False,
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900,
-                 expiration_seconds: float = NaN,
+                 minimum_spread: Decimal = Decimal(0)
                  ):
 
         if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
@@ -97,6 +97,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._market_info = market_info
         self._bid_spread = bid_spread
         self._ask_spread = ask_spread
+        self._minimum_spread = minimum_spread
         self._order_amount = order_amount
         self._order_levels = order_levels
         self._order_level_spread = order_level_spread
@@ -123,7 +124,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         if market_info.market.name == "binance" and paper_trade_disabled():
             self._limit_order_type = OrderType.LIMIT_MAKER
         self._all_markets_ready = False
-        self._expiration_seconds = expiration_seconds
         self._filled_buys_balance = 0
         self._filled_sells_balance = 0
         self._hanging_order_ids = []
@@ -549,6 +549,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 self.c_filter_out_takers(proposal)
             self.c_cancel_active_orders(proposal)
             self.c_cancel_hanging_orders()
+            self.c_cancel_orders_below_min_spread()
             if self.c_to_create_orders(proposal):
                 self.c_execute_orders_proposal(proposal)
         finally:
@@ -871,7 +872,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     self.c_is_within_tolerance(active_sell_prices, proposal_sells):
                 to_defer_canceling = True
 
-        
         if not to_defer_canceling:
             for order in active_orders:
                 self.c_cancel_order(self._market_info, order.client_order_id)
@@ -898,6 +898,21 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 order = orders[0]
                 if abs(order.price - mid_price)/mid_price >= self._hanging_orders_cancel_pct:
                     self.c_cancel_order(self._market_info, order.client_order_id)
+
+    # Cancel Non-Hanging, Active Orders if Spreads are below minimum_spread
+    cdef c_cancel_orders_below_min_spread(self):
+        cdef:
+            list active_orders = self.market_info_to_active_orders.get(self._market_info, [])
+            object mid_price = self._market_info.get_mid_price()
+        active_orders = [order for order in active_orders
+                         if order.client_order_id not in self._hanging_order_ids]
+        for order in active_orders:
+            negation = -1 if order.is_buy else 1
+            if (negation * (order.price - mid_price) / mid_price) < self._minimum_spread:
+                self.logger().info(f"Order is below minimum spread ({self._minimum_spread})."
+                                   f" Cancelling Order: ({'Buy' if order.is_buy else 'Sell'}) "
+                                   f"ID - {order.client_order_id}")
+                self.c_cancel_order(self._market_info, order.client_order_id)
 
     cdef bint c_to_create_orders(self, object proposal):
         return self._create_timestamp < self._current_timestamp and \
