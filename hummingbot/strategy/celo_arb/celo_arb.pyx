@@ -172,6 +172,8 @@ cdef class CeloArbStrategy(StrategyBase):
             list lines = []
             list warning_lines = []
 
+        if self._trade_profits is None:
+            return "  The strategy is not ready, please try again later."
         active_orders = self.market_info_to_active_orders.get(self._market_info, [])
 
         markets_df = self.market_status_data_frame([self._market_info])
