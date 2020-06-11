@@ -104,14 +104,16 @@ cdef class CeloArbStrategy(StrategyBase):
         self._exchange = market_info.market.name
         self._min_profitability = min_profitability
         self._order_amount = order_amount
+        self._mock_celo_cli_mode = mock_celo_cli_mode
         self._last_no_arb_reported = 0
+        self._trade_profits = None
         self._celo_orders = []
         self._all_markets_ready = False
         self._logging_options = logging_options
 
         self._async_scheduler = None
         self._main_task = None
-        self._mock_celo_cli_mode = mock_celo_cli_mode
+
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
         self._hb_app_notification = hb_app_notification
@@ -173,12 +175,18 @@ cdef class CeloArbStrategy(StrategyBase):
         active_orders = self.market_info_to_active_orders.get(self._market_info, [])
 
         markets_df = self.market_status_data_frame([self._market_info])
-        celo_ex_rates = CeloCLI.exchange_rate()
-        celo_ask = [r for r in celo_ex_rates if r.to_token == CELO_BASE][0]
-        celo_ask_price = round(celo_ask.from_amount / celo_ask.to_amount, 2)
-        celo_bid = [r for r in celo_ex_rates if r.from_token == CELO_BASE][0]
-        celo_bid_price = round(celo_bid.to_amount / celo_bid.from_amount, 2)
-        celo_mid_price = round((celo_bid_price + celo_ask_price) / 2, 2)
+        # celo_ex_rates = CeloCLI.exchange_rate()
+        # celo_ask = [r for r in celo_ex_rates if r.to_token == CELO_BASE][0]
+        # celo_ask_price = round(celo_ask.from_amount / celo_ask.to_amount, 2)
+        # celo_bid = [r for r in celo_ex_rates if r.from_token == CELO_BASE][0]
+        # celo_bid_price = round(celo_bid.to_amount / celo_bid.from_amount, 2)
+        # celo_mid_price = round((celo_bid_price + celo_ask_price) / 2, 2)
+
+        celo_buy = [trade for trade in self._trade_profits if trade.is_celo_buy][0]
+        celo_sell = [trade for trade in self._trade_profits if not trade.is_celo_buy][0]
+        celo_ask_price = round(celo_buy.celo_price, 3)
+        celo_bid_price = round(celo_sell.celo_price, 3)
+        celo_mid_price = round((celo_bid_price + celo_ask_price) / 2, 3)
 
         series = [pd.Series(["Celo", f"{CELO_BASE}-{CELO_QUOTE}", celo_bid_price, celo_ask_price, celo_mid_price],
                             index=markets_df.columns)]
@@ -196,6 +204,10 @@ cdef class CeloArbStrategy(StrategyBase):
         assets_df = assets_df.append(series, ignore_index=True)
         lines.extend(["", "  Assets:"] +
                      ["    " + line for line in str(assets_df).split("\n")])
+
+        lines.extend(["", "  Profitability:"] +
+                     [f"    buy at celo, sell at {self._exchange}: {celo_buy.profit:.2%}"] +
+                     [f"    sell at celo, buy at {self._exchange}: {celo_sell.profit:.2%}"])
 
         warning_lines.extend(self.balance_warning([self._market_info]))
 
@@ -254,13 +266,13 @@ cdef class CeloArbStrategy(StrategyBase):
                 self._main_task = safe_ensure_future(coro)
 
     def main_process(self):
-        trade_profits = get_trade_profits(self._market_info.market, self._market_info.trading_pair, self._order_amount)
-        arb_trades = [t for t in trade_profits if t.profit >= self._min_profitability]
+        self._trade_profits = get_trade_profits(self._market_info.market, self._market_info.trading_pair, self._order_amount)
+        arb_trades = [t for t in self._trade_profits if t.profit >= self._min_profitability]
         if len(arb_trades) > 1:
             raise Exception("Found 2 profitable trades from 2 markets, something went wrong.")
         if len(arb_trades) == 0:
             if self._last_no_arb_reported < self._current_timestamp - 20:
-                self.logger().info(f"No arbitrage opportunity: {trade_profits[0]} {trade_profits[1]}")
+                self.logger().info(f"No arbitrage opportunity: {self._trade_profits[0]} {self._trade_profits[1]}")
                 self._last_no_arb_reported = self._current_timestamp
             return
         if arb_trades[0].is_celo_buy:
