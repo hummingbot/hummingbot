@@ -44,6 +44,7 @@ from hummingbot.market.bitfinex import (
     TAKER_FEE,
     MAKER_FEE,
     OrderStatus,
+    AFF_CODE
 )
 from hummingbot.market.bitfinex.bitfinex_api_order_book_data_source import \
     BitfinexAPIOrderBookDataSource
@@ -657,7 +658,8 @@ cdef class BitfinexMarket(MarketBase):
                 "price": str(price),
                 "amount": str(amount),
                 "meta": {
-                    "order_id": order_id
+                    "order_id": order_id,
+                    "aff_code": AFF_CODE
                 }
             }
         ]
