@@ -17,6 +17,7 @@ BITFINEX_QUOTE_INCREMENT = 0.01
 BITFINEX_BASE_INCREMENT = 1e-8
 TAKER_FEE = Decimal("0.002")
 MAKER_FEE = Decimal("0.001")
+AFF_CODE = "-dxCUrjvc"
 
 
 class SubmitOrder:
