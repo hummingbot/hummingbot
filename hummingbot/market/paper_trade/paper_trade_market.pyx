@@ -306,12 +306,10 @@ cdef class PaperTradeMarket(MarketBase):
 
     async def start_network(self):
         await self.stop_network()
-        self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
+        self._order_book_tracker.start()
 
     async def stop_network(self):
-        if self._order_tracker_task is not None:
-            self._order_book_tracker.stop()
-            self._order_tracker_task.cancel()
+        self._order_book_tracker.stop()
 
     async def check_network(self) -> NetworkStatus:
         return NetworkStatus.CONNECTED
