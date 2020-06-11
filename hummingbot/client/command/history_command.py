@@ -1,4 +1,5 @@
 from decimal import Decimal
+from collections import defaultdict
 
 import pandas as pd
 import threading
@@ -44,16 +45,18 @@ class HistoryCommand:
         self.trade_performance_report()
 
     def balance_snapshot(self,  # type: HummingbotApplication
-                         ) -> Dict[str, Dict[str, Decimal]]:
-        snapshot: Dict[str, Any] = {}
+                         starting_balances: bool = False) -> Dict[str, Dict[str, Decimal]]:
+        snapshot: Dict[str, Any] = defaultdict(dict)
         for market_name in self.markets:
             balance_dict = self.markets[market_name].get_all_balances()
             balance_dict = {k.upper(): v for k, v in balance_dict.items()}
 
+            if starting_balances:
+                for asset in balance_dict:
+                    snapshot[asset][market_name] = Decimal(balance_dict[asset])
+
             for asset in self.assets:
                 asset = asset.upper()
-                if asset not in snapshot:
-                    snapshot[asset] = {}
                 if asset in balance_dict:
                     snapshot[asset][market_name] = Decimal(balance_dict[asset])
                 else:

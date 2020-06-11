@@ -108,7 +108,7 @@ class StartCommand:
                          f"Run `status` command to query the progress.")
             self.logger().info("start command initiated.")
             if not self.starting_balances:
-                self.starting_balances = await self.wait_till_ready(self.balance_snapshot)
+                self.starting_balances = await self.wait_till_ready(self.balance_snapshot, starting_balances=True)
 
             if self._trading_required:
                 self.kill_switch = KillSwitch(self)
