@@ -175,13 +175,6 @@ cdef class CeloArbStrategy(StrategyBase):
         active_orders = self.market_info_to_active_orders.get(self._market_info, [])
 
         markets_df = self.market_status_data_frame([self._market_info])
-        # celo_ex_rates = CeloCLI.exchange_rate()
-        # celo_ask = [r for r in celo_ex_rates if r.to_token == CELO_BASE][0]
-        # celo_ask_price = round(celo_ask.from_amount / celo_ask.to_amount, 2)
-        # celo_bid = [r for r in celo_ex_rates if r.from_token == CELO_BASE][0]
-        # celo_bid_price = round(celo_bid.to_amount / celo_bid.from_amount, 2)
-        # celo_mid_price = round((celo_bid_price + celo_ask_price) / 2, 2)
-
         celo_buy = [trade for trade in self._trade_profits if trade.is_celo_buy][0]
         celo_sell = [trade for trade in self._trade_profits if not trade.is_celo_buy][0]
         celo_ask_price = round(celo_buy.celo_price, 3)
