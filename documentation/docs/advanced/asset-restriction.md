@@ -17,7 +17,7 @@ By default this feature is disabled and `asset_restriction_enabled` is set to `F
 
 When `asset_restriction_enabled` is set to True, you will be prompted to configure `asset_restriction` to set the restricted assets. 
 
-To configure directly, type `configure asset_restriction`.
+To configure directly, type `config asset_restriction`.
 
 Your response should be formatted as a list of pairs of asset keys and the amount you want Hummingbot to have access to: `[["Asset-1", 100], ... ]`. Note that assets not in the list will be considered fully restricted and Hummingbot will not be able to trade those assets.
 

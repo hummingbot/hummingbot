@@ -179,8 +179,6 @@ cdef class MarketBase(NetworkIterator):
             restriction_setting = {curr: bal for curr, bal in global_config_map.get("asset_restriction").value}
             if currency in restriction_setting:
                 balance = min(balance, restriction_setting.get(currency))
-            else:
-                balance = 0
         return balance
 
     cdef str c_withdraw(self, str address, str currency, object amount):
