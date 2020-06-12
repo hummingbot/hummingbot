@@ -299,7 +299,7 @@ Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | D
 `c_sell` | `str symbol`,<br/>`object amount`,<br/>`object order_type=OrderType.MARKET`,<br/>`object price=s_decimal_0`,<br/>`dict kwargs={}`| `str` | A synchronous wrapper function that generates a client-side order ID and schedules a **sell** order. It calls the `execute_buy` function and returns the client-side order ID.
 `c_cancel` | `str symbol`,<br/>`str order_id` | `str` | A synchronous wrapper function that schedules an order cancellation. <table><tbody><tr><td bgcolor="#ecf3ff">**Note**: The `order_id` here refers to the client-side order ID as tracked by Hummingbot.</td></tr></tbody></table>
 `c_did_timeout_tx` | `str tracking_id` | `None` | Triggers `MarketEvent.TransactionFailure` when an Ethereum transaction has timed out.
-`c_get_fee` | `str base_currency`,<br/>`str quote_currency`,<br/>`object order_type`,<br/>`object order_side`,<br/>`object amount`,<br/>`object price` | `TradeFee` | A function that calculates the fees for a particular order. Returns a [`TradeFee`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py) object.
+`c_get_fee` | `str base_currency`,<br/>`str quote_currency`,<br/>`object order_type`,<br/>`object order_side`,<br/>`object amount`,<br/>`object price` | `TradeFee` | A function that calculates the fees for a particular order. Use `estimate_fee` module to get the fee. Returns a [`TradeFee`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py) object.
 `c_get_order_book` | `str symbol` | `OrderBook` | Returns the `OrderBook` for a specific trading pair(symbol).
 `c_start_tracking_order` | `str client_order_id`,<br/>`str symbol`,<br/>`object order_type`,<br/>`object trade_type`,<br/>`object price`,<br/>`object amount` | `None` | Adds a new order to the `_in_flight_orders` class variable. This essentially begins tracking the order on the Hummingbot client. 
 `c_stop_tracking_order` | `str order_id` | `None` | Deletes an order from `_in_flight_orders` class variable. This essentially stops the Hummingbot client from tracking an order.
@@ -425,7 +425,34 @@ async def fetch_all(self):
         .
         "new_market": new_market_trading_pairs,
 ```
-
+- `hummingbot/core/utils/market_mid_price.py`
+```python
+def get_mid_price(exchange: str, trading_pair: str) -> Optional[Decimal]:
+    .
+    .
+    elif exchange == "new_exchange":
+        return new_exchange_mid_price(trading_pair)
+        
+@cachetools.func.ttl_cache(ttl=10)
+def new_exchange_mid_price(trading_pair: str) -> Optional[Decimal]:
+    resp = requests.get(url=...)
+    records = resp.json()
+    result = None
+    for record in records:
+        pair = new_exchange.convert_from_exchange_trading_pair(record["symbol"])
+        .
+        .
+        .
+    return result
+```
+- `hummingbot/core/utils/estimate_fee.py`
+```python
+default_cex_estimate = {
+        .
+        .
+        "new_exchange": [maker_fee, taker_fee],
+        
+```
 ## Additional: Debugging & Testing
 
 This section will breakdown some of the ways to debug and test the code. You are not entirely required to use the options during your development process.
@@ -595,16 +622,16 @@ It is still required that certain actions(buy and cancelling orders) be performe
 3. Market Connector | `test_*_market.py`<br/>
 The purpose of this test is to ensure that all components and the order life cycle is working as intended. 
 This test determines if the connector is able to place and manage orders.<br/>
-All the tests below are required to pass successfully for both real API calls and mocked API calls modes. 
+All the tests below are required to pass successfully on both real API calls and mocked API calls modes.<br/>
 The mocked API calls mode is to facilitate testing where we can run tests as often as we want without incurring costs in 
-transactions and slippage. In the mocked mode, we simulate any API calls where exchange API key and secret are required,
-i.e. in this mode all the tests should pass without using real exchange API credentials.     
-<br/>
+transactions and slippage.<br/>
+In the mocked mode, we simulate any API calls where exchange API key and secret are required,
+i.e. in this mode all the tests should pass without using real exchange API credentials.<br/><br/>
 To simulate REST API responses, please use `test.integration.humming_web_app.HummingWebApp`, key steps to follow are as below:
-- Create environment variables  
-  `MOCK_API_ENABLED` - true or false - to indicate whether to run the tests in mocked API calls mode
-  `XXX_API_KEY` - string - the exchange API key (replace XXX with your exchage name)
-  `XXX_API_SECRET` - string - the exchange API secret
+- Create environment variables<br/>  
+  `MOCK_API_ENABLED` - true or false - to indicate whether to run the tests in mocked API calls mode<br/>
+  `NEW_EXCHAGE_API_KEY` - string - the exchange API key<br/>
+  `NEW_EXCHAGE_API_SECRET` - string - the exchange API secret<br/>
   In your `test_*_market.py` 
   ```python
   import conf
@@ -616,7 +643,7 @@ To simulate REST API responses, please use `test.integration.humming_web_app.Hum
   API_SECRET = "YYY" if API_MOCK_ENABLED else conf.binance_api_secret
   ```
 
-- Start the web app
+- Start the web app<br/>
   Configure the web app on what url host to mock and which end points to ignore. Start the web app. 
   ```python
   @classmethod
@@ -629,7 +656,7 @@ To simulate REST API responses, please use `test.integration.humming_web_app.Hum
           cls.ev_loop.run_until_complete(cls.web_app.wait_til_started())
    ```
 
-- Patch http requests
+- Patch http requests<br/>
   If you use `requests` library:
   ```python
   cls._req_patcher = mock.patch.object(requests.Session, "request", autospec=True)
@@ -643,12 +670,12 @@ To simulate REST API responses, please use `test.integration.humming_web_app.Hum
   cls._url_mock.side_effect = cls.web_app.reroute_local
   ```
   
-- Preset json responses
+- Preset json responses<br/>
   Use `update_response` to store the mocked response to the endpoint which you want to mock, e.g.
   ```python
   cls.web_app.update_response("get", cls.base_api_url, "/api/v3/account", FixtureBinance.GET_ACCOUNT)
   ```
-  Please store your mocked json response in FixtureXXX.py in `test/integration/assets/mock_data`
+  Please store your mocked json response in `test/integration/assets/mock_data/fixture_new_exchange.py`
   e.g. 
   ```python
   class FixtureBinance:
@@ -658,12 +685,11 @@ To simulate REST API responses, please use `test.integration.humming_web_app.Hum
                                                        {"asset": "ETH", "free": "0.77377698", "locked": "0.00000000"},
                                                        {"asset": "LINK", "free": "4.99700000", "locked": "0.00000000"}]}
   ```
-  Please remove any sensitive information from this file, e.g. your account number, keys, secrets,... 
+  Please remove any sensitive information from this file, e.g. your account number, keys, secrets,...<br/> 
   
-<br/>
-To simulate web socket API responses, please use `test.integration.humming_ws_server.HummingWsServerFactory`. 
-Key steps to follow are as below:
-- Start new server for each web socket connection
+To simulate web socket API responses, please use `test.integration.humming_ws_server.HummingWsServerFactory`.<br/> 
+Key steps to follow are as below:<br/>
+- Start new server for each web socket connection<br/>
   ```python
   @classmethod
   def setUpClass(cls):
@@ -675,24 +701,23 @@ Key steps to follow are as below:
           HummingWsServerFactory.start_new_server(f"{ws_base_url}/linketh@depth/zrxeth@depth")
    ```
 
-- Patch `websockets`
+- Patch `websockets`<br/>
   ```python
   cls._ws_patcher = unittest.mock.patch("websockets.connect", autospec=True)
   cls._ws_mock = cls._ws_patcher.start()
   cls._ws_mock.side_effect = HummingWsServerFactory.reroute_ws_connect
   ```
   
-- Send json responses
+- Send json responses<br/>
   In the code where you are expecting json response from the server. 
   ```python
   HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data1, delay=0.1)
   HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data2, delay=0.11)
   ```
-  `data` is your fixture data
+  `data` is your fixture data.<br/>
   Make sure to set some delay if sequence of responses matters, in the above example, data2 is supposed to arrive after data1
 
-<br/>
-In cases where you need to preset `client_order_id` (our internal id), please simulate it as below:
+In cases where you need to preset `client_order_id` (our internal id), please mock it as below:<br/>
 - Patch `get_tracking_nonce`
   ```python
   cls._t_nonce_patcher = unittest.mock.patch("hummingbot.market.binance.binance_market.get_tracking_nonce")
@@ -704,20 +729,20 @@ In cases where you need to preset `client_order_id` (our internal id), please si
   self._t_nonce_mock.return_value = 10001
   order_id = f"{side.lower()}-{trading_pair}-{str(nonce)}"
   ```
+
+Finally, stop all patchers and the web app.<br/>
+Once all tests are done, stop all these services.<br/>
+```python
+@classmethod
+def tearDownClass(cls) -> None:
+  if API_MOCK_ENABLED:
+      cls.web_app.stop()
+      cls._patcher.stop()
+      cls._req_patcher.stop()
+      cls._ws_patcher.stop()
+      cls._t_nonce_patcher.stop()
+```
 <br/>
-Finally, stop all patchers and the web app.
-- Stop the web app and the patchers
-  Once all tests are done, stop all these services
-  ```python
-  @classmethod
-  def tearDownClass(cls) -> None:
-      if API_MOCK_ENABLED:
-          cls.web_app.stop()
-          cls._patcher.stop()
-          cls._req_patcher.stop()
-          cls._ws_patcher.stop()
-          cls._t_nonce_patcher.stop()
-  ```
 Below are a list of tests that are **required**:
 
 Function<div style="width:200px"/> | Description 
@@ -737,7 +762,8 @@ Function<div style="width:200px"/> | Description
 `test_unwrap_eth` (DEXes only)| Tests the `unwrap_eth` function in the `Wallet class.<br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: This is only required in Decentralized Exchanges that support WETH wrapping and unwrapping.</td></tr></tbody></table>
 
 !!! note
-    Ensure that you have enough asset balance before testing. Also document the **minimum** and **recommended** asset balance to run the tests. This is to aid testing during the PR review process.
+    Ensure that you have enough asset balance before testing. Also document the **minimum** and **recommended** asset balance to run the tests. This is to aid testing during the PR review process.<br/>
+Please see `test/integration/test_binance_market.py` as an example on how this task is done.
 
 ### Option 2. aiopython console
 This option is mainly used to test for specific functions. Considering that many of the functions are asynchronous functions, 
