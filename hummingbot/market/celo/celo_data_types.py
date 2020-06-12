@@ -27,8 +27,8 @@ class CeloArbTradeProfit(NamedTuple):
 
     def __repr__(self) -> str:
         return (
-            f"Celo side: {'Buy' if self.is_celo_buy else 'Sell'}, Celo price: {self.celo_price:.2f}, "
-            f"Counter party price: {self.ctp_price:.2f}, Profit: {self.profit:.2%}"
+            f"Celo side: {'Buy' if self.is_celo_buy else 'Sell'}, Celo price: {self.celo_price:.3f}, "
+            f"Counter party price: {self.ctp_price:.3f}, Profit: {self.profit:.2%}"
         )
 
 
