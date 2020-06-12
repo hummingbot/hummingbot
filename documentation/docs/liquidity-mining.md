@@ -17,13 +17,18 @@ Liquidity mining sets forth an analytical framework for determining market maker
 - [Liquidity Mining FAQs](https://docs.hummingbot.io/faq/liquidity-mining/)
 - [Liquidity Mining whitepaper](https://hummingbot.io/liquidity-mining.pdf)
 
-## Active campaigns
+## Current campaign terms
 
 !!! warning "Terms subject to change"
     Please check this page for the most up-to-date terms.  We will notify participants of changes, if any, through email (for registered users) and on our [Discord](https://discord.hummingbot.io).
 
-!!! note "New Mainframe campaign: starting June 16, 2020 12.00am UTC"
-    **[Mainframe liquidity mining campaign](#upcoming-campaign):** MFT/USDT, MFT/ETH, and MFT/BNB will be eligible pairs *starting June 16, 2020* with a total of USDC 750/week of rewards available.
+!!! note "Campaign updates for upcoming week starting June 16, 2020 12.00am UTC"
+    <li>**[Launch of Mainframe liquidity mining campaign](#upcoming-changes-to-campaign-terms):** **MFT/USDT**, **MFT/ETH**, and **MFT/BNB** will be eligible pairs *starting June 16, 2020* with a total of USDC 750/week of rewards available.
+    <li>**[Doubling Solana rewards!](#upcoming-changes-to-campaign-terms):** total rewards for SOL trading pairs will now be USDC 1,250 per week (from a previous USDC 625 per week).
+    <li>**[Change of eligible Zilliga trading pairs](#upcoming-changes-to-campaign-terms):** eligibe trading pairs are changing from <s>ZIL/USDT</s>, <s>ZIL/ETH</S>, and <em>ZIL/BNB</em> to **ZIL/BNB** and **ZIL/BUSD**.
+    <li>**[Removing XZC/ETH from eligibility](#upcoming-changes-to-campaign-terms):** Zcoin's campaign will change to include only **XZC/USDT** and **XZC/BNB** only.
+
+**Current reward period: June 9, 2020 12.00am UTC to June 16, 2020 12.00am UTC**
 
 <table>
   <thead>
@@ -93,13 +98,13 @@ Liquidity mining sets forth an analytical framework for determining market maker
     </tr>
     <tr>
       <td rowspan="3"><a href="#zilliqa">Zilliqa</a><br></td>
-      <td>ZIL/USDT</td>
+      <td>ZIL/USDT*</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>USDC 250</td>
     </tr>
     <tr>
-      <td>ZIL/ETH</td>
+      <td>ZIL/ETH*</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>USDC 250</td>
@@ -113,9 +118,9 @@ Liquidity mining sets forth an analytical framework for determining market maker
   </tbody>
 </table>
 
-## Upcoming campaign
+## Upcoming changes to campaign terms
 
-**Launching June 16, 2020 12.00am UTC**
+**Starting June 16, 2020 12.00am UTC**
 
 <table>
   <thead>
@@ -128,26 +133,71 @@ Liquidity mining sets forth an analytical framework for determining market maker
   <tbody>
     <tr>
       <td rowspan="3"><a href="#mainframe">Mainframe</a><br></td>
-      <td>MFT/USDT</td>
+      <td>MFT/USDT*</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>USDC 200</td>
     </tr>
     <tr>
-      <td>MFT/ETH</td>
+      <td>MFT/ETH*</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>USDC 275</td>
     </tr>
     <tr>
-      <td>MFT/BNB</td>
+      <td>MFT/BNB*</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>USDC 275</td>
     </tr>
-  </tbody>
+    <tr>
+      <td rowspan="3"><a href="#solana">Solana</a><br></td>
+      <td>SOL/BTC</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 500</td>
+    </tr>
+    <tr>
+      <td>SOL/BUSD</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 500</td>
+    </tr>
+    <tr>
+      <td>SOL/BNB</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 250</td>
+    </tr>
+    <tr>
+      <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
+      <td>XZC/USDT</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 375</td>
+    </tr>
+    <tr>
+      <td>XZC/BNB</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 375</td>
+    </tr>
+    <tr>
+      <td rowspan="2"><a href="#zilliqa">Zilliqa</a><br></td>
+      <td>ZIL/BUSD*</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 375</td>
+    </tr>
+    <tr>
+      <td>ZIL/BNB</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 375</td>
+    </tr>  </tbody>
 </table>
 
+<em><small>\* New pairs</small></em>
 
 ## Program sponsors
 
