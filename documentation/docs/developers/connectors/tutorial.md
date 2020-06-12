@@ -595,6 +595,129 @@ It is still required that certain actions(buy and cancelling orders) be performe
 3. Market Connector | `test_*_market.py`<br/>
 The purpose of this test is to ensure that all components and the order life cycle is working as intended. 
 This test determines if the connector is able to place and manage orders.<br/>
+All the tests below are required to pass successfully for both real API calls and mocked API calls modes. 
+The mocked API calls mode is to facilitate testing where we can run tests as often as we want without incurring costs in 
+transactions and slippage. In the mocked mode, we simulate any API calls where exchange API key and secret are required,
+i.e. in this mode all the tests should pass without using real exchange API credentials.     
+<br/>
+To simulate REST API responses, please use `test.integration.humming_web_app.HummingWebApp`, key steps to follow are as below:
+- Create environment variables  
+  `MOCK_API_ENABLED` - true or false - to indicate whether to run the tests in mocked API calls mode
+  `XXX_API_KEY` - string - the exchange API key (replace XXX with your exchage name)
+  `XXX_API_SECRET` - string - the exchange API secret
+  In your `test_*_market.py` 
+  ```python
+  import conf
+  .
+  .
+  .
+  API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
+  API_KEY = "XXX" if API_MOCK_ENABLED else conf.binance_api_key
+  API_SECRET = "YYY" if API_MOCK_ENABLED else conf.binance_api_secret
+  ```
+
+- Start the web app
+  Configure the web app on what url host to mock and which end points to ignore. Start the web app. 
+  ```python
+  @classmethod
+  def setUpClass(cls):
+      cls.ev_loop = asyncio.get_event_loop()
+      if API_MOCK_ENABLED:
+          cls.web_app = HummingWebApp.get_instance()
+          cls.web_app.add_host_to_mock(API_HOST, ["/products", "/currencies"])
+          cls.web_app.start()
+          cls.ev_loop.run_until_complete(cls.web_app.wait_til_started())
+   ```
+
+- Patch http requests
+  If you use `requests` library:
+  ```python
+  cls._req_patcher = mock.patch.object(requests.Session, "request", autospec=True)
+  cls._req_url_mock = cls._req_patcher.start()
+  cls._req_url_mock.side_effect = HummingWebApp.reroute_request
+  ```
+  If you use `aiohttp` library:
+  ```python
+  cls._patcher = mock.patch("aiohttp.client.URL")
+  cls._url_mock = cls._patcher.start()
+  cls._url_mock.side_effect = cls.web_app.reroute_local
+  ```
+  
+- Preset json responses
+  Use `update_response` to store the mocked response to the endpoint which you want to mock, e.g.
+  ```python
+  cls.web_app.update_response("get", cls.base_api_url, "/api/v3/account", FixtureBinance.GET_ACCOUNT)
+  ```
+  Please store your mocked json response in FixtureXXX.py in `test/integration/assets/mock_data`
+  e.g. 
+  ```python
+  class FixtureBinance:
+  GET_ACCOUNT = {"makerCommission": 10, "takerCommission": 10, "buyerCommission": 0, "sellerCommission": 0,
+                   "canTrade": True, "canWithdraw": True, "canDeposit": True, "updateTime": 1580009996654,
+                   "accountType": "SPOT", "balances": [{"asset": "BTC", "free": "0.00000000", "locked": "0.00000000"},
+                                                       {"asset": "ETH", "free": "0.77377698", "locked": "0.00000000"},
+                                                       {"asset": "LINK", "free": "4.99700000", "locked": "0.00000000"}]}
+  ```
+  Please remove any sensitive information from this file, e.g. your account number, keys, secrets,... 
+  
+<br/>
+To simulate web socket API responses, please use `test.integration.humming_ws_server.HummingWsServerFactory`. 
+Key steps to follow are as below:
+- Start new server for each web socket connection
+  ```python
+  @classmethod
+  def setUpClass(cls):
+      cls.ev_loop = asyncio.get_event_loop()
+      if API_MOCK_ENABLED:
+          ws_base_url = "wss://stream.binance.com:9443/ws"
+          cls._ws_user_url = f"{ws_base_url}/{FixtureBinance.GET_LISTEN_KEY['listenKey']}"
+          HummingWsServerFactory.start_new_server(cls._ws_user_url)
+          HummingWsServerFactory.start_new_server(f"{ws_base_url}/linketh@depth/zrxeth@depth")
+   ```
+
+- Patch `websockets`
+  ```python
+  cls._ws_patcher = unittest.mock.patch("websockets.connect", autospec=True)
+  cls._ws_mock = cls._ws_patcher.start()
+  cls._ws_mock.side_effect = HummingWsServerFactory.reroute_ws_connect
+  ```
+  
+- Send json responses
+  In the code where you are expecting json response from the server. 
+  ```python
+  HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data1, delay=0.1)
+  HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data2, delay=0.11)
+  ```
+  `data` is your fixture data
+  Make sure to set some delay if sequence of responses matters, in the above example, data2 is supposed to arrive after data1
+
+<br/>
+In cases where you need to preset `client_order_id` (our internal id), please simulate it as below:
+- Patch `get_tracking_nonce`
+  ```python
+  cls._t_nonce_patcher = unittest.mock.patch("hummingbot.market.binance.binance_market.get_tracking_nonce")
+  cls._t_nonce_mock = cls._t_nonce_patcher.start()
+  ```
+
+- Mock the nonce and create order_id as required
+  ```python
+  self._t_nonce_mock.return_value = 10001
+  order_id = f"{side.lower()}-{trading_pair}-{str(nonce)}"
+  ```
+<br/>
+Finally, stop all patchers and the web app.
+- Stop the web app and the patchers
+  Once all tests are done, stop all these services
+  ```python
+  @classmethod
+  def tearDownClass(cls) -> None:
+      if API_MOCK_ENABLED:
+          cls.web_app.stop()
+          cls._patcher.stop()
+          cls._req_patcher.stop()
+          cls._ws_patcher.stop()
+          cls._t_nonce_patcher.stop()
+  ```
 Below are a list of tests that are **required**:
 
 Function<div style="width:200px"/> | Description 
