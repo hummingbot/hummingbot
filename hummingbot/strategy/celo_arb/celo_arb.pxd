@@ -21,6 +21,7 @@ cdef class CeloArbStrategy(StrategyBase):
         object _async_scheduler
         object _main_task
         bint _mock_celo_cli_mode
+        object _trade_profits
 
     cdef c_main(self)
     cdef c_execute_buy_celo_sell_ctp(self, object trade_profit)
