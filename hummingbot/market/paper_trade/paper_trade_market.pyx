@@ -189,7 +189,6 @@ cdef class PaperTradeMarket(MarketBase):
         self._config = config
         self._queued_orders = deque()
         self._quantization_params = {}
-        self._order_tracker_task = None
         self._order_book_tracker = order_book_tracker
         self._order_book_trade_listener = OrderBookTradeListener(self)
         self._target_market = target_market
@@ -306,12 +305,10 @@ cdef class PaperTradeMarket(MarketBase):
 
     async def start_network(self):
         await self.stop_network()
-        self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
+        self._order_book_tracker.start()
 
     async def stop_network(self):
-        if self._order_tracker_task is not None:
-            self._order_book_tracker.stop()
-            self._order_tracker_task.cancel()
+        self._order_book_tracker.stop()
 
     async def check_network(self) -> NetworkStatus:
         return NetworkStatus.CONNECTED
@@ -470,7 +467,7 @@ cdef class PaperTradeMarket(MarketBase):
         self.c_set_balance(quote_asset, quote_balance - total_quote_needed)
         self.c_set_balance(base_asset, base_balance + total_base_acquired)
 
-        #add fee
+        # add fee
         fees = estimate_fee(self.name, False)
 
         order_filled_events = OrderFilledEvent.order_filled_events_from_order_book_rows(
@@ -530,7 +527,7 @@ cdef class PaperTradeMarket(MarketBase):
         self.c_set_balance(base_asset,
                            base_asset_amount - amount)
 
-        #add fee
+        # add fee
         fees = estimate_fee(self.name, False)
 
         order_filled_events = OrderFilledEvent.order_filled_events_from_order_book_rows(
@@ -613,7 +610,7 @@ cdef class PaperTradeMarket(MarketBase):
         self.c_set_balance(quote_asset, self.c_get_balance(quote_asset) - quote_asset_traded)
         self.c_set_balance(base_asset, self.c_get_balance(base_asset) + base_asset_traded)
 
-        #add fee
+        # add fee
         fees = estimate_fee(self.name, True)
 
         # Emit the trade and order completed events.
@@ -673,7 +670,7 @@ cdef class PaperTradeMarket(MarketBase):
         self.c_set_balance(quote_asset, self.c_get_balance(quote_asset) + quote_asset_traded)
         self.c_set_balance(base_asset, self.c_get_balance(base_asset) - base_asset_traded)
 
-        #add fee
+        # add fee
         fees = estimate_fee(self.name, True)
 
         # Emit the trade and order completed events.
