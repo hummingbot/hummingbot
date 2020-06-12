@@ -93,6 +93,7 @@ def start(self):
             hanging_orders_cancel_pct=hanging_orders_cancel_pct,
             order_refresh_tolerance_pct=order_refresh_tolerance_pct,
             minimum_spread=minimum_spread,
+            hb_app_notification=True,
         )
     except Exception as e:
         self._notify(str(e))
