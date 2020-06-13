@@ -894,7 +894,7 @@ cdef class PaperTradeMarket(MarketBase):
             LimitOrders *limit_orders_map_ptr = (address(self._bid_limit_orders)
                                                  if is_maker_buy
                                                  else address(self._ask_limit_orders))
-        self.c_cancel_order_from_orders_map(limit_orders_map_ptr, trading_pair_str, client_order_id)
+        self.c_cancel_order_from_orders_map(limit_orders_map_ptr, trading_pair_str, False, client_order_id)
 
     cdef object c_get_fee(self,
                           str base_asset,
