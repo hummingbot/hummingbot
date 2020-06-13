@@ -24,11 +24,11 @@ def calculate_trade_asset_delta_with_fees(trade: TradeFill) -> Tuple[Decimal, De
             flat_fee_amount = flat_fee["amount"]
         else:
             flat_fee_currency, flat_fee_amount = flat_fee
-        if flat_fee_currency == trade.quote_asset:
+        # Flat fee is currently used only for DEX in ETH token amount, if there is a need for
+        # more interchangable kinda assets, we can handle this in a more proper way (e.g. using global config)
+        if flat_fee_currency == trade.quote_asset or \
+                (flat_fee_currency.upper() in ("ETH", "WETH") and trade.quote_asset.upper() in ("ETH", "WETH")):
             total_flat_fees += Decimal(str(flat_fee_amount))
-        else:
-            # if the flat fee asset does not match quote asset, raise excecption for now.
-            raise Exception("Fee calculation in token other than the quote token is currently not available.")
     if trade.trade_type == TradeType.SELL.name:
         net_base_delta: Decimal = amount
         net_quote_delta: Decimal = amount * price * (Decimal("1") - Decimal(str(trade_fee["percent"]))) - \
