@@ -628,7 +628,7 @@ transactions and slippage.<br/>
 In the mocked mode, we simulate any API calls where exchange API key and secret are required,
 i.e. in this mode all the tests should pass without using real exchange API credentials.<br/><br/>
 To simulate REST API responses, please use `test.integration.humming_web_app.HummingWebApp`, key steps to follow are as below:
-- Create environment variables<br/>  
+  - Create environment variables<br/>  
   `MOCK_API_ENABLED` - true or false - to indicate whether to run the tests in mocked API calls mode<br/>
   `NEW_EXCHAGE_API_KEY` - string - the exchange API key<br/>
   `NEW_EXCHAGE_API_SECRET` - string - the exchange API secret<br/>
@@ -643,8 +643,8 @@ To simulate REST API responses, please use `test.integration.humming_web_app.Hum
   API_SECRET = "YYY" if API_MOCK_ENABLED else conf.binance_api_secret
   ```
 
-- Start the web app<br/>
-  Configure the web app on what url host to mock and which end points to ignore. Start the web app. 
+  - Start HummingWebApp<br/>
+  Configure the web app on what url host to mock and which url paths to ignore, then start the web app. 
   ```python
   @classmethod
   def setUpClass(cls):
@@ -656,7 +656,7 @@ To simulate REST API responses, please use `test.integration.humming_web_app.Hum
           cls.ev_loop.run_until_complete(cls.web_app.wait_til_started())
    ```
 
-- Patch http requests<br/>
+  - Patch http requests<br/>
   If you use `requests` library:
   ```python
   cls._req_patcher = mock.patch.object(requests.Session, "request", autospec=True)
@@ -670,7 +670,7 @@ To simulate REST API responses, please use `test.integration.humming_web_app.Hum
   cls._url_mock.side_effect = cls.web_app.reroute_local
   ```
   
-- Preset json responses<br/>
+  - Preset json responses<br/>
   Use `update_response` to store the mocked response to the endpoint which you want to mock, e.g.
   ```python
   cls.web_app.update_response("get", cls.base_api_url, "/api/v3/account", FixtureBinance.GET_ACCOUNT)
@@ -689,7 +689,7 @@ To simulate REST API responses, please use `test.integration.humming_web_app.Hum
   
 To simulate web socket API responses, please use `test.integration.humming_ws_server.HummingWsServerFactory`.<br/> 
 Key steps to follow are as below:<br/>
-- Start new server for each web socket connection<br/>
+  - Start new server for each web socket connection<br/>
   ```python
   @classmethod
   def setUpClass(cls):
@@ -701,14 +701,14 @@ Key steps to follow are as below:<br/>
           HummingWsServerFactory.start_new_server(f"{ws_base_url}/linketh@depth/zrxeth@depth")
    ```
 
-- Patch `websockets`<br/>
+  - Patch `websockets`<br/>
   ```python
   cls._ws_patcher = unittest.mock.patch("websockets.connect", autospec=True)
   cls._ws_mock = cls._ws_patcher.start()
   cls._ws_mock.side_effect = HummingWsServerFactory.reroute_ws_connect
   ```
   
-- Send json responses<br/>
+   q- Send json responses<br/>
   In the code where you are expecting json response from the server. 
   ```python
   HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data1, delay=0.1)
