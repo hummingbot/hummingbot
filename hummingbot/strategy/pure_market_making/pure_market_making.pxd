@@ -24,7 +24,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         bint _hanging_orders_enabled
         object _hanging_orders_cancel_pct
         bint _order_optimization_enabled
-        object _order_optimization_depth
+        object _ask_order_optimization_depth
+        object _bid_order_optimization_depth
         bint _add_transaction_costs_to_orders
         object _asset_price_delegate
         object _price_ceiling
