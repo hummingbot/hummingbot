@@ -174,7 +174,7 @@ pure_market_making_config_map = {
                          "additional order? >>> ",
                   required_if=lambda: pure_market_making_config_map.get("order_levels").value > 1,
                   type_str="decimal",
-                  validator=lambda v: validate_decimal(v, min_value=0),
+                  validator=lambda v: validate_decimal(v),
                   default=0),
     "order_level_spread":
         ConfigVar(key="order_level_spread",
