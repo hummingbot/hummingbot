@@ -78,7 +78,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                  hanging_orders_enabled: bool = False,
                  hanging_orders_cancel_pct: Decimal = Decimal("0.1"),
                  order_optimization_enabled: bool = False,
-                 order_optimization_depth: Decimal = s_decimal_zero,
+                 ask_order_optimization_depth: Decimal = s_decimal_zero,
+                 bid_order_optimization_depth: Decimal = s_decimal_zero,
                  add_transaction_costs_to_orders: bool = False,
                  asset_price_delegate: AssetPriceDelegate = None,
                  price_ceiling: Decimal = s_decimal_neg_one,
@@ -112,7 +113,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._hanging_orders_enabled = hanging_orders_enabled
         self._hanging_orders_cancel_pct = hanging_orders_cancel_pct
         self._order_optimization_enabled = order_optimization_enabled
-        self._order_optimization_depth = order_optimization_depth
+        self._ask_order_optimization_depth = ask_order_optimization_depth
+        self._bid_order_optimization_depth = bid_order_optimization_depth
         self._add_transaction_costs_to_orders = add_transaction_costs_to_orders
         self._asset_price_delegate = asset_price_delegate
         self._price_ceiling = price_ceiling
@@ -710,7 +712,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         # Get the top bid price in the market using order_optimization_depth and your buy order volume
         top_bid_price = self._market_info.get_price_for_volume(
-            False, self._order_optimization_depth + own_buy_size).result_price
+            False, self._bid_order_optimization_depth + own_buy_size).result_price
         price_quantum = market.c_get_order_price_quantum(
             self.trading_pair,
             top_bid_price
@@ -725,7 +727,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         # Get the top ask price in the market using order_optimization_depth and your sell order volume
         top_ask_price = self._market_info.get_price_for_volume(
-            True, self._order_optimization_depth + own_sell_size).result_price
+            True, self._ask_order_optimization_depth + own_sell_size).result_price
         price_quantum = market.c_get_order_price_quantum(
             self.trading_pair,
             top_ask_price
