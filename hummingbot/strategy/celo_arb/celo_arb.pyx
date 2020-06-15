@@ -214,6 +214,7 @@ cdef class CeloArbStrategy(StrategyBase):
     cdef c_stop(self, Clock clock):
         if self._main_task is not None and not self._main_task.done():
             self._main_task.cancel()
+            self._main_task = None
         StrategyBase.c_stop(self, clock)
 
     cdef c_tick(self, double timestamp):
@@ -292,7 +293,7 @@ cdef class CeloArbStrategy(StrategyBase):
                                                                self._order_amount)
         buy_amount = min(quantized_sell_amount, self._order_amount)
         if buy_amount > 0:
-            sell_balance = market.c_get_balance(self._market_info.quote_asset)
+            sell_balance = market.c_get_available_balance(self._market_info.base_asset)
             if sell_balance < quantized_sell_amount:
                 self.logger().info(f"Can't arbitrage, {self._exchange} "
                                    f"{self._market_info.base_asset} balance "
@@ -338,7 +339,7 @@ cdef class CeloArbStrategy(StrategyBase):
         sell_amount = min(quantized_buy_amount, self._order_amount)
 
         if sell_amount > 0:
-            buy_balance = market.c_get_balance(self._market_info.quote_asset)
+            buy_balance = market.c_get_available_balance(self._market_info.quote_asset)
             buy_required = celo_sell_trade.ctp_price * quantized_buy_amount
             if buy_balance < buy_required:
                 self.logger().info(f"Can't arbitrage, {self._exchange} "
