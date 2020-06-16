@@ -329,6 +329,18 @@ new_market_secret_key = os.getenv("NEW_MARKET_SECRET_KEY")
                                 is_secure=True),
 ```
 
+- `hummingbot/client/config/fee_overrides_config_map.py`
+```python
+fee_overrides_config_map = {
+    "binance_maker_fee": new_fee_config_var("binance_maker_fee"),
+    "binance_taker_fee": new_fee_config_var("binance_taker_fee"),
+    .
+    .
+    .
+    "new_exchange_maker_fee": new_fee_config_var("new_exchange_maker_fee"),
+    "new_exchange_taker_fee": new_fee_config_var("new_exchange_taker_fee"),
+```
+
 - `hummingbot/client/hummingbot_application.py`
 ```python
 MARKET_CLASSES = {
@@ -388,6 +400,16 @@ EXAMPLE_ASSETS = {
     .
     .
     "new_market": "EXAMPLE_ASSET",
+}
+```
+- `hummingbot/client/command/connect_command.py`
+```python
+OPTIONS = {
+    "binance",
+    .
+    .
+    .
+    "new_exchange"
 }
 ```
 
