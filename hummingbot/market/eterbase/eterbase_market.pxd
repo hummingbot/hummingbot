@@ -27,6 +27,7 @@ cdef class EterbaseMarket(MarketBase):
         object _eterbase_tier
         object _maker_fee
         object _taker_fee
+        object _order_not_found_records
 
     cdef c_start_tracking_order(self,
                                 str order_id,
@@ -38,4 +39,5 @@ cdef class EterbaseMarket(MarketBase):
                                 object cost)
     cdef c_stop_tracking_order(self, str order_id)
     cdef c_did_timeout_tx(self, str tracking_id)
+    cdef c_round_to_sig_digits(self, object number, int sigdit)
     cdef object c_quantize_cost(self, str trading_pair, object amount, object price)

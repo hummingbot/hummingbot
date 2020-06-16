@@ -33,13 +33,13 @@ import hummingbot.market.eterbase.eterbase_constants as constants
 
 class EterbaseOrderBookTracker(OrderBookTracker):
 
-    _cbpobt_logger: Optional[HummingbotLogger] = None
+    _eobt_logger: Optional[HummingbotLogger] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._cbpobt_logger is None:
-            cls._cbpobt_logger = logging.getLogger(__name__)
-        return cls._cbpobt_logger
+        if cls._eobt_logger is None:
+            cls._eobt_logger = logging.getLogger(__name__)
+        return cls._eobt_logger
 
     def __init__(self,
                  data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
@@ -97,7 +97,7 @@ class EterbaseOrderBookTracker(OrderBookTracker):
             self._order_books[trading_pair] = order_book_tracker_entry.order_book
             self._tracking_message_queues[trading_pair] = asyncio.Queue()
             self._tracking_tasks[trading_pair] = safe_ensure_future(self._track_single_book(trading_pair))
-            self.logger().info("Started order book tracking for %s.", trading_pair)
+            self.logger().info(f"Started order book tracking for {trading_pair}.")
 
         for trading_pair in deleted_trading_pairs:
             self._tracking_tasks[trading_pair].cancel()
@@ -105,7 +105,7 @@ class EterbaseOrderBookTracker(OrderBookTracker):
             del self._order_books[trading_pair]
             del self._active_order_trackers[trading_pair]
             del self._tracking_message_queues[trading_pair]
-            self.logger().info("Stopped order book tracking for %s.", trading_pair)
+            self.logger().info(f"Stopped order book tracking for {trading_pair}.")
 
     async def _order_book_diff_router(self):
         """
@@ -149,10 +149,7 @@ class EterbaseOrderBookTracker(OrderBookTracker):
                 # Log some statistics.
                 now: float = time.time()
                 if int(now / 60.0) > int(last_message_timestamp / 60.0):
-                    self.logger().debug("Diff messages processed: %d, rejected: %d, queued: %d",
-                                        messages_accepted,
-                                        messages_rejected,
-                                        messages_queued)
+                    self.logger().debug(f"Diff messages processed: {messages_accepted}, rejected: {messages_rejected}, queued: {messages_queued}")
                     messages_accepted = 0
                     messages_rejected = 0
                     messages_queued = 0
@@ -202,8 +199,7 @@ class EterbaseOrderBookTracker(OrderBookTracker):
                     # Output some statistics periodically.
                     now: float = time.time()
                     if int(now / 60.0) > int(last_message_timestamp / 60.0):
-                        self.logger().debug("Processed %d order book diffs for %s.",
-                                            diff_messages_accepted, trading_pair)
+                        self.logger().debug(f"Processed {diff_messages_accepted} order book diffs for {trading_pair}.")
                         diff_messages_accepted = 0
                     last_message_timestamp = now
                 elif message.type is OrderBookMessageType.SNAPSHOT:
@@ -217,7 +213,7 @@ class EterbaseOrderBookTracker(OrderBookTracker):
                         d_bids, d_asks = active_order_tracker.convert_diff_message_to_order_book_row(diff_message)
                         order_book.apply_diffs(d_bids, d_asks, diff_message.update_id)
 
-                    self.logger().debug("Processed order book snapshot for %s.", trading_pair)
+                    self.logger().debug(f"Processed order book snapshot for {trading_pair}.")
             except asyncio.CancelledError:
                 raise
             except Exception:

@@ -19,16 +19,16 @@ from hummingbot.core.data_type.order_book_message import (
 
 from hummingbot.market.eterbase.eterbase_order_book_message import EterbaseOrderBookMessage
 
-_cbpob_logger = None
+_eob_logger = None
 
 
 cdef class EterbaseOrderBook(OrderBook):
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global _cbpob_logger
-        if _cbpob_logger is None:
-            _cbpob_logger = logging.getLogger(__name__)
-        return _cbpob_logger
+        global _eob_logger
+        if _eob_logger is None:
+            _eob_logger = logging.getLogger(__name__)
+        return _eob_logger
 
     @classmethod
     def snapshot_message_from_exchange(cls,
@@ -65,17 +65,14 @@ cdef class EterbaseOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
 
-
         msg_time=None
         if "time" in msg:
             msg_time = pd.Timestamp(msg["time"]).timestamp()
-
 
         eobm = EterbaseOrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
             content=msg,
             timestamp=timestamp or msg_time)
-
 
         return eobm
 

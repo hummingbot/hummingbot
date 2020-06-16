@@ -31,13 +31,13 @@ class EterbaseAPIUserStreamDataSource(UserStreamTrackerDataSource):
     PING_TIMEOUT = 10.0
     API_CALL_TIMEOUT = 30.0
 
-    _cbpausds_logger: Optional[HummingbotLogger] = None
+    _eausds_logger: Optional[HummingbotLogger] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._cbpausds_logger is None:
-            cls._cbpausds_logger = logging.getLogger(__name__)
-        return cls._cbpausds_logger
+        if cls._eausds_logger is None:
+            cls._eausds_logger = logging.getLogger(__name__)
+        return cls._eausds_logger
 
     def __init__(self, eterbase_auth: EterbaseAuth, eterbase_account: str, trading_pairs: Optional[List[str]] = []):
         self._eterbase_auth: EterbaseAuth = eterbase_auth
