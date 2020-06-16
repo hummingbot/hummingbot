@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
@@ -92,7 +91,7 @@ class ScriptIteratorUnitTest(unittest.TestCase):
         )
 
     def test_price_band_price_ceiling_breach(self):
-        script_file = "script_price_band.txt"
+        script_file = "../test/script_price_band.txt"
         self._script_iterator = ScriptIterator(script_file, [self.market], self.multi_levels_strategy)
         self.clock.add_iterator(self._script_iterator)
         strategy = self.multi_levels_strategy
@@ -111,7 +110,7 @@ class ScriptIteratorUnitTest(unittest.TestCase):
         self.assertEqual(3, len(strategy.active_sells))
 
     def test_price_band_price_floor_breach(self):
-        script_file = "script_price_band.txt"
+        script_file = "../test/script_price_band.txt"
         self._script_iterator = ScriptIterator(script_file, [self.market], self.multi_levels_strategy)
         self.clock.add_iterator(self._script_iterator)
         strategy = self.multi_levels_strategy
@@ -131,7 +130,7 @@ class ScriptIteratorUnitTest(unittest.TestCase):
 
     def test_ping_pong_script_on_ask_fill(self):
         strategy = self.one_level_strategy
-        script_file = "script_ping_pong.txt"
+        script_file = "../test/script_ping_pong.txt"
         self._script_iterator = ScriptIterator(script_file, [self.market], strategy)
         self.clock.add_iterator(self._script_iterator)
         self.clock.add_iterator(strategy)
