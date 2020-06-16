@@ -45,25 +45,25 @@ cdef class ScriptIterator(TimeIterator):
         ]
 
     def read_script_file(self, script_file_name: str):
-        file = open(script_file_name, "r")
-        start_scripts, tick_scripts, buy_completed_scripts, sell_completed_scripts = [], [], [], []
-        scripts = None
-        for line in file:
-            if line.strip() == "":
-                continue
-            elif self.start_script_start_marker in line:
-                scripts = start_scripts
-                continue
-            elif self.tick_script_start_marker in line:
-                scripts = tick_scripts
-                continue
-            elif self.buy_order_completed_script_start_marker in line:
-                scripts = buy_completed_scripts
-                continue
-            elif self.sell_order_completed_script_start_marker in line:
-                scripts = sell_completed_scripts
-                continue
-            scripts.append(line)
+        with open(script_file_name, "r") as file:
+            start_scripts, tick_scripts, buy_completed_scripts, sell_completed_scripts = [], [], [], []
+            scripts = None
+            for line in file:
+                if line.strip() == "":
+                    continue
+                elif self.start_script_start_marker in line:
+                    scripts = start_scripts
+                    continue
+                elif self.tick_script_start_marker in line:
+                    scripts = tick_scripts
+                    continue
+                elif self.buy_order_completed_script_start_marker in line:
+                    scripts = buy_completed_scripts
+                    continue
+                elif self.sell_order_completed_script_start_marker in line:
+                    scripts = sell_completed_scripts
+                    continue
+                scripts.append(line)
         self._start_script = "".join(start_scripts)
         self._tick_script = "".join(tick_scripts)
         self._buy_order_completed_script = "".join(buy_completed_scripts)
@@ -80,11 +80,6 @@ cdef class ScriptIterator(TimeIterator):
     @property
     def variables(self):
         return self._variables
-
-    # def run_start(self):
-    #     print("script_iterator starts")
-    #     print(f"_start_script {self._start_script}")
-    #     exec(self._start_script, self.global_map())
 
     cdef c_start(self, Clock clock, double timestamp):
         TimeIterator.c_start(self, clock, timestamp)
