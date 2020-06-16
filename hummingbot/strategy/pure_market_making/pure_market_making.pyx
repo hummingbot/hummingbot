@@ -101,6 +101,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._minimum_spread = minimum_spread
         self._order_amount = order_amount
         self._order_levels = order_levels
+        self._buy_levels = order_levels
+        self._sell_levels = order_levels
         self._order_level_spread = order_level_spread
         self._order_level_amount = order_level_amount
         self._order_refresh_time = order_refresh_time
@@ -142,6 +144,22 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @order_levels.setter
     def order_levels(self, value: int):
         self._order_levels = value
+
+    @property
+    def buy_levels(self) -> int:
+        return self._buy_levels
+
+    @buy_levels.setter
+    def buy_levels(self, value: int):
+        self._buy_levels = value
+
+    @property
+    def sell_levels(self) -> int:
+        return self._sell_levels
+
+    @sell_levels.setter
+    def sell_levels(self, value: int):
+        self._sell_levels = value
 
     @property
     def order_level_amount(self) -> Decimal:
@@ -562,13 +580,13 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             MarketBase market = self._market_info.market
             list buys = []
             list sells = []
-        for level in range(0, self._order_levels):
+        for level in range(0, self._buy_levels):
             price = self.c_get_mid_price() * (Decimal("1") - self._bid_spread - (level * self._order_level_spread))
             price = market.c_quantize_order_price(self.trading_pair, price)
             size = self._order_amount + (self._order_level_amount * level)
             market.c_quantize_order_amount(self.trading_pair, size)
             buys.append(PriceSize(price, size))
-        for level in range(0, self._order_levels):
+        for level in range(0, self._sell_levels):
             price = self.c_get_mid_price() * (Decimal("1") + self._ask_spread + (level * self._order_level_spread))
             price = market.c_quantize_order_price(self.trading_pair, price)
             size = self._order_amount + (self._order_level_amount * level)
