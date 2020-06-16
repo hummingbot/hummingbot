@@ -170,8 +170,8 @@ pure_market_making_config_map = {
                   default=1),
     "order_level_amount":
         ConfigVar(key="order_level_amount",
-                  prompt="How much do you want to increase the order size for each "
-                         "additional order? >>> ",
+                  prompt="How much do you want to increase or decrease the order size for each "
+                         "additional order? (decrease < 0 > increase) >>> ",
                   required_if=lambda: pure_market_making_config_map.get("order_levels").value > 1,
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v),
