@@ -25,6 +25,7 @@ from hummingbot.market.market_base import (
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.client.config.global_config_map import paper_trade_disabled
+from hummingbot.client.config.global_config_map import global_config_map
 
 from .data_types import (
     Proposal,
@@ -86,6 +87,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900,
                  expiration_seconds: float = NaN,
+                 minimum_spread: Decimal = Decimal(0)
                  ):
 
         if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
@@ -96,6 +98,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._market_info = market_info
         self._bid_spread = bid_spread
         self._ask_spread = ask_spread
+        self._minimum_spread = minimum_spread
         self._order_amount = order_amount
         self._order_levels = order_levels
         self._order_level_spread = order_level_spread
@@ -548,6 +551,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 self.c_filter_out_takers(proposal)
             self.c_cancel_active_orders(proposal)
             self.c_cancel_hanging_orders()
+            self.c_cancel_orders_below_min_spread()
             if self.c_to_create_orders(proposal):
                 self.c_execute_orders_proposal(proposal)
         finally:
@@ -848,6 +852,11 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     cdef c_cancel_active_orders(self, object proposal):
         if self._cancel_timestamp > self._current_timestamp:
             return
+        if not global_config_map.get("0x_active_cancels").value:
+            if ((self._market_info.market.name in self.RADAR_RELAY_TYPE_EXCHANGES) or
+                    (self._market_info.market.name == "bamboo_relay" and not self._market_info.market.use_coordinator)):
+                return
+
         cdef:
             list active_orders = self.active_non_hanging_orders
             list active_buy_prices = []
@@ -864,6 +873,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             if self.c_is_within_tolerance(active_buy_prices, proposal_buys) and \
                     self.c_is_within_tolerance(active_sell_prices, proposal_sells):
                 to_defer_canceling = True
+
+        
         if not to_defer_canceling:
             for order in active_orders:
                 self.c_cancel_order(self._market_info, order.client_order_id)
@@ -874,6 +885,11 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             self.set_timers()
 
     cdef c_cancel_hanging_orders(self):
+        if not global_config_map.get("0x_active_cancels").value:
+            if ((self._market_info.market.name in self.RADAR_RELAY_TYPE_EXCHANGES) or
+                    (self._market_info.market.name == "bamboo_relay" and not self._market_info.market.use_coordinator)):
+                return
+
         cdef:
             object mid_price = self.c_get_mid_price()
             list active_orders = self.active_orders
@@ -885,6 +901,21 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 order = orders[0]
                 if abs(order.price - mid_price)/mid_price >= self._hanging_orders_cancel_pct:
                     self.c_cancel_order(self._market_info, order.client_order_id)
+
+    # Cancel Non-Hanging, Active Orders if Spreads are below minimum_spread
+    cdef c_cancel_orders_below_min_spread(self):
+        cdef:
+            list active_orders = self.market_info_to_active_orders.get(self._market_info, [])
+            object mid_price = self._market_info.get_mid_price()
+        active_orders = [order for order in active_orders
+                         if order.client_order_id not in self._hanging_order_ids]
+        for order in active_orders:
+            negation = -1 if order.is_buy else 1
+            if (negation * (order.price - mid_price) / mid_price) < self._minimum_spread:
+                self.logger().info(f"Order is below minimum spread ({self._minimum_spread})."
+                                   f" Cancelling Order: ({'Buy' if order.is_buy else 'Sell'}) "
+                                   f"ID - {order.client_order_id}")
+                self.c_cancel_order(self._market_info, order.client_order_id)
 
     cdef bint c_to_create_orders(self, object proposal):
         return self._create_timestamp < self._current_timestamp and \
