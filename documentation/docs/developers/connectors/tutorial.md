@@ -745,7 +745,7 @@ Key steps to follow are as below:<br/>
   cls._ws_mock.side_effect = HummingWsServerFactory.reroute_ws_connect
   ```
   
-   q- Send json responses<br/>
+  - Send json responses<br/>
   In the code where you are expecting json response from the server. 
   ```python
   HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data1, delay=0.1)
