@@ -391,6 +391,21 @@ EXAMPLE_ASSETS = {
 }
 ```
 
+- `hummingbot/user/user_balances.py`
+```python
+    @staticmethod
+    def connect_market(exchange, *api_details):
+        market = None
+        if exchange == "binance":
+            market = BinanceMarket(api_details[0], api_details[1])
+        .
+        .
+        .
+        elif exchange == "new_exchange":
+            market = NewExchangeMarket(api_details[0], api_details[1])
+        return market
+```
+
 - `hummingbot/core/utils/trading_pair_fetcher.py`
 ```python
 @staticmethod
