@@ -65,7 +65,17 @@ RUN ~/miniconda3/bin/conda env create -f setup/environment-linux.yml
 RUN echo "source activate $(head -1 setup/environment-linux.yml | cut -d' ' -f2)" > ~/.bashrc
 ENV PATH /home/hummingbot/miniconda3/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin:$PATH
 
+# Install nvm and CeloCLI
+SHELL [ "/bin/bash", "-c" ]
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | bash && \
+    export NVM_DIR="/home/hummingbot/.nvm" && \
+    source "/home/hummingbot/.nvm/nvm.sh" && \
+    source "/home/hummingbot/miniconda3/etc/profile.d/conda.sh" && \
+    conda activate hummingbot && \
+    nvm install 10 && \
+    npm install -g @celo/celocli@0.0.48
+
 # ./compile
 RUN /home/hummingbot/miniconda3/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin/python3 setup.py build_ext --inplace -j 8
 
-CMD [ "sh", "-c", "/home/hummingbot/miniconda3/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin/python3 bin/hummingbot_quickstart.py" ]
+CMD [ "bash", "-c", "/home/hummingbot/miniconda3/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin/python3 bin/hummingbot_quickstart.py" ]
