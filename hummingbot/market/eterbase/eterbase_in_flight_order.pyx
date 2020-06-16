@@ -18,7 +18,7 @@ from hummingbot.market.in_flight_order_base import InFlightOrderBase
 
 s_decimal_0 = Decimal(0)
 
-s_logger = None
+_eifo_logger: Optional[HummingbotLogger] = None
 
 cdef class EterbaseInFlightOrder(InFlightOrderBase):
     def __init__(self,
@@ -49,10 +49,10 @@ cdef class EterbaseInFlightOrder(InFlightOrderBase):
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global s_logger
-        if s_logger is None:
-            s_logger = logging.getLogger(__name__)
-        return s_logger
+        global _eifo_logger
+        if _eifo_logger is None:
+            _eifo_logger = logging.getLogger(__name__)
+        return _eifo_logger
 
     @property
     def is_done(self) -> bool:

@@ -8,7 +8,8 @@ import asyncio
 import json
 from threading import Thread
 
-logger = logging.getLogger(__name__)
+_eu_logger = logging.getLogger(__name__)
+
 shared_client = None
 
 marketid_map = None
@@ -51,8 +52,8 @@ async def api_request(http_method: str,
     if data is not None:
         data_str = json.dumps(data)
 
-    logger.debug(f"Request: url: {url}")
-    logger.debug(f"Request: data: {data_str}")
+    _eu_logger.debug(f"Request: url: {url}")
+    _eu_logger.debug(f"Request: data: {data_str}")
 
     headers = {}
 
@@ -70,14 +71,14 @@ async def api_request(http_method: str,
                               headers=headers) as response:
         data = None
         data = await response.text()
-        logger.debug(f"Response text data: '{data}'."[:400])
+        _eu_logger.debug(f"Response text data: '{data}'."[:400])
         if len(data) > 0:
             try:
                 data = json.loads(data)
             except ValueError:
-                logger.info(f"Response is not a json text: '{data}'."[:400])
+                _eu_logger.info(f"Response is not a json text: '{data}'."[:400])
         if (response.status != 200) and (response.status != 204):
-            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {data}")
+            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {data}", response.status)
         return data
 
 

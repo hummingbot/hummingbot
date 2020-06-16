@@ -9,7 +9,7 @@ from typing import Dict
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 
-_cbpaot_logger = None
+_eaot_logger = None
 s_empty_diff = np.ndarray(shape=(0, 4), dtype="float64")
 
 EterbaseOrderBookTrackingDictionary = Dict[Decimal, Dict[str, Dict[str, any]]]
@@ -33,10 +33,10 @@ cdef class EterbaseActiveOrderTracker:
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global _cbpaot_logger
-        if _cbpaot_logger is None:
-            _cbpaot_logger = logging.getLogger(__name__)
-        return _cbpaot_logger
+        global _eaot_logger
+        if _eaot_logger is None:
+            _eaot_logger = logging.getLogger(__name__)
+        return _eaot_logger
 
     @property
     def active_asks(self) -> EterbaseOrderBookTrackingDictionary:

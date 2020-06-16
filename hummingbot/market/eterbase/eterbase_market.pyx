@@ -130,6 +130,8 @@ cdef class EterbaseMarket(MarketBase):
     DEPOSIT_TIMEOUT = 1800.0
     UPDATE_ORDERS_INTERVAL = 10.0
 
+    ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
+
     trading_pairs_split = None
 
     @classmethod
@@ -175,6 +177,7 @@ cdef class EterbaseMarket(MarketBase):
         self._shared_client = None
         self._maker_fee = None
         self._taker_fee = None
+        self._order_not_found_records: Dict[str, Int]= {}
 
     @property
     def name(self) -> str:
@@ -497,10 +500,31 @@ cdef class EterbaseMarket(MarketBase):
                 self.logger().network(
                     f"Error fetching status update for the order {tracked_order.client_order_id}: "
                     f"{order_update}.",
-                    app_warning_msg=f"Could not fetch updates for the order {tracked_order.client_order_id}. OrderId: {exchange_order_id}"
+                    app_warning_msg=f"Could not fetch updates for the order {tracked_order.client_order_id}. OrderId: {exchange_order_id}. "
                                     f"Check API key and network connection.")
                 continue
-            order_fills = await self.get_order_fills(exchange_order_id)
+            try:
+                order_fills = await self.get_order_fills(exchange_order_id)
+            except IOError as ioe:
+                if ((ioe.args[1] == 400) and ("'Invalid order ID'" in ioe.args[0])):
+                    self._order_not_found_records[exchange_order_id] = self._order_not_found_records.get(exchange_order_id, 0) + 1
+                    if self._order_not_found_records[exchange_order_id] < self.ORDER_NOT_EXIST_CONFIRMATION_COUNT:
+                        # Wait until the order not found error have repeated a few times before actually treating
+                        # it as failed. See: https://github.com/CoinAlpha/hummingbot/issues/601
+                        continue
+                    self.c_trigger_event(
+                        self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                        MarketOrderFailureEvent(self._current_timestamp, tracked_order.client_order_id, tracked_order.order_type)
+                    )
+                    self.c_stop_tracking_order(tracked_order.client_order_id)
+                else:
+                    self.logger().network(
+                        f"Error fetching status update for the order {tracked_order.client_order_id}: "
+                        f"{order_update}.",
+                        app_warning_msg=f"Could not fetch updates for the order {tracked_order.client_order_id}. OrderId: {exchange_order_id}. "
+                                        f"Check API key and network connection.")
+                continue
+
             done_reason = order_update.get("closeReason")
 
             # Calculate the newly executed amount/cost for this update.
@@ -795,11 +819,7 @@ cdef class EterbaseMarket(MarketBase):
         # For Order Market type is needed cost
         if (order_type == OrderType.MARKET):
             decimal_cost = self.c_quantize_cost(trading_pair, amount, price)
-            str_cost = ("{0:." + str(trading_rule.max_cost_significant_digits) + "g}").format(decimal_cost)
-            if re.search(r'e+', str_cost):
-                decimal_cost = Decimal("{:.0f}".format(Decimal(str_cost)))
-            else:
-                decimal_cost = Decimal(str_cost)
+            decimal_cost = self.c_round_to_sig_digits(decimal_cost, trading_rule.max_cost_significant_digits)
             if decimal_cost < trading_rule.min_order_value:
                 raise ValueError(f"Buy order cost {decimal_cost} is lower than the minimum order cost "
                                  f"{trading_rule.min_order_value}.")
@@ -808,11 +828,7 @@ cdef class EterbaseMarket(MarketBase):
                                  f"{trading_rule.max_order_value}.")
         elif (order_type == OrderType.LIMIT):
             # convert price according significant digits
-            str_price = ("{0:." + str(trading_rule.max_price_significant_digits) + "g}").format(decimal_price)
-            if re.search(r'e+', str_price):
-                decimal_price = Decimal("{:.0f}".format(Decimal(str_price)))
-            else:
-                decimal_price = Decimal(str_price)
+            decimal_price = self.c_round_to_sig_digits(decimal_price, trading_rule.max_price_significant_digits)
             if decimal_amount < trading_rule.min_order_size:
                 raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                                  f"{trading_rule.min_order_size}.")
@@ -884,12 +900,7 @@ cdef class EterbaseMarket(MarketBase):
         decimal_cost = s_decimal_0
 
         # convert price according significant digits
-        str_price = ("{0:." + str(trading_rule.max_price_significant_digits) + "g}").format(decimal_price)
-        if re.search(r'e+', str_price):
-            decimal_price = Decimal("{:.0f}".format(Decimal(str_price)))
-        else:
-            decimal_price = Decimal(str_price)
-
+        decimal_price = self.c_round_to_sig_digits(decimal_price, trading_rule.max_price_significant_digits)
         if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Sell order amount {decimal_amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
@@ -1200,6 +1211,8 @@ cdef class EterbaseMarket(MarketBase):
         """
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
+        if order_id in self._order_not_found_records:
+            del self._order_not_found_records[order_id]
 
     cdef c_did_timeout_tx(self, str tracking_id):
         """
@@ -1207,6 +1220,19 @@ cdef class EterbaseMarket(MarketBase):
         """
         self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
                              MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
+
+    cdef object c_round_to_sig_digits(self, object number, int sigdig):
+        """
+        Round number to significant digits
+        """
+        rounded_number = s_decimal_0
+
+        str_number = ("{0:." + str(sigdig) + "g}").format(number)
+        if re.search(r'e+', str_number):
+            rounded_number = Decimal("{:.0f}".format(Decimal(str_number)))
+        else:
+            rounded_number = Decimal(str_number)
+        return rounded_number
 
     cdef object c_get_order_price_quantum(self, str trading_pair, object price):
         """
@@ -1216,7 +1242,17 @@ cdef class EterbaseMarket(MarketBase):
         """
         cdef:
             EterbaseTradingRule trading_rule = self._trading_rules[trading_pair]
-        return trading_rule.min_price_increment
+
+        rounded_price = self.c_round_to_sig_digits(price, trading_rule.max_price_significant_digits)
+
+        (sign, digits, exponent) = rounded_price.as_tuple()
+        base_str = ""
+        for i in range(trading_rule.max_price_significant_digits):
+            base_str += str(digits[i])
+
+        price_quantum = rounded_price / Decimal(base_str)
+
+        return price_quantum
 
     cdef object c_get_order_size_quantum(self, str trading_pair, object order_size):
         """
@@ -1227,9 +1263,16 @@ cdef class EterbaseMarket(MarketBase):
         cdef:
             EterbaseTradingRule trading_rule = self._trading_rules[trading_pair]
 
-        # Eterbase is using the min_order_size as max_precision
-        # Order size must be a multiple of the min_order_size
-        return trading_rule.min_order_size
+        rounded_amount = self.c_round_to_sig_digits(order_size, trading_rule.max_quantity_significant_digits)
+
+        (sign, digits, exponent) = rounded_amount.as_tuple()
+        base_str = ""
+        for i in range(trading_rule.max_quantity_significant_digits):
+            base_str += str(digits[i])
+
+        size_quantum = rounded_amount / Decimal(base_str)
+
+        return size_quantum
 
     cdef object c_quantize_order_amount(self, str trading_pair, object amount, object price=s_decimal_0):
         """
@@ -1241,13 +1284,8 @@ cdef class EterbaseMarket(MarketBase):
             EterbaseTradingRule trading_rule = self._trading_rules[trading_pair]
 
         global s_decimal_0
-        quantized_amount = MarketBase.c_quantize_order_amount(self, trading_pair, amount)
 
-        str_amount = ("{0:." + str(trading_rule.max_quantity_significant_digits) + "g}").format(quantized_amount)
-        if re.search(r'e+', str_amount):
-            quantized_amount = Decimal("{:.0f}".format(Decimal(str_amount)))
-        else:
-            quantized_amount = Decimal(str_amount)
+        quantized_amount = self.c_round_to_sig_digits(amount, trading_rule.max_quantity_significant_digits)
 
         # Check against min_order_size. If not passing either check, return 0.
         if quantized_amount < trading_rule.min_order_size:
@@ -1271,22 +1309,17 @@ cdef class EterbaseMarket(MarketBase):
         global s_decimal_0
 
         cost = amount * price
-
-        str_cost = ("{0:." + str(trading_rule.max_cost_significant_digits) + "g}").format(cost)
-        if re.search(r'e+', str_cost):
-            cost = Decimal("{:.0f}".format(Decimal(str_cost)))
-        else:
-            cost = Decimal(str_cost)
+        quantized_cost = self.c_round_to_sig_digits(cost, trading_rule.max_cost_significant_digits)
 
         # Check against min_order_value. If not passing either check, return 0.
-        if cost < trading_rule.min_order_value:
+        if quantized_cost < trading_rule.min_order_value:
             return s_decimal_0
 
         # Check against max_order_value. If not passing either check, return 0.
-        if cost > trading_rule.max_order_value:
+        if quantized_cost > trading_rule.max_order_value:
             return s_decimal_0
 
-        return cost
+        return quantized_cost
 
     cdef object c_quantize_order_price(self, str trading_pair, object price):
         """
@@ -1299,12 +1332,8 @@ cdef class EterbaseMarket(MarketBase):
 
         quantized_price = MarketBase.c_quantize_order_price(self, trading_pair, price)
 
-        # convert price according significant digits
-        str_price = ("{0:." + str(trading_rule.max_price_significant_digits) + "g}").format(quantized_price)
-        if re.search(r'e+', str_price):
-            quantized_price = Decimal("{:.0f}".format(Decimal(str_price)))
-        else:
-            quantized_price = Decimal(str_price)
+        quantized_price = self.c_round_to_sig_digits(quantized_price, trading_rule.max_price_significant_digits)
+
         return quantized_price
 
     @staticmethod

@@ -39,13 +39,13 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
     PING_TIMEOUT = 10.0
     API_CALL_TIMEOUT = 30.0
 
-    _cbpaobds_logger: Optional[HummingbotLogger] = None
+    _eaobds_logger: Optional[HummingbotLogger] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._cbpaobds_logger is None:
-            cls._cbpaobds_logger = logging.getLogger(__name__)
-        return cls._cbpaobds_logger
+        if cls._eaobds_logger is None:
+            cls._eaobds_logger = logging.getLogger(__name__)
+        return cls._eaobds_logger
 
     def __init__(self, trading_pairs: Optional[List[str]] = None):
         super().__init__()

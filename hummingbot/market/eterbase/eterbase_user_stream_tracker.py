@@ -20,14 +20,15 @@ from hummingbot.market.eterbase.eterbase_api_user_stream_data_source import Eter
 from hummingbot.market.eterbase.eterbase_auth import EterbaseAuth
 import hummingbot.market.eterbase.eterbase_constants as constants
 
+
 class EterbaseUserStreamTracker(UserStreamTracker):
-    _cbpust_logger: Optional[HummingbotLogger] = None
+    _eust_logger: Optional[HummingbotLogger] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._bust_logger is None:
-            cls._bust_logger = logging.getLogger(__name__)
-        return cls._bust_logger
+        if cls._eust_logger is None:
+            cls._eust_logger = logging.getLogger(__name__)
+        return cls._eust_logger
 
     def __init__(self,
                  eterbase_account: str,
@@ -51,8 +52,9 @@ class EterbaseUserStreamTracker(UserStreamTracker):
         """
         if not self._data_source:
             if self._data_source_type is UserStreamTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = EterbaseAPIUserStreamDataSource(eterbase_auth=self._eterbase_auth,eterbase_account=self._eterbase_account,
-                                                                       trading_pairs=self._trading_pairs)
+                self._data_source = EterbaseAPIUserStreamDataSource(eterbase_auth=self._eterbase_auth,
+                                                                    eterbase_account=self._eterbase_account,
+                                                                    trading_pairs=self._trading_pairs)
             else:
                 raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
         return self._data_source
