@@ -35,6 +35,9 @@ kucoin_passphrase: null
 kraken_api_key: null
 kraken_secret_key: null
 
+celo_address: null
+celo_password: null
+
 # Ethereum wallet address: required for trading on a DEX
 ethereum_wallet: null
 ethereum_rpc_url: null
@@ -73,11 +76,6 @@ paper_trade_account_balance:
 telegram_enabled: false
 telegram_token: null
 telegram_chat_id: null
-
-# Exchange rate
-exchange_rate_default_data_feed: coin_gecko_api
-exchange_rate_conversion:
-exchange_rate_fetcher:
 
 # Error log sharing
 send_error_logs: null
