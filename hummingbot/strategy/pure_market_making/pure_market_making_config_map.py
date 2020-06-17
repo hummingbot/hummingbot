@@ -5,7 +5,8 @@ from hummingbot.client.config.config_validators import (
     validate_exchange,
     validate_market_trading_pair,
     validate_bool,
-    validate_decimal
+    validate_decimal,
+    validate_int
 )
 from hummingbot.client.settings import (
     required_exchanges,
@@ -18,7 +19,6 @@ from hummingbot.client.config.global_config_map import (
 from hummingbot.client.config.config_helpers import (
     minimum_order_amount
 )
-from hummingbot.data_feed.exchange_price_manager import ExchangePriceManager
 from typing import Optional
 
 
@@ -36,22 +36,18 @@ def validate_exchange_trading_pair(value: str) -> Optional[str]:
 
 
 def order_amount_prompt() -> str:
+    exchange = pure_market_making_config_map["exchange"].value
     trading_pair = pure_market_making_config_map["market"].value
     base_asset, quote_asset = trading_pair.split("-")
-    min_amount = minimum_order_amount(trading_pair)
+    min_amount = minimum_order_amount(exchange, trading_pair)
     return f"What is the amount of {base_asset} per order? (minimum {min_amount}) >>> "
-
-
-def order_start_size_prompt() -> str:
-    trading_pair = pure_market_making_config_map["market"].value
-    min_amount = minimum_order_amount(trading_pair)
-    return f"What is the size of the first bid and ask order? (minimum {min_amount}) >>> "
 
 
 def validate_order_amount(value: str) -> Optional[str]:
     try:
+        exchange = pure_market_making_config_map["exchange"].value
         trading_pair = pure_market_making_config_map["market"].value
-        min_amount = minimum_order_amount(trading_pair)
+        min_amount = minimum_order_amount(exchange, trading_pair)
         if Decimal(value) < min_amount:
             return f"Order amount must be at least {min_amount}."
     except Exception:
@@ -85,8 +81,6 @@ def validate_price_floor_ceiling(value: str) -> Optional[str]:
 
 def exchange_on_validated(value: str):
     required_exchanges.append(value)
-    ExchangePriceManager.set_exchanges_to_feed([value])
-    ExchangePriceManager.start()
 
 
 pure_market_making_config_map = {
@@ -119,6 +113,13 @@ pure_market_making_config_map = {
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
                   prompt_on_new=True),
+    "minimum_spread":
+        ConfigVar(key="minimum_spread",
+                  prompt="At what minimum spread should the bot automatically cancel orders? (Enter 1 for 1%) >>> ",
+                  required_if=lambda: False,
+                  type_str="decimal",
+                  default=Decimal(-100),
+                  validator=lambda v: validate_decimal(v, -100, 100, True)),
     "order_refresh_time":
         ConfigVar(key="order_refresh_time",
                   prompt="How often do you want to cancel and replace bids and asks "
@@ -161,19 +162,11 @@ pure_market_making_config_map = {
                   type_str="bool",
                   default=False,
                   validator=validate_bool),
-    "order_expiration_time":
-        ConfigVar(key="order_expiration_time",
-                  prompt="How long should your limit orders remain valid until they "
-                         "expire and are replaced? (Minimum / Default is 130 seconds) >>> ",
-                  default=130.0,
-                  required_if=lambda: using_exchange("radar_relay")() or (using_exchange("bamboo_relay")() and
-                                                                          not using_bamboo_coordinator_mode()),
-                  type_str="float",
-                  validator=lambda v: validate_decimal(v, 130)),
     "order_levels":
         ConfigVar(key="order_levels",
                   prompt="How many orders do you want to place on both sides? >>> ",
                   type_str="int",
+                  validator=lambda v: validate_int(v, min_value=0, inclusive=False),
                   default=1),
     "order_level_amount":
         ConfigVar(key="order_level_amount",

@@ -68,6 +68,12 @@ class CreateCommand:
                     return
             else:
                 config.value = config.default
+
+        #catch a last key binding to stop config, if any
+        if self.app.to_stop_config:
+            self.app.to_stop_config = False
+            return
+
         if strategy == "pure_market_making" and not global_config_map.get("paper_trade_enabled").value:
             await self.asset_ratio_maintenance_prompt(config_map)
         if file_name is None:
@@ -141,7 +147,7 @@ class CreateCommand:
         balances = await UserBalances.instance().balances(exchange, base, quote)
         if balances is None:
             return
-        base_ratio = UserBalances.base_amount_ratio(market, balances)
+        base_ratio = UserBalances.base_amount_ratio(exchange, market, balances)
         if base_ratio is None:
             return
         base_ratio = round(base_ratio, 3)

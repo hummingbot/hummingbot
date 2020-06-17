@@ -101,6 +101,7 @@ from hummingbot.market.bamboo_relay.bamboo_relay_constants import (
     BAMBOO_RELAY_TEST_FEE_RECIPIENT_ADDRESS
 )
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.core.utils.estimate_fee import estimate_fee
 
 brm_logger = None
 s_decimal_0 = Decimal(0)
@@ -401,6 +402,7 @@ cdef class BambooRelayMarket(MarketBase):
             bint is_coordinated = False
             list valid_orders
 
+        """
         # there are no fees for makers on Bamboo Relay
         if order_type is OrderType.LIMIT:
             return TradeFee(percent=s_decimal_0)
@@ -425,6 +427,9 @@ cdef class BambooRelayMarket(MarketBase):
 
         return TradeFee(percent=s_decimal_0, flat_fees=[("ETH", protocol_fee),
                                                         ("ETH", transaction_cost_eth)])
+        """
+        is_maker = order_type is OrderType.LIMIT
+        return estimate_fee("bamboo_relay", is_maker)
 
     def _update_balances(self):
         self._account_balances = self.wallet.get_all_balances().copy()
@@ -973,7 +978,11 @@ cdef class BambooRelayMarket(MarketBase):
 
     def get_zero_ex_signature(self, order_hash_hex: str) -> str:
         signature = self._wallet.current_backend.sign_hash(hexstr=order_hash_hex)
-        fixed_signature = fix_signature(self._provider, self._wallet.address, order_hash_hex, signature)
+        fixed_signature = fix_signature(self._provider, 
+                                        self._wallet.address, 
+                                        order_hash_hex,
+                                        signature, 
+                                        self._chain_id)
         return fixed_signature
 
     cdef list c_get_orders_for_amount_price(self,
@@ -987,44 +996,45 @@ cdef class BambooRelayMarket(MarketBase):
             object current_item
             object current_price
             list found_orders = []
+            list found_hashes = []
 
         active_orders = self._order_book_tracker.get_active_order_tracker(trading_pair=trading_pair)
 
         try:
             if trade_type is TradeType.BUY:
                 active_asks = active_orders.active_asks
-                asks = self.order_book_ask_entries(trading_pair)
-                for current_item in asks:
-                    current_price = current_item.price
+                ask_keys = sorted(active_asks.keys())
+                for current_price in ask_keys:
                     # Market orders don't care about price
                     if not price.is_nan() and current_price > price:
                         raise StopIteration
                     if current_price not in active_asks:
                         continue
                     for order_hash in active_asks[current_price]:
-                        if order_hash in self._filled_order_hashes:
+                        if order_hash in self._filled_order_hashes or order_hash in found_hashes:
                             continue
                         order = active_asks[current_price][order_hash]
                         amount_filled += Decimal(order["remainingBaseTokenAmount"])
                         found_orders.append(order)
+                        found_hashes.append(order_hash)
                         if amount_filled >= amount:
                             raise StopIteration
             if trade_type is TradeType.SELL:
                 active_bids = active_orders.active_bids
-                bids = self.order_book_bid_entries(trading_pair)
-                for current_item in bids:
-                    current_price = current_item.price
+                bid_keys = sorted(active_bids.keys(), reverse=True)
+                for current_price in bid_keys:
                     # Market orders don't care about price
                     if not price.is_nan() and current_price < price:
                         raise StopIteration
                     if current_price not in active_bids:
                         continue
                     for order_hash in active_bids[current_price]:
-                        if order_hash in self._filled_order_hashes:
+                        if order_hash in self._filled_order_hashes or order_hash in found_hashes:
                             continue
                         order = active_bids[current_price][order_hash]
                         amount_filled += Decimal(order["remainingBaseTokenAmount"])
                         found_orders.append(order)
+                        found_hashes.append(order_hash)
                         if amount_filled >= amount:
                             raise StopIteration
         except StopIteration:
@@ -1070,7 +1080,7 @@ cdef class BambooRelayMarket(MarketBase):
             signature = signed_market_order["signature"]
             is_coordinated = apiOrder["isCoordinated"]
             order = jsdict_order_to_struct(signed_market_order)
-            remaining_base_token_amount = Decimal(apiOrder["remainingQuoteTokenAmount"])
+            remaining_base_token_amount = Decimal(apiOrder["remainingBaseTokenAmount"])
             remaining_quote_token_amount = Decimal(apiOrder["remainingQuoteTokenAmount"])
             calculated_price = remaining_base_token_amount / remaining_quote_token_amount
 
