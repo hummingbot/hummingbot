@@ -361,6 +361,16 @@ cdef class StrategyBase(TimeIterator):
 
     # <editor-fold desc="+ Creating and cancelling orders">
     # ----------------------------------------------------------------------------------------------------------
+
+    def buy_with_specific_market(self, market_trading_pair_tuple, amount,
+                                 order_type=OrderType.MARKET,
+                                 price=s_decimal_nan,
+                                 expiration_seconds=NaN):
+        return self.c_buy_with_specific_market(market_trading_pair_tuple, amount,
+                                               order_type,
+                                               price,
+                                               expiration_seconds)
+
     cdef str c_buy_with_specific_market(self, object market_trading_pair_tuple, object amount,
                                         object order_type=OrderType.MARKET,
                                         object price=s_decimal_nan,
@@ -394,6 +404,15 @@ cdef class StrategyBase(TimeIterator):
             self.c_start_tracking_market_order(market_trading_pair_tuple, order_id, True, amount)
 
         return order_id
+
+    def sell_with_specific_market(self, market_trading_pair_tuple, amount,
+                                  order_type=OrderType.MARKET,
+                                  price=s_decimal_nan,
+                                  expiration_seconds=NaN):
+        return self.c_sell_with_specific_market(market_trading_pair_tuple, amount,
+                                                order_type,
+                                                price,
+                                                expiration_seconds)
 
     cdef str c_sell_with_specific_market(self, object market_trading_pair_tuple, object amount,
                                          object order_type=OrderType.MARKET,
