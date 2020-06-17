@@ -62,6 +62,7 @@ mkdir $FOLDER/hummingbot_data
 # 3) Launch a new instance of hummingbot
 docker run -it --log-opt max-size=10m --log-opt max-file=5 \
 --name $INSTANCE_NAME \
+--network host \
 --mount "type=bind,source=$(pwd)/$FOLDER/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/$FOLDER/hummingbot_logs,destination=/logs/" \
 --mount "type=bind,source=$(pwd)/$FOLDER/hummingbot_data,destination=/data/" \
