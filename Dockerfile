@@ -29,7 +29,7 @@ RUN useradd -m -s /bin/bash hummingbot && \
   ln -s /data /home/hummingbot/data
 
 # Create mount points
-RUN mkdir /conf && mkdir /logs && mkdir /data
+RUN mkdir /conf /logs /data && chown -R hummingbot:hummingbot /conf /logs /data
 VOLUME /conf /logs /data
 
 # Install linux dependencies
