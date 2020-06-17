@@ -13,6 +13,7 @@ def start(self):
     secondary_market = celo_arb_config_map.get("secondary_market").value
     order_amount = celo_arb_config_map.get("order_amount").value
     min_profitability = celo_arb_config_map.get("min_profitability").value / Decimal("100")
+    celo_slippage_buffer = celo_arb_config_map.get("celo_slippage_buffer").value / Decimal("100")
     try:
         secondary_trading_pair: str = self._convert_to_exchange_trading_pair(secondary_exchange, [secondary_market])[0]
         secondary_assets: Tuple[str, str] = self._initialize_market_assets(secondary_exchange,
@@ -29,5 +30,4 @@ def start(self):
     secondary_data = [self.markets[secondary_exchange], secondary_trading_pair] + list(secondary_assets)
     market_info = MarketTradingPairTuple(*secondary_data)
     self.market_trading_pair_tuples = [market_info]
-    # self.market_pair = ArbitrageMarketPair(*self.market_trading_pair_tuples)
-    self.strategy = CeloArbStrategy(market_info, min_profitability, order_amount)
+    self.strategy = CeloArbStrategy(market_info, min_profitability, order_amount, celo_slippage_buffer)
