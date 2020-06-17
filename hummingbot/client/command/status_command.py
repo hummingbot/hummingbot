@@ -83,7 +83,7 @@ class StatusCommand:
     async def validate_required_connections(self) -> Dict[str, str]:
         invalid_conns = {}
         if self.strategy_name == "celo_arb":
-            err_msg = await self.validate_n_connect_celo()
+            err_msg = await self.validate_n_connect_celo(True)
             if err_msg is not None:
                 invalid_conns["celo"] = err_msg
         if not global_config_map.get("paper_trade_enabled").value:

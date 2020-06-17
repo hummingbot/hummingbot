@@ -110,5 +110,5 @@ class CeloCLI:
     def validate_node_synced(cls) -> Optional[str]:
         output = command(["celocli", "node:synced"])
         lines = output.split("\n")
-        if lines[0].strip().lower() != "true":
+        if "true" not in [line.strip().lower() for line in lines]:
             return lines[0]
