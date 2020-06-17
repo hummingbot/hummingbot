@@ -14,10 +14,14 @@ This is just one possible configuration. Note that you can use other cloud provi
 
 We assume that you already have an [AWS](https://aws.amazon.com/) account.
 
-Follow the instructions at [Installation - Cloud Server Guide - AWS](/installation/cloud/#amazon-web-services) to launch an AWS instance.
+Follow the instructions at [Installation - Cloud Server Guide - AWS](/installation/cloud/#amazon-web-services) to launch an AWS instance. However, please make the following modifications to run `celo-arb`.
 
-!!! note "Storage Requirements"
-    By default, a `t2.micro` instance has 8 GB of storage. We recommend that you increase storage to at least 16 GB to install the Docker version along with the Celo node.
+### Instance type
+
+While the free tier may be sufficient to run `celo-arb`, we recommend a `t2.small` as the minimum instance type.
+
+### Storage
+By default, AWS instances come with 8 GB of storage. We recommend that you increase storage to at least 16 GB to install the Docker version along with the Celo node.
 
 ## 2. Install Docker
 
@@ -69,6 +73,8 @@ Instead, run the following command to start an **ultra-light node** rather than 
 ```
 docker run --name celo-ultralight-node -d --restart unless-stopped -p 127.0.0.1:8545:8545 -v $PWD:/root/.celo $CELO_IMAGE --verbosity 3 --networkid $NETWORK_ID --syncmode lightest --rpc --rpcaddr 0.0.0.0 --rpcapi eth,net,web3,debug,admin,personal --etherbase $CELO_ACCOUNT_ADDRESS --bootnodes $BOOTNODE_ENODES --allow-insecure-unlock
 ```
+
+Afterwards, Hummingbot will start automatically and prompt you to set a password. After you exit, you can use the `./start.sh` and `./update.sh` commands to run and update Hummingbot, respectively.
 
 ## 4. Install and run Hummingbot
 
