@@ -334,11 +334,15 @@ cdef class CeloArbStrategy(StrategyBase):
                           f"{market.name} ({self._market_info.trading_pair}) "
                           f"at {celo_buy_trade.ctp_price:.3f} price. "
                           f"Arb profit: {celo_buy_trade.profit:.2%}")
-        self._ev_loop.call_soon_threadsafe(partial(self.sell_with_specific_market,
-                                                   self._market_info,
-                                                   quantized_sell_amount,
-                                                   order_type=OrderType.LIMIT,
-                                                   price=celo_buy_trade.ctp_price))
+        if self._mock_celo_cli_mode:
+            self.sell_with_specific_market(self._market_info, quantized_sell_amount, order_type=OrderType.LIMIT,
+                                           price=celo_buy_trade.ctp_price)
+        else:
+            self._ev_loop.call_soon_threadsafe(partial(self.sell_with_specific_market,
+                                                       self._market_info,
+                                                       quantized_sell_amount,
+                                                       order_type=OrderType.LIMIT,
+                                                       price=celo_buy_trade.ctp_price))
 
     cdef c_execute_sell_celo_buy_ctp(self, object celo_sell_trade):
         """
@@ -389,11 +393,15 @@ cdef class CeloArbStrategy(StrategyBase):
                           f"{market.name} ({self._market_info.trading_pair}) "
                           f"at {celo_sell_trade.ctp_price:.3f} price. "
                           f"Arb profit: {celo_sell_trade.profit:.2%}")
-        self._ev_loop.call_soon_threadsafe(partial(self.buy_with_specific_market,
-                                                   self._market_info,
-                                                   quantized_buy_amount,
-                                                   order_type=OrderType.LIMIT,
-                                                   price=celo_sell_trade.ctp_price))
+        if self._mock_celo_cli_mode:
+            self.buy_with_specific_market(self._market_info, quantized_buy_amount, order_type=OrderType.LIMIT,
+                                          price=celo_sell_trade.ctp_price)
+        else:
+            self._ev_loop.call_soon_threadsafe(partial(self.buy_with_specific_market,
+                                                       self._market_info,
+                                                       quantized_buy_amount,
+                                                       order_type=OrderType.LIMIT,
+                                                       price=celo_sell_trade.ctp_price))
 
     def log_n_notify(self, msg: str):
         self.log_with_clock(logging.INFO, msg)
