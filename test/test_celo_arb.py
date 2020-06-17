@@ -83,6 +83,7 @@ class CeloArbUnitTest(unittest.TestCase):
             self.market_info,
             min_profitability=Decimal("0.01"),
             order_amount=Decimal("1"),
+            celo_slippage_buffer=Decimal("0.001"),
             logging_options=self.logging_options,
             hb_app_notification=False,
             mock_celo_cli_mode=True

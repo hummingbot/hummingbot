@@ -8,6 +8,8 @@ from typing import (
     Dict
 )
 import pandas as pd
+import asyncio
+from functools import partial
 from hummingbot.core.clock cimport Clock
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.limit_order cimport LimitOrder
@@ -38,9 +40,7 @@ from hummingbot.model.trade_fill import TradeFill
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
 ds_logger = None
-# This error margin is for --forAtLeast argument in celocli exchange:usd and exchange:gold commands
-# This is reduce a number of rejected exchange transactions.
-CELO_FOR_AT_LEST_ERR_MARGIN = Decimal("0.001")
+NODE_SYNCED_CHECK_INTERVAL = 60.0 * 5.0
 
 
 def get_trade_profits(market, trading_pair: str, order_amount: Decimal) -> List[CeloArbTradeProfit]:
@@ -95,6 +95,7 @@ cdef class CeloArbStrategy(StrategyBase):
                  market_info: MarketTradingPairTuple,
                  min_profitability: Decimal,
                  order_amount: Decimal,
+                 celo_slippage_buffer: Decimal = Decimal("0.0001"),
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900,
                  hb_app_notification: bool = True,
@@ -104,6 +105,7 @@ cdef class CeloArbStrategy(StrategyBase):
         self._exchange = market_info.market.name
         self._min_profitability = min_profitability
         self._order_amount = order_amount
+        self._celo_slippage_buffer = celo_slippage_buffer
         self._mock_celo_cli_mode = mock_celo_cli_mode
         self._last_no_arb_reported = 0
         self._trade_profits = None
@@ -111,8 +113,11 @@ cdef class CeloArbStrategy(StrategyBase):
         self._all_markets_ready = False
         self._logging_options = logging_options
 
+        self._ev_loop = asyncio.get_event_loop()
         self._async_scheduler = None
         self._main_task = None
+        self._last_synced_checked = 0
+        self._node_synced = False
 
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
@@ -214,6 +219,7 @@ cdef class CeloArbStrategy(StrategyBase):
     cdef c_stop(self, Clock clock):
         if self._main_task is not None and not self._main_task.done():
             self._main_task.cancel()
+            self._main_task = None
         StrategyBase.c_stop(self, clock)
 
     cdef c_tick(self, double timestamp):
@@ -261,21 +267,27 @@ cdef class CeloArbStrategy(StrategyBase):
                 self._main_task = safe_ensure_future(coro)
 
     def main_process(self):
+        if self._last_synced_checked < self._current_timestamp - NODE_SYNCED_CHECK_INTERVAL:
+            err_msg = CeloCLI.validate_node_synced()
+            self._node_synced = err_msg is None
+            self._last_synced_checked = self._current_timestamp
+            check_msg = "synced" if err_msg is None else f"Error: {err_msg}"
+            self.log_with_clock(logging.INFO, f"Node sync check - {check_msg}")
+        if not self._node_synced:
+            return
         self._trade_profits = get_trade_profits(self._market_info.market, self._market_info.trading_pair, self._order_amount)
         arb_trades = [t for t in self._trade_profits if t.profit >= self._min_profitability]
-        if len(arb_trades) > 1:
-            raise Exception("Found 2 profitable trades from 2 markets, something went wrong.")
         if len(arb_trades) == 0:
             if self._last_no_arb_reported < self._current_timestamp - 20:
                 self.logger().info(f"No arbitrage opportunity: {self._trade_profits[0]} {self._trade_profits[1]}")
                 self._last_no_arb_reported = self._current_timestamp
             return
-        if arb_trades[0].is_celo_buy:
-            self.logger().info(f"Found arbitrage opportunity!: {arb_trades[0]}")
-            self.c_execute_buy_celo_sell_ctp(arb_trades[0])
-        else:
-            self.logger().info(f"Found arbitrage opportunity!: {arb_trades[0]}")
-            self.c_execute_sell_celo_buy_ctp(arb_trades[0])
+        for arb_trade in arb_trades:
+            self.logger().info(f"Found arbitrage opportunity!: {arb_trade}")
+            if arb_trade.is_celo_buy:
+                self.c_execute_buy_celo_sell_ctp(arb_trade)
+            else:
+                self.c_execute_sell_celo_buy_ctp(arb_trade)
 
     cdef c_execute_buy_celo_sell_ctp(self, object celo_buy_trade):
         """
@@ -291,34 +303,46 @@ cdef class CeloArbStrategy(StrategyBase):
         quantized_sell_amount = market.c_quantize_order_amount(self._market_info.trading_pair,
                                                                self._order_amount)
         buy_amount = min(quantized_sell_amount, self._order_amount)
-        if buy_amount > 0:
-            sell_balance = market.c_get_balance(self._market_info.quote_asset)
-            if sell_balance < quantized_sell_amount:
-                self.logger().info(f"Can't arbitrage, {self._exchange} "
-                                   f"{self._market_info.base_asset} balance "
-                                   f"({sell_balance}) is below required sell amount ({quantized_sell_amount}).")
-                return
-            cusd_required = buy_amount * celo_buy_trade.celo_price
-            celo_bals = CeloCLI.balances()
-            if celo_bals[CELO_QUOTE].available() < cusd_required:
-                self.logger().info(f"Can't arbitrage, Celo {CELO_QUOTE} available balance "
-                                   f"({celo_bals[CELO_QUOTE].available()}) is below required buy amount "
-                                   f"({cusd_required}).")
-                return
+        if buy_amount <= 0:
+            return
 
-            if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
-                self.log_n_notify(f"Buying {buy_amount} {CELO_BASE} at Celo at {celo_buy_trade.celo_price:.2f} price "
-                                  f"and selling {quantized_sell_amount} {self._market_info.base_asset} at "
-                                  f"{market.name} ({self._market_info.trading_pair})"
-                                  f"at {celo_buy_trade.ctp_price:.2f} price. "
-                                  f"Arb profit: {celo_buy_trade.profit:.2%}")
-            self.c_sell_with_specific_market(self._market_info, quantized_sell_amount,
-                                             order_type=OrderType.LIMIT, price=celo_buy_trade.ctp_price)
-            min_cgld_returned = buy_amount * (Decimal("1") - CELO_FOR_AT_LEST_ERR_MARGIN)
+        sell_balance = market.c_get_available_balance(self._market_info.base_asset)
+        if sell_balance < quantized_sell_amount:
+            self.logger().info(f"Can't arbitrage, {self._exchange} "
+                               f"{self._market_info.base_asset} balance "
+                               f"({sell_balance}) is below required sell amount ({quantized_sell_amount}).")
+            return
+        cusd_required = buy_amount * celo_buy_trade.celo_price
+        celo_bals = CeloCLI.balances()
+        if celo_bals[CELO_QUOTE].available() < cusd_required:
+            self.logger().info(f"Can't arbitrage, Celo {CELO_QUOTE} available balance "
+                               f"({celo_bals[CELO_QUOTE].available()}) is below required buy amount "
+                               f"({cusd_required}).")
+            return
+        self.log_with_clock(logging.INFO,
+                            f"Buying {buy_amount} {CELO_BASE} at Celo at {celo_buy_trade.celo_price:.3f} price")
+        min_cgld_returned = buy_amount * (Decimal("1") - self._celo_slippage_buffer)
+        try:
             tx_hash = CeloCLI.buy_cgld(cusd_required, min_cgld_returned=min_cgld_returned)
-            celo_order = CeloOrder(tx_hash, True, celo_buy_trade.celo_price, buy_amount, self._current_timestamp)
-            self._celo_orders.append(celo_order)
-            self.logger().info(f"Successfully executed {celo_order}")
+        except Exception as err:
+            self.log_with_clock(logging.INFO, str(err))
+            return
+        celo_order = CeloOrder(tx_hash, True, celo_buy_trade.celo_price, buy_amount, self._current_timestamp)
+        self._celo_orders.append(celo_order)
+        self.log_n_notify(f"Bought {celo_order.amount} {CELO_BASE} at Celo at {celo_order.price:.3f} price "
+                          f"and selling {quantized_sell_amount} {self._market_info.base_asset} at "
+                          f"{market.name} ({self._market_info.trading_pair}) "
+                          f"at {celo_buy_trade.ctp_price:.3f} price. "
+                          f"Arb profit: {celo_buy_trade.profit:.2%}")
+        if self._mock_celo_cli_mode:
+            self.sell_with_specific_market(self._market_info, quantized_sell_amount, order_type=OrderType.LIMIT,
+                                           price=celo_buy_trade.ctp_price)
+        else:
+            self._ev_loop.call_soon_threadsafe(partial(self.sell_with_specific_market,
+                                                       self._market_info,
+                                                       quantized_sell_amount,
+                                                       order_type=OrderType.LIMIT,
+                                                       price=celo_buy_trade.ctp_price))
 
     cdef c_execute_sell_celo_buy_ctp(self, object celo_sell_trade):
         """
@@ -337,34 +361,47 @@ cdef class CeloArbStrategy(StrategyBase):
                                                               price=celo_sell_trade.ctp_price)
         sell_amount = min(quantized_buy_amount, self._order_amount)
 
-        if sell_amount > 0:
-            buy_balance = market.c_get_balance(self._market_info.quote_asset)
-            buy_required = celo_sell_trade.ctp_price * quantized_buy_amount
-            if buy_balance < buy_required:
-                self.logger().info(f"Can't arbitrage, {self._exchange} "
-                                   f"{self._market_info.quote_asset} balance "
-                                   f"({buy_balance}) is below required buy amount ({buy_required}).")
-                return
-            celo_bals = CeloCLI.balances()
-            if celo_bals[CELO_BASE].available() < sell_amount:
-                self.logger().info(f"Can't arbitrage, Celo {CELO_BASE} available balance "
-                                   f"({celo_bals[CELO_BASE].available()}) is below required sell amount "
-                                   f"({sell_amount}).")
-                return
-            if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
-                self.log_n_notify(f"Selling {sell_amount} {CELO_BASE} at Celo at {celo_sell_trade.celo_price:.2f} "
-                                  f"price and buying {quantized_buy_amount} {self._market_info.base_asset} at "
-                                  f"{market.name} ({self._market_info.trading_pair})"
-                                  f"at {celo_sell_trade.ctp_price:.2f} price. "
-                                  f"Arb profit: {celo_sell_trade.profit:.2%}")
-            self.c_buy_with_specific_market(self._market_info, quantized_buy_amount,
-                                            order_type=OrderType.LIMIT, price=celo_sell_trade.ctp_price)
-            min_cusd_returned = sell_amount * celo_sell_trade.celo_price * (Decimal("1") -
-                                                                            CELO_FOR_AT_LEST_ERR_MARGIN)
+        if sell_amount <= 0:
+            return
+
+        buy_balance = market.c_get_available_balance(self._market_info.quote_asset)
+        buy_required = celo_sell_trade.ctp_price * quantized_buy_amount
+        if buy_balance < buy_required:
+            self.logger().info(f"Can't arbitrage, {self._exchange} "
+                               f"{self._market_info.quote_asset} balance "
+                               f"({buy_balance}) is below required buy amount ({buy_required}).")
+            return
+        celo_bals = CeloCLI.balances()
+        if celo_bals[CELO_BASE].available() < sell_amount:
+            self.logger().info(f"Can't arbitrage, Celo {CELO_BASE} available balance "
+                               f"({celo_bals[CELO_BASE].available()}) is below required sell amount "
+                               f"({sell_amount}).")
+            return
+        self.log_with_clock(logging.INFO,
+                            f"Selling {sell_amount} {CELO_BASE} at Celo at {celo_sell_trade.celo_price:.3f}")
+        min_cusd_returned = sell_amount * celo_sell_trade.celo_price * (Decimal("1") -
+                                                                        self._celo_slippage_buffer)
+        try:
             tx_hash = CeloCLI.sell_cgld(sell_amount, min_cusd_returned=min_cusd_returned)
-            celo_order = CeloOrder(tx_hash, False, celo_sell_trade.celo_price, sell_amount, self._current_timestamp)
-            self._celo_orders.append(celo_order)
-            self.logger().info(f"Successfully executed {celo_order}")
+        except Exception as err:
+            self.log_with_clock(logging.INFO, str(err))
+            return
+        celo_order = CeloOrder(tx_hash, False, celo_sell_trade.celo_price, sell_amount, self._current_timestamp)
+        self._celo_orders.append(celo_order)
+        self.log_n_notify(f"Sold {celo_order.amount} {CELO_BASE} at Celo at {celo_order.price:.3f} "
+                          f"price and buying {quantized_buy_amount} {self._market_info.base_asset} at "
+                          f"{market.name} ({self._market_info.trading_pair}) "
+                          f"at {celo_sell_trade.ctp_price:.3f} price. "
+                          f"Arb profit: {celo_sell_trade.profit:.2%}")
+        if self._mock_celo_cli_mode:
+            self.buy_with_specific_market(self._market_info, quantized_buy_amount, order_type=OrderType.LIMIT,
+                                          price=celo_sell_trade.ctp_price)
+        else:
+            self._ev_loop.call_soon_threadsafe(partial(self.buy_with_specific_market,
+                                                       self._market_info,
+                                                       quantized_buy_amount,
+                                                       order_type=OrderType.LIMIT,
+                                                       price=celo_sell_trade.ctp_price))
 
     def log_n_notify(self, msg: str):
         self.log_with_clock(logging.INFO, msg)
