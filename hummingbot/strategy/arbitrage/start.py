@@ -42,4 +42,5 @@ def start(self):
                                       min_profitability=min_profitability,
                                       logging_options=ArbitrageStrategy.OPTION_LOG_ALL,
                                       secondary_to_primary_base_conversion_rate=secondary_to_primary_base_conversion_rate,
-                                      secondary_to_primary_quote_conversion_rate=secondary_to_primary_quote_conversion_rate)
+                                      secondary_to_primary_quote_conversion_rate=secondary_to_primary_quote_conversion_rate,
+                                      hb_app_notification=True)
