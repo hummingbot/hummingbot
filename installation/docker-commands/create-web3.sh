@@ -59,7 +59,7 @@ mkdir $FOLDER
 mkdir $FOLDER/hummingbot_conf && mkdir $FOLDER/hummingbot_logs
 # 3) Launch a new instance of hummingbot
 docker run -it \
---network="host" \
+--network host \
 --name $INSTANCE_NAME \
 --mount "type=bind,source=$(pwd)/$FOLDER/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/$FOLDER/hummingbot_logs,destination=/logs/" \
