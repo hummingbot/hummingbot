@@ -815,7 +815,7 @@ cdef class BittrexMarket(MarketBase):
         cdef:
             int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
-        safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price), loop=self._ev_loop)
+        safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
         return order_id
 
     async def execute_sell(self,
@@ -915,7 +915,7 @@ cdef class BittrexMarket(MarketBase):
             int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
 
-        safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price), loop=self._ev_loop)
+        safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id
 
     async def execute_cancel(self, trading_pair: str, order_id: str):
@@ -955,7 +955,7 @@ cdef class BittrexMarket(MarketBase):
         return None
 
     cdef c_cancel(self, str trading_pair, str order_id):
-        safe_ensure_future(self.execute_cancel(trading_pair, order_id), loop=self._ev_loop)
+        safe_ensure_future(self.execute_cancel(trading_pair, order_id))
         return order_id
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
