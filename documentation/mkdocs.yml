@@ -139,6 +139,9 @@ nav:
         - External Price Source: strategies/advanced-mm/price-source.md
       - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
       - Arbitrage: strategies/arbitrage.md
+      - Celo Arbitrage:
+        - Overview: strategies/celo-arb/index.md
+        - Quickstart: strategies/celo-arb/quickstart.md
     - Connectors:
       - Overview: connectors/index.md
       - Binance: connectors/binance.md
