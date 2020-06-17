@@ -39,14 +39,8 @@ class BeaxyOrderBookMessage(OrderBookMessage):
 
     @property
     def asks(self) -> List[OrderBookRow]:
-        return [
-            OrderBookRow(float(entry["price"]), float(entry["quantity"]), self.update_id)
-            for entry in [x for x in self.content["entries"] if x["side"] == "ASK"]
-        ]
+        raise NotImplementedError("Beaxy order book messages have different semantics.")
 
     @property
     def bids(self) -> List[OrderBookRow]:
-        return [
-            OrderBookRow(float(entry["price"]), float(entry["quantity"]), self.update_id)
-            for entry in [x for x in self.content["entries"] if x["side"] == "BID"]
-        ]
+        raise NotImplementedError("Beaxy order book messages have different semantics.")

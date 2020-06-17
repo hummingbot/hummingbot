@@ -1,7 +1,9 @@
 from typing import (
     Dict,
-    Any
+    Any,
+    Optional
 )
+import logging
 import base64
 import aiohttp
 import random
@@ -10,28 +12,54 @@ from Crypto.Signature import PKCS1_v1_5
 from Crypto.Hash import HMAC, SHA384, SHA256
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.market.beaxy.beaxy_constants import BeaxyConstants
+from datetime import datetime, timedelta
+from hummingbot.logger import HummingbotLogger
 
 
 class BeaxyAuth:
+    _logger: Optional[HummingbotLogger] = None
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        if cls._logger is None:
+            cls._logger = logging.getLogger(__name__)
+        return cls._logger
+
     def __init__(self, api_key: str, api_secret: str):
         self.api_key = api_key
         self.api_secret = api_secret
+        self._current_ttl: datetime = datetime.now()
+        self._session_data_cache: Dict[str, Any] = {}
 
-    async def generate_auth_dict(self, http_method: str, path: str) -> Dict[str, Any]:
+    async def generate_auth_dict(self, http_method: str, path: str, body: str = "") -> Dict[str, Any]:
         session_data = await self.__get_session_data()
         headers = {"X-Deltix-Nonce": str(get_tracking_nonce()), "X-Deltix-Session-Id": session_data["session_id"]}
-        payload = self.__build_payload("GET", path, {}, headers)
+        payload = self.__build_payload(http_method, path, {}, headers, body)
+        self.logger().warning(payload)
         hmac = HMAC.new(key= self.__int_to_bytes(session_data["sign_key"], signed=True), msg=bytes(payload, 'utf-8'), digestmod=SHA384)
         digestb64 = base64.b64encode(hmac.digest())
         headers["X-Deltix-Signature"] = digestb64.decode('utf-8')
         return headers
 
-    # TODO Get from cache
+    async def generate_ws_auth_dict(self) -> Dict[str, Any]:
+        session_data = await self.__get_session_data()
+        headers = {"X-Deltix-Nonce": str(get_tracking_nonce()), "X-Deltix-Session-Id": session_data["session_id"]}
+        payload = self.__build_ws_payload(headers)
+        hmac = HMAC.new(key= self.__int_to_bytes(session_data["sign_key"], signed=True), msg=bytes(payload, 'utf-8'), digestmod=SHA384)
+        digestb64 = base64.b64encode(hmac.digest())
+        headers["X-Deltix-Signature"] = digestb64.decode('utf-8')
+        return headers
+
     async def __get_session_data(self) -> Dict[str, Any]:
-        dh_number = random.getrandbits(64 * 8)
-        login_attempt = await self.__login_attempt()
-        sign_key = await self.__login_confirm(login_attempt, dh_number)
-        return {"sign_key": sign_key, "session_id": login_attempt["session_id"]}
+        if (self._current_ttl - datetime.now()) < timedelta(minutes=5):
+            dh_number = random.getrandbits(64 * 8)
+            login_attempt = await self.__login_attempt()
+            sign_key = await self.__login_confirm(login_attempt, dh_number)
+            retval = {"sign_key": sign_key, "session_id": login_attempt["session_id"]}
+            self._current_ttl = datetime.now() + timedelta(milliseconds=int(login_attempt["ttl"]))
+            self._session_data_cache = retval
+
+        return self._session_data_cache
 
     async def __login_confirm(self, login_attempt: Dict[str, str], dh_number: int) -> int:
         dh_modulus = int.from_bytes(base64.b64decode(login_attempt['dh_modulus']), 'big', signed= False)
@@ -73,3 +101,7 @@ class BeaxyAuth:
         query_params_stringified = '&'.join([f"{k}={query_params[k]}" for k in sorted(query_params)])
         headers_stringified = '&'.join([f"{k}={headers[k]}" for k in sorted(headers)])
         return f"{http_method.upper()}{path.lower()}{query_params_stringified}{headers_stringified}{body}"
+
+    def __build_ws_payload(self, headers: Dict[str, str]) -> str:
+        headers_stringified = '&'.join([f"{k}={headers[k]}" for k in sorted(headers)])
+        return f"CONNECT/websocket/v1{headers_stringified}"

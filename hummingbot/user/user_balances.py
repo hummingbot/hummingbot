@@ -5,6 +5,7 @@ from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.kucoin.kucoin_market import KucoinMarket
 from hummingbot.market.liquid.liquid_market import LiquidMarket
 from hummingbot.market.kraken.kraken_market import KrakenMarket
+from hummingbot.market.beaxy.beaxy_market import BeaxyMarket
 from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.client.settings import EXCHANGES, DEXES
 from hummingbot.client.config.security import Security
@@ -35,6 +36,8 @@ class UserBalances:
             market = LiquidMarket(api_details[0], api_details[1])
         elif exchange == "kraken":
             market = KrakenMarket(api_details[0], api_details[1])
+        elif exchange == "beaxy":
+            market = BeaxyMarket(api_details[0], api_details[1])
         return market
 
     # return error message if the _update_balances fails

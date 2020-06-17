@@ -47,12 +47,9 @@ class BeaxyAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
         async with aiohttp.ClientSession() as client:
-            symbols_response, rates_response = await asyncio.gather(
-                client.get(BeaxyConstants.PublicApi.SYMBOLS_URL),
-                client.get(BeaxyConstants.PublicApi.RATES_URL)
-            )
-            symbols_response: aiohttp.ClientResponse = symbols_response
-            rates_response: aiohttp.ClientResponse = rates_response
+
+            symbols_response: aiohttp.ClientResponse = await client.get(BeaxyConstants.PublicApi.SYMBOLS_URL)
+            rates_response: aiohttp.ClientResponse = await client.get(BeaxyConstants.PublicApi.RATES_URL)
 
             if symbols_response.status != 200:
                 raise IOError(f"Error fetching Beaxy markets information. "
@@ -89,13 +86,13 @@ class BeaxyAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 )
             ]
 
-        all_markets.loc[:, 'USDVolume'] = usd_volume
-        del all_markets['volume']
-        all_markets.rename(columns={'baseCurrency': 'baseAsset',
-                                    'termCurrency': 'quoteAsset',
-                                    'volume24': 'volume'}, inplace=True)
+            all_markets.loc[:, 'USDVolume'] = usd_volume
+            del all_markets['volume']
+            all_markets.rename(columns={'baseCurrency': 'baseAsset',
+                                        'termCurrency': 'quoteAsset',
+                                        'volume24': 'volume'}, inplace=True)
 
-        return all_markets.sort_values("USDVolume", ascending=False)
+            return all_markets.sort_values("USDVolume", ascending=False)
 
     async def get_trading_pairs(self) -> Optional[List[str]]:
         if not self._trading_pairs:

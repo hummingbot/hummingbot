@@ -232,6 +232,18 @@ global_config_map = {
                   required_if=using_exchange("kraken"),
                   is_secure=True,
                   is_api_key=True),
+    "beaxy_api_key":
+        ConfigVar(key="beaxy_api_key",
+                  prompt="Enter your Beaxy API key >>> ",
+                  required_if=using_exchange("beaxy"),
+                  is_secure=True,
+                  is_api_key=True),
+    "beaxy_secret_key":
+        ConfigVar(key="beaxy_secret_key",
+                  prompt="Enter your Beaxy secret key >>> ",
+                  required_if=using_exchange("beaxy"),
+                  is_secure=True,
+                  is_api_key=True),
     "ethereum_wallet":
         ConfigVar(key="ethereum_wallet",
                   prompt=None,

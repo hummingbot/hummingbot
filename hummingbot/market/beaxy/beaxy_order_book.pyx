@@ -4,6 +4,7 @@ from typing import (
     Dict,
     Optional
 )
+from decimal import Decimal
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.order_book cimport OrderBook
@@ -32,8 +33,7 @@ cdef class BeaxyOrderBook(OrderBook):
                                        metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
-        return BeaxyOrderBookMessage
-        (
+        return BeaxyOrderBookMessage(
             message_type=OrderBookMessageType.SNAPSHOT,
             content=msg,
             timestamp=timestamp
@@ -60,7 +60,7 @@ cdef class BeaxyOrderBook(OrderBook):
         return OrderBookMessage(OrderBookMessageType.TRADE, {
             "trading_pair": msg["symbol"],
             "trade_type": float(TradeType.SELL.value) if msg["side"] == "SELL" else float(TradeType.BUY.value),
-            "price": msg["price"],
+            "price": Decimal(str(msg["price"])),
             "update_id": ts,
             "amount": msg["size"]
         }, timestamp=ts * 1e-3)

@@ -63,9 +63,9 @@ cdef class BeaxyActiveOrderTracker:
             dict content = message.content
             str msg_action = content["action"].lower()
             str order_side = content["side"]
-            object price_raw = content["price"]
+            str price_raw = str(content["price"])
             double timestamp = message.timestamp
-            object quantity_raw = content["quantity"]
+            str quantity_raw = str(content["quantity"])
             object price
             object quantity
 
@@ -136,8 +136,8 @@ cdef class BeaxyActiveOrderTracker:
         self._active_asks.clear()
 
         for entry in message.content["entries"]:
-            quantity = Decimal(entry["quantity"])
-            price = Decimal(entry["price"])
+            quantity = Decimal(str(entry["quantity"]))
+            price = Decimal(str(entry["price"]))
             side = entry["side"]
 
             if side == SIDE_ASK:

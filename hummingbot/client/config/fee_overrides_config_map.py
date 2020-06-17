@@ -28,4 +28,6 @@ fee_overrides_config_map = {
     "kucoin_taker_fee": new_fee_config_var("kucoin_taker_fee"),
     "kraken_maker_fee": new_fee_config_var("kraken_maker_fee"),
     "kraken_taker_fee": new_fee_config_var("kraken_taker_fee"),
+    "beaxy_maker_fee": new_fee_config_var("beaxy_maker_fee"),
+    "beaxy_taker_fee": new_fee_config_var("beaxy_taker_fee"),
 }

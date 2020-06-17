@@ -167,7 +167,7 @@ class BeaxyOrderBookTrackerUnitTest(unittest.TestCase):
 
     def test_snapshot(self):
         active_tracker = BeaxyActiveOrderTracker()
-        msg = ujson.loads('{"type":"SNAPSHOT_FULL_REFRESH","security":"BXYBTC","timestamp":1590698523117,"sequenceNumber":97,"entries":[{"action":"INSERT","side":"ASK","level":0,"quantity":815.0,"price":9},{"action":"INSERT","side":"ASK","level":1,"quantity":19899.0,"price":9.5E-7}]}')
+        msg = ujson.loads('{"type":"SNAPSHOT_FULL_REFRESH","security":"BXYBTC","timestamp":1590698523117,"sequenceNumber":97,"entries":[{"action":"INSERT","side":"ASK","level":0,"quantity":815.0,"price":0.00000957},{"action":"INSERT","side":"ASK","level":1,"quantity":19899.0,"price":9.5E-7}]}')
         insert_message = BeaxyOrderBook.snapshot_message_from_exchange(msg, float(12345))
 
         active_tracker.convert_snapshot_message_to_order_book_row(insert_message)

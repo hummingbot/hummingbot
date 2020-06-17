@@ -25,6 +25,7 @@ from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
 from hummingbot.market.bitcoin_com.bitcoin_com_market import BitcoinComMarket
 from hummingbot.market.kraken.kraken_market import KrakenMarket
+from hummingbot.market.beaxy.beaxy_market import BeaxyMarket
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
@@ -62,6 +63,7 @@ MARKET_CLASSES = {
     "kucoin": KucoinMarket,
     "bitcoin_com": BitcoinComMarket,
     "kraken": KrakenMarket,
+    "beaxy": BeaxyMarket
 }
 
 
@@ -174,7 +176,7 @@ class HummingbotApplication(*commands):
                         '\n'.join(uncancelled_order_ids)
                     ))
         except Exception:
-            self.logger().error(f"Error canceling outstanding orders.", exc_info=True)
+            self.logger().error("Error canceling outstanding orders.", exc_info=True)
             success = False
 
         if success:
@@ -348,6 +350,14 @@ class HummingbotApplication(*commands):
                                       order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                       trading_pairs=trading_pairs,
                                       trading_required=self._trading_required)
+            elif market_name == "beaxy":
+                beaxy_api_key = global_config_map.get("beaxy_api_key").value
+                beaxy_secret_key = global_config_map.get("beaxy_secret_key").value
+                market = BeaxyMarket(beaxy_api_key,
+                                     beaxy_secret_key,
+                                     order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                                     trading_pairs=trading_pairs,
+                                     trading_required=self._trading_required)
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")
 
