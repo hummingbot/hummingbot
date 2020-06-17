@@ -1,4 +1,4 @@
-# Celo Arbitrage
+# Celo Arbitrage (`celo-arb`)
 
 **Updated as of v0.28.0**
 
