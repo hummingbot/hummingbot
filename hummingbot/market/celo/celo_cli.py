@@ -15,6 +15,10 @@ def command(commands: List[str]) -> Optional[str]:
     try:
         output = subprocess.check_output(commands, stderr=subprocess.STDOUT, shell=False)
         output = output.decode("utf-8").strip()
+
+        # ignore lines with "libusb".
+        output = "\n".join([line for line in output.split("\n") if "libusb" not in line])
+
         if output == "":
             output = None
         return output
