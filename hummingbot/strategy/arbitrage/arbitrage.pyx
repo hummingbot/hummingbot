@@ -191,13 +191,13 @@ cdef class ArbitrageStrategy(StrategyBase):
         :param buy_order_completed_event: Order completed event
         """
         cdef:
-            str order_id = buy_order_completed_event.order_id
-            object market_trading_pair_tuple = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
+            object buy_order = buy_order_completed_event
+            object market_trading_pair_tuple = self._sb_order_tracker.c_get_market_pair_from_order_id(buy_order.order_id)
         if market_trading_pair_tuple is not None:
             if self._logging_options & self.OPTION_LOG_ORDER_COMPLETED:
                 self.log_with_clock(logging.INFO,
-                                    f"Market order completed on {market_trading_pair_tuple[0].name}: {order_id}")
-                self.notify_hb_app(f"Market order completed on {market_trading_pair_tuple[0].name}: {order_id}")
+                                    f"Market order completed on {market_trading_pair_tuple[0].name}: {buy_order.order_id}")
+                self.notify_hb_app(f"{buy_order.base_asset_amount:.8f} {buy_order.base_asset}-{buy_order.quote_asset} buy market order completed on {market_trading_pair_tuple[0].name}")
 
     cdef c_did_complete_sell_order(self, object sell_order_completed_event):
         """
@@ -206,13 +206,14 @@ cdef class ArbitrageStrategy(StrategyBase):
         :param sell_order_completed_event: Order completed event
         """
         cdef:
-            str order_id = sell_order_completed_event.order_id
-            object market_trading_pair_tuple = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
+            object sell_order = sell_order_completed_event
+            object market_trading_pair_tuple = self._sb_order_tracker.c_get_market_pair_from_order_id(sell_order.order_id)
         if market_trading_pair_tuple is not None:
             if self._logging_options & self.OPTION_LOG_ORDER_COMPLETED:
                 self.log_with_clock(logging.INFO,
-                                    f"Market order completed on {market_trading_pair_tuple[0].name}: {order_id}")
-                self.notify_hb_app(f"Market order completed on {market_trading_pair_tuple[0].name}: {order_id}")
+                                    f"Market order completed on {market_trading_pair_tuple[0].name}: {sell_order.order_id}")
+                self.notify_hb_app(f"{sell_order.base_asset_amount:.8f} {sell_order.base_asset}-{sell_order.quote_asset} sell market order completed on {market_trading_pair_tuple[0].name}")
+
 
     cdef c_did_fail_order(self, object fail_event):
         """
