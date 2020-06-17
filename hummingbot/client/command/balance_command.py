@@ -1,7 +1,7 @@
 from hummingbot.user.user_balances import UserBalances
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion as ERC
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.market.celo.celo_cli import CeloCLI
 import pandas as pd
 from numpy import NaN
 from typing import TYPE_CHECKING
@@ -24,11 +24,22 @@ class BalanceCommand:
             bal = round(bal, 4)
             self._notify(f"Ethereum balance in ...{eth_address[-4:]} wallet: {bal} ETH")
             self._notify(f"Note: You may have other ERC 20 tokens in this same address (not shown here).")
+        celo_address = global_config_map["celo_address"].value
+        if celo_address is not None:
+            try:
+                if not CeloCLI.unlocked:
+                    await self.validate_n_connect_celo()
+                bals = CeloCLI.balances()
+                self._notify("Celo balances:")
+                for token, bal in bals.items():
+                    self._notify(f"  {token} - total: {bal.total} locked: {bal.locked}")
+            except Exception as e:
+                self._notify(f"Celo CLI Error: {str(e)}")
 
     async def balances_df(self  # type: HummingbotApplication
                           ):
         all_ex_bals = await UserBalances.instance().all_balances_all_exchanges()
-        ex_columns = [ex for ex, bals in all_ex_bals.items() if any(bal > 0 for bal in bals.values())]
+        ex_columns = ["Symbol"] + list(all_ex_bals.keys())
         rows = []
         for exchange, bals in all_ex_bals.items():
             for token, bal in bals.items():
@@ -39,29 +50,8 @@ class BalanceCommand:
                     rows.append({"Symbol": token})
                 row = [r for r in rows if r["Symbol"] == token][0]
                 row[exchange] = round(bal, 4)
-        for row in rows:
-            ex_total = 0
-            for ex, amount in row.items():
-                try:
-                    if ex != "Symbol":
-                        ex_total += ERC.get_instance().convert_token_value_decimal(amount, row["Symbol"], "USD")
-                except Exception:
-                    continue
-            row["Total(USD)"] = round(ex_total, 2)
-        last_row = {"Symbol": "Total(USD)"}
-        for ex in ex_columns:
-            token_total = 0
-            for row in rows:
-                try:
-                    token_total += ERC.get_instance().convert_token_value_decimal(row[ex], row["Symbol"], "USD")
-                except Exception:
-                    continue
-            last_row[ex] = round(token_total, 2)
-        last_row["Total(USD)"] = round(sum(amount for ex, amount in last_row.items() if ex in ex_columns), 2)
-        ex_columns.sort(key=lambda ex: last_row[ex], reverse=True)
-        columns = ["Symbol"] + ex_columns + ["Total(USD)"]
-        df = pd.DataFrame(data=rows, columns=columns)
+
+        df = pd.DataFrame(data=rows, columns=ex_columns)
         df = df.replace(NaN, 0)
-        df.sort_values(by=["Total(USD)"], inplace=True, ascending=False)
-        df = df.append(last_row, ignore_index=True, sort=False)
+        df.sort_values(by=["Symbol"], inplace=True)
         return df

@@ -209,6 +209,7 @@ nav:
       - Configuration: developers/config.md
   - Release Notes:
     - About Releases: release-notes/index.md
+    - 0.28.0: release-notes/0.28.0.md
     - 0.27.0: release-notes/0.27.0.md
     - 0.26.1: release-notes/0.26.1.md
     - 0.26.0: release-notes/0.26.0.md
