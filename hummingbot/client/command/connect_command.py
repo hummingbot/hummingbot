@@ -103,7 +103,7 @@ class ConnectCommand:
                 celo_address = global_config_map["celo_address"].value
                 if celo_address is not None and Security.encrypted_file_exists("celo_password"):
                     keys_added = "Yes"
-                    err_msg = await self.validate_n_connect_celo()
+                    err_msg = await self.validate_n_connect_celo(True)
                     if err_msg is not None:
                         failed_msgs[option] = err_msg
                     else:
