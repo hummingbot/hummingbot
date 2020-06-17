@@ -2,6 +2,7 @@ UNIT_MULTIPLIER = 1e18
 TEST_ADDRESS = 'TEST_ADDRESS'
 TEST_PASSWORD = 'TEST_PASSWORD'
 
+
 outputs = {
     # For order_amount of 1
     ('celocli', 'exchange:show', '--amount', str(int(9.95 * UNIT_MULTIPLIER))):
@@ -71,5 +72,8 @@ outputs = {
         "Sending Transaction: increaseAllowance... done\n"
         "SendTransaction: exchange\n"
         "txHash: 0xTEST_TX_HASSHHHHHHHHHHH\n"
-        "Sending Transaction: exchange... done"
+        "Sending Transaction: exchange... done",
+
+    ('celocli', 'node:synced'):
+        "true",
 }
