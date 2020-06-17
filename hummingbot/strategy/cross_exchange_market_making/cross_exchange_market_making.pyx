@@ -75,7 +75,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900,
                  taker_to_maker_base_conversion_rate: Decimal = Decimal("1"),
-                 taker_to_maker_quote_conversion_rate: Decimal = Decimal("1")
+                 taker_to_maker_quote_conversion_rate: Decimal = Decimal("1"),
+                 hb_app_notification: bool = False
                  ):
         """
         Initializes a cross exchange market making strategy object.
@@ -134,6 +135,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         self._adjust_orders_enabled = adjust_order_enabled
         self._taker_to_maker_base_conversion_rate = taker_to_maker_base_conversion_rate
         self._taker_to_maker_quote_conversion_rate = taker_to_maker_quote_conversion_rate
+        self._hb_app_notification = hb_app_notification
 
         cdef:
             list all_markets = list(self._maker_markets | self._taker_markets)
@@ -458,6 +460,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                     f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
                 )
+                self.notify_hb_app(
+                        f"Maker BUY order ({limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                        f"{limit_order_record.price} {limit_order_record.quote_currency}) is filled."
+                        )
             if order_type == OrderType.MARKET:
                 market_order_record = self._sb_order_tracker.c_get_market_order(market_pair.taker, order_id)
                 if market_order_record is not None:
@@ -466,6 +472,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                         f"({market_pair.taker.trading_pair}) Taker buy order {order_id} for "
                         f"({market_order_record.amount} {market_order_record.base_asset} has been completely filled."
                     )
+                    self.notify_hb_app(
+                            f"Taker buy order {market_order_record.amount} {market_order_record.base_asset} is filled."
+                            )
 
     cdef c_did_complete_sell_order(self, object order_completed_event):
         """
@@ -487,6 +496,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                     f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
                 )
+                self.notify_hb_app(
+                        f"Maker sell order ({limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                        f"{limit_order_record.price} {limit_order_record.quote_currency}) is filled."
+                        )
             if order_type == OrderType.MARKET:
                 market_order_record = self._sb_order_tracker.c_get_market_order(market_pair.taker, order_id)
                 if market_order_record is not None:
@@ -495,6 +508,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                         f"({market_pair.taker.trading_pair}) Taker sell order {order_id} for "
                         f"({market_order_record.amount} {market_order_record.base_asset} has been completely filled."
                     )
+                    self.notify_hb_app(
+                            f"Taker sell order {market_order_record.amount} {market_order_record.base_asset} is filled."
+                            )
 
     cdef bint c_check_if_price_has_drifted(self, object market_pair, LimitOrder active_order):
         """
@@ -1242,3 +1258,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     cdef c_did_create_sell_order(self, object order_created_event):
         order_id = order_created_event.order_id
         self._sb_order_tracker.c_remove_create_order_pending(order_id)
+
+    def notify_hb_app(self, msg: str):
+        if self._hb_app_notification:
+            from hummingbot.client.hummingbot_application import HummingbotApplication
+            HummingbotApplication.main_application()._notify(msg)
