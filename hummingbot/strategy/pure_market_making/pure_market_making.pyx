@@ -118,6 +118,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._price_ceiling = price_ceiling
         self._price_floor = price_floor
         self._ping_pong_enabled = ping_pong_enabled
+        self._ping_pong_warning_lines = []
         self._hb_app_notification = hb_app_notification
 
         self._cancel_timestamp = 0
@@ -465,6 +466,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         cdef:
             list lines = []
             list warning_lines = []
+        warning_lines.extend(self._ping_pong_warning_lines)
         warning_lines.extend(self.network_warning([self._market_info]))
 
         markets_df = self.market_status_data_frame([self._market_info])
@@ -589,12 +591,19 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             proposal.sells = []
 
     cdef c_apply_ping_pong(self, object proposal):
+        self._ping_pong_warning_lines = []
         if self._filled_buys_balance == self._filled_sells_balance:
             self._filled_buys_balance = self._filled_sells_balance = 0
         if self._filled_buys_balance > 0:
             proposal.buys = proposal.buys[self._filled_buys_balance:]
+            self._ping_pong_warning_lines.extend([
+                f"  Ping-pong removed {self._filled_buys_balance} buy orders."
+                ])
         if self._filled_sells_balance > 0:
             proposal.sells = proposal.sells[self._filled_sells_balance:]
+            self._ping_pong_warning_lines.extend([
+                f"  Ping-pong removed {self._filled_sells_balance} sell orders."
+                ])
 
     cdef c_apply_order_price_modifiers(self, object proposal):
         if self._order_optimization_enabled:
