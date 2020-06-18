@@ -8,7 +8,10 @@ Enter the value for `order_levels` to specify how many orders you want to place 
 
 >**Example**: Entering `3` places three bid and three ask orders on each side of the book, for a total of 6 orders.
 
-Users can also increase the size of subsequent orders starting from the first order in increments specified in `order_level_amount`. This can be set to `0` if you don't want your multiple order sizes to increase.
+Users can also increase or decrease the size of subsequent orders starting from the first order in increments or decrements specified in `order_level_amount`. This can be set to:
+`0` if you don't want your multiple order sizes to increase
+Greater than 0(i.e 0.4) to allow order sizes to increase by 0.4 after the first level
+Less than 0(i.e -2) to allow order sizes to decrease by 2 after the first level
 
 >**Example**: If the order start size is `7000` and the order step size is `1000`, the second order size is `8000`, and the third order is `9000`.
 
@@ -46,7 +49,7 @@ You might notice that the actual spread in our output is not exactly similar fro
 | Parameter | Prompt | Definition |
 |-----------|--------|------------|
 | **order_levels** | `How many orders do you want to place on both sides?` | The number of order levels to place for each side of the order book. |
-| **order_level_amount** | `How much do you want to increase the order size for each additional order?` | The incremental size increase for subsequent order levels after the first level. |
+| **order_level_amount** | `How much do you want to increase or decrease the order size for each additional order?` | The size can either increase(if set to a value greater than zero) or decrease(if set to a value less than zero) for subsequent order levels after the first level. |
 | **order_level_spread** | `Enter the price increments (as percentage) for subsequent orders?` | The incremental spread increases for subsequent order levels after the first level. |
 
 !!! warning "Low values for `order_level_spread`"
