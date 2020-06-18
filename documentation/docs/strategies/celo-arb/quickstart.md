@@ -2,13 +2,7 @@
 
 We have created this guide to help users of the new `celo-arb` strategy install and run the strategy on a cloud instance. 
 
-This is just one possible configuration. Note that you can use other cloud providers besides AWS, and you can also install Hummingbot by source or binary in addition to Docker.
-
-1. Set up a cloud instance on AWS
-2. Install Docker
-3. Run a Celo ultra-light node
-4. Install and run Hummingbot
-5. Connect to the Celo blockchain
+This configuration installs the Docker build of Hummingbot on AWS. Note that you can use other cloud providers besides AWS, and you can also install Hummingbot by source or binary in addition to Docker.
 
 ## 1. Set up a cloud instance on AWS
 
@@ -18,7 +12,7 @@ Follow the instructions at [Installation - Cloud Server Guide - AWS](/installati
 
 ### Instance type
 
-While the free tier may be sufficient to run `celo-arb`, we recommend a `t2.small` as the minimum instance type.
+While the free `t2.micro` tier may be sufficient to run `celo-arb`, we recommend a `t2.small` instance as the minimum instance type.
 
 ### Storage
 By default, AWS instances come with 8 GB of storage. We recommend that you increase storage to at least 16 GB to install the Docker version along with the Celo node.
@@ -68,13 +62,11 @@ Follow the Celo documentation to pull the Celo Docker image and install/configur
 
 
 Instead, run the following command to start an **ultra-light node** rather than a full node:
-
-**Baklava testnet:**
 ```
 docker run --name celo-ultralight-node -d --restart unless-stopped -p 127.0.0.1:8545:8545 -v $PWD:/root/.celo $CELO_IMAGE --verbosity 3 --networkid $NETWORK_ID --syncmode lightest --rpc --rpcaddr 0.0.0.0 --rpcapi eth,net,web3,debug,admin,personal --etherbase $CELO_ACCOUNT_ADDRESS --bootnodes $BOOTNODE_ENODES --allow-insecure-unlock
 ```
 
-Afterwards, Hummingbot will start automatically and prompt you to set a password. After you exit, you can use the `./start.sh` and `./update.sh` commands to run and update Hummingbot, respectively.
+**Make sure that you save the address and password of the new Celo account address you created. You will need it later.** 
 
 ## 4. Install and run Hummingbot
 
@@ -113,6 +105,9 @@ docker run -it \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_data,destination=/data/" \
 coinalpha/hummingbot:latest
 ```
+
+Afterwards, Hummingbot will start automatically and prompt you to set a password. After you exit, you can use the `./start.sh` and `./update.sh` commands to run and update Hummingbot, respectively.
+
 
 ## 5. Connect to the Celo blockchain
 
