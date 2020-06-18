@@ -15,6 +15,9 @@ def start(self):
     raw_primary_trading_pair = arbitrage_config_map.get("primary_market_trading_pair").value
     raw_secondary_trading_pair = arbitrage_config_map.get("secondary_market_trading_pair").value
     min_profitability = arbitrage_config_map.get("min_profitability").value / Decimal("100")
+    secondary_to_primary_base_conversion_rate = arbitrage_config_map["secondary_to_primary_base_conversion_rate"].value
+    secondary_to_primary_quote_conversion_rate = arbitrage_config_map["secondary_to_primary_quote_conversion_rate"].value
+
     try:
         primary_trading_pair: str = self._convert_to_exchange_trading_pair(primary_market, [raw_primary_trading_pair])[0]
         secondary_trading_pair: str = self._convert_to_exchange_trading_pair(secondary_market, [raw_secondary_trading_pair])[0]
@@ -37,4 +40,7 @@ def start(self):
     self.market_pair = ArbitrageMarketPair(*self.market_trading_pair_tuples)
     self.strategy = ArbitrageStrategy(market_pairs=[self.market_pair],
                                       min_profitability=min_profitability,
-                                      logging_options=ArbitrageStrategy.OPTION_LOG_ALL)
+                                      logging_options=ArbitrageStrategy.OPTION_LOG_ALL,
+                                      secondary_to_primary_base_conversion_rate=secondary_to_primary_base_conversion_rate,
+                                      secondary_to_primary_quote_conversion_rate=secondary_to_primary_quote_conversion_rate,
+                                      hb_app_notification=True)
