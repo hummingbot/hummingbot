@@ -172,7 +172,7 @@ def generate_order_hash_hex(
 
 
 def is_valid_signature(
-    provider: BaseProvider, data: str, signature: str, signer_address: str
+    provider: BaseProvider, data: str, signature: str, signer_address: str, chain_id: int = 1
 ) -> bool:
     """Check the validity of the supplied signature.
     Check if the supplied `signature`:code: corresponds to signing `data`:code:
@@ -201,7 +201,7 @@ def is_valid_signature(
         provider,
         chain_to_addresses(
             ChainId(
-                1  # hard-coded to always be mainnet
+                chain_id  # defaults to always be mainnet
             )
         ).exchange,
     ).is_valid_hash_signature.call(
@@ -234,10 +234,10 @@ def jsdict_order_to_struct(jsdict: dict) -> Order:
 
 
 def convert_order_to_tuple(order: Order) -> Tuple[str, any]:
-    order_tuple = (order["makerAddress"],
-                   order["takerAddress"],
-                   order["feeRecipientAddress"],
-                   order["senderAddress"],
+    order_tuple = (to_checksum_address(order["makerAddress"]),
+                   to_checksum_address(order["takerAddress"]),
+                   to_checksum_address(order["feeRecipientAddress"]),
+                   to_checksum_address(order["senderAddress"]),
                    int(order["makerAssetAmount"]),
                    int(order["takerAssetAmount"]),
                    int(order["makerFee"]),
@@ -254,7 +254,7 @@ def convert_order_to_tuple(order: Order) -> Tuple[str, any]:
 # fix_signature extracts the logic used for formatting the signature required by the 0x protocol from 0x's custom
 # sign_hash helper.
 # https://github.com/0xProject/0x-monorepo/blob/development/python-packages/order_utils/src/zero_ex/order_utils/__init__.py#L462
-def fix_signature(provider, signer_address, hash_hex, signature) -> str:
+def fix_signature(provider, signer_address, hash_hex, signature, chain_id = 1) -> str:
     valid_v_param_values = [27, 28]
 
     # HACK: There is no consensus on whether the signatureHex string should be
@@ -275,7 +275,7 @@ def fix_signature(provider, signer_address, hash_hex, signature) -> str:
         )
 
         valid = is_valid_signature(
-            provider, hash_hex, signature_as_vrst_hex, signer_address
+            provider, hash_hex, signature_as_vrst_hex, signer_address, chain_id
         )
 
         if valid is True:
@@ -291,7 +291,7 @@ def fix_signature(provider, signer_address, hash_hex, signature) -> str:
         )
 
         valid = is_valid_signature(
-            provider, hash_hex, signature_as_vrst_hex, signer_address
+            provider, hash_hex, signature_as_vrst_hex, signer_address, chain_id
         )
 
         if valid is True:

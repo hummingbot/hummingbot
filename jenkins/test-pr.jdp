@@ -150,48 +150,26 @@ pipeline {
           }
         }
 
-        stage('Run pure_market_making_v2 strategy test') {
+        stage('Run pure_market_making strategy test') {
           steps {
-            echo 'Run pure_market_making_v2 strategy test'
-            sh "${envPath}/bin/nosetests -d -v test/test_pure_market_making_v2.py"
+            echo 'Run pure_market_making strategy test'
+            sh "${envPath}/bin/nosetests -d -v -m test/test_pmm*"
           }
           post {
             success {
-              echo '=> [Run tests: pure_market_making_v2]: SUCCESS'
+              echo '=> [Run tests: pure_market_making]: SUCCESS'
             }
             unstable {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Unstable: pure_market_making_v2 strategy test'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Unstable: pure_market_making strategy test'
               }
             }
             failure {
               script {
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Failed: pure_market_making_v2 strategy test'
+                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Failed: pure_market_making strategy test'
               }
             }
           }
-        }
-
-        stage('Run huobi_market_mock test') {	
-          steps {	
-            echo 'Run huobi_market_mock test'	
-            sh "${envPath}/bin/nosetests -d -v test/integration/test_huobi_market_mock.py"	
-          }	
-          post {	
-            success {	
-              echo '=> [Run tests: huobi_market_mock]: SUCCESS'	
-            }	
-            unstable {	
-              script {	
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Unstable: huobi_market_mock test'	
-              }	
-            }	
-            failure {	
-              script {	
-                ERROR_MESSAGE = ERROR_MESSAGE + '\n => Failed: huobi_market_mock test'	
-              }	
-            }	
-          }	
         }
 
         stage('Run config_template test') {
