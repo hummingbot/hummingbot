@@ -15,3 +15,4 @@ cdef class ScriptIterator(TimeIterator):
         object _event_pairs
         object _did_complete_buy_order_forwarder
         object _did_complete_sell_order_forwarder
+        object _script_module

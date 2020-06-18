@@ -1,6 +1,7 @@
 # distutils: language=c++
 
 from typing import Union, List, Tuple
+import importlib.util
 
 from hummingbot.core.clock import Clock
 from hummingbot.core.clock cimport Clock
@@ -36,7 +37,7 @@ cdef class ScriptIterator(TimeIterator):
         self._strategy = strategy
         self._markets = markets
         self._variables = {}
-        self.read_script_file(script_file_name)
+        self._script_module = self.import_script_module(script_file_name)
         self._did_complete_buy_order_forwarder = SourceInfoEventForwarder(self._did_complete_buy_order)
         self._did_complete_sell_order_forwarder = SourceInfoEventForwarder(self._did_complete_sell_order)
         self._event_pairs = [
@@ -44,30 +45,11 @@ cdef class ScriptIterator(TimeIterator):
             (MarketEvent.SellOrderCompleted, self._did_complete_sell_order_forwarder)
         ]
 
-    def read_script_file(self, script_file_name: str):
-        with open(script_file_name, "r") as file:
-            start_scripts, tick_scripts, buy_completed_scripts, sell_completed_scripts = [], [], [], []
-            scripts = None
-            for line in file:
-                if line.strip() == "":
-                    continue
-                elif self.start_script_start_marker in line:
-                    scripts = start_scripts
-                    continue
-                elif self.tick_script_start_marker in line:
-                    scripts = tick_scripts
-                    continue
-                elif self.buy_order_completed_script_start_marker in line:
-                    scripts = buy_completed_scripts
-                    continue
-                elif self.sell_order_completed_script_start_marker in line:
-                    scripts = sell_completed_scripts
-                    continue
-                scripts.append(line)
-        self._start_script = "".join(start_scripts)
-        self._tick_script = "".join(tick_scripts)
-        self._buy_order_completed_script = "".join(buy_completed_scripts)
-        self._sell_order_completed_script = "".join(sell_completed_scripts)
+    def import_script_module(self, script_file_name: str):
+        spec = importlib.util.spec_from_file_location("price_band_script", script_file_name)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
 
     @property
     def tick_script(self):
@@ -86,10 +68,10 @@ cdef class ScriptIterator(TimeIterator):
         for market in self._markets:
             for event_pair in self._event_pairs:
                 market.add_listener(event_pair[0], event_pair[1])
-        exec(self._start_script, self.global_map())
+        # exec(self._start_script, self.global_map())
 
     def tick(self, double timestamp):
-        exec(self._tick_script, self.global_map())
+        self._script_module.tick(self.strategy)
 
     cdef c_tick(self, double timestamp):
         TimeIterator.c_tick(self, timestamp)
@@ -102,10 +84,10 @@ cdef class ScriptIterator(TimeIterator):
                                 event_tag: int,
                                 market: MarketBase,
                                 event: BuyOrderCompletedEvent):
-        exec(self._buy_order_completed_script, self.global_map(), {'event': event})
+        pass
 
     def _did_complete_sell_order(self,
                                  event_tag: int,
                                  market: MarketBase,
                                  event: SellOrderCompletedEvent):
-        exec(self._sell_order_completed_script, self.global_map(), {'event': event})
+        pass
