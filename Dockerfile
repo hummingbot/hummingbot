@@ -35,7 +35,8 @@ VOLUME /conf /logs /data
 # Install linux dependencies
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y gcc \
-        build-essential pkg-config libusb-1.0 curl git
+        build-essential pkg-config libusb-1.0 curl git \
+        sudo
 
 
 # Switch to hummingbot user
@@ -50,6 +51,7 @@ COPY --chown=hummingbot:hummingbot setup.py .
 COPY --chown=hummingbot:hummingbot LICENSE .
 COPY --chown=hummingbot:hummingbot README.md .
 COPY --chown=hummingbot:hummingbot DATA_COLLECTION.md .
+COPY docker/etc /etc
 
 # Install miniconda
 RUN curl https://repo.anaconda.com/miniconda/Miniconda3-py38_4.8.2-Linux-x86_64.sh -o ~/miniconda.sh && \
