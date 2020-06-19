@@ -15,6 +15,10 @@ def command(commands: List[str]) -> Optional[str]:
     try:
         output = subprocess.check_output(commands, stderr=subprocess.STDOUT, shell=False)
         output = output.decode("utf-8").strip()
+
+        # ignore lines with "libusb".
+        output = "\n".join([line for line in output.split("\n") if "libusb" not in line])
+
         if output == "":
             output = None
         return output
@@ -110,5 +114,5 @@ class CeloCLI:
     def validate_node_synced(cls) -> Optional[str]:
         output = command(["celocli", "node:synced"])
         lines = output.split("\n")
-        if lines[0].strip().lower() != "true":
+        if "true" not in [line.strip().lower() for line in lines]:
             return lines[0]

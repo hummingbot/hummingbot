@@ -101,7 +101,7 @@ then
   while [ $j -le $i ]
   do
     docker run -itd \
-    --network="host" \
+    --network host \
     --name ${INSTANCES[$j]} \
     --mount "type=bind,source=$(pwd)/${FOLDERS[$j]}/hummingbot_conf,destination=/conf/" \
     --mount "type=bind,source=$(pwd)/${FOLDERS[$j]}/hummingbot_logs,destination=/logs/" \

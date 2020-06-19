@@ -31,6 +31,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         object _price_ceiling
         object _price_floor
         bint _ping_pong_enabled
+        list _ping_pong_warning_lines
         bint _hb_app_notification
 
         double _cancel_timestamp

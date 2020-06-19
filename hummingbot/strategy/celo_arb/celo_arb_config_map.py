@@ -53,7 +53,14 @@ celo_arb_config_map = {
         key="min_profitability",
         prompt="What is the minimum profitability for you to make a trade? (Enter 1 to indicate 1%) >>> ",
         prompt_on_new=True,
-        default=0.3,
-        validator=lambda v: validate_decimal(v, Decimal(0), Decimal("100"), inclusive=False),
+        default=Decimal("0.3"),
+        validator=lambda v: validate_decimal(v),
+        type_str="decimal"),
+    "celo_slippage_buffer": ConfigVar(
+        key="celo_slippage_buffer",
+        prompt="How much buffer do you want to add to the Celo price to account for slippage (Enter 1 for 1%)? >>> ",
+        prompt_on_new=True,
+        default=Decimal("0.01"),
+        validator=lambda v: validate_decimal(v),
         type_str="decimal"),
 }

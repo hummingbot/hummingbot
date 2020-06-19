@@ -134,11 +134,15 @@ nav:
         - Hanging Orders: strategies/advanced-mm/hanging-orders.md
         - Order Refresh Tolerance: strategies/advanced-mm/order-refresh-tolerance.md
         - Price Band: strategies/advanced-mm/price-band.md
+        - Ping Pong: strategies/advanced-mm/ping-pong.md
         - Order Optimization: strategies/advanced-mm/order-optimization.md
         - Adding Transaction Costs: strategies/advanced-mm/add-transaction-costs.md
         - External Price Source: strategies/advanced-mm/price-source.md
       - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
       - Arbitrage: strategies/arbitrage.md
+      - Celo Arbitrage:
+        - Overview: strategies/celo-arb/index.md
+        - Quickstart: strategies/celo-arb/quickstart.md
     - Connectors:
       - Overview: connectors/index.md
       - Binance: connectors/binance.md
@@ -208,6 +212,7 @@ nav:
       - Configuration: developers/config.md
   - Release Notes:
     - About Releases: release-notes/index.md
+    - 0.28.0: release-notes/0.28.0.md
     - 0.27.0: release-notes/0.27.0.md
     - 0.26.1: release-notes/0.26.1.md
     - 0.26.0: release-notes/0.26.0.md
