@@ -1,17 +1,19 @@
 #!/usr/bin/env python
+
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
 import pandas as pd
 import unittest
 from decimal import Decimal
+import inspect
 
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import QuantizationParams
 from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
 
 from hummingbot.core.clock import Clock, ClockMode
-from hummingbot.core.script_iterator import ScriptIterator
+from hummingbot.script.script_iterator import ScriptIterator
 from hummingbot.strategy.pure_market_making import PureMarketMakingStrategy
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.core.event.events import (
@@ -108,6 +110,7 @@ class ScriptIteratorUnitTest(unittest.TestCase):
         self.clock.backtest_til(self.start_timestamp + 7)
         self.assertEqual(0, len(strategy.active_buys))
         self.assertEqual(3, len(strategy.active_sells))
+        self._script_iterator.stop()
 
     def test_price_band_price_floor_breach(self):
         script_file = "scripts/price_band_script.py"
@@ -128,38 +131,12 @@ class ScriptIteratorUnitTest(unittest.TestCase):
         self.assertEqual(3, len(strategy.active_buys))
         self.assertEqual(0, len(strategy.active_sells))
 
-    def test_ping_pong_script_on_ask_fill(self):
-        strategy = self.one_level_strategy
-        script_file = "scripts/ping_pong_script.py"
-        self._script_iterator = ScriptIterator(script_file, [self.market], strategy)
-        self.clock.add_iterator(self._script_iterator)
-        self.clock.add_iterator(strategy)
+    def get_writeable_properties(self, cls):
+        return [attr for attr, value in vars(cls).items()
+                if inspect.isgetsetdescriptor(value)]
 
-        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
-        self.assertEqual(1, len(strategy.active_buys))
-        self.assertEqual(1, len(strategy.active_sells))
-
-        self.simulate_maker_market_trade(True, Decimal(100), Decimal("101.1"))
-
-        self.clock.backtest_til(
-            self.start_timestamp + 2 * self.clock_tick_size
-        )
-        self.assertEqual(1, len(strategy.active_buys))
-        self.assertEqual(0, len(strategy.active_sells))
-        old_bid = strategy.active_buys[0]
-
-        self.clock.backtest_til(
-            self.start_timestamp + 7 * self.clock_tick_size
-        )
-        self.assertEqual(1, len(strategy.active_buys))
-        self.assertEqual(0, len(strategy.active_sells))
-        # After new order create cycle (after filled_order_delay), check if a new order is created
-        self.assertTrue(old_bid.client_order_id != strategy.active_buys[0].client_order_id)
-
-        self.simulate_maker_market_trade(False, Decimal(100), Decimal("98.9"))
-
-        self.clock.backtest_til(
-            self.start_timestamp + 15 * self.clock_tick_size
-        )
-        self.assertEqual(1, len(strategy.active_buys))
-        self.assertEqual(1, len(strategy.active_sells))
+    def test_dir(self):
+        attrs = self.get_writeable_properties(PureMarketMakingStrategy)
+        print(attrs)
+        members = inspect.isgetsetdescriptor(self.one_level_strategy.buy_levels)
+        [print(m) for m in members]

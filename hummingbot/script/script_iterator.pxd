@@ -16,3 +16,7 @@ cdef class ScriptIterator(TimeIterator):
         object _did_complete_buy_order_forwarder
         object _did_complete_sell_order_forwarder
         object _script_module
+        object _parent_queue
+        object _child_queue
+        object _ev_loop
+        object _script_process
