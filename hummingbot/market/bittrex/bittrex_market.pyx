@@ -946,6 +946,11 @@ cdef class BittrexMarket(MarketBase):
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
 
+            if "ORDER_NOT_OPEN" in str(err):
+                path_url = f"/orders/{order_id}"
+                state_result  = await self._api_request("GET", path_url=path_url)
+                self.logger().info(f"{state_result}")
+
             self.logger().network(
                 f"Failed to cancel order {order_id}: {str(err)}.",
                 exc_info=True,
