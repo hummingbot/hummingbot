@@ -2,7 +2,7 @@
 ###       Pure market making strategy config         ###
 ########################################################
 
-template_version: 15
+template_version: 16
 strategy: null
 
 # Exchange and token parameters.
@@ -79,8 +79,11 @@ hanging_orders_cancel_pct: null
 # Whether to enable order optimization mode (true/false).
 order_optimization_enabled: null
 
-# The depth in base asset amount to be used for finding top bid and ask (for order optimization mode).
-order_optimization_depth: null
+# The depth in base asset amount to be used for finding top ask (for order optimization mode).
+ask_order_optimization_depth: null
+
+# The depth in base asset amount to be used for finding top bid (for order optimization mode).
+bid_order_optimization_depth: null
 
 # Whether to enable adding transaction costs to order price calculation (true/false).
 add_transaction_costs: null
