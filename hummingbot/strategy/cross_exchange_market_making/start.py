@@ -85,4 +85,5 @@ def start(self):
         anti_hysteresis_duration=anti_hysteresis_duration,
         taker_to_maker_base_conversion_rate=taker_to_maker_base_conversion_rate,
         taker_to_maker_quote_conversion_rate=taker_to_maker_quote_conversion_rate,
+        hb_app_notification=True,
     )
