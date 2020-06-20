@@ -9,6 +9,7 @@ from typing import (
     List,
 )
 import os
+import subprocess
 
 from hummingbot import (
     check_dev_mode,
@@ -55,6 +56,17 @@ class CmdlineParser(argparse.ArgumentParser):
                           type=str,
                           required=False,
                           help="Specify the password to unlock your encrypted files and wallets.")
+        self.add_argument("--auto-set-permissions",
+                          type=str,
+                          required=False,
+                          help="Try to automatically set config / logs / data dir permissions, "
+                               "useful for Docker containers.")
+
+
+def autofix_permissions(user_group_spec: str):
+    project_home: str = os.path.realpath(os.path.join(__file__, "../../"))
+    subprocess.run(f"cd '{project_home}' && "
+                   f"sudo chown -R {user_group_spec} conf/* data/* logs/*", capture_output=True, shell=True)
 
 
 async def quick_start(args):
@@ -62,6 +74,9 @@ async def quick_start(args):
     config_file_name = args.config_file_name
     wallet = args.wallet
     password = args.config_password
+
+    if args.auto_set_permissions is not None:
+        autofix_permissions(args.auto_set_permissions)
 
     if password is not None and not Security.login(password):
         logging.getLogger().error(f"Invalid password.")
