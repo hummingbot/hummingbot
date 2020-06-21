@@ -38,7 +38,8 @@ def start(self):
         hanging_orders_enabled = c_map.get("hanging_orders_enabled").value
         hanging_orders_cancel_pct = c_map.get("hanging_orders_cancel_pct").value / Decimal('100')
         order_optimization_enabled = c_map.get("order_optimization_enabled").value
-        order_optimization_depth = c_map.get("order_optimization_depth").value
+        ask_order_optimization_depth = c_map.get("ask_order_optimization_depth").value
+        bid_order_optimization_depth = c_map.get("bid_order_optimization_depth").value
         add_transaction_costs_to_orders = c_map.get("add_transaction_costs").value
         price_source_enabled = c_map.get("price_source_enabled").value
         price_source_type = c_map.get("price_source_type").value
@@ -83,7 +84,8 @@ def start(self):
             hanging_orders_enabled=hanging_orders_enabled,
             order_refresh_time=order_refresh_time,
             order_optimization_enabled=order_optimization_enabled,
-            order_optimization_depth=order_optimization_depth,
+            ask_order_optimization_depth=ask_order_optimization_depth,
+            bid_order_optimization_depth=bid_order_optimization_depth,
             add_transaction_costs_to_orders=add_transaction_costs_to_orders,
             logging_options=strategy_logging_options,
             asset_price_delegate=asset_price_delegate,
@@ -93,6 +95,7 @@ def start(self):
             hanging_orders_cancel_pct=hanging_orders_cancel_pct,
             order_refresh_tolerance_pct=order_refresh_tolerance_pct,
             minimum_spread=minimum_spread,
+            hb_app_notification=True,
         )
     except Exception as e:
         self._notify(str(e))

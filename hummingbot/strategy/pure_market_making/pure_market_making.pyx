@@ -78,7 +78,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                  hanging_orders_enabled: bool = False,
                  hanging_orders_cancel_pct: Decimal = Decimal("0.1"),
                  order_optimization_enabled: bool = False,
-                 order_optimization_depth: Decimal = s_decimal_zero,
+                 ask_order_optimization_depth: Decimal = s_decimal_zero,
+                 bid_order_optimization_depth: Decimal = s_decimal_zero,
                  add_transaction_costs_to_orders: bool = False,
                  asset_price_delegate: AssetPriceDelegate = None,
                  price_ceiling: Decimal = s_decimal_neg_one,
@@ -86,7 +87,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                  ping_pong_enabled: bool = False,
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900,
-                 minimum_spread: Decimal = Decimal(0)
+                 minimum_spread: Decimal = Decimal(0),
+                 hb_app_notification: bool = False,
                  ):
 
         if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
@@ -111,12 +113,15 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._hanging_orders_enabled = hanging_orders_enabled
         self._hanging_orders_cancel_pct = hanging_orders_cancel_pct
         self._order_optimization_enabled = order_optimization_enabled
-        self._order_optimization_depth = order_optimization_depth
+        self._ask_order_optimization_depth = ask_order_optimization_depth
+        self._bid_order_optimization_depth = bid_order_optimization_depth
         self._add_transaction_costs_to_orders = add_transaction_costs_to_orders
         self._asset_price_delegate = asset_price_delegate
         self._price_ceiling = price_ceiling
         self._price_floor = price_floor
         self._ping_pong_enabled = ping_pong_enabled
+        self._ping_pong_warning_lines = []
+        self._hb_app_notification = hb_app_notification
 
         self._cancel_timestamp = 0
         self._create_timestamp = 0
@@ -463,6 +468,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         cdef:
             list lines = []
             list warning_lines = []
+        warning_lines.extend(self._ping_pong_warning_lines)
         warning_lines.extend(self.network_warning([self._market_info]))
 
         markets_df = self.market_status_data_frame([self._market_info])
@@ -587,12 +593,19 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             proposal.sells = []
 
     cdef c_apply_ping_pong(self, object proposal):
+        self._ping_pong_warning_lines = []
         if self._filled_buys_balance == self._filled_sells_balance:
             self._filled_buys_balance = self._filled_sells_balance = 0
         if self._filled_buys_balance > 0:
             proposal.buys = proposal.buys[self._filled_buys_balance:]
+            self._ping_pong_warning_lines.extend([
+                f"  Ping-pong removed {self._filled_buys_balance} buy orders."
+                ])
         if self._filled_sells_balance > 0:
             proposal.sells = proposal.sells[self._filled_sells_balance:]
+            self._ping_pong_warning_lines.extend([
+                f"  Ping-pong removed {self._filled_sells_balance} sell orders."
+                ])
 
     cdef c_apply_order_price_modifiers(self, object proposal):
         if self._order_optimization_enabled:
@@ -708,7 +721,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         # Get the top bid price in the market using order_optimization_depth and your buy order volume
         top_bid_price = self._market_info.get_price_for_volume(
-            False, self._order_optimization_depth + own_buy_size).result_price
+            False, self._bid_order_optimization_depth + own_buy_size).result_price
         price_quantum = market.c_get_order_price_quantum(
             self.trading_pair,
             top_bid_price
@@ -723,7 +736,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         # Get the top ask price in the market using order_optimization_depth and your sell order volume
         top_ask_price = self._market_info.get_price_for_volume(
-            True, self._order_optimization_depth + own_sell_size).result_price
+            True, self._ask_order_optimization_depth + own_sell_size).result_price
         price_quantum = market.c_get_order_price_quantum(
             self.trading_pair,
             top_ask_price
@@ -804,6 +817,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
         )
+        self.notify_hb_app(
+            f"Maker BUY order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
+            f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
+        )
 
     cdef c_did_complete_sell_order(self, object order_completed_event):
         cdef:
@@ -832,6 +849,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             f"({self.trading_pair}) Maker sell order {order_id} "
             f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
+        )
+        self.notify_hb_app(
+            f"Maker SELL order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
+            f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
         )
 
     cdef bint c_is_within_tolerance(self, list current_prices, list proposal_prices):
@@ -974,3 +995,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             self._create_timestamp = next_cycle
         if self._cancel_timestamp <= self._current_timestamp:
             self._cancel_timestamp = min(self._create_timestamp, next_cycle)
+
+    def notify_hb_app(self, msg: str):
+        if self._hb_app_notification:
+            from hummingbot.client.hummingbot_application import HummingbotApplication
+            HummingbotApplication.main_application()._notify(msg)

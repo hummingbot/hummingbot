@@ -199,7 +199,6 @@ cdef class BittrexMarket(MarketBase):
         is_maker = order_type is OrderType.LIMIT
         return estimate_fee("bittrex", is_maker)
 
-
     async def _update_balances(self):
         cdef:
             dict account_info
