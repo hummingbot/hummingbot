@@ -72,7 +72,7 @@ arbitrage_config_map = {
         prompt="What is the minimum profitability for you to make a trade? (Enter 1 to indicate 1%) >>> ",
         prompt_on_new=True,
         default=Decimal("0.3"),
-        validator=lambda v: validate_decimal(v, Decimal(0), Decimal("100"), inclusive=False),
+        validator=lambda v: validate_decimal(v, Decimal(-100), Decimal("100"), inclusive=True),
         type_str="decimal"),
     "secondary_to_primary_base_conversion_rate": ConfigVar(
         key="secondary_to_primary_base_conversion_rate",

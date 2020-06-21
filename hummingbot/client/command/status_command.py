@@ -81,16 +81,20 @@ class StatusCommand:
             self._notify(self._format_application_warnings())
 
     async def validate_required_connections(self) -> Dict[str, str]:
-        if global_config_map.get("paper_trade_enabled").value:
-            return {}
-        await self.update_all_secure_configs()
-        connections = await UserBalances.instance().update_exchanges(exchanges=required_exchanges)
-        invalid_conns = {ex: err_msg for ex, err_msg in connections.items()
-                         if ex in required_exchanges and err_msg is not None}
-        if any(ex in DEXES for ex in required_exchanges):
-            err_msg = UserBalances.validate_ethereum_wallet()
+        invalid_conns = {}
+        if self.strategy_name == "celo_arb":
+            err_msg = await self.validate_n_connect_celo(True)
             if err_msg is not None:
-                invalid_conns["ethereum"] = err_msg
+                invalid_conns["celo"] = err_msg
+        if not global_config_map.get("paper_trade_enabled").value:
+            await self.update_all_secure_configs()
+            connections = await UserBalances.instance().update_exchanges(exchanges=required_exchanges)
+            invalid_conns.update({ex: err_msg for ex, err_msg in connections.items()
+                                  if ex in required_exchanges and err_msg is not None})
+            if any(ex in DEXES for ex in required_exchanges):
+                err_msg = UserBalances.validate_ethereum_wallet()
+                if err_msg is not None:
+                    invalid_conns["ethereum"] = err_msg
         return invalid_conns
 
     def missing_configurations(self) -> List[str]:
