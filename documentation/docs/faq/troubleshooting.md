@@ -334,7 +334,9 @@ Alternatively, you can also follow these steps in Windows Support article: [How 
 Normally, Brave browser should ask which crypto wallet to use when connecting to the miners app. However, this sometimes do not appear on the browser.
 
 Here are the steps to set you Brave browser to always use Metamask when connecting your crypto wallet with Hummingbots miners app. 
-1. Click the three lines icon on the top right of the Brave Browser
-2. Select "Settings"
-3. Click on "Extensions"
-4. Click the drop down for "Web3 provider for using Dapps" and select "Metamask" 
+1. Click the "three horizontal line" icon on the top right of the Brave Browser
+2. Select **Settings**
+3. Click on **Extensions**
+4. Click the dropdown for **Web3 provider for using Dapps** and select **Metamask** 
+
+![](/assets/img/brave_with_metamask.gif)
