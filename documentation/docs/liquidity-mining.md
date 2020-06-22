@@ -22,7 +22,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
 !!! warning "Terms subject to change"
     Please check this page or the [Miner's app](https://miners.hummingbot.io) for the most up-to-date terms.<br/>We will notify participants of changes, if any, on our [Discord](https://discord.hummingbot.io) and [reddit](https://www.reddit.com/r/Hummingbot/).
 
-!!! note "Campaign updates week starting June 23, 2020 12.00am UTC"
+!!! note "Campaign updates for the week starting June 23, 2020 12.00am UTC"
     <li>**[XZC/BNB no longer eligble; XZC/BTC now eligible](https://www.reddit.com/r/Hummingbot/comments/hdvp8e/change_to_xzc_eligible_pairs_for_week_16_starting/):** Zcoin's has added back **XZC/BTC** for its campaign to replace **~~XZC/BNB~~**.
 
 **Current reward period: June 23, 2020 12.00am UTC to June 30, 2020 12.00am UTC**
