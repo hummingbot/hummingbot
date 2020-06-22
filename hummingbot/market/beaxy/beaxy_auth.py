@@ -6,13 +6,13 @@ from typing import (
 import logging
 import base64
 import aiohttp
+import asyncio
 import random
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 from Crypto.Hash import HMAC, SHA384, SHA256
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.market.beaxy.beaxy_constants import BeaxyConstants
-from datetime import datetime, timedelta
 from hummingbot.logger import HummingbotLogger
 
 
@@ -28,7 +28,6 @@ class BeaxyAuth:
     def __init__(self, api_key: str, api_secret: str):
         self.api_key = api_key
         self.api_secret = api_secret
-        self._current_ttl: datetime = datetime.now()
         self._session_data_cache: Dict[str, Any] = {}
 
     async def generate_auth_dict(self, http_method: str, path: str, body: str = "") -> Dict[str, Any]:
@@ -51,13 +50,13 @@ class BeaxyAuth:
         return headers
 
     async def __get_session_data(self) -> Dict[str, Any]:
-        if (self._current_ttl - datetime.now()) < timedelta(minutes=5):
+        if not self._session_data_cache:
             dh_number = random.getrandbits(64 * 8)
             login_attempt = await self.__login_attempt()
             sign_key = await self.__login_confirm(login_attempt, dh_number)
             retval = {"sign_key": sign_key, "session_id": login_attempt["session_id"]}
-            self._current_ttl = datetime.now() + timedelta(milliseconds=int(login_attempt["ttl"]))
             self._session_data_cache = retval
+            await self.__keep_alive()
 
         return self._session_data_cache
 
@@ -105,3 +104,15 @@ class BeaxyAuth:
     def __build_ws_payload(self, headers: Dict[str, str]) -> str:
         headers_stringified = '&'.join([f"{k}={headers[k]}" for k in sorted(headers)])
         return f"CONNECT/websocket/v1{headers_stringified}"
+
+    async def __keep_alive(self):
+        loop = asyncio.get_event_loop()
+        loop.create_task(self.__keep_alive_loop())
+
+    async def __keep_alive_loop(self):
+        async with aiohttp.ClientSession() as client:
+            while(self._session_data_cache):
+                await asyncio.sleep(1)
+                async with client.post(f'{BeaxyConstants.TradingApi.BASE_URL}{BeaxyConstants.TradingApi.KEEP_ALIVE_ENDPOINT}?session_id={self._session_data_cache["session_id"]}') as response:
+                    if response.status != 200:
+                        raise IOError(f"Error while connecting to login keepalive endpoint. HTTP status is {response.status}.")

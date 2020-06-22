@@ -325,10 +325,10 @@ class TradingPairFetcher:
         return []
 
     async def fetch_beaxy_trading_pairs(self) -> List[str]:
-        async with aiohttp.ClientSession() as client:
-            async with client.get(BEAXY_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
-                if response.status == 200:
-                    try:
+        try:
+            async with aiohttp.ClientSession() as client:
+                async with client.get(BEAXY_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
+                    if response.status == 200:
                         from hummingbot.market.beaxy.beaxy_market import BeaxyMarket
                         data = await response.json()
                         raw_trading_pairs = [item["symbol"] for item in data if item["suspendedForTrading"] is False]
@@ -341,10 +341,10 @@ class TradingPairFetcher:
                             else:
                                 self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
                         return trading_pair_list
-                    except Exception:
-                        pass
-                        # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
-                return []
+        except Exception:
+            pass
+            # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
+        return []
 
     async def fetch_all(self):
         tasks = [self.fetch_binance_trading_pairs(),

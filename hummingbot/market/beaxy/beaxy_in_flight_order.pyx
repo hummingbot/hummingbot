@@ -66,13 +66,13 @@ cdef class BeaxyInFlightOrder(InFlightOrderBase):
         cdef:
             BeaxyInFlightOrder retval = BeaxyInFlightOrder(
                 data["client_order_id"],
-                data["id"],
-                data["security_id"],
+                data["exchange_order_id"],
+                data["trading_pair"],
                 getattr(OrderType, data["order_type"]),
-                getattr(TradeType, data["order_side"]),
-                Decimal(str(data["price"])),
-                Decimal(str(data["quantity"])),
-                data["type"]
+                getattr(TradeType, data["trade_type"]),
+                Decimal(data["price"]),
+                Decimal(data["amount"]),
+                data["last_state"]
             )
         retval.executed_amount_base = Decimal(data["executed_amount_base"])
         retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
