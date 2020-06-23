@@ -23,15 +23,18 @@ cdef class ArbitrageStrategy(StrategyBase):
         object _exchange_rate_conversion
         int _failed_order_tolerance
         bint _cool_off_logged
-        int _failed_market_order_count
-        int _last_failed_market_order_timestamp
         object _secondary_to_primary_base_conversion_rate
         object _secondary_to_primary_quote_conversion_rate
         bint _hb_app_notification
+        object _market_1_bid_price
+        object _market_1_ask_price
+        object _market_2_bid_price
+        object _market_2_ask_price
 
+    cdef object c_get_arbitrage_pair_prices(self, bint buy_1_sell_2)
     cdef tuple c_calculate_arbitrage_top_order_profitability(self, object market_pair)
     cdef c_process_market_pair(self, object market_pair)
-    cdef c_process_market_pair_inner(self, object buy_market_trading_pair, object sell_market_trading_pair)
+    cdef c_process_market_pair_inner(self, object buy_market_trading_pair, object sell_market_trading_pair, bint buy_1_sell_2)
     cdef tuple c_find_best_profitable_amount(self, object buy_market_trading_pair, object sell_market_trading_pair)
     cdef bint c_ready_for_new_orders(self, list market_trading_pairs)
 
