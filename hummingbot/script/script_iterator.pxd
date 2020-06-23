@@ -1,7 +1,6 @@
 # distutils: language=c++
 
 from hummingbot.core.time_iterator cimport TimeIterator
-from hummingbot.core.clock cimport Clock
 
 cdef class ScriptIterator(TimeIterator):
     cdef:
@@ -20,3 +19,4 @@ cdef class ScriptIterator(TimeIterator):
         object _child_queue
         object _ev_loop
         object _script_process
+        object _listen_to_child_task

@@ -41,25 +41,16 @@ cdef class ScriptIterator(TimeIterator):
         self._ev_loop = asyncio.get_event_loop()
         self._parent_queue = Queue()
         self._child_queue = Queue()
+        # self._listen_to_child_task = None
+        print("starting listener")
+        print(f"ev_loop running: {self._ev_loop.is_running()}")
+        safe_ensure_future(self.listen_to_child_queue(), loop=self._ev_loop)
+
         self._script_process = Process(target=run_script, args=(self._parent_queue, self._child_queue,))
         self._script_process.start()
-        safe_ensure_future(self.listen_to_child_queue())
 
-    async def listen_to_child_queue(self):
-        while True:
-            if self._child_queue.empty():
-                await asyncio.sleep(1)
-                continue
-            item = self._child_queue.get()
-            print(f"parent gets {item.__class__}")
-            if isinstance(item, CallUpdateStrategyParameters):
-                self._strategy.buy_levels = item.strategy_parameters.buy_levels
-                self._strategy.sell_levels = item.strategy_parameters.sell_levels
-                self._strategy.order_levels = item.strategy_parameters.order_levels
-
-    @property
-    def tick_script(self):
-        return self._tick_script
+    async def start_listener(self):
+        self._listen_to_child_task = safe_ensure_future(self.listen_to_child_queue(), loop=self._ev_loop)
 
     @property
     def strategy(self):
@@ -76,8 +67,12 @@ cdef class ScriptIterator(TimeIterator):
                 market.add_listener(event_pair[0], event_pair[1])
 
     cdef c_stop(self, Clock clock):
-        self._script_process.join()
         TimeIterator.c_stop(self, clock)
+        self._parent_queue.put(None)
+        self._child_queue.put(None)
+        self._script_process.join()
+        if self._listen_to_child_task is not None:
+            self._listen_to_child_task.cancel()
 
     def tick(self, double timestamp):
         on_tick = OnTick(self.strategy.get_mid_price(), StrategyParameters(
@@ -102,3 +97,17 @@ cdef class ScriptIterator(TimeIterator):
                                  market: MarketBase,
                                  event: SellOrderCompletedEvent):
         pass
+
+    async def listen_to_child_queue(self):
+        while True:
+            if self._child_queue.empty():
+                await asyncio.sleep(0.1)
+                continue
+            item = self._child_queue.get()
+            print(f"parent gets {item.__class__}")
+            if item is None:
+                break
+            if isinstance(item, CallUpdateStrategyParameters):
+                self._strategy.buy_levels = item.strategy_parameters.buy_levels
+                self._strategy.sell_levels = item.strategy_parameters.sell_levels
+                self._strategy.order_levels = item.strategy_parameters.order_levels
