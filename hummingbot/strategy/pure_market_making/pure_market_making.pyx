@@ -677,7 +677,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                                         buy.size, buy.price)
             quote_size = buy.size * buy.price * (Decimal(1) + buy_fees.percent)
             if quote_balance < quote_size_total + quote_size:
-                self.logger().info(f"Insufficient balance: Quote order size {quote_size} is above available quote balance {quote_balance - quote_size_total}.")
+                self.logger().info(f"Insufficient balance: Buy order (price: {buy.price}, size: {buy.size}) is omitted, {self.quote_asset} available balance: {quote_balance - quote_size_total}.")
                 quote_size = s_decimal_zero
                 buy.size = s_decimal_zero
             quote_size_total += quote_size
@@ -685,7 +685,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         for sell in proposal.sells:
             base_size = sell.size
             if base_balance < base_size_total + base_size:
-                self.logger().info(f"Insufficient balance: Base order size {base_size} is above Available base balance {base_balance - base_size_total}.")
+                self.logger().info(f"Insufficient balance: Sell order (price: {sell.price}, size: {sell.size}) is omitted, {self.base_asset} available balance: {base_balance - base_size_total}.")
                 base_size = s_decimal_zero
                 sell.size = s_decimal_zero
             base_size_total += base_size
