@@ -19,11 +19,11 @@ s_decimal_0 = Decimal(0)
 cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
     def __init__(self, order_start_size: Decimal,
                  order_step_size: Decimal,
-                 number_of_orders: int):
+                 order_levels: int):
         super().__init__()
         self._order_start_size = order_start_size
         self._order_step_size = order_step_size
-        self._number_of_orders = number_of_orders
+        self._order_levels = order_levels
         self._log_warning_order_size = True
         self._log_warning_balance = True
 
@@ -43,8 +43,8 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
         return self._order_step_size
 
     @property
-    def number_of_orders(self) -> int:
-        return self._number_of_orders
+    def order_levels(self) -> int:
+        return self._order_levels
 
     cdef object c_get_order_size_proposal(self,
                                           PureMarketMakingStrategyV2 strategy,
@@ -70,7 +70,7 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
                 has_active_ask = True
                 base_asset_balance += active_order.quantity
 
-        for idx in range(self.number_of_orders):
+        for idx in range(self.order_levels):
             current_order_size = Decimal(self.order_start_size + self.order_step_size * idx)
             buy_fees = market.c_get_fee(market_info.base_asset,
                                         market_info.quote_asset,
@@ -109,8 +109,10 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
                     # After warning once, set warning flag to False
                     self._log_warning_order_size = False
 
-            buy_orders.append(buy_order_size)
-            sell_orders.append(sell_order_size)
+            if quote_asset_balance >= required_quote_asset_balance and buy_order_size != s_decimal_0 and not has_active_bid:
+                buy_orders.append(buy_order_size)
+            if base_asset_balance >= required_base_asset_balance and sell_order_size != s_decimal_0 and not has_active_ask:
+                sell_orders.append(sell_order_size)
 
         if self._log_warning_balance:
             if quote_asset_balance < required_quote_asset_balance:
@@ -134,10 +136,6 @@ cdef class StaggeredMultipleSizeSizingDelegate(OrderSizingDelegate):
             self._log_warning_order_size = True
 
         return SizingProposal(
-            (buy_orders
-             if quote_asset_balance >= required_quote_asset_balance and not has_active_bid
-             else [s_decimal_0]),
-            (sell_orders
-             if base_asset_balance >= required_base_asset_balance and not has_active_ask else
-             [s_decimal_0])
+            (buy_orders or [s_decimal_0] if not has_active_bid else [s_decimal_0]),
+            (sell_orders or [s_decimal_0] if not has_active_ask else [s_decimal_0])
         )

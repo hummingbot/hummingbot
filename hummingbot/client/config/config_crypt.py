@@ -28,36 +28,36 @@ def list_encrypted_file_paths():
     return file_paths
 
 
-def get_encrypted_config_path(config_var):
-    return "%s%s%s%s" % (get_key_file_path(), ENCYPTED_CONF_PREFIX, config_var.key, ENCYPTED_CONF_POSTFIX)
+def encrypted_file_path(config_key: str):
+    return "%s%s%s%s" % (get_key_file_path(), ENCYPTED_CONF_PREFIX, config_key, ENCYPTED_CONF_POSTFIX)
 
 
-def get_encrypted_key_name_from_file(file_path):
-    _, file_name = os.path.split(file_path)
+def secure_config_key(encrypted_file_path: str):
+    _, file_name = os.path.split(encrypted_file_path)
     return file_name[file_name.find(ENCYPTED_CONF_PREFIX) + len(ENCYPTED_CONF_PREFIX):
                      file_name.find(ENCYPTED_CONF_POSTFIX)]
 
 
-def encrypted_config_file_exists(config_var):
-    return os.path.exists(get_encrypted_config_path(config_var))
+def encrypted_file_exists(config_key: str):
+    return os.path.exists(encrypted_file_path(config_key))
 
 
-def encrypt_n_save_config_value(config_var, password):
+def encrypt_n_save_config_value(config_key, config_value, password):
     """
     encrypt configuration value and store in a file, file name is derived from config_var key (in conf folder)
     """
     password_bytes = password.encode()
-    message = config_var.value.encode()
+    message = config_value.encode()
     encrypted = _create_v3_keyfile_json(message, password_bytes)
-    file_path = get_encrypted_config_path(config_var)
+    file_path = encrypted_file_path(config_key)
     with open(file_path, 'w+') as f:
         f.write(json.dumps(encrypted))
 
 
-def decrypt_config_value(config_var, password):
-    if not encrypted_config_file_exists(config_var):
+def decrypt_config_value(config_key, password):
+    if not encrypted_file_exists(config_key):
         return None
-    file_path = get_encrypted_config_path(config_var)
+    file_path = encrypted_file_path(config_key)
     return decrypt_file(file_path, password)
 
 

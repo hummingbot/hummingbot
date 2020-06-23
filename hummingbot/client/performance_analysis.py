@@ -110,7 +110,12 @@ class PerformanceAnalysis:
         total_flat_fees: Decimal = s_decimal_0
         amount: Decimal = Decimal(trade.amount)
         price: Decimal = Decimal(trade.price)
-        for flat_fee_currency, flat_fee_amount in trade_fee["flat_fees"]:
+        for flat_fee in trade_fee["flat_fees"]:
+            if isinstance(flat_fee, dict):
+                flat_fee_currency = flat_fee["asset"]
+                flat_fee_amount = flat_fee["amount"]
+            else:
+                flat_fee_currency, flat_fee_amount = flat_fee
             if flat_fee_currency == trade.quote_asset:
                 total_flat_fees += Decimal(flat_fee_amount)
             else:
@@ -166,7 +171,8 @@ class PerformanceAnalysis:
             if not queried_trades:
                 market_trading_pair_stats[market_trading_pair_tuple] = {
                     "starting_quote_rate": market_trading_pair_tuple.get_mid_price(),
-                    "asset": asset_stats
+                    "asset": asset_stats,
+                    "trade_count": 0
                 }
                 continue
 
@@ -185,7 +191,8 @@ class PerformanceAnalysis:
 
             market_trading_pair_stats[market_trading_pair_tuple] = {
                 "starting_quote_rate": Decimal(repr(queried_trades[0].price)),
-                "asset": asset_stats
+                "asset": asset_stats,
+                "trade_count": len(queried_trades)
             }
 
         return market_trading_pair_stats
