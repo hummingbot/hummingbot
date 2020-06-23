@@ -1,4 +1,8 @@
 # Building Connectors
+
+!!! note "Important changes by release"
+    This [page](https://www.notion.so/hummingbot/a26c8bcf30284535b0e5689d45a4fe88?v=869e73f78f0b426288476a2abda20f2c) lists all relevant updates to Hummingbot codebase aimed to help connector developers in making the requisite changes to their connectors.
+
 ## Introduction
 This guide is intended to get you familiarized with basic structure of a connector in Hummingbot. It will guide you through the scope of creating/modifying the necessary components to implement a connector.
 
@@ -12,6 +16,7 @@ Implementing a new connector can generally be split into 3 major tasks:
 1. [Data Source & Order Book Tracker](#task-1-data-source-order-book-tracker)
 2. [User Stream Tracker](#task-2-user-stream-tracker)
 3. [Market Connector](#task-3-market-connector)
+
 
 ## Task 1. Data Source & Order Book Tracker
 
