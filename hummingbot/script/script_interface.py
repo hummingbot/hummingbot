@@ -41,3 +41,7 @@ class CallNotify:
     def __init__(self, msg):
         self.msg = msg
         self.return_value = None
+
+
+class EndProcess:
+    pass

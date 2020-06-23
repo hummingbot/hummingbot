@@ -7,6 +7,7 @@ import pandas as pd
 import unittest
 from decimal import Decimal
 import inspect
+import asyncio
 
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import QuantizationParams
@@ -91,11 +92,17 @@ class ScriptIteratorUnitTest(unittest.TestCase):
             order_level_amount=Decimal("1"),
             minimum_spread=-1,
         )
+        self._ev_loop = asyncio.get_event_loop()
 
     def test_price_band_price_ceiling_breach(self):
-        script_file = "/Users/jack/github/hummingbot/test/scripts/price_band_script.py"
-        self._script_iterator = ScriptIterator(script_file, [self.market], self.multi_levels_strategy)
+        self._ev_loop.run_until_complete(self._test_price_band_price_ceiling_breach_async())
+
+    async def _test_price_band_price_ceiling_breach_async(self):
+        # script_file = "/Users/jack/github/hummingbot/test/scripts/price_band_script.py"
+        self._script_iterator = ScriptIterator("none", [self.market], self.multi_levels_strategy)
+        # self._script_iterator.start_process()
         self.clock.add_iterator(self._script_iterator)
+        #
         strategy = self.multi_levels_strategy
         # strategy.price_ceiling = Decimal("105")
 
@@ -104,13 +111,18 @@ class ScriptIteratorUnitTest(unittest.TestCase):
 
         self.assertEqual(3, len(strategy.active_buys))
         self.assertEqual(3, len(strategy.active_sells))
-
-        simulate_order_book_widening(self.book_data.order_book, self.mid_price, 115, )
-
-        self.clock.backtest_til(self.start_timestamp + 7)
-        self.assertEqual(0, len(strategy.active_buys))
-        self.assertEqual(3, len(strategy.active_sells))
-        self._script_iterator.stop()
+        # parent_queue.put(OnTick(Decimal(100), StrategyParameters(1, 2, 3)))
+        # simulate_order_book_widening(self.book_data.order_book, self.mid_price, 115, )
+        # import time
+        # time.sleep(2)
+        # parent_queue.put(None)
+        # time.sleep(1)
+        # script_process.join()
+        # return
+        # self.clock.backtest_til(self.start_timestamp + 7)
+        # self.assertEqual(0, len(strategy.active_buys))
+        # self.assertEqual(3, len(strategy.active_sells))
+        self._script_iterator.stop(self.clock)
 
     def test_price_band_price_floor_breach(self):
         script_file = "scripts/price_band_script.py"

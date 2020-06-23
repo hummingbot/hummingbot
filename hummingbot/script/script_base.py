@@ -29,6 +29,21 @@ class ScriptBase:
     async def run(self):
         asyncio.ensure_future(self.listen_to_parent())
 
+    def listen_to_parent_sync(self):
+        while True:
+            # if self._parent_queue.empty():
+            #     await asyncio.sleep(0.1)
+            #     continue
+            item = self._parent_queue.get()
+            print(f"child gets {item.__class__}")
+            if item is None:
+                print("child exiting..")
+                break
+            if isinstance(item, OnTick):
+                self.mid_price = item.mid_price
+                self.strategy_parameters = item.strategy_parameters
+                self.on_tick()
+
     async def listen_to_parent(self):
         while True:
             if self._parent_queue.empty():
@@ -36,10 +51,14 @@ class ScriptBase:
                 continue
             item = self._parent_queue.get()
             print(f"child gets {item.__class__}")
+            if item is None:
+                print("child exiting..")
+                break
             if isinstance(item, OnTick):
                 self.mid_price = item.mid_price
                 self.strategy_parameters = item.strategy_parameters
                 self.on_tick()
 
     def update_strategy_parameters(self):
+        print("update_strategy_parameters")
         self._child_queue.put(CallUpdateStrategyParameters(self.strategy_parameters))
