@@ -32,8 +32,6 @@ cdef class ArbitrageStrategy(StrategyBase):
     OPTION_LOG_FULL_PROFITABILITY_STEP = 1 << 4
     OPTION_LOG_INSUFFICIENT_ASSET = 1 << 5
     OPTION_LOG_ALL = 0xfffffffffffffff
-    MARKET_ORDER_MAX_TRACKING_TIME = 60.0 * 10
-    FAILED_ORDER_COOL_OFF_TIME = 60.0 * 30
 
     @classmethod
     def logger(cls):
@@ -75,13 +73,15 @@ cdef class ArbitrageStrategy(StrategyBase):
         self._failed_order_tolerance = failed_order_tolerance
         self._cool_off_logged = False
 
-        self._failed_market_order_count = 0
-        self._last_failed_market_order_timestamp = 0
-
         self._secondary_to_primary_base_conversion_rate = secondary_to_primary_base_conversion_rate
         self._secondary_to_primary_quote_conversion_rate = secondary_to_primary_quote_conversion_rate
 
         self._hb_app_notification = hb_app_notification
+
+        self._market_1_bid_price = 0
+        self._market_1_ask_price = 0
+        self._market_2_bid_price = 0
+        self._market_2_ask_price = 0
 
         cdef:
             set all_markets = {
@@ -125,14 +125,14 @@ cdef class ArbitrageStrategy(StrategyBase):
                 [f"    take ask on {market_pair.first.market.name}, "
                  f"take bid on {market_pair.second.market.name}: {round(profitability_buy_1_sell_2 * 100, 4)} %"])
 
-            # See if there're any pending market orders.
+            # See if there're any pending limit orders.
             tracked_orders_df = self.tracked_taker_orders_data_frame
             if len(tracked_orders_df) > 0:
                 df_lines = str(tracked_orders_df).split("\n")
-                lines.extend(["", "  Pending market orders:"] +
+                lines.extend(["", "  Pending limit orders:"] +
                              ["    " + line for line in df_lines])
             else:
-                lines.extend(["", "  No pending market orders."])
+                lines.extend(["", "  No pending limit orders."])
 
             warning_lines.extend(self.balance_warning([market_pair.first, market_pair.second]))
 
@@ -194,10 +194,11 @@ cdef class ArbitrageStrategy(StrategyBase):
             object buy_order = buy_order_completed_event
             object market_trading_pair_tuple = self._sb_order_tracker.c_get_market_pair_from_order_id(buy_order.order_id)
         if market_trading_pair_tuple is not None:
+            self._last_trade_timestamps[market_trading_pair_tuple] = self._current_timestamp
             if self._logging_options & self.OPTION_LOG_ORDER_COMPLETED:
                 self.log_with_clock(logging.INFO,
-                                    f"Market order completed on {market_trading_pair_tuple[0].name}: {buy_order.order_id}")
-                self.notify_hb_app(f"{buy_order.base_asset_amount:.8f} {buy_order.base_asset}-{buy_order.quote_asset} buy market order completed on {market_trading_pair_tuple[0].name}")
+                                    f"Limit order completed on {market_trading_pair_tuple[0].name}: {buy_order.order_id}")
+                self.notify_hb_app(f"{buy_order.base_asset_amount:.8f} {buy_order.base_asset}-{buy_order.quote_asset} buy limit order completed on {market_trading_pair_tuple[0].name}")
 
     cdef c_did_complete_sell_order(self, object sell_order_completed_event):
         """
@@ -209,36 +210,11 @@ cdef class ArbitrageStrategy(StrategyBase):
             object sell_order = sell_order_completed_event
             object market_trading_pair_tuple = self._sb_order_tracker.c_get_market_pair_from_order_id(sell_order.order_id)
         if market_trading_pair_tuple is not None:
+            self._last_trade_timestamps[market_trading_pair_tuple] = self._current_timestamp
             if self._logging_options & self.OPTION_LOG_ORDER_COMPLETED:
                 self.log_with_clock(logging.INFO,
-                                    f"Market order completed on {market_trading_pair_tuple[0].name}: {sell_order.order_id}")
-                self.notify_hb_app(f"{sell_order.base_asset_amount:.8f} {sell_order.base_asset}-{sell_order.quote_asset} sell market order completed on {market_trading_pair_tuple[0].name}")
-
-
-    cdef c_did_fail_order(self, object fail_event):
-        """
-        Output log for failed order.
-
-        :param fail_event: Order failure event
-        """
-        if fail_event.order_type is OrderType.MARKET:
-            self._failed_market_order_count += 1
-            self._last_failed_market_order_timestamp = fail_event.timestamp
-
-        if self._failed_market_order_count > self._failed_order_tolerance:
-            failed_order_kill_switch_log = \
-                f"Strategy is forced stop by failed order kill switch. " \
-                f"Failed market order count {self._failed_market_order_count} exceeded tolerance lever of " \
-                f"{self._failed_order_tolerance}. Please check market connectivity before restarting."
-
-            self.logger().network(failed_order_kill_switch_log, app_warning_msg=failed_order_kill_switch_log)
-            self.c_stop(self._clock)
-        cdef:
-            str order_id = fail_event.order_id
-            object market_trading_pair_tuple = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
-        if market_trading_pair_tuple is not None:
-            self.log_with_clock(logging.INFO,
-                                f"Market order failed on {market_trading_pair_tuple[0].name}: {order_id}")
+                                    f"Limit order completed on {market_trading_pair_tuple[0].name}: {sell_order.order_id}")
+                self.notify_hb_app(f"{sell_order.base_asset_amount:.8f} {sell_order.base_asset}-{sell_order.quote_asset} sell limit order completed on {market_trading_pair_tuple[0].name}")
 
     cdef c_did_cancel_order(self, object cancel_event):
         """
@@ -253,6 +229,17 @@ cdef class ArbitrageStrategy(StrategyBase):
             self.log_with_clock(logging.INFO,
                                 f"Market order canceled on {market_trading_pair_tuple[0].name}: {order_id}")
 
+    cdef object c_get_arbitrage_pair_prices(self, bint buy_1_sell_2):
+        """
+        Return appropriate prices(bid price, ask price) for arbitrage market pair combination.
+
+        param bint buy_1_sell_2: Arbitrage market pair.
+        """
+        if buy_1_sell_2:
+            return self._market_2_bid_price, self._market_1_ask_price
+        else:
+            return self._market_1_bid_price, self._market_2_ask_price
+
     cdef tuple c_calculate_arbitrage_top_order_profitability(self, object market_pair):
         """
         Calculate the profitability of crossing the exchanges in both directions (buy on exchange 2 + sell
@@ -261,15 +248,15 @@ cdef class ArbitrageStrategy(StrategyBase):
         :param market_pair:
         :return: (double, double) that indicates profitability of arbitraging on each side
         """
-        cdef:
-            object market_1_bid_price = market_pair.first.get_price(False)
-            object market_1_ask_price = market_pair.first.get_price(True)
-            object market_2_bid_price = self.market_conversion_rate(market_pair.second) * \
-                market_pair.second.get_price(False)
-            object market_2_ask_price = self.market_conversion_rate(market_pair.second) * \
-                market_pair.second.get_price(True)
-        profitability_buy_2_sell_1 = market_1_bid_price / market_2_ask_price - 1
-        profitability_buy_1_sell_2 = market_2_bid_price / market_1_ask_price - 1
+
+        self._market_1_bid_price = market_pair.first.get_price(False)
+        self._market_1_ask_price = market_pair.first.get_price(True)
+        self._market_2_bid_price = self.market_conversion_rate(market_pair.second) * \
+            market_pair.second.get_price(False)
+        self._market_2_ask_price = self.market_conversion_rate(market_pair.second) * \
+            market_pair.second.get_price(True)
+        profitability_buy_2_sell_1 = self._market_1_bid_price / self._market_2_ask_price - 1
+        profitability_buy_1_sell_2 = self._market_2_bid_price / self._market_1_ask_price - 1
         return profitability_buy_2_sell_1, profitability_buy_1_sell_2
 
     cdef bint c_ready_for_new_orders(self, list market_trading_pair_tuples):
@@ -277,7 +264,7 @@ cdef class ArbitrageStrategy(StrategyBase):
         Check whether we are ready for making new arbitrage orders or not. Conditions where we should not make further
         new orders include:
 
-         1. There's an in-flight market order that's still being resolved.
+         1. There are successfully placed limit taker orders.
          2. We're still within the cool-off period from the last trade, which means the exchange balances may be not
             accurate temporarily.
 
@@ -290,26 +277,9 @@ cdef class ArbitrageStrategy(StrategyBase):
             double time_left
             dict tracked_taker_orders = self._sb_order_tracker.c_get_taker_orders()
 
-        ready_ts_from_failed_order = self._last_failed_market_order_timestamp + \
-            self._failed_market_order_count * self.FAILED_ORDER_COOL_OFF_TIME
-        # Wait for FAILED_ORDER_COOL_OFF_TIME * failed_market_order_count before retrying
-        if ready_ts_from_failed_order > self._current_timestamp:
-            time_left = ready_ts_from_failed_order - self._current_timestamp
-            if not self._cool_off_logged:
-                self.log_with_clock(
-                    logging.INFO,
-                    f"Cooling off from failed order. "
-                    f"Resuming in {int(time_left)} seconds."
-                )
-                self._cool_off_logged = True
-            return False
-
         for market_trading_pair_tuple in market_trading_pair_tuples:
-            # Do not continue if there are pending market order
+            # Do not continue if there are pending limit order
             if len(tracked_taker_orders.get(market_trading_pair_tuple, {})) > 0:
-                # consider market order completed if it was already x time old
-                if any([order.timestamp - self._current_timestamp < self.MARKET_ORDER_MAX_TRACKING_TIME
-                       for order in tracked_taker_orders[market_trading_pair_tuple].values()]):
                     return False
             # Wait for the cool off interval before the next trade, so wallet balance is up to date
             ready_to_trade_time = self._last_trade_timestamps.get(market_trading_pair_tuple, 0) + self._next_trade_delay
@@ -353,11 +323,11 @@ cdef class ArbitrageStrategy(StrategyBase):
 
         if profitability_buy_1_sell_2 > profitability_buy_2_sell_1:
             # it is more profitable to buy on market_1 and sell on market_2
-            self.c_process_market_pair_inner(market_pair.first, market_pair.second)
+            self.c_process_market_pair_inner(market_pair.first, market_pair.second, True)
         else:
-            self.c_process_market_pair_inner(market_pair.second, market_pair.first)
+            self.c_process_market_pair_inner(market_pair.second, market_pair.first, False)
 
-    cdef c_process_market_pair_inner(self, object buy_market_trading_pair_tuple, object sell_market_trading_pair_tuple):
+    cdef c_process_market_pair_inner(self, object buy_market_trading_pair_tuple, object sell_market_trading_pair_tuple, bint buy_1_sell_2):
         """
         Executes arbitrage trades for the input market pair.
 
@@ -373,6 +343,7 @@ cdef class ArbitrageStrategy(StrategyBase):
             MarketBase buy_market = buy_market_trading_pair_tuple.market
             MarketBase sell_market = sell_market_trading_pair_tuple.market
 
+        buy_price, sell_price = self.c_get_arbitrage_pair_prices(buy_1_sell_2)
         best_amount, best_profitability = self.c_find_best_profitable_amount(
             buy_market_trading_pair_tuple, sell_market_trading_pair_tuple
         )
@@ -383,19 +354,18 @@ cdef class ArbitrageStrategy(StrategyBase):
         if quantized_order_amount:
             if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                 self.log_with_clock(logging.INFO,
-                                    f"Executing market order buy of {buy_market_trading_pair_tuple.trading_pair} "
+                                    f"Executing limit order buy of {buy_market_trading_pair_tuple.trading_pair} "
                                     f"at {buy_market_trading_pair_tuple.market.name} "
                                     f"and sell of {sell_market_trading_pair_tuple.trading_pair} "
                                     f"at {sell_market_trading_pair_tuple.market.name} "
                                     f"with amount {quantized_order_amount}, "
                                     f"and profitability {best_profitability}")
 
+            # Set limit order expiration_seconds to _next_trade_delay for connectors that require order expiration for limit orders
             self.c_buy_with_specific_market(buy_market_trading_pair_tuple, quantized_order_amount,
-                                            order_type=OrderType.MARKET)
+                                            order_type=OrderType.LIMIT, price=buy_price, expiration_seconds=self._next_trade_delay)
             self.c_sell_with_specific_market(sell_market_trading_pair_tuple, quantized_order_amount,
-                                             order_type=OrderType.MARKET)
-            self._last_trade_timestamps[buy_market_trading_pair_tuple] = self._current_timestamp
-            self._last_trade_timestamps[sell_market_trading_pair_tuple] = self._current_timestamp
+                                             order_type=OrderType.LIMIT, price=sell_price, expiration_seconds=self._next_trade_delay)
             self.logger().info(self.format_status())
 
     @staticmethod
@@ -469,7 +439,7 @@ cdef class ArbitrageStrategy(StrategyBase):
             buy_fee = buy_market.c_get_fee(
                 buy_market_trading_pair_tuple.base_asset,
                 buy_market_trading_pair_tuple.quote_asset,
-                OrderType.MARKET,
+                OrderType.LIMIT,
                 TradeType.BUY,
                 total_previous_step_base_amount + amount,
                 ask_price
@@ -477,7 +447,7 @@ cdef class ArbitrageStrategy(StrategyBase):
             sell_fee = sell_market.c_get_fee(
                 sell_market_trading_pair_tuple.base_asset,
                 sell_market_trading_pair_tuple.quote_asset,
-                OrderType.MARKET,
+                OrderType.LIMIT,
                 TradeType.SELL,
                 total_previous_step_base_amount + amount,
                 bid_price
