@@ -570,14 +570,16 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             price = self.c_get_mid_price() * (Decimal("1") - self._bid_spread - (level * self._order_level_spread))
             price = market.c_quantize_order_price(self.trading_pair, price)
             size = self._order_amount + (self._order_level_amount * level)
-            market.c_quantize_order_amount(self.trading_pair, size)
-            buys.append(PriceSize(price, size))
+            size = market.c_quantize_order_amount(self.trading_pair, size)
+            if size > 0:
+                buys.append(PriceSize(price, size))
         for level in range(0, self._order_levels):
             price = self.c_get_mid_price() * (Decimal("1") + self._ask_spread + (level * self._order_level_spread))
             price = market.c_quantize_order_price(self.trading_pair, price)
             size = self._order_amount + (self._order_level_amount * level)
-            market.c_quantize_order_amount(self.trading_pair, size)
-            sells.append(PriceSize(price, size))
+            size = market.c_quantize_order_amount(self.trading_pair, size)
+            if size > 0:
+                sells.append(PriceSize(price, size))
 
         return Proposal(buys, sells)
 
@@ -598,14 +600,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             self._filled_buys_balance = self._filled_sells_balance = 0
         if self._filled_buys_balance > 0:
             proposal.buys = proposal.buys[self._filled_buys_balance:]
-            self._ping_pong_warning_lines.extend([
-                f"  Ping-pong removed {self._filled_buys_balance} buy orders."
-                ])
+            self._ping_pong_warning_lines.extend(
+                [f"  Ping-pong removed {self._filled_buys_balance} buy orders."]
+            )
         if self._filled_sells_balance > 0:
             proposal.sells = proposal.sells[self._filled_sells_balance:]
-            self._ping_pong_warning_lines.extend([
-                f"  Ping-pong removed {self._filled_sells_balance} sell orders."
-                ])
+            self._ping_pong_warning_lines.extend(
+                [f"  Ping-pong removed {self._filled_sells_balance} sell orders."]
+            )
 
     cdef c_apply_order_price_modifiers(self, object proposal):
         if self._order_optimization_enabled:
