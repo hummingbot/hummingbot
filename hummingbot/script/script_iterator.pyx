@@ -24,13 +24,15 @@ from hummingbot.script.script_interface import (
 cdef class ScriptIterator(TimeIterator):
 
     def __init__(self,
-                 script_file_name: str,
+                 script_file_path: str,
                  markets: List[MarketBase],
-                 strategy: PureMarketMakingStrategy):
+                 strategy: PureMarketMakingStrategy,
+                 queue_check_interval: float = 0.01):
         super().__init__()
-        self._strategy = strategy
+        self._script_file_path = script_file_path
         self._markets = markets
-        self._variables = {}
+        self._strategy = strategy
+        self._queue_check_interval = queue_check_interval
         # self._script_module = self.import_script_module(script_file_name)
         self._did_complete_buy_order_forwarder = SourceInfoEventForwarder(self._did_complete_buy_order)
         self._did_complete_sell_order_forwarder = SourceInfoEventForwarder(self._did_complete_sell_order)
@@ -43,10 +45,10 @@ cdef class ScriptIterator(TimeIterator):
         self._child_queue = Queue()
         # self._listen_to_child_task = None
         print("starting listener")
-        print(f"ev_loop running: {self._ev_loop.is_running()}")
         safe_ensure_future(self.listen_to_child_queue(), loop=self._ev_loop)
 
-        self._script_process = Process(target=run_script, args=(self._parent_queue, self._child_queue,))
+        self._script_process = Process(target=run_script,
+                                       args=(self._parent_queue, self._child_queue, queue_check_interval,))
         self._script_process.start()
 
     async def start_listener(self):
@@ -55,10 +57,6 @@ cdef class ScriptIterator(TimeIterator):
     @property
     def strategy(self):
         return self._strategy
-
-    @property
-    def variables(self):
-        return self._variables
 
     cdef c_start(self, Clock clock, double timestamp):
         TimeIterator.c_start(self, clock, timestamp)
@@ -101,7 +99,7 @@ cdef class ScriptIterator(TimeIterator):
     async def listen_to_child_queue(self):
         while True:
             if self._child_queue.empty():
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(self._queue_check_interval)
                 continue
             item = self._child_queue.get()
             print(f"parent gets {item.__class__}")

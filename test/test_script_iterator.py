@@ -99,7 +99,7 @@ class ScriptIteratorUnitTest(unittest.TestCase):
 
     async def _test_price_band_price_ceiling_breach_async(self):
         # script_file = "/Users/jack/github/hummingbot/test/scripts/price_band_script.py"
-        self._script_iterator = ScriptIterator("none", [self.market], self.multi_levels_strategy)
+        self._script_iterator = ScriptIterator("none", [self.market], self.multi_levels_strategy, 0.0)
         # self._script_iterator.start_process()
         self.clock.add_iterator(self._script_iterator)
         #
@@ -111,6 +111,9 @@ class ScriptIteratorUnitTest(unittest.TestCase):
 
         self.assertEqual(3, len(strategy.active_buys))
         self.assertEqual(3, len(strategy.active_sells))
+
+        self.clock.backtest_til(self.start_timestamp + 2)
+        await asyncio.sleep(1)
         # parent_queue.put(OnTick(Decimal(100), StrategyParameters(1, 2, 3)))
         # simulate_order_book_widening(self.book_data.order_book, self.mid_price, 115, )
         # import time

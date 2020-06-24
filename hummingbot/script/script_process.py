@@ -3,9 +3,9 @@ import importlib
 from hummingbot.script.script_base import ScriptBase
 
 
-def run_script(parent_queue, child_queue):
+def run_script(parent_queue, child_queue, queue_check_interval):
     print("run_script")
-    script = ScriptBase(parent_queue, child_queue)
+    script = ScriptBase(parent_queue, child_queue, queue_check_interval)
     ev_loop = asyncio.get_event_loop()
     ev_loop.run_until_complete(script.listen_to_parent())
     # async_scheduler = AsyncCallScheduler(call_interval=0.5)

@@ -4,10 +4,11 @@ from .script_interface import CallUpdateStrategyParameters, OnTick
 
 
 class ScriptBase:
-    def __init__(self, parent_queue, child_queue):
+    def __init__(self, parent_queue, child_queue, queue_check_interval):
         print("ScriptBase__init__")
         self._parent_queue = parent_queue
         self._child_queue = child_queue
+        self._queue_check_interval = queue_check_interval
         self.mid_price = Decimal("0")
         self.strategy_parameters = None
 
