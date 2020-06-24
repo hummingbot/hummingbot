@@ -16,5 +16,9 @@ order_amount: null
 # Expressed in percentage value, e.g. 1 = 1% target profit
 min_profitability: null
 
+# A buffer to add to the Celo price to account for slippage when buying/selling on celocli
+# (Enter 1 for 1%)
+celo_slippage_buffer: null
+
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/arbitrage/#configuration-parameters
