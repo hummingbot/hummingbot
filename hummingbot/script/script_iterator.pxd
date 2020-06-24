@@ -4,13 +4,10 @@ from hummingbot.core.time_iterator cimport TimeIterator
 
 cdef class ScriptIterator(TimeIterator):
     cdef:
-        str _start_script
-        str _tick_script
-        str _buy_order_completed_script
-        str _sell_order_completed_script
+        str _script_file_path
         object _strategy
-        object _variables
         object _markets
+        double _queue_check_interval
         object _event_pairs
         object _did_complete_buy_order_forwarder
         object _did_complete_sell_order_forwarder
