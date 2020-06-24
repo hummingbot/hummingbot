@@ -183,6 +183,7 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
             number_of_pairs: int = len(trading_pairs)
             for index, trading_pair in enumerate(trading_pairs):
                 try:
+                    """
                     snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, 1000)
                     snapshot_timestamp: float = time.time()
                     snapshot_msg: OrderBookMessage = KrakenOrderBook.snapshot_message_from_exchange(
@@ -190,9 +191,10 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         snapshot_timestamp,
                         metadata={"trading_pair": trading_pair}
                     )
+                    """
                     order_book: OrderBook = self.order_book_create_function()
-                    order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
-                    retval[trading_pair] = OrderBookTrackerEntry(trading_pair, snapshot_timestamp, order_book)
+                    # order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
+                    retval[trading_pair] = OrderBookTrackerEntry(trading_pair, time.time(), order_book)
                     self.logger().info(f"Initialized order book for {trading_pair}. "
                                        f"{index+1}/{number_of_pairs} completed.")
                     # Each 1000 limit snapshot costs 10 requests and Binance rate limit is 20 requests per second.
@@ -258,9 +260,15 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     await ws.send(ws_message)
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
+                        asks = msg[1]["a"] if "a" in msg[1] else []
+                        if "as" in msg[1]:
+                            asks = msg[1]["as"]
+                        bids = msg[1]["b"] if "b" in msg[1] else []
+                        if "bs" in msg[1]:
+                            bids = msg[1]["bs"]
                         msg_dict = {"trading_pair": msg[-1],
-                                    "asks": msg[1].get("a", []) or msg[1].get("as", []) or [],
-                                    "bids": msg[1].get("b", []) or msg[1].get("bs", []) or []}
+                                    "asks": asks,
+                                    "bids": bids}
                         msg_dict["update_id"] = max([*map(lambda x: float(x[2]), msg_dict["bids"] + msg_dict["asks"])],
                                                     default=0.)
                         if "as" in msg[1] and "bs" in msg[1]:
@@ -311,8 +319,11 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await asyncio.sleep(5.0)
 
     async def get_ws_subscription_message(self, subscription_type: str):
-        market: pd.DataFrame = await self.get_active_exchange_markets()
-        trading_pairs: List[str] = market.wsname.tolist()
+        # all_markets: pd.DataFrame = await self.get_active_exchange_markets()
+        trading_pairs: List[str] = []
+        for tp in self._trading_pairs:
+            base, quote = self.split_to_base_quote(tp)
+            trading_pairs.append(f"{base}/{quote}")
 
         ws_message_dict: Dict[str, Any] = {"event": "subscribe",
                                            "pair": trading_pairs,
@@ -321,3 +332,12 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
         ws_message: str = ujson.dumps(ws_message_dict)
 
         return ws_message
+
+    @staticmethod
+    def split_to_base_quote(exchange_trading_pair: str) -> (Optional[str], Optional[str]):
+        base, quote = None, None
+        for quote_asset in constants.QUOTES:
+            if quote_asset == exchange_trading_pair[-len(quote_asset):]:
+                base, quote = exchange_trading_pair[:-len(quote_asset)], exchange_trading_pair[-len(quote_asset):]
+                break
+        return base, quote
