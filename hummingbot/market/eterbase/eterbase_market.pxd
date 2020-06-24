@@ -39,5 +39,5 @@ cdef class EterbaseMarket(MarketBase):
                                 object cost)
     cdef c_stop_tracking_order(self, str order_id)
     cdef c_did_timeout_tx(self, str tracking_id)
-    cdef c_round_to_sig_digits(self, object number, int sigdit)
+    cdef c_round_to_sig_digits(self, object number, int sigdit, object maxdecimal=*)
     cdef object c_quantize_cost(self, str trading_pair, object amount, object price)

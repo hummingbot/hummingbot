@@ -819,7 +819,7 @@ cdef class EterbaseMarket(MarketBase):
         # For Order Market type is needed cost
         if (order_type == OrderType.MARKET):
             decimal_cost = self.c_quantize_cost(trading_pair, amount, price)
-            decimal_cost = self.c_round_to_sig_digits(decimal_cost, trading_rule.max_cost_significant_digits)
+            decimal_cost = self.c_round_to_sig_digits(decimal_cost, trading_rule.max_cost_significant_digits, 8)
             if decimal_cost < trading_rule.min_order_value:
                 raise ValueError(f"Buy order cost {decimal_cost} is lower than the minimum order cost "
                                  f"{trading_rule.min_order_value}.")
@@ -1221,7 +1221,7 @@ cdef class EterbaseMarket(MarketBase):
         self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
                              MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
 
-    cdef object c_round_to_sig_digits(self, object number, int sigdig):
+    cdef object c_round_to_sig_digits(self, object number, int sigdig, object maxdecimal=None):
         """
         Round number to significant digits
         """
@@ -1232,6 +1232,13 @@ cdef class EterbaseMarket(MarketBase):
             rounded_number = Decimal("{:.0f}".format(Decimal(str_number)))
         else:
             rounded_number = Decimal(str_number)
+        if (maxdecimal is not None):
+            if (type(maxdecimal) is int):
+                (sign, digits, exponent) = rounded_number.as_tuple()
+                if (-maxdecimal > exponent):
+                    rounded_number = Decimal(("{:." + str(maxdecimal) + "f}").format(rounded_number))
+            else:
+                self.logger().error(f"Maxdecimal={maxdecimal} parameter must by None or int type.")
         return rounded_number
 
     cdef object c_get_order_price_quantum(self, str trading_pair, object price):
@@ -1248,7 +1255,10 @@ cdef class EterbaseMarket(MarketBase):
         (sign, digits, exponent) = rounded_price.as_tuple()
         base_str = ""
         for i in range(trading_rule.max_price_significant_digits):
-            base_str += str(digits[i])
+            if (i < len(digits)):
+                base_str += str(digits[i])
+            else:
+                base_str += "0"
 
         price_quantum = rounded_price / Decimal(base_str)
 
@@ -1263,15 +1273,17 @@ cdef class EterbaseMarket(MarketBase):
         cdef:
             EterbaseTradingRule trading_rule = self._trading_rules[trading_pair]
 
-        rounded_amount = self.c_round_to_sig_digits(order_size, trading_rule.max_quantity_significant_digits)
+        rounded_amount = self.c_round_to_sig_digits(order_size, trading_rule.max_quantity_significant_digits, 8)
 
         (sign, digits, exponent) = rounded_amount.as_tuple()
         base_str = ""
         for i in range(trading_rule.max_quantity_significant_digits):
-            base_str += str(digits[i])
+            if (i < len(digits)):
+                base_str += str(digits[i])
+            else:
+                base_str += "0"
 
         size_quantum = rounded_amount / Decimal(base_str)
-
         return size_quantum
 
     cdef object c_quantize_order_amount(self, str trading_pair, object amount, object price=s_decimal_0):
@@ -1285,7 +1297,8 @@ cdef class EterbaseMarket(MarketBase):
 
         global s_decimal_0
 
-        quantized_amount = self.c_round_to_sig_digits(amount, trading_rule.max_quantity_significant_digits)
+        # only 8 decimal places are allowed for amount in API
+        quantized_amount = self.c_round_to_sig_digits(amount, trading_rule.max_quantity_significant_digits, 8)
 
         # Check against min_order_size. If not passing either check, return 0.
         if quantized_amount < trading_rule.min_order_size:
@@ -1309,7 +1322,8 @@ cdef class EterbaseMarket(MarketBase):
         global s_decimal_0
 
         cost = amount * price
-        quantized_cost = self.c_round_to_sig_digits(cost, trading_rule.max_cost_significant_digits)
+        # only 8 decimal places are allowed for cost in API
+        quantized_cost = self.c_round_to_sig_digits(cost, trading_rule.max_cost_significant_digits, 8)
 
         # Check against min_order_value. If not passing either check, return 0.
         if quantized_cost < trading_rule.min_order_value:
