@@ -507,6 +507,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     def cancel_order(self, order_id: str):
         return self.c_cancel_order(self._market_info, order_id)
 
+    def apply_inventory_skew(self, proposal: Proposal):
+        return self.c_apply_inventory_skew(proposal)
+
     # ---------------------------------------------------------------
 
     cdef c_start(self, Clock clock, double timestamp):
@@ -623,8 +626,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     cdef c_apply_inventory_skew(self, object proposal):
         cdef:
             MarketBase market = self._market_info.market
-            object base_balance = market.c_get_available_balance(self.base_asset)
-            object quote_balance = market.c_get_available_balance(self.quote_asset)
+            object base_balance = market.c_get_balance(self.base_asset)
+            object quote_balance = market.c_get_balance(self.quote_asset)
 
         for active_order in self.active_orders:
             if active_order.is_buy:
