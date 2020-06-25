@@ -183,7 +183,6 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
             number_of_pairs: int = len(trading_pairs)
             for index, trading_pair in enumerate(trading_pairs):
                 try:
-                    """
                     snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, 1000)
                     snapshot_timestamp: float = time.time()
                     snapshot_msg: OrderBookMessage = KrakenOrderBook.snapshot_message_from_exchange(
@@ -191,10 +190,9 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         snapshot_timestamp,
                         metadata={"trading_pair": trading_pair}
                     )
-                    """
                     order_book: OrderBook = self.order_book_create_function()
-                    # order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
-                    retval[trading_pair] = OrderBookTrackerEntry(trading_pair, time.time(), order_book)
+                    order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
+                    retval[trading_pair] = OrderBookTrackerEntry(trading_pair, snapshot_timestamp, order_book)
                     self.logger().info(f"Initialized order book for {trading_pair}. "
                                        f"{index+1}/{number_of_pairs} completed.")
                     # Each 1000 limit snapshot costs 10 requests and Binance rate limit is 20 requests per second.
@@ -254,21 +252,15 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 ws_message: str = await self.get_ws_subscription_message("book")
-
                 async with websockets.connect(DIFF_STREAM_URL) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     await ws.send(ws_message)
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
-                        asks = msg[1]["a"] if "a" in msg[1] else []
-                        if "as" in msg[1]:
-                            asks = msg[1]["as"]
-                        bids = msg[1]["b"] if "b" in msg[1] else []
-                        if "bs" in msg[1]:
-                            bids = msg[1]["bs"]
+
                         msg_dict = {"trading_pair": msg[-1],
-                                    "asks": asks,
-                                    "bids": bids}
+                                    "asks": msg[1].get("a", []) or msg[1].get("as", []) or [],
+                                    "bids": msg[1].get("b", []) or msg[1].get("bs", []) or []}
                         msg_dict["update_id"] = max([*map(lambda x: float(x[2]), msg_dict["bids"] + msg_dict["asks"])],
                                                     default=0.)
                         if "as" in msg[1] and "bs" in msg[1]:
@@ -286,7 +278,7 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await asyncio.sleep(30.0)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        return
+        asyncio.sleep(2)
         while True:
             try:
                 trading_pairs: List[str] = await self.get_trading_pairs()
@@ -327,7 +319,7 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         ws_message_dict: Dict[str, Any] = {"event": "subscribe",
                                            "pair": trading_pairs,
-                                           "subscription": {"name": subscription_type}}
+                                           "subscription": {"name": subscription_type, "depth": 1000}}
 
         ws_message: str = ujson.dumps(ws_message_dict)
 
