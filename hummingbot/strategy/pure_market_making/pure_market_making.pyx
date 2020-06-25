@@ -82,6 +82,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                  bid_order_optimization_depth: Decimal = s_decimal_zero,
                  add_transaction_costs_to_orders: bool = False,
                  asset_price_delegate: AssetPriceDelegate = None,
+                 take_if_crossed: bool = False,
                  price_ceiling: Decimal = s_decimal_neg_one,
                  price_floor: Decimal = s_decimal_neg_one,
                  ping_pong_enabled: bool = False,
@@ -117,6 +118,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._bid_order_optimization_depth = bid_order_optimization_depth
         self._add_transaction_costs_to_orders = add_transaction_costs_to_orders
         self._asset_price_delegate = asset_price_delegate
+        self._take_if_crossed = take_if_crossed
         self._price_ceiling = price_ceiling
         self._price_floor = price_floor
         self._ping_pong_enabled = ping_pong_enabled
@@ -705,10 +707,16 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             list new_sells = []
         top_ask = market.c_get_price(self.trading_pair, True)
         if not top_ask.is_nan():
-            proposal.buys = [buy for buy in proposal.buys if buy.price < top_ask]
+            if self._take_if_crossed:
+                proposal.buys = [buy for buy in proposal.buys if buy.price < top_ask]
+            else:
+                proposal.buys = [buy if buy.price < top_ask else top_ask for buy in proposal.buys]
         top_bid = market.c_get_price(self.trading_pair, False)
         if not top_bid.is_nan():
-            proposal.sells = [sell for sell in proposal.sells if sell.price > top_bid]
+            if self._take_if_crossed:
+                proposal.sells = [sell for sell in proposal.sells if sell.price > top_bid]
+            else:
+                proposal.sells = [sell if sell.price > top_bid else top_bid for sell in proposal.sells]
 
     # Compare the market price with the top bid and top ask price
     cdef c_apply_order_optimization(self, object proposal):
