@@ -39,9 +39,10 @@ cdef object c_calculate_bid_ask_ratios_from_base_asset_ratio(
 
     cdef:
         double base_asset_value = base_asset_amount * price
+        double base_asset_range_value = min(base_asset_range * price, total_portfolio_value * 0.5)
         double target_base_asset_value = total_portfolio_value * target_base_asset_ratio
-        double left_base_asset_value_limit = max(target_base_asset_value - base_asset_range * price, 0.0)
-        double right_base_asset_value_limit = target_base_asset_value + base_asset_range * price
+        double left_base_asset_value_limit = max(target_base_asset_value - base_asset_range_value, 0.0)
+        double right_base_asset_value_limit = target_base_asset_value + base_asset_range_value
         double left_inventory_ratio = np.interp(base_asset_value,
                                                 [left_base_asset_value_limit, target_base_asset_value],
                                                 [0.0, 0.5])
