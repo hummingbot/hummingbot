@@ -36,6 +36,8 @@ Take note that for your API keys to work with Hummingbot, **set the Nonce Window
 !!! warning "API key permissions"
     We recommend using only **"trade"** enabled API keys; enabling **"withdraw", "transfer", or the equivalent** is unnecessary for current Hummingbot strategies.
 
+Shows 
+
 ### Asset Codes
 
 Kraken uses asset codes in front of some pairs as a classification system. Asset codes starting with **'X'** represent cryptocurrencies, though this is no longer followed for the newest coins. Asset codes starting with **'Z'** represent fiat currencies.
