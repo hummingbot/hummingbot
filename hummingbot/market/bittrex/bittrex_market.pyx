@@ -493,9 +493,7 @@ cdef class BittrexMarket(MarketBase):
                     execute_amount_diff = s_decimal_0
                     tracked_order.fee_paid = Decimal(order["n"])
 
-                    precision = str(self.c_get_order_size_quantum(tracked_order.trading_pair, Decimal(order['q'])))[-1]
-
-                    remaining_size = Decimal(str(round(order["q"], int(precision))))
+                    remaining_size = Decimal(str(order["q"]))
 
                     new_confirmed_amount = Decimal(tracked_order.amount - remaining_size)
                     execute_amount_diff = Decimal(new_confirmed_amount - tracked_order.executed_amount_base)
