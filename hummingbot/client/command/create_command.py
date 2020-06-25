@@ -1,6 +1,5 @@
 import os
 import shutil
-from decimal import Decimal
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -69,7 +68,7 @@ class CreateCommand:
             else:
                 config.value = config.default
 
-        #catch a last key binding to stop config, if any
+        # catch a last key binding to stop config, if any
         if self.app.to_stop_config:
             self.app.to_stop_config = False
             return
@@ -158,13 +157,10 @@ class CreateCommand:
                                 f"{balances.get(quote, 0):.4f} {quote}. By market value, "
                                 f"your current inventory split is {base_ratio:.1%} {base} "
                                 f"and {quote_ratio:.1%} {quote}."
-                                f" Would you like to keep this ratio? (Yes/No) >>> ",
+                                f" Would you like to keep this ratio with ping-pong? (Yes/No) >>> ",
                          required_if=lambda: True,
                          type_str="bool",
                          validator=validate_bool)
         await self.prompt_a_config(cvar)
         if cvar.value:
-            config_map['inventory_target_base_pct'].value = round(base_ratio * Decimal('100'), 1)
-        else:
-            await self.prompt_a_config(config_map["inventory_target_base_pct"])
-        config_map['inventory_skew_enabled'].value = True
+            config_map['ping_pong_enabled'].value = True
