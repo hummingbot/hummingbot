@@ -44,6 +44,7 @@ Shows nonce reminder when adding API keys to kraken
 Kraken uses asset codes in front of some pairs as a classification system. Asset codes starting with **'X'** represent cryptocurrencies, though this is no longer followed for the newest coins. Asset codes starting with **'Z'** represent fiat currencies. 
 
 BTC is represented as XBT in this exchange. Therefore trading on this pair is viewed as XXBT e.g. XXBT-USDT. However Hummingbot uses symbol conversion so it will be entered as BTC-USDT
+![](/assets/img/kraken_sample.png)
 
 This article shows the complete list assets and their corresponding asset codes.
 
