@@ -154,10 +154,6 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, limit: int = 1000) -> Dict[str, Any]:
         original_trading_pair: str = trading_pair
-        if trading_pair[:3] == "BTC":
-            trading_pair = "XBT" + trading_pair[3:]
-        if trading_pair[-3:] == "BTC":
-            trading_pair = trading_pair[:-3] + "XBT"
         params: Dict[str, str] = {"count": str(limit), "pair": trading_pair} if limit != 0 else {"pair": trading_pair}
         async with client.get(SNAPSHOT_REST_URL, params=params) as response:
             response: aiohttp.ClientResponse = response
@@ -256,19 +252,23 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 ws_message: str = await self.get_ws_subscription_message("book")
-
                 async with websockets.connect(DIFF_STREAM_URL) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     await ws.send(ws_message)
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
+
                         msg_dict = {"trading_pair": msg[-1],
-                                    "asks": msg[1].get("a") or msg[1].get("as") or [],
-                                    "bids": msg[1].get("b") or msg[1].get("bs") or []}
+                                    "asks": msg[1].get("a", []) or msg[1].get("as", []) or [],
+                                    "bids": msg[1].get("b", []) or msg[1].get("bs", []) or []}
                         msg_dict["update_id"] = max([*map(lambda x: float(x[2]), msg_dict["bids"] + msg_dict["asks"])],
                                                     default=0.)
-                        order_book_message: OrderBookMessage = KrakenOrderBook.diff_message_from_exchange(
-                            msg_dict, time.time())
+                        if "as" in msg[1] and "bs" in msg[1]:
+                            order_book_message: OrderBookMessage = KrakenOrderBook.snapshot_ws_message_from_exchange(
+                                msg_dict, time.time())
+                        else:
+                            order_book_message: OrderBookMessage = KrakenOrderBook.diff_message_from_exchange(
+                                msg_dict, time.time())
                         output.put_nowait(order_book_message)
             except asyncio.CancelledError:
                 raise
@@ -310,13 +310,25 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await asyncio.sleep(5.0)
 
     async def get_ws_subscription_message(self, subscription_type: str):
-        market: pd.DataFrame = await self.get_active_exchange_markets()
-        trading_pairs: List[str] = market.wsname.tolist()
+        # all_markets: pd.DataFrame = await self.get_active_exchange_markets()
+        trading_pairs: List[str] = []
+        for tp in self._trading_pairs:
+            base, quote = self.split_to_base_quote(tp)
+            trading_pairs.append(f"{base}/{quote}")
 
         ws_message_dict: Dict[str, Any] = {"event": "subscribe",
                                            "pair": trading_pairs,
-                                           "subscription": {"name": subscription_type}}
+                                           "subscription": {"name": subscription_type, "depth": 1000}}
 
         ws_message: str = ujson.dumps(ws_message_dict)
 
         return ws_message
+
+    @staticmethod
+    def split_to_base_quote(exchange_trading_pair: str) -> (Optional[str], Optional[str]):
+        base, quote = None, None
+        for quote_asset in constants.QUOTES:
+            if quote_asset == exchange_trading_pair[-len(quote_asset):]:
+                base, quote = exchange_trading_pair[:-len(quote_asset)], exchange_trading_pair[-len(quote_asset):]
+                break
+        return base, quote
