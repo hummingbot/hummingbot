@@ -31,7 +31,7 @@ from hummingbot.client.settings import (
     TOKEN_ADDRESSES_FILE_PATH,
 )
 from hummingbot.client.config.security import Security
-from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.core.utils.market_mid_price import get_mid_price
 from hummingbot import get_strategy_list
 
 # Use ruamel.yaml to preserve order and comments in .yml file
@@ -347,25 +347,25 @@ async def create_yml_files():
                     shutil.copy(template_path, conf_path)
 
 
-def default_min_quote(quote_asset):
+def default_min_quote(quote_asset: str) -> (str, Decimal):
     global_quote_amount = []
     if global_config_map["min_quote_order_amount"].value is not None:
-        global_quote_amount = [[b, m] for b, m in global_config_map["min_quote_order_amount"].value if b == quote_asset]
-    default_quote_asset, default_amount = "USD", 11
+        global_quote_amount = [[b, Decimal(str(m))] for b, m in
+                               global_config_map["min_quote_order_amount"].value if b == quote_asset]
+    default_quote_asset, default_amount = "USD", Decimal("11")
     if len(global_quote_amount) > 0:
         default_quote_asset, default_amount = global_quote_amount[0]
     return default_quote_asset, default_amount
 
 
-def minimum_order_amount(trading_pair):
-    try:
-        base_asset, quote_asset = trading_pair.split("-")
-        default_quote_asset, default_amount = default_min_quote(quote_asset)
-        quote_amount = ExchangeRateConversion.get_instance().convert_token_value_decimal(default_amount,
-                                                                                         default_quote_asset,
-                                                                                         base_asset)
-    except Exception:
-        quote_amount = Decimal('0')
+def minimum_order_amount(exchange: str, trading_pair: str) -> Decimal:
+    base_asset, quote_asset = trading_pair.split("-")
+    default_quote_asset, default_amount = default_min_quote(quote_asset)
+    quote_amount = Decimal("0")
+    if default_quote_asset == quote_asset:
+        mid_price = get_mid_price(exchange, trading_pair)
+        if mid_price is not None:
+            quote_amount = default_amount / mid_price
     return round(quote_amount, 4)
 
 
@@ -442,3 +442,16 @@ def parse_config_default_to_text(config: ConfigVar) -> str:
     if isinstance(default, Decimal):
         default = "{0:.4f}".format(default)
     return default
+
+
+def secondary_market_conversion_rate(strategy) -> Decimal:
+    config_map = get_strategy_config_map(strategy)
+    if "secondary_to_primary_quote_conversion_rate" in config_map:
+        base_rate = config_map["secondary_to_primary_base_conversion_rate"].value
+        quote_rate = config_map["secondary_to_primary_quote_conversion_rate"].value
+    elif "taker_to_maker_quote_conversion_rate" in config_map:
+        base_rate = config_map["taker_to_maker_base_conversion_rate"].value
+        quote_rate = config_map["taker_to_maker_quote_conversion_rate"].value
+    else:
+        return Decimal("1")
+    return quote_rate / base_rate

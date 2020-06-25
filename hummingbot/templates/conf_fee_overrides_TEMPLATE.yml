@@ -25,3 +25,6 @@ bittrex_taker_fee:
 
 kucoin_maker_fee:
 kucoin_taker_fee:
+
+bitfinex_maker_fee:
+bitfinex_taker_fee:

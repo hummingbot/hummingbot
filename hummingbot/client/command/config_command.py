@@ -18,7 +18,7 @@ from hummingbot.client.config.config_helpers import (
 from hummingbot.client.config.security import Security
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.strategy.pure_market_making import (
-    PureMarketMakingStrategyV2
+    PureMarketMakingStrategy
 )
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -26,7 +26,8 @@ if TYPE_CHECKING:
 
 
 no_restart_pmm_keys = ["bid_spread", "ask_spread"]
-global_configs_to_display = ["kill_switch_enabled",
+global_configs_to_display = ["0x_active_cancels",
+                             "kill_switch_enabled",
                              "kill_switch_rate",
                              "telegram_enabled",
                              "telegram_token",
@@ -87,12 +88,12 @@ class ConfigCommand:
 
     # Make this function static so unit testing can be performed.
     @staticmethod
-    def update_running_pure_mm(pure_mm_strategy: PureMarketMakingStrategyV2, key: str, new_value: Any):
+    def update_running_pure_mm(pure_mm_strategy: PureMarketMakingStrategy, key: str, new_value: Any):
         if key == "bid_spread":
-            pure_mm_strategy.pricing_delegate.bid_spread = new_value / Decimal("100")
+            pure_mm_strategy.bid_spread = new_value / Decimal("100")
             return True
         elif key == "ask_spread":
-            pure_mm_strategy.pricing_delegate.ask_spread = new_value / Decimal("100")
+            pure_mm_strategy.ask_spread = new_value / Decimal("100")
             return True
         return False
 
@@ -119,6 +120,9 @@ class ConfigCommand:
             if input_value is not None:
                 self._notify("Please follow the prompt to complete configurations: ")
             await self.prompt_a_config(config_var, input_value=input_value, assign_default=False)
+            if self.app.to_stop_config:
+                self.app.to_stop_config = False
+                return
             await self.update_all_secure_configs()
             missings = missing_required_configs(config_map)
             if missings:
@@ -129,7 +133,7 @@ class ConfigCommand:
             self._notify(f"{key}: {str(config_var.value)}")
             for config in missings:
                 self._notify(f"{config.key}: {str(config.value)}")
-            if isinstance(self.strategy, PureMarketMakingStrategyV2):
+            if isinstance(self.strategy, PureMarketMakingStrategy):
                 updated = ConfigCommand.update_running_pure_mm(self.strategy, key, config_var.value)
                 if updated:
                     self._notify(f"\nThe current {self.strategy_name} strategy has been updated "
@@ -148,6 +152,9 @@ class ConfigCommand:
         missings = missing_required_configs(config_map)
         for config in missings:
             await self.prompt_a_config(config)
+            if self.app.to_stop_config:
+                self.app.to_stop_config = False
+                return
         if missing_required_configs(config_map):
             return missings + (await self._prompt_missing_configs(config_map))
         return missings

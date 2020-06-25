@@ -60,6 +60,7 @@ from hummingbot.market.bitfinex.bitfinex_order_book_tracker import \
 from hummingbot.market.bitfinex.bitfinex_user_stream_tracker import \
     BitfinexUserStreamTracker
 from hummingbot.market.trading_rule cimport TradingRule
+from hummingbot.core.utils.estimate_fee import estimate_fee
 
 # if  the bitfinex return error, for example, "nonce is small" we retry in this
 # time period until success result returned from the exchange, else through error
@@ -240,12 +241,16 @@ cdef class BitfinexMarket(MarketBase):
         """
         # There is no API for checking user's fee tier
         # Fee info from https://www.bitfinex.com/fees
-        cdef:
-            object maker_fee = MAKER_FEE
-            object taker_fee = TAKER_FEE
+        # cdef:
+        #     object maker_fee = MAKER_FEE
+        #     object taker_fee = TAKER_FEE
 
-        return TradeFee(
-            percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
+        # return TradeFee(
+        #     percent=maker_fee if order_type is OrderType.LIMIT else taker_fee
+        # )
+
+        is_maker = order_type is OrderType.LIMIT
+        return estimate_fee("bitfinex", is_maker)
 
     async def _request_calc(self, currencies):
         await self._ws.emit([
