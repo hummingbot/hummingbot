@@ -1019,7 +1019,6 @@ cdef class BittrexMarket(MarketBase):
             if response.status not in [200, 201]:  # HTTP Response code of 20X generally means it is successful
                 raise IOError(f"Error fetching response from {http_method}-{url}. HTTP Status Code {response.status}: "
                               f"{data}")
-            # self.logger().info(f"Response ({url}): {data}")
             return data
 
     async def check_network(self) -> NetworkStatus:
