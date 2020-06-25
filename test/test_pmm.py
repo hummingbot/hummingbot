@@ -594,6 +594,32 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("1.95404"), last_bid_order.quantity)
         self.assertEqual(Decimal("4.04595"), last_ask_order.quantity)
 
+    def test_inventory_skew_multiple_orders_status(self):
+        strategy = PureMarketMakingStrategy(
+            self.market_info,
+            bid_spread=Decimal("0.01"),
+            ask_spread=Decimal("0.01"),
+            order_amount=Decimal("1"),
+            order_refresh_time=5.0,
+            filled_order_delay=5.0,
+            order_refresh_tolerance_pct=-1,
+            order_levels=5,
+            order_level_spread=Decimal("0.01"),
+            order_level_amount=Decimal("0.5"),
+            inventory_skew_enabled=True,
+            inventory_target_base_pct=Decimal("0.9"),
+            inventory_range_multiplier=Decimal("0.5"),
+            minimum_spread=-1,
+        )
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+        self.assertEqual(5, len(strategy.active_buys))
+        self.assertEqual(5, len(strategy.active_sells))
+
+        status_df: pd.DataFrame = strategy.inventory_skew_stats_data_frame()
+        self.assertEqual("50.0%", status_df.iloc[4, 1])
+        self.assertEqual("150.0%", status_df.iloc[4, 2])
+
     def test_external_exchange_price_source(self):
         strategy = self.one_level_strategy
         strategy.asset_price_delegate = self.order_book_asset_del
