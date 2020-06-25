@@ -14,7 +14,7 @@ There are two ways to configure these parameters:
 | Feature | Parameter | Prompt | Definition |
 |---------|-----------|--------|------------|
 | [Order Levels](./order-levels) | `order_levels` | `How many orders do you want to place on both sides?` | The number of order levels to place for each side of the order book. |
-| [Order Levels](./order-levels) | `order_level_amount` | `How much do you want to increase the order size for each additional order?` | The incremental size increase for subsequent order levels after the first level. |
+| [Order Levels](./order-levels) | `order_level_amount` | `How much do you want to increase or decrease the order size for each additional order?` | The size can either increase(if set to a value greater than zero) or decrease(if set to a value less than zero) for subsequent order levels after the first level. |
 | [Order Levels](./order-levels) | `order_level_spread` | `Enter the price increments (as percentage) for subsequent orders?` | The incremental spread increases for subsequent order levels after the first level. |
 | [Inventory Skew](./inventory-skew) | `inventory_skew_enabled` | `Would you like to enable inventory skew? (Yes/No)` | Allows the user to set and maintain a target inventory split between base and quote assets. |
 | [Inventory Skew](./inventory-skew) | `inventory_target_base_pct` | `What is your target base asset percentage?` | Target amount held of the base asset, expressed as a percentage of the total base and quote asset value. |
@@ -22,9 +22,11 @@ There are two ways to configure these parameters:
 | [Filled Order Delay](./filled-order-delay) | `filled_order_delay` | `How long do you want to wait before placing the next order if your order gets filled (in seconds)?` | How long to wait before placing the next set of orders in case at least one of your orders gets filled. |
 | [Hanging Orders](./hanging-orders) | `hanging_orders_enabled` | `Do you want to enable hanging orders? (Yes/No)` | When enabled, the orders on the side opposite to the filled orders remains active. |
 | [Hanging Orders](./hanging-orders) | `hanging_orders_cancel_pct` | `At what spread percentage (from mid price) will hanging orders be canceled?` | Cancels the hanging orders when their spread goes above this value. |
+| Minimum Spread | `minimum_spread` | `At what minimum spread should the bot automatically cancel orders` | If the spread of any active order fall below this param value, it will be automatically cancelled. |
 | [Order Refresh Tolerance](./order-refresh-tolerance) | `order_refresh_tolerance_pct` | `Enter the percent change in price needed to refresh orders at each cycle` | The spread (from mid price) to defer order refresh process to the next cycle. |
 | [Price Band](./price-band) | `price_ceiling` | `Enter the price point above which only sell orders will be placed` | Place only sell orders when mid price goes above this price. |
 | [Price Band](./price-band) | `price_floor` | `Enter the price below which only buy orders will be placed` | Place only buy orders when mid price falls below this price. |
+| [Ping Pong](./ping-pong) | `ping_pong_enabled` | `Do you want to alternate between buys and sells?` | Whether to alternate between buys and sells. |
 | [Order Optimization](./order-optimization) | `order_optimization_enabled` | `Do you want to enable best bid ask jumping? (Yes/No)` | Allows your bid and ask order prices to be adjusted based on the current top bid and ask prices in the market. |
 | [Order Optimization](./order-optimization) | `order_optimization_depth` | `How deep do you want to go into the order book for calculating the top bid and ask, ignoring dust orders on the top (expressed in base asset amount)?` | The depth in base asset amount to be used for finding top bid and ask. |
 | [Add Transaction Costs](./add-transaction-costs)  | `add_transaction_costs` | `Do you want to add transaction costs automatically to order prices? (Yes/No)` | Whether to enable adding transaction costs to order price calculation. |

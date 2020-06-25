@@ -199,7 +199,6 @@ cdef class BittrexMarket(MarketBase):
         is_maker = order_type is OrderType.LIMIT
         return estimate_fee("bittrex", is_maker)
 
-
     async def _update_balances(self):
         cdef:
             dict account_info
@@ -277,6 +276,10 @@ cdef class BittrexMarket(MarketBase):
             market_list = await self._api_request("GET", path_url=market_path_url)
 
             ticker_list = await self._api_request("GET", path_url=ticker_path_url)
+            # A temp fix, Bittrex refers to CELO as CGLD on their tickers end point, but CELO on markets end point.
+            # I think this will be rectified by Bittrex soon.
+            for item in ticker_list:
+                item["symbol"] = item["symbol"].replace("CGLD-", "CELO-")
             ticker_data = {item["symbol"]: item for item in ticker_list}
 
             result_list = [
