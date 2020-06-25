@@ -707,13 +707,13 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             list new_sells = []
         top_ask = market.c_get_price(self.trading_pair, True)
         if not top_ask.is_nan():
-            if self._take_if_crossed:
+            if not self._take_if_crossed:
                 proposal.buys = [buy for buy in proposal.buys if buy.price < top_ask]
             else:
                 proposal.buys = [buy if buy.price < top_ask else top_ask for buy in proposal.buys]
         top_bid = market.c_get_price(self.trading_pair, False)
         if not top_bid.is_nan():
-            if self._take_if_crossed:
+            if not self._take_if_crossed:
                 proposal.sells = [sell for sell in proposal.sells if sell.price > top_bid]
             else:
                 proposal.sells = [sell if sell.price > top_bid else top_bid for sell in proposal.sells]
