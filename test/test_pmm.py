@@ -18,10 +18,8 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
     OrderBookTradeEvent,
-    TradeType,
-    OrderType,
+    TradeType
 )
-from hummingbot.strategy.pure_market_making.data_types import PriceSize, Proposal
 from hummingbot.strategy.pure_market_making.pure_market_making import PureMarketMakingStrategy
 from hummingbot.strategy.pure_market_making.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
 from hummingbot.core.data_type.order_book import OrderBook
@@ -595,26 +593,6 @@ class PMMUnitTest(unittest.TestCase):
         self.assertAlmostEqual(last_ask_price, last_ask_order.price, 3)
         self.assertEqual(Decimal("1.95404"), last_bid_order.quantity)
         self.assertEqual(Decimal("4.04595"), last_ask_order.quantity)
-
-    def test_inventory_skew_existing_orders(self):
-        strategy = self.one_level_strategy
-        strategy.inventory_skew_enabled = True
-        strategy.inventory_target_base_pct = Decimal("0.9")
-        strategy.inventory_range_multiplier = Decimal("5.0")
-
-        pmm_proposal: Proposal = Proposal([PriceSize(Decimal("99.0"), Decimal("1.0"))],
-                                          [PriceSize(Decimal("101.0"), Decimal("1.0"))])
-
-        pre_limit_order_proposal: Proposal = pmm_proposal.copy()
-        post_limit_order_proposal: Proposal = pmm_proposal.copy()
-
-        strategy.apply_inventory_skew(pre_limit_order_proposal)
-
-        # Verify that a change in the available balance, should not change how inventory skew is calculated.
-        self.market.sell(self.trading_pair, Decimal("2"), OrderType.LIMIT, price=Decimal("150.0"))
-        strategy.apply_inventory_skew(post_limit_order_proposal)
-
-        self.assertEqual(pre_limit_order_proposal, post_limit_order_proposal)
 
     def test_external_exchange_price_source(self):
         strategy = self.one_level_strategy
