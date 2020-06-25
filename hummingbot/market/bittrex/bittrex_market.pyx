@@ -280,7 +280,6 @@ cdef class BittrexMarket(MarketBase):
             # I think this will be rectified by Bittrex soon.
             for item in ticker_list:
                 item["symbol"] = item["symbol"].replace("CGLD-", "CELO-")
-            self.logger().info(f"Tickers: {ticker_list}")
             ticker_data = {item["symbol"]: item for item in ticker_list}
 
             result_list = [
