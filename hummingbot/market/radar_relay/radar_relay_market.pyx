@@ -290,7 +290,19 @@ cdef class RadarRelayMarket(MarketBase):
                 total_balances = self._account_balances
 
                 for order in self._in_flight_limit_orders.values():
-                    locked_balances[order.trading_pair] = locked_balances.get(order.trading_pair, s_decimal_0) + order.amount
+                    # Orders that are done, cancelled or expired don't deduct from the available balance
+                    if (not order.is_cancelled and
+                            not order.is_expired and
+                            not order.is_failure and
+                            not order.is_done):
+                        pair_split = order.trading_pair.split("-")
+                        if order.trade_type is TradeType.BUY:
+                            currency = pair_split[1]
+                            amount = Decimal(order.amount * order.price)
+                        else:
+                            currency = pair_split[0]
+                            amount = Decimal(order.amount)
+                        locked_balances[currency] = locked_balances.get(currency, s_decimal_0) + amount
 
                 for currency, balance in total_balances.items():
                     self._account_available_balances[currency] = \

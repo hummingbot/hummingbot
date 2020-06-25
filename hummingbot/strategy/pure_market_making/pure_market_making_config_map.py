@@ -170,11 +170,11 @@ pure_market_making_config_map = {
                   default=1),
     "order_level_amount":
         ConfigVar(key="order_level_amount",
-                  prompt="How much do you want to increase the order size for each "
-                         "additional order? >>> ",
+                  prompt="How much do you want to increase or decrease the order size for each "
+                         "additional order? (decrease < 0 > increase) >>> ",
                   required_if=lambda: pure_market_making_config_map.get("order_levels").value > 1,
                   type_str="decimal",
-                  validator=lambda v: validate_decimal(v, min_value=0),
+                  validator=lambda v: validate_decimal(v),
                   default=0),
     "order_level_spread":
         ConfigVar(key="order_level_spread",
@@ -232,10 +232,19 @@ pure_market_making_config_map = {
                   type_str="bool",
                   default=False,
                   validator=validate_bool),
-    "order_optimization_depth":
-        ConfigVar(key="order_optimization_depth",
+    "ask_order_optimization_depth":
+        ConfigVar(key="ask_order_optimization_depth",
                   prompt="How deep do you want to go into the order book for calculating "
-                         "the top bid and ask, ignoring dust orders on the top "
+                         "the top ask, ignoring dust orders on the top "
+                         "(expressed in base asset amount)? >>> ",
+                  required_if=lambda: pure_market_making_config_map.get("order_optimization_enabled").value,
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, min_value=0),
+                  default=0),
+    "bid_order_optimization_depth":
+        ConfigVar(key="bid_order_optimization_depth",
+                  prompt="How deep do you want to go into the order book for calculating "
+                         "the top bid, ignoring dust orders on the top "
                          "(expressed in base asset amount)? >>> ",
                   required_if=lambda: pure_market_making_config_map.get("order_optimization_enabled").value,
                   type_str="decimal",
