@@ -355,8 +355,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             MarketBase market = self._market_info.market
 
         mid_price = self.get_mid_price()
-        base_asset_amount = market.c_get_balance(self.base_asset)
-        quote_asset_amount = market.c_get_balance(self.quote_asset)
+        base_asset_amount, quote_asset_amount = self.c_get_adjusted_available_balance(self.active_orders)
+        total_order_size = calculate_total_order_size(self._order_amount, self._order_level_amount, self._order_levels)
+
         base_asset_value = base_asset_amount * mid_price
         quote_asset_value = quote_asset_amount / mid_price if mid_price > s_decimal_zero else s_decimal_zero
         total_value = base_asset_amount + quote_asset_value
@@ -373,7 +374,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                               else s_decimal_zero)
         target_base_amount_in_quote = target_base_ratio * total_value_in_quote
         target_quote_amount = (1 - target_base_ratio) * total_value_in_quote
-        base_asset_range = (self._order_amount * Decimal("2") * self._inventory_range_multiplier)
+
+        base_asset_range = total_order_size * self._inventory_range_multiplier
         high_water_mark = target_base_amount + base_asset_range
         low_water_mark = max(target_base_amount - base_asset_range, s_decimal_zero)
         low_water_mark_ratio = (low_water_mark / total_value
@@ -583,6 +585,24 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         return Proposal(buys, sells)
 
+    cdef tuple c_get_adjusted_available_balance(self, list orders):
+        """
+        Calculates the available balance, plus the amount attributed to orders.
+        :return: (base amount, quote amount) in Decimal
+        """
+        cdef:
+            MarketBase market = self._market_info.market
+            object base_balance = market.c_get_available_balance(self.base_asset)
+            object quote_balance = market.c_get_available_balance(self.quote_asset)
+
+        for order in orders:
+            if order.is_buy:
+                quote_balance += order.quantity * order.price
+            else:
+                base_balance += order.quantity
+
+        return base_balance, quote_balance
+
     cdef c_apply_order_levels_modifiers(self, proposal):
         self.c_apply_price_band(proposal)
         if self._ping_pong_enabled:
@@ -623,19 +643,11 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     cdef c_apply_inventory_skew(self, object proposal):
         cdef:
             MarketBase market = self._market_info.market
-            object base_balance = market.c_get_available_balance(self.base_asset)
-            object quote_balance = market.c_get_available_balance(self.quote_asset)
-
-        for active_order in self.active_orders:
-            if active_order.is_buy:
-                quote_balance += active_order.quantity * active_order.price
-            else:
-                base_balance += active_order.quantity
-
-        cdef:
             object bid_adj_ratio
             object ask_adj_ratio
             object size
+
+        base_balance, quote_balance = self.c_get_adjusted_available_balance(self.active_orders)
 
         total_order_size = calculate_total_order_size(self._order_amount, self._order_level_amount, self._order_levels)
         bid_ask_ratios = c_calculate_bid_ask_ratios_from_base_asset_ratio(
@@ -661,18 +673,12 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     cdef c_apply_budget_constraint(self, object proposal):
         cdef:
             MarketBase market = self._market_info.market
-            object base_balance = market.c_get_available_balance(self.base_asset)
-            object quote_balance = market.c_get_available_balance(self.quote_asset)
             object quote_size
             object base_size
             object quote_size_total = Decimal("0")
             object base_size_total = Decimal("0")
 
-        for order in self.active_non_hanging_orders:
-            if order.is_buy:
-                quote_balance += order.quantity * order.price
-            else:
-                base_balance += order.quantity
+        base_balance, quote_balance = self.c_get_adjusted_available_balance(self.active_non_hanging_orders)
 
         for buy in proposal.buys:
             buy_fees = market.c_get_fee(self.base_asset, self.quote_asset, OrderType.MARKET, TradeType.BUY,
