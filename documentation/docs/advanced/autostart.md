@@ -56,6 +56,7 @@ export CONFIG_PASSWORD=<config password>
 # 5) Launch unattended instance of Hummingbot
 docker run -d \
   --name hummingbot-instance \
+  --network host \
   --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
   --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
   --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_data,destination=/data/" \

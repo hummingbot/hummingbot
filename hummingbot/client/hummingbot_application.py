@@ -132,6 +132,10 @@ class HummingbotApplication(*commands):
             notifier.add_msg_to_queue(msg)
 
     def _handle_command(self, raw_command: str):
+        # unset to_stop_config flag it triggered before loading any command
+        if self.app.to_stop_config:
+            self.app.to_stop_config = False
+
         raw_command = raw_command.lower().strip()
         try:
             if self.placeholder_mode:
@@ -176,7 +180,7 @@ class HummingbotApplication(*commands):
                         '\n'.join(uncancelled_order_ids)
                     ))
         except Exception:
-            self.logger().error(f"Error canceling outstanding orders.", exc_info=True)
+            self.logger().error("Error canceling outstanding orders.", exc_info=True)
             success = False
 
         if success:

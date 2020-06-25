@@ -4,8 +4,9 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.user.user_balances import UserBalances
 from hummingbot.client.config.config_helpers import save_to_yml
 from hummingbot.client.settings import GLOBAL_CONFIG_PATH
+from hummingbot.market.celo.celo_cli import CeloCLI
 import pandas as pd
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -18,7 +19,8 @@ OPTIONS = {
     "kucoin",
     "kraken",
     "ethereum",
-    "bitfinex"
+    "celo",
+    "bitfinex",
 }
 
 
@@ -29,6 +31,8 @@ class ConnectCommand:
             safe_ensure_future(self.show_connections())
         elif option == "ethereum":
             safe_ensure_future(self.connect_ethereum())
+        elif option == "celo":
+            safe_ensure_future(self.connect_celo())
         else:
             safe_ensure_future(self.connect_exchange(option))
 
@@ -44,12 +48,18 @@ class ConnectCommand:
             api_key_config = [c for c in exchange_configs if "api_key" in c.key][0]
             api_key = Security.decrypted_value(api_key_config.key)
             answer = await self.app.prompt(prompt=f"Would you like to replace your existing {exchange} API key "
-                                                  f"...{api_key[-4:]} (Yes/No)? >>> ")
+                                                  f"{api_key} (Yes/No)? >>> ")
+            if self.app.to_stop_config:
+                self.app.to_stop_config = False
+                return
             if answer.lower() not in ("yes", "y"):
                 to_connect = False
         if to_connect:
             for config in exchange_configs:
                 await self.prompt_a_config(config)
+                if self.app.to_stop_config:
+                    self.app.to_stop_config = False
+                    return
                 Security.update_secure_config(config.key, config.value)
             api_keys = (await Security.api_keys(exchange)).values()
             err_msg = await UserBalances.instance().add_exchange(exchange, *api_keys)
@@ -66,10 +76,10 @@ class ConnectCommand:
         self._notify("\nTesting connections, please wait...")
         await Security.wait_til_decryption_done()
         df, failed_msgs = await self.connection_df()
-        lines = ["    " + l for l in df.to_string(index=False).split("\n")]
+        lines = ["    " + line for line in df.to_string(index=False).split("\n")]
         if failed_msgs:
             lines.append("\nFailed connections:")
-            lines.extend([f"    " + k + ": " + v for k, v in failed_msgs.items()])
+            lines.extend(["    " + k + ": " + v for k, v in failed_msgs.items()])
         self._notify("\n".join(lines))
 
     async def connection_df(self  # type: HummingbotApplication
@@ -86,6 +96,15 @@ class ConnectCommand:
                 if eth_address is not None and eth_address in Security.private_keys():
                     keys_added = "Yes"
                     err_msg = UserBalances.validate_ethereum_wallet()
+                    if err_msg is not None:
+                        failed_msgs[option] = err_msg
+                    else:
+                        keys_confirmed = 'Yes'
+            elif option == "celo":
+                celo_address = global_config_map["celo_address"].value
+                if celo_address is not None and Security.encrypted_file_exists("celo_password"):
+                    keys_added = "Yes"
+                    err_msg = await self.validate_n_connect_celo(True)
                     if err_msg is not None:
                         failed_msgs[option] = err_msg
                     else:
@@ -110,7 +129,10 @@ class ConnectCommand:
         to_connect = True
         if ether_wallet is not None:
             answer = await self.app.prompt(prompt=f"Would you like to replace your existing Ethereum wallet "
-                                                  f"...{ether_wallet[-4:]} (Yes/No)? >>> ")
+                                                  f"{ether_wallet} (Yes/No)? >>> ")
+            if self.app.to_stop_config:
+                self.app.to_stop_config = False
+                return
             if answer.lower() not in ("yes", "y"):
                 to_connect = False
         if to_connect:
@@ -118,6 +140,9 @@ class ConnectCommand:
             public_address = Security.add_private_key(private_key)
             global_config_map["ethereum_wallet"].value = public_address
             await self.prompt_a_config(global_config_map["ethereum_rpc_url"])
+            if self.app.to_stop_config:
+                self.app.to_stop_config = False
+                return
             save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
             err_msg = UserBalances.validate_ethereum_wallet()
             if err_msg is None:
@@ -127,3 +152,47 @@ class ConnectCommand:
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
+
+    async def connect_celo(self,  # type: HummingbotApplication
+                           ):
+        self.placeholder_mode = True
+        self.app.hide_input = True
+        celo_address = global_config_map["celo_address"].value
+        to_connect = True
+        if celo_address is not None:
+            answer = await self.app.prompt(prompt=f"Would you like to replace your existing Celo account address "
+                                                  f"{celo_address} (Yes/No)? >>> ")
+            if answer.lower() not in ("yes", "y"):
+                to_connect = False
+        if to_connect:
+            await self.prompt_a_config(global_config_map["celo_address"])
+            await self.prompt_a_config(global_config_map["celo_password"])
+            save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
+
+            err_msg = await self.validate_n_connect_celo(True,
+                                                         global_config_map["celo_address"].value,
+                                                         global_config_map["celo_password"].value)
+            if err_msg is None:
+                self._notify("You are now connected to Celo network.")
+            else:
+                self._notify(err_msg)
+        self.placeholder_mode = False
+        self.app.hide_input = False
+        self.app.change_prompt(prompt=">>> ")
+
+    async def validate_n_connect_celo(self, to_reconnect: bool = False, celo_address: str = None,
+                                      celo_password: str = None) -> Optional[str]:
+        if celo_address is None:
+            celo_address = global_config_map["celo_address"].value
+        if celo_password is None:
+            await Security.wait_til_decryption_done()
+            celo_password = Security.decrypted_value("celo_password")
+        if celo_address is None or celo_password is None:
+            return "Celo address and/or password have not been added."
+        if CeloCLI.unlocked and not to_reconnect:
+            return None
+        err_msg = CeloCLI.validate_node_synced()
+        if err_msg is not None:
+            return err_msg
+        err_msg = CeloCLI.unlock_account(celo_address, celo_password)
+        return err_msg

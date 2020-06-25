@@ -40,6 +40,7 @@ from hummingbot.market.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 
 sys.path.insert(0, realpath(join(__file__, "../../../")))
 logging.basicConfig(level=METRICS_LOG_LEVEL)
@@ -120,14 +121,32 @@ class BitfinexMarketUnitTest(unittest.TestCase):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_get_fee(self):
-        limit_fee: TradeFee = self.market.get_fee("ETH", "USDC", OrderType.LIMIT,
+        limit_fee: TradeFee = self.market.get_fee("ETH", "USD", OrderType.LIMIT,
                                                   TradeType.BUY, 1, 1)
         self.assertGreater(limit_fee.percent, 0)
         self.assertEqual(len(limit_fee.flat_fees), 0)
-        market_fee: TradeFee = self.market.get_fee("ETH", "USDC", OrderType.MARKET,
+        market_fee: TradeFee = self.market.get_fee("ETH", "USD", OrderType.MARKET,
                                                    TradeType.BUY, 1)
         self.assertGreater(market_fee.percent, 0)
         self.assertEqual(len(market_fee.flat_fees), 0)
+
+    def test_fee_overrides_config(self):
+        fee_overrides_config_map["bitfinex_taker_fee"].value = None
+        taker_fee: TradeFee = self.market.get_fee("ETH", "USD", OrderType.MARKET, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.005"), taker_fee.percent)
+        fee_overrides_config_map["bitfinex_taker_fee"].value = Decimal('0.2')
+        taker_fee: TradeFee = self.market.get_fee("ETH", "USD", OrderType.MARKET, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.002"), taker_fee.percent)
+        fee_overrides_config_map["bitfinex_maker_fee"].value = None
+        maker_fee: TradeFee = self.market.get_fee("ETH", "USD", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
+        fee_overrides_config_map["bitfinex_maker_fee"].value = Decimal('0.75')
+        maker_fee: TradeFee = self.market.get_fee("ETH", "USD", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.0075"), maker_fee.percent)
 
     def test_minimum_order_size(self):
         amount = Decimal("0.001")

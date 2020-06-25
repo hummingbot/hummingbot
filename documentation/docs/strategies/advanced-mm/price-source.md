@@ -1,9 +1,57 @@
 # External Pricing Source Configuration
 
-By default, Hummingbot uses the market orderbook mid price (between the top bid and the top ask) as a starting price to calculate maker order prices. 
-With external pricing sources, you can now use external sources for the starting mid price such as an external **exchange** or a **custom API**.
+**Updated as of `v0.28.0`**
 
-In a situation where the calculation of maker order prices from external sources would result in the order matching any existing orders on the order book, such order will be ignored. For example, if ETH-USDC market is currently displaying 109 bid and 111 ask. A specified external exchange is showing 99 bid and 101 ask on its book (mid price = 100). 2 maker orders will be proposed, a bid maker order at 98 (for 2% bid spread) and an ask maker order at 102 (for 2% ask spread). The 102 ask order will be ignored (as it would match the 109 bid order), only the bid order will be submitted to the exchange. 
+By default, Hummingbot uses the order book you're trading in to generate the **mid price** (between the top bid and the top ask) as a starting price to calculate maker order prices.
+
+With this feature, you can now use a different order book for the starting mid price, such as an external **exchange** or a **custom API**.
+
+##How It Works
+
+In a situation where the calculation of maker order prices from external sources would result in the order matching any existing orders on the order book, such order will be ignored.
+
+Type `config price_source_enabled` to start the configuration process.
+
+First, set `price_source_type`: choose whether you want to use another exchange (`exchange`) or a custom API (`custom`). Based on your answer, you can set the exchange order book or enter an API endpoint.
+
+!!! note
+    Currently, the external price source cannot be the same as the maker exchange (i.e. if the bot is trading on Binance, the `price_source_exchange` cannot be Binance).
+
+### When to use an external price source
+External price source is valuable when your bot is market making for a relatively illiquid trading pair, but a more liquid pair with the same underlying exposure is available on a different exchange.
+
+Suppose we are market making for the `ETH-USDT` trading pair. The exchange we are trading on, denoted as **Exchange A**, has the top bid order at $198 and the top ask order at $202, so the mid price is $200.
+
+Let's suppose there is **Exchange B** with an `ETH-USD` trading pair. That pair has a top bid order at $200 while the top ask order is $202, so the mid price is $201. These discrepancies often happens between different exchanges as market conditions change. Some exchanges may react more slowly or quickly to market changes due to differences in the trading pair, liquidity, geography.
+
+If you believe that `ETH-USD` on Exchange B is more liquid and responds more quickly to market information than `ETH-USDT` on Exchange A, you may want to market make on Exchange A but use `ETH-USD` on Exchange B as the price source. This helps you position your orders based on where the market might go in the future. 
+
+
+## Sample Configurations
+```json
+- market: XRP-USD
+- bid_spread: 1
+- ask_spread: 1
+- order_amount: 56
+```
+###No External Pricing Source Configuration
+![No External Pricing Source Configuration](/assets/img/price_source_None_config.PNG)
+
+###Exchange External Price Source Configuration
+![Exchange External Price Source Configuration](/assets/img/price_source_exchange_config.PNG)
+
+###Custom API Pricing Source Configuration
+![Custom API Pricing Source Configuration](/assets/img/price_source_custom_api_config.PNG)
+
+**Custom API Output Required Parameters**
+
+The API GET request should return a decimal number corresponding to a market price for the asset pair you are trading on.
+
+
+*Sample API Output:*
+```json
+207.8
+```
 
 
 ## Relevant Parameters
