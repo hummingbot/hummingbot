@@ -278,7 +278,6 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await asyncio.sleep(30.0)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        asyncio.sleep(2)
         while True:
             try:
                 trading_pairs: List[str] = await self.get_trading_pairs()
