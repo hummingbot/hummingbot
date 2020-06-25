@@ -57,6 +57,20 @@ cdef class KrakenOrderBook(OrderBook):
         }, timestamp=timestamp * 1e-3)
 
     @classmethod
+    def snapshot_ws_message_from_exchange(cls,
+                                          msg: Dict[str, any],
+                                          timestamp: Optional[float] = None,
+                                          metadata: Optional[Dict] = None) -> OrderBookMessage:
+        if metadata:
+            msg.update(metadata)
+        return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
+            "trading_pair": msg["trading_pair"].replace('/', ''),
+            "update_id": msg["update_id"],
+            "bids": msg["bids"],
+            "asks": msg["asks"]
+        }, timestamp=timestamp * 1e-3)
+
+    @classmethod
     def trade_message_from_exchange(cls, msg: Dict[str, any], metadata: Optional[Dict] = None):
         if metadata:
             msg.update(metadata)
