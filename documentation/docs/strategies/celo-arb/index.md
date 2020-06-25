@@ -11,7 +11,7 @@
 
 The `celo-arb` strategy is a special case of the normal [arbitrage](/strategies/arbitrage/) strategy that arbitrages between the automated market maker (AMM) exchange on the Celo blockchain and other markets supported by Hummingbot. This strategy allows users to earn arbitrage profits while contributing to the stability of the Celo cUSD price peg.
 
-For more information, please see this [blog post](https://hummingbot.io/blog/2021-06-celo-arbitrage/).
+For more information, please see this [blog post](https://hummingbot.io/blog/2020-06-celo-arbitrage/).
 
 ## Quickstart guide
 
