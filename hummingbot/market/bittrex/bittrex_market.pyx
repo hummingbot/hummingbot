@@ -276,6 +276,11 @@ cdef class BittrexMarket(MarketBase):
             market_list = await self._api_request("GET", path_url=market_path_url)
 
             ticker_list = await self._api_request("GET", path_url=ticker_path_url)
+            # A temp fix, Bittrex refers to CELO as CGLD on their tickers end point, but CELO on markets end point.
+            # I think this will be rectified by Bittrex soon.
+            for item in ticker_list:
+                item["symbol"] = item["symbol"].replace("CGLD-", "CELO-")
+            self.logger().info(f"Tickers: {ticker_list}")
             ticker_data = {item["symbol"]: item for item in ticker_list}
 
             result_list = [
@@ -1014,6 +1019,7 @@ cdef class BittrexMarket(MarketBase):
             if response.status not in [200, 201]:  # HTTP Response code of 20X generally means it is successful
                 raise IOError(f"Error fetching response from {http_method}-{url}. HTTP Status Code {response.status}: "
                               f"{data}")
+            # self.logger().info(f"Response ({url}): {data}")
             return data
 
     async def check_network(self) -> NetworkStatus:
