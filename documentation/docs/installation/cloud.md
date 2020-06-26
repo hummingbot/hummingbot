@@ -2,10 +2,17 @@
 
 Using Hummingbot as a long running service can be achieved with the help of cloud platforms such as Google Cloud Platform, Amazon Web Services, and Microsoft Azure. You may read our blog about running [Hummingbot on different cloud providers](https://www.hummingbot.io/blog/2019-06-cloud-providers/).
 
-Below, we show you how to set up a new Virtual Machine Instance on each major cloud platform.
+As of **version 0.28.0** installing Docker takes up around 500 MB of storage space and 4 GB for Hummingbot Docker image. We tested to install and run Hummingbot on these free to lowest machine types.
 
-!!! tip "Tip: Access Cloud Instances on your Phone"
-    Use Hummingbot's [Telegram Integration](/advanced/telegram) to connect to your cloud instance without a computer. Note that this has limited functionality and remains a work in progress.
+| Provider | Instance Type | Instance Details |
+|---------|-----------|-----------|
+| Google Cloud Platform <img width=50/> | g1-small <img width=100/> | 1 vCPU, 1.7 GB memory <img width=100/> |
+| Amazon Web Services | t2.micro | 1 vCPU, 1 GB memory |
+| Microsoft Azure | Standard_E2s_v3 | 2 vCPU, 16 GB memory |
+
+These instances are pre-loaded with system files that takes up around 1.2 GB so we recommend having at least **8 GB of storage space** in your cloud server.
+
+Below, we show you how to set up a new Virtual Machine Instance on each major cloud platform.
 
 ## Google Cloud Platform
 
