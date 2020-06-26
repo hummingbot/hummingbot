@@ -11,7 +11,7 @@
 
 The `celo-arb` strategy is a special case of the normal [arbitrage](/strategies/arbitrage/) strategy that arbitrages between the automated market maker (AMM) exchange on the Celo blockchain and other markets supported by Hummingbot. This strategy allows users to earn arbitrage profits while contributing to the stability of the Celo cUSD price peg.
 
-For more information, please see this [blog post](https://hummingbot.io/blog/2021-06-celo-arbitrage/).
+For more information, please see this [blog post](https://hummingbot.io/blog/2020-06-celo-arbitrage/).
 
 ## Quickstart guide
 
@@ -48,5 +48,6 @@ The following walks through all the steps when running `create` command. These p
 | **secondary_market** | `Enter your secondary exchange name` | Enter another exchange you would like to trade on. |
 | **secondary_market_trading_pair** | `Enter the token trading pair you would like to trade on [secondary_market]` | Enter the token trading pair for the secondary exchange. |
 | **min_profitability** | `What is the minimum profitability for you to make a trade?` | Minimum profitability target required to execute trades. |
-| **order_amount** | `What is the amount of [base_asset] per order?` | Order amount for each leg of the arbitrage trade. | **celo_slippage_buffer** | `How much buffer do you want to add to the Celo price to account for slippage (Enter 1 for 1%)?` | Percent buffer added to the Celo exchange price to account for price movement before trade execution |
+| **order_amount** | `What is the amount of [base_asset] per order?` | Order amount for each leg of the arbitrage trade. |
+| **celo_slippage_buffer** | `How much buffer do you want to add to the Celo price to account for slippage (Enter 1 for 1%)?` | Percent buffer added to the Celo exchange price to account for price movement before trade execution |
 

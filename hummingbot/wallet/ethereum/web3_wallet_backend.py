@@ -388,10 +388,12 @@ class Web3WalletBackend(PubSub):
         async_scheduler: AsyncCallScheduler = AsyncCallScheduler.shared_instance()
         try:
             return await async_scheduler.call_async(self._w3.eth.getTransactionReceipt, tx_hash)
-        except TransactionNotFound:
+        except TransactionNotFound as e:
             now: float = time.time()
             if now - timestamp > 120:
-                raise
+                stop_tx_hash = e.args[0].split(" ")[3]
+                self._stop_tx_tracking(stop_tx_hash)
+                self.logger().info(f"Stopped tracking transaction with hash: {stop_tx_hash}.")
             return None
 
     async def check_transaction_receipts(self):
