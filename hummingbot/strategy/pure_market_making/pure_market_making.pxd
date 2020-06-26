@@ -10,6 +10,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         object _bid_spread
         object _ask_spread
+        object _minimum_spread
         object _order_amount
         int _order_levels
         object _order_level_spread
@@ -23,18 +24,20 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         bint _hanging_orders_enabled
         object _hanging_orders_cancel_pct
         bint _order_optimization_enabled
-        object _order_optimization_depth
+        object _ask_order_optimization_depth
+        object _bid_order_optimization_depth
         bint _add_transaction_costs_to_orders
         object _asset_price_delegate
         object _price_ceiling
         object _price_floor
         bint _ping_pong_enabled
+        list _ping_pong_warning_lines
+        bint _hb_app_notification
 
         double _cancel_timestamp
         double _create_timestamp
         object _limit_order_type
         bint _all_markets_ready
-        double _expiration_seconds
         int _filled_buys_balance
         int _filled_sells_balance
         list _hanging_order_ids
@@ -43,6 +46,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         int64_t _logging_options
     cdef object c_get_mid_price(self)
     cdef object c_create_base_proposal(self)
+    cdef tuple c_get_adjusted_available_balance(self, list orders)
     cdef c_apply_order_levels_modifiers(self, object proposal)
     cdef c_apply_price_band(self, object proposal)
     cdef c_apply_ping_pong(self, object proposal)
@@ -56,6 +60,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     cdef bint c_is_within_tolerance(self, list current_prices, list proposal_prices)
     cdef c_cancel_active_orders(self, object proposal)
     cdef c_cancel_hanging_orders(self)
+    cdef c_cancel_orders_below_min_spread(self)
     cdef bint c_to_create_orders(self, object proposal)
     cdef c_execute_orders_proposal(self, object proposal)
     cdef set_timers(self)
