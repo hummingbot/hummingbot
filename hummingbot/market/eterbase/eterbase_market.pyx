@@ -497,6 +497,11 @@ cdef class EterbaseMarket(MarketBase):
             exchange_order_id = await tracked_order.get_exchange_order_id()
             order_update = order_dict.get(exchange_order_id)
             if order_update is None:
+                self._order_not_found_records[exchange_order_id] = self._order_not_found_records.get(exchange_order_id, 0) + 1
+                if self._order_not_found_records[exchange_order_id] < self.ORDER_NOT_EXIST_CONFIRMATION_COUNT:
+                    # Wait until the order not found error have repeated a few times before actually treating
+                    # it as failed. See: https://github.com/CoinAlpha/hummingbot/issues/601
+                    continue
                 self.logger().network(
                     f"Error fetching status update for the order {tracked_order.client_order_id}: "
                     f"{order_update}.",
@@ -520,7 +525,8 @@ cdef class EterbaseMarket(MarketBase):
                 else:
                     self.logger().network(
                         f"Error fetching status update for the order {tracked_order.client_order_id}: "
-                        f"{order_update}.",
+                        f"{order_update}."
+                        f"Exception: {ioe}",
                         app_warning_msg=f"Could not fetch updates for the order {tracked_order.client_order_id}. OrderId: {exchange_order_id}. "
                                         f"Check API key and network connection.")
                 continue
