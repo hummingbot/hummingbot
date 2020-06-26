@@ -1,24 +1,22 @@
-from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
-from hummingbot.core.event.events import TradeFee
 from decimal import Decimal
-
+from hummingbot.core.event.events import TradeFee
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 
 default_cex_estimate = {
-        #exchange: [maker_fee, taker_fee]
-        "binance": [0.1, 0.1],
-        "bittrex": [0.25, 0.25],
-        "coinbase_pro": [0.5, 0.5],
-        "huobi": [0.2, 0.2],
-        "kraken": [0.16, 0.26],
-        "kucoin": [0.1, 0.1],
-        "liquid": [0.1, 0.1]
-        }
+    # exchange: [maker_fee, taker_fee]
+    "binance": [0.1, 0.1],
+    "bittrex": [0.25, 0.25],
+    "coinbase_pro": [0.5, 0.5],
+    "huobi": [0.2, 0.2],
+    "kraken": [0.16, 0.26],
+    "kucoin": [0.1, 0.1],
+    "liquid": [0.1, 0.1]}
 
 default_dex_estimate = {
-        "bamboo_relay": [0, 0.00001],
-        "radar_relay": [0, 0.00001],
-        "dolomite": [0, 0.00001]
-        }
+    "bamboo_relay": [0, 0.00001],
+    "radar_relay": [0, 0.00001],
+    "dolomite": [0, 0.00001]}
+
 
 def estimate_fee(exchange, is_maker):
     override_config_name_suffix = "_maker_fee" if is_maker else "_taker_fee"
@@ -51,4 +49,3 @@ def estimate_fee(exchange, is_maker):
                 return TradeFee(percent=s_decimal_0, flat_fees=[("ETH", fee_overrides_config_map[override_config_name].value)])
             else:
                 return TradeFee(percent=s_decimal_0, flat_fees=[("ETH", Decimal(default_dex_estimate[exchange][1]))])
-

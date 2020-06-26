@@ -69,7 +69,7 @@ class CreateCommand:
             else:
                 config.value = config.default
 
-        #catch a last key binding to stop config, if any
+        # catch a last key binding to stop config, if any
         if self.app.to_stop_config:
             self.app.to_stop_config = False
             return
