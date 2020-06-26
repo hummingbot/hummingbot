@@ -21,6 +21,7 @@ FIAT_QUOTES = [
     "JPY",
     "GBP",
     "CHF",
+    "AUD"
 ]
 
 FIAT_QUOTES = FIAT_QUOTES + ["Z" + quote for quote in FIAT_QUOTES]
@@ -32,6 +33,7 @@ BASE_ORDER_MIN = {
     "XREP": Decimal("0.3"),
     "BAT": Decimal("50"),
     "BTC": Decimal("0.002"),
+    "XBT": Decimal("0.002"),
     "BCH": Decimal("0.000002"),
     "ADA": Decimal("1"),
     "LINK": Decimal("10"),

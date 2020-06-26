@@ -106,7 +106,7 @@ cross_exchange_market_making_config_map = {
         key="min_profitability",
         prompt="What is the minimum profitability for you to make a trade? (Enter 1 to indicate 1%) >>> ",
         prompt_on_new=True,
-        validator=lambda v: validate_decimal(v, Decimal(0), Decimal("100"), inclusive=False),
+        validator=lambda v: validate_decimal(v, Decimal(-100), Decimal("100"), inclusive=True),
         type_str="decimal",
     ),
     "order_amount": ConfigVar(

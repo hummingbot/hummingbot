@@ -1,0 +1,24 @@
+##########################################
+###   Celo Arbitrage strategy config   ###
+##########################################
+
+template_version: 1
+strategy: null
+
+# The following configuations are only required for the Celo arbitrage trading strategy
+
+# Exchange and token parameters
+secondary_exchange: null
+secondary_market: null
+order_amount: null
+
+# Minimum profitability target required to place an order
+# Expressed in percentage value, e.g. 1 = 1% target profit
+min_profitability: null
+
+# A buffer to add to the Celo price to account for slippage when buying/selling on celocli
+# (Enter 1 for 1%)
+celo_slippage_buffer: null
+
+# For more detailed information, see:
+# https://docs.hummingbot.io/strategies/arbitrage/#configuration-parameters
