@@ -98,53 +98,53 @@ class ScriptIteratorUnitTest(unittest.TestCase):
         self._ev_loop.run_until_complete(self._test_price_band_price_ceiling_breach_async())
 
     async def _test_price_band_price_ceiling_breach_async(self):
-        # script_file = "/Users/jack/github/hummingbot/test/scripts/price_band_script.py"
-        self._script_iterator = ScriptIterator("none", [self.market], self.multi_levels_strategy, 0.0)
-        # self._script_iterator.start_process()
+        script_file = "../conf/price_band_script.py"
+        self._script_iterator = ScriptIterator(script_file, [self.market], self.multi_levels_strategy, 0.0)
         self.clock.add_iterator(self._script_iterator)
-        #
         strategy = self.multi_levels_strategy
-        # strategy.price_ceiling = Decimal("105")
 
         self.clock.add_iterator(strategy)
         self.clock.backtest_til(self.start_timestamp + 1)
+        await asyncio.sleep(0.1)
 
         self.assertEqual(3, len(strategy.active_buys))
         self.assertEqual(3, len(strategy.active_sells))
 
+        simulate_order_book_widening(self.book_data.order_book, self.mid_price, 115, )
         self.clock.backtest_til(self.start_timestamp + 2)
-        await asyncio.sleep(1)
-        # parent_queue.put(OnTick(Decimal(100), StrategyParameters(1, 2, 3)))
-        # simulate_order_book_widening(self.book_data.order_book, self.mid_price, 115, )
-        # import time
-        # time.sleep(2)
-        # parent_queue.put(None)
-        # time.sleep(1)
-        # script_process.join()
-        # return
-        # self.clock.backtest_til(self.start_timestamp + 7)
-        # self.assertEqual(0, len(strategy.active_buys))
-        # self.assertEqual(3, len(strategy.active_sells))
+        await asyncio.sleep(0.1)
+
+        self.clock.backtest_til(self.start_timestamp + 7)
+        await asyncio.sleep(0.1)
+        self.assertEqual(0, len(strategy.active_buys))
+        self.assertEqual(3, len(strategy.active_sells))
         self._script_iterator.stop(self.clock)
 
-    def test_price_band_price_floor_breach(self):
-        script_file = "scripts/price_band_script.py"
-        self._script_iterator = ScriptIterator(script_file, [self.market], self.multi_levels_strategy)
+    def test_price_band_price_floor_breach_async(self):
+        self._ev_loop.run_until_complete(self._test_price_band_price_floor_breach_async())
+
+    async def _test_price_band_price_floor_breach_async(self):
+        # script_file = "/Users/jack/github/hummingbot/test/scripts/price_band_script.py"
+        self._script_iterator = ScriptIterator("none", [self.market], self.multi_levels_strategy, 0.0)
         self.clock.add_iterator(self._script_iterator)
         strategy = self.multi_levels_strategy
-        # strategy.price_floor = Decimal("95")
 
         self.clock.add_iterator(strategy)
         self.clock.backtest_til(self.start_timestamp + 1)
+        await asyncio.sleep(0.1)
 
         self.assertEqual(3, len(strategy.active_buys))
         self.assertEqual(3, len(strategy.active_sells))
 
         simulate_order_book_widening(self.book_data.order_book, 85, self.mid_price)
+        self.clock.backtest_til(self.start_timestamp + 2)
+        await asyncio.sleep(0.1)
 
         self.clock.backtest_til(self.start_timestamp + 7)
+        await asyncio.sleep(0.1)
         self.assertEqual(3, len(strategy.active_buys))
         self.assertEqual(0, len(strategy.active_sells))
+        self._script_iterator.stop(self.clock)
 
     def get_writeable_properties(self, cls):
         return [attr for attr, value in vars(cls).items()

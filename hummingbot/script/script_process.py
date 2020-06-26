@@ -1,19 +1,25 @@
 import asyncio
 import importlib
+import inspect
+import os
+from multiprocessing import Queue
 from hummingbot.script.script_base import ScriptBase
 
 
-def run_script(parent_queue, child_queue, queue_check_interval):
-    print("run_script")
-    script = ScriptBase(parent_queue, child_queue, queue_check_interval)
+def run_script(script_file_name: str, parent_queue: Queue, child_queue: Queue, queue_check_interval: float):
+    script_class = import_script_sub_class(script_file_name)
+    script = script_class()
+    script.assign_process_init(parent_queue, child_queue, queue_check_interval)
     ev_loop = asyncio.get_event_loop()
     ev_loop.run_until_complete(script.listen_to_parent())
-    # async_scheduler = AsyncCallScheduler(call_interval=0.5)
-    # safe_ensure_future(async_scheduler.call_async(script.listen_to_parent_sync))
 
 
-def import_script_module(script_module_name, script_file_name: str):
-    spec = importlib.util.spec_from_file_location(script_module_name, script_file_name)
+def import_script_sub_class(script_file_name: str):
+    name = os.path.basename(script_file_name).split(".")[0]
+    spec = importlib.util.spec_from_file_location(name, script_file_name)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module
+    for x in dir(module):
+        obj = getattr(module, x)
+        if inspect.isclass(obj) and issubclass(obj, ScriptBase) and obj.__name__ != "ScriptBase":
+            return obj

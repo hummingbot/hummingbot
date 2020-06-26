@@ -48,7 +48,8 @@ cdef class ScriptIterator(TimeIterator):
         safe_ensure_future(self.listen_to_child_queue(), loop=self._ev_loop)
 
         self._script_process = Process(target=run_script,
-                                       args=(self._parent_queue, self._child_queue, queue_check_interval,))
+                                       args=(script_file_path, self._parent_queue,
+                                             self._child_queue, queue_check_interval,))
         self._script_process.start()
 
     async def start_listener(self):
@@ -102,7 +103,7 @@ cdef class ScriptIterator(TimeIterator):
                 await asyncio.sleep(self._queue_check_interval)
                 continue
             item = self._child_queue.get()
-            print(f"parent gets {item.__class__}")
+            print(f"parent gets {str(item)}")
             if item is None:
                 break
             if isinstance(item, CallUpdateStrategyParameters):

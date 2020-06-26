@@ -16,6 +16,10 @@ class StrategyParameters:
                 self.sell_levels == other.sell_levels and
                 self.order_levels == other.order_levels)
 
+    def __repr__(self):
+        return f"StrategyParameters(buy_levels: {self.buy_levels}, sell_levels: {self.sell_levels}, " \
+               f"order_levels: {self.order_levels}"
+
 
 class OnTick:
     def __init__(self, mid_price: Decimal, strategy_parameters: StrategyParameters):
@@ -35,6 +39,9 @@ class CallUpdateStrategyParameters:
     def __init__(self, strategy_parameters: StrategyParameters):
         self.strategy_parameters = strategy_parameters
         self.return_value = None
+
+    def __repr__(self):
+        return f"CallUpdateStrategyParameters {self.strategy_parameters}"
 
 
 class CallNotify:
