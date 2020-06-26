@@ -710,13 +710,13 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             if not self._take_if_crossed:
                 proposal.buys = [buy for buy in proposal.buys if buy.price < top_ask]
             else:
-                proposal.buys = [buy if buy.price < top_ask else top_ask for buy in proposal.buys]
+                proposal.buys = [buy if buy.price < top_ask else PriceSize(top_ask, buy.size) for buy in proposal.buys]
         top_bid = market.c_get_price(self.trading_pair, False)
         if not top_bid.is_nan():
             if not self._take_if_crossed:
                 proposal.sells = [sell for sell in proposal.sells if sell.price > top_bid]
             else:
-                proposal.sells = [sell if sell.price > top_bid else top_bid for sell in proposal.sells]
+                proposal.sells = [sell if sell.price > top_bid else PriceSize(top_bid, sell.size) for sell in proposal.sells]
 
     # Compare the market price with the top bid and top ask price
     cdef c_apply_order_optimization(self, object proposal):
