@@ -204,6 +204,29 @@ cdef class KrakenMarket(MarketBase):
         return symbol
 
     @staticmethod
+    def convert_from_exchange_symbol(symbol: str) -> str:
+        if len(symbol) == 4 and (symbol[0] == "X" or symbol[0] == "Z"):
+            symbol = symbol[1:]
+        if symbol == "XBT":
+            symbol = "BTC"
+        return symbol
+
+    @staticmethod
+    def convert_to_exchange_symbol(symbol: str) -> str:
+        if symbol == "BTC":
+            symbol = "XBT"
+        return symbol
+
+    @staticmethod
+    def split_to_base_quote(exchange_trading_pair: str) -> (Optional[str], Optional[str]):
+        base, quote = None, None
+        for quote_asset in constants.QUOTES:
+            if quote_asset == exchange_trading_pair[-len(quote_asset):]:
+                base, quote = exchange_trading_pair[:-len(quote_asset)], exchange_trading_pair[-len(quote_asset):]
+                break
+        return base, quote
+
+    @staticmethod
     def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
         base, quote = "", ""
         if "-" in exchange_trading_pair:
@@ -211,14 +234,11 @@ cdef class KrakenMarket(MarketBase):
         if "/" in exchange_trading_pair:
             base, quote = exchange_trading_pair.split("/")
         else:
-            for quote_asset in constants.QUOTES:
-                if quote_asset == exchange_trading_pair[-len(quote_asset):]:
-                    base, quote = exchange_trading_pair[:-len(quote_asset)], exchange_trading_pair[-len(quote_asset):]
-                    break
+            base, quote = KrakenMarket.split_to_base_quote(exchange_trading_pair)
         if not base or not quote:
             return None
-        base = KrakenMarket.clean_symbol(base)
-        quote = KrakenMarket.clean_symbol(quote)
+        base = KrakenMarket.convert_from_exchange_symbol(base)
+        quote = KrakenMarket.convert_from_exchange_symbol(quote)
         return f"{base}-{quote}"
 
     @staticmethod
@@ -229,8 +249,8 @@ cdef class KrakenMarket(MarketBase):
             base, quote = hb_trading_pair.split("/")
         else:
             return hb_trading_pair
-        base = KrakenMarket.clean_symbol(base)
-        quote = KrakenMarket.clean_symbol(quote)
+        base = KrakenMarket.convert_to_exchange_symbol(base)
+        quote = KrakenMarket.convert_to_exchange_symbol(quote)
         exchange_trading_pair = f"{base}{delimiter}{quote}"
         return exchange_trading_pair
 
@@ -285,7 +305,7 @@ cdef class KrakenMarket(MarketBase):
                         locked[quote] += vol_locked * Decimal(details.get("price"))
 
         for asset_name, balance in balances.items():
-            cleaned_name = self.clean_symbol(asset_name)
+            cleaned_name = self.convert_from_exchange_symbol(asset_name)
             total_balance = Decimal(balance)
             free_balance = total_balance - Decimal(locked[cleaned_name])
             self._account_available_balances[cleaned_name] = free_balance
@@ -363,13 +383,13 @@ cdef class KrakenMarket(MarketBase):
             list retval = []
         for trading_pair, rule in asset_pairs_dict.items():
             try:
-                base, quote = self.clean_symbol(rule.get("base")), self.clean_symbol(rule.get("quote"))
+                base, quote = KrakenMarket.split_to_base_quote(trading_pair)
                 min_order_size = Decimal(constants.BASE_ORDER_MIN.get(base, 0))
                 min_price_increment = Decimal(f"1e-{rule.get('pair_decimals')}")
                 min_base_amount_increment = Decimal(f"1e-{rule.get('lot_decimals')}")
                 retval.append(
                     TradingRule(
-                        base + quote,
+                        trading_pair,
                         min_order_size=min_order_size,
                         min_price_increment=min_price_increment,
                         min_base_amount_increment=min_base_amount_increment,
@@ -412,7 +432,7 @@ cdef class KrakenMarket(MarketBase):
 
                 if order_update.get("error") is not None and "EOrder:Invalid order" not in order_update["error"]:
                     self.logger().debug(f"Error in fetched status update for order {client_order_id}: "
-                                          f"{order_update['error']}")
+                                        f"{order_update['error']}")
                     self.c_cancel(tracked_order.trading_pair, tracked_order.client_order_id)
                     continue
 

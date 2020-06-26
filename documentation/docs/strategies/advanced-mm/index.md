@@ -14,7 +14,7 @@ There are two ways to configure these parameters:
 | Feature | Parameter | Prompt | Definition |
 |---------|-----------|--------|------------|
 | [Order Levels](./order-levels) | `order_levels` | `How many orders do you want to place on both sides?` | The number of order levels to place for each side of the order book. |
-| [Order Levels](./order-levels) | `order_level_amount` | `How much do you want to increase the order size for each additional order?` | The incremental size increase for subsequent order levels after the first level. |
+| [Order Levels](./order-levels) | `order_level_amount` | `How much do you want to increase or decrease the order size for each additional order?` | The size can either increase(if set to a value greater than zero) or decrease(if set to a value less than zero) for subsequent order levels after the first level. |
 | [Order Levels](./order-levels) | `order_level_spread` | `Enter the price increments (as percentage) for subsequent orders?` | The incremental spread increases for subsequent order levels after the first level. |
 | [Inventory Skew](./inventory-skew) | `inventory_skew_enabled` | `Would you like to enable inventory skew? (Yes/No)` | Allows the user to set and maintain a target inventory split between base and quote assets. |
 | [Inventory Skew](./inventory-skew) | `inventory_target_base_pct` | `What is your target base asset percentage?` | Target amount held of the base asset, expressed as a percentage of the total base and quote asset value. |
