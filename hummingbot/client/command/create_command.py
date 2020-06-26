@@ -15,8 +15,7 @@ from hummingbot.client.config.config_helpers import (
 from hummingbot.client.settings import CONF_FILE_PATH, required_exchanges
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
-from hummingbot.client.config.config_validators import validate_strategy, validate_bool
-from hummingbot.user.user_balances import UserBalances
+from hummingbot.client.config.config_validators import validate_strategy
 from hummingbot.client.ui.completer import load_completer
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -73,8 +72,6 @@ class CreateCommand:
             self.app.to_stop_config = False
             return
 
-        if strategy == "pure_market_making" and not global_config_map.get("paper_trade_enabled").value:
-            await self.asset_ratio_maintenance_prompt(config_map)
         if file_name is None:
             file_name = await self.prompt_new_file_name(strategy)
             if self.app.to_stop_config:
@@ -137,30 +134,3 @@ class CreateCommand:
         Security.update_config_map(global_config_map)
         if self.strategy_config_map is not None:
             Security.update_config_map(self.strategy_config_map)
-
-    async def asset_ratio_maintenance_prompt(self,  # type: HummingbotApplication
-                                             config_map):
-        exchange = config_map['exchange'].value
-        market = config_map["market"].value
-        base, quote = market.split("-")
-        balances = await UserBalances.instance().balances(exchange, base, quote)
-        if balances is None:
-            return
-        base_ratio = UserBalances.base_amount_ratio(exchange, market, balances)
-        if base_ratio is None:
-            return
-        base_ratio = round(base_ratio, 3)
-        quote_ratio = 1 - base_ratio
-        base, quote = config_map["market"].value.split("-")
-        cvar = ConfigVar(key="temp_config",
-                         prompt=f"On {exchange}, you have {balances.get(base, 0):.4f} {base} and "
-                                f"{balances.get(quote, 0):.4f} {quote}. By market value, "
-                                f"your current inventory split is {base_ratio:.1%} {base} "
-                                f"and {quote_ratio:.1%} {quote}."
-                                f" Would you like to keep this ratio with ping-pong? (Yes/No) >>> ",
-                         required_if=lambda: True,
-                         type_str="bool",
-                         validator=validate_bool)
-        await self.prompt_a_config(cvar)
-        if cvar.value:
-            config_map['ping_pong_enabled'].value = True
