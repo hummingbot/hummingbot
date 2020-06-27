@@ -24,9 +24,13 @@ FIAT_QUOTES = [
     "AUD"
 ]
 
-FIAT_QUOTES = FIAT_QUOTES + ["Z" + quote for quote in FIAT_QUOTES]
+FIAT_QUOTES = ["Z" + quote for quote in FIAT_QUOTES] + FIAT_QUOTES
 
 QUOTES = CRYPTO_QUOTES + ADDED_CRYPTO_QUOTES + FIAT_QUOTES
+
+SPECIAL_BASES = ["XBT", "ETH", "XRP"]
+
+SPECIAL_QUOTES = ["USD", "USD.d", "EUR", "EUR.d", "JYP", "JYP.d", "CAD", "CAD.d", "GBP", "GBP.d"]
 
 BASE_ORDER_MIN = {
     "ALGO": Decimal("50"),
