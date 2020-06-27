@@ -255,12 +255,14 @@ cdef class KrakenMarket(MarketBase):
         # Exceptions for special trading pairs
         special_base = ["XBT", "ETH", "XRP"]
         special_quote = ["USD", "USD.d", "EUR", "EUR.d", "JYP", "JYP.d", "CAD", "CAD.d", "GBP", "GBP.d"]
-        if base in special_base:
-            base = "X" + base
-        if quote in special_quote:
-            quote = "Z" + quote
-        elif quote in special_base:
-            quote = "X" + quote
+        all_special_symbols = special_base + special_quote
+        if base in all_special_symbols and quote in all_special_symbols:
+            if base in special_base:
+                base = "X" + base
+            if quote in special_quote:
+                quote = "Z" + quote
+            elif quote in special_base:
+                quote = "X" + quote
 
         exchange_trading_pair = f"{base}{delimiter}{quote}"
         return exchange_trading_pair
