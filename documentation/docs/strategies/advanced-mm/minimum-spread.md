@@ -1,6 +1,6 @@
 # Minimum Spread
 
-**Released on v0.28.0**
+**Released on version [0.28.0](/release-notes/0.28.0)**
 
 This parameter allows Hummingbot to cancel the active order right away when its spread dips below the specified value.
 
