@@ -34,7 +34,7 @@ class BeaxyAuth:
         session_data = await self.__get_session_data()
         headers = {"X-Deltix-Nonce": str(get_tracking_nonce()), "X-Deltix-Session-Id": session_data["session_id"]}
         payload = self.__build_payload(http_method, path, {}, headers, body)
-        self.logger().warning(payload)
+        self.logger().debug(payload)
         hmac = HMAC.new(key= self.__int_to_bytes(session_data["sign_key"], signed=True), msg=bytes(payload, 'utf-8'), digestmod=SHA384)
         digestb64 = base64.b64encode(hmac.digest())
         headers["X-Deltix-Signature"] = digestb64.decode('utf-8')

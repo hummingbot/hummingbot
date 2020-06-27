@@ -62,7 +62,6 @@ import aiohttp
 import conf
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
-IS_TEST_API = True
 TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BXY|USDT|USDC)$")
 s_logger = None
 s_decimal_0 = Decimal("0.0")
@@ -255,10 +254,10 @@ cdef class BeaxyMarket(MarketBase):
         *required
         Async function used by NetworkBase class to handle when a single market goes online
         """
-        self.logger().warning(f"Starting beaxy network. Trading required is {self._trading_required}")
+        self.logger().debug(f"Starting beaxy network. Trading required is {self._trading_required}")
         self._stop_network()
         self._order_book_tracker.start()
-        self.logger().warning(f"OrderBookTracker started, starting polling tasks.")
+        self.logger().debug(f"OrderBookTracker started, starting polling tasks.")
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
@@ -444,7 +443,7 @@ cdef class BeaxyMarket(MarketBase):
         if order_type is OrderType.LIMIT:
             data["price"] = f"{price:f}"
         order_result = await self._api_request("POST", path_url=path_url, data=data)
-        self.logger().warning(f"Set order result {order_result}")
+        self.logger().debug(f"Set order result {order_result}")
         return order_result
 
     cdef object c_get_fee(self,
@@ -492,8 +491,6 @@ cdef class BeaxyMarket(MarketBase):
             self.c_start_tracking_order(order_id, trading_pair, order_type, TradeType.BUY, decimal_price, decimal_amount)
             order_result = await self.place_order(order_id, trading_pair, decimal_amount, True, order_type, decimal_price)
             exchange_order_id = order_result["id"]
-            self.logger().warning(exchange_order_id)
-
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type} buy order {order_id} for {decimal_amount} {trading_pair}.")
@@ -680,8 +677,6 @@ cdef class BeaxyMarket(MarketBase):
             return
 
         try:
-            self.logger().warning("Getting trading fees")
-
             res = await self._api_request("get", BeaxyConstants.TradingApi.SECURITIES_ENDPOINT)
             first_security = res[0]
             self._maker_fee_percentage = Decimal(first_security["buyer_maker_commission_progressive"])
@@ -697,7 +692,7 @@ cdef class BeaxyMarket(MarketBase):
             raise
 
     async def _update_balances(self):
-        self.logger().warning("Trying to fetch beaxy balances")
+        self.logger().debug("Trying to fetch beaxy balances")
 
         cdef:
             dict new_available_balances = {}
@@ -924,7 +919,7 @@ cdef class BeaxyMarket(MarketBase):
             if http_method.upper() == "POST":
                 headers["Content-Type"] = "application/json; charset=utf-8"
 
-            self.logger().warning(f"Submitting {http_method} request to {url} with headers {headers}")
+            self.logger().debug(f"Submitting {http_method} request to {url} with headers {headers}")
 
             client = await self._http_client()
             async with client.request(http_method.upper(), url=url, timeout=self.API_CALL_TIMEOUT, data=data_str, headers=headers) as response:
@@ -936,7 +931,7 @@ cdef class BeaxyMarket(MarketBase):
                 except ContentTypeError:
                     pass
 
-                self.logger().warning(f"Gor response status {response.status}")
+                self.logger().debug(f"Got response status {response.status}")
                 return result
         except Exception:
             self.logger().warning(f"Exception while making api request.", exc_info=True)
@@ -951,20 +946,11 @@ cdef class BeaxyMarket(MarketBase):
 
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
-                self.logger().warning("Update polling stafff")
-
-                if IS_TEST_API:
-                    await safe_gather(self._update_balances())
-                    await asyncio.sleep(60)
-                    await safe_gather(self._update_trade_fees())
-                    await asyncio.sleep(60)
-                    await safe_gather(self._update_order_status())
-                else:
-                    await safe_gather(
-                        self._update_balances(),
-                        self._update_order_status(),
-                        self._update_fee_percentage(),
-                    )
+                await safe_gather(self._update_balances())
+                await asyncio.sleep(60)
+                await safe_gather(self._update_trade_fees())
+                await asyncio.sleep(60)
+                await safe_gather(self._update_order_status())
             except asyncio.CancelledError:
                 raise
             except Exception:
