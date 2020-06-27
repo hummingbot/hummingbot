@@ -9,6 +9,7 @@
 | `CTRL + Z` | Undo | Undo action in input pane [used for text edit in Input pane only].
 | `Single CTRL + C` | Copy | Copy text [used for text edit in Input pane only].
 | `CTRL + V` | Paste | Paste text [used for text edit in Input pane only].
+| `CTRL + X` | Exit Config | Exit from the current configuration question.
 
 !!! tip "Tip: How to use the Search feature"
     1. Press `CTRL + F` to trigger display the search field
