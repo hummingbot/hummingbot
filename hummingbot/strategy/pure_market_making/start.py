@@ -41,7 +41,6 @@ def start(self):
         ask_order_optimization_depth = c_map.get("ask_order_optimization_depth").value
         bid_order_optimization_depth = c_map.get("bid_order_optimization_depth").value
         add_transaction_costs_to_orders = c_map.get("add_transaction_costs").value
-        price_source_enabled = c_map.get("price_source_enabled").value
         price_source_type = c_map.get("price_source_type").value
         price_source_exchange = c_map.get("price_source_exchange").value
         price_source_market = c_map.get("price_source_market").value
@@ -57,15 +56,14 @@ def start(self):
         maker_data = [self.markets[exchange], trading_pair] + list(maker_assets)
         self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
         asset_price_delegate = None
-        if price_source_enabled:
-            if price_source_type == "exchange":
-                asset_trading_pair: str = self._convert_to_exchange_trading_pair(
-                    price_source_exchange, [price_source_market])[0]
-                ext_market = create_paper_trade_market(price_source_exchange, [asset_trading_pair])
-                self.markets[price_source_exchange]: MarketBase = ext_market
-                asset_price_delegate = OrderBookAssetPriceDelegate(ext_market, asset_trading_pair)
-            elif price_source_type == "custom_api":
-                asset_price_delegate = APIAssetPriceDelegate(price_source_custom)
+        if price_source_type == "mid_price" and price_source_exchange is not None:
+            asset_trading_pair: str = self._convert_to_exchange_trading_pair(
+                price_source_exchange, [price_source_market])[0]
+            ext_market = create_paper_trade_market(price_source_exchange, [asset_trading_pair])
+            self.markets[price_source_exchange]: MarketBase = ext_market
+            asset_price_delegate = OrderBookAssetPriceDelegate(ext_market, asset_trading_pair)
+        elif price_source_type == "custom_api":
+            asset_price_delegate = APIAssetPriceDelegate(price_source_custom)
 
         strategy_logging_options = PureMarketMakingStrategy.OPTION_LOG_ALL
 
