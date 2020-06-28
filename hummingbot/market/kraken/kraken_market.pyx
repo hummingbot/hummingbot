@@ -253,6 +253,9 @@ cdef class KrakenMarket(MarketBase):
         quote = KrakenMarket.convert_to_exchange_symbol(quote)
 
         # Exceptions for special trading pairs
+        if (base + quote) in constants.SPECIAL_PAIRS:
+            exchange_trading_pair = f"{base}{delimiter}{quote}"
+            return exchange_trading_pair
         all_special_symbols = constants.SPECIAL_BASES + constants.SPECIAL_QUOTES
         if base in all_special_symbols and quote in all_special_symbols:
             if base in constants.SPECIAL_BASES:
