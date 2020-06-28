@@ -27,11 +27,11 @@ class OnTick:
         self.strategy_parameters = strategy_parameters
 
 
-class OnBuyCompletedEvent:
+class OnBuyOrderCompletedEvent:
     pass
 
 
-class OnSellCompletedEvent:
+class OnSellOrderCompletedEvent:
     pass
 
 

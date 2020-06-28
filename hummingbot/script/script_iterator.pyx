@@ -15,11 +15,7 @@ from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.market.market_base import MarketBase
 from hummingbot.script.script_process import run_script
-from hummingbot.script.script_interface import (
-    OnTick,
-    CallUpdateStrategyParameters,
-    StrategyParameters
-)
+from hummingbot.script.script_interface import *
 
 cdef class ScriptIterator(TimeIterator):
 
@@ -33,7 +29,6 @@ cdef class ScriptIterator(TimeIterator):
         self._markets = markets
         self._strategy = strategy
         self._queue_check_interval = queue_check_interval
-        # self._script_module = self.import_script_module(script_file_name)
         self._did_complete_buy_order_forwarder = SourceInfoEventForwarder(self._did_complete_buy_order)
         self._did_complete_sell_order_forwarder = SourceInfoEventForwarder(self._did_complete_sell_order)
         self._event_pairs = [
@@ -44,16 +39,13 @@ cdef class ScriptIterator(TimeIterator):
         self._parent_queue = Queue()
         self._child_queue = Queue()
         # self._listen_to_child_task = None
-        print("starting listener")
         safe_ensure_future(self.listen_to_child_queue(), loop=self._ev_loop)
 
-        self._script_process = Process(target=run_script,
-                                       args=(script_file_path, self._parent_queue,
-                                             self._child_queue, queue_check_interval,))
+        self._script_process = Process(
+            target=run_script,
+            args=(script_file_path, self._parent_queue, self._child_queue, queue_check_interval,)
+        )
         self._script_process.start()
-
-    async def start_listener(self):
-        self._listen_to_child_task = safe_ensure_future(self.listen_to_child_queue(), loop=self._ev_loop)
 
     @property
     def strategy(self):
@@ -89,13 +81,15 @@ cdef class ScriptIterator(TimeIterator):
                                 event_tag: int,
                                 market: MarketBase,
                                 event: BuyOrderCompletedEvent):
-        pass
+        on_completed = OnBuyOrderCompletedEvent()
+        self._parent_queue.put(on_completed)
 
     def _did_complete_sell_order(self,
                                  event_tag: int,
                                  market: MarketBase,
                                  event: SellOrderCompletedEvent):
-        pass
+        on_completed = OnSellOrderCompletedEvent()
+        self._parent_queue.put(on_completed)
 
     async def listen_to_child_queue(self):
         while True:
