@@ -395,6 +395,7 @@ cdef class KrakenMarket(MarketBase):
         for trading_pair, rule in asset_pairs_dict.items():
             try:
                 base, quote = KrakenMarket.split_to_base_quote(trading_pair)
+                base = KrakenMarket.convert_from_exchange_symbol(base)
                 min_order_size = Decimal(constants.BASE_ORDER_MIN.get(base, 0))
                 min_price_increment = Decimal(f"1e-{rule.get('pair_decimals')}")
                 min_base_amount_increment = Decimal(f"1e-{rule.get('lot_decimals')}")
