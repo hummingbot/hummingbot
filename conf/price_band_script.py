@@ -6,6 +6,7 @@ class PriceBandScript(ScriptBase):
         super().__init__()
 
     def on_tick(self):
+        print(f"ontick {len(self.mid_prices)}: {self.mid_price}")
         strategy = self.strategy_parameters.copy()
         if self.mid_price >= 105:
             strategy.buy_levels = 0

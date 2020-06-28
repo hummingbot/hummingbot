@@ -535,7 +535,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     cdef c_tick(self, double timestamp):
         StrategyBase.c_tick(self, timestamp)
-        print(f"c_tick: {timestamp}")
         cdef:
             int64_t current_tick = <int64_t>(timestamp // self._status_report_interval)
             int64_t last_tick = <int64_t>(self._last_timestamp // self._status_report_interval)
@@ -587,7 +586,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             MarketBase market = self._market_info.market
             list buys = []
             list sells = []
-        print(f"c_create_base_proposal _buy_levels {self._buy_levels} _sell_levels{self._sell_levels}")
         for level in range(0, self._buy_levels):
             price = self.c_get_mid_price() * (Decimal("1") - self._bid_spread - (level * self._order_level_spread))
             price = market.c_quantize_order_price(self.trading_pair, price)
