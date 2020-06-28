@@ -28,9 +28,11 @@ FIAT_QUOTES = ["Z" + quote for quote in FIAT_QUOTES] + FIAT_QUOTES
 
 QUOTES = CRYPTO_QUOTES + ADDED_CRYPTO_QUOTES + FIAT_QUOTES
 
-SPECIAL_BASES = ["XBT", "ETH", "XRP"]
+SPECIAL_BASES = ["XBT", "ETH", "LTC", "MLN", "REP", "XDG", "XLM", "XMR", "XRP", "ZEC", "ETC"]
 
-SPECIAL_QUOTES = ["USD", "USD.d", "EUR", "EUR.d", "JYP", "JYP.d", "CAD", "CAD.d", "GBP", "GBP.d"]
+SPECIAL_QUOTES = ["USD", "USD.d", "EUR", "EUR.d", "JPY", "JPY.d", "CAD", "CAD.d", "GBP", "GBP.d"]
+
+SPECIAL_PAIRS = ["XDGEUR", "XDGUSD", "XRPETH", "XRPGBP"]
 
 BASE_ORDER_MIN = {
     "ALGO": Decimal("50"),
