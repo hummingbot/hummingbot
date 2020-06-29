@@ -6,7 +6,6 @@ import asyncio
 from async_timeout import timeout
 from hexbytes import HexBytes
 from web3.datastructures import AttributeDict
-from websockets.exceptions import ConnectionClosed
 from cachetools import TTLCache
 
 from typing import Optional
@@ -37,17 +36,19 @@ class EthWebSocket(BaseWatcher):
 
     @property
     def block_number(self) -> int:
-        self._current_block_number
+        return self._current_block_number
 
     async def start_network(self):
         if self._fetch_new_blocks_task is not None:
             await self.stop_network()
+        self.logger().info("WESLEY TESTING --- NETWORK START")
         await self.connect()
         await self.subscribe(["newHeads"])
         self._fetch_new_blocks_task: asyncio.Task = safe_ensure_future(self.fetch_new_blocks_loop())
 
     async def stop_network(self):
         if self._fetch_new_blocks_task is not None:
+            self.logger().info("WESLEY TESTING --- NETWORK STOP")
             await self.disconnect()
             self._fetch_new_blocks_task.cancel()
             self._fetch_new_blocks_task = None
@@ -76,10 +77,11 @@ class EthWebSocket(BaseWatcher):
         }
         nonce = await self._send(emit_data)
         raw_message = await self._client.recv()
-        resp = ujson.loads(raw_message)
-        if resp.get("id", None) == nonce:
-            self._node_address = resp.get("result")
-            return True
+        if raw_message is not None:
+            resp = ujson.loads(raw_message)
+            if resp.get("id", None) == nonce:
+                self._node_address = resp.get("result")
+                return True
         return False
 
     async def unsubscribe(self, params) -> bool:
@@ -99,10 +101,9 @@ class EthWebSocket(BaseWatcher):
             while True:
                 try:
                     async with timeout(30):
-                        raw_message: AttributeDict = await self.call_async(
-                            self._client.recv
-                        )
-                        message_json = ujson.loads(raw_message)
+                        raw_message: AttributeDict = await self._client.recv()
+                        self.logger().info(f"WESLEY TESTING --- RAW MESSAGE: {raw_message}")
+                        message_json = ujson.loads(raw_message) if raw_message is not None else None
                         if message_json.get("method", None) == "eth_subscription":
                             subscription_result_params = message_json.get("params", None)
                             incoming_block = ujson.loads(message_json).get("result", None) \
@@ -124,28 +125,6 @@ class EthWebSocket(BaseWatcher):
                                                           "Check wallet network connection")
         except asyncio.CancelledError:
             raise
-
-    async def messages(self):
-        try:
-            while True:
-                try:
-
-                    raw_msg_str: str = await asyncio.wait_for(self._client.recv(), timeout=30)
-                    raw_msg: AttributeDict = ujson.loads(raw_msg_str)
-
-                    print(raw_msg)
-                except asyncio.TimeoutError:
-                    try:
-                        pong_waiter = await self._client.ping()
-                        await asyncio.wait_for(pong_waiter, timeout=10)
-                    except asyncio.TimeoutError:
-                        raise
-        except asyncio.TimeoutError:
-            print("WebSocket TimeOut")
-        except ConnectionClosed:
-            return
-        finally:
-            await self.disconnect()
 
     async def get_timestamp_for_block(self, block_hash: HexBytes, max_tries: Optional[int] = 10) -> int:
         counter = 0
