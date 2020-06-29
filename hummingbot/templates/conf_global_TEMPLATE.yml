@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 8
+template_version: 9
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -112,4 +112,7 @@ db_port: null
 db_username: null
 db_password: null
 db_name: null
+
+script_enabled: null
+script_file_path: null
 
