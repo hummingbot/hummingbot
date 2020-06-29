@@ -25,6 +25,7 @@ from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
 from hummingbot.core.utils.kill_switch import KillSwitch
 from typing import TYPE_CHECKING
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.script.script_iterator import ScriptIterator
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -103,6 +104,12 @@ class StartCommand:
                         await market.cancel_all(5.0)
             if self.strategy:
                 self.clock.add_iterator(self.strategy)
+            if global_config_map["script_enabled"].value:
+                script_file = global_config_map["script_file_path"].value
+                self._script_iterator = ScriptIterator(script_file, list(self.markets.values()),
+                                                       self.strategy, 0.1)
+                self.clock.add_iterator(self._script_iterator)
+
             self.strategy_task: asyncio.Task = safe_ensure_future(self._run_clock(), loop=self.ev_loop)
             self._notify(f"\n'{strategy_name}' strategy started.\n"
                          f"Run `status` command to query the progress.")
