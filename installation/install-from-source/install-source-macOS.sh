@@ -1,5 +1,5 @@
 # 1) Clone Hummingbot repo
-git clone https://github.com/CoinAlpha/hummingbot.git
+git clone https://github.com/Beaxy/hummingbot.git
 # 2) Navigate into the hummingbot folder
 cd hummingbot
 # 3) Run install script
