@@ -28,10 +28,12 @@ def show_welcome():
     ██║  ██║╚██████╔╝██║ ╚═╝ ██║██║ ╚═╝ ██║██║██║ ╚████║╚██████╔╝██████╔╝╚██████╔╝   ██║
     ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═════╝  ╚═════╝    ╚═╝
 
+    Beaxy edition
+
     =======================================================================================
 
     Version: {version}
-    Codebase: https://github.com/coinalpha/hummingbot
+    Codebase: https://github.com/Beaxy/hummingbot
 
 
         """.format(version=version),
