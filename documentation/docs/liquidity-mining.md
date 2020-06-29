@@ -12,7 +12,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
 ## Getting started
 - [Hummingbot Miners](https://miners.hummingbot.io/): The **official Liquidity Mining app** where you can see real-time rates of return and track your payouts
 - [Get help on Discord](https://discord.hummingbot.io): Join the **#liquidity-mining** channel for 24/7 support
-- [How it works](https://hummingbot.io/liquidity-mining)
+- [How it works](https://www.notion.so/hummingbot/What-is-liquidity-mining-c2eb7d68e28b42278e5efead9a247507)
 - [Hummingbot Quickstart Guide](https://docs.hummingbot.io/quickstart)
 - [Liquidity Mining FAQs](https://docs.hummingbot.io/faq/liquidity-mining/)
 - [Liquidity Mining whitepaper](https://hummingbot.io/liquidity-mining.pdf)
@@ -22,13 +22,10 @@ Liquidity mining sets forth an analytical framework for determining market maker
 !!! warning "Terms subject to change"
     Please check this page or the [Miner's app](https://miners.hummingbot.io) for the most up-to-date terms.<br/>We will notify participants of changes, if any, on our [Discord](https://discord.hummingbot.io) and [reddit](https://www.reddit.com/r/Hummingbot/).
 
-!!! note "Campaign updates week starting June 16, 2020 12.00am UTC"
-    <li>**[Launch of Mainframe liquidity mining campaign](#upcoming-changes-to-campaign-terms):** **MFT/USDT**, **MFT/ETH**, and **MFT/BNB** will be eligible pairs *starting June 16, 2020* with a total of USDC 750/week of rewards available.
-    <li>**[Doubling Solana rewards!](#upcoming-changes-to-campaign-terms):** total rewards for SOL trading pairs will now be USDC 1,250 per week (from a previous USDC 625 per week).
-    <li>**[Change of eligible Zilliga trading pairs](#upcoming-changes-to-campaign-terms):** eligibe trading pairs are changing from <s>ZIL/USDT</s>, <s>ZIL/ETH</S>, and <em>ZIL/BNB</em> to **ZIL/BNB** and **ZIL/BUSD**.
-    <li>**[Removing XZC/ETH from eligibility](#upcoming-changes-to-campaign-terms):** Zcoin's campaign will change to include only **XZC/USDT** and **XZC/BNB** only.
+!!! note "Campaign updates for the week starting June 23, 2020 12.00am UTC"
+    <li>**[XZC/BNB no longer eligble; XZC/BTC now eligible](https://www.reddit.com/r/Hummingbot/comments/hdvp8e/change_to_xzc_eligible_pairs_for_week_16_starting/):** Zcoin's has added back **XZC/BTC** for its campaign to replace **~~XZC/BNB~~**.
 
-**Current reward period: June 16, 2020 12.00am UTC to June 23, 2020 12.00am UTC**
+**Current reward period: June 23, 2020 12.00am UTC to June 30, 2020 12.00am UTC**
 
 <table>
   <thead>
@@ -98,13 +95,13 @@ Liquidity mining sets forth an analytical framework for determining market maker
     </tr>
     <tr>
       <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
-      <td>XZC/USDT</td>
+      <td>XZC/BTC</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>USDC 375</td>
     </tr>
     <tr>
-      <td>XZC/BNB</td>
+      <td>XZC/USDT</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>USDC 375</td>

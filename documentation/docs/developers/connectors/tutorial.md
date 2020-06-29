@@ -1,4 +1,8 @@
 # Building Connectors
+
+!!! note "Important changes by release"
+    This [page](https://www.notion.so/hummingbot/a26c8bcf30284535b0e5689d45a4fe88?v=869e73f78f0b426288476a2abda20f2c) lists all relevant updates to Hummingbot codebase aimed to help connector developers in making the requisite changes to their connectors.
+
 ## Introduction
 This guide is intended to get you familiarized with basic structure of a connector in Hummingbot. It will guide you through the scope of creating/modifying the necessary components to implement a connector.
 
@@ -12,6 +16,7 @@ Implementing a new connector can generally be split into 3 major tasks:
 1. [Data Source & Order Book Tracker](#task-1-data-source-order-book-tracker)
 2. [User Stream Tracker](#task-2-user-stream-tracker)
 3. [Market Connector](#task-3-market-connector)
+
 
 ## Task 1. Data Source & Order Book Tracker
 
@@ -72,7 +77,7 @@ Function<div style="width:200px"/> | Input Parameter(s) | Expected Output(s) | D
 `_refresh_tracking_tasks` | None | None | Starts tracking for any new trading pairs, and stop tracking for any inactive trading pairs.<br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: Requires the `get_tracking_pairs()` function from data source to obtain the available pairs on the exchange. </td></tr></tbody></table>
 `_order_book_diff_router` | None | None | Route the real-time order book diff messages to the correct order book.<br/><br/>Each tracked trading pair has their own `_saved_message_queues`, this would subsequently be used by `_track_single_book` to apply the messages onto the respective order book.
 `_order_book_snapshot_router` | None | None | Route the real-time order book snapshot messages to the correct order book.<br/><br/>Each tracked trading pair has their own `_saved_message_queues`, this would subsequently be used by `_track_single_book` to apply the messages onto the respective order book.
-`_track_single_book` | None | None | Update an order book with changes from the latest batch of received messages.<br/>Constantly attempts to retrieve the next available message from `_save_message_queues` and applying the message onto the respective order book.<br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: Might require `convert_[snapshot|diff]_message_to_order_book_row` from the `ActiveOrderTracker` to convert the messages into `OrderBookRow`</td></tr></tbody></table>
+`_track_single_book` | None | None | Update an order book with changes from the latest batch of received messages.<br/>Constantly attempts to retrieve the next available message from `_save_message_queues` and applying the message onto the respective order book.<br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: Might require `convert_[snapshot/diff]_message_to_order_book_row` from the `ActiveOrderTracker` to convert the messages into `OrderBookRow` </td></tr></tbody></table>
 `start` | None | None | Start all custom listeners and tasks in the `OrderBookTracker` component. <table><tbody><tr><td bgcolor="#ecf3ff">**Note**: You may be required to call `start` in the base class by using `await super().start()`. This is **optional** as long as there is a task listening for trade messages and emitting the `TradeEvent` as seen in `c_apply_trade` in [`OrderBook`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/data_type/order_book.pyx) </td></tr></tbody></table>
 
 #### Additional Useful Function(s)
@@ -299,7 +304,7 @@ Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | D
 `c_sell` | `str symbol`,<br/>`object amount`,<br/>`object order_type=OrderType.MARKET`,<br/>`object price=s_decimal_0`,<br/>`dict kwargs={}`| `str` | A synchronous wrapper function that generates a client-side order ID and schedules a **sell** order. It calls the `execute_buy` function and returns the client-side order ID.
 `c_cancel` | `str symbol`,<br/>`str order_id` | `str` | A synchronous wrapper function that schedules an order cancellation. <table><tbody><tr><td bgcolor="#ecf3ff">**Note**: The `order_id` here refers to the client-side order ID as tracked by Hummingbot.</td></tr></tbody></table>
 `c_did_timeout_tx` | `str tracking_id` | `None` | Triggers `MarketEvent.TransactionFailure` when an Ethereum transaction has timed out.
-`c_get_fee` | `str base_currency`,<br/>`str quote_currency`,<br/>`object order_type`,<br/>`object order_side`,<br/>`object amount`,<br/>`object price` | `TradeFee` | A function that calculates the fees for a particular order. Returns a [`TradeFee`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py) object.
+`c_get_fee` | `str base_currency`,<br/>`str quote_currency`,<br/>`object order_type`,<br/>`object order_side`,<br/>`object amount`,<br/>`object price` | `TradeFee` | A function that calculates the fees for a particular order. Use `estimate_fee` module to get the fee. Returns a [`TradeFee`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py) object.
 `c_get_order_book` | `str symbol` | `OrderBook` | Returns the `OrderBook` for a specific trading pair(symbol).
 `c_start_tracking_order` | `str client_order_id`,<br/>`str symbol`,<br/>`object order_type`,<br/>`object trade_type`,<br/>`object price`,<br/>`object amount` | `None` | Adds a new order to the `_in_flight_orders` class variable. This essentially begins tracking the order on the Hummingbot client. 
 `c_stop_tracking_order` | `str order_id` | `None` | Deletes an order from `_in_flight_orders` class variable. This essentially stops the Hummingbot client from tracking an order.
@@ -327,6 +332,18 @@ new_market_secret_key = os.getenv("NEW_MARKET_SECRET_KEY")
                                 prompt="Enter your NewMarket secret key >>> ",
                                 required_if=using_exchange("new_market"),
                                 is_secure=True),
+```
+
+- `hummingbot/client/config/fee_overrides_config_map.py`
+```python
+fee_overrides_config_map = {
+    "binance_maker_fee": new_fee_config_var("binance_maker_fee"),
+    "binance_taker_fee": new_fee_config_var("binance_taker_fee"),
+    .
+    .
+    .
+    "new_exchange_maker_fee": new_fee_config_var("new_exchange_maker_fee"),
+    "new_exchange_taker_fee": new_fee_config_var("new_exchange_taker_fee"),
 ```
 
 - `hummingbot/client/hummingbot_application.py`
@@ -390,6 +407,31 @@ EXAMPLE_ASSETS = {
     "new_market": "EXAMPLE_ASSET",
 }
 ```
+- `hummingbot/client/command/connect_command.py`
+```python
+OPTIONS = {
+    "binance",
+    .
+    .
+    .
+    "new_exchange"
+}
+```
+
+- `hummingbot/user/user_balances.py`
+```python
+    @staticmethod
+    def connect_market(exchange, *api_details):
+        market = None
+        if exchange == "binance":
+            market = BinanceMarket(api_details[0], api_details[1])
+        .
+        .
+        .
+        elif exchange == "new_exchange":
+            market = NewExchangeMarket(api_details[0], api_details[1])
+        return market
+```
 
 - `hummingbot/core/utils/trading_pair_fetcher.py`
 ```python
@@ -425,7 +467,34 @@ async def fetch_all(self):
         .
         "new_market": new_market_trading_pairs,
 ```
-
+- `hummingbot/core/utils/market_mid_price.py`
+```python
+def get_mid_price(exchange: str, trading_pair: str) -> Optional[Decimal]:
+    .
+    .
+    elif exchange == "new_exchange":
+        return new_exchange_mid_price(trading_pair)
+        
+@cachetools.func.ttl_cache(ttl=10)
+def new_exchange_mid_price(trading_pair: str) -> Optional[Decimal]:
+    resp = requests.get(url=...)
+    records = resp.json()
+    result = None
+    for record in records:
+        pair = new_exchange.convert_from_exchange_trading_pair(record["symbol"])
+        .
+        .
+        .
+    return result
+```
+- `hummingbot/core/utils/estimate_fee.py`
+```python
+default_cex_estimate = {
+        .
+        .
+        "new_exchange": [maker_fee, taker_fee],
+        
+```
 ## Additional: Debugging & Testing
 
 This section will breakdown some of the ways to debug and test the code. You are not entirely required to use the options during your development process.
@@ -595,6 +664,127 @@ It is still required that certain actions(buy and cancelling orders) be performe
 3. Market Connector | `test_*_market.py`<br/>
 The purpose of this test is to ensure that all components and the order life cycle is working as intended. 
 This test determines if the connector is able to place and manage orders.<br/>
+All the tests below are required to pass successfully on both real API calls and mocked API calls modes.<br/>
+The mocked API calls mode is to facilitate testing where we can run tests as often as we want without incurring costs in 
+transactions and slippage.<br/>
+In the mocked mode, we simulate any API calls where exchange API key and secret are required,
+i.e. in this mode all the tests should pass without using real exchange API credentials.<br/><br/>
+To simulate REST API responses, please use `test.integration.humming_web_app.HummingWebApp`, key steps to follow are as below:
+  - Create environment variables<br/>  
+  `MOCK_API_ENABLED` - true or false - to indicate whether to run the tests in mocked API calls mode<br/>
+  `NEW_EXCHAGE_API_KEY` - string - the exchange API key<br/>
+  `NEW_EXCHAGE_API_SECRET` - string - the exchange API secret<br/>
+  In your `test_*_market.py` 
+  ```python
+  import conf
+  .
+  .
+  .
+  API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
+  API_KEY = "XXX" if API_MOCK_ENABLED else conf.binance_api_key
+  API_SECRET = "YYY" if API_MOCK_ENABLED else conf.binance_api_secret
+  ```
+
+  - Start HummingWebApp<br/>
+  Configure the web app on what url host to mock and which url paths to ignore, then start the web app. 
+  ```python
+  @classmethod
+  def setUpClass(cls):
+      cls.ev_loop = asyncio.get_event_loop()
+      if API_MOCK_ENABLED:
+          cls.web_app = HummingWebApp.get_instance()
+          cls.web_app.add_host_to_mock(API_HOST, ["/products", "/currencies"])
+          cls.web_app.start()
+          cls.ev_loop.run_until_complete(cls.web_app.wait_til_started())
+   ```
+
+  - Patch http requests<br/>
+  If you use `requests` library:
+  ```python
+  cls._req_patcher = mock.patch.object(requests.Session, "request", autospec=True)
+  cls._req_url_mock = cls._req_patcher.start()
+  cls._req_url_mock.side_effect = HummingWebApp.reroute_request
+  ```
+  If you use `aiohttp` library:
+  ```python
+  cls._patcher = mock.patch("aiohttp.client.URL")
+  cls._url_mock = cls._patcher.start()
+  cls._url_mock.side_effect = cls.web_app.reroute_local
+  ```
+  
+  - Preset json responses<br/>
+  Use `update_response` to store the mocked response to the endpoint which you want to mock, e.g.
+  ```python
+  cls.web_app.update_response("get", cls.base_api_url, "/api/v3/account", FixtureBinance.GET_ACCOUNT)
+  ```
+  Please store your mocked json response in `test/integration/assets/mock_data/fixture_new_exchange.py`
+  e.g. 
+  ```python
+  class FixtureBinance:
+  GET_ACCOUNT = {"makerCommission": 10, "takerCommission": 10, "buyerCommission": 0, "sellerCommission": 0,
+                   "canTrade": True, "canWithdraw": True, "canDeposit": True, "updateTime": 1580009996654,
+                   "accountType": "SPOT", "balances": [{"asset": "BTC", "free": "0.00000000", "locked": "0.00000000"},
+                                                       {"asset": "ETH", "free": "0.77377698", "locked": "0.00000000"},
+                                                       {"asset": "LINK", "free": "4.99700000", "locked": "0.00000000"}]}
+  ```
+  Please remove any sensitive information from this file, e.g. your account number, keys, secrets,...<br/> 
+  
+To simulate web socket API responses, please use `test.integration.humming_ws_server.HummingWsServerFactory`.<br/> 
+Key steps to follow are as below:<br/>
+  - Start new server for each web socket connection<br/>
+  ```python
+  @classmethod
+  def setUpClass(cls):
+      cls.ev_loop = asyncio.get_event_loop()
+      if API_MOCK_ENABLED:
+          ws_base_url = "wss://stream.binance.com:9443/ws"
+          cls._ws_user_url = f"{ws_base_url}/{FixtureBinance.GET_LISTEN_KEY['listenKey']}"
+          HummingWsServerFactory.start_new_server(cls._ws_user_url)
+          HummingWsServerFactory.start_new_server(f"{ws_base_url}/linketh@depth/zrxeth@depth")
+   ```
+
+  - Patch `websockets`<br/>
+  ```python
+  cls._ws_patcher = unittest.mock.patch("websockets.connect", autospec=True)
+  cls._ws_mock = cls._ws_patcher.start()
+  cls._ws_mock.side_effect = HummingWsServerFactory.reroute_ws_connect
+  ```
+  
+  - Send json responses<br/>
+  In the code where you are expecting json response from the server. 
+  ```python
+  HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data1, delay=0.1)
+  HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data2, delay=0.11)
+  ```
+  `data` is your fixture data.<br/>
+  Make sure to set some delay if sequence of responses matters, in the above example, data2 is supposed to arrive after data1
+
+In cases where you need to preset `client_order_id` (our internal id), please mock it as below:<br/>
+- Patch `get_tracking_nonce`
+  ```python
+  cls._t_nonce_patcher = unittest.mock.patch("hummingbot.market.binance.binance_market.get_tracking_nonce")
+  cls._t_nonce_mock = cls._t_nonce_patcher.start()
+  ```
+
+- Mock the nonce and create order_id as required
+  ```python
+  self._t_nonce_mock.return_value = 10001
+  order_id = f"{side.lower()}-{trading_pair}-{str(nonce)}"
+  ```
+
+Finally, stop all patchers and the web app.<br/>
+Once all tests are done, stop all these services.<br/>
+```python
+@classmethod
+def tearDownClass(cls) -> None:
+  if API_MOCK_ENABLED:
+      cls.web_app.stop()
+      cls._patcher.stop()
+      cls._req_patcher.stop()
+      cls._ws_patcher.stop()
+      cls._t_nonce_patcher.stop()
+```
+<br/>
 Below are a list of tests that are **required**:
 
 Function<div style="width:200px"/> | Description 
@@ -614,7 +804,8 @@ Function<div style="width:200px"/> | Description
 `test_unwrap_eth` (DEXes only)| Tests the `unwrap_eth` function in the `Wallet class.<br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: This is only required in Decentralized Exchanges that support WETH wrapping and unwrapping.</td></tr></tbody></table>
 
 !!! note
-    Ensure that you have enough asset balance before testing. Also document the **minimum** and **recommended** asset balance to run the tests. This is to aid testing during the PR review process.
+    Ensure that you have enough asset balance before testing. Also document the **minimum** and **recommended** asset balance to run the tests. This is to aid testing during the PR review process.<br/>
+Please see `test/integration/test_binance_market.py` as an example on how this task is done.
 
 ### Option 2. aiopython console
 This option is mainly used to test for specific functions. Considering that many of the functions are asynchronous functions, 
