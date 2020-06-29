@@ -2,6 +2,7 @@ import asyncio
 import collections
 import json
 import logging
+import math
 import time
 import uuid
 from decimal import Decimal
@@ -34,6 +35,7 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.bitfinex import (
+    BITFINEX_REST_URL_V1,
     BITFINEX_REST_AUTH_URL,
     BITFINEX_REST_URL,
     SubmitOrder,
@@ -457,9 +459,19 @@ cdef class BitfinexMarket(MarketBase):
         return platform_status
 
     async def _api_platform_config_pair_info(self):
-        path_url = "conf/pub:info:pair"
-        info = await self._api_public("get", path_url=path_url)
-        return info[0] if len(info) > 0 else 0
+        path_url = "symbols_details"
+        info = await self._api_public_v1("get", path_url=path_url)
+        return info
+
+    async def _api_public_v1(
+        self,
+        http_method: str,
+        path_url,
+        data: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        url = f"{BITFINEX_REST_URL_V1}/{path_url}"
+        req = await self._api_do_request(http_method, url, None, data)
+        return req
 
     async def _api_public(self,
                           http_method: str,
@@ -625,14 +637,19 @@ cdef class BitfinexMarket(MarketBase):
             list retval = []
         for rule in raw_trading_rules:
             try:
-                trading_pair_id = rule[0]
+                trading_pair = rule["pair"].upper()
+                precision = Decimal(1) / Decimal(math.pow(10, rule["price_precision"]))
+
                 retval.append(
-                    TradingRule(trading_pair_id,
-                                min_price_increment=Decimal(BITFINEX_QUOTE_INCREMENT),
-                                min_order_size=Decimal(str(rule[1][3])),
-                                min_base_amount_increment=MIN_BASE_AMOUNT_INCREMENT,
-                                min_quote_amount_increment=MIN_BASE_AMOUNT_INCREMENT,
-                                max_order_size=Decimal(str(rule[1][4]))))
+                    TradingRule(
+                        trading_pair,
+                        min_price_increment=precision,
+                        min_base_amount_increment=precision,
+                        min_quote_amount_increment=precision,
+                        min_order_size=Decimal(str(rule["minimum_order_size"])),
+                        max_order_size=Decimal(str(rule["maximum_order_size"])),
+                    )
+                )
             except Exception:
                 self.logger().error(
                     f"Error parsing the trading_pair rule {rule}. Skipping.",
