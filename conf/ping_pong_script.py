@@ -1,4 +1,8 @@
 from hummingbot.script.script_base import ScriptBase
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    SellOrderCompletedEvent
+)
 
 
 class PingPongScript(ScriptBase):
@@ -8,22 +12,20 @@ class PingPongScript(ScriptBase):
 
     def on_tick(self):
         print(f"ontick {len(self.mid_prices)}: {self.mid_price} ping pong: {self.ping_pong_balance}")
-        strategy = self.strategy_parameters.copy()
+        strategy = self.pmm_parameters
+        buys = strategy.order_levels
+        sells = strategy.order_levels
         if self.ping_pong_balance > 0:
-            strategy.buy_levels -= self.ping_pong_balance
-            strategy.buy_levels = max(0, strategy.buy_levels)
+            buys -= self.ping_pong_balance
+            buys = max(0, buys)
         elif self.ping_pong_balance < 0:
-            strategy.sell_levels -= abs(self.ping_pong_balance)
-            strategy.sell_levels = max(0, strategy.sell_levels)
-        else:
-            strategy.buy_levels = strategy.order_levels
-            strategy.sell_levels = strategy.order_levels
-        if strategy != self.strategy_parameters:
-            self.strategy_parameters = strategy
-            self.update_strategy_parameters()
+            sells -= abs(self.ping_pong_balance)
+            sells = max(0, sells)
+        strategy.buy_levels = buys
+        strategy.sell_levels = sells
 
-    def on_buy_order_completed(self):
+    def on_buy_order_completed(self, event: BuyOrderCompletedEvent):
         self.ping_pong_balance += 1
 
-    def on_sell_order_completed(self):
+    def on_sell_order_completed(self, event: SellOrderCompletedEvent):
         self.ping_pong_balance -= 1

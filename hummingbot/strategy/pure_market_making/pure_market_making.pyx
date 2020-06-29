@@ -141,6 +141,22 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self.c_add_markets([market_info.market])
 
     @property
+    def order_refresh_tolerance_pct(self) -> Decimal:
+        return self._order_refresh_tolerance_pct
+
+    @order_refresh_tolerance_pct.setter
+    def order_refresh_tolerance_pct(self, value: Decimal):
+        self._order_refresh_tolerance_pct = value
+
+    @property
+    def order_amount(self) -> Decimal:
+        return self._order_amount
+
+    @order_amount.setter
+    def order_amount(self, value: Decimal):
+        self._order_amount = value
+
+    @property
     def order_levels(self) -> int:
         return self._order_levels
 
@@ -155,6 +171,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @buy_levels.setter
     def buy_levels(self, value: int):
         self._buy_levels = value
+        print(f"setting pmm _buy_levels {self._buy_levels}")
 
     @property
     def sell_levels(self) -> int:

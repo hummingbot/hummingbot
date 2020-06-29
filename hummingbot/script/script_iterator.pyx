@@ -15,7 +15,7 @@ from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.market.market_base import MarketBase
 from hummingbot.script.script_process import run_script
-from hummingbot.script.script_interface import *
+from hummingbot.script.script_interface import PMMParameter, PMMParameters, OnTick, CallNotify
 
 cdef class ScriptIterator(TimeIterator):
 
@@ -38,8 +38,7 @@ cdef class ScriptIterator(TimeIterator):
         self._ev_loop = asyncio.get_event_loop()
         self._parent_queue = Queue()
         self._child_queue = Queue()
-        # self._listen_to_child_task = None
-        safe_ensure_future(self.listen_to_child_queue(), loop=self._ev_loop)
+        self._listen_to_child_task = safe_ensure_future(self.listen_to_child_queue(), loop=self._ev_loop)
 
         self._script_process = Process(
             target=run_script,
@@ -66,30 +65,29 @@ cdef class ScriptIterator(TimeIterator):
             self._listen_to_child_task.cancel()
 
     def tick(self, double timestamp):
-        on_tick = OnTick(self.strategy.get_mid_price(), StrategyParameters(
-            self.strategy.buy_levels, self.strategy.sell_levels, self.strategy.order_levels))
+        pmm_strategy = PMMParameters()
+        for attr in PMMParameters.__dict__.keys():
+            if attr[:1] != '_':
+                param_value = getattr(self._strategy, attr)
+                setattr(pmm_strategy, attr, param_value)
+        on_tick = OnTick(self.strategy.get_mid_price(), pmm_strategy)
         self._parent_queue.put(on_tick)
 
     cdef c_tick(self, double timestamp):
         TimeIterator.c_tick(self, timestamp)
         self.tick(timestamp)
 
-    def global_map(self):
-        return {'strategy': self.strategy, 'variables': self.variables}
-
     def _did_complete_buy_order(self,
                                 event_tag: int,
                                 market: MarketBase,
                                 event: BuyOrderCompletedEvent):
-        on_completed = OnBuyOrderCompletedEvent()
-        self._parent_queue.put(on_completed)
+        self._parent_queue.put(event)
 
     def _did_complete_sell_order(self,
                                  event_tag: int,
                                  market: MarketBase,
                                  event: SellOrderCompletedEvent):
-        on_completed = OnSellOrderCompletedEvent()
-        self._parent_queue.put(on_completed)
+        self._parent_queue.put(event)
 
     async def listen_to_child_queue(self):
         while True:
@@ -100,7 +98,8 @@ cdef class ScriptIterator(TimeIterator):
             print(f"parent gets {str(item)}")
             if item is None:
                 break
-            if isinstance(item, CallUpdateStrategyParameters):
-                self._strategy.buy_levels = item.strategy_parameters.buy_levels
-                self._strategy.sell_levels = item.strategy_parameters.sell_levels
-                self._strategy.order_levels = item.strategy_parameters.order_levels
+            if isinstance(item, PMMParameter):
+                setattr(self._strategy, item.name, item.updated_value)
+            elif isinstance(item, CallNotify):
+                from hummingbot.client.hummingbot_application import HummingbotApplication
+                HummingbotApplication.main_application()._notify(item.msg)

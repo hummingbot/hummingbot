@@ -1,6 +1,6 @@
 from multiprocessing import Process, Queue
 from hummingbot.script.script_process import run_script
-from hummingbot.script.script_interface import StrategyParameters, OnTick
+from hummingbot.script.script_interface import PMMParameters, OnTick
 from decimal import Decimal
 import asyncio
 
@@ -27,7 +27,7 @@ async def main(ev_loop, parent_queue, child_queue, proc):
     # safe_ensure_future(async_scheduler.call_async(listen_to_client_sync))
     asyncio.ensure_future(listen_to_client(child_queue))
     await asyncio.sleep(1)
-    parent_queue.put(OnTick(Decimal(100), StrategyParameters(1, 2, 3)))
+    parent_queue.put(OnTick(Decimal(100), PMMParameters(1, 2, 3)))
     await asyncio.sleep(1)
     # asyncio.ensure_future(listen_to_client(child_queue), loop=ev_loop)
     await asyncio.sleep(2)
