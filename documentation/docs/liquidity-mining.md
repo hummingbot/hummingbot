@@ -10,24 +10,26 @@ Liquidity mining is a community-based, data-driven approach to market making, in
 Liquidity mining sets forth an analytical framework for determining market maker compensation based on (1) time (order book consistency), (2) order spreads, and (3) order sizes, in order to create a fair model for compensation that aligns a miner's risk with rewards.
 
 ## Getting started
-- [Hummingbot Miners](https://hummingbot.io/liquidity-mining): The **official Liquidity Mining app** where you can see real-time rates of return and track your payouts
+- [Hummingbot Miners](https://miners.hummingbot.io/): The **official Liquidity Mining app** where you can see real-time rates of return and track your payouts
 - [Get help on Discord](https://discord.hummingbot.io): Join the **#liquidity-mining** channel for 24/7 support
-- [How it works](https://hummingbot.io/liquidity-mining)
+- [How it works](https://www.notion.so/hummingbot/What-is-liquidity-mining-c2eb7d68e28b42278e5efead9a247507)
 - [Hummingbot Quickstart Guide](https://docs.hummingbot.io/quickstart)
 - [Liquidity Mining FAQs](https://docs.hummingbot.io/faq/liquidity-mining/)
 - [Liquidity Mining whitepaper](https://hummingbot.io/liquidity-mining.pdf)
 
-## Active programs
+## Current campaign terms
 
 !!! warning "Terms subject to change"
-    Please check this page for the most up-to-date terms.  We will notify participants of changes, if any, through email (for registered users) and on our [Discord](https://discord.hummingbot.io).
+    Please check this page or the [Miner's app](https://miners.hummingbot.io) for the most up-to-date terms.<br/>We will notify participants of changes, if any, on our [Discord](https://discord.hummingbot.io) and [reddit](https://www.reddit.com/r/Hummingbot/).
 
-!!! note "Terms updated for week 7"
-    **For the period starting April 14, 2020 12:00am UTC until April 21, 2020 12:00am UTC, the following changes were made:**<ol><li>**Zillqa**: the total amount of rewards for Zilliqa's campaigns was increased from USDC 750 per week to USDC 1,250 per week.  Please see updated amounts per trading pair below.<li>**Zcoin**: Zcoin listed a new trading pair, **XZC/USDT**, and has included this in its campaign.  *XZC/BNB is no longer eligible* and reward amounts for XZC/BTC and XZC/USDT are listed in the table below.</ul>
+!!! note "Campaign updates for the week starting June 23, 2020 12.00am UTC"
+    <li>**[XZC/BNB no longer eligble; XZC/BTC now eligible](https://www.reddit.com/r/Hummingbot/comments/hdvp8e/change_to_xzc_eligible_pairs_for_week_16_starting/):** Zcoin's has added back **XZC/BTC** for its campaign to replace **~~XZC/BNB~~**.
+
+**Current reward period: June 23, 2020 12.00am UTC to June 30, 2020 12.00am UTC**
 
 <table>
   <thead>
-    <th>Sponsor</th>
+    <th>Token Issuer</th>
     <th>Trading pair</th>
     <th>Exchange</th>
     <th>Maximum spread</th>
@@ -35,63 +37,97 @@ Liquidity mining sets forth an analytical framework for determining market maker
   </thead>
   <tbody>
     <tr>
+      <td rowspan="3"><a href="#mainframe">Mainframe</a><br></td>
+      <td>MFT/USDT</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 200</td>
+    </tr>
+    <tr>
+      <td>MFT/ETH</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 275</td>
+    </tr>
+    <tr>
+      <td>MFT/BNB</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 275</td>
+    </tr>
+    <tr>
       <td rowspan="3"><a href="#iexec">iExec</a><br></td>
       <td>RLC/BTC</td>
       <td>Binance.com</td>
-      <td>3%</td>
+      <td>2%</td>
       <td>USDC 250</td>
     </tr>
     <tr>
       <td>RLC/USDT</td>
       <td>Binance.com</td>
-      <td>3%</td>
+      <td>2%</td>
       <td>USDC 250</td>
     </tr>
     <tr>
       <td>RLC/ETH</td>
       <td>Binance.com</td>
-      <td>3%</td>
+      <td>2%</td>
+      <td>USDC 250</td>
+    </tr>
+    <tr>
+      <td rowspan="3"><a href="#solana">Solana</a><br></td>
+      <td>SOL/BTC</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 500</td>
+    </tr>
+    <tr>
+      <td>SOL/BUSD</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 500</td>
+    </tr>
+    <tr>
+      <td>SOL/BNB</td>
+      <td>Binance.com</td>
+      <td>2%</td>
       <td>USDC 250</td>
     </tr>
     <tr>
       <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
       <td>XZC/BTC</td>
       <td>Binance.com</td>
-      <td>3%</td>
-      <td>USDC 375¹</td>
+      <td>2%</td>
+      <td>USDC 375</td>
     </tr>
     <tr>
-      <td>XZC/USDT¹</td>
+      <td>XZC/USDT</td>
       <td>Binance.com</td>
-      <td>3%</td>
-      <td>USDC 375¹</td>
+      <td>2%</td>
+      <td>USDC 375</td>
     </tr>
     <tr>
-      <td rowspan="3"><a href="#zilliqa">Zilliqa</a><br></td>
-      <td>ZIL/USDT</td>
+      <td rowspan="2"><a href="#zilliqa">Zilliqa</a><br></td>
+      <td>ZIL/BUSD</td>
       <td>Binance.com</td>
-      <td>3%</td>
-      <td>USDC 450¹</td>
-    </tr>
-    <tr>
-      <td>ZIL/ETH</td>
-      <td>Binance.com</td>
-      <td>3%</td>
-      <td>USDC 400¹</td>
+      <td>2%</td>
+      <td>USDC 375</td>
     </tr>
     <tr>
       <td>ZIL/BNB</td>
       <td>Binance.com</td>
-      <td>3%</td>
-      <td>USDC 400¹</td>
-    </tr>
-  </tbody>
+      <td>2%</td>
+      <td>USDC 375</td>
+    </tr>  </tbody>
 </table>
 
-## Changes to campaign terms
-1. **April 14, 2020**: (1) the reward amounts for ZIL/USDT, ZIL/ETH, and ZIL/BNB were increased to USDC 450, USD 400, and USD 400 per week, respectively and (2) Zcoin (i) added a new pair (XZC/USDT), (ii) removed a previously eligible pair (XZC/BNB), as well as (iii) changed the reward amounts to USDC 375 per week per pair.  You can read more about the changes on our [reddit post](https://www.reddit.com/r/Hummingbot/comments/fy87ty/campaign_updates_for_week_7_increased_reward_pool/).
 
-## Program sponsors
+## Upcoming changes to campaign terms
+
+No current changes.
+
+
+## Token Issuers
 
 
 ### iExec
@@ -99,6 +135,18 @@ Liquidity mining sets forth an analytical framework for determining market maker
 [iExec (RLC)](https://iex.ec/) claims to have developed the first decentralized marketplace for cloud computing resources. Blockchain technology is used to organize a market network where users can monetize their computing power, applications, and datasets. By providing on-demand access to cloud computing resources, iExec is reportedly able to support compute-intensive applications in fields such as AI, big data, healthcare, rendering, or FinTech. iExec's RLC token has been listed on Binance, Bittrex, etc.
 
 [Whitepaper](https://iex.ec/wp-content/uploads/pdf/iExec-WPv3.0-English.pdf) | [Twitter](https://twitter.com/iEx_ec) | [Telegram](https://goo.gl/fH3EHT) | [Github](https://github.com/iExecBlockchainComputing) | [Explorer](https://etherscan.io/token/0x607F4C5BB672230e8672085532f7e901544a7375) | [CoinMarketCap](https://coinmarketcap.com/currencies/rlc/markets/) | [CoinGecko](https://www.coingecko.com/en/coins/iexec-rlc)
+
+### Mainframe
+
+The [Mainframe (MFT)](https://mainframe.com/) Lending Protocol allows anyone to borrow against their crypto. Mainframe uses a bond-like instrument, representing an on-chain obligation that settles on a specific future date. Buying and selling the tokenized debt enables fixed-rate lending and borrowing — something much needed in decentralized finance today.
+
+[Blog](https://blog.mainframe.com) | [Twitter](https://twitter.com/Mainframe_HQ) | [Telegram](https://t.me/MainframeCommunity) | [Github](https://github.com/MainframeHQ) | [CoinMarketCap](https://coinmarketcap.com/currencies/mainframe/) | [CoinGecko](https://www.coingecko.com/en/coins/mainframe)
+
+### Solana
+
+[Solana (SOL)](https://solana.com) is a high-performance blockchain based out of San Francisco. The project was founded with the mission to support all high-growth and high-frequency blockchain applications, and to democratize the world’s financial systems. As of today, Solana can support up to 50,000 transactions per second, with 400ms block times and transaction fees estimated to be $0.00001 each, which will continue to scale further as its network architecture was designed from the ground up to leverage improvements in hardware and bandwidth.
+
+[Whitepaper](https://solana.com/solana-whitepaper.pdf) | [Blog](https://medium.com/solana-labs) | [Podcast](https://podcast.solana.com/) | [Twitter](https://twitter.com/solana) | [Telegram](https://t.me/solanaio) | [Discord](https://discordapp.com/invite/pquxPsq) | [Github](https://github.com/solana-labs) | [CoinMarketCap](https://coinmarketcap.com/currencies/solana/markets/) | [CoinGecko](https://www.coingecko.com/en/coins/solana)
 
 ### Zcoin
 

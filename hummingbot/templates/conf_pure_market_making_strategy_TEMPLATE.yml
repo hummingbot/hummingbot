@@ -2,7 +2,7 @@
 ###       Pure market making strategy config         ###
 ########################################################
 
-template_version: 12
+template_version: 16
 strategy: null
 
 # Exchange and token parameters.
@@ -23,12 +23,29 @@ bid_spread: null
 # Your bid is placed at 101.
 ask_spread: null
 
+# Minimum Spread
+# How far away from the mid price to cancel active orders
+minimum_spread: null
+
 # Time in seconds before cancelling and placing new orders.
 # If the value is 60, the bot cancels active orders and placing new ones after a minute.
 order_refresh_time: null
 
+# The spread (from mid price) to defer order refresh process to the next cycle.
+# (Enter 1 to indicate 1%), value below 0, e.g. -1, is to disable this feature - not recommended.
+order_refresh_tolerance_pct: null
+
 # Size of your bid and ask order.
 order_amount: null
+
+# Price band ceiling.
+price_ceiling: null
+
+# Price band floor.
+price_floor: null
+
+# Whether to alternate between buys and sells (true/false).
+ping_pong_enabled: null
 
 # Whether to enable Inventory skew feature (true/false).
 inventory_skew_enabled: null
@@ -40,13 +57,10 @@ inventory_target_base_pct: null
 # inventory skew feature).
 inventory_range_multiplier: null
 
-# Ox ONLY - Sets the expiration of limit orders. Minimum is 130 seconds.
-order_expiration_time: null
-
 # Number of levels of orders to place on each side of the order book.
 order_levels: null
 
-# Increment size of consecutive orders after the first order (if order_levels > 1).
+# Increase or decrease size of consecutive orders after the first order (if order_levels > 1).
 order_level_amount: null
 
 # Order price space between orders (if order_levels > 1).
@@ -65,8 +79,11 @@ hanging_orders_cancel_pct: null
 # Whether to enable order optimization mode (true/false).
 order_optimization_enabled: null
 
-# The depth in base asset amount to be used for finding top bid and ask (for order optimization mode).
-order_optimization_depth: null
+# The depth in base asset amount to be used for finding top ask (for order optimization mode).
+ask_order_optimization_depth: null
+
+# The depth in base asset amount to be used for finding top bid (for order optimization mode).
+bid_order_optimization_depth: null
 
 # Whether to enable adding transaction costs to order price calculation (true/false).
 add_transaction_costs: null

@@ -46,7 +46,10 @@ def validate_market_trading_pair(market: str, value: str) -> Optional[str]:
     # in case of network issues or slow wifi, this check returns true and does not prevent users from proceeding,
     trading_pair_fetcher: TradingPairFetcher = TradingPairFetcher.get_instance()
     if trading_pair_fetcher.ready:
-        if value not in trading_pair_fetcher.trading_pairs.get(market):
+        trading_pairs = trading_pair_fetcher.trading_pairs.get(market)
+        if len(trading_pairs) == 0:
+            return None
+        elif value not in trading_pairs:
             return f"{value} is not an active market on {market}."
 
 
@@ -54,3 +57,25 @@ def validate_bool(value: str) -> Optional[str]:
     valid_values = ('true', 'yes', 'y', 'false', 'no', 'n')
     if value.lower() not in valid_values:
         return f"Invalid value, please choose value from {valid_values}"
+
+
+def validate_int(value: str, min_value: Decimal = None, max_value: Decimal = None, inclusive=True) -> Optional[str]:
+    try:
+        int_value = int(value)
+    except Exception:
+        return f"{value} is not in integer format."
+    if inclusive:
+        if not (int(str(min_value)) <= int_value <= int(str(max_value))):
+            return f"Value must be between {min_value} and {max_value}."
+        elif min_value is not None and not int_value >= int(str(min_value)):
+            return f"Value cannot be less than {min_value}."
+        elif max_value is not None and not int_value <= int(str(max_value)):
+            return f"Value cannot be more than {max_value}."
+    else:
+        if min_value is not None and max_value is not None:
+            if not (int(str(min_value)) < int_value < int(str(max_value))):
+                return f"Value must be between {min_value} and {max_value} (exclusive)."
+        elif min_value is not None and not int_value > int(str(min_value)):
+            return f"Value must be more than {min_value}."
+        elif max_value is not None and not int_value < int(str(max_value)):
+            return f"Value must be less than {max_value}."

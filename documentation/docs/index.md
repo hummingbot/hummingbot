@@ -18,11 +18,13 @@ Our business model is to administer [Liquidity Mining](/liquidity-mining) progra
 ## For experienced users
 * [Installation](/installation): See how to install Hummingbot in various environments
 * [Liquidity Mining](/liquidity-mining): Learn how you can earn liquidity rewards by market making
-* Check out advanced features such as [Running multiple bots](/advanced/running-multiple-bots/) and [Telegram integration](/advanced/telegram/).
 
 ## For developers
 
-Hummingbot is a general open source framework for crypto algorithmic trading. See the [Developer Manual](/developers) to learn how to build custom algo trading strategies with Hummingbot
+Hummingbot is an general source framework for crypto algorithmic trading. We welcome developers to fork the codebase for their own purposes and contribute to the community.
+
+* [Developer Manual](/developers): Learn how to build Hummingbot connectors and strategies
+* [Community](/community): Contribute to Hummingbot the open source codebase
 
 ## More resources
 * [Command Reference](/operation/commands): Quick reference for common commands and keyboard shortcuts

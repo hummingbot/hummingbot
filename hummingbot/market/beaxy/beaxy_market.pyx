@@ -61,6 +61,7 @@ from hummingbot.core.event.events import (
 import aiohttp
 import conf
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.core.utils.estimate_fee import estimate_fee
 
 TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BXY|USDT|USDC)$")
 s_logger = None
@@ -459,6 +460,7 @@ cdef class BeaxyMarket(MarketBase):
         :returns: TradeFee class that includes fee percentage and flat fees
         """
         # There is no API for checking user's fee tier
+        """
         cdef:
             object maker_fee = self._maker_fee_percentage
             object taker_fee = self._taker_fee_percentage
@@ -466,7 +468,10 @@ cdef class BeaxyMarket(MarketBase):
             return TradeFee(percent=fee_overrides_config_map["beaxy_maker_fee"].value / Decimal("100"))
         if order_type is OrderType.MARKET and fee_overrides_config_map["beaxy_taker_fee"].value is not None:
             return TradeFee(percent=fee_overrides_config_map["beaxy_taker_fee"].value / Decimal("100"))
-        return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
+        """
+
+        is_maker = order_type is OrderType.LIMIT
+        return estimate_fee("beaxy", is_maker)
 
     async def execute_buy(self,
                           order_id: str,

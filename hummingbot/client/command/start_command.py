@@ -19,7 +19,6 @@ from hummingbot.client.config.config_helpers import (
 from hummingbot.client.settings import (
     STRATEGIES,
 )
-from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
@@ -44,17 +43,21 @@ class StartCommand:
             else:
                 return func(*args, **kwargs)
 
-    async def start(self,  # type: HummingbotApplication
-                    log_level: Optional[str] = None):
+    def start(self,  # type: HummingbotApplication
+              log_level: Optional[str] = None):
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.start, log_level)
             return
+        safe_ensure_future(self.start_check(log_level), loop=self.ev_loop)
+
+    async def start_check(self,  # type: HummingbotApplication
+                          log_level: Optional[str] = None):
 
         if self.strategy_task is not None and not self.strategy_task.done():
             self._notify('The bot is already running - please run "stop" first')
             return
 
-        is_valid = await self.status(notify_success=False)
+        is_valid = await self.status_check_all(notify_success=False)
         if not is_valid:
             return
 
@@ -75,12 +78,10 @@ class StartCommand:
         self._notify(f"\nStatus check complete. Starting '{self.strategy_name}' strategy...")
         if global_config_map.get("paper_trade_enabled").value:
             self._notify("\nPaper Trading ON: All orders are simulated, and no real orders are placed.")
-        safe_ensure_future(self.start_market_making(self.strategy_name), loop=self.ev_loop)
+        await self.start_market_making(self.strategy_name)
 
     async def start_market_making(self,  # type: HummingbotApplication
                                   strategy_name: str):
-        await ExchangeRateConversion.get_instance().ready_notifier.wait()
-
         start_strategy: Callable = get_strategy_starter_file(strategy_name)
         if strategy_name in STRATEGIES:
             start_strategy(self)
@@ -105,7 +106,7 @@ class StartCommand:
             self.strategy_task: asyncio.Task = safe_ensure_future(self._run_clock(), loop=self.ev_loop)
             self._notify(f"\n'{strategy_name}' strategy started.\n"
                          f"Run `status` command to query the progress.")
-
+            self.logger().info("start command initiated.")
             if not self.starting_balances:
                 self.starting_balances = await self.wait_till_ready(self.balance_snapshot)
 

@@ -8,7 +8,6 @@ from hummingbot.core.clock cimport Clock
 from hummingbot.core.event.events import MarketEvent
 from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.core.time_iterator cimport TimeIterator
 from hummingbot.market.market_base cimport MarketBase
@@ -106,7 +105,6 @@ cdef class StrategyBase(TimeIterator):
         self._sb_complete_buy_order_listener = BuyOrderCompletedListener(self)
         self._sb_complete_sell_order_listener = SellOrderCompletedListener(self)
 
-        self._sb_limit_order_min_expiration = 130.0
         self._sb_delegate_lock = False
 
         self._sb_order_tracker = OrderTracker()
@@ -114,14 +112,6 @@ cdef class StrategyBase(TimeIterator):
     @property
     def active_markets(self) -> List[MarketBase]:
         return list(self._sb_markets)
-
-    @property
-    def limit_order_min_expiration(self) -> float:
-        return self._sb_limit_order_min_expiration
-
-    @limit_order_min_expiration.setter
-    def limit_order_min_expiration(self, double value):
-        self._sb_limit_order_min_expiration = value
 
     def format_status(self):
         raise NotImplementedError
@@ -187,7 +177,7 @@ cdef class StrategyBase(TimeIterator):
             double base_asset_conversion_rate
             double quote_asset_conversion_rate
             list assets_data = []
-            list assets_columns = ["Exchange", "Asset", "Total Balance", "Available Balance", "Conversion Rate"]
+            list assets_columns = ["Exchange", "Asset", "Total Balance", "Available Balance"]
         try:
             for market_trading_pair_tuple in market_trading_pair_tuples:
                 market, trading_pair, base_asset, quote_asset = market_trading_pair_tuple
@@ -195,11 +185,9 @@ cdef class StrategyBase(TimeIterator):
                 quote_balance = float(market.get_balance(quote_asset))
                 available_base_balance = float(market.get_available_balance(base_asset))
                 available_quote_balance = float(market.get_available_balance(quote_asset))
-                base_asset_conversion_rate = ExchangeRateConversion.get_instance().adjust_token_rate(base_asset, Decimal(1))
-                quote_asset_conversion_rate = ExchangeRateConversion.get_instance().adjust_token_rate(quote_asset, Decimal(1))
                 assets_data.extend([
-                    [market.display_name, base_asset, base_balance, available_base_balance, base_asset_conversion_rate],
-                    [market.display_name, quote_asset, quote_balance, available_quote_balance, quote_asset_conversion_rate]
+                    [market.display_name, base_asset, base_balance, available_base_balance],
+                    [market.display_name, quote_asset, quote_balance, available_quote_balance]
                 ])
 
             return pd.DataFrame(data=assets_data, columns=assets_columns)
@@ -298,15 +286,12 @@ cdef class StrategyBase(TimeIterator):
             if flat_fee_currency == quote_asset:
                 total_flat_fees += flat_fee_amount
             else:
-                # if the flat fee currency asset does not match quote asset, convert to quote currency value
-                total_flat_fees += ExchangeRateConversion.get_instance().convert_token_value_decimal(
-                    amount=flat_fee_amount,
-                    from_currency=flat_fee_currency,
-                    to_currency=quote_asset
-                )
+                # if the flat fee currency asset does not match quote asset, raise exception for now
+                # as we don't support different token conversion atm.
+                raise Exception("Flat fee in other token than quote asset is not supported.")
         return total_flat_fees
 
-    # <editor-fold desc="+ Event handling functions">
+    # <editor-fold desc="+ Market event interfaces">
     # ----------------------------------------------------------------------------------------------------------
     cdef c_did_create_buy_order(self, object order_created_event):
         pass
@@ -334,7 +319,7 @@ cdef class StrategyBase(TimeIterator):
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
 
-    # <editor-fold desc="+ Event handling for order tracking">
+    # <editor-fold desc="+ Order tracking event handlers">
     # ----------------------------------------------------------------------------------------------------------
     cdef c_did_fail_order_tracker(self, object order_failed_event):
         cdef:
@@ -342,7 +327,7 @@ cdef class StrategyBase(TimeIterator):
             object order_type = order_failed_event.order_type
             object market_pair = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
 
-        if order_type == OrderType.LIMIT:
+        if order_type.is_limit_type():
             self.c_stop_tracking_limit_order(market_pair, order_id)
         elif order_type == OrderType.MARKET:
             self.c_stop_tracking_market_order(market_pair, order_id)
@@ -364,7 +349,7 @@ cdef class StrategyBase(TimeIterator):
             object order_type = order_completed_event.order_type
 
         if market_pair is not None:
-            if order_type == OrderType.LIMIT:
+            if order_type.is_limit_type():
                 self.c_stop_tracking_limit_order(market_pair, order_id)
             elif order_type == OrderType.MARKET:
                 self.c_stop_tracking_market_order(market_pair, order_id)
@@ -376,6 +361,16 @@ cdef class StrategyBase(TimeIterator):
 
     # <editor-fold desc="+ Creating and cancelling orders">
     # ----------------------------------------------------------------------------------------------------------
+
+    def buy_with_specific_market(self, market_trading_pair_tuple, amount,
+                                 order_type=OrderType.MARKET,
+                                 price=s_decimal_nan,
+                                 expiration_seconds=NaN):
+        return self.c_buy_with_specific_market(market_trading_pair_tuple, amount,
+                                               order_type,
+                                               price,
+                                               expiration_seconds)
+
     cdef str c_buy_with_specific_market(self, object market_trading_pair_tuple, object amount,
                                         object order_type=OrderType.MARKET,
                                         object price=s_decimal_nan,
@@ -388,7 +383,7 @@ cdef class StrategyBase(TimeIterator):
 
         cdef:
             dict kwargs = {
-                "expiration_ts": self._current_timestamp + max(self._sb_limit_order_min_expiration, expiration_seconds)
+                "expiration_ts": self._current_timestamp + expiration_seconds
             }
             MarketBase market = market_trading_pair_tuple.market
 
@@ -403,12 +398,21 @@ cdef class StrategyBase(TimeIterator):
                                         kwargs=kwargs)
 
         # Start order tracking
-        if order_type == OrderType.LIMIT:
+        if order_type.is_limit_type():
             self.c_start_tracking_limit_order(market_trading_pair_tuple, order_id, True, price, amount)
         elif order_type == OrderType.MARKET:
             self.c_start_tracking_market_order(market_trading_pair_tuple, order_id, True, amount)
 
         return order_id
+
+    def sell_with_specific_market(self, market_trading_pair_tuple, amount,
+                                  order_type=OrderType.MARKET,
+                                  price=s_decimal_nan,
+                                  expiration_seconds=NaN):
+        return self.c_sell_with_specific_market(market_trading_pair_tuple, amount,
+                                                order_type,
+                                                price,
+                                                expiration_seconds)
 
     cdef str c_sell_with_specific_market(self, object market_trading_pair_tuple, object amount,
                                          object order_type=OrderType.MARKET,
@@ -422,7 +426,7 @@ cdef class StrategyBase(TimeIterator):
 
         cdef:
             dict kwargs = {
-                "expiration_ts": self._current_timestamp + max(self._sb_limit_order_min_expiration, expiration_seconds)
+                "expiration_ts": self._current_timestamp + expiration_seconds
             }
 
             MarketBase market = market_trading_pair_tuple.market
@@ -435,7 +439,7 @@ cdef class StrategyBase(TimeIterator):
                                          order_type=order_type, price=price, kwargs=kwargs)
 
         # Start order tracking
-        if order_type == OrderType.LIMIT:
+        if order_type.is_limit_type():
             self.c_start_tracking_limit_order(market_trading_pair_tuple, order_id, False, price, amount)
         elif order_type == OrderType.MARKET:
             self.c_start_tracking_market_order(market_trading_pair_tuple, order_id, False, amount)

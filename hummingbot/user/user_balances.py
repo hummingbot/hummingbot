@@ -6,12 +6,13 @@ from hummingbot.market.kucoin.kucoin_market import KucoinMarket
 from hummingbot.market.liquid.liquid_market import LiquidMarket
 from hummingbot.market.kraken.kraken_market import KrakenMarket
 from hummingbot.market.beaxy.beaxy_market import BeaxyMarket
-from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.core.utils.market_mid_price import get_mid_price
 from hummingbot.client.settings import EXCHANGES, DEXES
 from hummingbot.client.config.security import Security
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.client.config.global_config_map import global_config_map
-from typing import Optional
+from typing import Optional, Dict
+from decimal import Decimal
 
 from web3 import Web3
 
@@ -75,7 +76,7 @@ class UserBalances:
             self._markets[exchange] = market
         return err_msg
 
-    def all_balances(self, exchange):
+    def all_balances(self, exchange) -> Dict[str, Decimal]:
         if exchange not in self._markets:
             return None
         return self._markets[exchange].get_all_balances()
@@ -90,9 +91,10 @@ class UserBalances:
             else:
                 return "API keys have not been added."
 
-    async def update_exchanges(self, reconnect=False, exchanges=EXCHANGES):
+    # returns error message for each exchange
+    async def update_exchanges(self, reconnect=False, exchanges=EXCHANGES) -> Dict[str, Optional[str]]:
         tasks = []
-        # We can only update user exchange balances on CEXes, for DEX we'll need to implement web3 waller query later.
+        # We can only update user exchange balances on CEXes, for DEX we'll need to implement web3 wallet query later.
         exchanges = [ex for ex in exchanges if ex not in DEXES]
         if reconnect:
             self._markets.clear()
@@ -101,16 +103,21 @@ class UserBalances:
         results = await safe_gather(*tasks)
         return {ex: err_msg for ex, err_msg in zip(exchanges, results)}
 
-    async def all_balances_all_exchanges(self):
+    async def all_balances_all_exchanges(self) -> Dict[str, Dict[str, Decimal]]:
         await self.update_exchanges()
-        return {k: v.get_all_balances() for k, v in self._markets.items()}
+        return {k: v.get_all_balances() for k, v in sorted(self._markets.items(), key=lambda x: x[0])}
 
-    async def balances(self, exchange, *symbols):
+    async def balances(self, exchange, *symbols) -> Dict[str, Decimal]:
         if await self.update_exchange_balance(exchange) is None:
-            return {k: v for k, v in self.all_balances(exchange).items() if k in symbols}
+            results = {}
+            for token, bal in self.all_balances(exchange).items():
+                matches = [s for s in symbols if s.lower() == token.lower()]
+                if matches:
+                    results[matches[0]] = bal
+            return results
 
     @staticmethod
-    def ethereum_balance():
+    def ethereum_balance() -> Decimal:
         ethereum_wallet = global_config_map.get("ethereum_wallet").value
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
         web3 = Web3(Web3.HTTPProvider(ethereum_rpc_url))
@@ -119,10 +126,27 @@ class UserBalances:
         return balance
 
     @staticmethod
-    def base_amount_ratio(trading_pair, balances):
-        base, quote = trading_pair.split("-")
-        base_amount = balances.get(base, 0)
-        quote_amount = balances.get(quote, 0)
-        rate = ExchangeRateConversion.get_instance().convert_token_value_decimal(1, quote, base)
-        total_value = base_amount + (quote_amount * rate)
-        return None if total_value <= 0 else base_amount / total_value
+    def validate_ethereum_wallet() -> Optional[str]:
+        if global_config_map.get("ethereum_wallet").value is None:
+            return "Ethereum wallet is required."
+        if global_config_map.get("ethereum_rpc_url").value is None:
+            return "ethereum_rpc_url is required."
+        if global_config_map.get("ethereum_wallet").value not in Security.private_keys():
+            return "Ethereum private key file does not exist or corrupts."
+        try:
+            UserBalances.ethereum_balance()
+        except Exception as e:
+            return str(e)
+        return None
+
+    @staticmethod
+    def base_amount_ratio(exchange, trading_pair, balances) -> Optional[Decimal]:
+        try:
+            base, quote = trading_pair.split("-")
+            base_amount = balances.get(base, 0)
+            quote_amount = balances.get(quote, 0)
+            price = get_mid_price(exchange, trading_pair)
+            total_value = base_amount + (quote_amount / price)
+            return None if total_value <= 0 else base_amount / total_value
+        except Exception:
+            return None

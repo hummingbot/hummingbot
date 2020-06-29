@@ -76,6 +76,7 @@ mkdir hummingbot_files/hummingbot_data
 
 # 3) Launch a new instance of hummingbot
 docker run -it \
+--network host \
 --name hummingbot-instance \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
@@ -156,6 +157,7 @@ mkdir hummingbot_files/hummingbot_data
 
 # 3) Launch a new instance of hummingbot
 docker run -it \
+--network host \
 --name hummingbot-instance \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
@@ -234,6 +236,7 @@ mkdir hummingbot_files/hummingbot_data
 
 # 3) Launch a new instance of hummingbot
 docker run -it \
+--network host \
 --name hummingbot-instance \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \

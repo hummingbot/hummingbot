@@ -30,6 +30,9 @@ class ImportCommand:
         required_exchanges.clear()
         if file_name is None:
             file_name = await self.prompt_a_file_name()
+        if self.app.to_stop_config:
+            self.app.to_stop_config = False
+            return
         strategy_path = os.path.join(CONF_FILE_PATH, file_name)
         strategy = update_strategy_config_map_from_file(strategy_path)
         self.strategy_file_name = file_name
@@ -38,7 +41,7 @@ class ImportCommand:
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
-        if await self.status():
+        if await self.status_check_all():
             self._notify("\nEnter \"start\" to start market making.")
             self.app.set_text("start")
 
@@ -46,6 +49,8 @@ class ImportCommand:
                                  ):
         example = f"{CONF_PREFIX}{short_strategy_name('pure_market_making')}_{1}.yml"
         file_name = await self.app.prompt(prompt=f'Enter path to your strategy file (e.g. "{example}") >>> ')
+        if self.app.to_stop_config:
+            return
         file_path = os.path.join(CONF_FILE_PATH, file_name)
         err_msg = validate_strategy_file(file_path)
         if err_msg is not None:

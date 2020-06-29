@@ -1,4 +1,5 @@
 from decimal import Decimal
+from collections import defaultdict
 
 import pandas as pd
 import threading
@@ -12,13 +13,14 @@ from typing import (
     TYPE_CHECKING,
     List
 )
-from hummingbot.client.performance_analysis import PerformanceAnalysis
+from hummingbot.client.performance_analysis import calculate_trade_performance
 from hummingbot.market.market_base import MarketBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from datetime import datetime
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.settings import MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT
 from hummingbot.model.trade_fill import TradeFill
+from hummingbot.client.config.config_helpers import secondary_market_conversion_rate
 
 s_float_0 = float(0)
 
@@ -40,22 +42,22 @@ class HistoryCommand:
         if global_config_map.get("paper_trade_enabled").value:
             self._notify("\n  Paper Trading ON: All orders are simulated, and no real orders are placed.")
         self.list_trades()
-        self.trade_performance_report()
+        if self.strategy_name != "celo_arb":
+            self.trade_performance_report()
 
     def balance_snapshot(self,  # type: HummingbotApplication
                          ) -> Dict[str, Dict[str, Decimal]]:
-        snapshot: Dict[str, Any] = {}
+        snapshot: Dict[str, Any] = defaultdict(dict)
         for market_name in self.markets:
             balance_dict = self.markets[market_name].get_all_balances()
             balance_dict = {k.upper(): v for k, v in balance_dict.items()}
 
+            for asset in balance_dict:
+                snapshot[asset][market_name] = Decimal(balance_dict[asset])
+
             for asset in self.assets:
                 asset = asset.upper()
-                if asset not in snapshot:
-                    snapshot[asset] = {}
-                if asset in balance_dict:
-                    snapshot[asset][market_name] = Decimal(balance_dict[asset])
-                else:
+                if asset not in balance_dict:
                     snapshot[asset][market_name] = Decimal("0")
         return snapshot
 
@@ -87,12 +89,13 @@ class HistoryCommand:
                                      ) -> Tuple[Dict, Dict]:
         raw_queried_trades = self._get_trades_from_session(self.init_time)
         current_strategy_name: str = self.markets_recorder.strategy_name
-        performance_analysis: PerformanceAnalysis = PerformanceAnalysis()
-        trade_performance_stats, market_trading_pair_stats = performance_analysis.calculate_trade_performance(
+        conversion_rate = secondary_market_conversion_rate(current_strategy_name)
+        trade_performance_stats, market_trading_pair_stats = calculate_trade_performance(
             current_strategy_name,
             self.market_trading_pair_tuples,
             raw_queried_trades,
-            self.starting_balances
+            self.starting_balances,
+            secondary_market_conversion_rate=conversion_rate
         )
         return trade_performance_stats, market_trading_pair_stats
 
@@ -147,7 +150,7 @@ class HistoryCommand:
             trade_performance_status_line.extend(
                 ["", "  Performance:"] +
                 [f"    Started: {datetime.fromtimestamp(self.start_time//1e3)}"] +
-                [f"    Duration: {pd.Timestamp((time.time() - self.start_time/1e3), unit='s').strftime('%H:%M:%S')}"] +
+                [f"    Duration: {pd.Timedelta(seconds=abs(int(time.time() - self.start_time/1e3)))}"] +
                 [f"    Total Trade Value Delta: {portfolio_delta:.7g} {primary_quote_asset}"] +
                 [f"    Return %: {portfolio_delta_percentage:.4f} %"])
 
@@ -170,6 +173,9 @@ class HistoryCommand:
             # Query for maximum number of trades to display + 1
             queried_trades: List[TradeFill] = self._get_trades_from_session(self.init_time,
                                                                             MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT + 1)
+            if self.strategy_name == "celo_arb":
+                celo_trades = self.strategy.celo_orders_to_trade_fills()
+                queried_trades = queried_trades + celo_trades
             df: pd.DataFrame = TradeFill.to_pandas(queried_trades)
 
             if len(df) > 0:

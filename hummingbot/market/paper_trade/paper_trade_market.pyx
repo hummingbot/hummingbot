@@ -63,6 +63,7 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.market.market_base import MarketBase, s_decimal_NaN
 from hummingbot.market.paper_trade.trading_pair import TradingPair
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.estimate_fee import estimate_fee
 
 from .market_config import (
     MarketConfig,
@@ -188,7 +189,6 @@ cdef class PaperTradeMarket(MarketBase):
         self._config = config
         self._queued_orders = deque()
         self._quantization_params = {}
-        self._order_tracker_task = None
         self._order_book_tracker = order_book_tracker
         self._order_book_trade_listener = OrderBookTradeListener(self)
         self._target_market = target_market
@@ -305,12 +305,10 @@ cdef class PaperTradeMarket(MarketBase):
 
     async def start_network(self):
         await self.stop_network()
-        self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
+        self._order_book_tracker.start()
 
     async def stop_network(self):
-        if self._order_tracker_task is not None:
-            self._order_book_tracker.stop()
-            self._order_tracker_task.cancel()
+        self._order_book_tracker.stop()
 
     async def check_network(self) -> NetworkStatus:
         return NetworkStatus.CONNECTED
@@ -469,9 +467,12 @@ cdef class PaperTradeMarket(MarketBase):
         self.c_set_balance(quote_asset, quote_balance - total_quote_needed)
         self.c_set_balance(base_asset, base_balance + total_base_acquired)
 
+        # add fee
+        fees = estimate_fee(self.name, False)
+
         order_filled_events = OrderFilledEvent.order_filled_events_from_order_book_rows(
             self._current_timestamp, order_id, trading_pair, TradeType.BUY, OrderType.MARKET,
-            TradeFee(s_decimal_0), buy_entries
+            fees, buy_entries
         )
 
         for order_filled_event in order_filled_events:
@@ -526,9 +527,12 @@ cdef class PaperTradeMarket(MarketBase):
         self.c_set_balance(base_asset,
                            base_asset_amount - amount)
 
+        # add fee
+        fees = estimate_fee(self.name, False)
+
         order_filled_events = OrderFilledEvent.order_filled_events_from_order_book_rows(
             self._current_timestamp, order_id, trading_pair_str, TradeType.SELL,
-            OrderType.MARKET, TradeFee(s_decimal_0), sell_entries
+            OrderType.MARKET, fees, sell_entries
         )
 
         for order_filled_event in order_filled_events:
@@ -606,6 +610,9 @@ cdef class PaperTradeMarket(MarketBase):
         self.c_set_balance(quote_asset, self.c_get_balance(quote_asset) - quote_asset_traded)
         self.c_set_balance(base_asset, self.c_get_balance(base_asset) + base_asset_traded)
 
+        # add fee
+        fees = estimate_fee(self.name, True)
+
         # Emit the trade and order completed events.
         config = self._config
         self.c_trigger_event(
@@ -618,7 +625,7 @@ cdef class PaperTradeMarket(MarketBase):
                 OrderType.LIMIT,
                 <object> cpp_limit_order_ptr.getPrice(),
                 <object> cpp_limit_order_ptr.getQuantity(),
-                TradeFee(s_decimal_0)
+                fees
             ))
 
         self.c_trigger_event(
@@ -663,6 +670,9 @@ cdef class PaperTradeMarket(MarketBase):
         self.c_set_balance(quote_asset, self.c_get_balance(quote_asset) + quote_asset_traded)
         self.c_set_balance(base_asset, self.c_get_balance(base_asset) - base_asset_traded)
 
+        # add fee
+        fees = estimate_fee(self.name, True)
+
         # Emit the trade and order completed events.
         config = self._config
         self.c_trigger_event(
@@ -675,7 +685,7 @@ cdef class PaperTradeMarket(MarketBase):
                 OrderType.LIMIT,
                 <object> cpp_limit_order_ptr.getPrice(),
                 <object> cpp_limit_order_ptr.getQuantity(),
-                TradeFee(s_decimal_0)
+                fees
             ))
 
         self.c_trigger_event(
@@ -884,7 +894,7 @@ cdef class PaperTradeMarket(MarketBase):
             LimitOrders *limit_orders_map_ptr = (address(self._bid_limit_orders)
                                                  if is_maker_buy
                                                  else address(self._ask_limit_orders))
-        self.c_cancel_order_from_orders_map(limit_orders_map_ptr, trading_pair_str, client_order_id)
+        self.c_cancel_order_from_orders_map(limit_orders_map_ptr, trading_pair_str, False, client_order_id)
 
     cdef object c_get_fee(self,
                           str base_asset,
@@ -893,7 +903,7 @@ cdef class PaperTradeMarket(MarketBase):
                           object order_side,
                           object amount,
                           object price):
-        return TradeFee(Decimal(0))
+        return estimate_fee(self.name, order_type is OrderType.LIMIT)
 
     cdef OrderBook c_get_order_book(self, str trading_pair):
         if trading_pair not in self._trading_pairs:
@@ -912,7 +922,7 @@ cdef class PaperTradeMarket(MarketBase):
                 precision_quantum = Decimal(0)
             return max(precision_quantum, decimals_quantum)
         else:
-            return Decimal(f"1e-8")
+            return Decimal(f"1e-10")
 
     cdef object c_get_order_size_quantum(self,
                                          str trading_pair,

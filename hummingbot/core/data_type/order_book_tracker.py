@@ -136,6 +136,10 @@ class OrderBookTracker(ABC):
         if self._order_book_snapshot_router_task is not None:
             self._order_book_snapshot_router_task.cancel()
             self._order_book_snapshot_router_task = None
+        if len(self._tracking_tasks) > 0:
+            for _, task in self._tracking_tasks.items():
+                task.cancel()
+            self._tracking_tasks.clear()
 
     async def _refresh_tracking_tasks(self):
         """
@@ -152,14 +156,14 @@ class OrderBookTracker(ABC):
             self._order_books[trading_pair] = available_pairs[trading_pair].order_book
             self._tracking_message_queues[trading_pair] = asyncio.Queue()
             self._tracking_tasks[trading_pair] = safe_ensure_future(self._track_single_book(trading_pair))
-            self.logger().info("Started order book tracking for %s.", trading_pair)
+            self.logger().info("Started order book tracking for %s." % trading_pair)
 
         for trading_pair in deleted_trading_pairs:
             self._tracking_tasks[trading_pair].cancel()
             del self._tracking_tasks[trading_pair]
             del self._order_books[trading_pair]
             del self._tracking_message_queues[trading_pair]
-            self.logger().info("Stopped order book tracking for %s.", trading_pair)
+            self.logger().info("Stopped order book tracking for %s." % trading_pair)
 
     async def _refresh_tracking_loop(self):
         """
