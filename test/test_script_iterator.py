@@ -6,7 +6,6 @@ import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 import pandas as pd
 import unittest
 from decimal import Decimal
-import inspect
 import asyncio
 
 from hummingsim.backtest.backtest_market import BacktestMarket
@@ -102,89 +101,122 @@ class ScriptIteratorUnitTest(unittest.TestCase):
         self._ev_loop.run_until_complete(self._test_price_band_price_ceiling_breach_async())
 
     async def _test_price_band_price_ceiling_breach_async(self):
-        script_file = "../conf/price_band_script.py"
-        self._script_iterator = ScriptIterator(script_file, [self.market], self.multi_levels_strategy, 0.0)
-        self.clock.add_iterator(self._script_iterator)
-        strategy = self.multi_levels_strategy
+        try:
+            script_file = "../conf/price_band_script.py"
+            self._script_iterator = ScriptIterator(script_file, [self.market], self.multi_levels_strategy, 0.0)
+            self.clock.add_iterator(self._script_iterator)
+            strategy = self.multi_levels_strategy
 
-        self.clock.add_iterator(strategy)
-        await self.turn_clock(1)
+            self.clock.add_iterator(strategy)
+            await self.turn_clock(1)
 
-        self.assertEqual(3, len(strategy.active_buys))
-        self.assertEqual(3, len(strategy.active_sells))
+            self.assertEqual(3, len(strategy.active_buys))
+            self.assertEqual(3, len(strategy.active_sells))
 
-        simulate_order_book_widening(self.book_data.order_book, self.mid_price, 115, )
-        await self.turn_clock(2)
+            simulate_order_book_widening(self.book_data.order_book, self.mid_price, 115, )
+            await self.turn_clock(2)
 
-        await self.turn_clock(7)
-        self.assertEqual(0, len(strategy.active_buys))
-        self.assertEqual(3, len(strategy.active_sells))
-        self._script_iterator.stop(self.clock)
+            await self.turn_clock(7)
+            self.assertEqual(0, len(strategy.active_buys))
+            self.assertEqual(3, len(strategy.active_sells))
+        finally:
+            self._script_iterator.stop(self.clock)
 
     def test_price_band_price_floor_breach_async(self):
         self._ev_loop.run_until_complete(self._test_price_band_price_floor_breach_async())
 
     async def _test_price_band_price_floor_breach_async(self):
-        script_file = "../conf/price_band_script.py"
-        self._script_iterator = ScriptIterator(script_file, [self.market], self.multi_levels_strategy, 0.0)
-        self.clock.add_iterator(self._script_iterator)
+        try:
+            script_file = "../conf/price_band_script.py"
+            self._script_iterator = ScriptIterator(script_file, [self.market], self.multi_levels_strategy, 0.0)
+            self.clock.add_iterator(self._script_iterator)
 
-        strategy = self.multi_levels_strategy
-        self.clock.add_iterator(strategy)
-        await self.turn_clock(1)
+            strategy = self.multi_levels_strategy
+            self.clock.add_iterator(strategy)
+            await self.turn_clock(1)
 
-        self.assertEqual(3, len(strategy.active_buys))
-        self.assertEqual(3, len(strategy.active_sells))
+            self.assertEqual(3, len(strategy.active_buys))
+            self.assertEqual(3, len(strategy.active_sells))
 
-        simulate_order_book_widening(self.book_data.order_book, 85, self.mid_price)
-        await self.turn_clock(2)
+            simulate_order_book_widening(self.book_data.order_book, 85, self.mid_price)
+            await self.turn_clock(2)
 
-        await self.turn_clock(7)
-        self.assertEqual(3, len(strategy.active_buys))
-        self.assertEqual(0, len(strategy.active_sells))
-        self._script_iterator.stop(self.clock)
+            await self.turn_clock(7)
+            self.assertEqual(3, len(strategy.active_buys))
+            self.assertEqual(0, len(strategy.active_sells))
+        finally:
+            self._script_iterator.stop(self.clock)
 
     def test_strategy_ping_pong_on_ask_fill(self):
         self._ev_loop.run_until_complete(self._test_strategy_ping_pong_on_ask_fill())
 
     async def _test_strategy_ping_pong_on_ask_fill(self):
-        script_file = "../conf/ping_pong_script.py"
-        self._script_iterator = ScriptIterator(script_file, [self.market], self.one_level_strategy, 0.0)
-        self.clock.add_iterator(self._script_iterator)
+        try:
+            script_file = "../conf/ping_pong_script.py"
+            self._script_iterator = ScriptIterator(script_file, [self.market], self.one_level_strategy, 0.0)
+            self.clock.add_iterator(self._script_iterator)
 
-        strategy = self.one_level_strategy
-        self.clock.add_iterator(strategy)
+            strategy = self.one_level_strategy
+            self.clock.add_iterator(strategy)
 
-        await self.turn_clock(1)
-        self.assertEqual(1, len(strategy.active_buys))
-        self.assertEqual(1, len(strategy.active_sells))
+            await self.turn_clock(1)
+            self.assertEqual(1, len(strategy.active_buys))
+            self.assertEqual(1, len(strategy.active_sells))
 
-        self.simulate_maker_market_trade(True, Decimal(100), Decimal("101.1"))
+            self.simulate_maker_market_trade(True, Decimal(100), Decimal("101.1"))
 
-        await self.turn_clock(2)
-        self.assertEqual(1, len(strategy.active_buys))
-        self.assertEqual(0, len(strategy.active_sells))
-        old_bid = strategy.active_buys[0]
+            await self.turn_clock(2)
+            self.assertEqual(1, len(strategy.active_buys))
+            self.assertEqual(0, len(strategy.active_sells))
+            old_bid = strategy.active_buys[0]
 
-        await self.turn_clock(8)
-        self.assertEqual(1, len(strategy.active_buys))
-        self.assertEqual(0, len(strategy.active_sells))
-        # After new order create cycle (after filled_order_delay), check if a new order is created
-        self.assertTrue(old_bid.client_order_id != strategy.active_buys[0].client_order_id)
+            await self.turn_clock(8)
+            self.assertEqual(1, len(strategy.active_buys))
+            self.assertEqual(0, len(strategy.active_sells))
+            # After new order create cycle (after filled_order_delay), check if a new order is created
+            self.assertTrue(old_bid.client_order_id != strategy.active_buys[0].client_order_id)
 
-        self.simulate_maker_market_trade(False, Decimal(100), Decimal("98.9"))
-        await self.turn_clock(10)
-        await self.turn_clock(15)
-        self.assertEqual(1, len(strategy.active_buys))
-        self.assertEqual(1, len(strategy.active_sells))
-        self._script_iterator.stop(self.clock)
+            self.simulate_maker_market_trade(False, Decimal(100), Decimal("98.9"))
+            await self.turn_clock(10)
+            await self.turn_clock(15)
+            self.assertEqual(1, len(strategy.active_buys))
+            self.assertEqual(1, len(strategy.active_sells))
+        finally:
+            self._script_iterator.stop(self.clock)
 
-    def get_writeable_properties(self, cls):
-        return [attr for attr, value in vars(cls).items()
-                if inspect.isgetsetdescriptor(value)]
+    def test_strategy_ping_pong_on_bid_fill(self):
+        self._ev_loop.run_until_complete(self._test_strategy_ping_pong_on_bid_fill())
 
-    def test_dir(self):
-        attrs = self.get_writeable_properties(PureMarketMakingStrategy)
-        print(attrs)
-        members = inspect.isgetsetdescriptor(self.one_level_strategy.buy_levels)
-        [print(m) for m in members]
+    async def _test_strategy_ping_pong_on_bid_fill(self):
+        try:
+            script_file = "../conf/ping_pong_script.py"
+            self._script_iterator = ScriptIterator(script_file, [self.market], self.one_level_strategy, 0.0)
+            self.clock.add_iterator(self._script_iterator)
+
+            strategy = self.one_level_strategy
+            self.clock.add_iterator(strategy)
+
+            await self.turn_clock(1)
+            self.assertEqual(1, len(strategy.active_buys))
+            self.assertEqual(1, len(strategy.active_sells))
+
+            self.simulate_maker_market_trade(False, Decimal(100), Decimal("98.9"))
+
+            await self.turn_clock(2)
+            self.assertEqual(0, len(strategy.active_buys))
+            self.assertEqual(1, len(strategy.active_sells))
+            old_ask = strategy.active_sells[0]
+
+            await self.turn_clock(8)
+            self.assertEqual(0, len(strategy.active_buys))
+            self.assertEqual(1, len(strategy.active_sells))
+            # After new order create cycle (after filled_order_delay), check if a new order is created
+            self.assertTrue(old_ask.client_order_id != strategy.active_sells[0].client_order_id)
+
+            self.simulate_maker_market_trade(True, Decimal(100), Decimal("101.1"))
+            await self.turn_clock(10)
+            await self.turn_clock(15)
+            self.assertEqual(1, len(strategy.active_buys))
+            self.assertEqual(1, len(strategy.active_sells))
+        finally:
+            self._script_iterator.stop(self.clock)
