@@ -808,6 +808,12 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         if self._hanging_orders_enabled:
             # If the filled order is a hanging order, do nothing
             if order_id in self._hanging_order_ids:
+                self.log_with_clock(
+                    logging.INFO,
+                    f"({self.trading_pair}) Hanging maker buy order {order_id} "
+                    f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                    f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
+                )
                 return
 
         # delay order creation by filled_order_dalay (in seconds)
@@ -841,6 +847,12 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         if self._hanging_orders_enabled:
             # If the filled order is a hanging order, do nothing
             if order_id in self._hanging_order_ids:
+                self.log_with_clock(
+                    logging.INFO,
+                    f"({self.trading_pair}) Hanging maker sell order {order_id} "
+                    f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                    f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
+                )
                 return
 
         # delay order creation by filled_order_dalay (in seconds)
