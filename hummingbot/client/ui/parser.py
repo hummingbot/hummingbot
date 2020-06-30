@@ -28,6 +28,8 @@ class ThrowingArgumentParser(argparse.ArgumentParser):
 
     def subcommands_from(self, top_level_command: str) -> List[str]:
         parser: argparse.ArgumentParser = self.subparser_action._name_parser_map.get(top_level_command)
+        if parser is None:
+            return []
         subcommands = parser._optionals._option_string_actions.keys()
         filtered = list(filter(lambda sub: sub.startswith("--") and sub != "--help", subcommands))
         return filtered
