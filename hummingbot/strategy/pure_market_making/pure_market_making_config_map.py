@@ -161,6 +161,7 @@ pure_market_making_config_map = {
                   prompt="Do you want to alternate between buys and sells? (Yes/No) >>> ",
                   type_str="bool",
                   default=False,
+                  prompt_on_new=True,
                   validator=validate_bool),
     "order_levels":
         ConfigVar(key="order_levels",
