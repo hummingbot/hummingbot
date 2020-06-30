@@ -55,11 +55,7 @@ You may need to exit and reconnect to your AWS instance afterwards.
 
 ## 3. Run a Celo ultra-light node
 
-Follow the Celo documentation to pull the Celo Docker image and install/configure a node, but stop right after the step *Configure the node* and before the step *Start the node*:
-
-* [Mainnet](https://docs.celo.org/getting-started/mainnet/running-a-full-node-in-mainnet)
-* [Baklava testnet](https://docs.celo.org/getting-started/baklava-testnet/running-a-full-node-in-baklava)
-
+Follow the [Celo documentation](https://docs.celo.org/getting-started/mainnet/running-a-full-node-in-mainnet) to pull the Celo Docker image and install/configure a node, but stop right after the step *Configure the node* and before the step *Start the node*:
 
 Instead, run the following command to start an **ultra-light node** rather than a full node:
 ```
