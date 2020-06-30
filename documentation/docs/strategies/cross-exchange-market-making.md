@@ -31,7 +31,7 @@ The end result: Hummingbot has sold the same asset at \$102 (❶) and purchased 
 
 ### Inventory
 
-1. For cross-exchange market making, you will need to hold inventory on two exchanges, one where the bot will make a market (the **maker exchange**) and another where the bot will source liquidity and hedge any filled orders (the **taker exchange**). See [Inventory Requirements](/operation/running-bots/#inventory-requirements).
+1. For cross-exchange market making, you will need to hold inventory on two exchanges, one where the bot will make a market (the **maker exchange**) and another where the bot will source liquidity and hedge any filled orders (the **taker exchange**).
 
 2. You will also need some Ethereum to pay gas for transactions on a DEX (if applicable).
 

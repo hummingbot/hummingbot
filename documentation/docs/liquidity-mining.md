@@ -12,7 +12,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
 ## Getting started
 - [Hummingbot Miners](https://miners.hummingbot.io/): The **official Liquidity Mining app** where you can see real-time rates of return and track your payouts
 - [Get help on Discord](https://discord.hummingbot.io): Join the **#liquidity-mining** channel for 24/7 support
-- [How it works](https://hummingbot.io/liquidity-mining)
+- [How it works](https://www.notion.so/hummingbot/What-is-liquidity-mining-c2eb7d68e28b42278e5efead9a247507)
 - [Hummingbot Quickstart Guide](https://docs.hummingbot.io/quickstart)
 - [Liquidity Mining FAQs](https://docs.hummingbot.io/faq/liquidity-mining/)
 - [Liquidity Mining whitepaper](https://hummingbot.io/liquidity-mining.pdf)
@@ -22,10 +22,11 @@ Liquidity mining sets forth an analytical framework for determining market maker
 !!! warning "Terms subject to change"
     Please check this page or the [Miner's app](https://miners.hummingbot.io) for the most up-to-date terms.<br/>We will notify participants of changes, if any, on our [Discord](https://discord.hummingbot.io) and [reddit](https://www.reddit.com/r/Hummingbot/).
 
-!!! note "Campaign updates for the week starting June 23, 2020 12.00am UTC"
-    <li>**[XZC/BNB no longer eligble; XZC/BTC now eligible](https://www.reddit.com/r/Hummingbot/comments/hdvp8e/change_to_xzc_eligible_pairs_for_week_16_starting/):** Zcoin's has added back **XZC/BTC** for its campaign to replace **~~XZC/BNB~~**.
+!!! note "Campaign updates for the week starting June 30, 2020 12.00am UTC"
+    <li>**Zilliqa liquidity mining campaign has ended:** since the launch of the ZIL liquidity mining campaign, ZIL has now become one of the most actively traded tokens.  Read more about it in our [Zilliqa liquidity mining campaign case study](https://hummingbot.io/blog/2020-06-zilliqa-liquidity-mining-case-study/).
+    <li>**Solana reward pool reverted to 1x**: the rewards for Solana's campaign has returned to USDC 625/week.
 
-**Current reward period: June 23, 2020 12.00am UTC to June 30, 2020 12.00am UTC**
+**Current reward period: June 30, 2020 12.00am UTC to July 7, 2020 12.00am UTC**
 
 <table>
   <thead>
@@ -79,19 +80,19 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>SOL/BTC</td>
       <td>Binance.com</td>
       <td>2%</td>
-      <td>USDC 500</td>
+      <td>USDC 250</td>
     </tr>
     <tr>
       <td>SOL/BUSD</td>
       <td>Binance.com</td>
       <td>2%</td>
-      <td>USDC 500</td>
+      <td>USDC 250</td>
     </tr>
     <tr>
       <td>SOL/BNB</td>
       <td>Binance.com</td>
       <td>2%</td>
-      <td>USDC 250</td>
+      <td>USDC 125</td>
     </tr>
     <tr>
       <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
@@ -106,19 +107,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>2%</td>
       <td>USDC 375</td>
     </tr>
-    <tr>
-      <td rowspan="2"><a href="#zilliqa">Zilliqa</a><br></td>
-      <td>ZIL/BUSD</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>USDC 375</td>
-    </tr>
-    <tr>
-      <td>ZIL/BNB</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>USDC 375</td>
-    </tr>  </tbody>
+  </tbody>
 </table>
 
 
@@ -154,8 +143,3 @@ The [Mainframe (MFT)](https://mainframe.com/) Lending Protocol allows anyone to 
 
 [Whitepaper](https://zcoin.io/tech/) | [Twitter](https://twitter.com/zcoinofficial) | [Telegram](https://t.me/zcoinproject) | [Github](https://github.com/zcoinofficial) | [Explorer](https://chainz.cryptoid.info/xzc/) | [CoinMarketCap](https://coinmarketcap.com/currencies/zcoin) | [CoinGecko](https://www.coingecko.com/en/coins/zcoin)
 
-### Zilliqa
-
-[Zilliqa (ZIL)](https://zilliqa.com/) is a base-layer blockchain protocol centered around the idea of 'Sharding' and designed to enhance the scalability of cryptocurrency networks such as Ethereum. According to its white paper, transactions speed could scale to approximately 1,000x that of Ethereum's network. Zilliqa’s high throughput means that developers can focus on fleshing out their ideas rather than worrying about network congestion.
-
-[Whitepaper](https://docs.zilliqa.com/whitepaper.pdf) | [Twitter](https://twitter.com/zilliqa) | [Telegram](https://t.me/zilliqachat) | [Github](https://github.com/Zilliqa) | [Explorer](https://viewblock.io/zilliqa) | [CoinMarketCap](https://coinmarketcap.com/currencies/zilliqa) | [CoinGecko](https://www.coingecko.com/en/coins/zilliqa)
