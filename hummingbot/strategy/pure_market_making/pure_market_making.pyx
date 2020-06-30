@@ -556,7 +556,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 # 5. Apply budget constraint, i.e. can't buy/sell more than what you have.
                 self.c_apply_budget_constraint(proposal)
 
-                self.c_filter_out_takers(proposal)
+                if not self._take_if_crossed:
+                    self.c_filter_out_takers(proposal)
             self.c_cancel_active_orders(proposal)
             self.c_cancel_hanging_orders()
             self.c_cancel_orders_below_min_spread()
@@ -707,16 +708,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             list new_sells = []
         top_ask = market.c_get_price(self.trading_pair, True)
         if not top_ask.is_nan():
-            if not self._take_if_crossed:
-                proposal.buys = [buy for buy in proposal.buys if buy.price < top_ask]
-            else:
-                proposal.buys = [buy if buy.price < top_ask else PriceSize(top_ask, buy.size) for buy in proposal.buys]
+            proposal.buys = [buy for buy in proposal.buys if buy.price < top_ask]
         top_bid = market.c_get_price(self.trading_pair, False)
         if not top_bid.is_nan():
-            if not self._take_if_crossed:
-                proposal.sells = [sell for sell in proposal.sells if sell.price > top_bid]
-            else:
-                proposal.sells = [sell if sell.price > top_bid else PriceSize(top_bid, sell.size) for sell in proposal.sells]
+            proposal.sells = [sell for sell in proposal.sells if sell.price > top_bid]
 
     # Compare the market price with the top bid and top ask price
     cdef c_apply_order_optimization(self, object proposal):
