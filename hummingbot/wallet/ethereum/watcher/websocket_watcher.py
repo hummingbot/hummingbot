@@ -1,4 +1,5 @@
 import websockets
+from websockets.exceptions import ConnectionClosedOK
 import logging
 import ujson
 import asyncio
@@ -13,6 +14,7 @@ from typing import Optional
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.wallet.ethereum.watcher.base_watcher import BaseWatcher
 from hummingbot.logger import HummingbotLogger
+from hummingbot.core.utils.ethereum import block_values_to_hex
 from hummingbot.core.event.events import NewBlocksWatcherEvent
 
 
@@ -63,6 +65,7 @@ class EthWebSocket(BaseWatcher):
     async def disconnect(self):
         if self._client is not None:
             await self._client.close()
+            # await self._client.wait_closed() #TODO: SHOULD I IMPLEMENT THIS???
 
     async def _send(self, emit_data) -> int:
         self._nonce += 1
@@ -106,13 +109,16 @@ class EthWebSocket(BaseWatcher):
                         message_json = ujson.loads(raw_message) if raw_message is not None else None
                         if message_json.get("method", None) == "eth_subscription":
                             subscription_result_params = message_json.get("params", None)
-                            incoming_block = ujson.loads(message_json).get("result", None) \
+                            incoming_block = subscription_result_params.get("result", None) \
                                 if subscription_result_params is not None else None
                             if incoming_block is not None:
-                                self._current_block_number = incoming_block.get(incoming_block["number"],
-                                                                                self._current_block_number)
-                                self._block_cache[incoming_block.get("hash")] = incoming_block
-                                self.trigger_event(NewBlocksWatcherEvent.NewBlocks, incoming_block)
+                                hex_incoming_block = block_values_to_hex(incoming_block)
+                                self._current_block_number = hex_incoming_block.get("number",
+                                                                                    self._current_block_number)
+                                self._block_cache[hex_incoming_block.get("hash")] = hex_incoming_block
+                                self.trigger_event(NewBlocksWatcherEvent.NewBlocks, [hex_incoming_block])  # TODO: **** I MAY NEED TO PASS IN FULL Cache?
+                except ConnectionClosedOK:
+                    pass  # TODO: What should I do here????
                 except asyncio.CancelledError:
                     raise
                 except asyncio.TimeoutError:
