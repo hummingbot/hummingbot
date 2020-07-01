@@ -2,9 +2,10 @@
 
 from typing import List
 import asyncio
+import logging
 from multiprocessing import Process, Queue
-from hummingbot.core.clock import Clock
 from hummingbot.core.clock cimport Clock
+from hummingbot.core.clock import Clock
 from hummingbot.strategy.pure_market_making import PureMarketMakingStrategy
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -15,9 +16,18 @@ from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.market.market_base import MarketBase
 from hummingbot.script.script_process import run_script
-from hummingbot.script.script_interface import PMMParameter, PMMParameters, OnTick, CallNotify
+from hummingbot.script.script_interface import StrategyParameter, PMMParameters, OnTick, CallNotify, CallLog
+
+s_logger = None
+
 
 cdef class ScriptIterator(TimeIterator):
+    @classmethod
+    def logger(cls):
+        global s_logger
+        if s_logger is None:
+            s_logger = logging.getLogger(__name__)
+        return s_logger
 
     def __init__(self,
                  script_file_path: str,
@@ -64,18 +74,17 @@ cdef class ScriptIterator(TimeIterator):
         if self._listen_to_child_task is not None:
             self._listen_to_child_task.cancel()
 
-    def tick(self, double timestamp):
-        pmm_strategy = PMMParameters()
+    cdef c_tick(self, double timestamp):
+        TimeIterator.c_tick(self, timestamp)
+        if not self._strategy.all_markets_ready():
+            return
+        cdef object pmm_strategy = PMMParameters()
         for attr in PMMParameters.__dict__.keys():
             if attr[:1] != '_':
                 param_value = getattr(self._strategy, attr)
                 setattr(pmm_strategy, attr, param_value)
-        on_tick = OnTick(self.strategy.get_mid_price(), pmm_strategy)
+        cdef object on_tick = OnTick(self.strategy.get_mid_price(), pmm_strategy)
         self._parent_queue.put(on_tick)
-
-    cdef c_tick(self, double timestamp):
-        TimeIterator.c_tick(self, timestamp)
-        self.tick(timestamp)
 
     def _did_complete_buy_order(self,
                                 event_tag: int,
@@ -95,11 +104,14 @@ cdef class ScriptIterator(TimeIterator):
                 await asyncio.sleep(self._queue_check_interval)
                 continue
             item = self._child_queue.get()
-            print(f"parent gets {str(item)}")
+            print(f"received: {str(item)}")
+            self.logger().info(f"received: {str(item)}")
             if item is None:
                 break
-            if isinstance(item, PMMParameter):
+            if isinstance(item, StrategyParameter):
                 setattr(self._strategy, item.name, item.updated_value)
             elif isinstance(item, CallNotify):
                 from hummingbot.client.hummingbot_application import HummingbotApplication
                 HummingbotApplication.main_application()._notify(item.msg)
+            elif isinstance(item, CallLog):
+                self.logger().info(f"script - {item.msg}")
