@@ -108,24 +108,22 @@ class ArbitrageUnitTest(unittest.TestCase):
         self.market_1.set_balance("COINALPHA", 5)
         self.market_2.set_balance("COINALPHA", 5)
         self.clock.backtest_til(self.start_timestamp + 1)
-        market_orders = self.strategy.tracked_taker_orders
-        market_1_market_order = [order for market, order in self.strategy.tracked_taker_orders
+        market_orders = self.strategy.tracked_maker_orders
+        market_1_market_order = [order for market, order in self.strategy.tracked_maker_orders
                                  if market == self.market_1][0]
-        market_2_market_order = [order for market, order in self.strategy.tracked_taker_orders
+        market_2_market_order = [order for market, order in self.strategy.tracked_maker_orders
                                  if market == self.market_2][0]
 
         self.assertTrue(len(market_orders) == 2)
-        self.assertEqual(Decimal("5"), market_1_market_order.amount)
-        self.assertEqual(self.start_timestamp + 1, market_1_market_order.timestamp)
-        self.assertEqual(Decimal("5"), market_2_market_order.amount)
-        self.assertEqual(self.start_timestamp + 1, market_2_market_order.timestamp)
+        self.assertEqual(Decimal("5"), market_1_market_order.quantity)
+        self.assertEqual(Decimal("5"), market_2_market_order.quantity)
 
     def test_arbitrage_not_profitable(self):
         self.market_2_data.order_book.apply_diffs(
             [OrderBookRow(1.05, 1.0, 2)],
             [], 2)
         self.clock.backtest_til(self.start_timestamp + 1)
-        market_orders = self.strategy.tracked_taker_orders
+        market_orders = self.strategy.tracked_maker_orders
         self.assertTrue(len(market_orders) == 0)
 
     def test_find_best_profitable_amount(self):

@@ -77,6 +77,22 @@ cdef class OrderTracker(TimeIterator):
         return [(market, limit_order) for market, limit_order in self.active_maker_orders if not limit_order.is_buy]
 
     @property
+    def tracked_maker_orders(self) -> List[Tuple[MarketBase, MarketOrder]]:
+        return [(market_trading_pair_tuple[0], order) for market_trading_pair_tuple, order_map in self._tracked_maker_orders.items()
+                for order in order_map.values()]
+
+    @property
+    def tracked_maker_orders_data_frame(self) -> List[pd.DataFrame]:
+        market_orders = [[market_trading_pair_tuple.market.display_name, market_trading_pair_tuple.trading_pair, order_id, order.quantity,
+                          "n/a" if "//" in order.client_order_id else
+                          pd.Timestamp(int(order.client_order_id[-16:])/1e6, unit='s', tz='UTC').strftime('%Y-%m-%d %H:%M:%S')
+                          ]
+                         for market_trading_pair_tuple, order_map in self._tracked_maker_orders.items()
+                         for order_id, order in order_map.items()]
+
+        return pd.DataFrame(data=market_orders, columns=["market", "trading_pair", "order_id", "quantity", "timestamp"])
+
+    @property
     def tracked_taker_orders(self) -> List[Tuple[MarketBase, MarketOrder]]:
         return [(market_trading_pair_tuple[0], order) for market_trading_pair_tuple, order_map in self._tracked_taker_orders.items()
                 for order in order_map.values()]

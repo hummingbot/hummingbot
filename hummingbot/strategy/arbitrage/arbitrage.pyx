@@ -93,12 +93,12 @@ cdef class ArbitrageStrategy(StrategyBase):
         self.c_add_markets(list(all_markets))
 
     @property
-    def tracked_taker_orders(self) -> List[Tuple[MarketBase, MarketOrder]]:
-        return self._sb_order_tracker.tracked_taker_orders
+    def tracked_maker_orders(self) -> List[Tuple[MarketBase, MarketOrder]]:
+        return self._sb_order_tracker.tracked_maker_orders
 
     @property
-    def tracked_taker_orders_data_frame(self) -> List[pd.DataFrame]:
-        return self._sb_order_tracker.tracked_taker_orders_data_frame
+    def tracked_maker_orders_data_frame(self) -> List[pd.DataFrame]:
+        return self._sb_order_tracker.tracked_maker_orders_data_frame
 
     def format_status(self) -> str:
         cdef:
@@ -126,7 +126,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                  f"take bid on {market_pair.second.market.name}: {round(profitability_buy_1_sell_2 * 100, 4)} %"])
 
             # See if there're any pending limit orders.
-            tracked_orders_df = self.tracked_taker_orders_data_frame
+            tracked_orders_df = self.tracked_maker_orders_data_frame
             if len(tracked_orders_df) > 0:
                 df_lines = str(tracked_orders_df).split("\n")
                 lines.extend(["", "  Pending limit orders:"] +
@@ -275,11 +275,11 @@ cdef class ArbitrageStrategy(StrategyBase):
         """
         cdef:
             double time_left
-            dict tracked_taker_orders = self._sb_order_tracker.c_get_taker_orders()
+            dict tracked_maker_orders = self._sb_order_tracker.c_get_maker_orders()
 
         for market_trading_pair_tuple in market_trading_pair_tuples:
             # Do not continue if there are pending limit order
-            if len(tracked_taker_orders.get(market_trading_pair_tuple, {})) > 0:
+            if len(tracked_maker_orders.get(market_trading_pair_tuple, {})) > 0:
                     return False
             # Wait for the cool off interval before the next trade, so wallet balance is up to date
             ready_to_trade_time = self._last_trade_timestamps.get(market_trading_pair_tuple, 0) + self._next_trade_delay
