@@ -3,6 +3,7 @@ import logging
 from hexbytes import HexBytes
 from web3 import Web3
 from web3.datastructures import AttributeDict
+from typing import Dict
 
 
 def check_web3(ethereum_rpc_url: str) -> bool:
@@ -23,10 +24,11 @@ def check_web3(ethereum_rpc_url: str) -> bool:
 
 
 def block_values_to_hex(block: AttributeDict) -> AttributeDict:
-    formatted_block: AttributeDict = {}
-    for key, value in block:
+    formatted_block: Dict = {}
+    for key in block.keys():
+        value = block[key]
         try:
             formatted_block[key] = HexBytes(value)
         except binascii.Error:
             formatted_block[key] = value
-    return formatted_block
+    return AttributeDict(formatted_block)
