@@ -50,6 +50,11 @@ Below, we show you how to set up a new Virtual Machine Instance on each major cl
 </br></br>
 ![](/assets/img/AWS_4.png)
 
+### Other helpful resources
+
+- [Connect to Your Amazon EC2 Instance](https://docs.aws.amazon.com/quickstarts/latest/vmlaunch/step-2-connect-to-instance.html)
+- [Connecting to your Linux instance from Windows using PuTTY](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/putty.html)
+
 
 ## Microsoft Azure
 
@@ -70,6 +75,9 @@ Below, we show you how to set up a new Virtual Machine Instance on each major cl
 1. To modify the storage disk space, click **Next : Disks >** or skip this step
 1. Click **Review + create** to create VM instance
 
+### Other helpful resources
+
+- [Connect to a Linux-based VM](https://docs.microsoft.com/en-us/azure/marketplace/partner-center-portal/create-azure-vm-technical-asset#connect-to-a-linux-based-vm)
 
 ---
 # Next: [Install Hummingbot for Linux](/installation/docker/linux)
