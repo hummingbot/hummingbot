@@ -11,7 +11,7 @@ import asyncio
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import QuantizationParams
 from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
-
+from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.script.script_iterator import ScriptIterator
 from hummingbot.strategy.pure_market_making import PureMarketMakingStrategy
@@ -45,6 +45,7 @@ class ScriptIteratorUnitTest(unittest.TestCase):
 
     def setUp(self):
         self.clock_tick_size = 1
+        self._last_clock_tick = 0
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
         self.market: BacktestMarket = BacktestMarket()
         self.book_data: MockOrderBookLoader = MockOrderBookLoader(self.trading_pair, self.base_asset, self.quote_asset)
@@ -93,9 +94,49 @@ class ScriptIteratorUnitTest(unittest.TestCase):
         )
         self._ev_loop = asyncio.get_event_loop()
 
-    async def turn_clock(self, seconds_from_start: float):
-        self.clock.backtest_til(self.start_timestamp + seconds_from_start)
-        await asyncio.sleep(0.1)
+    async def turn_clock(self, seconds_from_start: float, delay_between_ticks: float = 0.05):
+        """
+        turns the clock back test one second at a time, with a delay between ticks.
+        this is st. the messages in the queues are relayed in a proper sequence.
+        """
+        for i in range(self._last_clock_tick, seconds_from_start):
+            self.clock.backtest_til(self.start_timestamp + self._last_clock_tick + 1)
+            self._last_clock_tick += 1
+            await asyncio.sleep(delay_between_ticks)
+
+    def test_update_parameters(self):
+        self._ev_loop.run_until_complete(self._test_update_parameters())
+
+    async def _test_update_parameters(self):
+        try:
+            script_file = "../conf/update_parameters_test_script.py"
+            self._script_iterator = ScriptIterator(script_file, [self.market], self.multi_levels_strategy, 0.01)
+            self.clock.add_iterator(self._script_iterator)
+            strategy = self.multi_levels_strategy
+
+            self.clock.add_iterator(strategy)
+            await self.turn_clock(1)
+
+            self.assertEqual(3, len(strategy.active_buys))
+            self.assertEqual(3, len(strategy.active_sells))
+
+            await self.turn_clock(6)
+
+            strategy.buy_levels = 1
+            strategy.sell_levels = 2
+            strategy.order_levels = 3
+            strategy.bid_spread = Decimal("0.1")
+            strategy.ask_spread = Decimal("0.2")
+            strategy.hanging_orders_cancel_pct = Decimal("0.3")
+            strategy.hanging_orders_enabled = True
+            strategy.filled_order_delay = 50.0
+            strategy.order_refresh_tolerance_pct = Decimal("0.01")
+            strategy.order_refresh_time = 10.0
+            strategy.order_level_amount = Decimal("4")
+            strategy.order_level_spread = Decimal("0.05")
+            strategy.order_amount = Decimal("20")
+        finally:
+            self._script_iterator.stop(self.clock)
 
     def test_price_band_price_ceiling_breach(self):
         self._ev_loop.run_until_complete(self._test_price_band_price_ceiling_breach_async())
@@ -103,7 +144,7 @@ class ScriptIteratorUnitTest(unittest.TestCase):
     async def _test_price_band_price_ceiling_breach_async(self):
         try:
             script_file = "../conf/price_band_script.py"
-            self._script_iterator = ScriptIterator(script_file, [self.market], self.multi_levels_strategy, 0.0)
+            self._script_iterator = ScriptIterator(script_file, [self.market], self.multi_levels_strategy, 0.01)
             self.clock.add_iterator(self._script_iterator)
             strategy = self.multi_levels_strategy
 
@@ -128,7 +169,7 @@ class ScriptIteratorUnitTest(unittest.TestCase):
     async def _test_price_band_price_floor_breach_async(self):
         try:
             script_file = "../conf/price_band_script.py"
-            self._script_iterator = ScriptIterator(script_file, [self.market], self.multi_levels_strategy, 0.0)
+            self._script_iterator = ScriptIterator(script_file, [self.market], self.multi_levels_strategy, 0.01)
             self.clock.add_iterator(self._script_iterator)
 
             strategy = self.multi_levels_strategy
@@ -153,7 +194,7 @@ class ScriptIteratorUnitTest(unittest.TestCase):
     async def _test_strategy_ping_pong_on_ask_fill(self):
         try:
             script_file = "../conf/ping_pong_script.py"
-            self._script_iterator = ScriptIterator(script_file, [self.market], self.one_level_strategy, 0.0)
+            self._script_iterator = ScriptIterator(script_file, [self.market], self.one_level_strategy, 0.01)
             self.clock.add_iterator(self._script_iterator)
 
             strategy = self.one_level_strategy
@@ -190,7 +231,7 @@ class ScriptIteratorUnitTest(unittest.TestCase):
     async def _test_strategy_ping_pong_on_bid_fill(self):
         try:
             script_file = "../conf/ping_pong_script.py"
-            self._script_iterator = ScriptIterator(script_file, [self.market], self.one_level_strategy, 0.0)
+            self._script_iterator = ScriptIterator(script_file, [self.market], self.one_level_strategy, 0.01)
             self.clock.add_iterator(self._script_iterator)
 
             strategy = self.one_level_strategy
@@ -218,5 +259,62 @@ class ScriptIteratorUnitTest(unittest.TestCase):
             await self.turn_clock(15)
             self.assertEqual(1, len(strategy.active_buys))
             self.assertEqual(1, len(strategy.active_sells))
+        finally:
+            self._script_iterator.stop(self.clock)
+
+    def test_dynamic_price_band_price_async(self):
+        self._ev_loop.run_until_complete(self._test_dynamic_price_band_price_async())
+
+    async def _test_dynamic_price_band_price_async(self):
+        try:
+            script_file = "../conf/dynamic_price_band_script.py"
+            self._script_iterator = ScriptIterator(script_file, [self.market], self.multi_levels_strategy, 0.01)
+            self.clock.add_iterator(self._script_iterator)
+
+            strategy = self.multi_levels_strategy
+            self.clock.add_iterator(strategy)
+            await self.turn_clock(1)
+
+            self.assertEqual(3, len(strategy.active_buys))
+            self.assertEqual(3, len(strategy.active_sells))
+
+            await self.turn_clock(4)
+            # self.book_data.order_book.apply_diffs([OrderBookRow(99.97, 30, 2)], [OrderBookRow(100.3, 30, 2)], 2)
+            simulate_order_book_widening(self.book_data.order_book, 85, self.mid_price)
+            mid_price = self.market.get_mid_price(self.trading_pair)
+            await self.turn_clock(10)
+            mid_price = self.market.get_mid_price(self.trading_pair)
+            print(mid_price)
+            self.assertLess(mid_price, Decimal(100 * 0.97))
+            # mid_price is now below 3% from the original (at 92.5), but band script won't kick in until at least 50s
+            self.assertEqual(3, len(strategy.active_buys))
+            self.assertEqual(3, len(strategy.active_sells))
+            await self.turn_clock(55)
+            self.assertEqual(3, len(strategy.active_buys))
+            self.assertEqual(3, len(strategy.active_sells))
+            simulate_order_book_widening(self.book_data.order_book, 75, self.mid_price)
+            self.book_data.order_book.apply_diffs([], [OrderBookRow(76, 30, 2)], 2)
+            mid_price = self.market.get_mid_price(self.trading_pair)
+            print(mid_price)
+            await self.turn_clock(80)
+            self.assertEqual(3, len(strategy.active_buys))
+            self.assertEqual(0, len(strategy.active_sells))
+            # after another 40 ticks, the mid price avg is now at 75.25, both buys and sells back on the market
+            await self.turn_clock(110)
+            self.assertEqual(3, len(strategy.active_buys))
+            self.assertEqual(3, len(strategy.active_sells))
+
+            simulate_order_book_widening(self.book_data.order_book, 76, 90)
+            self.book_data.order_book.apply_diffs([OrderBookRow(85, 30, 2)], [OrderBookRow(86, 30, 2)], 3)
+            mid_price = self.market.get_mid_price(self.trading_pair)
+            print(mid_price)
+            # Market now move up over 10%
+            await self.turn_clock(120)
+            self.assertEqual(0, len(strategy.active_buys))
+            self.assertEqual(3, len(strategy.active_sells))
+            # As no further movement in market prices, avg starts to catch up to the mid price
+            await self.turn_clock(160)
+            self.assertEqual(3, len(strategy.active_buys))
+            self.assertEqual(3, len(strategy.active_sells))
         finally:
             self._script_iterator.stop(self.clock)

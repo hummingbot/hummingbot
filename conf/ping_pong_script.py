@@ -6,12 +6,17 @@ from hummingbot.core.event.events import (
 
 
 class PingPongScript(ScriptBase):
+    """
+    Demonstrates how to set up a ping pong trading strategy which alternates buy and sell orders.
+    If a buy order is filled, there will be one less buy order submitted at the next refresh cycle.
+    If a sell order is filled, there will be one less sell order submitted at the next refresh cycle.
+    """
+
     def __init__(self):
         super().__init__()
         self.ping_pong_balance = 0
 
     def on_tick(self):
-        print(f"ontick {len(self.mid_prices)}: {self.mid_price} ping pong: {self.ping_pong_balance}")
         strategy = self.pmm_parameters
         buys = strategy.order_levels
         sells = strategy.order_levels
