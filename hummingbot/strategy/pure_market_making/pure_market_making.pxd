@@ -28,6 +28,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         object _bid_order_optimization_depth
         bint _add_transaction_costs_to_orders
         object _asset_price_delegate
+        bint _take_if_crossed
         object _price_ceiling
         object _price_floor
         bint _ping_pong_enabled
@@ -46,6 +47,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         int64_t _logging_options
     cdef object c_get_mid_price(self)
     cdef object c_create_base_proposal(self)
+    cdef tuple c_get_adjusted_available_balance(self, list orders)
     cdef c_apply_order_levels_modifiers(self, object proposal)
     cdef c_apply_price_band(self, object proposal)
     cdef c_apply_ping_pong(self, object proposal)
