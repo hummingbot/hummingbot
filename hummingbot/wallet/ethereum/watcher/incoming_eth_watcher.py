@@ -61,9 +61,6 @@ class IncomingEthWatcher(BaseWatcher):
     async def check_incoming_eth(self, new_blocks: List[AttributeDict]):
         async_scheduler: AsyncCallScheduler = AsyncCallScheduler.shared_instance()
         watch_addresses: Set[str] = self._watch_addresses
-
-        self.logger().info(f"WESLEY TESTING --- NEW BLOCKS ({type(new_blocks)}): {new_blocks}")
-
         filtered_blocks: List[AttributeDict] = [block for block in new_blocks if block is not None]
         block_to_timestamp: Dict[str, float] = dict((block.hash, float(block.timestamp))
                                                     for block in filtered_blocks)
