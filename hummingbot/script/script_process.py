@@ -13,7 +13,10 @@ def run_script(script_file_name: str, parent_queue: Queue, child_queue: Queue, q
     script.assign_init(parent_queue, child_queue, queue_check_interval)
     set_child_queue(child_queue)
     ev_loop = asyncio.get_event_loop()
-    ev_loop.run_until_complete(script.listen_to_parent())
+    ev_loop.create_task(script.run())
+    ev_loop.run_forever()
+    ev_loop.close()
+    # ev_loop.run_until_complete(script.run())
 
 
 def import_script_sub_class(script_file_name: str):

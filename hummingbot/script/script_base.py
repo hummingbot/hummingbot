@@ -47,6 +47,7 @@ class ScriptBase:
             # print(f"child gets {str(item)}")
             if item is None:
                 # print("child exiting..")
+                asyncio.get_event_loop().stop()
                 break
             if isinstance(item, OnTick):
                 self.mid_prices.append(item.mid_price)
