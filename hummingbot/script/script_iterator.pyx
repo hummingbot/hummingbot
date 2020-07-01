@@ -54,6 +54,7 @@ cdef class ScriptIterator(TimeIterator):
             target=run_script,
             args=(script_file_path, self._parent_queue, self._child_queue, queue_check_interval,)
         )
+        self.logger().info(f"starting script in {script_file_path}")
         self._script_process.start()
 
     @property
@@ -104,7 +105,7 @@ cdef class ScriptIterator(TimeIterator):
                 await asyncio.sleep(self._queue_check_interval)
                 continue
             item = self._child_queue.get()
-            print(f"received: {str(item)}")
+            # print(f"received: {str(item)}")
             self.logger().info(f"received: {str(item)}")
             if item is None:
                 break

@@ -44,7 +44,7 @@ class ScriptBase:
                 await asyncio.sleep(self._queue_check_interval)
                 continue
             item = self._parent_queue.get()
-            print(f"child gets {str(item)}")
+            # print(f"child gets {str(item)}")
             if item is None:
                 # print("child exiting..")
                 break
