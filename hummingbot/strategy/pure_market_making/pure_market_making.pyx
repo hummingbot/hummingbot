@@ -306,10 +306,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         return self._hanging_order_ids
 
     @property
-    def active_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
-        return self._sb_order_tracker.active_maker_orders
-
-    @property
     def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
         return self._sb_order_tracker.market_pair_to_active_orders
 
