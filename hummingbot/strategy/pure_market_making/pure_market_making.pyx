@@ -415,6 +415,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         target_quote_amount = (1 - target_base_ratio) * total_value_in_quote
 
         base_asset_range = total_order_size * self._inventory_range_multiplier
+        base_asset_range = min(base_asset_range, total_value * Decimal("0.5"))
         high_water_mark = target_base_amount + base_asset_range
         low_water_mark = max(target_base_amount - base_asset_range, s_decimal_zero)
         low_water_mark_ratio = (low_water_mark / total_value
