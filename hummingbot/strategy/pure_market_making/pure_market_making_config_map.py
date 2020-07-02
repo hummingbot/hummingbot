@@ -65,6 +65,11 @@ def validate_price_source_exchange(value: str) -> Optional[str]:
     return validate_exchange(value)
 
 
+def on_validated_price_source_exchange(value: str):
+    if value is None:
+        pure_market_making_config_map["price_source_market"].value = None
+
+
 def validate_price_source_market(value: str) -> Optional[str]:
     market = pure_market_making_config_map.get("price_source_exchange").value
     return validate_market_trading_pair(market, value)
@@ -270,7 +275,8 @@ pure_market_making_config_map = {
                   prompt="Enter external price source exchange name (empty to disable) >>> ",
                   required_if=lambda: pure_market_making_config_map.get("price_source_type") == "mid_price",
                   type_str="str",
-                  validator=validate_price_source_exchange),
+                  validator=validate_price_source_exchange,
+                  on_validated=on_validated_price_source_exchange),
     "price_source_market":
         ConfigVar(key="price_source_market",
                   prompt=price_source_market_prompt,
