@@ -16,7 +16,7 @@ from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.market.market_base import MarketBase
 from hummingbot.script.script_process import run_script
-from hummingbot.script.script_interface import StrategyParameter, PMMParameters, OnTick, CallNotify, CallLog
+from hummingbot.script.script_interface import StrategyParameter, PMMParameters, OnTick, OnStatus, CallNotify, CallLog
 
 s_logger = None
 
@@ -116,3 +116,6 @@ cdef class ScriptIterator(TimeIterator):
                 HummingbotApplication.main_application()._notify(item.msg)
             elif isinstance(item, CallLog):
                 self.logger().info(f"script - {item.msg}")
+
+    def request_status(self):
+        self._parent_queue.put(OnStatus())

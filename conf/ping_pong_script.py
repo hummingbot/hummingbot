@@ -10,6 +10,7 @@ class PingPongScript(ScriptBase):
     Demonstrates how to set up a ping pong trading strategy which alternates buy and sell orders.
     If a buy order is filled, there will be one less buy order submitted at the next refresh cycle.
     If a sell order is filled, there will be one less sell order submitted at the next refresh cycle.
+    The balance is positive if there are more completed buy orders than sell orders.
     """
 
     def __init__(self):
@@ -34,3 +35,7 @@ class PingPongScript(ScriptBase):
 
     def on_sell_order_completed(self, event: SellOrderCompletedEvent):
         self.ping_pong_balance -= 1
+
+    def on_status(self):
+        # return the current balance here to be displayed when status command is executed.
+        return f"ping_pong_balance: {self.ping_pong_balance}"
