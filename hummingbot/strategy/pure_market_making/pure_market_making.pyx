@@ -689,16 +689,17 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                                         buy.size, buy.price)
             quote_size = buy.size * buy.price * (Decimal(1) + buy_fees.percent)
             if quote_balance < quote_size_total + quote_size:
-                quote_size = quote_balance - quote_size_total
-                base_size = quote_size / buy.price * (Decimal(1) - buy_fees.percent)
-                buy.size = market.c_quantize_order_amount(self.trading_pair, base_size, buy.price)
+                self.logger().info(f"Insufficient balance: Buy order (price: {buy.price}, size: {buy.size}) is omitted, {self.quote_asset} available balance: {quote_balance - quote_size_total}.")
+                quote_size = s_decimal_zero
+                buy.size = s_decimal_zero
             quote_size_total += quote_size
         proposal.buys = [o for o in proposal.buys if o.size > 0]
         for sell in proposal.sells:
             base_size = sell.size
             if base_balance < base_size_total + base_size:
-                base_size = base_balance - base_size_total
-                sell.size = market.c_quantize_order_amount(self.trading_pair, base_size, sell.price)
+                self.logger().info(f"Insufficient balance: Sell order (price: {sell.price}, size: {sell.size}) is omitted, {self.base_asset} available balance: {base_balance - base_size_total}.")
+                base_size = s_decimal_zero
+                sell.size = s_decimal_zero
             base_size_total += base_size
         proposal.sells = [o for o in proposal.sells if o.size > 0]
 
@@ -817,6 +818,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                     f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
                 )
+                self.notify_hb_app(
+                    f"Hanging maker BUY order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                    f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
+                )
                 return
 
         # delay order creation by filled_order_dalay (in seconds)
@@ -855,6 +860,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     f"({self.trading_pair}) Hanging maker sell order {order_id} "
                     f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                     f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
+                )
+                self.notify_hb_app(
+                    f"Hanging maker SELL order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                    f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
                 )
                 return
 
