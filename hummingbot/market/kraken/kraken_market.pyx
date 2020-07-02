@@ -263,6 +263,7 @@ cdef class KrakenMarket(MarketBase):
         if (base + quote) in constants.SPECIAL_PAIRS:
             exchange_trading_pair = f"{base}{delimiter}{quote}"
             return exchange_trading_pair
+
         if quote == "USD":
             if base == "USDT":
                 return "USDTZUSD"
