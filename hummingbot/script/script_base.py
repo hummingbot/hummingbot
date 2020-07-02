@@ -4,7 +4,7 @@ from typing import List, Optional
 from decimal import Decimal
 from statistics import mean
 from operator import itemgetter
-from .script_interface import OnTick, PMMParameters, CallNotify, CallLog
+from .script_interface import OnTick, OnStatus, PMMParameters, CallNotify, CallLog
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent
@@ -57,6 +57,9 @@ class ScriptBase:
                 self.on_buy_order_completed(item)
             elif isinstance(item, SellOrderCompletedEvent):
                 self.on_sell_order_completed(item)
+            elif isinstance(item, OnStatus):
+                status_msg = self.on_status()
+                self.notify(f"Script status: {status_msg}")
 
     def notify(self, msg: str):
         """
@@ -94,21 +97,29 @@ class ScriptBase:
 
     def on_tick(self):
         """
-        This method is called upon OnTick message received.
+        Is called upon OnTick message received, which is every second on normal HB configuration.
         It is intended to be implemented by the derived class of this class.
         """
         pass
 
     def on_buy_order_completed(self, event: BuyOrderCompletedEvent):
         """
-        This method is called when a buy order is completely filled.
+        Is called upon a buy order is completely filled.
         It is intended to be implemented by the derived class of this class.
         """
         pass
 
     def on_sell_order_completed(self, event: SellOrderCompletedEvent):
         """
-        This method is called when a sell order is completely filled.
+        Is called upon a sell order is completely filled.
         It is intended to be implemented by the derived class of this class.
         """
         pass
+
+    def on_status(self) -> str:
+        """
+        Is called upon `status` command is issued on the Hummingbot application.
+        It is intended to be implemented by the derived class of this class.
+        :returns status message.
+        """
+        return "on_status not implemented."

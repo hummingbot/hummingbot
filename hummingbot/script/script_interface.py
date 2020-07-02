@@ -106,6 +106,10 @@ class OnTick:
         return f"{self.__class__.__name__} {str(self.__dict__)}"
 
 
+class OnStatus:
+    pass
+
+
 class CallNotify:
     def __init__(self, msg):
         self.msg = msg
