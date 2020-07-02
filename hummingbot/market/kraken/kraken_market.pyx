@@ -205,7 +205,7 @@ cdef class KrakenMarket(MarketBase):
 
     @staticmethod
     def convert_from_exchange_symbol(symbol: str) -> str:
-        if len(symbol) == 4 and (symbol[0] == "X" or symbol[0] == "Z"):
+        if (len(symbol) == 4 or len(symbol) == 6) and (symbol[0] == "X" or symbol[0] == "Z"):
             symbol = symbol[1:]
         if symbol == "XBT":
             symbol = "BTC"
@@ -222,8 +222,15 @@ cdef class KrakenMarket(MarketBase):
         base, quote = None, None
         for quote_asset in constants.QUOTES:
             if quote_asset == exchange_trading_pair[-len(quote_asset):]:
-                base, quote = exchange_trading_pair[:-len(quote_asset)], exchange_trading_pair[-len(quote_asset):]
-                break
+                if len(exchange_trading_pair[:-len(quote_asset)]) > 2 or exchange_trading_pair[:-len(quote_asset)] == "SC":
+                    base, quote = exchange_trading_pair[:-len(quote_asset)], exchange_trading_pair[-len(quote_asset):]
+                    break
+        if not base:
+            quote_asset_d = [quote + ".d" for quote in constants.QUOTES]
+            for quote_asset in quote_asset_d:
+                if quote_asset == exchange_trading_pair[-len(quote_asset):]:
+                    base, quote = exchange_trading_pair[:-len(quote_asset)], exchange_trading_pair[-len(quote_asset):]
+                    break
         return base, quote
 
     @staticmethod
@@ -256,11 +263,20 @@ cdef class KrakenMarket(MarketBase):
         if (base + quote) in constants.SPECIAL_PAIRS:
             exchange_trading_pair = f"{base}{delimiter}{quote}"
             return exchange_trading_pair
+        if quote == "USD":
+            if base == "USDT":
+                return "USDTZUSD"
+            elif base == "EUR" or base == "GBP":
+                return "Z" + base + "Z" + quote
+        if base == "USD":
+            if quote == "CAD" or quote == "JPY":
+                return "ZUSDZ" + quote
+
         all_special_symbols = constants.SPECIAL_BASES + constants.SPECIAL_QUOTES
         if base in all_special_symbols and quote in all_special_symbols:
             if base in constants.SPECIAL_BASES:
                 base = "X" + base
-            if quote in constants.SPECIAL_QUOTES:
+            if quote in constants.SPECIAL_QUOTES and base not in constants.SPECIAL_QUOTES:
                 quote = "Z" + quote
             elif quote in constants.SPECIAL_BASES:
                 quote = "X" + quote
