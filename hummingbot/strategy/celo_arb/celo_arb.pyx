@@ -149,10 +149,6 @@ cdef class CeloArbStrategy(StrategyBase):
         return self._sb_order_tracker.active_asks
 
     @property
-    def active_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
-        return self._sb_order_tracker.active_limit_orders
-
-    @property
     def in_flight_cancels(self) -> Dict[str, float]:
         return self._sb_order_tracker.in_flight_cancels
 
