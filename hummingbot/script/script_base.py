@@ -1,6 +1,6 @@
 import asyncio
 from multiprocessing import Queue
-from typing import List, Optional
+from typing import List, Optional, Dict
 from decimal import Decimal
 from statistics import mean
 from operator import itemgetter
@@ -22,6 +22,9 @@ class ScriptBase:
         self._queue_check_interval: float = 0.0
         self.mid_prices: List[Decimal] = []
         self.pmm_parameters: PMMParameters = None
+        # all_total_balances stores balances in {exchange: {token: balance}} format
+        # for example {"binance": {"BTC": Decimal("0.1"), "ETH": Decimal("20"}}
+        self.all_total_balances: Dict[str, Dict[str, Decimal]] = None
 
     def assign_init(self, parent_queue: Queue, child_queue: Queue, queue_check_interval: float):
         self._parent_queue = parent_queue
@@ -52,6 +55,7 @@ class ScriptBase:
             if isinstance(item, OnTick):
                 self.mid_prices.append(item.mid_price)
                 self.pmm_parameters = item.pmm_parameters
+                self.all_total_balances = item.all_total_balances
                 self.on_tick()
             elif isinstance(item, BuyOrderCompletedEvent):
                 self.on_buy_order_completed(item)

@@ -1,3 +1,4 @@
+from typing import Dict
 from decimal import Decimal
 
 child_queue = None
@@ -98,9 +99,12 @@ class PMMParameters:
 
 
 class OnTick:
-    def __init__(self, mid_price: Decimal, pmm_parameters: PMMParameters):
+    def __init__(self, mid_price: Decimal,
+                 pmm_parameters: PMMParameters,
+                 all_total_balances: Dict[str, Dict[str, Decimal]]):
         self.mid_price = mid_price
         self.pmm_parameters = pmm_parameters
+        self.all_total_balances = all_total_balances
 
     def __repr__(self):
         return f"{self.__class__.__name__} {str(self.__dict__)}"
