@@ -9,6 +9,3 @@ class HelloWorldScript(ScriptBase):
     def on_tick(self):
         self.notify("Hello Hummingbots World!")
         self.log("Hello world logged.")
-
-    def on_status(self):
-        return self.all_total_balances

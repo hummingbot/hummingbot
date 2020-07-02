@@ -126,4 +126,4 @@ class ScriptBase:
         It is intended to be implemented by the derived class of this class.
         :returns status message.
         """
-        return "on_status not implemented."
+        return f"{self.__class__.__name__} is active."
