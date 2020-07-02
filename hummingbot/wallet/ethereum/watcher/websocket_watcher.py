@@ -1,12 +1,10 @@
 import websockets
 from web3 import Web3
-# from web3.exceptions import BlockNotFound
 from websockets.exceptions import ConnectionClosedOK
 import logging
 import ujson
 import asyncio
 
-# from async_timeout import timeout
 from hexbytes import HexBytes
 from web3.datastructures import AttributeDict
 from cachetools import TTLCache
@@ -16,16 +14,21 @@ from typing import Optional
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.wallet.ethereum.watcher.base_watcher import BaseWatcher
 from hummingbot.logger import HummingbotLogger
-# from hummingbot.core.utils.ethereum import block_values_to_hex
 from hummingbot.core.event.events import NewBlocksWatcherEvent
 
 
 class EthWebSocket(BaseWatcher):
+    @staticmethod
+    def http_url_to_ws(url: str) -> str:
+        websocket_base: str = "wss://mainnet.infura.io/ws/v3/"
+        api_key: str = url.split("/")[-1]
+        return websocket_base + api_key
+
     def __init__(self, w3: Web3, url):
         super().__init__(w3)
         self._nonce: int = 0
         self._current_block_number: int = -1
-        self._url = url
+        self._url = EthWebSocket.http_url_to_ws(url)
         self._node_address = None
         self._client: Optional[websockets.WebSocketClientProtocol] = None
         self._fetch_new_blocks_task: Optional[asyncio.Task] = None
@@ -42,12 +45,6 @@ class EthWebSocket(BaseWatcher):
     @property
     def block_number(self) -> int:
         return self._current_block_number
-
-    # async def get_latest_block(self):
-    #     latest_block: AttributeDict = await self._w3.eth.getBlock("latest")
-    #     hex_latest_block = block_values_to_hex(latest_block)
-    #     self._block_cache[hex_latest_block.get("hash")] = hex_latest_block
-    #     self._current_block_number = hex_latest_block.get("number")
 
     async def start_network(self):
         if self._fetch_new_blocks_task is not None:
@@ -135,15 +132,16 @@ class EthWebSocket(BaseWatcher):
                             if subscription_result_params is not None else None
                         if incoming_block is not None:
                             new_block: AttributeDict = await self.call_async(self._w3.eth.getBlock,
-                                                                             incoming_block.get("hash"))
-                            self._current_block_number = incoming_block.get("number")
+                                                                             incoming_block.get("hash"), True)
+                            self._current_block_number = new_block.get("number")
                             self._block_cache[new_block.get("hash")] = new_block
                             self.trigger_event(NewBlocksWatcherEvent.NewBlocks, [new_block])
                             self.logger().info(
-                                f"WESLEY TESTING --- NEW BLOCK NUM:({type(self._current_block_number)}) {self._current_block_number}, "
+                                f"WESLEY TESTING --- NEW BLOCK NUM:({type(self._current_block_number)}) "
+                                f"{self._current_block_number}, "
                                 f"NUM OF CACHED BLOCKS: {len(self._block_cache)}")
                 # except BlockNotFound:
-                    # pass
+                # pass
                 except ConnectionClosedOK:
                     pass  # TODO: What should I do here????
                 except Exception:
