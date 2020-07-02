@@ -250,6 +250,11 @@ cdef class KrakenMarket(MarketBase):
 
     @staticmethod
     def convert_to_exchange_trading_pair(hb_trading_pair: str, delimiter: str = "") -> str:
+        """
+        Note: The result of this method can safely be used to submit/make queries.
+        Result shouldn't be used to parse responses as Kraken add special formating to most pairs.
+        """
+        
         if "-" in hb_trading_pair:
             base, quote = hb_trading_pair.split("-")
         elif "/" in hb_trading_pair:
@@ -258,29 +263,6 @@ cdef class KrakenMarket(MarketBase):
             return hb_trading_pair
         base = KrakenMarket.convert_to_exchange_symbol(base)
         quote = KrakenMarket.convert_to_exchange_symbol(quote)
-
-        # Exceptions for special trading pairs
-        if (base + quote) in constants.SPECIAL_PAIRS:
-            exchange_trading_pair = f"{base}{delimiter}{quote}"
-            return exchange_trading_pair
-
-        if quote == "USD":
-            if base == "USDT":
-                return "USDTZUSD"
-            elif base == "EUR" or base == "GBP":
-                return "Z" + base + "Z" + quote
-        if base == "USD":
-            if quote == "CAD" or quote == "JPY":
-                return "ZUSDZ" + quote
-
-        all_special_symbols = constants.SPECIAL_BASES + constants.SPECIAL_QUOTES
-        if base in all_special_symbols and quote in all_special_symbols:
-            if base in constants.SPECIAL_BASES:
-                base = "X" + base
-            if quote in constants.SPECIAL_QUOTES and base not in constants.SPECIAL_QUOTES:
-                quote = "Z" + quote
-            elif quote in constants.SPECIAL_BASES:
-                quote = "X" + quote
 
         exchange_trading_pair = f"{base}{delimiter}{quote}"
         return exchange_trading_pair
