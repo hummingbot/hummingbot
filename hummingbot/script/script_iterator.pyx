@@ -84,7 +84,7 @@ cdef class ScriptIterator(TimeIterator):
             if attr[:1] != '_':
                 param_value = getattr(self._strategy, attr)
                 setattr(pmm_strategy, attr, param_value)
-        cdef object on_tick = OnTick(self.strategy.get_mid_price(), pmm_strategy)
+        cdef object on_tick = OnTick(self.strategy.get_mid_price(), pmm_strategy, self.all_total_balances())
         self._parent_queue.put(on_tick)
 
     def _did_complete_buy_order(self,
@@ -119,3 +119,7 @@ cdef class ScriptIterator(TimeIterator):
 
     def request_status(self):
         self._parent_queue.put(OnStatus())
+
+    def all_total_balances(self):
+        all_bals = {m.name: m.get_all_balances() for m in self._markets}
+        return {exchange: {token: bal for token, bal in bals.items() if bal > 0} for exchange, bals in all_bals.items()}

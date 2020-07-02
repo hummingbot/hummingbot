@@ -11,4 +11,4 @@ class HelloWorldScript(ScriptBase):
         self.log("Hello world logged.")
 
     def on_status(self):
-        return "I'm fine!"
+        return self.all_total_balances
