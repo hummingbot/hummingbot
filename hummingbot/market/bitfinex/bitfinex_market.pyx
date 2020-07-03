@@ -638,14 +638,14 @@ cdef class BitfinexMarket(MarketBase):
         for rule in raw_trading_rules:
             try:
                 trading_pair = rule["pair"].upper()
-                precision = Decimal(1) / Decimal(math.pow(10, rule["price_precision"]))
+                amount_precision = Decimal(1) / Decimal(math.pow(10, rule["price_precision"]))
 
                 retval.append(
                     TradingRule(
                         trading_pair,
-                        min_price_increment=precision,
-                        min_base_amount_increment=precision,
-                        min_quote_amount_increment=precision,
+                        min_price_increment=Decimal(0.01),
+                        min_base_amount_increment=amount_precision,
+                        min_quote_amount_increment=amount_precision,
                         min_order_size=Decimal(str(rule["minimum_order_size"])),
                         max_order_size=Decimal(str(rule["maximum_order_size"])),
                     )
