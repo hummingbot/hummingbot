@@ -103,6 +103,10 @@ min_quote_order_amount:
   - 11
 - - BNB
   - 0.5
+- - USDT
+  - 11
+- - USDC
+  - 11
 
 # Advanced database options, currently supports SQLAlchemy's included dialects
 # Reference: https://docs.sqlalchemy.org/en/13/dialects/
