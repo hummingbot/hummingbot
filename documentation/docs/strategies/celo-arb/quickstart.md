@@ -12,7 +12,7 @@ Follow the instructions at [Installation - Cloud Server Guide - AWS](/installati
 
 ### Instance type
 
-While the free `t2.micro` tier may be sufficient to run `celo-arb`, we recommend a `t2.small` instance as the minimum instance type.
+While the free `t2.micro` tier may be sufficient to run `celo-arb`, we recommend a `t2.medium` instance as the minimum instance type for improved performance.
 
 ### Storage
 By default, AWS instances come with 8 GB of storage. We recommend that you increase storage to at least 16 GB to install the Docker version along with the Celo node.
