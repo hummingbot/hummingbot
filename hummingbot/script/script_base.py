@@ -1,6 +1,6 @@
 import asyncio
 from multiprocessing import Queue
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 from decimal import Decimal
 from statistics import mean
 from operator import itemgetter
@@ -89,15 +89,49 @@ class ScriptBase:
         :param length: The number of the samples to calculate the average.
         :returns None if there is not enough samples, otherwise the average mid price.
         """
-        index_list = list(range(len(self.mid_prices) - 1, 0, -1 * interval))
+        samples = self.take_samples(self.mid_prices, interval, length)
+        if samples is None:
+            return None
+        return mean(samples)
+
+    def avg_mid_price_chg(self, interval: int, length: int) -> Optional[Decimal]:
+        """
+        Calculates average (mean) of the mid price change, the change is a difference in mid_price to its
+        previous interval regardless of price direction, the change is always positive and is in a percentage value.
+        Examples: To get the average of the last 10 changes on a minute interval = avg_mid_price_chg(60, 10)
+        :param interval: The interval (in seconds) in which to sample the mid prices.
+        :param length: The number of the samples to calculate the average.
+        :returns None if there is not enough samples, otherwise the average mid price change.
+        """
+        # We need sample size of length + 1, as we need a previous value to calculate the change
+        samples = self.take_samples(self.mid_prices, interval, length + 1)
+        if samples is None:
+            return None
+        changes = []
+        for index in range(1, len(samples)):
+            changes.append(abs(samples[index] - samples[index - 1]) / samples[index - 1])
+        return mean(changes)
+
+    def take_samples(self, a_list: List[Any], interval: int, length: int) -> Optional[List[any]]:
+        """
+        Takes samples out of a given list, where the last item is the most recent
+        Examples: a list = [1, 2, 3, 4, 5, 6, 7] an interval of 3 and length of 2 will return you [4, 7],
+        for an interval of 2 and length of 4, you'll get [1, 3, 5, 7]
+        :param a_list: A list which to take samples from
+        :param interval: The interval at which to take sample, starting from the last item on the list.
+        :param length: The number of the samples.
+        :returns None if there is not enough samples to satisfy length, otherwise the sample list.
+        """
+        index_list = list(range(len(a_list) - 1, -1, -1 * interval))
         index_list = sorted(index_list)
         index_list = index_list[-1 * length:]
         if len(index_list) < length:
             return None
         if len(index_list) == 1:
-            return self.mid_prices[index_list[0]]
-        sampled_mid_prices = list(itemgetter(*index_list)(self.mid_prices))
-        return mean(sampled_mid_prices)
+            # return a list with just 1 item in it.
+            return [a_list[index_list[0]]]
+        samples = list(itemgetter(*index_list)(a_list))
+        return samples
 
     def on_tick(self):
         """

@@ -12,6 +12,7 @@ from hummingbot.client.settings import (
     EXCHANGES,
     STRATEGIES,
     CONF_FILE_PATH,
+    SCRIPTS_PATH
 )
 from hummingbot.client.ui.parser import ThrowingArgumentParser
 from hummingbot.core.utils.wallet_setup import list_wallets
@@ -33,7 +34,7 @@ class HummingbotCompleter(Completer):
         self._connect_exchange_completer = WordCompleter(CONNECT_EXCHANGES, ignore_case=True)
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
-        self._py_file_completer = WordCompleter(file_name_list(CONF_FILE_PATH, "py"))
+        self._py_file_completer = WordCompleter(file_name_list(SCRIPTS_PATH, "py"))
 
     @property
     def prompt_text(self) -> str:

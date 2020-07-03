@@ -24,6 +24,7 @@ TEMPLATE_PATH = realpath(join(__file__, "../../templates/"))
 CONF_FILE_PATH = "conf/"
 CONF_PREFIX = "conf_"
 CONF_POSTFIX = "_strategy"
+SCRIPTS_PATH = "scripts/"
 
 EXCHANGES = {
     "bamboo_relay",
