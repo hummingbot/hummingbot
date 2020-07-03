@@ -93,12 +93,12 @@ cdef class ArbitrageStrategy(StrategyBase):
         self.c_add_markets(list(all_markets))
 
     @property
-    def tracked_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
-        return self._sb_order_tracker.tracked_maker_orders
+    def tracked_limit_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
+        return self._sb_order_tracker.tracked_limit_orders
 
     @property
-    def tracked_maker_orders_data_frame(self) -> List[pd.DataFrame]:
-        return self._sb_order_tracker.tracked_maker_orders_data_frame
+    def tracked_limit_orders_data_frame(self) -> List[pd.DataFrame]:
+        return self._sb_order_tracker.tracked_limit_orders_data_frame
 
     def format_status(self) -> str:
         cdef:
@@ -126,7 +126,8 @@ cdef class ArbitrageStrategy(StrategyBase):
                  f"take bid on {market_pair.second.market.name}: {round(profitability_buy_1_sell_2 * 100, 4)} %"])
 
             # See if there're any pending limit orders.
-            tracked_orders_df = self.tracked_maker_orders_data_frame
+            tracked_orders_df = self.tracked_limit_orders_data_frame
+
             if len(tracked_orders_df) > 0:
                 df_lines = str(tracked_orders_df).split("\n")
                 lines.extend(["", "  Pending limit orders:"] +
@@ -275,11 +276,11 @@ cdef class ArbitrageStrategy(StrategyBase):
         """
         cdef:
             double time_left
-            dict tracked_maker_orders = self._sb_order_tracker.c_get_maker_orders()
+            dict tracked_limit_orders = self._sb_order_tracker.c_get_limit_orders()
 
         for market_trading_pair_tuple in market_trading_pair_tuples:
             # Do not continue if there are pending limit order
-            if len(tracked_maker_orders.get(market_trading_pair_tuple, {})) > 0:
+            if len(tracked_limit_orders.get(market_trading_pair_tuple, {})) > 0:
                     return False
             # Wait for the cool off interval before the next trade, so wallet balance is up to date
             ready_to_trade_time = self._last_trade_timestamps.get(market_trading_pair_tuple, 0) + self._next_trade_delay
@@ -597,7 +598,7 @@ cdef list c_find_profitable_arbitrage_orders(object min_profitability,
 
             step_amount = min(bid_leftover_amount, ask_leftover_amount)
 
-            #skip cases where step_amount=0 for exchages like binance that include orders with 0 amount
+            # skip cases where step_amount=0 for exchages like binance that include orders with 0 amount
             if step_amount == 0:
                 continue
 

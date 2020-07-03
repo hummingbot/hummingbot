@@ -23,7 +23,6 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent
 )
-from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.strategy.arbitrage.arbitrage import ArbitrageStrategy
 from hummingbot.strategy.arbitrage.arbitrage_market_pair import ArbitrageMarketPair
 
@@ -108,7 +107,7 @@ class ArbitrageUnitTest(unittest.TestCase):
         self.market_1.set_balance("COINALPHA", 5)
         self.market_2.set_balance("COINALPHA", 5)
         self.clock.backtest_til(self.start_timestamp + 1)
-        market_orders = self.strategy.tracked_maker_orders
-        
+        limit_orders = self.strategy.tracked_limit_orders
+
         # Orders tracked by arbitrage's tracked_maker_orders are limit orders
-        self.assertTrue(len(market_orders) == 2)
+        self.assertTrue(len(limit_orders) == 2)
