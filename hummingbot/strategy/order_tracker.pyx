@@ -77,7 +77,7 @@ cdef class OrderTracker(TimeIterator):
         return [(market, limit_order) for market, limit_order in self.active_maker_orders if not limit_order.is_buy]
 
     @property
-    def tracked_maker_orders(self) -> List[Tuple[MarketBase, MarketOrder]]:
+    def tracked_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
         return [(market_trading_pair_tuple[0], order) for market_trading_pair_tuple, order_map in self._tracked_maker_orders.items()
                 for order in order_map.values()]
 
