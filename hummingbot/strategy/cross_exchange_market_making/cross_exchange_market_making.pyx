@@ -143,20 +143,20 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         self.c_add_markets(all_markets)
 
     @property
-    def active_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
-        return self._sb_order_tracker.active_maker_orders
+    def active_limit_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
+        return self._sb_order_tracker.active_limit_orders
 
     @property
-    def cached_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
-        return self._sb_order_tracker.shadow_maker_orders
+    def cached_limit_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
+        return self._sb_order_tracker.shadow_limit_orders
 
     @property
     def active_bids(self) -> List[Tuple[MarketBase, LimitOrder]]:
-        return [(market, limit_order) for market, limit_order in self.active_maker_orders if limit_order.is_buy]
+        return [(market, limit_order) for market, limit_order in self.active_limit_orders if limit_order.is_buy]
 
     @property
     def active_asks(self) -> List[Tuple[MarketBase, LimitOrder]]:
-        return [(market, limit_order) for market, limit_order in self.active_maker_orders if not limit_order.is_buy]
+        return [(market, limit_order) for market, limit_order in self.active_limit_orders if not limit_order.is_buy]
 
     @property
     def logging_options(self) -> int:
@@ -174,7 +174,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             LimitOrder typed_limit_order
 
         # Go through the currently open limit orders, and group them by market pair.
-        for _, limit_order in self.active_maker_orders:
+        for _, limit_order in self.active_limit_orders:
             typed_limit_order = limit_order
             market_pair = self._market_pair_tracker.c_get_market_pair_from_order_id(typed_limit_order.client_order_id)
             if market_pair not in tracked_maker_orders:
@@ -261,7 +261,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             int64_t last_tick = <int64_t>(self._last_timestamp // self._status_report_interval)
             bint should_report_warnings = ((current_tick > last_tick) and
                                            (self._logging_options & self.OPTION_LOG_STATUS_REPORT))
-            list active_maker_orders = self.active_maker_orders
+            list active_maker_orders = self.active_limit_orders
             LimitOrder limit_order
 
         try:
@@ -334,7 +334,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             bint has_active_ask = False
             bint need_adjust_order = False
             double anti_hysteresis_timer = self._anti_hysteresis_timers.get(market_pair, 0)
-            dict tracked_taker_orders = self._sb_order_tracker.c_get_taker_orders()
+            dict tracked_taker_orders = self._sb_order_tracker.c_get_market_orders()
 
         global s_decimal_zero
 
@@ -461,9 +461,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
                 )
                 self.notify_hb_app(
-                        f"Maker BUY order ({limit_order_record.quantity} {limit_order_record.base_currency} @ "
-                        f"{limit_order_record.price} {limit_order_record.quote_currency}) is filled."
-                        )
+                    f"Maker BUY order ({limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                    f"{limit_order_record.price} {limit_order_record.quote_currency}) is filled."
+                )
             if order_type == OrderType.MARKET:
                 market_order_record = self._sb_order_tracker.c_get_market_order(market_pair.taker, order_id)
                 if market_order_record is not None:
@@ -473,8 +473,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                         f"({market_order_record.amount} {market_order_record.base_asset} has been completely filled."
                     )
                     self.notify_hb_app(
-                            f"Taker buy order {market_order_record.amount} {market_order_record.base_asset} is filled."
-                            )
+                        f"Taker buy order {market_order_record.amount} {market_order_record.base_asset} is filled."
+                    )
 
     cdef c_did_complete_sell_order(self, object order_completed_event):
         """
@@ -497,9 +497,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
                 )
                 self.notify_hb_app(
-                        f"Maker sell order ({limit_order_record.quantity} {limit_order_record.base_currency} @ "
-                        f"{limit_order_record.price} {limit_order_record.quote_currency}) is filled."
-                        )
+                    f"Maker sell order ({limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                    f"{limit_order_record.price} {limit_order_record.quote_currency}) is filled."
+                )
             if order_type == OrderType.MARKET:
                 market_order_record = self._sb_order_tracker.c_get_market_order(market_pair.taker, order_id)
                 if market_order_record is not None:
@@ -509,8 +509,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                         f"({market_order_record.amount} {market_order_record.base_asset} has been completely filled."
                     )
                     self.notify_hb_app(
-                            f"Taker sell order {market_order_record.amount} {market_order_record.base_asset} is filled."
-                            )
+                        f"Taker sell order {market_order_record.amount} {market_order_record.base_asset} is filled."
+                    )
 
     cdef bint c_check_if_price_has_drifted(self, object market_pair, LimitOrder active_order):
         """

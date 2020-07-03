@@ -121,8 +121,8 @@ cdef class Dev5TwapTradeStrategy(StrategyBase):
         return self._sb_order_tracker.active_asks
 
     @property
-    def active_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
-        return self._sb_order_tracker.active_maker_orders
+    def active_limit_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
+        return self._sb_order_tracker.active_limit_orders
 
     @property
     def in_flight_cancels(self) -> Dict[str, float]:
@@ -308,7 +308,7 @@ cdef class Dev5TwapTradeStrategy(StrategyBase):
             int64_t last_tick = <int64_t>(self._last_timestamp // self._status_report_interval)
             bint should_report_warnings = ((current_tick > last_tick) and
                                            (self._logging_options & self.OPTION_LOG_STATUS_REPORT))
-            list active_maker_orders = self.active_maker_orders
+            list active_maker_orders = self.active_limit_orders
 
         try:
             if not self._all_markets_ready:
