@@ -93,12 +93,12 @@ cdef class ArbitrageStrategy(StrategyBase):
         self.c_add_markets(list(all_markets))
 
     @property
-    def tracked_taker_orders(self) -> List[Tuple[MarketBase, MarketOrder]]:
-        return self._sb_order_tracker.tracked_taker_orders
+    def tracked_market_orders(self) -> List[Tuple[MarketBase, MarketOrder]]:
+        return self._sb_order_tracker.tracked_market_orders
 
     @property
-    def tracked_taker_orders_data_frame(self) -> List[pd.DataFrame]:
-        return self._sb_order_tracker.tracked_taker_orders_data_frame
+    def tracked_market_orders_data_frame(self) -> List[pd.DataFrame]:
+        return self._sb_order_tracker.tracked_market_orders_data_frame
 
     def format_status(self) -> str:
         cdef:
@@ -126,7 +126,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                  f"take bid on {market_pair.second.market.name}: {round(profitability_buy_1_sell_2 * 100, 4)} %"])
 
             # See if there're any pending market orders.
-            tracked_orders_df = self.tracked_taker_orders_data_frame
+            tracked_orders_df = self.tracked_market_orders_data_frame
             if len(tracked_orders_df) > 0:
                 df_lines = str(tracked_orders_df).split("\n")
                 lines.extend(["", "  Pending market orders:"] +
@@ -214,7 +214,6 @@ cdef class ArbitrageStrategy(StrategyBase):
                                     f"Market order completed on {market_trading_pair_tuple[0].name}: {sell_order.order_id}")
                 self.notify_hb_app(f"{sell_order.base_asset_amount:.8f} {sell_order.base_asset}-{sell_order.quote_asset} sell market order completed on {market_trading_pair_tuple[0].name}")
 
-
     cdef c_did_fail_order(self, object fail_event):
         """
         Output log for failed order.
@@ -288,7 +287,7 @@ cdef class ArbitrageStrategy(StrategyBase):
         """
         cdef:
             double time_left
-            dict tracked_taker_orders = self._sb_order_tracker.c_get_taker_orders()
+            dict tracked_market_orders = self._sb_order_tracker.c_get_market_orders()
 
         ready_ts_from_failed_order = self._last_failed_market_order_timestamp + \
             self._failed_market_order_count * self.FAILED_ORDER_COOL_OFF_TIME
@@ -306,10 +305,10 @@ cdef class ArbitrageStrategy(StrategyBase):
 
         for market_trading_pair_tuple in market_trading_pair_tuples:
             # Do not continue if there are pending market order
-            if len(tracked_taker_orders.get(market_trading_pair_tuple, {})) > 0:
+            if len(tracked_market_orders.get(market_trading_pair_tuple, {})) > 0:
                 # consider market order completed if it was already x time old
                 if any([order.timestamp - self._current_timestamp < self.MARKET_ORDER_MAX_TRACKING_TIME
-                       for order in tracked_taker_orders[market_trading_pair_tuple].values()]):
+                       for order in tracked_market_orders[market_trading_pair_tuple].values()]):
                     return False
             # Wait for the cool off interval before the next trade, so wallet balance is up to date
             ready_to_trade_time = self._last_trade_timestamps.get(market_trading_pair_tuple, 0) + self._next_trade_delay
@@ -627,7 +626,7 @@ cdef list c_find_profitable_arbitrage_orders(object min_profitability,
 
             step_amount = min(bid_leftover_amount, ask_leftover_amount)
 
-            #skip cases where step_amount=0 for exchages like binance that include orders with 0 amount
+            # skip cases where step_amount=0 for exchages like binance that include orders with 0 amount
             if step_amount == 0:
                 continue
 
