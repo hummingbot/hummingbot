@@ -19,7 +19,7 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.settings import (
     STRATEGIES,
-    CONF_FILE_PATH
+    SCRIPTS_PATH
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.data_feed_base import DataFeedBase
@@ -110,7 +110,7 @@ class StartCommand:
                 script_file = global_config_map["script_file_path"].value
                 folder = dirname(script_file)
                 if folder == "":
-                    script_file = CONF_FILE_PATH + script_file
+                    script_file = SCRIPTS_PATH + script_file
                 if self.strategy_name != "pure_market_making":
                     self._notify("Error: script feature is only available for pure_market_making strategy (for now).")
                 else:
