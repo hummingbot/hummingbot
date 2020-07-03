@@ -12,7 +12,7 @@ from hummingbot.core.event.events import (
     TradeType,
     OrderType,
 )
-from hummingbot.core.data_type.market_order import MarketOrder
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.strategy.strategy_base import StrategyBase
@@ -93,7 +93,7 @@ cdef class ArbitrageStrategy(StrategyBase):
         self.c_add_markets(list(all_markets))
 
     @property
-    def tracked_maker_orders(self) -> List[Tuple[MarketBase, MarketOrder]]:
+    def tracked_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
         return self._sb_order_tracker.tracked_maker_orders
 
     @property
