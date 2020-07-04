@@ -13,7 +13,7 @@ You can download the Windows installer binary from our [download page](https://h
 
 #### Step 2. Run installer
 
-Once you have downloaded the `Setup.exe` binary package of a Hummingbot release, double click on it to launch to installer.
+Once you have downloaded the `Setup.exe` binary package of a Hummingbot release, double click on it to launch the installer.
 
 <img alt="Figure 1: Running the Windows installer" src="/assets/img/windows-setup-1.png" width="499" />
 

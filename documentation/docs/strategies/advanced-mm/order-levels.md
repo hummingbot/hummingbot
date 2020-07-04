@@ -19,7 +19,7 @@ The `order_level_spread` logic works the same as order step size but instead, it
 
 >**Example**: The spread of your first buy and sell order is `1` (1%) and your order interval amount is `2` (2%). The spread of your second order is `3` (3%), and the third order is `5` (5%).
 
-Let us focus on one side our the order for now which is the "buy" side of the order book. Given the sample scenarios above, your active orders will show as:
+Let us focus on one side of the order for now which is the "buy" side of the order book. Given the sample scenarios above, your active orders will show as:
 
 ![](/assets/img/order_level_spread_amount.png)
 
