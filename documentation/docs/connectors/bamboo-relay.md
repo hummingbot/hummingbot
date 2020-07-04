@@ -81,7 +81,7 @@ The minimum acceptable order size is 0.00000001 normalized units of price, amoun
 
 Currently Bamboo Relay does not charge trading or withdrawal fees. This is set to change February 1st, 2020 with the introduction of relayer fees. See the [fee schedule](https://bamboorelay.com/fees) for the latest information.
 
-0x Protocol V3 levies an additional protocol fee for each order filled, this is calaculated as 150,000 * gasPrice per order.
+0x Protocol V3 levies an additional protocol fee for each order filled, this is calculated as 150,000 * gasPrice per order.
 This is in addition to the standard Ethereum transaction fees.
 
 ## Contact
