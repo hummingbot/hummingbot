@@ -132,6 +132,7 @@ nav:
         - Inventory Skew: strategies/advanced-mm/inventory-skew.md
         - Filled Order Delay: strategies/advanced-mm/filled-order-delay.md
         - Hanging Orders: strategies/advanced-mm/hanging-orders.md
+        - Minimum Spread: strategies/advanced-mm/minimum-spread.md
         - Order Refresh Tolerance: strategies/advanced-mm/order-refresh-tolerance.md
         - Price Band: strategies/advanced-mm/price-band.md
         - Ping Pong: strategies/advanced-mm/ping-pong.md
