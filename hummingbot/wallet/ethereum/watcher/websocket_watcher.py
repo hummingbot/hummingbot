@@ -61,10 +61,6 @@ class EthWebSocket(BaseWatcher):
                                       app_warning_msg="Error fetching newest Ethereum block number. "
                                                       "Check Ethereum node connection",
                                       exc_info=True)
-
-            self.logger().info("WESLEY TESTING --- NETWORK START, "
-                               f"BLOCK NUMBER {type(self._current_block_number)}: {self._current_block_number}")
-
             await self.connect()
             await self.subscribe(["newHeads"])
             self._fetch_new_blocks_task: asyncio.Task = safe_ensure_future(self.fetch_new_blocks_loop())
@@ -72,7 +68,6 @@ class EthWebSocket(BaseWatcher):
 
     async def stop_network(self):
         if self._fetch_new_blocks_task is not None:
-            self.logger().info("WESLEY TESTING --- NETWORK STOP")
             await self.disconnect()
             self._fetch_new_blocks_task.cancel()
             self._fetch_new_blocks_task = None
@@ -139,10 +134,6 @@ class EthWebSocket(BaseWatcher):
                             self._current_block_number = new_block.get("number")
                             self._block_cache[new_block.get("hash")] = new_block
                             self.trigger_event(NewBlocksWatcherEvent.NewBlocks, [new_block])
-                            self.logger().info(
-                                f"WESLEY TESTING --- NEW BLOCK NUM:({type(self._current_block_number)}) "
-                                f"{self._current_block_number}, "
-                                f"NUM OF CACHED BLOCKS: {len(self._block_cache)}")
                 except asyncio.CancelledError:
                     if self._network_on:
                         self.logger().network("Network closed abnormally, reconnecting ...")
