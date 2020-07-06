@@ -263,7 +263,7 @@ class ScriptIteratorUnitTest(unittest.TestCase):
         finally:
             self._script_iterator.stop(self.clock)
 
-    def test_dynamic_price_band_price_async(self):
+    def test_dynamic_price_band_price(self):
         self._ev_loop.run_until_complete(self._test_dynamic_price_band_price_async())
 
     async def _test_dynamic_price_band_price_async(self):
@@ -315,6 +315,24 @@ class ScriptIteratorUnitTest(unittest.TestCase):
             self.assertEqual(3, len(strategy.active_sells))
             # As no further movement in market prices, avg starts to catch up to the mid price
             await self.turn_clock(160)
+            self.assertEqual(3, len(strategy.active_buys))
+            self.assertEqual(3, len(strategy.active_sells))
+        finally:
+            self._script_iterator.stop(self.clock)
+
+    def test_spreads_adjusted_on_volatility(self):
+        self._ev_loop.run_until_complete(self._test_spreads_adjusted_on_volatility_async())
+
+    async def _test_spreads_adjusted_on_volatility_async(self):
+        try:
+            script_file = realpath(join(__file__, "../../conf/spreads_adjusted_on_volatility_script.py"))
+            self._script_iterator = ScriptIterator(script_file, [self.market], self.multi_levels_strategy, 0.01)
+            self.clock.add_iterator(self._script_iterator)
+
+            strategy = self.multi_levels_strategy
+            self.clock.add_iterator(strategy)
+            await self.turn_clock(1)
+
             self.assertEqual(3, len(strategy.active_buys))
             self.assertEqual(3, len(strategy.active_sells))
         finally:
