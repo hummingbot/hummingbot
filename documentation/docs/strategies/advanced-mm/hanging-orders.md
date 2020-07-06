@@ -90,7 +90,7 @@ Buy order 1 gets filled.
 Maker BUY order 0.05000000 ETH @ 233.90000000 USDT is filled.  
 ```
 
-This leaves the 3 sell order hanging on top of the new orders on the next refresh.
+This leaves the 3 sell orders hanging on top of the new orders on the next refresh.
 
 ```
 Orders:                                                               
