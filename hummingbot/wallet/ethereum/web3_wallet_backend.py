@@ -414,8 +414,6 @@ class Web3WalletBackend(PubSub):
                                                      for block
                                                      in await safe_gather(*fetch_block_tasks)
                                                      if block is not None)
-        # blocks: Dict[HexBytes, AttributeDict] = self._new_blocks_watcher.block_cache \
-        #     if self._new_blocks_watcher is not None else {}
 
         for receipt in transaction_receipts:
             # Emit gas used event.
