@@ -440,7 +440,7 @@ cdef class ArbitrageStrategy(StrategyBase):
             buy_fee = buy_market.c_get_fee(
                 buy_market_trading_pair_tuple.base_asset,
                 buy_market_trading_pair_tuple.quote_asset,
-                OrderType.LIMIT,
+                OrderType.MARKET,
                 TradeType.BUY,
                 total_previous_step_base_amount + amount,
                 ask_price
@@ -448,7 +448,7 @@ cdef class ArbitrageStrategy(StrategyBase):
             sell_fee = sell_market.c_get_fee(
                 sell_market_trading_pair_tuple.base_asset,
                 sell_market_trading_pair_tuple.quote_asset,
-                OrderType.LIMIT,
+                OrderType.MARKET,
                 TradeType.SELL,
                 total_previous_step_base_amount + amount,
                 bid_price
