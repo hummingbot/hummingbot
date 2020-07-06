@@ -8,7 +8,7 @@ import asyncio
 
 from hexbytes import HexBytes
 from web3.datastructures import AttributeDict
-from cachetools import Cache
+from cachetools import TTLCache
 
 from typing import Optional, Dict
 
@@ -21,13 +21,14 @@ from hummingbot.core.event.events import NewBlocksWatcherEvent
 class EthWebSocket(BaseWatcher):
     def __init__(self, w3: Web3, websocket_url):
         super().__init__(w3)
+        self._network_on = False
         self._nonce: int = 0
         self._current_block_number: int = -1
         self._websocket_url = websocket_url
         self._node_address = None
         self._client: Optional[websockets.WebSocketClientProtocol] = None
         self._fetch_new_blocks_task: Optional[asyncio.Task] = None
-        self._block_cache = Cache(maxsize=10)
+        self._block_cache = TTLCache(maxsize=10, ttl=120)
 
     _nbw_logger: Optional[HummingbotLogger] = None
 
@@ -67,6 +68,7 @@ class EthWebSocket(BaseWatcher):
             await self.connect()
             await self.subscribe(["newHeads"])
             self._fetch_new_blocks_task: asyncio.Task = safe_ensure_future(self.fetch_new_blocks_loop())
+            self._network_on = True
 
     async def stop_network(self):
         if self._fetch_new_blocks_task is not None:
@@ -74,6 +76,7 @@ class EthWebSocket(BaseWatcher):
             await self.disconnect()
             self._fetch_new_blocks_task.cancel()
             self._fetch_new_blocks_task = None
+            self._network_on = False
 
     async def connect(self):
         try:
@@ -141,6 +144,9 @@ class EthWebSocket(BaseWatcher):
                                 f"{self._current_block_number}, "
                                 f"NUM OF CACHED BLOCKS: {len(self._block_cache)}")
                 except asyncio.CancelledError:
+                    if self._network_on:
+                        self.logger().network("Network closed abnormally, reconnecting ...")
+                        self.connect()
                     raise
                 except asyncio.TimeoutError:
                     self.logger().network("Timed out fetching new block.", exc_info=True,
