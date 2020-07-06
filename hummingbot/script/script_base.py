@@ -112,7 +112,18 @@ class ScriptBase:
             changes.append(abs(samples[index] - samples[index - 1]) / samples[index - 1])
         return mean(changes)
 
-    def take_samples(self, a_list: List[Any], interval: int, length: int) -> Optional[List[any]]:
+    @staticmethod
+    def round_by_step(a_number: Decimal, step_size: Decimal):
+        """
+        Rounds the number down by step, e.g. round_by_step(1.8, 0.25) = 1.75
+        :param a_number: A number to round
+        :param step_size: The step size.
+        :returns rounded number.
+        """
+        return (a_number // step_size) * step_size
+
+    @staticmethod
+    def take_samples(a_list: List[Any], interval: int, length: int) -> Optional[List[any]]:
         """
         Takes samples out of a given list, where the last item is the most recent
         Examples: a list = [1, 2, 3, 4, 5, 6, 7] an interval of 3 and length of 2 will return you [4, 7],

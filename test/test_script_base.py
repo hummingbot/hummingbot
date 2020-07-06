@@ -64,3 +64,10 @@ class ScriptIteratorUnitTest(unittest.TestCase):
         # At 10 interval and length of 1.
         expected_chg = (15 - 5) / 5
         self.assertEqual(expected_chg, script_base.avg_mid_price_chg(10, 1))
+
+    def test_round_by_step(self):
+        self.assertEqual(Decimal("1.75"), ScriptBase.round_by_step(Decimal("1.8"), Decimal("0.25")))
+        self.assertEqual(Decimal("1.75"), ScriptBase.round_by_step(Decimal("1.75"), Decimal("0.25")))
+        self.assertEqual(Decimal("1.75"), ScriptBase.round_by_step(Decimal("1.7567"), Decimal("0.01")))
+        self.assertEqual(Decimal("1"), ScriptBase.round_by_step(Decimal("1.7567"), Decimal("1")))
+        self.assertEqual(Decimal("-1.75"), ScriptBase.round_by_step(Decimal("-1.8"), Decimal("0.25")))
