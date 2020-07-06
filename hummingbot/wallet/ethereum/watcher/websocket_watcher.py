@@ -18,7 +18,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.events import NewBlocksWatcherEvent
 
 
-class EthWebSocket(BaseWatcher):
+class WSNewBlocksWatcher(BaseWatcher):
     def __init__(self, w3: Web3, websocket_url):
         super().__init__(w3)
         self._network_on = False

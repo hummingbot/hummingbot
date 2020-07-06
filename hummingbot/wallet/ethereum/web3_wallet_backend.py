@@ -56,7 +56,7 @@ from hummingbot.wallet.ethereum.watcher import (
     WethWatcher,
     ZeroExFillWatcher,
 )
-from hummingbot.wallet.ethereum.watcher.websocket_watcher import EthWebSocket
+from hummingbot.wallet.ethereum.watcher.websocket_watcher import WSNewBlocksWatcher
 from hummingbot.wallet.ethereum.erc20_token import ERC20Token
 from hummingbot.logger import HummingbotLogger
 from hummingbot.client.config.global_config_map import global_config_map
@@ -118,7 +118,7 @@ class Web3WalletBackend(PubSub):
         self._local_nonce: int = -1
 
         # Watchers
-        self._new_blocks_watcher: Optional[EthWebSocket] = None
+        self._new_blocks_watcher: Optional[WSNewBlocksWatcher] = None
         self._account_balance_watcher: Optional[AccountBalanceWatcher] = None
         self._erc20_events_watcher: Optional[ERC20EventsWatcher] = None
         self._incoming_eth_watcher: Optional[IncomingEthWatcher] = None
@@ -234,7 +234,7 @@ class Web3WalletBackend(PubSub):
 
         # Create event watchers.
         websocket_url: str = global_config_map["ethereum_rpc_ws_url"].value
-        self._new_blocks_watcher = EthWebSocket(self._w3, websocket_url)
+        self._new_blocks_watcher = WSNewBlocksWatcher(self._w3, websocket_url)
         self._account_balance_watcher = AccountBalanceWatcher(
             self._w3,
             self._new_blocks_watcher,
