@@ -1,8 +1,8 @@
 import asyncio
 from multiprocessing import Queue
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Callable
 from decimal import Decimal
-from statistics import mean
+from statistics import mean, median
 from operator import itemgetter
 from .script_interface import OnTick, OnStatus, PMMParameters, CallNotify, CallLog
 from hummingbot.core.event.events import (
@@ -103,6 +103,29 @@ class ScriptBase:
         :param length: The number of the samples to calculate the average.
         :returns None if there is not enough samples, otherwise the average mid price change.
         """
+        return self.locate_central_mid_price_chg(interval, length, mean)
+
+    def median_mid_price_chg(self, interval: int, length: int) -> Optional[Decimal]:
+        """
+        Calculates the median (middle value) of the mid price change, the change is a difference in mid_price to its
+        previous interval regardless of price direction, the change is always positive and is in a percentage value.
+        Examples: To get the average of the last 10 changes on a minute interval = avg_mid_price_chg(60, 10)
+        :param interval: The interval (in seconds) in which to sample the mid prices.
+        :param length: The number of the samples to calculate the average.
+        :returns None if there is not enough samples, otherwise the median mid price change.
+        """
+        return self.locate_central_mid_price_chg(interval, length, median)
+
+    def locate_central_mid_price_chg(self, interval: int, length: int, central_function: Callable) -> Optional[Decimal]:
+        """
+        Calculates central location of the mid price change, the change is a difference in mid_price to its
+        previous interval regardless of price direction, the change is always positive and is in a percentage value.
+        Examples: To get the average of the last 10 changes on a minute interval = avg_mid_price_chg(60, 10)
+        :param interval: The interval in which to sample the mid prices.
+        :param length: The number of the samples.
+        :param central_function: The function used to calculate the central location, e.g. mean(), median(), ...
+        :returns None if there is not enough samples, otherwise the central location of mid price change.
+        """
         # We need sample size of length + 1, as we need a previous value to calculate the change
         samples = self.take_samples(self.mid_prices, interval, length + 1)
         if samples is None:
@@ -110,7 +133,7 @@ class ScriptBase:
         changes = []
         for index in range(1, len(samples)):
             changes.append(abs(samples[index] - samples[index - 1]) / samples[index - 1])
-        return mean(changes)
+        return central_function(changes)
 
     @staticmethod
     def round_by_step(a_number: Decimal, step_size: Decimal):
