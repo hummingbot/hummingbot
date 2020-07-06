@@ -1,5 +1,6 @@
 import websockets
 from web3 import Web3
+from web3.exceptions import BlockNotFound
 from websockets.exceptions import ConnectionClosedOK
 import logging
 import ujson
@@ -7,9 +8,9 @@ import asyncio
 
 from hexbytes import HexBytes
 from web3.datastructures import AttributeDict
-from cachetools import TTLCache
+from cachetools import Cache
 
-from typing import Optional
+from typing import Optional, Dict
 
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.wallet.ethereum.watcher.base_watcher import BaseWatcher
@@ -18,21 +19,15 @@ from hummingbot.core.event.events import NewBlocksWatcherEvent
 
 
 class EthWebSocket(BaseWatcher):
-    @staticmethod
-    def http_url_to_ws(url: str) -> str:
-        websocket_base: str = "wss://mainnet.infura.io/ws/v3/"
-        api_key: str = url.split("/")[-1]
-        return websocket_base + api_key
-
-    def __init__(self, w3: Web3, url):
+    def __init__(self, w3: Web3, websocket_url):
         super().__init__(w3)
         self._nonce: int = 0
         self._current_block_number: int = -1
-        self._url = EthWebSocket.http_url_to_ws(url)
+        self._websocket_url = websocket_url
         self._node_address = None
         self._client: Optional[websockets.WebSocketClientProtocol] = None
         self._fetch_new_blocks_task: Optional[asyncio.Task] = None
-        self._block_cache = TTLCache(maxsize=20, ttl=60)
+        self._block_cache = Cache(maxsize=10)
 
     _nbw_logger: Optional[HummingbotLogger] = None
 
@@ -45,6 +40,12 @@ class EthWebSocket(BaseWatcher):
     @property
     def block_number(self) -> int:
         return self._current_block_number
+
+    @property
+    def block_cache(self) -> Dict[HexBytes, AttributeDict]:
+        cache_dict: Dict[HexBytes, AttributeDict] = dict([(key, self._block_cache[key])
+                                                          for key in self._block_cache.keys()])
+        return cache_dict
 
     async def start_network(self):
         if self._fetch_new_blocks_task is not None:
@@ -60,7 +61,7 @@ class EthWebSocket(BaseWatcher):
                                                       "Check Ethereum node connection",
                                       exc_info=True)
 
-            self.logger().info(f"WESLEY TESTING --- NETWORK START, "
+            self.logger().info("WESLEY TESTING --- NETWORK START, "
                                f"BLOCK NUMBER {type(self._current_block_number)}: {self._current_block_number}")
 
             await self.connect()
@@ -76,7 +77,7 @@ class EthWebSocket(BaseWatcher):
 
     async def connect(self):
         try:
-            self._client = await websockets.connect(uri=self._url)
+            self._client = await websockets.connect(uri=self._websocket_url)
             return self._client
         except Exception as e:
             self.logger().network(f"ERROR in connection: {e}")
@@ -84,9 +85,8 @@ class EthWebSocket(BaseWatcher):
     async def disconnect(self):
         try:
             await self._client.close()
-            # await self._client.wait_closed() #TODO: SHOULD I IMPLEMENT THIS???
         except Exception as e:
-            self.logger().network(f"ERROR in connection: {e}")
+            self.logger().network(f"ERROR in disconnection: {e}")
 
     async def _send(self, emit_data) -> int:
         self._nonce += 1
@@ -140,12 +140,18 @@ class EthWebSocket(BaseWatcher):
                                 f"WESLEY TESTING --- NEW BLOCK NUM:({type(self._current_block_number)}) "
                                 f"{self._current_block_number}, "
                                 f"NUM OF CACHED BLOCKS: {len(self._block_cache)}")
-                # except BlockNotFound:
-                # pass
+                except asyncio.CancelledError:
+                    raise
+                except asyncio.TimeoutError:
+                    self.logger().network("Timed out fetching new block.", exc_info=True,
+                                          app_warning_msg="Timed out fetching new block. "
+                                                          "Check wallet network connection")
+                except BlockNotFound:
+                    pass
                 except ConnectionClosedOK:
-                    pass  # TODO: What should I do here????
-                except Exception:
-                    self.logger().network("Error fetching new block.", exc_info=True,
+                    raise
+                except Exception as e:
+                    self.logger().network(f"Error fetching new block: {e}", exc_info=True,
                                           app_warning_msg="Error fetching new block. "
                                                           "Check wallet network connection")
         except asyncio.CancelledError:

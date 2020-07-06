@@ -59,6 +59,7 @@ from hummingbot.wallet.ethereum.watcher import (
 from hummingbot.wallet.ethereum.watcher.websocket_watcher import EthWebSocket
 from hummingbot.wallet.ethereum.erc20_token import ERC20Token
 from hummingbot.logger import HummingbotLogger
+from hummingbot.client.config.global_config_map import global_config_map
 
 s_decimal_0 = Decimal(0)
 
@@ -83,7 +84,6 @@ class Web3WalletBackend(PubSub):
         super().__init__()
 
         # Initialize Web3, accounts and contracts.
-        self._jsonrpc_url = jsonrpc_url
         self._w3: Web3 = Web3(Web3.HTTPProvider(jsonrpc_url))
         self._chain: EthereumChain = chain
         self._account: LocalAccount = Account.privateKeyToAccount(private_key)
@@ -233,7 +233,8 @@ class Web3WalletBackend(PubSub):
         )
 
         # Create event watchers.
-        self._new_blocks_watcher = EthWebSocket(self._w3, self._jsonrpc_url)
+        websocket_url: str = global_config_map["ethereum_rpc_ws_url"].value
+        self._new_blocks_watcher = EthWebSocket(self._w3, websocket_url)
         self._account_balance_watcher = AccountBalanceWatcher(
             self._w3,
             self._new_blocks_watcher,
@@ -413,6 +414,8 @@ class Web3WalletBackend(PubSub):
                                                      for block
                                                      in await safe_gather(*fetch_block_tasks)
                                                      if block is not None)
+        # blocks: Dict[HexBytes, AttributeDict] = self._new_blocks_watcher.block_cache \
+        #     if self._new_blocks_watcher is not None else {}
 
         for receipt in transaction_receipts:
             # Emit gas used event.
