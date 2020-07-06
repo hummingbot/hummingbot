@@ -23,7 +23,7 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from .base_watcher import BaseWatcher
-from .websocket_watcher import EthWebSocket
+from .websocket_watcher import WSNewBlocksWatcher
 
 s_decimal_0 = Decimal(0)
 
@@ -39,12 +39,12 @@ class AccountBalanceWatcher(BaseWatcher):
 
     def __init__(self,
                  w3: Web3,
-                 blocks_watcher: EthWebSocket,
+                 blocks_watcher: WSNewBlocksWatcher,
                  account_address: str,
                  erc20_addresses: List[str],
                  erc20_abis: List[any]):
         super().__init__(w3)
-        self._blocks_watcher: EthWebSocket = blocks_watcher
+        self._blocks_watcher: WSNewBlocksWatcher = blocks_watcher
         self._account_address: str = account_address
         self._addresses_to_contracts: Dict[str, Contract] = {
             address: w3.eth.contract(address=address, abi=abi)

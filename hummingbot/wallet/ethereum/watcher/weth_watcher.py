@@ -24,7 +24,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.event.event_forwarder import EventForwarder
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from .base_watcher import BaseWatcher
-from .websocket_watcher import EthWebSocket
+from .websocket_watcher import WSNewBlocksWatcher
 from .contract_event_logs import ContractEventLogger
 
 DEPOSIT_EVENT_NAME = "Deposit"
@@ -43,10 +43,10 @@ class WethWatcher(BaseWatcher):
     def __init__(self,
                  w3: Web3,
                  weth_token: ERC20Token,
-                 blocks_watcher: EthWebSocket,
+                 blocks_watcher: WSNewBlocksWatcher,
                  watch_addresses: Iterable[str]):
         super().__init__(w3)
-        self._blocks_watcher: EthWebSocket = blocks_watcher
+        self._blocks_watcher: WSNewBlocksWatcher = blocks_watcher
         self._watch_addresses: Set[str] = set(watch_addresses)
         self._asset_decimals: Dict[str, int] = {}
         self._weth_token = weth_token
