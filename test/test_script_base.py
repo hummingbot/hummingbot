@@ -48,7 +48,7 @@ class ScriptIteratorUnitTest(unittest.TestCase):
         samples = script_base.take_samples(a_list, 2, 1)
         self.assertEqual(expected, samples)
 
-    def test_avg_mid_price_chg(self):
+    def test_avg_and_median_mid_price_chg(self):
         script_base = ScriptBase()
         script_base.mid_prices = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
         avg_chg = script_base.avg_mid_price_chg(3, 10)
@@ -61,6 +61,9 @@ class ScriptIteratorUnitTest(unittest.TestCase):
         # The samples are 15, 11,  7, 3
         expected_chg = [(15 - 11) / 11, (11 - 7) / 7, (7 - 3) / 3]
         self.assertEqual(mean(expected_chg), script_base.avg_mid_price_chg(4, 3))
+        # The median change is (11 - 7) / 7
+        self.assertEqual((11 - 7) / 7, script_base.median_mid_price_chg(4, 3))
+
         # At 10 interval and length of 1.
         expected_chg = (15 - 5) / 5
         self.assertEqual(expected_chg, script_base.avg_mid_price_chg(10, 1))
