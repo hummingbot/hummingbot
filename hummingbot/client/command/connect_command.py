@@ -19,6 +19,7 @@ OPTIONS = {
     "kucoin",
     "kraken",
     "ethereum",
+    "eterbase",
     "celo"
 }
 

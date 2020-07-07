@@ -158,7 +158,7 @@ pure_market_making_config_map = {
                   validator=validate_price_floor_ceiling),
     "ping_pong_enabled":
         ConfigVar(key="ping_pong_enabled",
-                  prompt="Do you want to alternate between buys and sells? (Yes/No) >>> ",
+                  prompt="Would you like to use the ping pong feature and alternate between buy and sell orders after fills? (Yes/No) >>> ",
                   type_str="bool",
                   default=False,
                   prompt_on_new=True,
@@ -196,8 +196,8 @@ pure_market_making_config_map = {
                   prompt="What is your target base asset percentage? Enter 50 for 50% >>> ",
                   required_if=lambda: pure_market_making_config_map.get("inventory_skew_enabled").value,
                   type_str="decimal",
-                  validator=lambda v: validate_decimal(v, 0, 100)
-                  ),
+                  validator=lambda v: validate_decimal(v, 0, 100),
+                  default=Decimal("50")),
     "inventory_range_multiplier":
         ConfigVar(key="inventory_range_multiplier",
                   prompt="What is your tolerable range of inventory around the target, "
@@ -287,5 +287,11 @@ pure_market_making_config_map = {
                                      prompt="Enter pricing API URL >>> ",
                                      required_if=lambda: pure_market_making_config_map.get(
                                          "price_source_type").value == "custom_api",
-                                     type_str="str")
+                                     type_str="str"),
+    "take_if_crossed": ConfigVar(key="take_if_crossed",
+                                 prompt="Do you want to take the best order if orders cross the orderbook? ((Yes/No) >>> ",
+                                 required_if=lambda: pure_market_making_config_map.get(
+                                     "price_source_enabled").value,
+                                 type_str="bool",
+                                 validator=validate_bool)
 }
