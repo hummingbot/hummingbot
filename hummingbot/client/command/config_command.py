@@ -32,7 +32,9 @@ global_configs_to_display = ["0x_active_cancels",
                              "telegram_enabled",
                              "telegram_token",
                              "telegram_chat_id",
-                             "send_error_logs"]
+                             "send_error_logs",
+                             "script_enabled",
+                             "script_file_path"]
 
 
 class ConfigCommand:
