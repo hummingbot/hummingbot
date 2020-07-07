@@ -37,11 +37,11 @@ class SpreadsAdjustedOnVolatility(ScriptBase):
             self.original_ask_spread = self.pmm_parameters.ask_spread
 
         # Average volatility (price change) over a short period of time, this is to detect recent sudden changes.
-        avg_short_volatility = self.avg_mid_price_chg(self.interval, self.short_period)
+        avg_short_volatility = self.avg_price_volatility(self.interval, self.short_period)
         # Median volatility over a long period of time, this is to find the market norm volatility.
         # We use median (instead of average) to find the middle volatility value - this is to avoid recent
         # spike affecting the average value.
-        median_long_volatility = self.median_mid_price_chg(self.interval, self.long_period)
+        median_long_volatility = self.median_price_volatility(self.interval, self.long_period)
 
         # If the bot just got started, we'll not have these numbers yet as there is not enough mid_price sample size.
         # We'll start to have these numbers after interval * long_term_period (150 seconds in this example).

@@ -94,36 +94,38 @@ class ScriptBase:
             return None
         return mean(samples)
 
-    def avg_mid_price_chg(self, interval: int, length: int) -> Optional[Decimal]:
+    def avg_price_volatility(self, interval: int, length: int) -> Optional[Decimal]:
         """
-        Calculates average (mean) of the mid price change, the change is a difference in mid_price to its
-        previous interval regardless of price direction, the change is always positive and is in a percentage value.
-        Examples: To get the average of the last 10 changes on a minute interval = avg_mid_price_chg(60, 10)
+        Calculates average (mean) price volatility, volatility is a price change compared to the previous
+        cycle regardless of its direction, e.g. if price changes -3% (or 3%), the volatility is 3%.
+        Examples: To get the average of the last 10 changes on a minute interval = avg_price_volatility(60, 10)
         :param interval: The interval (in seconds) in which to sample the mid prices.
         :param length: The number of the samples to calculate the average.
         :returns None if there is not enough samples, otherwise the average mid price change.
         """
-        return self.locate_central_mid_price_chg(interval, length, mean)
+        return self.locate_central_price_volatility(interval, length, mean)
 
-    def median_mid_price_chg(self, interval: int, length: int) -> Optional[Decimal]:
+    def median_price_volatility(self, interval: int, length: int) -> Optional[Decimal]:
         """
-        Calculates the median (middle value) of the mid price change, the change is a difference in mid_price to its
-        previous interval regardless of price direction, the change is always positive and is in a percentage value.
-        Examples: To get the average of the last 10 changes on a minute interval = avg_mid_price_chg(60, 10)
+        Calculates the median (middle value) price volatility, volatility is a price change compared to the previous
+        cycle regardless of its direction, e.g. if price changes -3% (or 3%), the volatility is 3%.
+        Examples: To get the median of the last 10 changes on a minute interval = median_price_volatility(60, 10)
         :param interval: The interval (in seconds) in which to sample the mid prices.
         :param length: The number of the samples to calculate the average.
         :returns None if there is not enough samples, otherwise the median mid price change.
         """
-        return self.locate_central_mid_price_chg(interval, length, median)
+        return self.locate_central_price_volatility(interval, length, median)
 
-    def locate_central_mid_price_chg(self, interval: int, length: int, central_function: Callable) -> Optional[Decimal]:
+    def locate_central_price_volatility(self, interval: int, length: int, locate_function: Callable) \
+            -> Optional[Decimal]:
         """
-        Calculates central location of the mid price change, the change is a difference in mid_price to its
-        previous interval regardless of price direction, the change is always positive and is in a percentage value.
-        Examples: To get the average of the last 10 changes on a minute interval = avg_mid_price_chg(60, 10)
+        Calculates central location of the price volatility, volatility is a price change compared to the previous cycle
+        regardless of its direction, e.g. if price changes -3% (or 3%), the volatility is 3%.
+        Examples: To get mean of the last 10 changes on a minute interval locate_central_price_volatility(60, 10, mean)
         :param interval: The interval in which to sample the mid prices.
         :param length: The number of the samples.
-        :param central_function: The function used to calculate the central location, e.g. mean(), median(), ...
+        :param locate_function: The function used to calculate the central location, e.g. mean, median, geometric_mean
+         and many more which are supported by statistics library.
         :returns None if there is not enough samples, otherwise the central location of mid price change.
         """
         # We need sample size of length + 1, as we need a previous value to calculate the change
@@ -133,12 +135,12 @@ class ScriptBase:
         changes = []
         for index in range(1, len(samples)):
             changes.append(abs(samples[index] - samples[index - 1]) / samples[index - 1])
-        return central_function(changes)
+        return locate_function(changes)
 
     @staticmethod
     def round_by_step(a_number: Decimal, step_size: Decimal):
         """
-        Rounds the number down by step, e.g. round_by_step(1.8, 0.25) = 1.75
+        Rounds the number down by the step size, e.g. round_by_step(1.8, 0.25) = 1.75
         :param a_number: A number to round
         :param step_size: The step size.
         :returns rounded number.
@@ -148,7 +150,7 @@ class ScriptBase:
     @staticmethod
     def take_samples(a_list: List[Any], interval: int, length: int) -> Optional[List[any]]:
         """
-        Takes samples out of a given list, where the last item is the most recent
+        Takes samples out of a given list where the last item is the most recent,
         Examples: a list = [1, 2, 3, 4, 5, 6, 7] an interval of 3 and length of 2 will return you [4, 7],
         for an interval of 2 and length of 4, you'll get [1, 3, 5, 7]
         :param a_list: A list which to take samples from

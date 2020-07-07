@@ -51,22 +51,22 @@ class ScriptIteratorUnitTest(unittest.TestCase):
     def test_avg_and_median_mid_price_chg(self):
         script_base = ScriptBase()
         script_base.mid_prices = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-        avg_chg = script_base.avg_mid_price_chg(3, 10)
+        avg_chg = script_base.avg_price_volatility(3, 10)
         # since there is not enough sample size, it should return None
         self.assertTrue(avg_chg is None)
-        avg_chg = script_base.avg_mid_price_chg(3, 5)
+        avg_chg = script_base.avg_price_volatility(3, 5)
         # at 5 sample size, as we need 5 +1, so this should also return None
         self.assertTrue(avg_chg is None)
         # At interval of 4 and length of 3, these belows are counted as the samples
         # The samples are 15, 11,  7, 3
         expected_chg = [(15 - 11) / 11, (11 - 7) / 7, (7 - 3) / 3]
-        self.assertEqual(mean(expected_chg), script_base.avg_mid_price_chg(4, 3))
+        self.assertEqual(mean(expected_chg), script_base.avg_price_volatility(4, 3))
         # The median change is (11 - 7) / 7
-        self.assertEqual((11 - 7) / 7, script_base.median_mid_price_chg(4, 3))
+        self.assertEqual((11 - 7) / 7, script_base.median_price_volatility(4, 3))
 
         # At 10 interval and length of 1.
         expected_chg = (15 - 5) / 5
-        self.assertEqual(expected_chg, script_base.avg_mid_price_chg(10, 1))
+        self.assertEqual(expected_chg, script_base.avg_price_volatility(10, 1))
 
     def test_round_by_step(self):
         self.assertEqual(Decimal("1.75"), ScriptBase.round_by_step(Decimal("1.8"), Decimal("0.25")))
