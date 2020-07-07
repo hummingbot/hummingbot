@@ -27,7 +27,7 @@ as below:.
   
 ### Data
 
-At every tick, the script get current market price (`mid_price`), strategy configuration (`pmm_parameters`) and 
+At every tick, the script gets current market price (`mid_price`), strategy configuration (`pmm_parameters`) and 
 total balances (`all_total_balances`). The `mid_price` is stored in a list (`mid_prices`) where a new `mid_price` 
 is added to the end of the list, whereas strategy configuration and total balances are replaced every time.
 
@@ -35,7 +35,7 @@ Note: The current script feature supports only *pure market making* strategy con
 
 #### `pmm_parameters`
 
-To update the pure market making strategy configuration to a new value, simply assign a new value to it.
+To set a pure market making strategy parameter to a new value, simply assign a new value to it.
 
 Usage Example: `self.pmm_parameters.bid_spread = Decimal("0.03")` - to update bid spread to 3%
 
@@ -67,7 +67,8 @@ The script will be notified every time a sell order of yours is fully filled. Pu
 situation if needed.
 
 #### `on_status`
-This is called upon `status` command issued on the Hummingbot application. You can provide your custom status message here.
+This is called upon `status` command issued on the Hummingbot application. You can provide your custom status message 
+here.
 
 ### Functions
 
@@ -120,20 +121,17 @@ Usage Example: `samples = self.take_samples(a_list, 3, 2)` will give you `[4, 7]
 ## Examples
 All below examples can be found in `scripts\` folder.
 
-**hello\_world\_script.py**
-
+#### hello\_world\_script.py
 The most basic example only a few lines of code.
 
-**ping\_pong\_script.py**
-
+####  ping\_pong\_script.py
 Replicates our current ping pong strategy using script.
 
-**price\_band\_script.py**
-
+#### price\_band\_script.py
 Replicates our current price band strategy using script.
 
-**dynamic\_price\_band\_script.py**
+#### dynamic\_price\_band\_script.py
 Demonstrates how to set the band around mid price moving average, the band moves as the average moves.
 
-**spreads\_adjusted\_on\_volatility\_script.py**
+#### spreads\_adjusted\_on\_volatility\_script.py
 Demonstrates how to adjust bid and ask spreads dynamically based on price volatility.
