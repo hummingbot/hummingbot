@@ -1,85 +1,42 @@
-![Hummingbot](https://i.ibb.co/X5zNkKw/blacklogo-with-text.png)
+**Hummingbot is an open-source project that integrates cryptocurrency trading on both centralized exchanges and decentralized protocols. Using Hummingbot, users can run a client that executes customized, automated trading strategies for cryptocurrencies.**
 
-----
-[![Jenkins](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-master_branch&subject=jenkins:master)](https://jenkins-02.coinalpha.com/job/hb_test-master_branch)
-[![Jenkins](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-development_branch&subject=:development)](https://jenkins-02.coinalpha.com/job/hb_test-development_branch)
-[![Discord](https://img.shields.io/discord/530578568154054663.svg?color=768AD4&label=discord&logo=https%3A%2F%2Fdiscordapp.com%2Fassets%2F8c9701b98ad4372b58f13fd9f65f966e.svg)](https://discord.hummingbot.io/)
-[![License](https://img.shields.io/badge/License-Apache%202.0-informational.svg)](https://github.com/CoinAlpha/hummingbot/blob/master/LICENSE)
-[![Twitter Follow](https://img.shields.io/twitter/follow/hummingbot_io.svg?style=social&label=hummingbot)](https://twitter.com/hummingbot_io)
+## NOTES
 
-Hummingbot is an open-source project that integrates cryptocurrency trading on both **centralized exchanges** and **decentralized protocols**. It allows users to run a client that executes customized, automated trading strategies for cryptocurrencies.
+This is a modified edition of [Hummingbot](https://hummingbot.io/) which includes a gateway for connecting to [Loopring Exchange](https://loopring.io), a decentralized exchange (DEX) built on the open source [Loopring Protocol](https://loopring.org). Loopring.io is a high performance non-custodial Ethereum exchange, allowing for trading with high throughput, low settlement cost, and is the world’s first DEX powered by zk-rollup technology. 
 
-We created hummingbot to promote **decentralized market-making**: enabling members of the community to contribute to the liquidity and trading efficiency in cryptocurrency markets.
+The Loopring gateway was contributed by, and is actively developed and maintained by [Linq](https://linq.network/), an institutional digital asset liquidity provider, and supporters of Loopring’s architecture. 
 
-## Supported centralized exchanges
+Linq has partnered with Loopring to release this edition of Hummingbot to support and grow the community able to programmatically trade on [Loopring.io](https://loopring.io/). Loopring offers periodic [liquidity mining campaigns](https://medium.com/loopring-protocol/loopring-exchange-liquidity-mining-competition-748917b277e6) whereby traders are rewarded for adding liquidity (resting limit orders) to certain trading pairs on Loopring. Using this edition of Hummingbot, almost anyone can learn to participate in adding liquidity to the exchange and earn compensation incentives.
 
-| logo | id | name | ver | doc|
-|:---:|:---:|:---:|:---:|:---:|
-| <img src="https://i.ibb.co/m0YDQLd/Screen-Shot-2019-03-14-at-10-53-42-AM.png" alt="Binance" width="90" /> | binance | [Binance](https://www.binance.com/) | 3 | [API](https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md) | [![Build Status](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-exchange_binance&subject=test)](https://jenkins-02.coinalpha.com/job/hb_test-exchange_binance/) |
-| <img src="https://i.ibb.co/h9JdGDW/cbp.jpg" alt="Coinbase Pro" width="90" /> | coinbase_pro | [Coinbase Pro](https://pro.coinbase.com/) | * | [API](https://docs.pro.coinbase.com/) | [![Build Status](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-exchange_coinbase&subject=test)](https://jenkins-02.coinalpha.com/job/hb_test-exchange_coinbase/) |
-|<img src="documentation/docs/assets/img/huobi_logo.png" alt="Huobi Global" width="90" />| huobi | [Huobi Global](https://www.hbg.com) | 1 | [API](https://huobiapi.github.io/docs/spot/v1/en/) | [![Build Status](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-exchange_huobi&subject=test)](https://jenkins-02.coinalpha.com/job/hb_test-exchange_huobi/) |
-|<img src="documentation/docs/assets/img/bittrex_logo.png" alt="Bittrex Global" width="90" height="30" />| bittrex | [Bittrex Global](https://global.bittrex.com/) | 1 | [API](https://bittrex.github.io/api/v1-1) |
-| <img src="documentation/docs/assets/img/liquid_logo.png" alt="Liquid" width="90" /> | liquid | [Liquid](https://www.liquid.com/) | 2 | [API](https://developers.liquid.com/) |
-| <img src="documentation/docs/assets/img/kucoin_logo.png" alt="KuCoin" width="90" /> | kucoin | [KuCoin](https://www.kucoin.com/) | 1 | [API](https://docs.kucoin.com/#general) |
+To set up this software, follow the instructions in the RUNNING section below.
 
-## Supported decentralized exchanges
+HAPPY LIQUIDITY MINING!
 
-| logo | id | name | ver | doc|
-|:---:|:---:|:---:|:---:|:---:|
-| <img src="documentation/docs/assets/img/radar_logo.png" alt="Radar Relay" width="90" height="30" /> | radar_relay | [Radar Relay](https://radarrelay.com/) | 2 | [API](https://developers.radarrelay.com/api/trade-api) | [![Build Status](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-exchange_radar_relay&subject=test)](https://jenkins-02.coinalpha.com/job/hb_test-exchange_radar_relay/) |
+## RUNNING
 
-## Community contributed exchange connectors
+1. The code can be built to a docker container from the project folder by running: 
+`docker build --pull --rm -f "Dockerfile" -t loopring:latest "."`
 
-| logo | id | name | ver | doc| maintainer |
-|:---:|:---:|:---:|:---:|:---:|:---:|
-| <img src="https://i.ibb.co/1sPt940/Screen-Shot-2019-06-06-at-17-50-04.png" alt="Bamboo Relay" width="90" /> | bamboo_relay | [Bamboo Relay](https://bamboorelay.com/) | 3 | [API](https://sra.bamboorelay.com/) | [dex@bamboorelay.com](mailto:dex@bamboorelay.com)
-|<img src="documentation/docs/assets/img/dolomite_logo.png" alt="Dolomite" width="90" />| dolomite | [Dolomite](https://dolomite.io/) | 1 | [API](https://docs.dolomite.io/) | [corey@dolomite.io](mailto:corey@dolomite.io)
+2. Launch bash on the built image: 
+`docker run -it loopring:latest bash`
 
-## Currently available strategies
+3. Run hummingbot with the loopring connector by then running this command inside the container: 
+`/opt/conda/envs/hummingbot/bin/python3 bin/hummingbot_quickstart.py`
 
-| Strategy | Test |
-|--|--|
-| [Pure market making](https://docs.hummingbot.io/strategies/pure-market-making/) | [![Build Status](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-strategy_pure_mm&subject=test)](https://jenkins-02.coinalpha.com/job/hb_test-strategy_pure_mm/) |
-| [Cross exchange market making](https://docs.hummingbot.io/strategies/cross-exchange-market-making/) | [![Build Status](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-strategy_xemm&subject=test)](https://jenkins-02.coinalpha.com/job/hb_test-strategy_xemm/) |
-| [Arbitrage](https://docs.hummingbot.io/strategies/arbitrage/) | [![Build Status](https://jenkins-02.coinalpha.com/buildStatus/icon?job=hb_test-strategy_arbitrage&subject=test)](https://jenkins-02.coinalpha.com/job/hb_test-strategy_arbitrage/) |
+4. You can use the loopring connector by then running the following hummingbot command: 
+`connect loopring` 
+and then entering the requested information from a loopring account
 
-## Getting Started
+5. Create and run the pure_market_making strategy, or any other available strategy, and specify your parameters.
 
-### Learn more about Hummingbot
+## REFERENCES
 
-- [Website](https://hummingbot.io)
-- [Documentation](https://docs.hummingbot.io)
-- [FAQs](https://docs.hummingbot.io/faq/)
+For detailed Hummingbot help, please refer to Hummingbot project homepage [https://github.com/CoinAlpha/hummingbot](https://github.com/CoinAlpha/hummingbot).
 
-### Install Hummingbot
+To begin, first create a Loopring DEX account at https://loopring.io/ with your Ethereum wallet. Copy your exchange credentials listed under “Export Account”, and insert them into Hummingbot to connect your account and begin automated trading. For a comprehensive description of these keys and Loopring DEX API, please refer to [https://docs.loopring.io/en/](https://docs.loopring.io/en/).
 
-- [Quickstart guide](https://docs.hummingbot.io/quickstart/)
-- [All installation options](https://docs.hummingbot.io/installation/)
-- [Installation scripts](./installation/)
-
-### Get support
-- Chat with our support team on [Discord](https://discord.hummingbot.io)
-- Email us at support@hummingbot.io
-
-### Chat with other traders
-- Join our community on [Discord](https://discord.coinalpha.com) or [Reddit](https://www.reddit.com/r/Hummingbot/)
-- Follow Hummingbot on [Twitter](https://twitter.com/hummingbot_io)
-
-## Contributions
-
-We welcome contributions from the community:
-- **Code and documentation contributions** via [pull requests](https://github.com/CoinAlpha/hummingbot/pulls)
-- **Bug reports and feature requests** through [Github issues](https://github.com/CoinAlpha/hummingbot/issues)
-- When contributing, please review the [contributing guidelines](CONTRIBUTING.md)
-
-## About us
-
-Hummingbot was created and is maintained by CoinAlpha, Inc. We are [a global team of engineers and traders](https://hummingbot.io/about/).
-
-- **General**: contact us at [dev@hummingbot.io](mailto:dev@hummingbot.io) or join our [Discord server](https://discord.hummingbot.io).
-- **Business inquiries**: contact us at [partnerships@hummingbot.io](mailto:partnerships@hummingbot.io).
-
-## Legal
-
-- **License**: Hummingbot is licensed under [Apache 2.0](./LICENSE).
-- **Data collection**: read important information regarding [Hummingbot Data Collection](DATA_COLLECTION.md).
+## CONTACT US
+For further information about this forked version of Hummingbot, and Loopring specific functionality, please contact Linq or Loopring below: 
+* [exchange@loopring.io](mailto:exchange@loopring.io)
+* [Loopring Discord](https://discord.gg/KkYccYp)
+* [corporate@linq.network](mailto:corporate@linq.network)
