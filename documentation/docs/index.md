@@ -18,7 +18,6 @@ Our business model is to administer [Liquidity Mining](/liquidity-mining) progra
 ## For experienced users
 * [Installation](/installation): See how to install Hummingbot in various environments
 * [Liquidity Mining](/liquidity-mining): Learn how you can earn liquidity rewards by market making
-* [Scripts](/scripts): Define your own script to run alongside your strategy
 
 ## For developers
 
