@@ -14,13 +14,13 @@ class SpreadsAdjustedOnVolatility(ScriptBase):
     long term price volatility (you can also use a fixed number, e.g. 3% - if you expect this to be the norm for your
     market).
     For example, if our bid_spread and ask_spread are at 0.8%, and the median long term volatility is 1.5%.
-    Recently the volatility jumps to 2.6%, we're gonna adjust both our bid and ask spreads to 1.9% (the original spread
-    - 0.8% - plus the volatility delta - 1.1%). Then after a short while the volatility drops back to 1.5%,
-    our spreads are now adjusted back to 0.8%.
+    Recently the volatility jumps to 2.6% (on short term average), we're gonna adjust both our bid and ask spreads to
+    1.9%  (the original spread - 0.8% plus the volatility delta - 1.1%). Then after a short while the volatility drops
+    back to 1.5%, our spreads are now adjusted back to 0.8%.
     """
 
-    # Let's set interval and sample size as a below.
-    # These numbers are for testing purposes only (in reality, they should be a larger number)
+    # Let's set interval and sample sizes as below.
+    # These numbers are for testing purposes only (in reality, they should be larger numbers)
     interval = 5
     short_term_period = 3
     long_term_period = 30
@@ -31,21 +31,19 @@ class SpreadsAdjustedOnVolatility(ScriptBase):
         self.original_ask_spread = None
 
     def on_tick(self):
-        # first let's keep the original spreads.
+        # First, let's keep the original spreads.
         if self.original_bid_spread is None:
             self.original_bid_spread = self.pmm_parameters.bid_spread
             self.original_ask_spread = self.pmm_parameters.ask_spread
 
-        # average volatility (price change) over a short period of time, this is to detect recent sudden changes
+        # Average volatility (price change) over a short period of time, this is to detect recent sudden changes.
         avg_short_volatility = self.avg_mid_price_chg(self.interval, self.short_term_period)
-        # median volatility over a long period of time, this is to find the market norm volatility.
-        # we use median (instead of average) to find the real representative of the volatility.
+        # Median volatility over a long period of time, this is to find the market norm volatility.
+        # We use median (instead of average) to find the real representative of the volatility and to avoid recent
+        # spike affecting the average value.
         median_long_volatility = self.median_mid_price_chg(self.interval, self.long_term_period)
 
-        # print(f"median_long_volatility: {median_long_volatility}")
-        # print(f"avg_short_volatility: {avg_short_volatility}")
-
-        # if the bot just got started we'll not have these numbers yet.
+        # If the bot just got started, we'll not have these numbers yet so we're not gonna anything.
         if avg_short_volatility is None or median_long_volatility is None:
             return
 
@@ -53,6 +51,9 @@ class SpreadsAdjustedOnVolatility(ScriptBase):
         delta = avg_short_volatility - median_long_volatility
         # Let's round the delta into 0.25% increment to avoid having to adjust the spreads too often.
         spread_adjustment = self.round_by_step(delta, Decimal("0.0025"))
+        # Show the user on what's going, you can remove this statement to stop the notification.
+        self.notify(f"avg_short_volatility: {avg_short_volatility} median_long_volatility: {median_long_volatility} "
+                    f"spread_adjustment: {spread_adjustment}")
         new_bid_spread = self.original_bid_spread + spread_adjustment
         # Let's not set the spreads below the originals, this is to avoid having spreads to be too close
         # to the mid price.
