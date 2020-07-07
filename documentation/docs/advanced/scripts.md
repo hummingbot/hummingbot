@@ -2,7 +2,7 @@
 Offers dynamic bot control by running a user defined script alongside a strategy. 
 
 ## Language
-As with Hummingbot source code, the script is fully compatible with Python 3.8
+As with Hummingbot source code, the script is fully compatible with Python 3.8.
 
 ## How it works
 After configured, the script will start automatically once a strategy starts and it stops when the strategy stops. 
@@ -11,19 +11,19 @@ application can still function.
 
 ## Create your own script
 1. Create a new script file, you can see examples in the Examples section below, and save it into `scripts` folder
-1. Configure your Hummingbot.
+1. Configure your Hummingbot
    1. Inside Hummingbot run command `config script_enabled` and/or `config script_file_path`
    1. Editing `conf_global.yml` file using a text editor.
    ```json
    script_enabled: true
    script_file_path: spreads_adjusted_on_volatility_script.py
    ```
-1. Start running a strategy.
+1. Start running a strategy
 
 ## ScriptBase
 
 This is the base class (`hummingbot/script/script_base.py`) for your script, it provides data, events and functions 
-as below:.
+as below.
   
 ### Data
 
@@ -94,7 +94,7 @@ here.
   Calculates average (mean) of the stored mid prices.
 
   Usage Example: `avg_value = self.avg_mid_price(60, 30)` - to calculate average mid price at a minute interval for the 
-last 30 minutes.
+last 30 minutes
 
 * **avg_price_volatility**
 
@@ -102,14 +102,14 @@ last 30 minutes.
 its direction, e.g. if price changes -3% (or 3%), the volatility is 3%.
 
   Usage Example: `avg_value = self.avg_price_volatility(60, 30)` - to calculate average price volatility at a minute 
-interval for the last 30 minutes.
+interval for the last 30 minutes
 
 * **median_price_volatility**
 
   Calculates median (middle value) price volatility.
 
   Usage Example: `median_value = self.median_price_volatility(60, 30)` - to calculate median price volatility at 
-a minute interval for the last 30 minutes.
+a minute interval for the last 30 minutes
 
 * **locate_central_price_volatility**
 
@@ -117,7 +117,7 @@ a minute interval for the last 30 minutes.
 that is supported by `statistics` library e.g. mean, median, geometric_mean and many more.
 
   Usage Example: `median_value = self.locate_central_price_volatility(60, 30, median)` - to calculate median price 
-volatility at a minute interval for the last 30 minutes.
+volatility at a minute interval for the last 30 minutes
 
 * **round_by_step**
 
