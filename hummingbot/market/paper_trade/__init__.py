@@ -2,6 +2,7 @@ from typing import List
 
 from hummingbot.market.bamboo_relay.bamboo_relay_order_book_tracker import BambooRelayOrderBookTracker
 from hummingbot.market.binance.binance_order_book_tracker import BinanceOrderBookTracker
+from hummingbot.market.loopring.loopring_order_book_tracker import LoopringOrderBookTracker
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
 from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.huobi.huobi_order_book_tracker import HuobiOrderBookTracker
@@ -14,6 +15,7 @@ from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
 
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.binance.binance_market import BinanceMarket
+from hummingbot.market.loopring.loopring_market import LoopringMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 
 from hummingbot.market.bittrex.bittrex_market import BittrexOrderBookTracker, BittrexMarket
@@ -33,7 +35,8 @@ ORDER_BOOK_TRACKER_CLASS = {
     "bitcoin_com": BitcoinComOrderBookTracker,
     "liquid": LiquidOrderBookTracker,
     "kucoin": KucoinOrderBookTracker,
-    "kraken": KrakenOrderBookTracker
+    "kraken": KrakenOrderBookTracker,
+    "loopring": LoopringOrderBookTracker,
 }
 
 
@@ -48,7 +51,8 @@ MARKET_CLASSES = {
     "bitcoin_com": BitcoinComMarket,
     "liquid": LiquidMarket,
     "kucoin": KucoinMarket,
-    "kraken": KrakenMarket
+    "kraken": KrakenMarket,
+    "loopring": LoopringMarket,
 }
 
 
