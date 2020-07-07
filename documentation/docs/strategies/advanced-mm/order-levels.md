@@ -32,8 +32,8 @@ Let us focus on one side of the order for now which is the "buy" side of the ord
 - ask_spread: 1
 - order_amount: 0.002
 - order_levels: 3
-- order_levels_amount: 0.002
-- order_levels_spread: 0.5
+- order_level_amount: 0.002
+- order_level_spread: 0.5
 ```
 
 Running a bot with the parameters above, the `status` command shows 3 levels of orders in the BTC-USDT trading pair: 
@@ -49,7 +49,7 @@ You might notice that the actual spread in our output is not exactly similar fro
 | Parameter | Prompt | Definition |
 |-----------|--------|------------|
 | **order_levels** | `How many orders do you want to place on both sides?` | The number of order levels to place for each side of the order book. |
-| **order_level_amount** | `How much do you want to increase or decrease the order size for each additional order?` | The size can either increase(if set to a value greater than zero) or decrease(if set to a value less than zero) for subsequent order levels after the first level. |
+| **order_level_amount** | `How much do you want to increase or decrease the order size for each additional order?` | The size can either increase (if set to a value greater than zero) or decrease (if set to a value less than zero) for subsequent order levels after the first level. |
 | **order_level_spread** | `Enter the price increments (as percentage) for subsequent orders?` | The incremental spread increases for subsequent order levels after the first level. |
 
 !!! warning "Low values for `order_level_spread`"
