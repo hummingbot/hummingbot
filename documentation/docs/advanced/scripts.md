@@ -72,66 +72,80 @@ here.
 
 ### Functions
 
-#### `notify`
-Notifies the user, the message will appear on top left panel of HB application.
-If Telegram integration enabled, the message will also be sent to the telegram user. 
+* **notify**
 
-Usage Example: `self.notify("Hello world")`
+  Notifies the user, the message will appear on top left panel of HB application.
+  If Telegram integration enabled, the message will also be sent to the telegram user. 
 
-#### `log`
-Logs message to the strategy log file and display it on Running Logs section of HB.
+  Usage Example: `self.notify("Hello world")`
 
-Usage Example: `self.log("Hello world")`
+* **log**
 
-#### `avg_mid_price`
-Calculates average (mean) of the stored mid prices.
+  Logs message to the strategy log file and display it on Running Logs section of HB.
 
-Usage Example: `avg_value = self.avg_mid_price(60, 30)` - to calculate average mid price at a minute interval for the 
+  Usage Example: `self.log("Hello world")`
+
+* **avg_mid_price**
+
+  Calculates average (mean) of the stored mid prices.
+
+  Usage Example: `avg_value = self.avg_mid_price(60, 30)` - to calculate average mid price at a minute interval for the 
 last 30 minutes.
 
-#### `avg_price_volatility`
-Calculates average (mean) price volatility, volatility is a price change compared to the previous cycle regardless of 
+* **avg_price_volatility**
+
+  Calculates average (mean) price volatility, volatility is a price change compared to the previous cycle regardless of 
 its direction, e.g. if price changes -3% (or 3%), the volatility is 3%.
 
-Usage Example: `avg_value = self.avg_price_volatility(60, 30)` - to calculate average price volatility at a minute 
+  Usage Example: `avg_value = self.avg_price_volatility(60, 30)` - to calculate average price volatility at a minute 
 interval for the last 30 minutes.
 
-#### `median_price_volatility`
-Calculates median (middle value) price volatility.
+* **median_price_volatility**
 
-Usage Example: `median_value = self.median_price_volatility(60, 30)` - to calculate median price volatility at 
+  Calculates median (middle value) price volatility.
+
+  Usage Example: `median_value = self.median_price_volatility(60, 30)` - to calculate median price volatility at 
 a minute interval for the last 30 minutes.
 
-#### `locate_central_price_volatility`
-Calculates central located price volatility based on a given mean function. The mean function can be one 
+* **locate_central_price_volatility**
+
+  Calculates central located price volatility based on a given mean function. The mean function can be one 
 that is supported by `statistics` library e.g. mean, median, geometric_mean and many more.
 
-Usage Example: `median_value = self.locate_central_price_volatility(60, 30, median)` - to calculate median price 
+  Usage Example: `median_value = self.locate_central_price_volatility(60, 30, median)` - to calculate median price 
 volatility at a minute interval for the last 30 minutes.
 
-#### `round_by_step`
-Rounds a given number down by a given step size. 
-Usage Example: `rounded_value = self.round_by_step(1.8, 0.25)` will give you 1.75
+* **round_by_step**
 
-#### `take_samples`
-Takes samples out of a given list where the last item is the most recent. 
-Example List `a_list = [1, 2, 3, 4, 5, 6, 7]`
-Usage Example: `samples = self.take_samples(a_list, 3, 2)` will give you `[4, 7]`
+  Rounds a given number down by a given step size. 
+
+  Usage Example: `rounded_value = self.round_by_step(1.8, 0.25)` will give you 1.75
+
+* **take_samples**
+
+  Takes samples out of a given list where the last item is the most recent. 
+  Example List `a_list = [1, 2, 3, 4, 5, 6, 7]`
+  Usage Example: `samples = self.take_samples(a_list, 3, 2)` will give you `[4, 7]`
 
 ## Examples
 All below examples can be found in `scripts\` folder.
 
-#### hello\_world\_script.py
-The most basic example only a few lines of code.
+1. **hello\_world\_script.py**
 
-####  ping\_pong\_script.py
-Replicates our current ping pong strategy using script.
+   The most basic example only a few lines of code.
 
-#### price\_band\_script.py
-Replicates our current price band strategy using script.
+1. **ping\_pong\_script.py**
 
-#### dynamic\_price\_band\_script.py
-Demonstrates how to set the band around mid price moving average, the band moves as the average moves.
+   Replicates our current ping pong strategy using script.
 
-#### spreads\_adjusted\_on\_volatility\_script.py
-Demonstrates how to adjust bid and ask spreads dynamically based on price volatility.
+1. **price\_band\_script.py**
+
+   Replicates our current price band strategy using script.
+
+1. **dynamic\_price\_band\_script.py**
+
+   Demonstrates how to set the band around mid price moving average, the band moves as the average moves.
+
+1. **spreads\_adjusted\_on\_volatility\_script.py**
+
+   Demonstrates how to adjust bid and ask spreads dynamically based on price volatility.
