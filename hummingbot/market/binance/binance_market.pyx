@@ -72,7 +72,7 @@ from hummingbot.core.utils.estimate_fee import estimate_fee
 
 s_logger = None
 s_decimal_0 = Decimal(0)
-TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|USDS|TUSD|PAX|TRX|BUSD|NGN|RUB|TRY|EUR|IDRT)$")
+TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|USDS|TUSD|PAX|TRX|BUSD|NGN|RUB|TRY|EUR|IDRT|ZAR|UAH|GBP|BKRW|BIDR)$")
 BROKER_ID = "x-XEKWYICX"
 
 

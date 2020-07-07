@@ -100,5 +100,8 @@ price_source_market: null
 # An external api that returns price (for external custom_api pricing source).
 price_source_custom: null
 
+#Take order if they cross orderbook when external price source is enabled
+take_if_crossed: null
+
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/pure-market-making/#configuration-parameters
