@@ -66,6 +66,7 @@ def start(self):
                 asset_price_delegate = OrderBookAssetPriceDelegate(ext_market, asset_trading_pair)
             elif price_source_type == "custom_api":
                 asset_price_delegate = APIAssetPriceDelegate(price_source_custom)
+        take_if_crossed = c_map.get("take_if_crossed").value
 
         strategy_logging_options = PureMarketMakingStrategy.OPTION_LOG_ALL
 
@@ -89,6 +90,7 @@ def start(self):
             add_transaction_costs_to_orders=add_transaction_costs_to_orders,
             logging_options=strategy_logging_options,
             asset_price_delegate=asset_price_delegate,
+            take_if_crossed=take_if_crossed,
             price_ceiling=price_ceiling,
             price_floor=price_floor,
             ping_pong_enabled=ping_pong_enabled,
