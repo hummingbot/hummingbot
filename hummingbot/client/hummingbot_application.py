@@ -23,6 +23,7 @@ from hummingbot.market.paper_trade import create_paper_trade_market
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
+from hummingbot.market.loopring.loopring_market import LoopringMarket
 from hummingbot.market.bitcoin_com.bitcoin_com_market import BitcoinComMarket
 from hummingbot.market.kraken.kraken_market import KrakenMarket
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
@@ -58,6 +59,7 @@ MARKET_CLASSES = {
     "liquid": LiquidMarket,
     "radar_relay": RadarRelayMarket,
     "dolomite": DolomiteMarket,
+    "loopring": LoopringMarket,
     "bittrex": BittrexMarket,
     "kucoin": KucoinMarket,
     "bitcoin_com": BitcoinComMarket,
@@ -313,6 +315,20 @@ class HummingbotApplication(*commands):
                     trading_pairs=trading_pairs,
                     isTestNet=is_test_net,
                     trading_required=self._trading_required,
+                )
+            elif market_name == "loopring":
+                loopring_accountid : int = global_config_map.get("loopring_accountid").value
+                loopring_exchangeid : int = global_config_map.get("loopring_exchangeid").value
+                loopring_private_key : str = global_config_map.get("loopring_private_key").value
+                loopring_api_key : str = global_config_map.get("loopring_api_key").value
+                market = LoopringMarket(
+                    loopring_accountid=loopring_accountid,
+                    loopring_exchangeid=loopring_exchangeid,
+                    loopring_private_key=loopring_private_key,
+                    loopring_api_key=loopring_api_key,
+                    trading_pairs=trading_pairs,
+                    trading_required=self._trading_required,
+                    order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API
                 )
             elif market_name == "bittrex":
                 bittrex_api_key = global_config_map.get("bittrex_api_key").value
