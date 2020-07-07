@@ -33,11 +33,13 @@ cdef class ScriptIterator(TimeIterator):
                  script_file_path: str,
                  markets: List[MarketBase],
                  strategy: PureMarketMakingStrategy,
-                 queue_check_interval: float = 0.01):
+                 queue_check_interval: float = 0.01,
+                 is_unit_testing_mode: bool = False):
         super().__init__()
         self._script_file_path = script_file_path
         self._markets = markets
         self._strategy = strategy
+        self._is_unit_testing_mode = is_unit_testing_mode
         self._queue_check_interval = queue_check_interval
         self._did_complete_buy_order_forwarder = SourceInfoEventForwarder(self._did_complete_buy_order)
         self._did_complete_sell_order_forwarder = SourceInfoEventForwarder(self._did_complete_sell_order)
@@ -111,7 +113,8 @@ cdef class ScriptIterator(TimeIterator):
                 break
             if isinstance(item, StrategyParameter):
                 setattr(self._strategy, item.name, item.updated_value)
-            elif isinstance(item, CallNotify):
+            elif isinstance(item, CallNotify) and not self._is_unit_testing_mode:
+                # ignore this on unit testing as the below import will mess up unit testing.
                 from hummingbot.client.hummingbot_application import HummingbotApplication
                 HummingbotApplication.main_application()._notify(item.msg)
             elif isinstance(item, CallLog):

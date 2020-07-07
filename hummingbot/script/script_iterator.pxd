@@ -18,3 +18,4 @@ cdef class ScriptIterator(TimeIterator):
         object _ev_loop
         object _script_process
         object _listen_to_child_task
+        bint _is_unit_testing_mode
