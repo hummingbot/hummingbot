@@ -33,7 +33,7 @@ is added to the end of the list, whereas strategy configuration and total balanc
 
 Note: The current script feature supports only *pure market making* strategy configuration.
 
-#### `pmm_parameters`
+#### pmm_parameters
 
 To set a pure market making strategy parameter to a new value, simply assign a new value to it.
 
@@ -55,19 +55,23 @@ These below are configurable parameters:
 - hanging_orders_cancel_pct
   
 ### Events  
-#### `on_tick`
-The code here will be executed on every tick which is every second on a default Hummingbot configuration.
+* **on_tick**
 
-#### `on_buy_order_completed`
-The script will be notified every time a buy order of yours is fully filled. Put in your code logic here to handle such
+  The code here will be executed on every tick which is every second on a default Hummingbot configuration.
+
+* **on_buy_order_completed**
+
+  The script will be notified every time a buy order of yours is fully filled. Put in your code logic here to handle such
 situation if needed.
 
-#### `on_sell_order_completed`
-The script will be notified every time a sell order of yours is fully filled. Put in your code logic here to handle such
+* **on_sell_order_completed**
+
+  The script will be notified every time a sell order of yours is fully filled. Put in your code logic here to handle such
 situation if needed.
 
-#### `on_status`
-This is called upon `status` command issued on the Hummingbot application. You can provide your custom status message 
+* **on_status**
+
+  This is called upon `status` command issued on the Hummingbot application. You can provide your custom status message 
 here.
 
 ### Functions
@@ -125,6 +129,7 @@ volatility at a minute interval for the last 30 minutes.
 
   Takes samples out of a given list where the last item is the most recent. 
   Example List `a_list = [1, 2, 3, 4, 5, 6, 7]`
+  
   Usage Example: `samples = self.take_samples(a_list, 3, 2)` will give you `[4, 7]`
 
 ## Examples
