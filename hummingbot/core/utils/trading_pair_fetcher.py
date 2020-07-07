@@ -23,6 +23,7 @@ BITTREX_ENDPOINT = "https://api.bittrex.com/v3/markets"
 KUCOIN_ENDPOINT = "https://api.kucoin.com/api/v1/symbols"
 DOLOMITE_ENDPOINT = "https://exchange-api.dolomite.io/v1/markets"
 BITCOIN_COM_ENDPOINT = "https://api.exchange.bitcoin.com/api/2/public/symbol"
+ETERBASE_ENDPOINT = "https://api.eterbase.exchange/api/markets"
 KRAKEN_ENDPOINT = "https://api.kraken.com/0/public/AssetPairs"
 
 API_CALL_TIMEOUT = 5
@@ -176,6 +177,29 @@ class TradingPairFetcher:
             # Do nothing if the request fails -- there will be no autocomplete for coinbase trading pairs
             pass
 
+        return []
+
+    async def fetch_eterbase_trading_pairs(self) -> List[str]:
+        try:
+            from hummingbot.market.eterbase.eterbase_market import EterbaseMarket
+
+            client: aiohttp.ClientSession() = self.http_client()
+            async with client.get(ETERBASE_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
+                if response.status == 200:
+                    markets = await response.json()
+                    raw_trading_pairs: List[str] = list(map(lambda trading_market: trading_market.get('symbol'), filter(lambda details: details.get('state') == 'Trading', markets)))
+                    trading_pair_list: List[str] = []
+                    for raw_trading_pair in raw_trading_pairs:
+                        converted_trading_pair: Optional[str] = \
+                            EterbaseMarket.convert_from_exchange_trading_pair(raw_trading_pair)
+                        if converted_trading_pair is not None:
+                            trading_pair_list.append(converted_trading_pair)
+                        else:
+                            self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
+                    return trading_pair_list
+        except Exception:
+            pass
+            # Do nothing if the request fails -- there will be no autocomplete for eterbase trading pairs
         return []
 
     async def fetch_huobi_trading_pairs(self) -> List[str]:
@@ -339,7 +363,8 @@ class TradingPairFetcher:
                  self.fetch_kucoin_trading_pairs(),
                  self.fetch_bitcoin_com_trading_pairs(),
                  self.fetch_kraken_trading_pairs(),
-                 self.fetch_radar_relay_trading_pairs()]
+                 self.fetch_radar_relay_trading_pairs(),
+                 self.fetch_eterbase_trading_pairs()]
 
         # Radar Relay has not yet been migrated to a new version
         # Endpoint needs to be updated after migration
@@ -357,6 +382,7 @@ class TradingPairFetcher:
             "kucoin": results[7],
             "bitcoin_com": results[8],
             "kraken": results[9],
-            "radar_relay": results[10]
+            "radar_relay": results[10],
+            "eterbase": results[11]
         }
         self.ready = True
