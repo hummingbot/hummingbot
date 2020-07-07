@@ -4,6 +4,7 @@ from typing import Optional
 import cachetools.func
 from hummingbot.market.binance.binance_market import BinanceMarket
 from hummingbot.market.kraken.kraken_market import KrakenMarket
+from hummingbot.market.loopring.loopring_api_token_configuration_data_source import LoopringAPITokenConfigurationDataSource
 
 
 BINANCE_PRICE_URL = "https://api.binance.com/api/v3/ticker/bookTicker"
@@ -12,6 +13,8 @@ LIQUID_PRICE_URL = "https://api.liquid.com/products"
 BITTREX_PRICE_URL = "https://api.bittrex.com/api/v1.1/public/getmarketsummaries"
 KRAKEN_PRICE_URL = "https://api.kraken.com/0/public/Ticker?pair="
 COINBASE_PRO_PRICE_URL = "https://api.pro.coinbase.com/products/TO_BE_REPLACED/ticker"
+LOOPRING_PRICE_URL = "https://api.loopring.io/api/v2/ticker"
+LOOPRING_TOKEN_CONFIG_URL = "https://api.loopring.io/api/v2/exchange/tokens"
 
 
 def get_mid_price(exchange: str, trading_pair: str) -> Optional[Decimal]:
@@ -27,6 +30,8 @@ def get_mid_price(exchange: str, trading_pair: str) -> Optional[Decimal]:
         return kraken_mid_price(trading_pair)
     elif exchange == "coinbase_pro":
         return coinbase_pro_mid_price(trading_pair)
+    elif exchange == "loopring":
+        return loopring_mid_price(trading_pair)
     else:
         return binance_mid_price(trading_pair)
 
@@ -101,3 +106,12 @@ def coinbase_pro_mid_price(trading_pair: str) -> Optional[Decimal]:
     if "bid" in record and "ask" in record:
         result = (Decimal(record["bid"]) + Decimal(record["ask"])) / Decimal("2")
         return result
+
+
+@cachetools.func.ttl_cache(ttl=10)
+def loopring_mid_price(trading_pair: str) -> Optional[Decimal]:
+    resp = requests.get(url=LOOPRING_PRICE_URL, params={"market": trading_pair})
+    record = resp.json()
+    price = Decimal(record["data"][0][7])
+    
+    return price

@@ -10,7 +10,8 @@ default_cex_estimate = {
     "huobi": [0.2, 0.2],
     "kraken": [0.16, 0.26],
     "kucoin": [0.1, 0.1],
-    "liquid": [0.1, 0.1]}
+    "liquid": [0.1, 0.1],
+    "loopring": [0.0, 0.1]}
 
 default_dex_estimate = {
     "bamboo_relay": [0, 0.00001],

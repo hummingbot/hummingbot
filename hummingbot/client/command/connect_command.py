@@ -19,7 +19,8 @@ OPTIONS = {
     "kucoin",
     "kraken",
     "ethereum",
-    "celo"
+    "celo",
+    "loopring"
 }
 
 
