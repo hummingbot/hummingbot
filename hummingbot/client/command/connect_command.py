@@ -17,7 +17,8 @@ OPTIONS = {
     "bittrex",
     "kucoin",
     "kraken",
-    "ethereum"
+    "ethereum",
+    "loopring"
 }
 
 
