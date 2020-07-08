@@ -34,21 +34,43 @@ If you believe that `ETH-USD` on Exchange B is more liquid and responds more qui
 - ask_spread: 1
 - order_amount: 56
 ```
-###No External Pricing Source Configuration
-![No External Pricing Source Configuration](/assets/img/price_source_None_config.PNG)
 
-###Exchange External Price Source Configuration
-![Exchange External Price Source Configuration](/assets/img/price_source_exchange_config.PNG)
+**No External Pricing Source (Default)**
 
-###Custom API Pricing Source Configuration
-![Custom API Pricing Source Configuration](/assets/img/price_source_custom_api_config.PNG)
+```json
+- price_source_enabled : False
+- price_source_type : None
+- price_source_exchange : None
+- price_source_market : None
+- price_source_custom : None
+```
+
+**Exchange External Price Source Configuration**
+
+```json
+- price_source_enabled : True
+- price_source_type : exchange
+- price_source_exchange : binance
+- price_source_market : XRP-USDT
+- price_source_custom : None
+```
+
+**Custom API Pricing Source Configuration**
+
+```json
+- price_source_enabled : True
+- price_source_type : custom_api
+- price_source_exchange : None
+- price_source_market : None
+- price_source_custom : https://www.custom-api.com/
+```
 
 **Custom API Output Required Parameters**
 
 The API GET request should return a decimal number corresponding to a market price for the asset pair you are trading on.
 
+Sample API Output:
 
-*Sample API Output:*
 ```json
 207.8
 ```
