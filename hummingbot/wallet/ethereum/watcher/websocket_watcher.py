@@ -1,7 +1,7 @@
 import websockets
 from web3 import Web3
 from web3.exceptions import BlockNotFound
-from websockets.exceptions import ConnectionClosedOK
+from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
 import logging
 import ujson
 import asyncio
@@ -106,18 +106,6 @@ class WSNewBlocksWatcher(BaseWatcher):
                 return True
         return False
 
-    async def unsubscribe(self, params) -> bool:
-        emit_data = {
-            "method": "eth_unsubscribe",
-            "params": params
-        }
-        nonce = await self._send(emit_data)
-        raw_message = await self._client.recv()
-        resp = ujson.loads(raw_message)
-        if resp.get("id", None) == nonce:
-            result = resp.get("result", None)
-            return (result is not None) and result
-
     async def fetch_new_blocks_loop(self):
         try:
             while True:
@@ -134,11 +122,6 @@ class WSNewBlocksWatcher(BaseWatcher):
                             self._current_block_number = new_block.get("number")
                             self._block_cache[new_block.get("hash")] = new_block
                             self.trigger_event(NewBlocksWatcherEvent.NewBlocks, [new_block])
-                except asyncio.CancelledError:
-                    if self._network_on:
-                        self.logger().network("Network closed abnormally, reconnecting ...")
-                        self.connect()
-                    raise
                 except asyncio.TimeoutError:
                     self.logger().network("Timed out fetching new block.", exc_info=True,
                                           app_warning_msg="Timed out fetching new block. "
@@ -147,6 +130,12 @@ class WSNewBlocksWatcher(BaseWatcher):
                     pass
                 except ConnectionClosedOK:
                     raise
+                except ConnectionClosedError:
+                    if self._network_on:
+                        self.logger().network("Network closed abnormally, reconnecting.")
+                        await self.connect()
+                    else:
+                        raise
                 except Exception as e:
                     self.logger().network(f"Error fetching new block: {e}", exc_info=True,
                                           app_warning_msg="Error fetching new block. "
