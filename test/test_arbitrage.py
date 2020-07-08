@@ -137,8 +137,8 @@ class ArbitrageUnitTest(unittest.TestCase):
         0           1.039801               1.045               1.005        1.1      1.005         10.0
         1           1.029557               1.045               1.015        1.1      1.015         20.0
         """
-        amount, profitability = self.strategy.find_best_profitable_amount(self.market_trading_pair_tuple_1,
-                                                                          self.market_trading_pair_tuple_2)
+        amount, profitability, bid_price, ask_price = self.strategy.find_best_profitable_amount(self.market_trading_pair_tuple_1,
+                                                                                                self.market_trading_pair_tuple_2)
         self.assertEqual(Decimal(30.0), amount)
         self.assertAlmostEqual(Decimal(1.0329489291598024), profitability)
 
@@ -186,8 +186,8 @@ class ArbitrageUnitTest(unittest.TestCase):
         3  1.1175     120          1
         4  1.1225     125          1
         """
-        amount, profitability = self.strategy.find_best_profitable_amount(self.market_trading_pair_tuple_1,
-                                                                          self.market_trading_pair_tuple_2)
+        amount, profitability, bid_price, ask_price = self.strategy.find_best_profitable_amount(self.market_trading_pair_tuple_1,
+                                                                                                self.market_trading_pair_tuple_2)
         self.assertEqual(Decimal(30.0), amount)
         self.assertAlmostEqual(Decimal(1.045), profitability)
 
@@ -208,8 +208,8 @@ class ArbitrageUnitTest(unittest.TestCase):
             [],
             2
         )
-        amount, profitability = self.strategy.find_best_profitable_amount(self.market_trading_pair_tuple_1,
-                                                                          self.market_trading_pair_tuple_2)
+        amount, profitability, bid_price, ask_price = self.strategy.find_best_profitable_amount(self.market_trading_pair_tuple_1,
+                                                                                                self.market_trading_pair_tuple_2)
         self.assertEqual(Decimal(60.0), amount)
         self.assertAlmostEqual(Decimal(1.0294946147473074), profitability)
 
@@ -221,15 +221,15 @@ class ArbitrageUnitTest(unittest.TestCase):
         )
         self.market_1.set_balance("COINALPHA", 40)
         self.market_2.set_balance("COINALPHA", 20)
-        amount, profitability = self.strategy.find_best_profitable_amount(self.market_trading_pair_tuple_1,
-                                                                          self.market_trading_pair_tuple_2)
+        amount, profitability, bid_price, ask_price = self.strategy.find_best_profitable_amount(self.market_trading_pair_tuple_1,
+                                                                                                self.market_trading_pair_tuple_2)
 
         self.assertEqual(20.0, amount)
         self.assertAlmostEqual(Decimal(1.0329489291598024), profitability)
 
         self.market_2.set_balance("COINALPHA", 0)
-        amount, profitability = self.strategy.find_best_profitable_amount(self.market_trading_pair_tuple_1,
-                                                                          self.market_trading_pair_tuple_2)
+        amount, profitability, bid_price, ask_price = self.strategy.find_best_profitable_amount(self.market_trading_pair_tuple_1,
+                                                                                                self.market_trading_pair_tuple_2)
 
         self.assertEqual(Decimal("0"), amount)
         self.assertAlmostEqual(Decimal(1.0398009950248757), profitability)

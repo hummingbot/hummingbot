@@ -78,11 +78,6 @@ cdef class ArbitrageStrategy(StrategyBase):
 
         self._hb_app_notification = hb_app_notification
 
-        self._market_1_bid_price = 0
-        self._market_1_ask_price = 0
-        self._market_2_bid_price = 0
-        self._market_2_ask_price = 0
-
         cdef:
             set all_markets = {
                 market
@@ -230,17 +225,6 @@ cdef class ArbitrageStrategy(StrategyBase):
             self.log_with_clock(logging.INFO,
                                 f"Market order canceled on {market_trading_pair_tuple[0].name}: {order_id}")
 
-    cdef object c_get_arbitrage_pair_prices(self, bint buy_1_sell_2):
-        """
-        Return appropriate prices(bid price, ask price) for arbitrage market pair combination.
-
-        param bint buy_1_sell_2: Arbitrage market pair.
-        """
-        if buy_1_sell_2:
-            return self._market_2_bid_price, self._market_1_ask_price
-        else:
-            return self._market_1_bid_price, self._market_2_ask_price
-
     cdef tuple c_calculate_arbitrage_top_order_profitability(self, object market_pair):
         """
         Calculate the profitability of crossing the exchanges in both directions (buy on exchange 2 + sell
@@ -250,14 +234,14 @@ cdef class ArbitrageStrategy(StrategyBase):
         :return: (double, double) that indicates profitability of arbitraging on each side
         """
 
-        self._market_1_bid_price = market_pair.first.get_price(False)
-        self._market_1_ask_price = market_pair.first.get_price(True)
-        self._market_2_bid_price = self.market_conversion_rate(market_pair.second) * \
+        market_1_bid_price = market_pair.first.get_price(False)
+        market_1_ask_price = market_pair.first.get_price(True)
+        market_2_bid_price = self.market_conversion_rate(market_pair.second) * \
             market_pair.second.get_price(False)
-        self._market_2_ask_price = self.market_conversion_rate(market_pair.second) * \
+        market_2_ask_price = self.market_conversion_rate(market_pair.second) * \
             market_pair.second.get_price(True)
-        profitability_buy_2_sell_1 = self._market_1_bid_price / self._market_2_ask_price - 1
-        profitability_buy_1_sell_2 = self._market_2_bid_price / self._market_1_ask_price - 1
+        profitability_buy_2_sell_1 = market_1_bid_price / market_2_ask_price - 1
+        profitability_buy_1_sell_2 = market_2_bid_price / market_1_ask_price - 1
         return profitability_buy_2_sell_1, profitability_buy_1_sell_2
 
     cdef bint c_ready_for_new_orders(self, list market_trading_pair_tuples):
@@ -324,11 +308,11 @@ cdef class ArbitrageStrategy(StrategyBase):
 
         if profitability_buy_1_sell_2 > profitability_buy_2_sell_1:
             # it is more profitable to buy on market_1 and sell on market_2
-            self.c_process_market_pair_inner(market_pair.first, market_pair.second, True)
+            self.c_process_market_pair_inner(market_pair.first, market_pair.second)
         else:
-            self.c_process_market_pair_inner(market_pair.second, market_pair.first, False)
+            self.c_process_market_pair_inner(market_pair.second, market_pair.first)
 
-    cdef c_process_market_pair_inner(self, object buy_market_trading_pair_tuple, object sell_market_trading_pair_tuple, bint buy_1_sell_2):
+    cdef c_process_market_pair_inner(self, object buy_market_trading_pair_tuple, object sell_market_trading_pair_tuple):
         """
         Executes arbitrage trades for the input market pair.
 
@@ -344,8 +328,7 @@ cdef class ArbitrageStrategy(StrategyBase):
             MarketBase buy_market = buy_market_trading_pair_tuple.market
             MarketBase sell_market = sell_market_trading_pair_tuple.market
 
-        buy_price, sell_price = self.c_get_arbitrage_pair_prices(buy_1_sell_2)
-        best_amount, best_profitability = self.c_find_best_profitable_amount(
+        best_amount, best_profitability, buy_price, sell_price = self.c_find_best_profitable_amount(
             buy_market_trading_pair_tuple, sell_market_trading_pair_tuple
         )
         quantized_buy_amount = buy_market.c_quantize_order_amount(buy_market_trading_pair_tuple.trading_pair, Decimal(best_amount))
@@ -396,8 +379,8 @@ cdef class ArbitrageStrategy(StrategyBase):
 
         :param buy_market_trading_pair_tuple: trading pair for buy side
         :param sell_market_trading_pair_tuple: trading pair for sell side
-        :return: (order size, profitability ratio)
-        :rtype: Tuple[float, float]
+        :return: (order size, profitability ratio, bid_price, ask_price)
+        :rtype: Tuple[float, float, float, float]
         """
         cdef:
             object total_bid_value = s_decimal_0  # total revenue
@@ -515,7 +498,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                 ).to_string()
             )
 
-        return best_profitable_order_amount, best_profitable_order_profitability
+        return best_profitable_order_amount, best_profitable_order_profitability, bid_price, ask_price
 
     # The following exposed Python functions are meant for unit tests
     # ---------------------------------------------------------------
