@@ -82,6 +82,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                  bid_order_optimization_depth: Decimal = s_decimal_zero,
                  add_transaction_costs_to_orders: bool = False,
                  asset_price_delegate: AssetPriceDelegate = None,
+                 take_if_crossed: bool = False,
                  price_ceiling: Decimal = s_decimal_neg_one,
                  price_floor: Decimal = s_decimal_neg_one,
                  ping_pong_enabled: bool = False,
@@ -117,6 +118,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._bid_order_optimization_depth = bid_order_optimization_depth
         self._add_transaction_costs_to_orders = add_transaction_costs_to_orders
         self._asset_price_delegate = asset_price_delegate
+        self._take_if_crossed = take_if_crossed
         self._price_ceiling = price_ceiling
         self._price_floor = price_floor
         self._ping_pong_enabled = ping_pong_enabled
@@ -304,10 +306,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         return self._hanging_order_ids
 
     @property
-    def active_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
-        return self._sb_order_tracker.active_maker_orders
-
-    @property
     def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
         return self._sb_order_tracker.market_pair_to_active_orders
 
@@ -376,6 +374,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         target_quote_amount = (1 - target_base_ratio) * total_value_in_quote
 
         base_asset_range = total_order_size * self._inventory_range_multiplier
+        base_asset_range = min(base_asset_range, total_value * Decimal("0.5"))
         high_water_mark = target_base_amount + base_asset_range
         low_water_mark = max(target_base_amount - base_asset_range, s_decimal_zero)
         low_water_mark_ratio = (low_water_mark / total_value
@@ -554,7 +553,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 # 5. Apply budget constraint, i.e. can't buy/sell more than what you have.
                 self.c_apply_budget_constraint(proposal)
 
-                self.c_filter_out_takers(proposal)
+                if not self._take_if_crossed:
+                    self.c_filter_out_takers(proposal)
             self.c_cancel_active_orders(proposal)
             self.c_cancel_hanging_orders()
             self.c_cancel_orders_below_min_spread()
@@ -685,16 +685,17 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                                         buy.size, buy.price)
             quote_size = buy.size * buy.price * (Decimal(1) + buy_fees.percent)
             if quote_balance < quote_size_total + quote_size:
-                quote_size = quote_balance - quote_size_total
-                base_size = quote_size / buy.price * (Decimal(1) - buy_fees.percent)
-                buy.size = market.c_quantize_order_amount(self.trading_pair, base_size, buy.price)
+                self.logger().info(f"Insufficient balance: Buy order (price: {buy.price}, size: {buy.size}) is omitted, {self.quote_asset} available balance: {quote_balance - quote_size_total}.")
+                quote_size = s_decimal_zero
+                buy.size = s_decimal_zero
             quote_size_total += quote_size
         proposal.buys = [o for o in proposal.buys if o.size > 0]
         for sell in proposal.sells:
             base_size = sell.size
             if base_balance < base_size_total + base_size:
-                base_size = base_balance - base_size_total
-                sell.size = market.c_quantize_order_amount(self.trading_pair, base_size, sell.price)
+                self.logger().info(f"Insufficient balance: Sell order (price: {sell.price}, size: {sell.size}) is omitted, {self.base_asset} available balance: {base_balance - base_size_total}.")
+                base_size = s_decimal_zero
+                sell.size = s_decimal_zero
             base_size_total += base_size
         proposal.sells = [o for o in proposal.sells if o.size > 0]
 
@@ -807,6 +808,16 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         if self._hanging_orders_enabled:
             # If the filled order is a hanging order, do nothing
             if order_id in self._hanging_order_ids:
+                self.log_with_clock(
+                    logging.INFO,
+                    f"({self.trading_pair}) Hanging maker buy order {order_id} "
+                    f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                    f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
+                )
+                self.notify_hb_app(
+                    f"Hanging maker BUY order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                    f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
+                )
                 return
 
         # delay order creation by filled_order_dalay (in seconds)
@@ -840,6 +851,16 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         if self._hanging_orders_enabled:
             # If the filled order is a hanging order, do nothing
             if order_id in self._hanging_order_ids:
+                self.log_with_clock(
+                    logging.INFO,
+                    f"({self.trading_pair}) Hanging maker sell order {order_id} "
+                    f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                    f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
+                )
+                self.notify_hb_app(
+                    f"Hanging maker SELL order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                    f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
+                )
                 return
 
         # delay order creation by filled_order_dalay (in seconds)
