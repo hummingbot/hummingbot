@@ -128,7 +128,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._cancel_timestamp = 0
         self._create_timestamp = 0
         self._limit_order_type = OrderType.LIMIT
-        if market_info.market.name == "binance" and paper_trade_disabled():
+        if market_info.market.name == "binance" and not take_if_crossed and paper_trade_disabled():
             self._limit_order_type = OrderType.LIMIT_MAKER
         self._all_markets_ready = False
         self._filled_buys_balance = 0
@@ -553,8 +553,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 # 5. Apply budget constraint, i.e. can't buy/sell more than what you have.
                 self.c_apply_budget_constraint(proposal)
 
-                if not self._take_if_crossed:
-                    self.c_filter_out_takers(proposal)
+                if self._asset_price_delegate is not None:
+                    if not self._take_if_crossed:
+                            self.c_filter_out_takers(proposal)
             self.c_cancel_active_orders(proposal)
             self.c_cancel_hanging_orders()
             self.c_cancel_orders_below_min_spread()
