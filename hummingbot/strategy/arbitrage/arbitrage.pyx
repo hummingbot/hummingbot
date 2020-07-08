@@ -234,12 +234,13 @@ cdef class ArbitrageStrategy(StrategyBase):
         :return: (double, double) that indicates profitability of arbitraging on each side
         """
 
-        market_1_bid_price = market_pair.first.get_price(False)
-        market_1_ask_price = market_pair.first.get_price(True)
-        market_2_bid_price = self.market_conversion_rate(market_pair.second) * \
-            market_pair.second.get_price(False)
-        market_2_ask_price = self.market_conversion_rate(market_pair.second) * \
-            market_pair.second.get_price(True)
+        cdef:
+            object market_1_bid_price = market_pair.first.get_price(False)
+            object market_1_ask_price = market_pair.first.get_price(True)
+            object market_2_bid_price = self.market_conversion_rate(market_pair.second) * \
+                market_pair.second.get_price(False)
+            object market_2_ask_price = self.market_conversion_rate(market_pair.second) * \
+                market_pair.second.get_price(True)
         profitability_buy_2_sell_1 = market_1_bid_price / market_2_ask_price - 1
         profitability_buy_1_sell_2 = market_2_bid_price / market_1_ask_price - 1
         return profitability_buy_2_sell_1, profitability_buy_1_sell_2
