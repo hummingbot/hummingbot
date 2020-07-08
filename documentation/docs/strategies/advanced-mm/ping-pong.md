@@ -2,7 +2,7 @@
 
 **Updated as of `v0.28.0`**
 
-This features enables the ping pong strategy, in which Hummingbot alternates buy and sell orders.
+This feature enables the ping pong strategy, in which Hummingbot alternates buy and sell orders.
 
 
 ## How It Works
