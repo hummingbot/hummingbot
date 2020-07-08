@@ -289,7 +289,7 @@ pure_market_making_config_map = {
                                          "price_source_type").value == "custom_api",
                                      type_str="str"),
     "take_if_crossed": ConfigVar(key="take_if_crossed",
-                                 prompt="Do you want to take the best order if orders cross the orderbook? ((Yes/No) >>> ",
+                                 prompt="Do you want to take the best order if orders cross the orderbook? (Yes/No) >>> ",
                                  required_if=lambda: pure_market_making_config_map.get(
                                      "price_source_enabled").value,
                                  type_str="bool",
