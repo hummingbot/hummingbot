@@ -250,7 +250,7 @@ cdef class ArbitrageStrategy(StrategyBase):
         Check whether we are ready for making new arbitrage orders or not. Conditions where we should not make further
         new orders include:
 
-         1. There are successfully placed limit taker orders.
+         1. There are outstanding limit taker orders.
          2. We're still within the cool-off period from the last trade, which means the exchange balances may be not
             accurate temporarily.
 
