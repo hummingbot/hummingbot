@@ -35,6 +35,10 @@ kucoin_passphrase: null
 kraken_api_key: null
 kraken_secret_key: null
 
+eterbase_api_key: null
+eterbase_secret_key: null
+eterbase_account: null
+
 celo_address: null
 celo_password: null
 

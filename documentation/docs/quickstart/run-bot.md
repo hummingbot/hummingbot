@@ -45,7 +45,7 @@ If you don't see any active orders, check that you have correctly entered API ke
 
 ## See past trades and performance
 
-Enter the comamnd `history`.
+Enter the command `history`.
 
 This command shows you:
 
