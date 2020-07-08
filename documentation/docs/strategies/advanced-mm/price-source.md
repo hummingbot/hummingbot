@@ -1,6 +1,6 @@
 # External Pricing Source Configuration
 
-**Updated as of `v0.28.0`**
+**Updated as of `v0.29.0`**
 
 By default, Hummingbot uses the order book you're trading in to generate the **mid price** (between the top bid and the top ask) as a starting price to calculate maker order prices.
 
@@ -17,7 +17,8 @@ First, set `price_source_type`: choose whether you want to use another exchange 
 !!! note
     Currently, the external price source cannot be the same as the maker exchange (i.e. if the bot is trading on Binance, the `price_source_exchange` cannot be Binance).
 
-### When to use an external price source
+## When to use an external price source
+
 External price source is valuable when your bot is market making for a relatively illiquid trading pair, but a more liquid pair with the same underlying exposure is available on a different exchange.
 
 Suppose we are market making for the `ETH-USDT` trading pair. The exchange we are trading on, denoted as **Exchange A**, has the top bid order at $198 and the top ask order at $202, so the mid price is $200.
@@ -27,7 +28,15 @@ Let's suppose there is **Exchange B** with an `ETH-USD` trading pair. That pair 
 If you believe that `ETH-USD` on Exchange B is more liquid and responds more quickly to market information than `ETH-USDT` on Exchange A, you may want to market make on Exchange A but use `ETH-USD` on Exchange B as the price source. This helps you position your orders based on where the market might go in the future. 
 
 
+## Taking Crossed Orders
+
+When using an external price source, an order may result in a crossed market. This means the order on the current exchange is placed with a price that matches an existing order in the book. Enabling `take_if_crossed` parameter allows the strategy to fill the matching maker order.
+
+In certain cases, this behavior may be desirable even if the fee is higher because of the likely future price mitigation. This feature is only available when an external price source is used. When enabled, Hummingbot uses `LIMIT` order instead of `LIMIT_MAKER` order type.
+
+
 ## Sample Configurations
+
 ```json
 - market: XRP-USD
 - bid_spread: 1
@@ -43,6 +52,7 @@ If you believe that `ETH-USD` on Exchange B is more liquid and responds more qui
 - price_source_exchange : None
 - price_source_market : None
 - price_source_custom : None
+- take_if_crossed : False
 ```
 
 **Exchange External Price Source Configuration**
@@ -53,6 +63,7 @@ If you believe that `ETH-USD` on Exchange B is more liquid and responds more qui
 - price_source_exchange : binance
 - price_source_market : XRP-USDT
 - price_source_custom : None
+- take_if_crossed : False
 ```
 
 **Custom API Pricing Source Configuration**
@@ -63,6 +74,7 @@ If you believe that `ETH-USD` on Exchange B is more liquid and responds more qui
 - price_source_exchange : None
 - price_source_market : None
 - price_source_custom : https://www.custom-api.com/
+- take_if_crossed : False
 ```
 
 **Custom API Output Required Parameters**
@@ -85,3 +97,4 @@ Sample API Output:
 | **price_source_exchange** | `Enter external price source exchange name` | Name of exchange to be used for external pricing source. |
 | **price_source_market** | `Enter the token pair on [price_source_exchange]` | The trading pair for the price source exchange. |
 | **price_source_custom** | `Enter pricing API URL` | An external API that returns price. |
+| **take_if_crossed** | `Do you want to take the best order if orders cross the orderbook?` | Take order if they cross orderbook when external price source is enabled. |
