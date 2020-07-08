@@ -62,6 +62,51 @@ The hanging order will stay outstanding and will be cancelled if its spread goes
 
 ![](/assets/img/hanging_order3.png)
 
+## Hanging Orders with Multiple Order Levels
+
+When an order is filled on one side either buy or sell, all active orders on the opposite side are left hanging.
+
+```json
+- hanging_orders_enabled: True
+- order_levels: 3
+```
+
+With the sample configuration above, the bot places 3 buy and 3 sell orders.
+
+```
+Orders:                                                                
+   Level  Type  Price Spread Amount (Orig)  Amount (Adj)       Age Hang
+       3  sell 239.75  2.49%          0.05          0.05  00:00:01   no
+       2  sell 237.41  1.49%          0.05          0.05  00:00:01   no
+       1  sell 235.07  0.49%          0.05          0.05  00:00:01   no
+       1   buy  233.9  0.01%          0.05          0.05  00:00:01   no
+       2   buy 231.56  1.01%          0.05          0.05  00:00:01   no
+       3   buy 229.22  2.01%          0.05          0.05  00:00:01   no
+```
+
+Buy order 1 gets filled.
+
+```
+Maker BUY order 0.05000000 ETH @ 233.90000000 USDT is filled.  
+```
+
+This leaves the 3 sell orders hanging on top of the new orders on the next refresh.
+
+```
+Orders:                                                               
+  Level  Type  Price Spread Amount (Orig)  Amount (Adj)       Age Hang
+         sell 239.75  2.50%                        0.05  00:01:08  yes
+      3  sell 239.73  2.49%          0.05          0.05  00:00:01   no
+         sell 237.41  1.50%                        0.05  00:01:08  yes
+      2  sell 237.39  1.49%          0.05          0.05  00:00:01   no
+         sell 235.07  0.50%                        0.05  00:01:08  yes
+      1  sell 235.05  0.49%          0.05          0.05  00:00:01   no
+      1   buy 233.88  0.01%          0.05          0.05  00:00:01   no
+      2   buy 231.54  1.01%          0.05          0.05  00:00:01   no
+      3   buy  229.2  2.01%          0.05          0.05  00:00:01   no
+
+```
+
 
 ## Relevant Parameters
 
