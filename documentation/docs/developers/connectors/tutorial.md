@@ -112,7 +112,7 @@ The table below details the **required** functions in `UserStreamTrackerDataSour
 
 Function<div style="width:200px"/> | Input Parameter(s) | Expected Output(s) | Description
 ---|---|---|---
-`order_book_class` | None | `OrderBook` | Get relevant order book class ot access class specific methods.<br/><br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: You are also required to implement your own `OrderBook` class that converts JSON data into a standard `OrderBookMessage` format.</td></tr></tbody></table>
+`order_book_class` | None | `OrderBook` | Get relevant order book class to access class specific methods.<br/><br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: You are also required to implement your own `OrderBook` class that converts JSON data into a standard `OrderBookMessage` format.</td></tr></tbody></table>
 `listen_for_user_stream` | ev_loop: `asyncio.BaseEventLoop`<br/>output: `asyncio.Queue` | None | Subscribe to user stream via web socket, and keep the connection open for incoming messages
 
 ### UserStreamTracker
@@ -128,7 +128,7 @@ This can be achieved in 2 ways(depending on the available API on the exchange):
 
 2. **WebSocket API**
 
-    When an exchange does have WebSocket API support to retrieve user account details and order statuses, it would be ideal to incorporate it into the Hummingbot client when managing account balances and updating order statuses. This is especially important since Hummingbot needs knows to the available account balances and order statuses at all times. 
+    When an exchange does have WebSocket API support to retrieve user account details and order statuses, it would be ideal to incorporate it into the Hummingbot client when managing account balances and updating order statuses. This is especially important since Hummingbot needs to knows the available account balances and order statuses at all times. 
     
     !!! tip 
         In most scenarios, as seen in most other Centralized Exchanges([Binance](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/binance/binance_user_stream_tracker.py), [Coinbase Pro](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/coinbase_pro/coinbase_pro_user_stream_tracker.py), [Bittrex](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/bittrex/bittrex_user_stream_tracker.py)), a simple WebSocket integration is used to listen on selected topics and retrieving messages to be processed in `Market` class.
