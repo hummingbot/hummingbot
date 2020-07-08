@@ -36,6 +36,7 @@ EXCHANGES = {
     "bittrex",
     "kucoin",
     "bitcoin_com",
+    "eterbase",
     "kraken"
 }
 
@@ -58,6 +59,7 @@ EXAMPLE_PAIRS = {
     "huobi": "ETH-USDT",
     "liquid": "ETH-USD",
     "radar_relay": "ZRX-WETH",
+    "eterbase": "ETH-EUR",
     "kraken": "ETH-USDC"
 }
 
@@ -72,6 +74,7 @@ EXAMPLE_ASSETS = {
     "huobi": "eth",
     "liquid": "ETH",
     "radar_relay": "ZRX",
+    "eterbase": "ETH",
     "kraken": "XETH"
 }
 
