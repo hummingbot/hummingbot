@@ -18,6 +18,7 @@ from hummingbot.market.kucoin.kucoin_market import KucoinMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.liquid.liquid_market import LiquidMarket
+from hummingbot.market.eterbase.eterbase_market import EterbaseMarket
 from hummingbot.market.market_base import MarketBase
 from hummingbot.market.paper_trade import create_paper_trade_market
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
@@ -61,7 +62,8 @@ MARKET_CLASSES = {
     "bittrex": BittrexMarket,
     "kucoin": KucoinMarket,
     "bitcoin_com": BitcoinComMarket,
-    "kraken": KrakenMarket,
+    "eterbase": EterbaseMarket,
+    "kraken": KrakenMarket
 }
 
 
@@ -179,7 +181,7 @@ class HummingbotApplication(*commands):
                         '\n'.join(uncancelled_order_ids)
                     ))
         except Exception:
-            self.logger().error(f"Error canceling outstanding orders.", exc_info=True)
+            self.logger().error("Error canceling outstanding orders.", exc_info=True)
             success = False
 
         if success:
@@ -345,6 +347,15 @@ class HummingbotApplication(*commands):
                                           order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                           trading_pairs=trading_pairs,
                                           trading_required=self._trading_required)
+            elif market_name == "eterbase":
+                eterbase_api_key = global_config_map.get("eterbase_api_key").value
+                eterbase_secret_key = global_config_map.get("eterbase_secret_key").value
+                eterbase_account = global_config_map.get("eterbase_account").value
+                market = EterbaseMarket(eterbase_api_key,
+                                        eterbase_secret_key,
+                                        trading_pairs=trading_pairs,
+                                        trading_required=self._trading_required,
+                                        eterbase_account=eterbase_account)
             elif market_name == "kraken":
                 kraken_api_key = global_config_map.get("kraken_api_key").value
                 kraken_secret_key = global_config_map.get("kraken_secret_key").value
