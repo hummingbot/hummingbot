@@ -97,4 +97,4 @@ Sample API Output:
 | **price_source_exchange** | `Enter external price source exchange name` | Name of exchange to be used for external pricing source. |
 | **price_source_market** | `Enter the token pair on [price_source_exchange]` | The trading pair for the price source exchange. |
 | **price_source_custom** | `Enter pricing API URL` | An external API that returns price. |
-| **take_if_crossed** | `Do you want to take the best order if orders cross the orderbook?` | Take order if they cross orderbook when external price source is enabled. |
+| **take_if_crossed** | `Do you want to let your maker orders match and fill if they cross the order book?` | Take order if they cross orderbook when external price source is enabled. |
