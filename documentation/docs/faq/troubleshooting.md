@@ -64,13 +64,15 @@ root - ERROR - No module named
 (See log file for stack trace dump)
 ```
 
-Exit Hummingbot to compile and restart using these commands:
+Solution 1: exit Hummingbot to compile and restart using these commands:
 
 ```bash
 conda activate hummingbot
 ./compile
 bin/hummingbot.py
 ```
+
+Solution 2: make sure you're have conda section in ~/.bashrc. Run `conda init` if it is not there. Explanation: if you have custom PATH defined in ~/.bashrc, supplied scripts (`./compile` etc) may pick wrong python binary, causing different errors.
 
 ## Configuration
 
