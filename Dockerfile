@@ -36,8 +36,8 @@ VOLUME /conf /logs /data
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y gcc \
         build-essential pkg-config libusb-1.0 curl git \
-        sudo
-
+        sudo && \
+    rm -rf /var/lib/apt/lists/*
 
 # Switch to hummingbot user
 USER hummingbot:hummingbot
@@ -57,11 +57,14 @@ COPY docker/etc /etc
 RUN curl https://repo.anaconda.com/miniconda/Miniconda3-py38_4.8.2-Linux-x86_64.sh -o ~/miniconda.sh && \
     /bin/bash ~/miniconda.sh -b && \
     rm ~/miniconda.sh && \
-    ~/miniconda3/bin/conda clean -tipsy && \
-    ~/miniconda3/bin/conda update -n base conda -y
+    ~/miniconda3/bin/conda update -n base conda -y && \
+    ~/miniconda3/bin/conda clean -tipsy
 
 # ./install | create hummingbot environment
-RUN ~/miniconda3/bin/conda env create -f setup/environment-linux.yml
+RUN ~/miniconda3/bin/conda env create -f setup/environment-linux.yml && \
+    ~/miniconda3/bin/conda clean -tipsy && \
+    # clear pip cache
+    rm -rf /home/hummingbot/.cache
 
 # conda activate hummingbot
 RUN echo "source /home/hummingbot/miniconda3/etc/profile.d/conda.sh && conda activate $(head -1 setup/environment-linux.yml | cut -d' ' -f2)" > ~/.bashrc
@@ -75,10 +78,15 @@ RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | b
     source "/home/hummingbot/miniconda3/etc/profile.d/conda.sh" && \
     conda activate hummingbot && \
     nvm install 10 && \
-    npm install -g @celo/celocli@0.0.48
+    npm install -g @celo/celocli@0.0.48 && \
+    nvm cache clear && \
+    npm cache clean --force && \
+    rm -rf /home/hummingbot/.cache
 
 # ./compile + cleanup build folder
-RUN /home/hummingbot/miniconda3/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin/python3 setup.py build_ext --inplace -j 8 && rm -rf build/
+RUN /home/hummingbot/miniconda3/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin/python3 setup.py build_ext --inplace -j 8 && \
+    rm -rf build/ && \
+    find . -type f -name "*.cpp" -delete
 
 CMD /home/hummingbot/miniconda3/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin/python3 bin/hummingbot_quickstart.py \
     --auto-set-permissions $(id -nu):$(id -ng)
