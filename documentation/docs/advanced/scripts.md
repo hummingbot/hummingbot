@@ -2,7 +2,7 @@
 Offers dynamic bot control by running a user defined script alongside a strategy. 
 
 ## Language
-As with Hummingbot source code, the script is fully compatible with Python 3.8.
+As with Hummingbot source code, the script is fully compatible with Python 3.7.
 
 ## How it works
 After configured, the script will start automatically once a strategy starts and it stops when the strategy stops. 
