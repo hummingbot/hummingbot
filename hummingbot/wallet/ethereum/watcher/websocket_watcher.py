@@ -126,6 +126,8 @@ class WSNewBlocksWatcher(BaseWatcher):
                     self.logger().network("Timed out fetching new block.", exc_info=True,
                                           app_warning_msg="Timed out fetching new block. "
                                                           "Check wallet network connection")
+                except asyncio.CancelledError:
+                    raise
                 except BlockNotFound:
                     pass
                 except ConnectionClosedOK:
@@ -136,12 +138,10 @@ class WSNewBlocksWatcher(BaseWatcher):
                         await self.connect()
                     else:
                         raise
-                except Exception as e:
-                    self.logger().network(f"Error fetching new block: {e}", exc_info=True,
-                                          app_warning_msg="Error fetching new block. "
-                                                          "Check wallet network connection")
-        except asyncio.CancelledError:
-            raise
+        except Exception as e:
+            self.logger().network(f"Error fetching new block: {e}", exc_info=True,
+                                  app_warning_msg="Error fetching new block. "
+                                                  "Check wallet network connection")
 
     async def get_timestamp_for_block(self, block_hash: HexBytes, max_tries: Optional[int] = 10) -> int:
         counter = 0
