@@ -353,7 +353,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             MarketBase market = self._market_info.market
 
         mid_price = self.get_mid_price()
-        base_asset_amount, quote_asset_amount = self.c_get_adjusted_available_balance(self.active_orders)
+        base_asset_amount, quote_asset_amount = self.c_get_adjusted_available_balance(False)
         total_order_size = calculate_total_order_size(self._order_amount, self._order_level_amount, self._order_levels)
 
         base_asset_value = base_asset_amount * mid_price
@@ -585,24 +585,48 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         return Proposal(buys, sells)
 
-    cdef tuple c_get_adjusted_available_balance(self, list orders):
+    cdef tuple c_get_adjusted_total_balance(self, bint exclude_hanging_orders):
         """
-        Calculates the available balance, plus the amount attributed to orders.
+        Calculates the total balance.
+        :param exclude_hanging_orders: exclude amount outstanding in active hanging orders
         :return: (base amount, quote amount) in Decimal
         """
         cdef:
             MarketBase market = self._market_info.market
+            object base_balance = market.c_get_balance(self.base_asset)
+            object quote_balance = market.c_get_balance(self.quote_asset)
+        if exclude_hanging_orders:
+            active_hangings = [o for o in self.active_orders if o.client_order_id in self._hanging_order_ids]
+            for order in active_hangings:
+                if order.is_buy:
+                    quote_balance -= order.quantity * order.price
+                else:
+                    base_balance -= order.quantity
+
+        return base_balance, quote_balance
+
+    cdef tuple c_get_adjusted_available_balance(self, bint exclude_hanging_orders):
+        """
+        Calculates the available balance, plus the amount in outstanding active orders.
+        :param exclude_hanging_orders: exclude amount outstanding in active hanging orders
+        :return: (base amount, quote amount) in Decimal
+        """
+        # Due to bug #2012, exchanges that do not update user balances on web socket will have to use total balances,
+        # which is less reliable as it also includes balance in the process of fund transfer and those used in
+        # orders not issued by HB.
         if self._market_info.market.name != "binance":
-            return market.c_get_balance(self.base_asset), market.c_get_balance(self.quote_asset)
+            return self.c_get_adjusted_total_balance(exclude_hanging_orders)
         cdef:
+            MarketBase market = self._market_info.market
             object base_balance = market.c_get_available_balance(self.base_asset)
             object quote_balance = market.c_get_available_balance(self.quote_asset)
+            list orders = []
+        orders = self.active_non_hanging_orders if exclude_hanging_orders else self.active_orders
         for order in orders:
             if order.is_buy:
                 quote_balance += order.quantity * order.price
             else:
                 base_balance += order.quantity
-
         return base_balance, quote_balance
 
     cdef c_apply_order_levels_modifiers(self, proposal):
@@ -649,7 +673,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             object ask_adj_ratio
             object size
 
-        base_balance, quote_balance = self.c_get_adjusted_available_balance(self.active_orders)
+        base_balance, quote_balance = self.c_get_adjusted_available_balance(False)
 
         total_order_size = calculate_total_order_size(self._order_amount, self._order_level_amount, self._order_levels)
         bid_ask_ratios = c_calculate_bid_ask_ratios_from_base_asset_ratio(
@@ -680,7 +704,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             object quote_size_total = Decimal("0")
             object base_size_total = Decimal("0")
 
-        base_balance, quote_balance = self.c_get_adjusted_available_balance(self.active_non_hanging_orders)
+        base_balance, quote_balance = self.c_get_adjusted_available_balance(True)
 
         for buy in proposal.buys:
             buy_fees = market.c_get_fee(self.base_asset, self.quote_asset, OrderType.MARKET, TradeType.BUY,

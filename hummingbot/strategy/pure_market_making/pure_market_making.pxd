@@ -47,7 +47,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         int64_t _logging_options
     cdef object c_get_mid_price(self)
     cdef object c_create_base_proposal(self)
-    cdef tuple c_get_adjusted_available_balance(self, list orders)
+    cdef tuple c_get_adjusted_available_balance(self, bint exclude_hanging_orders)
+    cdef tuple c_get_adjusted_total_balance(self, bint exclude_hanging_orders)
     cdef c_apply_order_levels_modifiers(self, object proposal)
     cdef c_apply_price_band(self, object proposal)
     cdef c_apply_ping_pong(self, object proposal)
