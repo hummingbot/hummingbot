@@ -168,6 +168,7 @@ nav:
       - Telegram: advanced/telegram.md
       - Docker Autostart <sup>(BETA)</sup>: advanced/autostart.md
       - External Database <sup>(BETA)</sup>: advanced/db-config.md
+      - Scripts: advanced/scripts.md
     - Community:
       - Overview: community/index.md  
       - Contributions: community/contributions.md
