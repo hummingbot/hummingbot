@@ -49,7 +49,6 @@ COPY --chown=hummingbot:hummingbot setup.py .
 COPY --chown=hummingbot:hummingbot LICENSE .
 COPY --chown=hummingbot:hummingbot README.md .
 COPY --chown=hummingbot:hummingbot DATA_COLLECTION.md .
-COPY docker/etc /etc
 
 # conda activate hummingbot
 RUN echo "source /home/hummingbot/miniconda3/etc/profile.d/conda.sh && conda activate $(head -1 setup/environment-linux.yml | cut -d' ' -f2)" > ~/.bashrc
@@ -104,6 +103,9 @@ WORKDIR /home/hummingbot
 
 # Copy all build artifacts from builder image
 COPY --from=builder --chown=hummingbot:hummingbot /home/ /home/
+
+# additional configs (sudo)
+COPY docker/etc /etc
 
 # conda activate hummingbot
 ENV PATH /home/hummingbot/miniconda3/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin:$PATH
