@@ -592,9 +592,11 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         """
         cdef:
             MarketBase market = self._market_info.market
+        if self._market_info.market.name != "binance":
+            return market.c_get_balance(self.base_asset), market.c_get_balance(self.quote_asset)
+        cdef:
             object base_balance = market.c_get_available_balance(self.base_asset)
             object quote_balance = market.c_get_available_balance(self.quote_asset)
-
         for order in orders:
             if order.is_buy:
                 quote_balance += order.quantity * order.price
