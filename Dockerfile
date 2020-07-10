@@ -52,7 +52,6 @@ COPY --chown=hummingbot:hummingbot DATA_COLLECTION.md .
 COPY docker/etc /etc
 
 # conda activate hummingbot
-#ENV CONDA_ENV_NAME $(head -1 setup/environment-linux.yml | cut -d' ' -f2)
 RUN echo "source /home/hummingbot/miniconda3/etc/profile.d/conda.sh && conda activate $(head -1 setup/environment-linux.yml | cut -d' ' -f2)" > ~/.bashrc
 ENV PATH /home/hummingbot/miniconda3/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin:$PATH
 
