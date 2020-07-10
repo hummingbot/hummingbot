@@ -1,7 +1,7 @@
 import websockets
 from web3 import Web3
 from web3.exceptions import BlockNotFound
-from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
+from websockets.exceptions import ConnectionClosed
 import logging
 import ujson
 import asyncio
@@ -10,7 +10,7 @@ from hexbytes import HexBytes
 from web3.datastructures import AttributeDict
 from cachetools import TTLCache
 
-from typing import Optional, Dict
+from typing import Optional, Dict, AsyncIterable, Any
 
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.wallet.ethereum.watcher.base_watcher import BaseWatcher
@@ -19,6 +19,10 @@ from hummingbot.core.event.events import NewBlocksWatcherEvent
 
 
 class WSNewBlocksWatcher(BaseWatcher):
+
+    MESSAGE_TIMEOUT = 30.0
+    PING_TIMEOUT = 10.0
+
     def __init__(self, w3: Web3, websocket_url):
         super().__init__(w3)
         self._network_on = False
@@ -106,21 +110,41 @@ class WSNewBlocksWatcher(BaseWatcher):
                 return True
         return False
 
+    async def _messages(self) -> AsyncIterable[Any]:
+        try:
+            while True:
+                try:
+                    raw_msg_str: str = await asyncio.wait_for(self._client.recv(), self.MESSAGE_TIMEOUT)
+                    yield raw_msg_str
+                except asyncio.TimeoutError:
+                    try:
+                        pong_waiter = await self._client.ping()
+                        await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
+                    except asyncio.TimeoutError:
+                        raise
+        except asyncio.TimeoutError:
+            self.logger().warning("WebSocket ping timed out. Going to reconnect...")
+            return
+        except ConnectionClosed:
+            return
+        finally:
+            await self.disconnect()
+
     async def fetch_new_blocks_loop(self):
         while True:
             try:
-                raw_message = await self._client.recv()
-                message_json = ujson.loads(raw_message) if raw_message is not None else None
-                if message_json.get("method", None) == "eth_subscription":
-                    subscription_result_params = message_json.get("params", None)
-                    incoming_block = subscription_result_params.get("result", None) \
-                        if subscription_result_params is not None else None
-                    if incoming_block is not None:
-                        new_block: AttributeDict = await self.call_async(self._w3.eth.getBlock,
-                                                                         incoming_block.get("hash"), True)
-                        self._current_block_number = new_block.get("number")
-                        self._block_cache[new_block.get("hash")] = new_block
-                        self.trigger_event(NewBlocksWatcherEvent.NewBlocks, [new_block])
+                async for raw_message in self._messages():
+                    message_json = ujson.loads(raw_message) if raw_message is not None else None
+                    if message_json.get("method", None) == "eth_subscription":
+                        subscription_result_params = message_json.get("params", None)
+                        incoming_block = subscription_result_params.get("result", None) \
+                            if subscription_result_params is not None else None
+                        if incoming_block is not None:
+                            new_block: AttributeDict = await self.call_async(self._w3.eth.getBlock,
+                                                                             incoming_block.get("hash"), True)
+                            self._current_block_number = new_block.get("number")
+                            self._block_cache[new_block.get("hash")] = new_block
+                            self.trigger_event(NewBlocksWatcherEvent.NewBlocks, [new_block])
             except asyncio.TimeoutError:
                 self.logger().network("Timed out fetching new block.", exc_info=True,
                                       app_warning_msg="Timed out fetching new block. "
@@ -129,19 +153,11 @@ class WSNewBlocksWatcher(BaseWatcher):
                 raise
             except BlockNotFound:
                 pass
-            except ConnectionClosedOK:
-                raise
-            except ConnectionClosedError:
-                if self._network_on:
-                    self.logger().network("Network closed abnormally, reconnecting.")
-                    await self.connect()
-                else:
-                    raise
             except Exception as e:
                 self.logger().network(f"Error fetching new block: {e}", exc_info=True,
                                       app_warning_msg="Error fetching new block. "
                                                       "Check wallet network connection")
-                raise
+                await asyncio.sleep(30.0)
 
     async def get_timestamp_for_block(self, block_hash: HexBytes, max_tries: Optional[int] = 10) -> int:
         counter = 0
