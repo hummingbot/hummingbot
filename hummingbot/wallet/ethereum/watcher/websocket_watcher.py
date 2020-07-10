@@ -107,41 +107,41 @@ class WSNewBlocksWatcher(BaseWatcher):
         return False
 
     async def fetch_new_blocks_loop(self):
-        try:
-            while True:
-                try:
-                    raw_message = await self._client.recv()
-                    message_json = ujson.loads(raw_message) if raw_message is not None else None
-                    if message_json.get("method", None) == "eth_subscription":
-                        subscription_result_params = message_json.get("params", None)
-                        incoming_block = subscription_result_params.get("result", None) \
-                            if subscription_result_params is not None else None
-                        if incoming_block is not None:
-                            new_block: AttributeDict = await self.call_async(self._w3.eth.getBlock,
-                                                                             incoming_block.get("hash"), True)
-                            self._current_block_number = new_block.get("number")
-                            self._block_cache[new_block.get("hash")] = new_block
-                            self.trigger_event(NewBlocksWatcherEvent.NewBlocks, [new_block])
-                except asyncio.TimeoutError:
-                    self.logger().network("Timed out fetching new block.", exc_info=True,
-                                          app_warning_msg="Timed out fetching new block. "
-                                                          "Check wallet network connection")
-                except asyncio.CancelledError:
+        while True:
+            try:
+                raw_message = await self._client.recv()
+                message_json = ujson.loads(raw_message) if raw_message is not None else None
+                if message_json.get("method", None) == "eth_subscription":
+                    subscription_result_params = message_json.get("params", None)
+                    incoming_block = subscription_result_params.get("result", None) \
+                        if subscription_result_params is not None else None
+                    if incoming_block is not None:
+                        new_block: AttributeDict = await self.call_async(self._w3.eth.getBlock,
+                                                                         incoming_block.get("hash"), True)
+                        self._current_block_number = new_block.get("number")
+                        self._block_cache[new_block.get("hash")] = new_block
+                        self.trigger_event(NewBlocksWatcherEvent.NewBlocks, [new_block])
+            except asyncio.TimeoutError:
+                self.logger().network("Timed out fetching new block.", exc_info=True,
+                                      app_warning_msg="Timed out fetching new block. "
+                                                      "Check wallet network connection")
+            except asyncio.CancelledError:
+                raise
+            except BlockNotFound:
+                pass
+            except ConnectionClosedOK:
+                raise
+            except ConnectionClosedError:
+                if self._network_on:
+                    self.logger().network("Network closed abnormally, reconnecting.")
+                    await self.connect()
+                else:
                     raise
-                except BlockNotFound:
-                    pass
-                except ConnectionClosedOK:
-                    raise
-                except ConnectionClosedError:
-                    if self._network_on:
-                        self.logger().network("Network closed abnormally, reconnecting.")
-                        await self.connect()
-                    else:
-                        raise
-        except Exception as e:
-            self.logger().network(f"Error fetching new block: {e}", exc_info=True,
-                                  app_warning_msg="Error fetching new block. "
-                                                  "Check wallet network connection")
+            except Exception as e:
+                self.logger().network(f"Error fetching new block: {e}", exc_info=True,
+                                      app_warning_msg="Error fetching new block. "
+                                                      "Check wallet network connection")
+                raise
 
     async def get_timestamp_for_block(self, block_hash: HexBytes, max_tries: Optional[int] = 10) -> int:
         counter = 0
