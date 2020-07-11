@@ -44,7 +44,6 @@ RUN ~/miniconda3/bin/conda env create -f setup/environment-linux.yml && \
 
 # Copy remaining files
 COPY --chown=hummingbot:hummingbot bin/ bin/
-COPY --chown=hummingbot:hummingbot scripts/ scripts/
 COPY --chown=hummingbot:hummingbot hummingbot/ hummingbot/
 COPY --chown=hummingbot:hummingbot setup.py .
 COPY --chown=hummingbot:hummingbot LICENSE .
@@ -87,11 +86,15 @@ ENV CONFIG_PASSWORD=${CONFIG_PASSWORD}
 RUN useradd -m -s /bin/bash hummingbot && \
   ln -s /conf /home/hummingbot/conf && \
   ln -s /logs /home/hummingbot/logs && \
-  ln -s /data /home/hummingbot/data
+  ln -s /data /home/hummingbot/data && \
+  ln -s /scripts /home/hummingbot/scripts
 
 # Create mount points
-RUN mkdir /conf /logs /data && chown -R hummingbot:hummingbot /conf /logs /data
-VOLUME /conf /logs /data
+RUN mkdir /conf /logs /data /scripts && chown -R hummingbot:hummingbot /conf /logs /data /scripts
+VOLUME /conf /logs /data /scripts
+
+# Pre-populate scripts/ volume with default scripts
+COPY --chown=hummingbot:hummingbot scripts/ scripts/
 
 # Install packages required in runtime
 RUN apt-get update && \
