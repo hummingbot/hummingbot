@@ -46,6 +46,7 @@ echo "=> instance folder:    $PWD/$FOLDER"
 echo "=> config files:       ├── $PWD/$FOLDER/hummingbot_conf"
 echo "=> log files:          ├── $PWD/$FOLDER/hummingbot_logs"
 echo "=> data file:          └── $PWD/$FOLDER/hummingbot_data"
+echo "=> scripts files:      └── $PWD/$FOLDER/hummingbot_scripts"
 echo
 pause Press [Enter] to continue
 #
@@ -66,4 +67,5 @@ docker run -it --log-opt max-size=10m --log-opt max-file=5 \
 --mount "type=bind,source=$(pwd)/$FOLDER/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/$FOLDER/hummingbot_logs,destination=/logs/" \
 --mount "type=bind,source=$(pwd)/$FOLDER/hummingbot_data,destination=/data/" \
+--mount "type=bind,source=$(pwd)/$FOLDER/hummingbot_scripts,destination=/scripts/" \
 coinalpha/hummingbot:$TAG
