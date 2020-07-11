@@ -57,7 +57,10 @@ pause Press [Enter] to continue
 # 1) Create folder for your new instance
 mkdir $FOLDER
 # 2) Create folders for log and config files
-mkdir $FOLDER/hummingbot_conf && mkdir $FOLDER/hummingbot_logs
+mkdir $FOLDER/hummingbot_conf
+mkdir $FOLDER/hummingbot_logs
+mkdir $FOLDER/hummingbot_data
+mkdir $FOLDER/hummingbot_scripts
 # 3) Launch a new instance of hummingbot
 docker run -it \
 --network host \
