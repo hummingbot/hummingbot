@@ -13,6 +13,9 @@ For instructions on operating `hummingbot` with Docker, navigate to [`hummingbot
 ### Create docker image
 
 ```sh
+# Create a label for image
+export TAG=my-label
+
 # Build docker image
 $ docker build -t coinalpha/hummingbot:$TAG -f Dockerfile .
 
@@ -24,6 +27,6 @@ $ docker push coinalpha/hummingbot:$TAG
 
 ```sh
 $ docker image rm coinalpha/hummingbot:$TAG && \
-  docker build -t coinalpha/hummingbot:$TAG -f Dockerfile \
+  docker build -t coinalpha/hummingbot:$TAG -f Dockerfile . && \
   docker push coinalpha/hummingbot:$TAG
 ```

@@ -381,4 +381,15 @@ global_config_map = {
                   type_str="bool",
                   default=False,
                   validator=validate_bool),
+    "script_enabled":
+        ConfigVar(key="script_enabled",
+                  prompt="Would you like to enable script feature? (Yes/No) >>> ",
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool),
+    "script_file_path":
+        ConfigVar(key="script_file_path",
+                  prompt='Enter path to your script file >>> ',
+                  type_str="str",
+                  required_if=lambda: global_config_map["script_enabled"].value),
 }
