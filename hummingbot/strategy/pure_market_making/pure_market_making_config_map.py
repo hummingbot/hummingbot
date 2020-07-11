@@ -17,7 +17,8 @@ from hummingbot.client.config.global_config_map import (
     using_exchange
 )
 from hummingbot.client.config.config_helpers import (
-    minimum_order_amount
+    minimum_order_amount,
+    parse_cvar_value
 )
 from typing import Optional
 
@@ -77,6 +78,16 @@ def validate_price_floor_ceiling(value: str) -> Optional[str]:
         return f"{value} is not in decimal format."
     if not (decimal_value == Decimal("-1") or decimal_value > Decimal("0")):
         return "Value must be more than 0 or -1 to disable this feature."
+
+
+def validate_take_if_crossed(value: str) -> Optional[str]:
+    err_msg = validate_bool(value)
+    if err_msg is not None:
+        return err_msg
+    price_source_enabled = pure_market_making_config_map["price_source_enabled"].value
+    take_if_crossed = parse_cvar_value(pure_market_making_config_map["take_if_crossed"], value)
+    if take_if_crossed and not price_source_enabled:
+        return "You can enable this feature only when external pricing source for mid-market price is used."
 
 
 def exchange_on_validated(value: str):
@@ -289,9 +300,9 @@ pure_market_making_config_map = {
                                          "price_source_type").value == "custom_api",
                                      type_str="str"),
     "take_if_crossed": ConfigVar(key="take_if_crossed",
-                                 prompt="Do you want to take the best order if orders cross the orderbook? ((Yes/No) >>> ",
-                                 required_if=lambda: pure_market_making_config_map.get(
-                                     "price_source_enabled").value,
+                                 prompt="Do you want to let your maker orders match and fill if they cross the "
+                                        "order book? (Yes/No) >>> ",
+                                 required_if=lambda: pure_market_making_config_map.get("price_source_enabled").value,
                                  type_str="bool",
-                                 validator=validate_bool)
+                                 validator=validate_take_if_crossed)
 }
