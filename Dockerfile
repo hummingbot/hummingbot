@@ -44,6 +44,7 @@ RUN ~/miniconda3/bin/conda env create -f setup/environment-linux.yml && \
 
 # Copy remaining files
 COPY --chown=hummingbot:hummingbot bin/ bin/
+COPY --chown=hummingbot:hummingbot scripts/ scripts/
 COPY --chown=hummingbot:hummingbot hummingbot/ hummingbot/
 COPY --chown=hummingbot:hummingbot setup.py .
 COPY --chown=hummingbot:hummingbot LICENSE .
