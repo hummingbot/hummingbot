@@ -46,6 +46,7 @@ WORKDIR /home/hummingbot
 # Copy files
 COPY --chown=hummingbot:hummingbot bin/ bin/
 COPY --chown=hummingbot:hummingbot hummingbot/ hummingbot/
+COPY --chown=hummingbot:hummingbot scripts/ scripts/
 COPY --chown=hummingbot:hummingbot setup/environment-linux.yml setup/
 COPY --chown=hummingbot:hummingbot setup.py .
 COPY --chown=hummingbot:hummingbot LICENSE .
