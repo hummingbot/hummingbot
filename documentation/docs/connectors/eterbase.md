@@ -24,14 +24,14 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
  1. Log into your account at  [https://eterbase.exchange](https://eterbase.exchange/), then click on your account name in top right corner of the screen and select **Api Keys** from the menu  (If you do not have an account, you will have to create one and verify your ID).
 
  2. Click on  **API Keys**. 
- [![eterbase1](/assets/img/eterbase1.png)](/assets/img/eterbase1.png)
+ [![eterbase1](/documentation/docs/assets/img/eterbase1.png)](/documentation/docs/assets/img/eterbase1.png)
 
  4. Click on  **New Api Key** and insert key description.
-[![eterbase2](/assets/img/eterbase2.png)](/assets/img/eterbase2.png)
+[![eterbase2](/documentation/docs/assets/img/eterbase2.png)](/documentation/docs/assets/img/eterbase2.png)
 
  4. Insert Api Key descritpion and give permissions.
 Make sure you give permissions to **View** and **Trade**
-[![eterbase3](/assets/img/eterbase3.png)](/assets/img/eterbase3.png)
+[![eterbase3](/documentation/docs/assets/img/eterbase3.png)](/documentation/docs/assets/img/eterbase3.png)
 
 > !!! warning "API key permissions" We recommend using only  **"trade"**
 > enabled API keys; enabling  **"withdraw", "transfer", or the
@@ -39,7 +39,7 @@ Make sure you give permissions to **View** and **Trade**
 
  5. Now you have created an API key. 
 Copy and paste **Account Id**, **Key** and **Secret** to Hummingbot 
-[![eterbase4](/assets/img/eterbase4.png)](/assets/img/eterbase4.png)
+[![eterbase4](/documentation/docs/assets/img/eterbase4.png)](/documentation/docs/assets/img/eterbase4.png)
 
 Make sure you store your Secret Key somewhere secure, and do not share it with anyone. Your Secret Key will only be displayed once at the time when you create the API.
 
@@ -105,6 +105,6 @@ Rule with attributes `Qty` `Min` denotes the minimum order size for each market.
 
 ### Transaction Fees
 
-Eterbase charges 0.35% in both maker and taker fees for basic tier. However, with deposited XBASE tokens trades at discounted. Refer to [Trading Fees]([https://www.eterbase.com/exchange/fees/](https://www.eterbase.com/exchange/fees/)) section for more details.
+Eterbase charges 0.35% in both maker and taker fees for basic tier. However, users with deposited XBASE tokens can trade at discounted rates. Refer to [Trading Fees]([https://www.eterbase.com/exchange/fees/](https://www.eterbase.com/exchange/fees/)) section for more details.
 
 Users can override the default fees by editing [`conf_fee_overrides.yml`](https://docs.hummingbot.io/advanced/fee-overrides/).
