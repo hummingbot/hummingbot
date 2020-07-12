@@ -104,15 +104,15 @@ The `UserStreamTracker` main responsibility is to fetch user account data and qu
 
 ### UserStreamTrackerDataSource
 
-The `UserStreamTrackerDataSource` class is responsible for making API calls and/or WebSocket queries to obtain order book snapshots, order book deltas and miscellaneous information on order book.
+The `UserStreamTrackerDataSource` class is responsible for initializing a WebSocket connection to obtain user related trade and balances updates.
 
-Integrating your own data source component would require you to extend from the OrderBookTrackerDataSource base class here.
+Integrating your own data source component would require you to extend from the UserStreamTrackerDataSource base class here.
 
 The table below details the **required** functions in `UserStreamTrackerDataSource`:
 
 Function<div style="width:200px"/> | Input Parameter(s) | Expected Output(s) | Description
 ---|---|---|---
-`order_book_class` | None | `OrderBook` | Get relevant order book class to access class specific methods.<br/><br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: You are also required to implement your own `OrderBook` class that converts JSON data into a standard `OrderBookMessage` format.</td></tr></tbody></table>
+`last_recv_time` | None | `float` | Should be updated(using python's time.time()) everytime a message is received from the websocket.	
 `listen_for_user_stream` | ev_loop: `asyncio.BaseEventLoop`<br/>output: `asyncio.Queue` | None | Subscribe to user stream via web socket, and keep the connection open for incoming messages
 
 ### UserStreamTracker
@@ -124,7 +124,7 @@ This can be achieved in 2 ways(depending on the available API on the exchange):
 1. **REST API**
 
     In this scenario, we would have to periodically make API requests to the exchange to retrieve information on the user's **account balances** and **order statuses**.
-    An example of this can be seen in the [Huobi](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/huobi/huobi_market.pyx) connector.
+    An example of this can be seen in [Huobi's connector market file](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/huobi/huobi_market.pyx) connector. The market file shows that Huobi uses REST API alone by periodically calling the market's `_update_balances()` and `_update_order_status()` through the `_status_polling_loop()`. Also, it can be seen that no user stream files exist in Huobi's connector directory.
 
 2. **WebSocket API**
 
