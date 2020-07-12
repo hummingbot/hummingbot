@@ -21,24 +21,24 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 ### Creating Eterbase API Keys
 
- 1. Log into your account at  [https://eterbase.exchange](https://eterbase.exchange/), then click on your account name in top right corner of the screen and select **Api Keys** from the menu  (If you do not have an account, you will have to create one and verify your ID).
+1. Log into your account at  [https://eterbase.exchange](https://eterbase.exchange/), then click on your account name in top right corner of the screen and select **Api Keys** from the menu  (If you do not have an account, you will have to create one and verify your ID).
+ 
+2. Click on  **API Keys**.<br />
+[![eterbase1](/documentation/docs/assets/img/eterbase1.png)](/documentation/docs/assets/img/eterbase1.png)
 
- 2. Click on  **API Keys**. 
- [![eterbase1](/documentation/docs/assets/img/eterbase1.png)](/documentation/docs/assets/img/eterbase1.png)
-
- 4. Click on  **New Api Key** and insert key description.
+3. Click on  **New Api Key**.<br />
 [![eterbase2](/documentation/docs/assets/img/eterbase2.png)](/documentation/docs/assets/img/eterbase2.png)
 
- 4. Insert Api Key descritpion and give permissions.
-Make sure you give permissions to **View** and **Trade**
+4. Insert Api Key description and give permissions.<br />
+Make sure you give permissions to **View** and **Trade**<br />
 [![eterbase3](/documentation/docs/assets/img/eterbase3.png)](/documentation/docs/assets/img/eterbase3.png)
 
 > !!! warning "API key permissions" We recommend using only  **"trade"**
 > enabled API keys; enabling  **"withdraw", "transfer", or the
 > equivalent is unnecessary**  for current Hummingbot strategies.
 
- 5. Now you have created an API key. 
-Copy and paste **Account Id**, **Key** and **Secret** to Hummingbot 
+5. Now you have created an API key.<br />
+Copy and paste **Account Id**, **Key** and **Secret** to Hummingbot<br />
 [![eterbase4](/documentation/docs/assets/img/eterbase4.png)](/documentation/docs/assets/img/eterbase4.png)
 
 Make sure you store your Secret Key somewhere secure, and do not share it with anyone. Your Secret Key will only be displayed once at the time when you create the API.
@@ -57,7 +57,7 @@ Minimum order size varies per market. All minimum trade quantities can be found 
 https://api.eterbase.exchange/api/markets
 ```
 
-Rule with attributes `Qty` `Min` denotes the minimum order size for each market. For example, trading pair ETH-USDT minimum order size is 0.006 USDT.
+Rule with attributes values `Qty` and `Min` denotes the minimum order size for each market. For example, trading pair ETH-USDT minimum order size is 0.006 USDT.
 
 ```
 	{
