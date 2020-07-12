@@ -26,7 +26,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 2. Click on  **API Keys**.<br />
 [![eterbase1](/assets/img/eterbase1.png)](/assets/img/eterbase1.png)
 
-1. Click on  **New Api Key**.<br />
+3. Click on  **New Api Key**.<br />
 [![eterbase2](/assets/img/eterbase2.png)](/assets/img/eterbase2.png)
 
 4. Insert Api Key description and give permissions.<br />
@@ -58,47 +58,47 @@ https://api.eterbase.exchange/api/markets
 Rule with attributes values `Qty` and `Min` denotes the minimum order size for each market. For example, trading pair ETH-USDT minimum order size is 0.006 USDT.
 
 ```
-	{
-		"id": 33,
-		"symbol": "ETHUSDT",
-		"base": "ETH",
-		"quote": "USDT",
-		"priceSigDigs": 5,
-		"qtySigDigs": 8,
-		"costSigDigs": 8,
-		"verificationLevelUser": 0,
-		"verificationLevelCorporate": 10,
-		"group": "USDT",
-		"tradingRules": [
-			{
-				"attribute": "Qty",
-				"condition": "Min",
-				"value": 0.006
-			},
-			{
-				"attribute": "Qty",
-				"condition": "Max",
-				"value": 1000
-			},
-			{
-				"attribute": "Cost",
-				"condition": "Min",
-				"value": 1
-			},
-			{
-				"attribute": "Cost",
-				"condition": "Max",
-				"value": 210000
-			}
-		],
-		"allowedOrderTypes": [
-			1,
-			2,
-			3,
-			4
-		],
-		"state": "Trading"
-	}
+{
+  "id": 33,
+  "symbol": "ETHUSDT",
+  "base": "ETH",
+  "quote": "USDT",
+  "priceSigDigs": 5,
+  "qtySigDigs": 8,
+  "costSigDigs": 8,
+  "verificationLevelUser": 0,
+  "verificationLevelCorporate": 10,
+  "group": "USDT",
+  "tradingRules": [
+    {
+      "attribute": "Qty",
+      "condition": "Min",
+      "value": 0.006
+    },
+    {
+      "attribute": "Qty",
+      "condition": "Max",
+      "value": 1000
+    },
+    {
+      "attribute": "Cost",
+      "condition": "Min",
+      "value": 1
+    },
+    {
+      "attribute": "Cost",
+      "condition": "Max",
+      "value": 210000
+    }
+  ],
+  "allowedOrderTypes": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "state": "Trading"
+}
 ```
 
 ### Transaction Fees
