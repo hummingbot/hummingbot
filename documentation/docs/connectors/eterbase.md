@@ -22,7 +22,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 ### Creating Eterbase API Keys
 
 1. Log into your account at  [https://eterbase.exchange](https://eterbase.exchange/), then click on your account name in top right corner of the screen and select **Api Keys** from the menu  (If you do not have an account, you will have to create one and verify your ID).
- 
+
 2. Click on  **API Keys**.<br />
 [![eterbase1](/assets/img/eterbase1.png)](/assets/img/eterbase1.png)
 
@@ -33,8 +33,8 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 Make sure you give permissions to **View** and **Trade**<br />
 [![eterbase3](/assets/img/eterbase3.png)](/assets/img/eterbase3.png)
 
-!!! warning "API key permissions"
-    We recommend using only  **"trade"** enabled API keys; enabling  **"withdraw", "transfer", or the equivalent is unnecessary**  for current Hummingbot strategies.
+    !!! warning "API key permissions"
+        We recommend using only  **"trade"** enabled API keys; enabling  **"withdraw", "transfer", or the equivalent is unnecessary**  for current Hummingbot strategies.
 
 5. Now you have created an API key.<br />
 Copy and paste **Account Id**, **Key** and **Secret** to Hummingbot<br />
