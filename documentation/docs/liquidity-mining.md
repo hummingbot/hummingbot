@@ -23,7 +23,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
     Please check this page or the [Miner's app](https://miners.hummingbot.io) for the most up-to-date terms.<br/>We will notify participants of changes, if any, on our [Discord](https://discord.hummingbot.io) and [reddit](https://www.reddit.com/r/Hummingbot/).
 
 !!! note "Campaign updates for the week starting July 14, 2020 12.00am UTC"
-    <li>[New NULS campaign](#upcoming-changes-to-campaign-terms) is now live!
+    <li>**New NULS campaign** is live!
 
 **Current reward period: July 14, 2020 12.00am UTC to July 21, 2020 12.00am UTC**
 
