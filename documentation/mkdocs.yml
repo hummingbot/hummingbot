@@ -147,12 +147,13 @@ nav:
     - Connectors:
       - Overview: connectors/index.md
       - Binance: connectors/binance.md
-      - Coinbase Pro: connectors/coinbase.md
-      - Huobi Global: connectors/huobi.md
       - Bittrex Global: connectors/bittrex.md
-      - Liquid: connectors/liquid.md
+      - Coinbase Pro: connectors/coinbase.md
+      - Eterbase: connectors/eterbase.md
+      - Huobi Global: connectors/huobi.md
       - KuCoin: connectors/kucoin.md
       - Kraken: connectors/kraken.md
+      - Liquid: connectors/liquid.md
       - Radar Relay: connectors/radar-relay.md
       - Community Connectors:
         - Bamboo Relay: connectors/bamboo-relay.md
