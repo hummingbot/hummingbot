@@ -64,13 +64,15 @@ root - ERROR - No module named
 (See log file for stack trace dump)
 ```
 
-Exit Hummingbot to compile and restart using these commands:
+Solution 1: exit Hummingbot to compile and restart using these commands:
 
 ```bash
 conda activate hummingbot
 ./compile
 bin/hummingbot.py
 ```
+
+Solution 2: make sure you're have conda section in ~/.bashrc. Run `conda init` if it is not there. Explanation: if you have custom PATH defined in ~/.bashrc, supplied scripts (`./compile` etc) may pick wrong python binary, causing different errors.
 
 ## Configuration
 
@@ -281,7 +283,7 @@ This error occurs when the Binance API rate limit is reached. Causes include:
 * High order refresh rate
 * Running multiple instances of Hummingbot
 
-Weight/Request error in logs happens when it encountered a warning or error and Hummingbot repeatedly sends the request (fetching status updates, placing/canceling orders, etc.) which resulted to getting banned. This should be lifted after a couple of hours or up to a maximum of 24 hours.
+Weight/Request error in logs happens when it encounters a warning or error and Hummingbot repeatedly sends the request (fetching status updates, placing/canceling orders, etc.) which resulted in getting banned. This should be lifted after a couple of hours or up to a maximum of 24 hours.
 
 ### [Kraken] 0 Balance error
 
@@ -306,7 +308,7 @@ Hummingbot follows the same date/time and timezone on the machine where it is in
 
 **Docker**
 
-While docker `$instance_name` is runnning on background type in command line.
+While docker `$instance_name` is running on background, type in command line.
 
 ```
 docker exec -it $instance_name bash
@@ -331,9 +333,9 @@ Alternatively, you can also follow these steps in Windows Support article: [How 
 
 ### How to Connect Metamask using Brave browser
 
-Normally, Brave browser should ask which crypto wallet to use when connecting to the miners app. However, this sometimes do not appear on the browser.
+Normally, Brave browser should ask which crypto wallet to use when connecting to the miners app. However, this sometimes does not appear on the browser.
 
-Here are the steps to set you Brave browser to always use Metamask when connecting your crypto wallet with Hummingbots miners app. 
+Here are the steps to set your Brave browser to always use Metamask when connecting your crypto wallet with Hummingbots miners app. 
 1. Click the "three horizontal line" icon on the top right of the Brave Browser
 2. Select **Settings**
 3. Click on **Extensions**
