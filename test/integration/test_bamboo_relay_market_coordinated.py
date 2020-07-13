@@ -172,16 +172,15 @@ class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
                                                             Decimal(20),
                                                             Decimal(0.01))
         self.assertEqual(maker_buy_trade_fee.percent, 0)
-        self.assertEqual(len(maker_buy_trade_fee.flat_fees), 0)
+        self.assertEqual(len(maker_buy_trade_fee.flat_fees), 1)
         taker_buy_trade_fee: TradeFee = self.market.get_fee(conf.test_bamboo_relay_base_token_symbol,
                                                             conf.test_bamboo_relay_quote_token_symbol,
                                                             OrderType.MARKET,
                                                             TradeType.BUY,
                                                             Decimal(20))
         self.assertEqual(taker_buy_trade_fee.percent, 0)
-        self.assertEqual(len(taker_buy_trade_fee.flat_fees), 2)
+        self.assertEqual(len(taker_buy_trade_fee.flat_fees), 1)
         self.assertEqual(taker_buy_trade_fee.flat_fees[0][0], "ETH")
-        self.assertEqual(taker_buy_trade_fee.flat_fees[1][0], "ETH")
 
     def test_get_wallet_balances(self):
         balances = self.market.get_all_balances()

@@ -103,6 +103,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._minimum_spread = minimum_spread
         self._order_amount = order_amount
         self._order_levels = order_levels
+        self._buy_levels = order_levels
+        self._sell_levels = order_levels
         self._order_level_spread = order_level_spread
         self._order_level_amount = order_level_amount
         self._order_refresh_time = order_refresh_time
@@ -128,7 +130,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._cancel_timestamp = 0
         self._create_timestamp = 0
         self._limit_order_type = OrderType.LIMIT
-        if market_info.market.name == "binance" and paper_trade_disabled():
+        if market_info.market.name == "binance" and not take_if_crossed and paper_trade_disabled():
             self._limit_order_type = OrderType.LIMIT_MAKER
         self._all_markets_ready = False
         self._filled_buys_balance = 0
@@ -140,6 +142,25 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         self.c_add_markets([market_info.market])
 
+    def all_markets_ready(self):
+        return all([market.ready for market in self._sb_markets])
+
+    @property
+    def order_refresh_tolerance_pct(self) -> Decimal:
+        return self._order_refresh_tolerance_pct
+
+    @order_refresh_tolerance_pct.setter
+    def order_refresh_tolerance_pct(self, value: Decimal):
+        self._order_refresh_tolerance_pct = value
+
+    @property
+    def order_amount(self) -> Decimal:
+        return self._order_amount
+
+    @order_amount.setter
+    def order_amount(self, value: Decimal):
+        self._order_amount = value
+
     @property
     def order_levels(self) -> int:
         return self._order_levels
@@ -147,6 +168,22 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @order_levels.setter
     def order_levels(self, value: int):
         self._order_levels = value
+
+    @property
+    def buy_levels(self) -> int:
+        return self._buy_levels
+
+    @buy_levels.setter
+    def buy_levels(self, value: int):
+        self._buy_levels = value
+
+    @property
+    def sell_levels(self) -> int:
+        return self._sell_levels
+
+    @sell_levels.setter
+    def sell_levels(self, value: int):
+        self._sell_levels = value
 
     @property
     def order_level_amount(self) -> Decimal:
@@ -304,10 +341,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @property
     def hanging_order_ids(self) -> List[str]:
         return self._hanging_order_ids
-
-    @property
-    def active_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
-        return self._sb_order_tracker.active_maker_orders
 
     @property
     def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
@@ -572,14 +605,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             MarketBase market = self._market_info.market
             list buys = []
             list sells = []
-        for level in range(0, self._order_levels):
+        for level in range(0, self._buy_levels):
             price = self.c_get_mid_price() * (Decimal("1") - self._bid_spread - (level * self._order_level_spread))
             price = market.c_quantize_order_price(self.trading_pair, price)
             size = self._order_amount + (self._order_level_amount * level)
             size = market.c_quantize_order_amount(self.trading_pair, size)
             if size > 0:
                 buys.append(PriceSize(price, size))
-        for level in range(0, self._order_levels):
+        for level in range(0, self._sell_levels):
             price = self.c_get_mid_price() * (Decimal("1") + self._ask_spread + (level * self._order_level_spread))
             price = market.c_quantize_order_price(self.trading_pair, price)
             size = self._order_amount + (self._order_level_amount * level)
@@ -689,16 +722,17 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                                         buy.size, buy.price)
             quote_size = buy.size * buy.price * (Decimal(1) + buy_fees.percent)
             if quote_balance < quote_size_total + quote_size:
-                quote_size = quote_balance - quote_size_total
-                base_size = quote_size / buy.price * (Decimal(1) - buy_fees.percent)
-                buy.size = market.c_quantize_order_amount(self.trading_pair, base_size, buy.price)
+                self.logger().info(f"Insufficient balance: Buy order (price: {buy.price}, size: {buy.size}) is omitted, {self.quote_asset} available balance: {quote_balance - quote_size_total}.")
+                quote_size = s_decimal_zero
+                buy.size = s_decimal_zero
             quote_size_total += quote_size
         proposal.buys = [o for o in proposal.buys if o.size > 0]
         for sell in proposal.sells:
             base_size = sell.size
             if base_balance < base_size_total + base_size:
-                base_size = base_balance - base_size_total
-                sell.size = market.c_quantize_order_amount(self.trading_pair, base_size, sell.price)
+                self.logger().info(f"Insufficient balance: Sell order (price: {sell.price}, size: {sell.size}) is omitted, {self.base_asset} available balance: {base_balance - base_size_total}.")
+                base_size = s_decimal_zero
+                sell.size = s_decimal_zero
             base_size_total += base_size
         proposal.sells = [o for o in proposal.sells if o.size > 0]
 

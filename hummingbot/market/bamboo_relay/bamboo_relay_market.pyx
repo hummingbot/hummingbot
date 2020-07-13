@@ -1500,7 +1500,7 @@ cdef class BambooRelayMarket(MarketBase):
             str order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
             double current_timestamp = self._current_timestamp
         expires = kwargs.get("expiration_ts", None)
-        if expires is not None:
+        if expires is not None and not math.isnan(expires):
             expires = int(expires)
         else:
             expires = int(current_timestamp) + 120
@@ -1530,7 +1530,7 @@ cdef class BambooRelayMarket(MarketBase):
             str order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
             double current_timestamp = self._current_timestamp
         expires = kwargs.get("expiration_ts", None)
-        if expires is not None:
+        if expires is not None and not math.isnan(expires):
             expires = int(expires)
         else:
             expires = int(current_timestamp) + 120
