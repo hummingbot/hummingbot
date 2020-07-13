@@ -22,7 +22,10 @@ RUN curl https://repo.anaconda.com/miniconda/Miniconda3-py38_4.8.2-Linux-x86_64.
     ~/miniconda3/bin/conda update -n base conda -y && \
     ~/miniconda3/bin/conda clean -tipsy
 
-# Install nvm and CeloCLI
+# Dropping default ~/.bashrc because it will return if not running as interactive shell, thus not invoking PATH settings
+RUN :> ~/.bashrc
+
+# Install nvm and CeloCLI; note: nvm adds own section to ~/.bashrc
 SHELL [ "/bin/bash", "-lc" ]
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | bash && \
     export NVM_DIR="/home/hummingbot/.nvm" && \
@@ -110,7 +113,7 @@ COPY --from=builder --chown=hummingbot:hummingbot /home/ /home/
 # additional configs (sudo)
 COPY docker/etc /etc
 
-# Setting bash as default shell because we have .bashrc with customized PATH
-SHELL [ "/bin/bash", "-c" ]
+# Setting bash as default shell because we have .bashrc with customized PATH (setting SHELL affects RUN, CMD and ENTRYPOINT, but not manual commands e.g. `docker run image COMMAND`!)
+SHELL [ "/bin/bash", "-lc" ]
 CMD /home/hummingbot/miniconda3/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin/python3 bin/hummingbot_quickstart.py \
     --auto-set-permissions $(id -nu):$(id -ng)
