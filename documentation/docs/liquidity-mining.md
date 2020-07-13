@@ -22,11 +22,10 @@ Liquidity mining sets forth an analytical framework for determining market maker
 !!! warning "Terms subject to change"
     Please check this page or the [Miner's app](https://miners.hummingbot.io) for the most up-to-date terms.<br/>We will notify participants of changes, if any, on our [Discord](https://discord.hummingbot.io) and [reddit](https://www.reddit.com/r/Hummingbot/).
 
-!!! note "Campaign updates for the week starting July 7, 2020 12.00am UTC"
-    <li>No changes to existing campaigns for MFT, RLC, SOL, and XZC.
-    <li>[New NULS campaign](#upcoming-changes-to-campaign-terms) starting _next reward_ period beginning July 14, 2020 12.00am UTC.
+!!! note "Campaign updates for the week starting July 14, 2020 12.00am UTC"
+    <li>[New NULS campaign](#upcoming-changes-to-campaign-terms) is now live!
 
-**Current reward period: July 7, 2020 12.00am UTC to July 14, 2020 12.00am UTC**
+**Current reward period: July 14, 2020 12.00am UTC to July 21, 2020 12.00am UTC**
 
 <table>
   <thead>
@@ -55,6 +54,25 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>Binance.com</td>
       <td>2%</td>
       <td>USDC 275</td>
+    </tr>
+    <tr>
+      <td rowspan="3"><a href="#nuls">NULS</a><br></td>
+      <td>NULS/BTC</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 666</td>
+    </tr>
+    <tr>
+      <td>NULS/USDT</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 667</td>
+    </tr>
+    <tr>
+      <td>NULS/ETH</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 667</td>
     </tr>
     <tr>
       <td rowspan="3"><a href="#iexec">iExec</a><br></td>
@@ -113,39 +131,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
 
 ## Upcoming changes to campaign terms
 
-**New campaign launching July 14, 2020 12.00am UTC**
-
-<table>
-  <thead>
-    <th>Token Issuer</th>
-    <th>Trading pair</th>
-    <th>Exchange</th>
-    <th>Maximum spread</th>
-    <th>Weekly rewards</th>
-  </thead>
-  <tbody>
-    <tr>
-      <td rowspan="3"><a href="#nuls">NULS</a><br></td>
-      <td>NULS/BTC</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>USDC 666</td>
-    </tr>
-    <tr>
-      <td>NULS/USDT</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>USDC 667</td>
-    </tr>
-    <tr>
-      <td>NULS/ETH</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>USDC 667</td>
-    </tr>
-  </tbody>
-</table>
-
+No upcoming changes.
 
 ## Token Issuers
 
