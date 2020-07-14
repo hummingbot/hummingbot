@@ -160,9 +160,9 @@ class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
                 ws_subscription_path: str = "/".join([f"{trading_pair.lower()}@depth" for trading_pair in trading_pairs])
                 stream_url: str = f"{DIFF_STREAM_URL}/{ws_subscription_path}"
 
-                async with websockets.connect(stream_url) as client:
-                    client: websockets.WebSocketClientProtocol = client
-                    async for raw_msg in self.ws_messages(client):
+                async with websockets.connect(stream_url) as ws:
+                    ws: websockets.WebSocketClientProtocol = ws
+                    async for raw_msg in self.ws_messages(ws):
                         msg_json = ujson.loads(raw_msg)
                         timestamp: float = time.time()
                         order_book_message: OrderBookMessage = BinanceOrderBook.diff_message_from_exchange(
@@ -181,7 +181,7 @@ class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 trading_pairs: List[str] = await self.get_trading_pairs()
-                async with aiohttp.ClientSession as client:
+                async with aiohttp.ClientSession() as client:
                     for trading_pair in trading_pairs:
                         try:
                             snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
@@ -216,9 +216,9 @@ class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
                 ws_subscription_path: str = "/".join([f"{trading_pair.lower()}@trade" for trading_pair in trading_pairs])
                 stream_url = f"{DIFF_STREAM_URL}/{ws_subscription_path}"
 
-                async with websockets.connect(stream_url) as client:
-                    client: websockets.WebSocketClientProtocol = client
-                    async for raw_msg in self.ws_messages(client):
+                async with websockets.connect(stream_url) as ws:
+                    ws: websockets.WebSocketClientProtocol = ws
+                    async for raw_msg in self.ws_messages(ws):
                         msg_json = ujson.loads(raw_msg)
                         trade_msg: OrderBookMessage = BinanceOrderBook.trade_message_from_exchange(msg_json)
                         output.put_nowait(trade_msg)

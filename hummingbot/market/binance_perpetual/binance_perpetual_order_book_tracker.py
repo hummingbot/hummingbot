@@ -10,10 +10,12 @@ from hummingbot.core.data_type.remote_api_order_book_data_source import RemoteAP
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.market.binance_perpetual.binance_perpetual_order_book_data_source import \
+    BinancePerpetualOrderBookDataSource
 
 
 class BinancePerpetualOrderBookTracker(OrderBookTracker):
-    _bpobt_logger = Optional[HummingbotLogger] = None
+    _bpobt_logger: Optional[HummingbotLogger] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -40,7 +42,7 @@ class BinancePerpetualOrderBookTracker(OrderBookTracker):
             if self._data_source_type is OrderBookTrackerDataSourceType.REMOTE_API:
                 self._data_source = RemoteAPIOrderBookDataSource()
             elif self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = BinancePerpetualOrderBookTracker(trading_pairs=self._trading_paris)
+                self._data_source = BinancePerpetualOrderBookDataSource(trading_pairs=self._trading_paris)
             else:
                 raise ValueError(f"Data Source Type {self._data_source_type} is not supported.")
         return self._data_source
