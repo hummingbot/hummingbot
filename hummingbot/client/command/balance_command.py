@@ -61,7 +61,7 @@ class BalanceCommand:
         rows = []
         bals = CeloCLI.balances()
         for token, bal in bals.items():
-            rows.append({"asset": token.upper(), "amount": round(bal, 4)})
+            rows.append({"asset": token.upper(), "amount": round(bal.total, 4)})
         df = pd.DataFrame(data=rows, columns=["asset", "amount"])
         df.sort_values(by=["asset"], inplace=True)
         return df
