@@ -2,6 +2,7 @@
 
 import asyncio
 import cytoolz
+import logging
 from typing import (
     List,
     Set,
@@ -26,19 +27,26 @@ from hummingbot.core.utils.async_utils import (
 )
 from hummingbot.logger import HummingbotLogger
 from .base_watcher import BaseWatcher
-from .new_blocks_watcher import NewBlocksWatcher
+# from .new_blocks_watcher import NewBlocksWatcher
+from .websocket_watcher import WSNewBlocksWatcher
 
 
 class IncomingEthWatcher(BaseWatcher):
-    logger: Optional[HummingbotLogger] = None
+    _iew_logger: Optional[HummingbotLogger] = None
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        if cls._iew_logger is None:
+            cls._iew_logger = logging.getLogger(__name__)
+        return cls._iew_logger
 
     def __init__(self,
                  w3: Web3,
-                 blocks_watcher: NewBlocksWatcher,
+                 blocks_watcher: WSNewBlocksWatcher,
                  watch_addresses: Iterable[str]):
         super().__init__(w3)
         self._watch_addresses: Set[str] = set(watch_addresses)
-        self._blocks_watcher: NewBlocksWatcher = blocks_watcher
+        self._blocks_watcher: WSNewBlocksWatcher = blocks_watcher
         self._event_forwarder: EventForwarder = EventForwarder(self.did_receive_new_blocks)
 
     async def start_network(self):

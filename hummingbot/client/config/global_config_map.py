@@ -274,6 +274,11 @@ global_config_map = {
                   prompt="Which Ethereum node would you like your client to connect to? >>> ",
                   required_if=lambda: global_config_map["ethereum_wallet"].value is not None,
                   is_connect_key=True),
+    "ethereum_rpc_ws_url":
+        ConfigVar(key="ethereum_rpc_ws_url",
+                  prompt="Enter the Websocket Address of your Ethereum Node >>> ",
+                  required_if=lambda: global_config_map["ethereum_rpc_url"].value is not None,
+                  is_connect_key=True),
     "ethereum_chain_name":
         ConfigVar(key="ethereum_chain_name",
                   prompt="What is your preferred ethereum chain name? >>> ",
@@ -376,4 +381,15 @@ global_config_map = {
                   type_str="bool",
                   default=False,
                   validator=validate_bool),
+    "script_enabled":
+        ConfigVar(key="script_enabled",
+                  prompt="Would you like to enable script feature? (Yes/No) >>> ",
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool),
+    "script_file_path":
+        ConfigVar(key="script_file_path",
+                  prompt='Enter path to your script file >>> ',
+                  type_str="str",
+                  required_if=lambda: global_config_map["script_enabled"].value),
 }
