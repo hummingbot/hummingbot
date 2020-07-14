@@ -146,23 +146,7 @@ class MarketsRecorder:
         market_states: Optional[MarketState] = self.get_market_states(config_file_path, market)
 
         if market_states is not None:
-            # do some house keeping to prevent restoring filled orders that were not updated in market_state before recorder was stopped
-            trade_fills: List[TradeFill] = self.get_trades_for_config(config_file_path)
-            to_restore: Dict[str, Dict[str, any]] = {}
-            for key, value in market_states.saved_state.items():
-                total_fill = 0
-                for fills in trade_fills:
-                    if key == fills.order_id:
-                        total_fill += fills.amount
-                if value["amount"] == total_fill:
-                    # remove from market state
-                    self.save_market_states(config_file_path, market, no_commit=True)
-                else:
-                    # add to to_restore
-                    to_restore.update({key: value})
-            if to_restore:
-                # restore orders
-                market.restore_tracking_states(to_restore)
+            market.restore_tracking_states(market_states.saved_state)
 
     def get_market_states(self, config_file_path: str, market: MarketBase) -> Optional[MarketState]:
         session: Session = self.session
