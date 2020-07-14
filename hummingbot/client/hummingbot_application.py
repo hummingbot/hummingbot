@@ -119,6 +119,7 @@ class HummingbotApplication(*commands):
 
         self.trade_fill_db: SQLConnectionManager = SQLConnectionManager.get_trade_fills_instance()
         self.markets_recorder: Optional[MarketsRecorder] = None
+        self._script_iterator = None
 
     @property
     def strategy_config_map(self):

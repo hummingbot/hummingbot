@@ -9,8 +9,7 @@ cdef class OrderBookAssetPriceDelegate(AssetPriceDelegate):
         self._trading_pair = trading_pair
 
     cdef object c_get_mid_price(self):
-        return (self._market.c_get_price(self._trading_pair, True) +
-                self._market.c_get_price(self._trading_pair, False))/Decimal('2')
+        return 1/((self._market.c_get_price(self._trading_pair, True) + self._market.c_get_price(self._trading_pair, False))/Decimal('2'))
 
     @property
     def ready(self) -> bool:
