@@ -41,14 +41,12 @@ Enter your Binance API key >>>
 Enter your Binance secret >>>
 ```
 
-Connect to an Ethereum wallet and Ethereum node.
+Connect to an Ethereum wallet.
 
 ```
 >>>  connect ethereum
 
 Enter your wallet private key >>>
-Which Ethereum node would you like your client to connect to? >>>
-Enter the Websocket Address of your Ethereum Node >>>
 
 Wallet 0x8D10...def2 connected to hummingbot.
 ```
@@ -58,10 +56,8 @@ Replace existing Ethereum wallet.
 ```
 >>>  connect ethereum
 
-Would you like to replace your existing Ethereum wallet [address] (Yes/No)? >>>
+Would you like to replace your existing Ethereum wallet ...def2 (Yes/No)? >>>
 Enter your wallet private key >>>
-Which Ethereum node would you like your client to connect to? >>>
-Enter the Websocket Address of your Ethereum Node >>>
 
 Wallet 0xC20...8bFa connected to hummingbot.
 ```

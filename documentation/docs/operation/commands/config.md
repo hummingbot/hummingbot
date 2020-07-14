@@ -40,7 +40,6 @@ Strategy Configurations:
           price_source_exchange                None
             price_source_market                None
             price_source_custom                None
-                take_if_crossed               False
 ```
 
 ## config [ key ]
