@@ -22,28 +22,28 @@ cdef class PureMarketMakingOrderTracker(OrderTracker):
         super().__init__()
 
     @property
-    def active_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
-        maker_orders = []
-        for market_pair, orders_map in self._tracked_maker_orders.items():
+    def active_limit_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
+        limit_orders = []
+        for market_pair, orders_map in self._tracked_limit_orders.items():
             for limit_order in orders_map.values():
-                maker_orders.append((market_pair.market, limit_order))
-        return maker_orders
+                limit_orders.append((market_pair.market, limit_order))
+        return limit_orders
 
     @property
-    def shadow_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
-        maker_orders = []
-        for market_pair, orders_map in self._shadow_tracked_maker_orders.items():
+    def shadow_limit_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
+        limit_orders = []
+        for market_pair, orders_map in self._shadow_tracked_limit_orders.items():
             for limit_order in orders_map.values():
-                maker_orders.append((market_pair.market, limit_order))
-        return maker_orders
+                limit_orders.append((market_pair.market, limit_order))
+        return limit_orders
 
     @property
     def market_pair_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
         market_pair_to_orders = {}
-        market_pairs = self._tracked_maker_orders.keys()
+        market_pairs = self._tracked_limit_orders.keys()
         for market_pair in market_pairs:
             maker_orders = []
-            for limit_order in self._tracked_maker_orders[market_pair].values():
+            for limit_order in self._tracked_limit_orders[market_pair].values():
                 maker_orders.append(limit_order)
             market_pair_to_orders[market_pair] = maker_orders
         return market_pair_to_orders
