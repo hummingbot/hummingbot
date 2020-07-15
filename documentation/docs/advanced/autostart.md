@@ -26,7 +26,7 @@ If your Hummingbot docker instance is already running, you can inspect the volum
 docker inspect ${HUMMINGBOT_CONTAINER_NAME} --format='{{.Mounts}}'
 ```
 
-The configuration folder is the mount path that correspods to `/conf` in the volume mounts listing.
+The configuration folder is the mount path that corresponds to `/conf` in the volume mounts listing.
 
 
 ## How to autostart
@@ -77,7 +77,7 @@ You can then detach from the container and put it back to the background by pres
 
 ## Optional commands
 
-Use Docker's restart policy of **always** to restart the container if it exits.
+Use Docker's restart policy to **always** restart the container if it exits.
 
 ```
 docker run -it --restart=always \ ...
