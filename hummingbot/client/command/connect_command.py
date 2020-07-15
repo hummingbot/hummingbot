@@ -19,6 +19,7 @@ OPTIONS = {
     "kucoin",
     "kraken",
     "ethereum",
+    "eterbase",
     "celo"
 }
 
@@ -77,10 +78,10 @@ class ConnectCommand:
         self._notify("\nTesting connections, please wait...")
         await Security.wait_til_decryption_done()
         df, failed_msgs = await self.connection_df()
-        lines = ["    " + l for l in df.to_string(index=False).split("\n")]
+        lines = ["    " + line for line in df.to_string(index=False).split("\n")]
         if failed_msgs:
             lines.append("\nFailed connections:")
-            lines.extend([f"    " + k + ": " + v for k, v in failed_msgs.items()])
+            lines.extend(["    " + k + ": " + v for k, v in failed_msgs.items()])
         self._notify("\n".join(lines))
 
     async def connection_df(self  # type: HummingbotApplication
@@ -141,6 +142,7 @@ class ConnectCommand:
             public_address = Security.add_private_key(private_key)
             global_config_map["ethereum_wallet"].value = public_address
             await self.prompt_a_config(global_config_map["ethereum_rpc_url"])
+            await self.prompt_a_config(global_config_map["ethereum_rpc_ws_url"])
             if self.app.to_stop_config:
                 self.app.to_stop_config = False
                 return
@@ -174,7 +176,7 @@ class ConnectCommand:
                                                          global_config_map["celo_address"].value,
                                                          global_config_map["celo_password"].value)
             if err_msg is None:
-                self._notify(f"You are now connected to Celo network.")
+                self._notify("You are now connected to Celo network.")
             else:
                 self._notify(err_msg)
         self.placeholder_mode = False
