@@ -12,6 +12,7 @@ from hummingbot.client.settings import (
     EXCHANGES,
     STRATEGIES,
     CONF_FILE_PATH,
+    SCRIPTS_PATH
 )
 from hummingbot.client.ui.parser import ThrowingArgumentParser
 from hummingbot.core.utils.wallet_setup import list_wallets
@@ -33,6 +34,7 @@ class HummingbotCompleter(Completer):
         self._connect_exchange_completer = WordCompleter(CONNECT_EXCHANGES, ignore_case=True)
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
+        self._py_file_completer = WordCompleter(file_name_list(SCRIPTS_PATH, "py"))
 
     @property
     def prompt_text(self) -> str:
@@ -75,6 +77,9 @@ class HummingbotCompleter(Completer):
 
     def _complete_strategies(self, document: Document) -> bool:
         return "strategy" in self.prompt_text and "strategy file" not in self.prompt_text
+
+    def _complete_script_files(self, document: Document) -> bool:
+        return "script file" in self.prompt_text
 
     def _complete_configs(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -125,7 +130,11 @@ class HummingbotCompleter(Completer):
         :param document:
         :param complete_event:
         """
-        if self._complete_paths(document):
+        if self._complete_script_files(document):
+            for c in self._py_file_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_paths(document):
             for c in self._path_completer.get_completions(document, complete_event):
                 yield c
 

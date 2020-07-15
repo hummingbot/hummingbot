@@ -34,7 +34,8 @@ from hummingbot.core.event.event_forwarder import EventForwarder
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from .base_watcher import BaseWatcher
-from .new_blocks_watcher import NewBlocksWatcher
+# from .new_blocks_watcher import NewBlocksWatcher
+from .websocket_watcher import WSNewBlocksWatcher
 
 with open(realpath(join(__file__, "../../zero_ex/zero_ex_exchange_abi_v3.json"))) as exchange_abi_json:
     exchange_abi: List[any] = ujson.load(exchange_abi_json)
@@ -55,9 +56,9 @@ class ZeroExFillWatcher(BaseWatcher):
 
     def __init__(self,
                  w3: Web3,
-                 blocks_watcher: NewBlocksWatcher):
+                 blocks_watcher: WSNewBlocksWatcher):
         super().__init__(w3)
-        self._blocks_watcher: NewBlocksWatcher = blocks_watcher
+        self._blocks_watcher: WSNewBlocksWatcher = blocks_watcher
         self._poll_fill_logs_task: asyncio.Task = None
         self._event_forwarder: EventForwarder = EventForwarder(self.did_receive_new_blocks)
         self._new_blocks_queue: asyncio.Queue = asyncio.Queue()
@@ -139,9 +140,9 @@ class ZeroExFillWatcher(BaseWatcher):
             except asyncio.TimeoutError:
                 continue
             except Exception:
-                self.logger().network(f"Unknown error trying to fetch new events for ZeroEx fills.", exc_info=True,
-                                      app_warning_msg=f"Unknown error trying to fetch new events for ZeroEx fills. "
-                                                      f"Check wallet network connection")
+                self.logger().network("Unknown error trying to fetch new events for ZeroEx fills.", exc_info=True,
+                                      app_warning_msg="Unknown error trying to fetch new events for ZeroEx fills. "
+                                                      "Check wallet network connection")
 
     async def _get_logs(self,
                         event_filter_params: Dict[str, any],
