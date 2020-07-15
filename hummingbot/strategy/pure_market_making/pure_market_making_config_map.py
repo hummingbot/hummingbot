@@ -17,7 +17,8 @@ from hummingbot.client.config.global_config_map import (
     using_exchange
 )
 from hummingbot.client.config.config_helpers import (
-    minimum_order_amount
+    minimum_order_amount,
+    parse_cvar_value
 )
 from typing import Optional
 
@@ -90,6 +91,16 @@ def validate_price_floor_ceiling(value: str) -> Optional[str]:
         return f"{value} is not in decimal format."
     if not (decimal_value == Decimal("-1") or decimal_value > Decimal("0")):
         return "Value must be more than 0 or -1 to disable this feature."
+
+
+def validate_take_if_crossed(value: str) -> Optional[str]:
+    err_msg = validate_bool(value)
+    if err_msg is not None:
+        return err_msg
+    price_source_enabled = pure_market_making_config_map["price_source_enabled"].value
+    take_if_crossed = parse_cvar_value(pure_market_making_config_map["take_if_crossed"], value)
+    if take_if_crossed and not price_source_enabled:
+        return "You can enable this feature only when external pricing source for mid-market price is used."
 
 
 def exchange_on_validated(value: str):
@@ -171,7 +182,7 @@ pure_market_making_config_map = {
                   validator=validate_price_floor_ceiling),
     "ping_pong_enabled":
         ConfigVar(key="ping_pong_enabled",
-                  prompt="Do you want to alternate between buys and sells? (Yes/No) >>> ",
+                  prompt="Would you like to use the ping pong feature and alternate between buy and sell orders after fills? (Yes/No) >>> ",
                   type_str="bool",
                   default=False,
                   prompt_on_new=True,
@@ -209,8 +220,8 @@ pure_market_making_config_map = {
                   prompt="What is your target base asset percentage? Enter 50 for 50% >>> ",
                   required_if=lambda: pure_market_making_config_map.get("inventory_skew_enabled").value,
                   type_str="decimal",
-                  validator=lambda v: validate_decimal(v, 0, 100)
-                  ),
+                  validator=lambda v: validate_decimal(v, 0, 100),
+                  default=Decimal("50")),
     "inventory_range_multiplier":
         ConfigVar(key="inventory_range_multiplier",
                   prompt="What is your tolerable range of inventory around the target, "

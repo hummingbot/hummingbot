@@ -72,6 +72,8 @@ class StatusCommand:
             self._notify("\n  Paper Trading ON: All orders are simulated, and no real orders are placed.")
         self._notify(self.strategy.format_status() + "\n")
         self.application_warning()
+        if self._script_iterator is not None:
+            self._script_iterator.request_status()
         return True
 
     def application_warning(self):

@@ -5,6 +5,7 @@ from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.kucoin.kucoin_market import KucoinMarket
 from hummingbot.market.liquid.liquid_market import LiquidMarket
 from hummingbot.market.kraken.kraken_market import KrakenMarket
+from hummingbot.market.eterbase.eterbase_market import EterbaseMarket
 from hummingbot.core.utils.market_mid_price import get_mid_price
 from hummingbot.client.settings import EXCHANGES, DEXES
 from hummingbot.client.config.security import Security
@@ -36,6 +37,9 @@ class UserBalances:
             market = LiquidMarket(api_details[0], api_details[1])
         elif exchange == "kraken":
             market = KrakenMarket(api_details[0], api_details[1])
+        elif exchange == "eterbase":
+            market = EterbaseMarket(api_details[0], api_details[1], api_details[2])
+
         return market
 
     # return error message if the _update_balances fails
@@ -128,6 +132,8 @@ class UserBalances:
             return "Ethereum wallet is required."
         if global_config_map.get("ethereum_rpc_url").value is None:
             return "ethereum_rpc_url is required."
+        if global_config_map.get("ethereum_rpc_ws_url").value is None:
+            return "ethereum_rpc_ws_url is required."
         if global_config_map.get("ethereum_wallet").value not in Security.private_keys():
             return "Ethereum private key file does not exist or corrupts."
         try:
