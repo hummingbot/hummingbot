@@ -41,11 +41,10 @@ def start(self):
         ask_order_optimization_depth = c_map.get("ask_order_optimization_depth").value
         bid_order_optimization_depth = c_map.get("bid_order_optimization_depth").value
         add_transaction_costs_to_orders = c_map.get("add_transaction_costs").value
-        price_source_enabled = c_map.get("price_source_enabled").value
-        price_source_type = c_map.get("price_source_type").value
+        price_source = c_map.get("price_source").value
         price_source_exchange = c_map.get("price_source_exchange").value
         price_source_market = c_map.get("price_source_market").value
-        price_source_custom = c_map.get("price_source_custom").value
+        price_source_custom_api = c_map.get("price_source_custom_api").value
         order_refresh_tolerance_pct = c_map.get("order_refresh_tolerance_pct").value / Decimal('100')
 
         trading_pair: str = self._convert_to_exchange_trading_pair(exchange, [raw_trading_pair])[0]
@@ -57,15 +56,14 @@ def start(self):
         maker_data = [self.markets[exchange], trading_pair] + list(maker_assets)
         self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
         asset_price_delegate = None
-        if price_source_enabled:
-            if price_source_type == "exchange":
-                asset_trading_pair: str = self._convert_to_exchange_trading_pair(
-                    price_source_exchange, [price_source_market])[0]
-                ext_market = create_paper_trade_market(price_source_exchange, [asset_trading_pair])
-                self.markets[price_source_exchange]: MarketBase = ext_market
-                asset_price_delegate = OrderBookAssetPriceDelegate(ext_market, asset_trading_pair)
-            elif price_source_type == "custom_api":
-                asset_price_delegate = APIAssetPriceDelegate(price_source_custom)
+        if price_source == "external_market":
+            asset_trading_pair: str = self._convert_to_exchange_trading_pair(
+                price_source_exchange, [price_source_market])[0]
+            ext_market = create_paper_trade_market(price_source_exchange, [asset_trading_pair])
+            self.markets[price_source_exchange]: MarketBase = ext_market
+            asset_price_delegate = OrderBookAssetPriceDelegate(ext_market, asset_trading_pair)
+        elif price_source == "custom_api":
+            asset_price_delegate = APIAssetPriceDelegate(price_source_custom_api)
         take_if_crossed = c_map.get("take_if_crossed").value
 
         strategy_logging_options = PureMarketMakingStrategy.OPTION_LOG_ALL
