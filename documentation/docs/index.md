@@ -21,7 +21,7 @@ Our business model is to administer [Liquidity Mining](/liquidity-mining) progra
 
 ## For developers
 
-Hummingbot is an general source framework for crypto algorithmic trading. We welcome developers to fork the codebase for their own purposes and contribute to the community.
+Hummingbot is a general source framework for crypto algorithmic trading. We welcome developers to fork the codebase for their own purposes and contribute to the community.
 
 * [Developer Manual](/developers): Learn how to build Hummingbot connectors and strategies
 * [Community](/community): Contribute to Hummingbot the open source codebase

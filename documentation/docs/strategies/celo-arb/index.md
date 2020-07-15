@@ -1,11 +1,6 @@
 # Celo Arbitrage (`celo-arb`)
 
-**Updated as of v0.28.0**
-
-!!! warning "Celo Stability Mechanism may not be active"
-    Please note that as of the `v0.28.0` release date, the Celo Stability Mechanism has not yet been activated. Until then, we recommend that users test this strategy on the [Baklava testnet](https://docs.celo.org/getting-started/baklava-testnet), where the Stability Mechanism is active.
-
-    As soon as the Celo Stability Mechanism is active on the mainnet chain, this strategy will be viable.
+**Updated as of v0.28.1**
 
 ## How it Works
 
@@ -30,10 +25,10 @@ Since Celo is a blockchain protocol, in addition to the normal inventory require
 
 Celo nodes allow the Hummingbot client to interact with the Celo blockchain by connecting to peers, sending transactions, and fetching chain state. Since the client just needs access to the chain and recent blocks, you can run either a Celo full node or an ultra-light node.
 
-**How to run a Celo full node:**
+Follow the [Celo documentation](https://docs.celo.org/getting-started/mainnet/running-a-full-node-in-mainnet) to install and run a full node. Note that the node must be synced in order for the `celo-arb` strategy to run. 
 
-* [Mainnet](https://docs.celo.org/getting-started/mainnet/running-a-full-node-in-mainnet) 
-* [Baklava testnet](https://docs.celo.org/getting-started/baklava-testnet/running-a-full-node-in-baklava)
+!!! tip "Ultra-light sync mode"
+    The `celo-arb` strategy works with Celo node running in "ultra-light" mode, which is much faster to sync. See our [Quickstart](./quickstart) for instructions on how to start a node in ultra-light mode.
 
 ### `celo-cli` CLI tool
 

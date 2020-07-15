@@ -20,6 +20,29 @@ class InventorySkewCalculatorUnitTest(unittest.TestCase):
         self.target_ratio: float = 0.03
         self.base_range: float = 20000.0
 
+    def test_cap_on_max_base_range(self):
+        self.base_asset = 100
+        self.quote_asset = 10
+        self.price = 1
+        self.target_ratio = 0.35
+        self.base_range = 200
+        bid_ask_ratios: InventorySkewBidAskRatios = calculate_bid_ask_ratios_from_base_asset_ratio(
+            self.base_asset, self.quote_asset, self.price, self.target_ratio, self.base_range
+        )
+        self.assertAlmostEqual(0, bid_ask_ratios.bid_ratio)
+        self.assertAlmostEqual(2, bid_ask_ratios.ask_ratio)
+
+        self.base_asset = 10
+        self.quote_asset = 100
+        self.price = 1
+        self.target_ratio = 0.75
+        self.base_range = 200
+        bid_ask_ratios: InventorySkewBidAskRatios = calculate_bid_ask_ratios_from_base_asset_ratio(
+            self.base_asset, self.quote_asset, self.price, self.target_ratio, self.base_range
+        )
+        self.assertAlmostEqual(2, bid_ask_ratios.bid_ratio)
+        self.assertAlmostEqual(0, bid_ask_ratios.ask_ratio)
+
     def test_balanced_portfolio(self):
         bid_ask_ratios: InventorySkewBidAskRatios = calculate_bid_ask_ratios_from_base_asset_ratio(
             self.base_asset, self.quote_asset, self.price, self.target_ratio, self.base_range
