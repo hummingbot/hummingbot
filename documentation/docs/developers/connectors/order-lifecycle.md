@@ -28,7 +28,7 @@ If `execute_buy()` or `execute_sell()` successfully submits an order to the exch
 
 An order would be filled by other market participants over time, once it's live on an exchange. If the order is a limit order, then usually it has to wait for market orders from other market participants to hit it. If the order is a market order, then usually it is filled as soon as possible by getting matched to limit orders on the exchange.
 
-For every order fill related to orders it made before, a market connector must emit a `OrderFilledEvent`, to notify stratgy objects about the progress of the order.
+For every order fill related to orders it made before, a market connector must emit a `OrderFilledEvent`, to notify strategy objects about the progress of the order.
 
 ### Order Completion
 

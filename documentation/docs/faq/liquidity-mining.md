@@ -1,7 +1,7 @@
 # Liquidity Mining FAQs
 
 !!! info "Important Disclaimer"
-    <small><ul><li>The content of this Site does not constitute investment, financial, legal, or tax advice, nor does any of the information contained on this Site constitute a recommendation, solicitation, or offer to buy or sell any digital assets, securities, options, or other financial instruments or other assets, or to provide any investment advice or service.<li>There is no guarantee of profit for participating in liquidity mining.<li>Participation is subject to eligiblity requirements.</ul></small>
+    <small><ul><li>The content of this Site does not constitute investment, financial, legal, or tax advice, nor does any of the information contained on this Site constitute a recommendation, solicitation, or offer to buy or sell any digital assets, securities, options, or other financial instruments or other assets, or to provide any investment advice or service.<li>There is no guarantee of profit for participating in liquidity mining.<li>Participation is subject to eligibility requirements.</ul></small>
     **Please review the [Liquidity Mining Policy](https://hummingbot.io/liquidity-mining-policy/) for the full disclaimer.**
 
 ### What is liquidity mining?
@@ -16,7 +16,7 @@ You earn rewards by running a market making bot that maintains orders on exchang
 For more information, please read [the whitepaper](https://hummingbot.io/liquidity-mining.pdf).
 
 ### Why is it called "liquidity mining"?
-Liquidity mining is similar to Bitcoin mining in that miners run open source software on their own computers and use ther own scarce resources (inventory of crypto assets).
+Liquidity mining is similar to Bitcoin mining in that miners run open source software on their own computers and use their own scarce resources (inventory of crypto assets).
 
 In addition, a collective pool of participants are working together for a common goal, providing liquidity for a specific token and exchange.  In return, miners are paid out rewards according to transparent, algorithmically defined rules.
 
@@ -144,6 +144,6 @@ In return for administering liquidity mining programs, collecting the data neces
 Yes, you can run different instances of Hummingbot or your own software in order to earn rewards in multiple markets simultaneously.
 
 ### Do I need to use the Hummingbot client to participate in liquidity mining?
-No; if you already have your own trading bots and strategies, you can still participate in liquidity mining by registering at [Hummingbot Miner](https://miner.hummingbot.io) and adding your exchange read-only API key.
+No; if you already have your own trading bots and strategies, you can still participate in liquidity mining by registering at [Hummingbot Miner](https://miners.hummingbot.io) and adding your exchange read-only API key.
 
 For the general pool of users who don't have their own trading bots, we created Hummingbot as a way to provide them access to quant/algo strategies and the ability to market make.
