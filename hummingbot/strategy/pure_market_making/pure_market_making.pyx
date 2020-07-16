@@ -469,7 +469,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         active_orders = self.active_orders
         no_sells = len([o for o in active_orders if not o.is_buy and o.client_order_id not in self._hanging_order_ids])
         active_orders.sort(key=lambda x: x.price, reverse=True)
-        columns = ["Level", "Type", "Price", "Spread", "Amount (Orig)", "Amount (Adj)", "Age", "Hang"]
+        columns = ["Level", "Type", "Price", "Spread", "Amount (Orig)", "Amount (Adj)", "Age"]
         data = []
         lvl_buy, lvl_sell = 0, 0
         for idx in range(0, len(active_orders)):
@@ -490,14 +490,13 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                                    unit='s').strftime('%H:%M:%S')
             amount_orig = "" if level is None else self._order_amount + ((level - 1) * self._order_level_amount)
             data.append([
-                "" if level is None else level,
+                "hang" if order.client_order_id in self._hanging_order_ids else level,
                 "buy" if order.is_buy else "sell",
                 float(order.price),
                 f"{spread:.2%}",
                 amount_orig,
                 float(order.quantity),
-                age,
-                "yes" if order.client_order_id in self._hanging_order_ids else "no"
+                age
             ])
 
         return pd.DataFrame(data=data, columns=columns)
