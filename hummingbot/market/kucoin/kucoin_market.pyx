@@ -281,7 +281,6 @@ cdef class KucoinMarket(MarketBase):
     async def _user_stream_event_listener(self):
         async for event_message in self._iter_user_event_queue():
             try:
-                print(event_message)
                 event_type = event_message.get("type")
                 event_topic = event_message.get("topic")
                 execution_data = event_message.get("data")
@@ -289,7 +288,7 @@ cdef class KucoinMarket(MarketBase):
                 # Refer to https://docs.kucoin.com/#private-order-change-events
                 if event_type == "message" and event_topic == "/spotMarket/tradeOrders":
                     execution_type = execution_data["type"]
-                    client_order_id = execution_type["clientOid"]
+                    client_order_id = execution_data["clientOid"]
 
                     tracked_order = self._in_flight_orders.get(client_order_id)
 
