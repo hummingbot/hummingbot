@@ -165,7 +165,7 @@ New campaign launching: starting July 21, 2020 12.00am
       <td>COTI/BNB</td>
       <td>Binance.com</td>
       <td>2%</td>
-      <td>USDC 255</td>
+      <td>USDC 250</td>
     </tr>
   </tbody>
 </table>
