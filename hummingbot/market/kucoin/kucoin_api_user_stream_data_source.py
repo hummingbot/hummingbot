@@ -37,7 +37,6 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def __init__(self, kucoin_auth: KucoinAuth):
         self._current_listen_key = None
         self._current_endpoint = None
-        self._listen_for_user_stream_task = None
         super().__init__()
         self._kucoin_auth: KucoinAuth = kucoin_auth
         self._last_recv_time: float = 0
@@ -56,17 +55,6 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 data: Dict[str, str] = await response.json()
                 return data
 
-    async def ping_connection(self, ws: websockets.WebSocketClientProtocol) -> bool:
-        while True:
-            try:
-                pong_waiter = await ws.ping()
-                await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
-                await self.wait_til_next_tick(seconds=40.0)
-            except asyncio.TimeoutError:
-                self.logger().warning(f"Failed to recieve pong response from server.")
-                yield False
-            yield True
-
     async def _subscribe_topic(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         try:
             subscribe_request = {
@@ -79,7 +67,6 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().warning("Message recv() failed. Going to reconnect...", exc_info=True)
             return
 
     async def get_ws_connection(self) -> websockets.WebSocketClientProtocol:
@@ -87,7 +74,7 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self.logger().info(f"Connecting to {stream_url}.")
 
         # Create the WS connection.
-        return websockets.connect(stream_url)
+        return websockets.connect(stream_url, ping_interval=40, ping_timeout=self.PING_TIMEOUT)
 
     async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         while True:
@@ -96,46 +83,34 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 self._last_recv_time = time.time()
                 yield msg
             except asyncio.TimeoutError:
-                self.logger().warning("Message recv() failed. Going to reconnect...", exc_info=True)
+                self.logger().warning("Websocket message timeout. Going to reconnect...", exc_info=False)
+                self._current_listen_key = None
                 return
-            except asyncio.CancelledError:
-                raise
             except ConnectionClosed:
-                return
-            finally:
-                await ws.close()
+                raise
+            except Exception:
+                raise
 
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        try:
-            while True:
-                try:
-                    if self._current_listen_key is None:
-                        creds = await self.get_listen_key()
-                        self._current_listen_key = creds["data"]["token"]
-                        self._current_endpoint = creds["data"]["instanceServers"][0]["endpoint"]
-                        self.logger().debug(f"Obtained listen key {self._current_listen_key}.")
+        while True:
+            try:
+                if self._current_listen_key is None:
+                    creds = await self.get_listen_key()
+                    self._current_listen_key = creds["data"]["token"]
+                    self._current_endpoint = creds["data"]["instanceServers"][0]["endpoint"]
+                    self.logger().debug(f"Obtained listen key {self._current_listen_key}.")
 
-                    success: bool = False
                     async with (await self.get_ws_connection()) as ws:
                         await self._subscribe_topic(ws)
-                        async for msg in self.ping_connection(ws):
-                            success = msg
-                            if not success:
-                                self._current_listen_key = None
-                                self.logger().debug(f"Refreshing websocket connection.")
-                                continue
                         async for msg in self._inner_messages(ws):
                             decoded: Dict[str, any] = ujson.loads(msg)
                             output.put_nowait(decoded)
 
-                except asyncio.CancelledError:
-                    raise
-                except Exception:
-                    self.logger().error("Unexpected error while maintaining the user event listen key. Retrying after "
-                                        "5 seconds...", exc_info=True)
-                    await asyncio.sleep(5)
-        finally:
-            # Make sure no background task is leaked.
-            if self._listen_for_user_stream_task is not None:
-                self._listen_for_user_stream_task.cancel()
-                self._listen_for_user_stream_task = None
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error("Unexpected error while maintaining the user event listen key. Retrying after "
+                                    "5 seconds...", exc_info=True)
+                await asyncio.sleep(5)
+                self._current_listen_key = None
+                await ws.close()
