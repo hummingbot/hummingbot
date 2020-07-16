@@ -23,7 +23,6 @@ KUCOIN_USER_STREAM_ENDPOINT = "/api/v1/bullet-private"
 
 class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
-    MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 50.0
 
     _kausds_logger: Optional[HummingbotLogger] = None
@@ -79,13 +78,9 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
     async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         while True:
             try:
-                msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
+                msg: str = await ws.recv()
                 self._last_recv_time = time.time()
                 yield msg
-            except asyncio.TimeoutError:
-                self.logger().warning("Websocket message timeout. Going to reconnect...", exc_info=False)
-                self._current_listen_key = None
-                return
             except ConnectionClosed:
                 raise
             except Exception:
@@ -110,7 +105,7 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 raise
             except Exception:
                 self.logger().error("Unexpected error while maintaining the user event listen key. Retrying after "
-                                    "5 seconds...", exc_info=True)
-                await asyncio.sleep(5)
+                                    "5 seconds...", exc_info=False)
                 self._current_listen_key = None
                 await ws.close()
+                await asyncio.sleep(5)
