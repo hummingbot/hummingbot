@@ -30,6 +30,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         object _bid_order_optimization_depth
         bint _add_transaction_costs_to_orders
         object _asset_price_delegate
+        bint _price_is_mid
         bint _take_if_crossed
         object _price_ceiling
         object _price_floor
@@ -46,6 +47,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         list _hanging_order_ids
         double _last_timestamp
         double _status_report_interval
+        double _last_price
         int64_t _logging_options
     cdef object c_get_mid_price(self)
     cdef object c_create_base_proposal(self)
