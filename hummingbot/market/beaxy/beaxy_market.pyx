@@ -613,10 +613,6 @@ cdef class BeaxyMarket(MarketBase):
                 raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
             path_url = BeaxyConstants.TradingApi.ORDERS_ENDPOINT
             cancel_result = await self._api_request("delete", path_url=path_url, custom_headers={"X-Deltix-Order-ID": tracked_order.exchange_order_id.lower()})
-            self.logger().info(f"Successfully cancelled order {order_id}.")
-            self.c_stop_tracking_order(order_id)
-            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                 OrderCancelledEvent(self._current_timestamp, order_id))
             return order_id
         except asyncio.CancelledError:
             raise
