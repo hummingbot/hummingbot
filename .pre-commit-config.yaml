@@ -1,6 +1,6 @@
 repos:
--   repo: https://gitlab.com/pycqa/flake8
-    rev: v3.1.0
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.3.0
     hooks:
     - id: flake8
       types: ['file']
