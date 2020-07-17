@@ -4,6 +4,7 @@ import unittest
 from typing import Optional, List, Dict
 
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent, TradeType
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -24,6 +25,7 @@ class BinancePerpetualOrderBookTrackerUnitTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.order_book_tracker: BinancePerpetualOrderBookTracker = BinancePerpetualOrderBookTracker(
+            data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             trading_pairs=cls.trading_pairs
         )
         cls.order_book_tracker_task: asyncio.Task = safe_ensure_future(cls.order_book_tracker.start())
@@ -80,9 +82,9 @@ class BinancePerpetualOrderBookTrackerUnitTest(unittest.TestCase):
                                 btcusdt_book.get_price(True))
         self.assertLess(btcusdt_book.get_price_for_volume(False, 10).result_price,
                         btcusdt_book.get_price(False))
-        self.assertGreaterEqual(ethusdt_book.get_price_for_volume(True, 10000).result_price,
+        self.assertGreaterEqual(ethusdt_book.get_price_for_volume(True, 10).result_price,
                                 ethusdt_book.get_price(True))
-        self.assertLessEqual(ethusdt_book.get_price_for_volume(False, 10000).result_price,
+        self.assertLessEqual(ethusdt_book.get_price_for_volume(False, 10).result_price,
                              ethusdt_book.get_price(False))
 
 

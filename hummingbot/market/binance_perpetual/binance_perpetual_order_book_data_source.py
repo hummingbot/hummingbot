@@ -16,13 +16,14 @@ from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerE
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.binance.binance_order_book import BinanceOrderBook
+from hummingbot.market.binance_perpetual.binance_perpetual_order_book import BinancePerpetualOrderBook
 
 DIFF_STREAM_URL = "wss://fstream.binance.com/stream"
 PERPETUAL_BASE_URL = "https://fapi.binance.com/fapi/v1"
 SNAPSHOT_REST_URL = PERPETUAL_BASE_URL + "/depth"
 TICKER_PRICE_CHANGE_URL = PERPETUAL_BASE_URL + "/ticker/24hr"
 EXCHANGE_INFO_URL = PERPETUAL_BASE_URL + "/exchangeInfo"
+RECENT_TRADES_URL = PERPETUAL_BASE_URL + "/trades"
 
 
 class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
@@ -119,7 +120,7 @@ class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
                 try:
                     snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, 1000)
                     snapshot_timestamp: float = time.time()
-                    snapshot_msg: OrderBookMessage = BinanceOrderBook.snapshot_message_from_exchange(
+                    snapshot_msg: OrderBookMessage = BinancePerpetualOrderBook.snapshot_message_from_exchange(
                         snapshot,
                         snapshot_timestamp,
                         metadata={"trading_pair": trading_pair}
@@ -132,6 +133,7 @@ class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
                 except Exception:
                     self.logger().error(f"Error getting snapshot for {trading_pair}. ", exc_info=True)
                     await asyncio.sleep(5)
+            return return_val
 
     async def ws_messages(self, client: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         try:
@@ -157,15 +159,15 @@ class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 trading_pairs: List[str] = await self.get_trading_pairs()
-                ws_subscription_path: str = "/".join([f"{trading_pair.lower()}@depth" for trading_pair in trading_pairs])
-                stream_url: str = f"{DIFF_STREAM_URL}/{ws_subscription_path}"
-
+                ws_subscription_path: str = "/".join([f"{trading_pair.lower()}@depth"
+                                                      for trading_pair in trading_pairs])
+                stream_url: str = f"{DIFF_STREAM_URL}?streams={ws_subscription_path}"
                 async with websockets.connect(stream_url) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     async for raw_msg in self.ws_messages(ws):
                         msg_json = ujson.loads(raw_msg)
                         timestamp: float = time.time()
-                        order_book_message: OrderBookMessage = BinanceOrderBook.diff_message_from_exchange(
+                        order_book_message: OrderBookMessage = BinancePerpetualOrderBook.diff_message_from_exchange(
                             msg_json,
                             timestamp
                         )
@@ -177,6 +179,26 @@ class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
                                     exc_info=True)
                 await asyncio.sleep(30.0)
 
+    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        while True:
+            try:
+                trading_pairs: List[str] = await self.get_trading_pairs()
+                ws_subscription_path: str = "/".join([f"{trading_pair.lower()}@aggTrade"
+                                                      for trading_pair in trading_pairs])
+                stream_url = f"{DIFF_STREAM_URL}?streams={ws_subscription_path}"
+                async with websockets.connect(stream_url) as ws:
+                    ws: websockets.WebSocketClientProtocol = ws
+                    async for raw_msg in self.ws_messages(ws):
+                        msg_json = ujson.loads(raw_msg)
+                        trade_msg: OrderBookMessage = BinancePerpetualOrderBook.trade_message_from_exchange(msg_json)
+                        output.put_nowait(trade_msg)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
+                                    exc_info=True)
+                await asyncio.sleep(30)
+
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
@@ -186,7 +208,7 @@ class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
                         try:
                             snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
                             snapshot_timestamp: float = time.time()
-                            snapshot_msg: OrderBookMessage = BinanceOrderBook.snapshot_message_from_exchange(
+                            snapshot_msg: OrderBookMessage = BinancePerpetualOrderBook.snapshot_message_from_exchange(
                                 snapshot,
                                 snapshot_timestamp,
                                 metadata={"trading_pair": trading_pair}
@@ -208,23 +230,3 @@ class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception:
                 self.logger().error("Unexpected error.", exc_info=True)
                 await asyncio.sleep(5.0)
-
-    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        while True:
-            try:
-                trading_pairs: List[str] = await self.get_trading_pairs()
-                ws_subscription_path: str = "/".join([f"{trading_pair.lower()}@trade" for trading_pair in trading_pairs])
-                stream_url = f"{DIFF_STREAM_URL}/{ws_subscription_path}"
-
-                async with websockets.connect(stream_url) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
-                    async for raw_msg in self.ws_messages(ws):
-                        msg_json = ujson.loads(raw_msg)
-                        trade_msg: OrderBookMessage = BinanceOrderBook.trade_message_from_exchange(msg_json)
-                        output.put_nowait(trade_msg)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
-                                    exc_info=True)
-                await asyncio.sleep(30)
