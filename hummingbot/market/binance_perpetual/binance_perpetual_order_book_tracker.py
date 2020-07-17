@@ -34,7 +34,7 @@ class BinancePerpetualOrderBookTracker(OrderBookTracker):
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[OrderBookTrackerDataSource] = None
         self._saved_messages_queues: Dict[str, Deque[OrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
-        self._trading_paris: Optional[List[str]] = trading_pairs
+        self._trading_pairs: Optional[List[str]] = trading_pairs
 
     @property
     def data_source(self) -> OrderBookTrackerDataSource:
@@ -42,7 +42,7 @@ class BinancePerpetualOrderBookTracker(OrderBookTracker):
             if self._data_source_type is OrderBookTrackerDataSourceType.REMOTE_API:
                 self._data_source = RemoteAPIOrderBookDataSource()
             elif self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = BinancePerpetualOrderBookDataSource(trading_pairs=self._trading_paris)
+                self._data_source = BinancePerpetualOrderBookDataSource(trading_pairs=self._trading_pairs)
             else:
                 raise ValueError(f"Data Source Type {self._data_source_type} is not supported.")
         return self._data_source
