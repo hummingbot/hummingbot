@@ -10,23 +10,28 @@ Liquidity mining is a community-based, data-driven approach to market making, in
 Liquidity mining sets forth an analytical framework for determining market maker compensation based on (1) time (order book consistency), (2) order spreads, and (3) order sizes, in order to create a fair model for compensation that aligns a miner's risk with rewards.
 
 ## Getting started
-- [Hummingbot Miners](https://miners.hummingbot.io/): The **official Liquidity Mining app** where you can see real-time rates of return and track your payouts
-- [Get help on Discord](https://discord.hummingbot.io): Join the **#liquidity-mining** channel for 24/7 support
+
+### Read me first
 - [How it works](https://www.notion.so/hummingbot/What-is-liquidity-mining-c2eb7d68e28b42278e5efead9a247507)
-- [Hummingbot Quickstart Guide](https://docs.hummingbot.io/quickstart)
 - [Liquidity Mining FAQs](https://docs.hummingbot.io/faq/liquidity-mining/)
 - [Liquidity Mining whitepaper](https://hummingbot.io/liquidity-mining.pdf)
+
+### Installation and configuration
+- [Hummingbot Quickstart Guide](https://docs.hummingbot.io/quickstart)
+- [Hummingbot Miners](https://miners.hummingbot.io/): The **official Liquidity Mining app** where you can see real-time rates of return and track your payouts
+
+### Support
+- [Get help on Discord](https://discord.hummingbot.io): Join the **#liquidity-mining** channel for 24/7 support
 
 ## Current campaign terms
 
 !!! warning "Terms subject to change"
     Please check this page or the [Miner's app](https://miners.hummingbot.io) for the most up-to-date terms.<br/>We will notify participants of changes, if any, on our [Discord](https://discord.hummingbot.io) and [reddit](https://www.reddit.com/r/Hummingbot/).
 
-!!! note "Campaign updates for the week starting July 7, 2020 12.00am UTC"
-    <li>No changes to existing campaigns for MFT, RLC, SOL, and XZC.
-    <li>[New NULS campaign](#upcoming-changes-to-campaign-terms) starting _next reward_ period beginning July 14, 2020 12.00am UTC.
+!!! note "Campaign updates for the week starting July 14, 2020 12.00am UTC"
+    <li>**New NULS campaign** is live!
 
-**Current reward period: July 7, 2020 12.00am UTC to July 14, 2020 12.00am UTC**
+**Current reward period: July 14, 2020 12.00am UTC to July 21, 2020 12.00am UTC**
 
 <table>
   <thead>
@@ -55,6 +60,25 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>Binance.com</td>
       <td>2%</td>
       <td>USDC 275</td>
+    </tr>
+    <tr>
+      <td rowspan="3"><a href="#nuls">NULS</a><br></td>
+      <td>NULS/BTC</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 666</td>
+    </tr>
+    <tr>
+      <td>NULS/USDT</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 667</td>
+    </tr>
+    <tr>
+      <td>NULS/ETH</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 667</td>
     </tr>
     <tr>
       <td rowspan="3"><a href="#iexec">iExec</a><br></td>
@@ -113,7 +137,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
 
 ## Upcoming changes to campaign terms
 
-**New campaign launching July 14, 2020 12.00am UTC**
+New campaign launching: starting July 21, 2020 12.00am
 
 <table>
   <thead>
@@ -125,30 +149,31 @@ Liquidity mining sets forth an analytical framework for determining market maker
   </thead>
   <tbody>
     <tr>
-      <td rowspan="3"><a href="#nuls">NULS</a><br></td>
-      <td>NULS/BTC</td>
+      <td rowspan="3"><a href="#Coti">Coti</a><br></td>
+      <td>COTI / BTC</td>
       <td>Binance.com</td>
       <td>2%</td>
-      <td>USDC 666</td>
+      <td>USDC 250</td>
     </tr>
     <tr>
-      <td>NULS/USDT</td>
+      <td>COTI / USDT</td>
       <td>Binance.com</td>
       <td>2%</td>
-      <td>USDC 667</td>
+      <td>USDC 250</td>
     </tr>
     <tr>
-      <td>NULS/ETH</td>
+      <td>COTI/BNB</td>
       <td>Binance.com</td>
       <td>2%</td>
-      <td>USDC 667</td>
+      <td>USDC 250</td>
     </tr>
   </tbody>
 </table>
 
-
 ## Token Issuers
 
+### Coti
+COTI is a fully encompassing “finance on the blockchain” ecosystem that is designed specifically to meet the challenges of traditional finance (fees, latency, global inclusion and risk) by introducing a new type of DAG based base protocol and infrastructure that is scalable, fast, private, inclusive, low cost and is optimized for real time payments. The ecosystem includes a [DAG based Blockchain](https://www.youtube.com/watch?v=kSdRxqHDKe8), a [Proof of Trust Consensus Algorithm](https://coti.io/files/COTI-technical-whitepaper.pdf), a [multiDAG](https://medium.com/cotinetwork%27/coti-is-launching-multidag-a-protocol-to-issue-tokens-on-a-dag-infrastructure-5c6282e5c3d1) a [Global Trust System](https://medium.com/cotinetwork/introducing-cotis-global-trust-system-gts-an-advanced-layer-of-trust-for-any-blockchain-7e44587b8bda), a [Universal Payment Solution](https://medium.com/cotinetwork/coti-universal-payment-system-ups-8614e149ee76), a [Payment Gateway](https://medium.com/cotinetwork/announcing-the-first-release-of-the-coti-payment-gateway-4a9f3e515b86), as well as consumer (COTI Pay) and merchant (COTI Pay Business) applications.
 
 ### iExec
 

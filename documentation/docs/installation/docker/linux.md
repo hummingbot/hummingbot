@@ -73,6 +73,7 @@ mkdir hummingbot_files
 mkdir hummingbot_files/hummingbot_conf
 mkdir hummingbot_files/hummingbot_logs
 mkdir hummingbot_files/hummingbot_data
+mkdir hummingbot_files/hummingbot_scripts
 
 # 3) Launch a new instance of hummingbot
 docker run -it \
@@ -81,6 +82,7 @@ docker run -it \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_data,destination=/data/" \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_scripts,destination=/scripts/" \
 coinalpha/hummingbot:latest
 ```
 
@@ -154,6 +156,7 @@ mkdir hummingbot_files
 mkdir hummingbot_files/hummingbot_conf
 mkdir hummingbot_files/hummingbot_logs
 mkdir hummingbot_files/hummingbot_data
+mkdir hummingbot_files/hummingbot_scripts
 
 # 3) Launch a new instance of hummingbot
 docker run -it \
@@ -162,6 +165,7 @@ docker run -it \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_data,destination=/data/" \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_scripts,destination=/scripts/" \
 coinalpha/hummingbot:latest
 ```
 
@@ -233,6 +237,7 @@ mkdir hummingbot_files
 mkdir hummingbot_files/hummingbot_conf
 mkdir hummingbot_files/hummingbot_logs
 mkdir hummingbot_files/hummingbot_data
+mkdir hummingbot_files/hummingbot_scripts
 
 # 3) Launch a new instance of hummingbot
 docker run -it \
@@ -241,9 +246,18 @@ docker run -it \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_data,destination=/data/" \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_scripts,destination=/scripts/" \
 coinalpha/hummingbot:latest
 ```
 
+## Running Hummingbot in the background
+
+Press keys `Ctrl+P` then `Ctrl+Q` in sequence to detach from Docker i.e. return to command line. This exits out of Hummingbot without shutting down the container instance.
+
+## Starting Hummingbot running in the background
+
+Use the start script by running the command `./start.sh` to attach to a Hummingbot instance running in the background.
+    
 ## Install a previous Hummingbot version
 
 A previous version can be installed when creating a Hummingbot instance.
