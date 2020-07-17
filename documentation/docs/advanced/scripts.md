@@ -1,5 +1,8 @@
 # Scripts
-Offers dynamic bot control by running a user defined script alongside a strategy. 
+Offers dynamic bot controls by running a user defined script alongside a strategy. 
+
+!!! warning
+    Currently, Scripts can only be used when running Hummingbot from source or with Docker. Using this feature in the Mac or Windows installers will crash the bot.
 
 ## Language
 As with Hummingbot source code, the script is fully compatible with Python 3.7.

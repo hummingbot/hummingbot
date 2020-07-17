@@ -21,6 +21,7 @@ Below, we list different ways that you can access an Ethereum node.
 3. Name your project and click **Create**.
 4. In **Keys** section and under **Endpoints** you'll find your Ethereum node as shown in the highlighted area.
 ![](/assets/img/infura3.png)
+5. The websocket address is below the Ethereum node that starts with `wss://`
 
 
 ## Option 2. Run your own local node
