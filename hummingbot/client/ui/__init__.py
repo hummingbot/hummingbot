@@ -102,8 +102,6 @@ def login_prompt():
             return False
         if password != re_password:
             err_msg = "Passwords entered do not match, please try again."
-        elif len(password) == 0:
-            err_msg = "Password not entered. Please enter password."
         else:
             Security.login(password)
             # encrypt current timestamp as a dummy to prevent promping for password if bot exits without connecting an exchange
