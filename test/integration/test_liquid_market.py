@@ -41,7 +41,6 @@ from hummingbot.core.utils.async_utils import (
 )
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.market.liquid.liquid_market import LiquidMarket
-from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.market.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
@@ -327,17 +326,6 @@ class LiquidMarketUnitTest(unittest.TestCase):
         self.assertGreater(order_completed_event.fee_amount, Decimal(0))
         self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
-
-    def test_deposit_info(self):
-        [deposit_info] = self.run_parallel(
-            self.market.get_deposit_info("ETH")
-        )
-        deposit_info: DepositInfo = deposit_info
-        self.assertIsInstance(deposit_info, DepositInfo)
-        self.assertGreater(len(deposit_info.address), 0)
-        self.assertGreater(len(deposit_info.extras), 0)
-        self.assertTrue("currency_type" in deposit_info.extras.get('extras'))
-        self.assertEqual("ETH", deposit_info.extras.get('extras').get('currency'))
 
     @unittest.skipUnless(any("test_withdraw" in arg for arg in sys.argv), "Withdraw test requires manual action.")
     def test_withdraw(self):
