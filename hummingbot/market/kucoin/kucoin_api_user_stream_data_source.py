@@ -11,7 +11,6 @@ from typing import (
 )
 import ujson
 import websockets
-from websockets.exceptions import ConnectionClosed
 
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.market.kucoin.kucoin_auth import KucoinAuth
@@ -77,14 +76,9 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         while True:
-            try:
-                msg: str = await ws.recv()
-                self._last_recv_time = time.time()
-                yield msg
-            except ConnectionClosed:
-                raise
-            except Exception:
-                raise
+            msg: str = await ws.recv()
+            self._last_recv_time = time.time()
+            yield msg
 
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
