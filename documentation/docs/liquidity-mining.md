@@ -1,7 +1,7 @@
 # Liquidity Mining
 
 !!! info "Important Disclaimer"
-    <small><ul><li>The content of this Site does not constitute investment, financial, legal, or tax advice, nor does any of the information contained on this Site constitute a recommendation, solicitation, or offer to buy or sell any digital assets, securities, options, or other financial instruments or other assets, or to provide any investment advice or service.<li>There is no guarantee of profit for participating in liquidity mining.<li>Participation is subject to eligiblity requirements.</ul></small>
+    <small><ul><li>The content of this Site does not constitute investment, financial, legal, or tax advice, nor does any of the information contained on this Site constitute a recommendation, solicitation, or offer to buy or sell any digital assets, securities, options, or other financial instruments or other assets, or to provide any investment advice or service.<li>There is no guarantee of profit for participating in liquidity mining.<li>Participation is subject to eligibility requirements.</ul></small>
     **Please review the [Liquidity Mining Policy](https://hummingbot.io/liquidity-mining-policy/) for the full disclaimer.**
 
 ## What is it?
@@ -22,11 +22,10 @@ Liquidity mining sets forth an analytical framework for determining market maker
 !!! warning "Terms subject to change"
     Please check this page or the [Miner's app](https://miners.hummingbot.io) for the most up-to-date terms.<br/>We will notify participants of changes, if any, on our [Discord](https://discord.hummingbot.io) and [reddit](https://www.reddit.com/r/Hummingbot/).
 
-!!! note "Campaign updates for the week starting June 30, 2020 12.00am UTC"
-    <li>**Zilliqa liquidity mining campaign has ended:** since the launch of the ZIL liquidity mining campaign, ZIL has now become one of the most actively traded tokens.  Read more about it in our [Zilliqa liquidity mining campaign case study](https://hummingbot.io/blog/2020-06-zilliqa-liquidity-mining-case-study/).
-    <li>**Solana reward pool reverted to 1x**: the rewards for Solana's campaign has returned to USDC 625/week.
+!!! note "Campaign updates for the week starting July 14, 2020 12.00am UTC"
+    <li>**New NULS campaign** is live!
 
-**Current reward period: June 30, 2020 12.00am UTC to July 7, 2020 12.00am UTC**
+**Current reward period: July 14, 2020 12.00am UTC to July 21, 2020 12.00am UTC**
 
 <table>
   <thead>
@@ -55,6 +54,25 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>Binance.com</td>
       <td>2%</td>
       <td>USDC 275</td>
+    </tr>
+    <tr>
+      <td rowspan="3"><a href="#nuls">NULS</a><br></td>
+      <td>NULS/BTC</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 666</td>
+    </tr>
+    <tr>
+      <td>NULS/USDT</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 667</td>
+    </tr>
+    <tr>
+      <td>NULS/ETH</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 667</td>
     </tr>
     <tr>
       <td rowspan="3"><a href="#iexec">iExec</a><br></td>
@@ -113,8 +131,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
 
 ## Upcoming changes to campaign terms
 
-No current changes.
-
+No upcoming changes.
 
 ## Token Issuers
 
@@ -129,7 +146,13 @@ No current changes.
 
 The [Mainframe (MFT)](https://mainframe.com/) Lending Protocol allows anyone to borrow against their crypto. Mainframe uses a bond-like instrument, representing an on-chain obligation that settles on a specific future date. Buying and selling the tokenized debt enables fixed-rate lending and borrowing — something much needed in decentralized finance today.
 
-[Blog](https://blog.mainframe.com) | [Twitter](https://twitter.com/Mainframe_HQ) | [Telegram](https://t.me/MainframeCommunity) | [Github](https://github.com/MainframeHQ) | [CoinMarketCap](https://coinmarketcap.com/currencies/mainframe/) | [CoinGecko](https://www.coingecko.com/en/coins/mainframe)
+[Blog](https://blog.mainframe.com) | [Twitter](https://twitter.com/Mainframe_HQ) | [Discord](https://discord.gg/mhtSRz6) | [Github](https://github.com/MainframeHQ) | [CoinMarketCap](https://coinmarketcap.com/currencies/mainframe/) | [CoinGecko](https://www.coingecko.com/en/coins/mainframe)
+
+### NULS
+
+[NULS](https://nuls.io) is a microservices-driven blockchain project that uses the Proof of Credit (PoC) consensus mechanism (dPoS plus credit rating) to mine via staking. The NULS modular design features NULSTAR, a microservices-based framework reportedly enabling enterprise-grade blockchain solutions for smart contracts, private chains, public chains, dApps and NRC-20 tokenization. NULS 1.0 mainnet launched in July, 2018. The main product of NULS is Chain Factory, a chain-building tool that allows businesses to utilize the plug-and-play selection of modules from the NULS Module Repository including cross-chain consensus for asset value circulation within the NULS ecosystem.
+
+[Blog](https://medium.com/@nuls) | [Twitter](https://twitter.com/Nuls) | [Github](https://github.com/nuls-io) | [CoinMarketCap](https://coinmarketcap.com/currencies/nuls/) | [CoinGecko](https://www.coingecko.com/en/coins/nuls)
 
 ### Solana
 

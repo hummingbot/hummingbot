@@ -93,8 +93,9 @@ def kraken_mid_price(trading_pair: str) -> Optional[Decimal]:
     resp = requests.get(url=KRAKEN_PRICE_URL + k_pair)
     resp_json = resp.json()
     if len(resp_json["error"]) == 0:
-        record = resp_json["result"][k_pair]
-        result = (Decimal(record["a"][0]) + Decimal(record["b"][0])) / Decimal("2")
+        for record in resp_json["result"]:  # assume only one pair is received
+            record = resp_json["result"][record]
+            result = (Decimal(record["a"][0]) + Decimal(record["b"][0])) / Decimal("2")
         return result
 
 

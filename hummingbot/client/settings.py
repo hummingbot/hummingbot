@@ -24,6 +24,7 @@ TEMPLATE_PATH = realpath(join(__file__, "../../templates/"))
 CONF_FILE_PATH = "conf/"
 CONF_PREFIX = "conf_"
 CONF_POSTFIX = "_strategy"
+SCRIPTS_PATH = "scripts/"
 
 EXCHANGES = {
     "bamboo_relay",
@@ -37,6 +38,7 @@ EXCHANGES = {
     "kucoin",
     "bitcoin_com",
     "bitfinex",
+    "eterbase",
     "kraken"
 }
 
@@ -60,6 +62,7 @@ EXAMPLE_PAIRS = {
     "liquid": "ETH-USD",
     "radar_relay": "ZRX-WETH",
     "bitfinex": "ETH-USD",
+    "eterbase": "ETH-EUR",
     "kraken": "ETH-USDC"
 }
 
@@ -75,6 +78,7 @@ EXAMPLE_ASSETS = {
     "liquid": "ETH",
     "radar_relay": "ZRX",
     "bitfinex": "ETH",
+    "eterbase": "ETH",
     "kraken": "XETH"
 }
 
