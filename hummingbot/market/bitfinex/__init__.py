@@ -9,13 +9,8 @@ BITFINEX_WS_AUTH_URI = "wss://api.bitfinex.com/ws/2"
 
 TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(USD|EUR|GBP|JPY|BTC|ETH|EOS|XLM|DAI|USDt|XCHF|CNHt)$")
 
-
-MIN_BASE_AMOUNT_INCREMENT = Decimal("0.01")
-
 # this values ​​set by empirically way, because the bitfinex-market does not have
 # these values. maybe later it will be in market-api.
-BITFINEX_QUOTE_INCREMENT = 0.01
-BITFINEX_BASE_INCREMENT = 1e-8
 TAKER_FEE = Decimal("0.002")
 MAKER_FEE = Decimal("0.001")
 AFF_CODE = "-dxCUrjvc"

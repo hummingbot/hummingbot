@@ -33,10 +33,12 @@ from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.bitfinex import (
     BITFINEX_REST_URL,
+    BITFINEX_REST_URL_V1,
     BITFINEX_WS_URI,
     ContentEventType,
-    BITFINEX_BASE_INCREMENT,
-    BITFINEX_QUOTE_INCREMENT,
+)
+from hummingbot.market.bitfinex.bitfinex_utils import (
+    get_precision
 )
 from hummingbot.market.bitfinex.bitfinex_active_order_tracker import BitfinexActiveOrderTracker
 from hummingbot.market.bitfinex.bitfinex_order_book import BitfinexOrderBook
@@ -87,7 +89,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._tracked_book_entries: Dict[int, OrderBookRow] = {}
 
     @staticmethod
-    def _get_prices(data, conf_data: Dict[str, ConfStructure]) -> Dict[str, Any]:
+    def _get_prices(data, conf_data: Dict[str, ConfStructure], symbol_details: Dict[str, Any]) -> Dict[str, Any]:
         pairs = [
             Ticker(*item)
             for item in data if item[0].startswith("t") and item[0].isalpha()
@@ -103,12 +105,12 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             symbol_dash_f(item): {
                 "symbol": symbol_dash_f(item),
                 "baseAsset": item.symbol[s_base],
-                "base_increment": BITFINEX_BASE_INCREMENT,
+                "base_increment": get_precision(symbol_details[symbol_f(item).lower()]["price_precision"]),
                 "base_max_size": conf_data[symbol_f(item)].max,
                 "base_min_size": conf_data[symbol_f(item)].min,
                 "display_name": symbol_f(item),
                 "quoteAsset": item.symbol[s_quote],
-                "quote_increment": BITFINEX_QUOTE_INCREMENT,
+                "quote_increment": get_precision(symbol_details[symbol_f(item).lower()]["price_precision"]),
                 "volume": item.volume,
                 "price": item.last_price,
             }
@@ -183,12 +185,14 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @async_ttl_cache(ttl=REQUEST_TTL, maxsize=CACHE_SIZE)
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
         async with aiohttp.ClientSession() as client:
-            tickers_response, exchange_conf_response = await safe_gather(
+            tickers_response, exchange_conf_response, symbol_details_response = await safe_gather(
                 client.get(f"{BITFINEX_REST_URL}/tickers?symbols=ALL"),
                 client.get(f"{BITFINEX_REST_URL}/conf/pub:info:pair"),
+                client.get(f"{BITFINEX_REST_URL_V1}/symbols_details"),
             )
             tickers_response: aiohttp.ClientResponse = tickers_response
             exchange_conf_response: aiohttp.ClientResponse = exchange_conf_response
+            symbol_details_response: aiohttp.ClientResponse = symbol_details_response
 
             if tickers_response.status != 200:
                 raise IOError(f"Error fetching Bitfinex markets information. "
@@ -196,12 +200,18 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             if exchange_conf_response.status != 200:
                 raise IOError(f"Error fetching Bitfinex exchange information. "
                               f"HTTP status is {exchange_conf_response.status}.")
+            if symbol_details_response.status != 200:
+                raise IOError(f"Error fetching Bitfinex symbol details. "
+                              f"HTTP status is {symbol_details_response.status}.")
 
             tickers_data = await tickers_response.json()
             exchange_conf_data = await exchange_conf_response.json()
+            symbol_details = await symbol_details_response.json()
 
-            conf_data = dict((e[0], ConfStructure._make(e[1])) for e in exchange_conf_data[0])
-            raw_prices = cls._get_prices(tickers_data, conf_data)
+            exchange_conf_data_dict = dict((e[0], ConfStructure._make(e[1])) for e in exchange_conf_data[0])
+            symbol_details_dict = dict((d["pair"], d) for d in symbol_details)
+
+            raw_prices = cls._get_prices(tickers_data, exchange_conf_data_dict, symbol_details_dict)
             prices = cls._convert_volume(raw_prices)
 
             all_markets: pd.DataFrame = pd.DataFrame.from_records(data=prices, index="symbol")
@@ -224,7 +234,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 msg = "Error getting active exchange information. Check network connection."
                 self._trading_pairs = []
                 self.logger().network(
-                    f"Error getting active exchange information.",
+                    "Error getting active exchange information.",
                     exc_info=True,
                     app_warning_msg=msg
                 )
@@ -366,7 +376,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception as err:
                 self.logger().error(err)
                 self.logger().network(
-                    f"Unexpected error with WebSocket connection.",
+                    "Unexpected error with WebSocket connection.",
                     exc_info=True,
                     app_warning_msg="Unexpected error with WebSocket connection. "
                                     f"Retrying in {int(self.MESSAGE_TIMEOUT)} seconds. "
@@ -473,7 +483,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception as err:
                 self.logger().error(err)
                 self.logger().network(
-                    f"Unexpected error with WebSocket connection.",
+                    "Unexpected error with WebSocket connection.",
                     exc_info=True,
                     app_warning_msg="Unexpected error with WebSocket connection. "
                                     f"Retrying in {int(self.MESSAGE_TIMEOUT)} seconds. "
@@ -507,7 +517,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         except Exception as err:
                             self.logger().error("Listening snapshots", err)
                             self.logger().network(
-                                f"Unexpected error with WebSocket connection.",
+                                "Unexpected error with WebSocket connection.",
                                 exc_info=True,
                                 app_warning_msg="Unexpected error with WebSocket connection. "
                                                 f"Retrying in {self.TIME_SLEEP_BETWEEN_REQUESTS} sec."
