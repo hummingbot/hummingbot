@@ -232,6 +232,24 @@ global_config_map = {
                   required_if=using_exchange("bitfinex"),
                   is_secure=True,
                   is_connect_key=True),
+    "eterbase_api_key":
+        ConfigVar(key="eterbase_api_key",
+                  prompt="Enter your Eterbase API key >>> ",
+                  required_if=using_exchange("eterbase"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "eterbase_secret_key":
+        ConfigVar(key="eterbase_secret_key",
+                  prompt="Enter your Eterbase secret key >>> ",
+                  required_if=using_exchange("eterbase"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "eterbase_account":
+        ConfigVar(key="eterbase_account",
+                  prompt="Enter your Eterbase account >>> ",
+                  required_if=using_exchange("eterbase"),
+                  is_secure=True,
+                  is_connect_key=True),
     "kraken_api_key":
         ConfigVar(key="kraken_api_key",
                   prompt="Enter your Kraken API key >>> ",
@@ -267,6 +285,11 @@ global_config_map = {
         ConfigVar(key="ethereum_rpc_url",
                   prompt="Which Ethereum node would you like your client to connect to? >>> ",
                   required_if=lambda: global_config_map["ethereum_wallet"].value is not None,
+                  is_connect_key=True),
+    "ethereum_rpc_ws_url":
+        ConfigVar(key="ethereum_rpc_ws_url",
+                  prompt="Enter the Websocket Address of your Ethereum Node >>> ",
+                  required_if=lambda: global_config_map["ethereum_rpc_url"].value is not None,
                   is_connect_key=True),
     "ethereum_chain_name":
         ConfigVar(key="ethereum_chain_name",
@@ -370,4 +393,15 @@ global_config_map = {
                   type_str="bool",
                   default=False,
                   validator=validate_bool),
+    "script_enabled":
+        ConfigVar(key="script_enabled",
+                  prompt="Would you like to enable script feature? (Yes/No) >>> ",
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool),
+    "script_file_path":
+        ConfigVar(key="script_file_path",
+                  prompt='Enter path to your script file >>> ',
+                  type_str="str",
+                  required_if=lambda: global_config_map["script_enabled"].value),
 }

@@ -23,7 +23,7 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from .base_watcher import BaseWatcher
-from .new_blocks_watcher import NewBlocksWatcher
+from .websocket_watcher import WSNewBlocksWatcher
 
 s_decimal_0 = Decimal(0)
 
@@ -39,12 +39,12 @@ class AccountBalanceWatcher(BaseWatcher):
 
     def __init__(self,
                  w3: Web3,
-                 blocks_watcher: NewBlocksWatcher,
+                 blocks_watcher: WSNewBlocksWatcher,
                  account_address: str,
                  erc20_addresses: List[str],
                  erc20_abis: List[any]):
         super().__init__(w3)
-        self._blocks_watcher: NewBlocksWatcher = blocks_watcher
+        self._blocks_watcher: WSNewBlocksWatcher = blocks_watcher
         self._account_address: str = account_address
         self._addresses_to_contracts: Dict[str, Contract] = {
             address: w3.eth.contract(address=address, abi=abi)
@@ -148,7 +148,7 @@ class AccountBalanceWatcher(BaseWatcher):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().network(f"Error fetching account balance updates.",
+            self.logger().network("Error fetching account balance updates.",
                                   exc_info=True,
-                                  app_warning_msg=f"Error account balance updates. "
-                                                  f"Check Ethereum node connection.")
+                                  app_warning_msg="Error account balance updates. "
+                                                  "Check Ethereum node connection.")
