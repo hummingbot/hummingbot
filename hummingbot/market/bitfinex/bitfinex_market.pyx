@@ -41,8 +41,6 @@ from hummingbot.market.bitfinex import (
     SubmitOrder,
     ContentEventType,
     TRADING_PAIR_SPLITTER,
-    MIN_BASE_AMOUNT_INCREMENT,
-    BITFINEX_QUOTE_INCREMENT,
     TAKER_FEE,
     MAKER_FEE,
     OrderStatus,
@@ -63,13 +61,12 @@ from hummingbot.market.bitfinex.bitfinex_user_stream_tracker import \
     BitfinexUserStreamTracker
 from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.core.utils.estimate_fee import estimate_fee
+from hummingbot.market.bitfinex.bitfinex_utils import (
+    get_precision,
+)
 
-# if  the bitfinex return error, for example, "nonce is small" we retry in this
-# time period until success result returned from the exchange, else through error
-TIMEOUT_RETRY_ATTEMPT = 60
 s_logger = None
 s_decimal_0 = Decimal(0)
-general_order_size_quantum = Decimal(BITFINEX_QUOTE_INCREMENT)
 
 Wallet = collections.namedtuple('Wallet',
                                 'wallet_type currency balance unsettled_interest balance_available')
@@ -564,7 +561,6 @@ cdef class BitfinexMarket(MarketBase):
         """
         cdef:
             TradingRule trading_rule = self._trading_rules[trading_pair]
-        # is set manually. For ETH is 0.04 increment-step 0.01
         return trading_rule.min_base_amount_increment
 
     cdef object c_quantize_order_amount(self, str trading_pair, object amount, object price=s_decimal_0):
@@ -638,14 +634,14 @@ cdef class BitfinexMarket(MarketBase):
         for rule in raw_trading_rules:
             try:
                 trading_pair = rule["pair"].upper()
-                amount_precision = Decimal(1) / Decimal(math.pow(10, rule["price_precision"]))
+                precision = get_precision(rule["price_precision"])
 
                 retval.append(
                     TradingRule(
                         trading_pair,
-                        min_price_increment=Decimal(0.01),
-                        min_base_amount_increment=amount_precision,
-                        min_quote_amount_increment=amount_precision,
+                        min_price_increment=precision,
+                        min_base_amount_increment=precision,
+                        min_quote_amount_increment=precision,
                         min_order_size=Decimal(str(rule["minimum_order_size"])),
                         max_order_size=Decimal(str(rule["maximum_order_size"])),
                     )
@@ -1074,7 +1070,7 @@ cdef class BitfinexMarket(MarketBase):
                         tracked_order.executed_amount_base += abs(amount_come)
                         tracked_order.executed_amount_quote += abs(amount_come) * execute_price
 
-                    if execute_amount_diff == s_decimal_0.quantize(Decimal('1e-8')) \
+                    if execute_amount_diff > s_decimal_0.quantize(Decimal('1e-8')) \
                             and event_type in [ContentEventType.TRADE_UPDATE]:
                         self.logger().info(
                             f"Order filled {execute_amount_diff} out of {tracked_order.amount} of the "

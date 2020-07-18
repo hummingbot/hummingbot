@@ -1,4 +1,7 @@
+import math
+
 from typing import Dict, List
+from decimal import Decimal
 
 
 # deeply merge two dictionaries
@@ -17,3 +20,8 @@ def merge_dicts(source: Dict, destination: Dict) -> Dict:
 # join paths
 def join_paths(*paths: List[str]) -> str:
     return "/".join(paths)
+
+
+# get precision decimal from a number
+def get_precision(precision: int) -> Decimal:
+    return Decimal(1) / Decimal(math.pow(10, precision))
