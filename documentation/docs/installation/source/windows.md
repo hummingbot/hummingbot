@@ -3,9 +3,7 @@
 !!! info "Recommended for Developers Only"
     The [downloadable installer](/installation/download/windows/) is the easiest way to run Hummingbot. Installing from source is only recommended for developers who want to access and modify the software code.
 
-Coming soon.
-
-<!-- The Hummingbot code base is designed and optimized for UNIX-based systems such as macOS and Linux. We recommend that Windows users either:
+The Hummingbot code base is designed and optimized for UNIX-based systems such as macOS and Linux. We recommend that Windows users either:
 
 * Install the [Docker version](/installation/docker/windows). Note that it is recommended to use the Docker Toolbox over native Docker in most cases.
 * Install in [the cloud](/installation/cloud) by using a native Linux virtual machine.
@@ -71,4 +69,4 @@ conda activate hummingbot && ./compile
 
 # 9) Start Hummingbot
 bin/hummingbot.py
-``` -->
+```
