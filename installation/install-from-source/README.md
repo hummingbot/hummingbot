@@ -48,7 +48,7 @@ chmod a+x install-source-macOS.sh
 
 ```
 cd ~
-curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/install-source-macOS.sh -o install-source-ubuntu.sh
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/install-source-ubuntu.sh -o install-source-ubuntu.sh
 chmod a+x install-source-ubuntu.sh
 ./install-source-ubuntu.sh
 ```
