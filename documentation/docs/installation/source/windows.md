@@ -85,7 +85,7 @@ You can install Hummingbot by selecting ***either*** of the following options fr
 1. **Easy Install**: download and use automated install scripts.
 2. **Manual Installation**: run install commands manually.
 
-Launch Git Bash App
+Launch Git Bash App<br />
 ![git-bash](/assets/img/git-bash.png)
 
 ```bash tab="Option 1: Easy Install"
@@ -115,7 +115,7 @@ conda activate hummingbot && ./compile
 # Start Hummingbot switching to git-cmd
 ```
 
-Launch Git Cmd App
+Launch Git Cmd App<br />
 ![git-cmd](/assets/img/git-cmd.png)
 
 ```
