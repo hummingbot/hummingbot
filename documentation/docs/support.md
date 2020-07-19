@@ -12,6 +12,23 @@ Before reporting bugs or issues, please collect these three items which helps ou
 
 3. **Log file**: This is the file that contains a detailed log output and error stack trace. It is located in the `logs/` (Windows and macOS) or `hummingbot_logs/` (Docker) folder. If you are sending logs related to your most recent Hummingbot session, sort the folder for the most recently updated file. It should have a name similar to `logs_conf_pure_mm_1.log`.
 
+## Locating your configs
+- Installed from source: `hummingbot/conf`
+- Installed via Docker: `hummingbot_files/hummingbot_conf`
+    - `hummingbot_files` is the default name of the parent directory. This can be different depending on the setup 
+    when the instance was created.
+- Installed via Binary (Windows): `%localappdata%\hummingbot.io\Hummingbot\conf`
+- Installed via Binary (MacOS): `~/Library/Application\ Support/Hummingbot/Conf`
+
+## Locating your logs
+- Installed from source: `hummingbot/logs`
+- Installed via Docker: `hummingbot_files/hummingbot_logs`
+    - `hummingbot_files` is the default name of the parent directory. This can be different depending on the setup 
+    when the instance was created.
+- Installed via Binary (Windows): `%localappdata%\hummingbot.io\Hummingbot\logs`
+- Installed via Binary (MacOS): `~/Library/Application\ Support/Hummingbot/Logs`
+
+
 ## Ways to get support
 
 ### Discord
