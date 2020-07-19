@@ -73,9 +73,51 @@ bin/hummingbot.py
 
 ## Installing Hummingbot on Windows System
 
-###Install required Applications
+#### Step 1. Install required Applications
 1. Install [Git for Windows](https://git-scm.com/download/win).
 2. Install [Python for Windows](https://www.python.org/downloads/windows/).
 3. Install [Anaconda or miniconda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/windows.html).
 4. Install [Visual Studio Code](https://code.visualstudio.com/download).
 
+#### Step 2. Install Hummingbot on Windows System
+You can install Hummingbot by selecting ***either*** of the following options from the tabs below:
+
+1. **Easy Install**: download and use automated install scripts.
+2. **Manual Installation**: run install commands manually.
+
+Launch Git Bash App
+
+```bash tab="Option 1: Easy Install"
+# 1) Navigate to root folder
+cd ~
+
+# 2) Download install script
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/install-source-windows.sh -o install-source-windows.sh
+
+# 3) Enable script permissions
+chmod a+x install-source-windows.sh
+
+# 4) Run installation
+./install-source-windows.sh
+```
+
+```bash tab="Option 2: Manual Installation"
+cd ~
+export CONDAPATH="$(pwd)/miniconda3"
+export PYTHON="$(pwd)/miniconda3/envs/hummingbot/python3"
+# Clone Hummingbot
+git clone https://github.com/CoinAlpha/hummingbot.git
+# Install Hummingbot
+export hummingbotPath="$(pwd)/hummingbot" && cd $hummingbotPath && ./install
+# Activate environment and compile code
+conda activate hummingbot && ./compile
+# Start Hummingbot switching to git-cmd
+```
+
+Launch Git Cmd App
+```
+cd ~
+conda activate hummingbot
+cd hummingbot
+python bin/hummingbot.py
+```
