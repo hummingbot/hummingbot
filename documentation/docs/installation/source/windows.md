@@ -86,6 +86,7 @@ You can install Hummingbot by selecting ***either*** of the following options fr
 2. **Manual Installation**: run install commands manually.
 
 Launch Git Bash App
+![git-bash](/assets/img/git-bash.png)
 
 ```bash tab="Option 1: Easy Install"
 # 1) Navigate to root folder
@@ -115,6 +116,8 @@ conda activate hummingbot && ./compile
 ```
 
 Launch Git Cmd App
+![git-cmd](/assets/img/git-cmd.png)
+
 ```
 cd ~
 conda activate hummingbot
