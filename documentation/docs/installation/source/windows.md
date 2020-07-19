@@ -70,3 +70,12 @@ conda activate hummingbot && ./compile
 # 9) Start Hummingbot
 bin/hummingbot.py
 ```
+
+## Installing Hummingbot on Windows System
+
+###Install required Applications
+1. Install [Git for Windows](https://git-scm.com/download/win).
+2. Install [Python for Windows](https://www.python.org/downloads/windows/).
+3. Install [Anaconda or miniconda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/windows.html).
+4. Install [Visual Studio Code](https://code.visualstudio.com/download).
+
