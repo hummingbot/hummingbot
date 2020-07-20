@@ -682,6 +682,9 @@ cdef class BittrexMarket(MarketBase):
 
         return quantized_amount
 
+    def c_supported_order_types(self):
+        return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
+
     async def place_order(self,
                           order_id: str,
                           trading_pair: str,
@@ -713,6 +716,15 @@ cdef class BittrexMarket(MarketBase):
                 "timeInForce": "IMMEDIATE_OR_CANCEL"
                 # Available options [IMMEDIATE_OR_CANCEL, FILL_OR_KILL]
             }
+        elif order_type is OrderType.LIMIT_MAKER:
+            body = {
+                    "marketSymbol": str(trading_pair),
+                    "direction": "BUY" if is_buy else "SELL",
+                    "type": "LIMIT",
+                    "quantity": f"{amount:f}",
+                    "limit": f"{price:f}",
+                    "timeInForce": "POST_ONLY_GOOD_TIL_CANCELLED"
+                    }
 
         api_response = await self._api_request("POST", path_url=path_url, body=body)
 

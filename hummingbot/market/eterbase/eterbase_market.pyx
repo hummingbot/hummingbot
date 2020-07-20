@@ -759,6 +759,9 @@ cdef class EterbaseMarket(MarketBase):
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(5.0)
 
+    def c_supported_order_types(self):
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
+
     async def place_order(self, order_id: str, trading_pair: str, amount: Decimal, is_buy: bool, order_type: OrderType,
                           price: Decimal, cost: Optional[Decimal]):
         """
@@ -768,7 +771,7 @@ cdef class EterbaseMarket(MarketBase):
         tp_map_mkrtid: Dict[str, str] = await EterbaseAPIOrderBookDataSource.get_map_market_id()
         path_url = "/orders"
 
-        if order_type is OrderType.LIMIT:
+        if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
             type_order = 2
         elif order_type is OrderType.MARKET:
             type_order = 1
@@ -790,9 +793,11 @@ cdef class EterbaseMarket(MarketBase):
             "refId": order_id
         }
 
-        if order_type is OrderType.LIMIT:
+        if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
             data["limitPrice"] = str(price)
             data["qty"] = str(amount)
+            if order_type is OrderType.LIMIT_MAKER:
+                data["postOnly"] = True
         elif order_type is OrderType.MARKET:
             if is_buy:
                 data["cost"] = str(cost)
