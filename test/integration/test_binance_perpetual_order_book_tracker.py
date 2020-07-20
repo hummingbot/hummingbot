@@ -80,8 +80,8 @@ class BinancePerpetualOrderBookTrackerUnitTest(unittest.TestCase):
 
         self.assertGreaterEqual(btcusdt_book.get_price_for_volume(True, 10).result_price,
                                 btcusdt_book.get_price(True))
-        self.assertLess(btcusdt_book.get_price_for_volume(False, 10).result_price,
-                        btcusdt_book.get_price(False))
+        self.assertLessEqual(btcusdt_book.get_price_for_volume(False, 10).result_price,
+                             btcusdt_book.get_price(False))
         self.assertGreaterEqual(ethusdt_book.get_price_for_volume(True, 10).result_price,
                                 ethusdt_book.get_price(True))
         self.assertLessEqual(ethusdt_book.get_price_for_volume(False, 10).result_price,
