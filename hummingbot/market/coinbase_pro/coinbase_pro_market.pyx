@@ -712,7 +712,7 @@ cdef class CoinbaseProMarket(MarketBase):
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(5.0)
 
-    def c_supported_order_types(self):
+    def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
 
     async def place_order(self, order_id: str, trading_pair: str, amount: Decimal, is_buy: bool, order_type: OrderType,

@@ -594,7 +594,7 @@ cdef class HuobiMarket(MarketBase):
     def ready(self) -> bool:
         return all(self.status_dict.values())
 
-    def c_supported_order_types(self):
+    def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
     async def place_order(self,
