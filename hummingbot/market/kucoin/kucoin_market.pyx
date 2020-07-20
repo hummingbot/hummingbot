@@ -525,6 +525,9 @@ cdef class KucoinMarket(MarketBase):
     def get_all_balances(self) -> Dict[str, Decimal]:
         return self._account_balances.copy()
 
+    def c_supported_order_types(self):
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
+
     async def place_order(self,
                           order_id: str,
                           trading_pair: str,
@@ -534,7 +537,7 @@ cdef class KucoinMarket(MarketBase):
                           price: Decimal) -> str:
         path_url = "/api/v1/orders"
         side = "buy" if is_buy else "sell"
-        order_type_str = "limit" if order_type is OrderType.LIMIT else "market"
+        order_type_str = "market" if order_type is OrderType.MARKET else "limit"
         params = {
             "size": str(amount),
             "clientOid": order_id,
@@ -544,6 +547,9 @@ cdef class KucoinMarket(MarketBase):
         }
         if order_type is OrderType.LIMIT:
             params["price"] = str(price)
+        elif order_type is OrderType.LIMIT_MAKER:
+            params["price"] = str(price)
+            params["postOnly"] = True
         exchange_order_id = await self._api_request(
             "post",
             path_url=path_url,

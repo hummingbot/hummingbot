@@ -712,6 +712,9 @@ cdef class CoinbaseProMarket(MarketBase):
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(5.0)
 
+    def c_supported_order_types(self):
+        return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
+
     async def place_order(self, order_id: str, trading_pair: str, amount: Decimal, is_buy: bool, order_type: OrderType,
                           price: Decimal):
         """
@@ -723,10 +726,13 @@ cdef class CoinbaseProMarket(MarketBase):
             "size": f"{amount:f}",
             "product_id": trading_pair,
             "side": "buy" if is_buy else "sell",
-            "type": "limit" if order_type is OrderType.LIMIT else "market",
+            "type": "market" if order_type is OrderType.MARKET else "limit",
         }
         if order_type is OrderType.LIMIT:
             data["price"] = f"{price:f}"
+        elif order_type is OrderType.LIMIT_MAKER:
+            data["price"] = f"{price:f}"
+            data["post_only"] = True
         order_result = await self._api_request("post", path_url=path_url, data=data)
         return order_result
 

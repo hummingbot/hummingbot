@@ -594,6 +594,9 @@ cdef class HuobiMarket(MarketBase):
     def ready(self) -> bool:
         return all(self.status_dict.values())
 
+    def c_supported_order_types(self):
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
+
     async def place_order(self,
                           order_id: str,
                           trading_pair: str,
@@ -603,7 +606,13 @@ cdef class HuobiMarket(MarketBase):
                           price: Decimal) -> str:
         path_url = "order/orders/place"
         side = "buy" if is_buy else "sell"
-        order_type_str = "limit" if order_type is OrderType.LIMIT else "market"
+        if order_type is OrderType.LIMIT:
+            order_type_str = "limit"
+        elif order_type is OrderType.LIMIT_MAKER:
+            order_type_str = "limit-maker"
+        elif order_type is OrderType.MARKET:
+            order_type_str = "market"
+
         params = {
             "account-id": self._account_id,
             "amount": f"{amount:f}",
@@ -611,7 +620,7 @@ cdef class HuobiMarket(MarketBase):
             "symbol": trading_pair,
             "type": f"{side}-{order_type_str}",
         }
-        if order_type is OrderType.LIMIT:
+        if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
             params["price"] = f"{price:f}"
         exchange_order_id = await self._api_request(
             "post",
