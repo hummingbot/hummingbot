@@ -201,8 +201,7 @@ ValueError: MAC mismatch
 
 ```
 
-The error is caused by a previous `json` file that saves your hummingbot authentication. This file was not removed completely or was imported back to the humingbot config folder. To prevent this error,
-you will have to reset the hummingbot password using the instructions below.
+The error is caused by a previous `json` file that saves your hummingbot authentication. This file was not removed completely or was imported back to the humingbot config folder. To prevent this error, you will have to reset the hummingbot password using the instructions below.
 
 ### I forgot my password. How do I reset it?
 
