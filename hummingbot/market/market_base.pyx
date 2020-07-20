@@ -194,7 +194,7 @@ cdef class MarketBase(NetworkIterator):
         order_size_quantum = self.c_get_order_size_quantum(trading_pair, amount)
         return (amount // order_size_quantum) * order_size_quantum
 
-    def c_supported_order_types(self):
+    def supported_order_types(self):
         pass
 
     # ----------------------------------------------------------------------------------------------------------

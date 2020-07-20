@@ -525,7 +525,7 @@ cdef class KucoinMarket(MarketBase):
     def get_all_balances(self) -> Dict[str, Decimal]:
         return self._account_balances.copy()
 
-    def c_supported_order_types(self):
+    def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
     async def place_order(self,

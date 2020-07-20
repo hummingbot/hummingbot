@@ -129,7 +129,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         self._cancel_timestamp = 0
         self._create_timestamp = 0
-        if paper_trade_disabled() and not take_if_crossed and OrderType.LIMIT_MAKER in self._market_info.market.c_supported_order_types():
+        if paper_trade_disabled() and not take_if_crossed and OrderType.LIMIT_MAKER in self._market_info.market.supported_order_types():
             self._limit_order_type = OrderType.LIMIT_MAKER
         else:
             self._limit_order_type = OrderType.LIMIT

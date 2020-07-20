@@ -805,7 +805,7 @@ cdef class KrakenMarket(MarketBase):
                                          is_auth_required=True)
         return result
 
-    def c_supported_order_types(self):
+    def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.MARKET]
 
     async def place_order(self,
