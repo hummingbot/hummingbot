@@ -46,7 +46,7 @@ chmod a+x install-source-macOS.sh
 
 ## Windows Installation
 
-Install required applications before using the script the first time.
+Install [required applications](https://github.com/CoinAlpha/hummingbot/blob/development/documentation/docs/installation/source/windows.md) before using the script the first time.
 
 ```
 cd ~
