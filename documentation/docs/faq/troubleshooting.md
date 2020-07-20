@@ -180,6 +180,30 @@ If Hummingbot is installed on a virtual machine or a Linux cloud server, you can
 
 You can also use an FTP client software (e.g. WinSCP, FileZila) to copy, move, files and folders from your virtual machine to your local machine and vice versa.
 
+### MAC mismatch error
+
+Running the Hummingbot will give the following error
+```
+hummingbot.core.utils.async_utils - ERROR - Unhandled error in background task: MAC mismatch
+Traceback (most recent call last):
+  File "hummingbot\core\utils\async_utils.py", line 9, in safe_wrapper
+  File "hummingbot\core\utils\async_call_scheduler.py", line 128, in call_async
+  File "hummingbot\core\utils\async_call_scheduler.py", line 117, in schedule_async_call
+  File "hummingbot\core\utils\async_call_scheduler.py", line 80, in _coro_scheduler
+  File "concurrent\futures\thread.py", line 57, in run
+  File "hummingbot\client\config\security.py", line 88, in decrypt_all
+  File "hummingbot\client\config\security.py", line 73, in decrypt_file
+  File "hummingbot\client\config\config_crypt.py", line 67, in decrypt_file
+  File "site-packages\eth_account\account.py", line 134, in decrypt
+  File "site-packages\eth_keyfile\keyfile.py", line 49, in decode_keyfile_json
+  File "site-packages\eth_keyfile\keyfile.py", line 170, in _decode_keyfile_json_v3
+ValueError: MAC mismatch
+
+```
+
+The error is caused by a previous `json` file that saves your hummingbot authentication. This file was not removed completely or was imported back to the humingbot config folder. To prevent this error,
+you will have to reset the hummingbot password using the instructions below.
+
 ### I forgot my password. How do I reset it?
 
 For security reasons, Hummingbot does not store your password anywhere so there's no way to recover it. The only solution is to create a new password and re-enter your API keys upon restarting Hummingbot after deleting or moving the encrypted files.
