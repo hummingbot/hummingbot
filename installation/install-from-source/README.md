@@ -44,7 +44,18 @@ chmod a+x install-source-macOS.sh
 ./install-source-macOS.sh
 ```
 
-## Windows (Docker Toolbox: Ubuntu) Installation
+## Windows Installation
+
+Install required applications before using the script the first time.
+
+```
+cd ~
+curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/install-source-windows.sh -o install-source-windows.sh
+chmod a+x install-source-windows.sh
+./install-source-windows.sh
+```
+
+## Windows Installation using WSL
 
 ```
 cd ~
