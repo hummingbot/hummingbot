@@ -75,10 +75,14 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
         return websockets.connect(stream_url, ping_interval=40, ping_timeout=self.PING_TIMEOUT)
 
     async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
-        while True:
-            msg: str = await ws.recv()
-            self._last_recv_time = time.time()
-            yield msg
+        try:
+            while True:
+                msg: str = await ws.recv()
+                self._last_recv_time = time.time()
+                yield msg
+        finally:
+            await ws.close()
+            self._current_listen_key = None
 
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
