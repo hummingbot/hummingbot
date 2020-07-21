@@ -79,6 +79,7 @@ def show_welcome():
 
 def login_prompt():
     from hummingbot.client.config.security import Security
+    import time
 
     err_msg = None
     if Security.new_password_required():
@@ -103,6 +104,9 @@ def login_prompt():
             err_msg = "Passwords entered do not match, please try again."
         else:
             Security.login(password)
+            # encrypt current timestamp as a dummy to prevent promping for password if bot exits without connecting an exchange
+            dummy = f"{time.time()}"
+            Security.update_secure_config("default", dummy)
     else:
         password = input_dialog(
             title="Welcome back to Hummingbot",
