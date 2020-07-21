@@ -31,7 +31,6 @@ from hummingbot.core.event.events import (
     OrderCancelledEvent,
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
-    MarketWithdrawAssetEvent,
     MarketTransactionFailureEvent,
     MarketOrderFailureEvent
 )
@@ -45,7 +44,6 @@ from hummingbot.market.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
 from hummingbot.market.coinbase_pro.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
 from hummingbot.market.coinbase_pro.coinbase_pro_api_order_book_data_source import CoinbaseProAPIOrderBookDataSource
-from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.market.market_base import (
     MarketBase,
     OrderType,
@@ -74,37 +72,10 @@ cdef class CoinbaseProMarketTransactionTracker(TransactionTracker):
         self._owner.c_did_timeout_tx(tx_id)
 
 
-cdef class InFlightDeposit:
-    cdef:
-        public str tracking_id
-        public int64_t timestamp_ms
-        public str tx_hash
-        public str from_address
-        public str to_address
-        public object amount
-        public str currency
-        public bint has_tx_receipt
-
-    def __init__(self, tracking_id: str, tx_hash: str, from_address: str, to_address: str, amount: Decimal, currency: str):
-        self.tracking_id = tracking_id
-        self.timestamp_ms = int(time.time() * 1000)
-        self.tx_hash = tx_hash
-        self.from_address = from_address
-        self.to_address = to_address
-        self.amount = amount
-        self.currency = currency
-        self.has_tx_receipt = False
-
-    def __repr__(self) -> str:
-        return f"InFlightDeposit(tracking_id='{self.tracking_id}', timestamp_ms={self.timestamp_ms}, " \
-               f"tx_hash='{self.tx_hash}', has_tx_receipt={self.has_tx_receipt})"
-
-
 cdef class CoinbaseProMarket(MarketBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset.value
     MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
@@ -1033,58 +1004,6 @@ cdef class CoinbaseProMarket(MarketBase):
         path_url = f"/coinbase-accounts/{account_id}/addresses"
         deposit_result = await self._api_request("post", path_url=path_url)
         return deposit_result.get("address")
-
-    async def get_deposit_info(self, asset: str) -> DepositInfo:
-        """
-        Calls `self.get_deposit_address` and format the response into a DepositInfo instance
-        :returns: a DepositInfo instance
-        """
-        return DepositInfo(await self.get_deposit_address(asset))
-
-    async def execute_withdraw(self, str tracking_id, str to_address, str currency, object amount):
-        """
-        Function that makes API request to withdraw funds
-        """
-        path_url = "/withdrawals/crypto"
-        data = {
-            "amount": float(amount),
-            "currency": currency,
-            "crypto_address": to_address,
-            "no_destination_tag": True,
-        }
-        try:
-            withdraw_result = await self._api_request("post", path_url=path_url, data=data)
-            self.logger().info(f"Successfully withdrew {amount} of {currency}. {withdraw_result}")
-            # Withdrawing of digital assets from Coinbase Pro is currently free
-            withdraw_fee = s_decimal_0
-            # Currently, we assume when coinbase accepts the API request, the withdraw is valid
-            # In the future, if the confirmation of the withdrawal becomes more essential,
-            # we can perform status check by using self.get_transfers()
-            self.c_trigger_event(self.MARKET_WITHDRAW_ASSET_EVENT_TAG,
-                                 MarketWithdrawAssetEvent(self._current_timestamp, tracking_id, to_address, currency,
-                                                          amount, withdraw_fee))
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            self.logger().network(
-                f"Error sending withdraw request to Coinbase Pro for {currency}.",
-                exc_info=True,
-                app_warning_msg=f"Failed to issue withdrawal request for {currency} from Coinbase Pro. "
-                                f"Check API key and network connection."
-            )
-            self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                                 MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
-
-    cdef str c_withdraw(self, str to_address, str currency, object amount):
-        """
-        *required
-        Synchronous wrapper that schedules a withdrawal.
-        """
-        cdef:
-            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
-            str tracking_id = str(f"withdraw://{currency}/{tracking_nonce}")
-        safe_ensure_future(self.execute_withdraw(tracking_id, to_address, currency, amount))
-        return tracking_id
 
     cdef OrderBook c_get_order_book(self, str trading_pair):
         """
