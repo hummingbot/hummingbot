@@ -26,7 +26,6 @@ class MarketEvent(Enum):
     BuyOrderCompleted = 102
     SellOrderCompleted = 103
     # Trade = 104  Deprecated
-    WithdrawAsset = 105
     OrderCancelled = 106
     OrderFilled = 107
     OrderExpired = 108
