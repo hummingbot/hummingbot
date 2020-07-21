@@ -170,15 +170,6 @@ class OrderExpiredEvent(NamedTuple):
     order_id: str
 
 
-class MarketWithdrawAssetEvent(NamedTuple):
-    timestamp: float
-    tracking_id: str
-    to_address: str
-    asset_name: str
-    amount: Decimal
-    fee_amount: Decimal
-
-
 class EthereumGasUsedEvent(NamedTuple):
     timestamp: float
     tx_hash: str
