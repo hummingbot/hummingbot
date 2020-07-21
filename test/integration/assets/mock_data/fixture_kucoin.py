@@ -1,4 +1,8 @@
 class FixtureKucoin:
+    EMPTY = {}
+
+    LIMIT_MAKER_ERROR = {}
+
     GET_ACCOUNT = {"code": "200000", "data": [
         {"balance": "0.1910973", "available": "0.1910973", "holds": "0", "currency": "ETH",
          "id": "5e3291017e612d0009cb8fa6", "type": "trade"},

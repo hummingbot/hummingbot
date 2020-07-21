@@ -1,4 +1,8 @@
 class FixtureBittrex:
+    EMPTY = {}
+
+    LIMIT_MAKER_ERROR = {}
+
     PING = {"serverTime": 1582535502000}
 
     BALANCES = [{"currencySymbol": "BTC", "total": "0.00279886", "available": "0.00279886"},
