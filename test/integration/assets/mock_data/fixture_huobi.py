@@ -1,4 +1,6 @@
 class FixtureHuobi:
+    LIMIT_MAKER_ERROR = {}
+
     GET_ACCOUNTS = {"status": "ok", "data": [{"id": 11899168, "type": "spot", "subtype": "", "state": "working"}]}
 
     GET_BALANCES = {"status": "ok", "data": {"id": 11899168, "type": "spot", "state": "working",

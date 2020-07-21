@@ -24,6 +24,7 @@ from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataS
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
+    MarketOrderFailureEvent,
     MarketEvent,
     MarketWithdrawAssetEvent,
     OrderCancelledEvent,
@@ -73,7 +74,8 @@ class LiquidMarketUnitTest(unittest.TestCase):
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
-        MarketEvent.OrderCancelled
+        MarketEvent.OrderCancelled,
+        MarketEvent.OrderFailure
     ]
 
     market: LiquidMarket
@@ -326,6 +328,61 @@ class LiquidMarketUnitTest(unittest.TestCase):
         self.assertGreater(order_completed_event.fee_amount, Decimal(0))
         self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
+
+    def test_limit_maker_rejections(self):
+        trading_pair = "CEL-ETH"
+
+        # Try to put a buy limit maker order that is going to match, this should triggers order failure event.
+        price: Decimal = self.market.get_price(trading_pair, True) * Decimal('1.02')
+        price: Decimal = self.market.quantize_order_price(trading_pair, price)
+        amount = self.market.quantize_order_amount(trading_pair, 1)
+
+        order_id = self.place_order(True, trading_pair, amount, OrderType.LIMIT_MAKER,
+                                    price, 10001,
+                                    FixtureLiquid.LIMIT_MAKER_ERROR, FixtureLiquid.EMPTY)
+        [order_failure_event] = self.run_parallel(self.market_logger.wait_for(MarketOrderFailureEvent))
+        self.assertEqual(order_id, order_failure_event.order_id)
+
+        self.market_logger.clear()
+
+        # Try to put a sell limit maker order that is going to match, this should triggers order failure event.
+        price: Decimal = self.market.get_price(trading_pair, True) * Decimal('0.98')
+        price: Decimal = self.market.quantize_order_price(trading_pair, price)
+        amount = self.market.quantize_order_amount(trading_pair, 1)
+
+        order_id = self.place_order(False, trading_pair, amount, OrderType.LIMIT_MAKER,
+                                    price, 10002,
+                                    FixtureLiquid.LIMIT_MAKER_ERROR, FixtureLiquid.EMPTY)
+        [order_failure_event] = self.run_parallel(self.market_logger.wait_for(MarketOrderFailureEvent))
+        self.assertEqual(order_id, order_failure_event.order_id)
+
+    def test_limit_makers_unfilled(self):
+        trading_pair = "CEL-USDT"
+        price = self.market.get_price(trading_pair, True) * Decimal("0.8")
+        price = self.market.quantize_order_price(trading_pair, price)
+        amount = self.market.quantize_order_amount(trading_pair, 1)
+
+        order_id = self.place_order(True, trading_pair, amount, OrderType.LIMIT_MAKER,
+                                    price, 10001,
+                                    FixtureLiquid.ORDER_BUY_LIMIT, FixtureLiquid.ORDERS_GET_AFTER_SELL_LIMIT)
+        [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
+        order_created_event: BuyOrderCreatedEvent = order_created_event
+        self.assertEqual(order_id, order_created_event.order_id)
+
+        price = self.market.get_price(trading_pair, True) * Decimal("1.2")
+        price = self.market.quantize_order_price(trading_pair, price)
+        amount = self.market.quantize_order_amount(trading_pair, 1)
+
+        order_id = self.place_order(False, trading_pair, amount, OrderType.LIMIT_MAKER,
+                                    price, 10002,
+                                    FixtureLiquid.ORDER_SELL_LIMIT, FixtureLiquid.ORDERS_GET_AFTER_SELL_LIMIT)
+        [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
+        order_created_event: BuyOrderCreatedEvent = order_created_event
+        self.assertEqual(order_id, order_created_event.order_id)
+
+        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
+        for cr in cancellation_results:
+            self.assertEqual(cr.success, True)
 
     @unittest.skipUnless(any("test_withdraw" in arg for arg in sys.argv), "Withdraw test requires manual action.")
     def test_withdraw(self):

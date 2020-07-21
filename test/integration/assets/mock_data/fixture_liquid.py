@@ -10,6 +10,10 @@ class FixtureLiquid:
     2. Serve as a reference for future lookup the data structure passing among stages.
     """
 
+    EMPTY = {}
+
+    LIMIT_MAKER_ERROR = {}
+
     EXCHANGE_MARKETS_DATA = [
         {
             'id': '418',
@@ -561,18 +565,17 @@ class FixtureLiquid:
     ]
     ORDERS_GET = {
         "models": [
-                {"id": 2017991459, "order_type": "market", "quantity": "1.0", "disc_quantity": "0.0",
-                 "iceberg_total_quantity": "0.0", "side": "buy", "filled_quantity": "1.0", "price": "0.00079",
-                 "created_at": 1579499313, "updated_at": 1579499313, "status": "filled", "leverage_level": 1,
-                 "source_exchange": None, "product_id": 500, "margin_type": None, "take_profit": None,
-                 "stop_loss": None, "trading_type": "spot", "product_code": "CASH", "funding_currency": "ETH",
-                 "crypto_account_id": None, "currency_pair_code": "CELETH", "average_price": "0.00079",
-                 "target": "spot", "order_fee": "0.00000079", "source_action": "manual", "unwound_trade_id": None,
-                 "trade_id": None, "client_order_id": "buy-CEL-ETH-1579499312988332", "settings": None,
-                 "trailing_stop_type": None, "trailing_stop_value": None, "executions": [
-                    {"id": 253095921, "quantity": "1.0", "price": "0.00079", "taker_side": "buy",
-                     "created_at": 1579499313, "my_side": "buy"}], "stop_triggered_time": None}
-        ],
+            {"id": 2017991459, "order_type": "market", "quantity": "1.0", "disc_quantity": "0.0",
+             "iceberg_total_quantity": "0.0", "side": "buy", "filled_quantity": "1.0", "price": "0.00079",
+             "created_at": 1579499313, "updated_at": 1579499313, "status": "filled", "leverage_level": 1,
+             "source_exchange": None, "product_id": 500, "margin_type": None, "take_profit": None,
+             "stop_loss": None, "trading_type": "spot", "product_code": "CASH", "funding_currency": "ETH",
+             "crypto_account_id": None, "currency_pair_code": "CELETH", "average_price": "0.00079",
+             "target": "spot", "order_fee": "0.00000079", "source_action": "manual", "unwound_trade_id": None,
+             "trade_id": None, "client_order_id": "buy-CEL-ETH-1579499312988332", "settings": None,
+             "trailing_stop_type": None, "trailing_stop_value": None, "executions": [
+                 {"id": 253095921, "quantity": "1.0", "price": "0.00079", "taker_side": "buy",
+                  "created_at": 1579499313, "my_side": "buy"}], "stop_triggered_time": None}],
         "current_page": 1,
         "total_pages": 1
     }
@@ -607,8 +610,8 @@ class FixtureLiquid:
          "source_action": "manual", "unwound_trade_id": None, "trade_id": None,
          "client_order_id": "sell-CEL-ETH-1579499322010384", "settings": None, "trailing_stop_type": None,
          "trailing_stop_value": None, "executions": [
-            {"id": 253095951, "quantity": "1.0", "price": "0.00078", "taker_side": "sell", "created_at": 1579499322,
-             "my_side": "sell"}], "stop_triggered_time": None}], "total_pages": 10000,
+             {"id": 253095951, "quantity": "1.0", "price": "0.00078", "taker_side": "sell", "created_at": 1579499322,
+              "my_side": "sell"}], "stop_triggered_time": None}], "total_pages": 10000,
         "current_page": 1}
 
     ORDER_BUY_LIMIT = {"id": 2021509801, "order_type": "limit", "quantity": "1.0", "disc_quantity": "0.0",
@@ -631,8 +634,8 @@ class FixtureLiquid:
              "target": "spot", "order_fee": "0.00000078", "source_action": "manual", "unwound_trade_id": None,
              "trade_id": None, "client_order_id": "buy-CEL-ETH-1579575660659385", "settings": None,
              "trailing_stop_type": None, "trailing_stop_value": None, "executions": [
-                {"id": 253491440, "quantity": "1.0", "price": "0.00078", "taker_side": "buy", "created_at": 1579575661,
-                 "my_side": "buy"}], "stop_triggered_time": None}
+                 {"id": 253491440, "quantity": "1.0", "price": "0.00078", "taker_side": "buy", "created_at": 1579575661,
+                  "my_side": "buy"}], "stop_triggered_time": None}
         ],
         "current_page": 1,
         "total_pages": 1
@@ -657,8 +660,8 @@ class FixtureLiquid:
          "source_action": "manual", "unwound_trade_id": None, "trade_id": None,
          "client_order_id": "sell-CEL-ETH-1579575692882646", "settings": None, "trailing_stop_type": None,
          "trailing_stop_value": None, "executions": [
-            {"id": 253095951, "quantity": "1.0", "price": "0.00072226", "taker_side": "sell", "created_at": 1579499322,
-             "my_side": "sell"}], "stop_triggered_time": None}], "total_pages": 10000,
+             {"id": 253095951, "quantity": "1.0", "price": "0.00072226", "taker_side": "sell", "created_at": 1579499322,
+              "my_side": "sell"}], "stop_triggered_time": None}], "total_pages": 10000,
         "current_page": 1}
 
     ORDER_BUY_CANCEL_ALL = {"id": 2022033542, "order_type": "limit", "quantity": "1.0", "disc_quantity": "0.0",
