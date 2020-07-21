@@ -24,6 +24,7 @@ TEMPLATE_PATH = realpath(join(__file__, "../../templates/"))
 CONF_FILE_PATH = "conf/"
 CONF_PREFIX = "conf_"
 CONF_POSTFIX = "_strategy"
+SCRIPTS_PATH = "scripts/"
 
 EXCHANGES = {
     "bamboo_relay",
@@ -36,8 +37,9 @@ EXCHANGES = {
     "bittrex",
     "kucoin",
     "bitcoin_com",
-    "kraken",
-    "beaxy"
+    "beaxy",
+    "eterbase",
+    "kraken"
 }
 
 DEXES = {
@@ -59,8 +61,9 @@ EXAMPLE_PAIRS = {
     "huobi": "ETH-USDT",
     "liquid": "ETH-USD",
     "radar_relay": "ZRX-WETH",
-    "kraken": "ETH-USDC",
-    "beaxy": "BTC-USDC"
+    "beaxy": "BTC-USDC",
+    "eterbase": "ETH-EUR",
+    "kraken": "ETH-USDC"
 }
 
 EXAMPLE_ASSETS = {
@@ -74,8 +77,9 @@ EXAMPLE_ASSETS = {
     "huobi": "eth",
     "liquid": "ETH",
     "radar_relay": "ZRX",
-    "kraken": "XETH",
-    "beaxy": "BXY"
+    "beaxy": "BXY",
+    "eterbase": "ETH",
+    "kraken": "XETH"
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
