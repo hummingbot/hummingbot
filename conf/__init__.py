@@ -87,6 +87,11 @@ eterbase_api_key = os.getenv("ETERBASE_API_KEY")
 eterbase_secret_key = os.getenv("ETERBASE_SECRET_KEY")
 eterbase_account = os.getenv("ETERBASE_ACCOUNT")
 
+# OKEx Test
+okex_api_key = os.getenv("OKEX_API_KEY")
+okex_secret_key = os.getenv("OKEX_SECRET_KEY")
+okex_passphrase = os.getenv("OKEX_PASSPHRASE")
+
 # Wallet Tests
 test_erc20_token_address = os.getenv("TEST_ERC20_TOKEN_ADDRESS")
 web3_test_private_key_a = os.getenv("TEST_WALLET_PRIVATE_KEY_A")
