@@ -22,7 +22,6 @@ cdef class MarketBase(NetworkIterator):
     cdef c_stop_tracking_order(self, str order_id)
     cdef object c_get_balance(self, str currency)
     cdef object c_get_available_balance(self, str currency)
-    cdef str c_withdraw(self, str address, str currency, object amount)
     cdef OrderBook c_get_order_book(self, str trading_pair)
     cdef object c_get_price(self, str trading_pair, bint is_buy)
     cdef object c_get_order_price_quantum(self, str trading_pair, object price)
