@@ -108,6 +108,9 @@ class LiquidOrderBookTrackerUnitTest(unittest.TestCase):
                                 ethusd_book.get_price(True))
         self.assertLessEqual(lxcbtc_book.get_price_for_volume(False, 10).result_price,
                              lxcbtc_book.get_price(False))
+        for order_book in self.order_book_tracker.order_books.values():
+            print(order_book.last_trade_price)
+            self.assertFalse(math.isnan(order_book.last_trade_price))
 
 
 def main():

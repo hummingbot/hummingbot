@@ -10,7 +10,7 @@ from typing import (
     List,
     Optional
 )
-
+import aiohttp
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
@@ -19,6 +19,8 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.market.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
 from hummingbot.logger import HummingbotLogger
+
+LIQUID_PRICE_URL = "https://api.liquid.com/products"
 
 
 class LiquidOrderBookTracker(OrderBookTracker):
@@ -168,3 +170,24 @@ class LiquidOrderBookTracker(OrderBookTracker):
                     app_warning_msg=f"Unexpected error tracking order book. Retrying ater 5 seconds."
                 )
                 await asyncio.sleep(5.0)
+
+    async def _update_last_trade_prices_loop(self):
+        while True:
+            try:
+                if len(self._trading_pairs) == len(self._order_books):
+                    async with aiohttp.ClientSession() as client:
+                        resp = await client.get(LIQUID_PRICE_URL)
+                        resp_json = await resp.json()
+                        for record in resp_json:
+                            pair = f"{record['base_currency']}-{record['quoted_currency']}"
+                            if pair in self._order_books:
+                                order_book = self._order_books[pair]
+                                order_book.last_trade_price = float(record["last_traded_price"])
+                    await asyncio.sleep(10)
+                else:
+                    await asyncio.sleep(0.1)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().network("Unexpected error while fetching last trade price.", exc_info=True)
+                await asyncio.sleep(30)
