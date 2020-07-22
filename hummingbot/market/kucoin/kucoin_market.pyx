@@ -302,10 +302,10 @@ cdef class KucoinMarket(MarketBase):
 
                 if execution_type == "update" and execution_data["filledSize"] > 0:
                     order_type_description = tracked_order.order_type_description
-                    execute_amount_diff = execution_data["filledSize"] - tracked_order.executed_amount_base
-                    execute_price = execution_data["price"]
-                    tracked_order.executed_amount_base = execution_data["filledSize"]
-                    tracked_order.executed_amount_quote = execution_data["filledSize"] * execute_price
+                    execute_amount_diff = Decimal(execution_data["filledSize"]) - Decimal(tracked_order.executed_amount_base)
+                    execute_price = Decimal(execution_data["price"])
+                    tracked_order.executed_amount_base = Decimal(execution_data["filledSize"])
+                    tracked_order.executed_amount_quote = Decimal(execution_data["filledSize"]) * Decimal(execute_price)
                     self.logger().info("Filled update over websocket.")
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"{order_type_description} order {tracked_order.client_order_id}")
@@ -330,8 +330,8 @@ cdef class KucoinMarket(MarketBase):
                                              ))
 
                 if execution_type == "match" or execution_type == "filled":
-                    tracked_order.executed_amount_base = execution_data["filledSize"]
-                    tracked_order.executed_amount_quote = execution_data["filledSize"] * execution_data["price"]
+                    tracked_order.executed_amount_base = Decimal(execution_data["filledSize"])
+                    tracked_order.executed_amount_quote = Decimal(execution_data["filledSize"]) * Decimal(execution_data["price"])
                     if tracked_order.trade_type == TradeType.BUY:
                         self.logger().info("Buy completed update over websocket")
                         self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
