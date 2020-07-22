@@ -82,7 +82,6 @@ cdef class CoinbaseProMarket(MarketBase):
     MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
 
-    DEPOSIT_TIMEOUT = 1800.0
     API_CALL_TIMEOUT = 10.0
     UPDATE_ORDERS_INTERVAL = 10.0
     UPDATE_FEE_PERCENTAGE_INTERVAL = 60.0
@@ -991,18 +990,6 @@ cdef class CoinbaseProMarket(MarketBase):
         ids = [a["id"] for a in coinbase_accounts]
         currencies = [a["currency"] for a in coinbase_accounts]
         return dict(zip(currencies, ids))
-
-    async def get_deposit_address(self, asset: str) -> str:
-        """
-        Gets a list of the user's crypto address for a particular asset,
-        so that the bot can deposit funds into coinbase pro
-        :returns: json response
-        """
-        coinbase_account_id_dict = await self.list_coinbase_accounts()
-        account_id = coinbase_account_id_dict.get(asset)
-        path_url = f"/coinbase-accounts/{account_id}/addresses"
-        deposit_result = await self._api_request("post", path_url=path_url)
-        return deposit_result.get("address")
 
     cdef OrderBook c_get_order_book(self, str trading_pair):
         """

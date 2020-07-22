@@ -63,10 +63,8 @@ API_HOST = "api.liquid.com"
 
 class LiquidMarketUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
-        MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
-        MarketEvent.WithdrawAsset,
         MarketEvent.OrderFilled,
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,

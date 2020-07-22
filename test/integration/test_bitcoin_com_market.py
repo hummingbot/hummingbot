@@ -54,10 +54,8 @@ logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 class BitcoinComMarketUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
-        MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
-        MarketEvent.WithdrawAsset,
         MarketEvent.OrderFilled,
         MarketEvent.OrderCancelled,
         MarketEvent.TransactionFailure,

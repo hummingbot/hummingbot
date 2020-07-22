@@ -33,10 +33,8 @@ sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 class DolomiteMarketUnitTest(unittest.TestCase):
     market_events: List[MarketEvent] = [
-        MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
-        MarketEvent.WithdrawAsset,
         MarketEvent.OrderFilled,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,

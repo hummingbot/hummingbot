@@ -76,8 +76,7 @@ cdef class LiquidMarketTransactionTracker(TransactionTracker):
         self._owner.c_did_timeout_tx(tx_id)
 
     def __repr__(self) -> str:
-        return f"InFlightDeposit(tracking_id='{self.tracking_id}', timestamp_ms={self.timestamp_ms}, " \
-               f"tx_hash='{self.tx_hash}', has_tx_receipt={self.has_tx_receipt})"
+        return f"tx_hash='{self.tx_hash}', has_tx_receipt={self.has_tx_receipt})"
 
 
 cdef class LiquidMarket(MarketBase):
