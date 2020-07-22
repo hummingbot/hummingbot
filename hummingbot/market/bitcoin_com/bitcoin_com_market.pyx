@@ -85,7 +85,6 @@ cdef class BitcoinComMarket(MarketBase):
     MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
 
-    DEPOSIT_TIMEOUT = 1800.0
     API_CALL_TIMEOUT = 10.0
     UPDATE_ORDERS_INTERVAL = 10.0
 
@@ -124,7 +123,6 @@ cdef class BitcoinComMarket(MarketBase):
         self._tx_tracker = BitcoinComMarketTransactionTracker(self)
         self._trading_rules = {}
         self._trade_fees = {}  # Dict[trading_pair:str, (maker_fee_percent:Decimal, taken_fee_percent:Decimal)]
-        self._withdraw_fees = {}  # Dict[currency:str, (payoutEnabled:bool, payoutFee:Decimal)]
         self._data_source_type = order_book_tracker_data_source_type
         self._status_polling_task = None
         self._user_stream_tracker_task = None
@@ -191,7 +189,6 @@ cdef class BitcoinComMarket(MarketBase):
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0 if self._trading_required else True,
             "trade_fees_initialized": len(self._trade_fees) > 0 if self._trading_required else True,
-            "withdraw_fees_initialized": len(self._withdraw_fees) > 0 if self._trading_required else True
         }
 
     @property
@@ -262,7 +259,6 @@ cdef class BitcoinComMarket(MarketBase):
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
-            self._withdraw_fees_polling_task = safe_ensure_future(self._withdraw_fees_polling_loop())
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
 
@@ -455,24 +451,6 @@ cdef class BitcoinComMarket(MarketBase):
             except Exception:
                 self.logger().error(f"Error parsing the symbol rule {rule}. Skipping.", exc_info=True)
         return retval
-
-    async def _update_withdraw_fees(self):
-        """
-        Pulls the API for trading pair status (payoutEnabled, payoutFee)
-        """
-        cdef:
-            # The poll interval for withdraw rules is 60 seconds.
-            int64_t last_tick = <int64_t>(self._last_timestamp / 60.0)
-            int64_t current_tick = <int64_t>(self._current_timestamp / 60.0)
-        if current_tick > last_tick or len(self._withdraw_fees) <= 0:
-            product_info = await self._api_request(
-                "get",
-                url=constants.REST_CURRENCY_URL
-            )
-            withdraw_withdraw_fees_list = self._format_withdraw_fees(product_info)
-            self._withdraw_fees.clear()
-            for data in withdraw_withdraw_fees_list:
-                self._withdraw_fees[data["currency"]] = (data["payoutEnabled"], data["payoutFee"])
 
     def _format_withdraw_fees(self, raw_info: List[Any]) -> List[(bool, str)]:
         """
@@ -967,26 +945,6 @@ cdef class BitcoinComMarket(MarketBase):
                     app_warning_msg=f"Could not fetch account updates on Bitcoin.com. "
                                     f"Check API key and network connection."
                 )
-
-    async def _withdraw_fees_polling_loop(self):
-        """
-        Separate background process that periodically pulls for withdraw fees changes
-        (Since withdraw fees don't get updated often, it is pulled less often.)
-        """
-        while True:
-            try:
-                await safe_gather(self._update_withdraw_fees())
-                await asyncio.sleep(60)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().network(
-                    "Unexpected error while fetching withdraw fees.",
-                    exc_info=True,
-                    app_warning_msg=f"Could not fetch withdraw fees updates on Bitcoin.com. "
-                                    f"Check network connection."
-                )
-                await asyncio.sleep(0.5)
 
     async def _trading_rules_polling_loop(self):
         """

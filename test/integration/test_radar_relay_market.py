@@ -61,7 +61,6 @@ s_decimal_0 = Decimal(0)
 
 class RadarRelayMarketUnitTest(unittest.TestCase):
     market_events: List[MarketEvent] = [
-        MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
         MarketEvent.BuyOrderCreated,
@@ -69,7 +68,6 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
         MarketEvent.OrderCancelled,
         MarketEvent.OrderExpired,
         MarketEvent.OrderFilled,
-        MarketEvent.WithdrawAsset,
     ]
 
     wallet_events: List[WalletEvent] = [

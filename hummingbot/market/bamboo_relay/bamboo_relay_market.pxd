@@ -32,7 +32,6 @@ cdef class BambooRelayMarket(MarketBase):
         object _coordinator
         bint _use_coordinator
         bint _pre_emptive_soft_cancels
-        dict _withdraw_rules
         dict _trading_rules
         object _pending_approval_tx_hashes
         public object _status_polling_task

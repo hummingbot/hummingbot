@@ -16,8 +16,6 @@ class Constants:
     TRADING_RULES_URI = '/currencies'
 
     # POST
-    CRYPTO_WITHDRAWAL_URI = '/crypto_withdrawals'
-    FIAT_WITHDRAWAL_URI = '/withdrawals'
     ORDER_CREATION_URI = '/orders'
 
     # PUT
@@ -42,7 +40,6 @@ class Constants:
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
 
-    DEPOSIT_TIMEOUT = 1800.0
     API_CALL_TIMEOUT = 10.0
     UPDATE_ORDERS_INTERVAL = 10.0
 
