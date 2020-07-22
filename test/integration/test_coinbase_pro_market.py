@@ -69,7 +69,6 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
-        MarketEvent.WithdrawAsset,
         MarketEvent.OrderFilled,
         MarketEvent.OrderCancelled,
         MarketEvent.TransactionFailure,

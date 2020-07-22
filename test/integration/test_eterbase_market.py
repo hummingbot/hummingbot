@@ -24,7 +24,6 @@ from hummingbot.core.clock import (
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
-    MarketWithdrawAssetEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
     OrderFilledEvent,
@@ -324,22 +323,6 @@ class EterbaseMarketUnitTest(unittest.TestCase):
         self.assertGreaterEqual(len(order_details), 1)
 
         self.market_logger.clear()
-
-    @unittest.skipUnless(any("test_withdraw" in arg for arg in sys.argv), "Withdraw test requires manual action.")
-    def test_withdraw(self):
-        # Ensure the market account has enough balance for withdraw testing.
-        self.assertGreaterEqual(self.market.get_balance("XBASE"), Decimal('1'))
-
-        # Withdraw XBASE from Eterbase to test wallet.
-        self.market.withdraw(self.wallet.address, "XBASE", Decimal('1'))
-        [withdraw_asset_event] = self.run_parallel(
-            self.market_logger.wait_for(MarketWithdrawAssetEvent)
-        )
-        withdraw_asset_event: MarketWithdrawAssetEvent = withdraw_asset_event
-        self.assertEqual(self.wallet.address, withdraw_asset_event.to_address)
-        self.assertEqual("XBASE", withdraw_asset_event.asset_name)
-        self.assertEqual(Decimal('1'), withdraw_asset_event.amount)
-        self.assertEqual(withdraw_asset_event.fee_amount, Decimal(0))
 
     def test_orders_saving_and_restoration(self):
         config_path: str = "test_config"
