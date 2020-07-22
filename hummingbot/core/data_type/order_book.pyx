@@ -47,6 +47,7 @@ cdef class OrderBook(PubSub):
         self._snapshot_uid = 0
         self._last_diff_uid = 0
         self._best_bid = self._best_ask = float("NaN")
+        self._last_trade_price = float("NaN")
         self._dex = dex
 
     cdef c_apply_diffs(self, vector[OrderBookEntry] bids, vector[OrderBookEntry] asks, int64_t update_id):
@@ -130,7 +131,16 @@ cdef class OrderBook(PubSub):
         self._snapshot_uid = update_id
 
     cdef c_apply_trade(self, object trade_event):
+        self._last_trade_price = trade_event.price
         self.c_trigger_event(self.ORDER_BOOK_TRADE_EVENT_TAG, trade_event)
+
+    @property
+    def last_trade_price(self) -> float:
+        return self._last_trade_price
+
+    @last_trade_price.setter
+    def last_trade_price(self, value: float):
+        self._last_trade_price = value
 
     @property
     def snapshot_uid(self) -> int:
