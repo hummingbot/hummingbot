@@ -195,7 +195,7 @@ cdef class MarketBase(NetworkIterator):
         return (amount // order_size_quantum) * order_size_quantum
 
     def supported_order_types(self):
-        raise NotImplementedError
+        return [OrderType.LIMIT, OrderType.MARKET]
 
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
