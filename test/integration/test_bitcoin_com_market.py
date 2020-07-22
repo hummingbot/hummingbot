@@ -24,7 +24,6 @@ from hummingbot.core.clock import (
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
-    MarketWithdrawAssetEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
     OrderFilledEvent,
@@ -39,7 +38,6 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.market.bitcoin_com.bitcoin_com_market import BitcoinComMarket
-from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.market.market_base import OrderType
 from hummingbot.market.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
@@ -298,34 +296,6 @@ class BitcoinComMarketUnitTest(unittest.TestCase):
         self.assertGreaterEqual(len(order_details), 1)
 
         self.market_logger.clear()
-
-    def test_deposit_info(self):
-        [deposit_info] = self.run_parallel(
-            self.market.get_deposit_info("ETH")
-        )
-        deposit_info: DepositInfo = deposit_info
-        self.assertIsInstance(deposit_info, DepositInfo)
-        self.assertGreater(len(deposit_info.address), 0)
-
-    @unittest.skipUnless(any("test_withdraw" in arg for arg in sys.argv), "Withdraw test requires manual action.")
-    def test_withdraw(self):
-        wallet = conf.test_erc20_token_address
-        currency = "ETH"
-        withdraw_amount = Decimal('0.01')
-
-        # Ensure the market account has enough balance for withdraw testing.
-        # this is checked by 'self.market.withdraw'
-        # self.assertGreaterEqual(required_balance, withdraw_amount)
-
-        # Withdraw ETH from BitcoinCom to test wallet.
-        self.market.withdraw(wallet, currency, withdraw_amount)
-        [withdraw_asset_event] = self.run_parallel(
-            self.market_logger.wait_for(MarketWithdrawAssetEvent)
-        )
-        withdraw_asset_event: MarketWithdrawAssetEvent = withdraw_asset_event
-        self.assertEqual(wallet, withdraw_asset_event.to_address)
-        self.assertEqual(currency, withdraw_asset_event.asset_name)
-        self.assertEqual(withdraw_amount, withdraw_asset_event.amount)
 
     def test_orders_saving_and_restoration(self):
         config_path: str = "test_config"
