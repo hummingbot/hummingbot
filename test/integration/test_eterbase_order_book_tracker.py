@@ -111,6 +111,9 @@ class EterbaseOrderBookTrackerUnitTest(unittest.TestCase):
         test_active_order_tracker = self.order_book_tracker._active_order_trackers["ETHEUR"]
         self.assertTrue(len(test_active_order_tracker.active_asks) > 0)
         self.assertTrue(len(test_active_order_tracker.active_bids) > 0)
+        for order_book in self.order_book_tracker.order_books.values():
+            print(f"last_trade_price: {order_book.last_trade_price}")
+            self.assertFalse(math.isnan(order_book.last_trade_price))
 
     def test_order_book_data_source(self):
         self.assertTrue(isinstance(self.order_book_tracker.data_source, OrderBookTrackerDataSource))
