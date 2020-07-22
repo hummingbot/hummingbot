@@ -342,3 +342,39 @@ Here are the steps to set your Brave browser to always use Metamask when connect
 4. Click the dropdown for **Web3 provider for using Dapps** and select **Metamask** 
 
 ![](/assets/img/brave_with_metamask.gif)
+
+
+
+### MAC mismatch error 
+
+This error is usually caused by having multiple encrypted keys with different passwords in the same config folder. For example:
+```
+Instance1                       Instance2
+Password  : 1234                Password  : 5678 
+API key/s : Binance             API key/s : Bittrex, Coinbase Pro, Eterbase, Kraken, Huobi
+```
+Copying encrypted Binance key file from Instance1 to Instance2 will result to a MAC mismatch error.
+
+**Running the Hummingbot will give the following error**
+
+```
+Hummingbot.core.utils.async_utils - ERROR - Unhandled error in background task: MAC mismatch
+Traceback (most recent call last):
+File "/home/ubuntu/hummingbot/hummingbot/core/utils/async_utils.py", line 9, in safe_wrapper return await c
+File "/home/ubuntu/hummingbot/hummingbot/core/utils/async_call_scheduler.py", line 128, in call_async return await self.schedule_async_call coro, timeout_seconds, app_warning_msg=app_warning_msg)
+File "/home/ubuntu/hummingbot/hummingbot/core/utils/async_call_scheduler.py", line 117, in schedule_async_call return await fut
+File "/home/ubuntu/hummingbot/hummingbot/core/utils/async_call_scheduler.py", line 80, in _coro_scheduler fut.set_result(await coro)
+File "/home/ubuntu/miniconda3/envs/hummingbot/lib/python3.8/concurrent/futures/thread.py", line 57, in run result = self.fn(*self.args, **self.kwargs)
+File "/home/ubuntu/hummingbot/hummingbot/client/config/security.py", line 88, in decrypt_all cls.decrypt_file(file)
+File "/home/ubuntu/hummingbot/hummingbot/client/config/security.py", line 73, in decrypt_file cls._secure_configs[key_name] = decrypt_file(file_path, Security.password)
+File "/home/ubuntu/hummingbot/hummingbot/client/config/config_crypt.py", line 67, in decrypt_file secured_value = Account.decrypt(encrypted, password)
+File "/home/ubuntu/miniconda3/envs/hummingbot/lib/python3.8/site-packages/eth_account/account.py", line 134, in decrypt return HexBytes(decode_keyfile_json(keyfile, password_bytes))
+File "/home/ubuntu/miniconda3/envs/hummingbot/lib/python3.8/site-packages/eth_keyfile/keyfile.py", line 49, in decode_keyfile_json return _decode_keyfile_json_v3(keyfile_json, password)
+File "/home/ubuntu/miniconda3/envs/hummingbot/lib/python3.8/site-packages/eth_keyfile/keyfile.py", line 170, in _decode_keyfile_json_v3 raise ValueError("MAC mismatch")
+ValueError: MAC mismatch
+```
+
+To fix this:
+1. Delete just the `encrypted_binance_api/secret_key.json` from Instance2's conf folder.
+2. Restart Hummingbot and password should still be 5678.
+3. Run `connect binance` and add the API keys - this will encrypt it with 5678 password and sync it with the rest of the API keys.
