@@ -25,6 +25,8 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkIterator
 from hummingbot.core.data_type.order_book import OrderBook
 
+from .deposit_info import DepositInfo
+
 NaN = float("nan")
 s_decimal_NaN = Decimal("nan")
 s_decimal_0 = Decimal(0)
@@ -34,6 +36,7 @@ cdef class MarketBase(NetworkIterator):
         MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
+        MarketEvent.WithdrawAsset,
         MarketEvent.OrderCancelled,
         MarketEvent.TransactionFailure,
         MarketEvent.OrderFilled,
@@ -120,6 +123,9 @@ cdef class MarketBase(NetworkIterator):
         """
         raise NotImplementedError
 
+    async def get_deposit_info(self, asset: str) -> DepositInfo:
+        raise NotImplementedError
+
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         raise NotImplementedError
 
@@ -165,6 +171,9 @@ cdef class MarketBase(NetworkIterator):
         (balances used to place open orders are not available for trading)
         """
         return self._account_available_balances.get(currency, s_decimal_0)
+
+    cdef str c_withdraw(self, str address, str currency, object amount):
+        raise NotImplementedError
 
     cdef OrderBook c_get_order_book(self, str trading_pair):
         raise NotImplementedError
@@ -319,6 +328,9 @@ cdef class MarketBase(NetworkIterator):
 
     def get_available_balance(self, currency: str) -> Decimal:
         return self.c_get_available_balance(currency)
+
+    def withdraw(self, address: str, currency: str, amount: Decimal) -> str:
+        return self.c_withdraw(address, currency, amount)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)
