@@ -577,10 +577,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             proposal = None
             asset_mid_price = Decimal("0")
             # asset_mid_price = self.c_set_mid_price(market_info)
-            from hummingbot.core.event.events import PriceType
-            print(f"last_trade: {self._market_info.get_price_by_type(PriceType.LastTrade)} "
-                  f"best_bid: {self._market_info.get_price_by_type(PriceType.BestBid)} "
-                  f"best_ask: {self._market_info.get_price_by_type(PriceType.BestAsk)}")
             if self._create_timestamp <= self._current_timestamp:
                 # 1. Create base order proposals
                 proposal =self.c_create_base_proposal()
