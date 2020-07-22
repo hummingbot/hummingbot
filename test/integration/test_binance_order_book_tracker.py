@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import math
-import time
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 from hummingbot.core.event.event_logger import EventLogger
@@ -74,6 +73,7 @@ class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
         """
         self.run_parallel(self.event_logger.wait_for(OrderBookTradeEvent))
         for ob_trade_event in self.event_logger.event_log:
+            print(f"ob_trade_event: {ob_trade_event}")
             self.assertTrue(type(ob_trade_event) == OrderBookTradeEvent)
             self.assertTrue(ob_trade_event.trading_pair in self.trading_pairs)
             self.assertTrue(type(ob_trade_event.timestamp) == float)
@@ -101,6 +101,9 @@ class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
                                 xrpusdt_book.get_price(True))
         self.assertLessEqual(xrpusdt_book.get_price_for_volume(False, 10000).result_price,
                              xrpusdt_book.get_price(False))
+        for order_book in self.order_book_tracker.order_books.values():
+            # print(order_book.last_trade_price)
+            self.assertFalse(math.isnan(order_book.last_trade_price))
 
 
 def main():

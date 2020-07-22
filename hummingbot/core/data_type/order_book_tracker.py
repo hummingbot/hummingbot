@@ -64,6 +64,7 @@ class OrderBookTracker(ABC):
         self._order_book_snapshot_listener_task: Optional[asyncio.Task] = None
         self._order_book_diff_router_task: Optional[asyncio.Task] = None
         self._order_book_snapshot_router_task: Optional[asyncio.Task] = None
+        self._update_last_trade_prices_task: Optional[asyncio.Task] = None
 
     @property
     @abstractmethod
@@ -110,6 +111,9 @@ class OrderBookTracker(ABC):
         self._order_book_snapshot_router_task = safe_ensure_future(
             self._order_book_snapshot_router()
         )
+        self._update_last_trade_prices_task = safe_ensure_future(
+            self._update_last_trade_prices_loop()
+        )
 
     def stop(self):
         if self._emit_trade_event_task is not None:
@@ -136,10 +140,16 @@ class OrderBookTracker(ABC):
         if self._order_book_snapshot_router_task is not None:
             self._order_book_snapshot_router_task.cancel()
             self._order_book_snapshot_router_task = None
+        if self._update_last_trade_prices_task is not None:
+            self._update_last_trade_prices_task.cancel()
+            self._update_last_trade_prices_task = None
         if len(self._tracking_tasks) > 0:
             for _, task in self._tracking_tasks.items():
                 task.cancel()
             self._tracking_tasks.clear()
+
+    async def _update_last_trade_prices_loop(self):
+        pass
 
     async def _refresh_tracking_tasks(self):
         """
@@ -269,6 +279,8 @@ class OrderBookTracker(ABC):
                     past_diffs: List[OrderBookMessage] = list(past_diffs_window)
                     order_book.restore_from_snapshot_and_diffs(message, past_diffs)
                     self.logger().debug("Processed order book snapshot for %s.", trading_pair)
+                # elif message.type is OrderBookMessageType.TRADE:
+                #     order_book.apply_trade(message)
             except asyncio.CancelledError:
                 raise
             except Exception:
