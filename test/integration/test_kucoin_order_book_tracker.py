@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import math
-import time
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
@@ -61,8 +60,8 @@ class KucoinOrderBookTrackerUnitTest(unittest.TestCase):
             if timeout and timer > timeout:
                 raise Exception("Time out running parallel async task in tests.")
             timer += 1
-            now = time.time()
-            next_iteration = now // 1.0 + 1
+            # now = time.time()
+            # next_iteration = now // 1.0 + 1
             await asyncio.sleep(1.0)
         return future.result()
 
@@ -108,6 +107,9 @@ class KucoinOrderBookTrackerUnitTest(unittest.TestCase):
                                 xrpusdt_book.get_price(True))
         self.assertLessEqual(xrpusdt_book.get_price_for_volume(False, 10000).result_price,
                              xrpusdt_book.get_price(False))
+        for order_book in self.order_book_tracker.order_books.values():
+            print(order_book.last_trade_price)
+            self.assertFalse(math.isnan(order_book.last_trade_price))
 
 
 def main():
