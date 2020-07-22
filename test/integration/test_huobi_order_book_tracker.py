@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import math
-import time
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
@@ -106,6 +105,9 @@ class HuobiOrderBookTrackerUnitTest(unittest.TestCase):
                                 xrpusdt_book.get_price(True))
         self.assertLessEqual(xrpusdt_book.get_price_for_volume(False, 10000).result_price,
                              xrpusdt_book.get_price(False))
+        for order_book in self.order_book_tracker.order_books.values():
+            print(order_book.last_trade_price)
+            self.assertFalse(math.isnan(order_book.last_trade_price))
 
 
 def main():
