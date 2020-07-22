@@ -141,8 +141,10 @@ class TradeFill(HummingbotBase):
                 trade.amount,
                 age,
             ])
+        df = pd.DataFrame(data=data, columns=columns)
+        df.set_index('Index', inplace=True)
 
-        return pd.DataFrame(data=data, columns=columns)
+        return df
 
     @staticmethod
     def to_bounty_api_json(trade_fill: "TradeFill") -> Dict[str, Any]:

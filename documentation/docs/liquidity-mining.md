@@ -28,8 +28,8 @@ Liquidity mining sets forth an analytical framework for determining market maker
 !!! warning "Terms subject to change"
     Please check this page or the [Miner's app](https://miners.hummingbot.io) for the most up-to-date terms.<br/>We will notify participants of changes, if any, on our [Discord](https://discord.hummingbot.io) and [reddit](https://www.reddit.com/r/Hummingbot/).
 
-!!! note "Campaign updates for the week starting July 14, 2020 12.00am UTC"
-    <li>**New NULS campaign** is live!
+!!! note "Campaign updates for the week starting July 21, 2020 12.00am UTC"
+    <li>**New COTI campaign** is live!
 
 **Current reward period: July 14, 2020 12.00am UTC to July 21, 2020 12.00am UTC**
 
@@ -42,6 +42,25 @@ Liquidity mining sets forth an analytical framework for determining market maker
     <th>Weekly rewards</th>
   </thead>
   <tbody>
+      <tr>
+      <td rowspan="3"><a href="#coti">COTI</a><br></td>
+      <td>COTI/BTC</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 250</td>
+    </tr>
+    <tr>
+      <td>COTI/USDT</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 250</td>
+    </tr>
+    <tr>
+      <td>COTI/BNB</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>USDC 250</td>
+    </tr>        
     <tr>
       <td rowspan="3"><a href="#mainframe">Mainframe</a><br></td>
       <td>MFT/USDT</td>
@@ -137,43 +156,12 @@ Liquidity mining sets forth an analytical framework for determining market maker
 
 ## Upcoming changes to campaign terms
 
-New campaign launching: starting July 21, 2020 12.00am
-
-<table>
-  <thead>
-    <th>Token Issuer</th>
-    <th>Trading pair</th>
-    <th>Exchange</th>
-    <th>Maximum spread</th>
-    <th>Weekly rewards</th>
-  </thead>
-  <tbody>
-    <tr>
-      <td rowspan="3"><a href="#Coti">Coti</a><br></td>
-      <td>COTI / BTC</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>USDC 250</td>
-    </tr>
-    <tr>
-      <td>COTI / USDT</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>USDC 250</td>
-    </tr>
-    <tr>
-      <td>COTI/BNB</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>USDC 250</td>
-    </tr>
-  </tbody>
-</table>
+No upcoming changes.
 
 ## Token Issuers
 
 ### Coti
-COTI is a fully encompassing “finance on the blockchain” ecosystem that is designed specifically to meet the challenges of traditional finance (fees, latency, global inclusion and risk) by introducing a new type of DAG based base protocol and infrastructure that is scalable, fast, private, inclusive, low cost and is optimized for real time payments. The ecosystem includes a [DAG based Blockchain](https://www.youtube.com/watch?v=kSdRxqHDKe8), a [Proof of Trust Consensus Algorithm](https://coti.io/files/COTI-technical-whitepaper.pdf), a [multiDAG](https://medium.com/cotinetwork%27/coti-is-launching-multidag-a-protocol-to-issue-tokens-on-a-dag-infrastructure-5c6282e5c3d1) a [Global Trust System](https://medium.com/cotinetwork/introducing-cotis-global-trust-system-gts-an-advanced-layer-of-trust-for-any-blockchain-7e44587b8bda), a [Universal Payment Solution](https://medium.com/cotinetwork/coti-universal-payment-system-ups-8614e149ee76), a [Payment Gateway](https://medium.com/cotinetwork/announcing-the-first-release-of-the-coti-payment-gateway-4a9f3e515b86), as well as consumer (COTI Pay) and merchant (COTI Pay Business) applications.
+[COTI](https://coti.io/) is a fully encompassing “finance on the blockchain” ecosystem that is designed specifically to meet the challenges of traditional finance (fees, latency, global inclusion and risk) by introducing a new type of DAG based base protocol and infrastructure that is scalable, fast, private, inclusive, low cost and is optimized for real time payments. The ecosystem includes a [DAG based Blockchain](https://www.youtube.com/watch?v=kSdRxqHDKe8), a [Proof of Trust Consensus Algorithm](https://coti.io/files/COTI-technical-whitepaper.pdf), a [multiDAG](https://medium.com/cotinetwork%27/coti-is-launching-multidag-a-protocol-to-issue-tokens-on-a-dag-infrastructure-5c6282e5c3d1) a [Global Trust System](https://medium.com/cotinetwork/introducing-cotis-global-trust-system-gts-an-advanced-layer-of-trust-for-any-blockchain-7e44587b8bda), a [Universal Payment Solution](https://medium.com/cotinetwork/coti-universal-payment-system-ups-8614e149ee76), a [Payment Gateway](https://medium.com/cotinetwork/announcing-the-first-release-of-the-coti-payment-gateway-4a9f3e515b86), as well as consumer (COTI Pay) and merchant (COTI Pay Business) applications.
 
 ### iExec
 
