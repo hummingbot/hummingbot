@@ -6,6 +6,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_query_result import ClientOrderBookQueryResult
 from hummingbot.core.data_type.order_book_row import ClientOrderBookRow
 from hummingbot.market.market_base import MarketBase
+from hummingbot.core.event.events import PriceType
 
 
 class MarketTradingPairTuple(NamedTuple):
@@ -34,6 +35,16 @@ class MarketTradingPairTuple(NamedTuple):
 
     def get_price(self, is_buy: bool) -> Decimal:
         return self.market.get_price(self.trading_pair, is_buy)
+
+    def get_price_by_type(self, price_type: PriceType) -> Decimal:
+        if price_type is PriceType.BestBid:
+            return self.get_price(False)
+        elif price_type is PriceType.BestAsk:
+            return self.get_price(True)
+        elif price_type is PriceType.MidPrice:
+            return self.get_mid_price()
+        elif price_type is PriceType.LastTrade:
+            return self.market.get_order_book(self.trading_pair).last_trade_price
 
     def get_vwap_for_volume(self, is_buy: bool, volume: Decimal) -> ClientOrderBookQueryResult:
         return self.market.get_vwap_for_volume(self.trading_pair, is_buy, volume)
