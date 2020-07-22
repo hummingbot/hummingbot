@@ -71,6 +71,13 @@ class OrderType(Enum):
         return self in (OrderType.LIMIT, OrderType.LIMIT_MAKER)
 
 
+class PriceType(Enum):
+    MidPrice = 1
+    BestBid = 2
+    BestAsk = 3
+    LastTrade = 4
+
+
 class MarketTransactionFailureEvent(NamedTuple):
     timestamp: float
     order_id: str
