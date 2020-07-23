@@ -24,6 +24,7 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.market.kucoin.kucoin_order_book_tracker import KucoinOrderBookTracker
+from hummingbot.market.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
 
 
 class KucoinOrderBookTrackerUnitTest(unittest.TestCase):
@@ -110,6 +111,14 @@ class KucoinOrderBookTrackerUnitTest(unittest.TestCase):
         for order_book in self.order_book_tracker.order_books.values():
             print(order_book.last_trade_price)
             self.assertFalse(math.isnan(order_book.last_trade_price))
+
+    def test_api_get_last_traded_prices(self):
+        prices = self.ev_loop.run_until_complete(
+            KucoinAPIOrderBookDataSource.get_last_traded_prices(["BTC-USDT", "LTC-USDT"]))
+        for key, value in prices.items():
+            print(f"{key} last_trade_price: {value}")
+        self.assertGreater(prices["BTC-USDT"], 1000)
+        self.assertLess(prices["LTC-USDT"], 1000)
 
 
 def main():
