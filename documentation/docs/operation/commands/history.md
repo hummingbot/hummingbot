@@ -86,9 +86,11 @@ Return % = -0.0222 %
 
 ## Net Delta
 
-Net Delta is calculated based on the difference of starting balance and current balance, while Trade Delta is tokens acquired after executing trades. Both Net Delta or Trade Delta can be positive or negative (profit or loss).
+Net Delta is the difference of your starting balance and current balance i.e. it takes into calculation assets spent & acquired during trades, deposits and withdrawals. 
 
-$Net Delta = Starting - Current$
+Trade Delta does not take into account deposits and withdrawals, only balance changes after executing trades in Hummingbot.
+
+$net\_delta = starting\_balance - current\_balance$
 
 ```
 Inventory:                                                                 
@@ -98,12 +100,5 @@ Inventory:
                                                                            
 ```
 
-Using the same example, after executing these trades we can calculate Net Delta for base and quote assets, so Net Delta for base asset is **0.0000** because we started with `10.0000 ETH` and current also `10.000 ETH`. Net Delta for quote asset is **-0.0160 USDT** because we started with `500.0000 USDT` and current is `499.9840 USDT`, it means we obtained lost of **-0.0160 USDT** on quote asset.
+Using the same example, after executing these trades we can calculate Net Delta for base and quote assets, so Net Delta for base asset is **0.0000** because we started with `10.0000 ETH` and current also `10.000 ETH`. Net Delta for quote asset is **-0.0160 USDT** because we started with `500.0000 USDT` and current is `499.9840 USDT`, it means we lost **-0.0160 USDT** on quote asset.
 
-```
-Base asset Net Delta = 10.000 ETH - 10.0000 ETH
-Base asset Net Delta = 0.0000 ETH
-
-Quote asset Net Delta = 50.000 USDT - 499.9840 USDT
-Quote asset Net Delta = -0.0160 USDT
-```
