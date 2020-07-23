@@ -235,7 +235,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
 
     def cancel_order(self, trading_pair, order_id, exch_order_id):
         if API_MOCK_ENABLED:
-            resp = FixtureBittrex.ORDER_CANCEL.copy()
+            resp = FixtureBittrex.CANCEL_ORDER.copy()
             resp["id"] = exch_order_id
             self.web_app.update_response("delete", API_BASE_URL, f"/v3/orders/{exch_order_id}", resp)
         self.market.cancel(trading_pair, order_id)
@@ -253,7 +253,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price,
-                                       10001, FixtureBittrex.ORDER_PLACE_FILLED, FixtureBittrex.WS_ORDER_FILLED)
+                                       10001, FixtureBittrex.FILLED_BUY_LIMIT_ORDER, FixtureBittrex.WS_AFTER_BUY_2)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -284,7 +284,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         order_id, _ = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT, quantize_ask_price,
-                                       10001, FixtureBittrex.ORDER_PLACE_FILLED, FixtureBittrex.WS_ORDER_FILLED)
+                                       10001, FixtureBittrex.FILLED_BUY_LIMIT_ORDER, FixtureBittrex.WS_AFTER_BUY_2)
 
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
@@ -312,7 +312,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.MARKET, 0, 10001,
-                                       FixtureBittrex.ORDER_PLACE_FILLED, FixtureBittrex.WS_ORDER_FILLED)
+                                       FixtureBittrex.FILLED_BUY_LIMIT_ORDER, FixtureBittrex.WS_AFTER_BUY_2)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -340,7 +340,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         order_id, _ = self.place_order(False, trading_pair, quantized_amount, OrderType.MARKET, 0, 10001,
-                                       FixtureBittrex.ORDER_PLACE_FILLED, FixtureBittrex.WS_ORDER_FILLED)
+                                       FixtureBittrex.FILLED_BUY_LIMIT_ORDER, FixtureBittrex.WS_AFTER_BUY_2)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         trade_events = [t for t in self.market_logger.event_log if isinstance(t, OrderFilledEvent)]
@@ -369,8 +369,8 @@ class BittrexMarketUnitTest(unittest.TestCase):
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT,
-                                                   quantize_bid_price, 10001, FixtureBittrex.ORDER_PLACE_OPEN,
-                                                   FixtureBittrex.WS_ORDER_OPEN)
+                                                   quantize_bid_price, 10001, FixtureBittrex.OPEN_BUY_LIMIT_ORDER,
+                                                   FixtureBittrex.WS_AFTER_BUY_1)
         self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         self.cancel_order(trading_pair, order_id, exch_order_id)
         [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
@@ -393,16 +393,16 @@ class BittrexMarketUnitTest(unittest.TestCase):
 
         _, exch_order_id_1 = self.place_order(True, trading_pair, quantized_bid_amount, OrderType.LIMIT,
                                               quantize_bid_price, 10001,
-                                              FixtureBittrex.ORDER_PLACE_OPEN, FixtureBittrex.WS_ORDER_OPEN)
+                                              FixtureBittrex.OPEN_BUY_LIMIT_ORDER, FixtureBittrex.WS_AFTER_BUY_1)
         _, exch_order_id_2 = self.place_order(False, trading_pair, quantized_ask_amount, OrderType.LIMIT,
                                               quantize_ask_price, 10002,
-                                              FixtureBittrex.ORDER_PLACE_OPEN, FixtureBittrex.WS_ORDER_OPEN)
+                                              FixtureBittrex.OPEN_BUY_LIMIT_ORDER, FixtureBittrex.WS_AFTER_BUY_1)
         self.run_parallel(asyncio.sleep(1))
         if API_MOCK_ENABLED:
-            resp = FixtureBittrex.ORDER_CANCEL.copy()
+            resp = FixtureBittrex.CANCEL_ORDER.copy()
             resp["id"] = exch_order_id_1
             self.web_app.update_response("delete", API_BASE_URL, f"/v3/orders/{exch_order_id_1}", resp)
-            resp = FixtureBittrex.ORDER_CANCEL.copy()
+            resp = FixtureBittrex.CANCEL_ORDER.copy()
             resp["id"] = exch_order_id_2
             self.web_app.update_response("delete", API_BASE_URL, f"/v3/orders/{exch_order_id_2}", resp)
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
@@ -447,7 +447,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
 
             order_id, exch_order_id = self.place_order(True, trading_pair, quantized_bid_amount, OrderType.LIMIT,
                                                        quantize_bid_price, 10001,
-                                                       FixtureBittrex.ORDER_PLACE_OPEN, FixtureBittrex.WS_ORDER_OPEN)
+                                                       FixtureBittrex.OPEN_BUY_LIMIT_ORDER, FixtureBittrex.WS_AFTER_BUY_1)
             [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
             order_created_event: BuyOrderCreatedEvent = order_created_event
             self.assertEqual(order_id, order_created_event.order_id)
@@ -519,7 +519,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
             amount: Decimal = Decimal("0.06")
             quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
             order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.MARKET, 0, 10001,
-                                           FixtureBittrex.ORDER_PLACE_FILLED, FixtureBittrex.WS_ORDER_FILLED)
+                                           FixtureBittrex.FILLED_BUY_LIMIT_ORDER, FixtureBittrex.WS_AFTER_BUY_2)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
             # Reset the logs
@@ -527,7 +527,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
 
             amount = Decimal(buy_order_completed_event.base_asset_amount)
             order_id, _ = self.place_order(False, trading_pair, amount, OrderType.MARKET, 0, 10001,
-                                           FixtureBittrex.ORDER_PLACE_FILLED, FixtureBittrex.WS_ORDER_FILLED)
+                                           FixtureBittrex.FILLED_BUY_LIMIT_ORDER, FixtureBittrex.WS_AFTER_BUY_2)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 
             # Query the persisted trade logs

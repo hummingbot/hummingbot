@@ -93,7 +93,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
             cls._patcher = mock.patch("aiohttp.client.URL")
             cls._url_mock = cls._patcher.start()
             cls._url_mock.side_effect = cls.web_app.reroute_local
-            cls.web_app.update_response("get", API_BASE_URL, "/api/v1/accounts", FixtureKucoin.GET_ACCOUNT)
+            cls.web_app.update_response("get", API_BASE_URL, "/api/v1/accounts", FixtureKucoin.BALANCES)
 
             cls._t_nonce_patcher = unittest.mock.patch("hummingbot.market.kucoin.kucoin_market.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
@@ -232,7 +232,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
         bid_price: Decimal = Decimal(current_bid_price + Decimal(0.05) * current_bid_price)
         quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
         order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price, 10001,
-                                       FixtureKucoin.ORDER_PLACE_2, FixtureKucoin.ORDER_GET_AFTER_BUY)
+                                       FixtureKucoin.ORDER_PLACE_2, FixtureKucoin.FILLED_BUY_LIMIT_ORDER)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -263,7 +263,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
         quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price)
 
         order_id, _ = self.place_order(False, trading_pair, amount, OrderType.LIMIT, quantize_ask_price, 10001,
-                                       FixtureKucoin.ORDER_PLACE, FixtureKucoin.ORDER_GET_AFTER_SELL)
+                                       FixtureKucoin.ORDER_PLACE, FixtureKucoin.FILLED_SELL_LIMIT_ORDER)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -291,7 +291,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.MARKET, 0, 10001,
-                                       FixtureKucoin.ORDER_PLACE, FixtureKucoin.ORDER_GET_MARKET_BUY)
+                                       FixtureKucoin.ORDER_PLACE, FixtureKucoin.BUY_MARKET_ORDER)
         [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         buy_order_completed_event: BuyOrderCompletedEvent = buy_order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -318,7 +318,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
         amount: Decimal = Decimal(0.011)
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
         order_id, _ = self.place_order(False, trading_pair, amount, OrderType.MARKET, 0, 10001,
-                                       FixtureKucoin.ORDER_PLACE, FixtureKucoin.ORDER_GET_MARKET_SELL)
+                                       FixtureKucoin.ORDER_PLACE, FixtureKucoin.SELL_MARKET_ORDER)
         [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         sell_order_completed_event: SellOrderCompletedEvent = sell_order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -351,15 +351,15 @@ class KucoinMarketUnitTest(unittest.TestCase):
 
         order_id, exch_order_id = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT,
                                                    quantized_price, 10001,
-                                                   FixtureKucoin.ORDER_PLACE_2, FixtureKucoin.ORDER_GET_SELL_UNMATCHED)
+                                                   FixtureKucoin.ORDER_PLACE_2, FixtureKucoin.OPEN_SELL_LIMIT_ORDER)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         if API_MOCK_ENABLED:
-            resp = FixtureKucoin.ORDER_CANCEL.copy()
+            resp = FixtureKucoin.CANCEL_ORDER.copy()
             resp["data"]["cancelledOrderIds"] = [exch_order_id]
             self.web_app.update_response("delete", API_BASE_URL, f"/api/v1/orders/{exch_order_id}", resp)
         self.market.cancel(trading_pair, order_id)
         if API_MOCK_ENABLED:
-            resp = FixtureKucoin.ORDER_GET_CANCELLED.copy()
+            resp = FixtureKucoin.GET_CANCELLED_ORDER.copy()
             resp["data"]["id"] = exch_order_id
             resp["data"]["clientOid"] = order_id
             self.web_app.update_response("get", API_BASE_URL, f"/api/v1/orders/{exch_order_id}", resp)
@@ -381,14 +381,14 @@ class KucoinMarketUnitTest(unittest.TestCase):
         quantize_ask_price: Decimal = self.market_2.quantize_order_price(trading_pair, ask_price * Decimal(1.2))
 
         _, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price,
-                                            10001, FixtureKucoin.ORDER_PLACE, FixtureKucoin.ORDER_GET_BUY_UNMATCHED)
+                                            10001, FixtureKucoin.ORDER_PLACE, FixtureKucoin.OPEN_BUY_LIMIT_ORDER)
 
         _, exch_order_id2 = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT, quantize_ask_price,
-                                             10002, FixtureKucoin.ORDER_PLACE, FixtureKucoin.ORDER_GET_SELL_UNMATCHED)
+                                             10002, FixtureKucoin.ORDER_PLACE, FixtureKucoin.OPEN_SELL_LIMIT_ORDER)
 
         self.run_parallel(asyncio.sleep(1))
         if API_MOCK_ENABLED:
-            resp = FixtureKucoin.ORDER_CANCEL_ALL.copy()
+            resp = FixtureKucoin.ORDERS_BATCH_CANCELLED.copy()
             resp["data"]["cancelledOrderIds"] = [exch_order_id, exch_order_id2]
             self.web_app.update_response("delete", API_BASE_URL, f"/api/v1/orders", resp)
         [cancellation_results] = self.run_parallel(self.market_2.cancel_all(5))
@@ -419,7 +419,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
             order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT,
                                                        quantize_bid_price,
                                                        10001, FixtureKucoin.ORDER_PLACE,
-                                                       FixtureKucoin.ORDER_GET_BUY_UNMATCHED)
+                                                       FixtureKucoin.OPEN_BUY_LIMIT_ORDER)
             [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
             order_created_event: BuyOrderCreatedEvent = order_created_event
             self.assertEqual(order_id, order_created_event.order_id)
@@ -463,13 +463,13 @@ class KucoinMarketUnitTest(unittest.TestCase):
             self.assertEqual(1, len(self.market.tracking_states))
 
             if API_MOCK_ENABLED:
-                resp = FixtureKucoin.ORDER_CANCEL.copy()
+                resp = FixtureKucoin.CANCEL_ORDER.copy()
                 resp["data"]["cancelledOrderIds"] = exch_order_id
                 self.web_app.update_response("delete", API_BASE_URL, f"/api/v1/orders/{exch_order_id}", resp)
             # Cancel the order and verify that the change is saved.
             self.market.cancel(trading_pair, order_id)
             if API_MOCK_ENABLED:
-                resp = FixtureKucoin.ORDER_GET_CANCELLED.copy()
+                resp = FixtureKucoin.GET_CANCELLED_ORDER.copy()
                 resp["data"]["id"] = exch_order_id
                 resp["data"]["clientOid"] = order_id
                 self.web_app.update_response("get", API_BASE_URL, f"/api/v1/orders/{exch_order_id}", resp)
@@ -501,7 +501,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
             # Try to buy 0.01 ETH from the exchange, and watch for completion event.
             amount: Decimal = Decimal(0.01)
             order_id, _ = self.place_order(True, trading_pair, amount, OrderType.MARKET, 0, 10001,
-                                           FixtureKucoin.ORDER_PLACE, FixtureKucoin.ORDER_GET_MARKET_BUY)
+                                           FixtureKucoin.ORDER_PLACE, FixtureKucoin.BUY_MARKET_ORDER)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
             # Reset the logs
@@ -510,7 +510,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
             # Try to sell back the same amount of ETH to the exchange, and watch for completion event.
             amount: Decimal = Decimal(buy_order_completed_event.base_asset_amount)
             order_id, _ = self.place_order(False, trading_pair, amount, OrderType.MARKET, 0, 10002,
-                                           FixtureKucoin.ORDER_PLACE, FixtureKucoin.ORDER_GET_MARKET_SELL)
+                                           FixtureKucoin.ORDER_PLACE, FixtureKucoin.SELL_MARKET_ORDER)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 
             # Query the persisted trade logs
