@@ -22,6 +22,7 @@ from typing import (
     List,
 )
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
+from hummingbot.market.coinbase_pro.coinbase_pro_api_order_book_data_source import CoinbaseProAPIOrderBookDataSource
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import (
@@ -217,6 +218,14 @@ class CoinbaseProOrderBookTrackerUnitTest(unittest.TestCase):
 
         test_order_book_row = test_active_order_tracker.active_bids[Decimal(price)]
         self.assertTrue(order_id not in test_order_book_row)
+
+    def test_api_get_last_traded_prices(self):
+        prices = self.ev_loop.run_until_complete(
+            CoinbaseProAPIOrderBookDataSource.get_last_traded_prices(["BTC-USD", "LTC-USD"]))
+        for key, value in prices.items():
+            print(f"{key} last_trade_price: {value}")
+        self.assertGreater(prices["BTC-USD"], 1000)
+        self.assertLess(prices["LTC-USD"], 1000)
 
 
 def main():

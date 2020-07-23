@@ -6,6 +6,7 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent, TradeType
 
 from hummingbot.market.binance.binance_order_book_tracker import BinanceOrderBookTracker
+from hummingbot.market.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 import asyncio
 import logging
 from typing import (
@@ -104,6 +105,14 @@ class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
         for order_book in self.order_book_tracker.order_books.values():
             print(order_book.last_trade_price)
             self.assertFalse(math.isnan(order_book.last_trade_price))
+
+    def test_api_get_last_traded_prices(self):
+        prices = self.ev_loop.run_until_complete(
+            BinanceAPIOrderBookDataSource.get_last_traded_prices(["BTCUSDT", "LTCBTC"]))
+        for key, value in prices.items():
+            print(f"{key} last_trade_price: {value}")
+        self.assertGreater(prices["BTCUSDT"], 1000)
+        self.assertLess(prices["LTCBTC"], 1)
 
 
 def main():
