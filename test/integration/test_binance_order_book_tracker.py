@@ -102,7 +102,7 @@ class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
         self.assertLessEqual(xrpusdt_book.get_price_for_volume(False, 10000).result_price,
                              xrpusdt_book.get_price(False))
         for order_book in self.order_book_tracker.order_books.values():
-            # print(order_book.last_trade_price)
+            print(order_book.last_trade_price)
             self.assertFalse(math.isnan(order_book.last_trade_price))
 
 
