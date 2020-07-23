@@ -10,7 +10,7 @@ from typing import (
     List,
     Optional
 )
-import aiohttp
+
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import (
     OrderBookTracker,
@@ -20,9 +20,6 @@ from hummingbot.core.data_type.remote_api_order_book_data_source import RemoteAP
 from hummingbot.market.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
-from hummingbot.core.utils.async_utils import safe_gather
-
-TICKER_PRICE_CHANGE_URL = "https://api.binance.com/api/v1/ticker/24hr?symbol="
 
 
 class BinanceOrderBookTracker(OrderBookTracker):
@@ -112,29 +109,6 @@ class BinanceOrderBookTracker(OrderBookTracker):
                     app_warning_msg=f"Unexpected error routing order book messages. Retrying after 5 seconds."
                 )
                 await asyncio.sleep(5.0)
-
-    async def _update_last_trade_prices_loop(self):
-        while True:
-            try:
-                if len(self._trading_pairs) == len(self._order_books):
-                    tasks = [self._update_last_trade_price(t_pair) for t_pair in self._trading_pairs]
-                    await safe_gather(*tasks)
-                    await asyncio.sleep(10)
-                else:
-                    await asyncio.sleep(0.1)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().network("Unexpected error while fetching last trade price.", exc_info=True)
-                await asyncio.sleep(30)
-
-    async def _update_last_trade_price(self, trading_pair: str):
-        order_book: OrderBook = self._order_books.get(trading_pair, None)
-        async with aiohttp.ClientSession() as client:
-            resp = await client.get(TICKER_PRICE_CHANGE_URL + trading_pair)
-            resp_json = await resp.json()
-            # print(f"{trading_pair} {resp_json}")
-            order_book.last_trade_price = float(resp_json["lastPrice"])
 
     async def _track_single_book(self, trading_pair: str):
         past_diffs_window: Deque[OrderBookMessage] = deque()

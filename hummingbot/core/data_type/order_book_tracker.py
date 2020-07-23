@@ -19,7 +19,7 @@ from hummingbot.core.event.events import OrderBookTradeEvent, TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
-from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future, wait_til
 from .order_book_message import (
     OrderBookMessageType,
     OrderBookMessage,
@@ -149,7 +149,18 @@ class OrderBookTracker(ABC):
             self._tracking_tasks.clear()
 
     async def _update_last_trade_prices_loop(self):
-        pass
+        while True:
+            try:
+                await wait_til(lambda: len(self.data_source._trading_pairs) == len(self._order_books.keys()))
+                last_prices = await self.data_source.get_last_traded_prices(list(self._order_books.keys()))
+                for trading_pair, last_price in last_prices.items():
+                    self._order_books[trading_pair].last_trade_price = last_price
+                await asyncio.sleep(10)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().network("Unexpected error while fetching last trade price.", exc_info=True)
+                await asyncio.sleep(30)
 
     async def _refresh_tracking_tasks(self):
         """
