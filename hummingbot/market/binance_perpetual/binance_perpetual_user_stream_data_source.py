@@ -5,7 +5,6 @@ from typing import Optional, Dict, AsyncIterable
 import aiohttp
 import ujson
 import websockets
-from binance.client import Client as BinanceClient
 from websockets import ConnectionClosed
 
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -28,9 +27,9 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
     def last_recv_time(self) -> float:
         return self._last_recv_time
 
-    def __init__(self, binance_client: BinanceClient):
+    def __init__(self, api_key: str):
         super().__init__()
-        self._binance_client: BinanceClient = binance_client
+        self._api_key: str = api_key
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
         self._last_recv_time: float = 0
@@ -38,7 +37,7 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
     async def get_listen_key(self):
         async with aiohttp.ClientSession() as client:
             async with client.post(BINANCE_USER_STREAM_ENDPOINT,
-                                   headers={"X-MBX-APIKEY": self._binance_client.API_KEY}) as response:
+                                   headers={"X-MBX-APIKEY": self._api_key}) as response:
                 response: aiohttp.ClientResponse = response
                 if response.status != 200:
                     raise IOError(f"Error fetching Binance Perpetual user stream listen key. "
@@ -49,7 +48,7 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
     async def ping_listen_key(self, listen_key: str) -> bool:
         async with aiohttp.ClientSession() as client:
             async with client.put(BINANCE_USER_STREAM_ENDPOINT,
-                                  headers={"X-MBX-APIKEY": self._binance_client.API_KEY},
+                                  headers={"X-MBX-APIKEY": self._api_key},
                                   params={"listenKey": listen_key}) as response:
                 data: [str, any] = await response.json()
                 if "code" in data:
@@ -57,7 +56,7 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                     return False
                 return True
 
-    async def ws_messages(self, client: websockets.WebsocketClientProtocol) -> AsyncIterable[str]:
+    async def ws_messages(self, client: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         try:
             while True:
                 try:
