@@ -10,7 +10,6 @@ from typing import (
     List,
     Optional
 )
-import aiohttp
 
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import (
@@ -21,9 +20,6 @@ from hummingbot.core.data_type.remote_api_order_book_data_source import RemoteAP
 from hummingbot.market.kraken.kraken_api_order_book_data_source import KrakenAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.utils.async_utils import safe_gather
-
-KRAKEN_PRICE_URL = "https://api.kraken.com/0/public/Ticker?pair="
 
 
 class KrakenOrderBookTracker(OrderBookTracker):
@@ -104,27 +100,3 @@ class KrakenOrderBookTracker(OrderBookTracker):
             except Exception:
                 self.logger().error("Unknown error. Retrying after 5 seconds.", exc_info=True)
                 await asyncio.sleep(5.0)
-
-    async def _update_last_trade_prices_loop(self):
-        while True:
-            try:
-                if len(self._trading_pairs) == len(self._order_books):
-                    tasks = [self._update_last_trade_price(t_pair) for t_pair in self._trading_pairs]
-                    await safe_gather(*tasks)
-                    await asyncio.sleep(10)
-                else:
-                    await asyncio.sleep(0.1)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().network("Unexpected error while fetching last trade price.", exc_info=True)
-                await asyncio.sleep(30)
-
-    async def _update_last_trade_price(self, trading_pair: str):
-        order_book: OrderBook = self._order_books.get(trading_pair, None)
-        async with aiohttp.ClientSession() as client:
-            resp = await client.get(KRAKEN_PRICE_URL + trading_pair)
-            resp_json = await resp.json()
-            record = list(resp_json["result"].values())[0]
-            # print(f"{trading_pair} {resp_json}")
-            order_book.last_trade_price = float(record["c"][0])
