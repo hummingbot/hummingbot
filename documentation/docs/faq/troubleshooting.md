@@ -295,20 +295,10 @@ Failed connections:                                                             
 10:12:24 - kraken_market - Error received from https://api.kraken.com/0/private/Balance. Response is {'error': []}.
 ```
 
-This error occurs when Kraken account is not verified and no current funds on the exchange. Get verified and fund your account to fix the error. For more info visit this [article](https://support.kraken.com/hc/en-us/articles/360001491786-API-Error-Codes).
+This error occurs when Kraken account currently has no funds on the exchange. Fund your account to fix the error. For more info visit this [article](https://support.kraken.com/hc/en-us/articles/360001491786-API-Error-Codes).
 
 ### MAC mismatch error 
 
-This error is usually caused by having multiple encrypted keys with different passwords in the same config folder. For example:
-```
-Instance1                       Instance2
-Password  : 1234                Password  : 5678 
-API key/s : Binance             API key/s : Bittrex, Coinbase Pro, 
-                                            Eterbase, Kraken, Huobi
-```
-Copying encrypted Binance key file from Instance1 to Instance2 will result to a MAC mismatch error.
-
-**Running the Hummingbot will give the following error**
 ```
 Hummingbot.core.utils.async_utils - ERROR - Unhandled error in background task: MAC mismatch Traceback (most recent call last):
 File "/home/ubuntu/hummingbot/hummingbot/core/utils/async_utils.py", line 9, in safe_wrapper return await c
@@ -324,10 +314,18 @@ File "/home/ubuntu/miniconda3/envs/hummingbot/lib/python3.8/site-packages/eth_ke
 File "/home/ubuntu/miniconda3/envs/hummingbot/lib/python3.8/site-packages/eth_keyfile/keyfile.py", line 170, in _decode_keyfile_json_v3 raise ValueError("MAC mismatch") 
 ValueError: MAC mismatch
 ```
-To fix this:
+This error is usually caused by having multiple encrypted keys with different passwords in the same config folder. For example:
+```
+Instance1                       Instance2
+Password  : 1234                Password  : 5678 
+API key/s : Binance             API key/s : Bittrex, Coinbase Pro, 
+                                            Eterbase, Kraken, Huobi
+```
+
+Copying encrypted Binance key file from Instance1 to Instance2 will result to this error. To fix this:
 
 1. Delete just the `encrypted_binance_api/secret_key.json` from Instance2's conf folder
-2. Restart Hummingbot and password should still be 5678
+2. Restart Hummingbot and password 5678 remains unchanged
 3. Run `connect binance` and add the API keys - this will encrypt it with 5678 password and sync it with the rest of the API keys
 
 
