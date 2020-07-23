@@ -2,6 +2,8 @@
 
 Running Hummingbot on a Raspberry Pi has the same main benefit of running it on a cloud server: having a dedicated machine for Hummingbot.  Raspberry Pi’s are relatively low cost, easy to set up, and, of course, don’t have the monthly charges associated with a cloud provider.
 
+![](/assets/img/rpi-hummingbot.jpg)
+
 Read through our full blog post about [Deploying Hummingbot on a Raspberrry Pi](https://hummingbot.io/blog/2020-07-deploying-hummingbot-on-a-raspberry-pi/).
 
 The only way to currently install Hummingbot on a Raspberry Pi is by downloading the source files from GitHub and compiling and running from source. This adds a few more steps than downloading binaries or running from Docker, but below we have provided a step-by-step guide to walk you through the process.
@@ -22,7 +24,7 @@ Raspberry Pi has an easy to follow [guide](https://www.raspberrypi.org/documenta
 Insert your SD card into the Raspberry Pi and plug in the power source. From there, the first launch options will be prompted.
 
 
-## Install Hummingbot Dependencies
+## Install Hummingbot dependencies
 
 **Step 1. Open the Raspberry Pi terminal**
 
@@ -81,3 +83,31 @@ cd hummingbot && ./clean && ./compile
 ```
 bin/hummingbot.py
 ```
+
+## Controlling remotely using VNC Viewer
+
+SSH and VNC features are natively built into the Raspberry Pi and can easily be turned on in the Raspberry Pi configurations settings. By turning these on, you can access the Raspberry Pi from another computer by (1) using terminal to SSH, similar to how you would access a cloud server, or (2) using VNC to enable remote desktop access to the Raspberry Pi GUI. This is very convenient; after initial setup of the Raspberry Pi, you can simply unplug the monitor, keyboard and mouse, and just set the Raspberry Pi itself aside and just access it remotely going forward.
+
+![](/assets/img/rpi-ssh.jpg)
+
+**Step 1. Enable SSH and VNC on your Raspberry Pi**
+
+- Option 1: Terminal using raspi-config
+
+```
+sudo raspi-config
+```
+
+Under Interfacing Options, enable SSH and VNC.
+
+- Option 2: Access in Raspberry Pi Configuration
+
+Select the menu in the top left corner of the screen then go to **Preferences > Raspberry Pi configuration > Interfaces** from there you will see options to enable SSH and VNC.
+
+![](rpi-config.jpg)
+
+**Step 2. Get your Raspberry Pi’s private IP address**
+
+Type `ifconfig` to get the IP address of your Raspberry Pi to enter into your VNC Viewer. For SSH, you can run `ssh pi@[ipaddress]`. The IP address is the `inet` address which is not the localhost IP address 127.0.0.1:
+
+![](/assets/img/rpi-private-address.jpg)
