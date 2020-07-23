@@ -7,7 +7,7 @@ from typing import (
     List,
     Optional
 )
-import aiohttp
+
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
@@ -20,8 +20,6 @@ from hummingbot.core.data_type.order_book_tracker import (
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.huobi.huobi_api_order_book_data_source import HuobiAPIOrderBookDataSource
-
-HUOBI_TICKER_URL = "https://api.huobi.pro/market/tickers"
 
 
 class HuobiOrderBookTracker(OrderBookTracker):
@@ -141,22 +139,3 @@ class HuobiOrderBookTracker(OrderBookTracker):
                     app_warning_msg=f"Unexpected error tracking order book. Retrying after 5 seconds."
                 )
                 await asyncio.sleep(5.0)
-
-    async def _update_last_trade_prices_loop(self):
-        while True:
-            try:
-                if len(self._trading_pairs) == len(self._order_books):
-                    async with aiohttp.ClientSession() as client:
-                        resp = await client.get(HUOBI_TICKER_URL)
-                        resp_json = await resp.json()
-                        for trading_pair, order_book in self._order_books.items():
-                            resp_record = [o for o in resp_json["data"] if o["symbol"] == trading_pair][0]
-                            order_book.last_trade_price = float(resp_record["close"])
-                    await asyncio.sleep(10)
-                else:
-                    await asyncio.sleep(0.1)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().network("Unexpected error while fetching last trade price.", exc_info=True)
-                await asyncio.sleep(30)
