@@ -22,6 +22,7 @@ from typing import (
     List,
 )
 from hummingbot.market.eterbase.eterbase_order_book_tracker import EterbaseOrderBookTracker
+from hummingbot.market.eterbase.eterbase_api_order_book_data_source import EterbaseAPIOrderBookDataSource
 from hummingbot.market.eterbase.eterbase_order_book import EterbaseOrderBook
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import (
@@ -197,6 +198,14 @@ class EterbaseOrderBookTrackerUnitTest(unittest.TestCase):
         self.run_parallel(asyncio.sleep(5))
 
         self.assertTrue(Decimal(price) not in test_active_order_tracker.active_bids)
+
+    def test_api_get_last_traded_prices(self):
+        prices = self.ev_loop.run_until_complete(
+            EterbaseAPIOrderBookDataSource.get_last_traded_prices(["BTCEUR", "LTCEUR"]))
+        for key, value in prices.items():
+            print(f"{key} last_trade_price: {value}")
+        self.assertGreater(prices["BTCEUR"], 1000)
+        self.assertLess(prices["LTCEUR"], 1000)
 
 
 def main():
