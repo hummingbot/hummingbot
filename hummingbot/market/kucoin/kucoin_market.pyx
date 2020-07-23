@@ -281,7 +281,6 @@ cdef class KucoinMarket(MarketBase):
     async def _user_stream_event_listener(self):
         async for event_message in self._iter_user_event_queue():
             try:
-                self.logger().info(f"Websocket: {event_message}")
                 event_type = event_message.get("type")
                 event_topic = event_message.get("topic")
                 execution_data = event_message.get("data")
@@ -302,11 +301,10 @@ cdef class KucoinMarket(MarketBase):
 
                 if execution_type == "update" and execution_data["filledSize"] > 0:
                     order_type_description = tracked_order.order_type_description
-                    execute_amount_diff = execution_data["filledSize"] - tracked_order.executed_amount_base
-                    execute_price = execution_data["price"]
-                    tracked_order.executed_amount_base = execution_data["filledSize"]
-                    tracked_order.executed_amount_quote = execution_data["filledSize"] * execute_price
-                    self.logger().info("Filled update over websocket.")
+                    execute_amount_diff = Decimal(execution_data["filledSize"]) - Decimal(tracked_order.executed_amount_base)
+                    execute_price = Decimal(execution_data["price"])
+                    tracked_order.executed_amount_base = Decimal(execution_data["filledSize"])
+                    tracked_order.executed_amount_quote = Decimal(execution_data["filledSize"]) * Decimal(execute_price)
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                        f"{order_type_description} order {tracked_order.client_order_id}")
                     self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
@@ -330,10 +328,9 @@ cdef class KucoinMarket(MarketBase):
                                              ))
 
                 if execution_type == "match" or execution_type == "filled":
-                    tracked_order.executed_amount_base = execution_data["filledSize"]
-                    tracked_order.executed_amount_quote = execution_data["filledSize"] * execution_data["price"]
+                    tracked_order.executed_amount_base = Decimal(execution_data["filledSize"])
+                    tracked_order.executed_amount_quote = Decimal(execution_data["filledSize"]) * Decimal(execution_data["price"])
                     if tracked_order.trade_type == TradeType.BUY:
-                        self.logger().info("Buy completed update over websocket")
                         self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
                                            f"according to KuCoin user stream.")
                         self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
@@ -348,7 +345,6 @@ cdef class KucoinMarket(MarketBase):
                                                                     tracked_order.fee_paid,
                                                                     tracked_order.order_type))
                     else:
-                         self.logger().info("Sell completed update over websocket")
                          self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
                                             f"according to KuCoin user stream.")
                          self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
@@ -365,7 +361,6 @@ cdef class KucoinMarket(MarketBase):
                     self.c_stop_tracking_order(tracked_order.client_order_id)
                                           
                 elif execution_type == "canceled":
-                    self.logger().info("Cancel update over websocket")
                     self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
                     self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
 					 OrderCancelledEvent(
