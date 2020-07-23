@@ -88,7 +88,7 @@ Return % = -0.0222 %
 
 Net Delta is calculated based on the difference of starting balance and current balance, while Trade Delta is tokens acquired after executing trades. Both Net Delta or Trade Delta can be positive or negative (profit or loss).
 
-$Net Delta = Starting - Current$
+$net_delta = $starting_balance - $current_balance
 
 ```
 Inventory:                                                                 
