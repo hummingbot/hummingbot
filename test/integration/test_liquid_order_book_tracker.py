@@ -19,6 +19,7 @@ from typing import (
     Optional,
     List)
 from hummingbot.market.liquid.liquid_order_book_tracker import LiquidOrderBookTracker
+from hummingbot.market.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.utils.async_utils import (
@@ -111,6 +112,14 @@ class LiquidOrderBookTrackerUnitTest(unittest.TestCase):
         for order_book in self.order_book_tracker.order_books.values():
             print(order_book.last_trade_price)
             self.assertFalse(math.isnan(order_book.last_trade_price))
+
+    def test_api_get_last_traded_prices(self):
+        prices = self.ev_loop.run_until_complete(
+            LiquidAPIOrderBookDataSource.get_last_traded_prices(["BTC-USD", "ETH-USD"]))
+        for key, value in prices.items():
+            print(f"{key} last_trade_price: {value}")
+        self.assertGreater(prices["BTC-USD"], 1000)
+        self.assertLess(prices["ETH-USD"], 1000)
 
 
 def main():
