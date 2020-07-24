@@ -104,7 +104,7 @@ Under Interfacing Options, enable SSH and VNC.
 
 Select the menu in the top left corner of the screen then go to **Preferences > Raspberry Pi configuration > Interfaces** from there you will see options to enable SSH and VNC.
 
-![](rpi-config.jpg)
+![](/assets/img/rpi-config.jpg)
 
 **Step 2. Get your Raspberry Pi’s private IP address**
 
