@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import pandas as pd
 import asyncio
 from sqlalchemy.orm import (
     Session,
@@ -15,6 +16,7 @@ from typing import (
     Union
 )
 
+from hummingbot.client.settings import CONF_FILE_PATH
 from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
@@ -233,6 +235,13 @@ class MarketsRecorder:
         session.add(trade_fill_record)
         self.save_market_states(self._config_file_path, market, no_commit=True)
         session.commit()
+        self.append_to_csv(trade_fill_record)
+
+    def append_to_csv(self, trade: TradeFill):
+        csv_file = CONF_FILE_PATH + "/trades_" + trade.config_file_path + ".csv"
+        df = pd.DataFrame([[trade.config_file_path, trade.strategy, trade.market, trade.symbol, trade.base_asset, trade.quote_asset, trade.timestamp,
+                            trade.order_id, trade.trade_type, trade.order_type, trade.price, trade.amount, trade.trade_fee, trade.exchange_trade_id]])
+        df.to_csv(csv_file, mode='a', header=False, index=False)
 
     def _update_order_status(self,
                              event_tag: int,
