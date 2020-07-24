@@ -11,15 +11,12 @@ from typing import (
 from urllib.parse import urlencode
 from collections import OrderedDict
 
-# V3 API
-HUOBI_HOST_NAME = "api.huobi.pro"
 
-"https://www.okex.com/api/spot/v3/accounts"
+"spot/v3/accounts"
 
 
 class OKExAuth:
     def __init__(self, api_key: str, secret_key: str, passphrase: str):
-        self.hostname: str = HUOBI_HOST_NAME
         self.api_key: str = api_key
         self.secret_key: str = secret_key
         self.passphrase : str = passphrase
@@ -39,7 +36,9 @@ class OKExAuth:
         return utc.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-6] + "{:03d}".format(int(miliseconds) % 1000) + 'Z' 
 
     def get_signature(self, timestamp, method, path_url, body) -> str:
-        auth = timestamp + method + path_url + self.json(body)
+        auth = timestamp + method + path_url
+        if body:
+            auth += self.json(body)
         signature =  base64.b64encode(hmac.new(self.secret_key.encode(), auth.encode(), hashlib.sha256).digest())
         return signature.decode()
 

@@ -66,7 +66,7 @@ from hummingbot.core.utils.estimate_fee import estimate_fee
 hm_logger = None
 s_decimal_0 = Decimal(0)
 TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(usdt|husd|btc|eth|ht|trx)$")
-HUOBI_ROOT_API = "https://api.huobi.pro/v1/"
+HUOBI_ROOT_API = "https://www.okex.com/api/"
 
 
 class HuobiAPIError(IOError):
