@@ -21,6 +21,7 @@ from typing import (
 from aiokafka import ConsumerRecord
 import pandas as pd
 import numpy as np
+import time
 from .order_book_message import OrderBookMessage
 from .order_book_row import OrderBookRow
 from .order_book_query_result import OrderBookQueryResult
@@ -48,6 +49,7 @@ cdef class OrderBook(PubSub):
         self._last_diff_uid = 0
         self._best_bid = self._best_ask = float("NaN")
         self._last_trade_price = float("NaN")
+        self._last_trade_price_updated = -1000.0
         self._dex = dex
 
     cdef c_apply_diffs(self, vector[OrderBookEntry] bids, vector[OrderBookEntry] asks, int64_t update_id):
@@ -132,6 +134,7 @@ cdef class OrderBook(PubSub):
 
     cdef c_apply_trade(self, object trade_event):
         self._last_trade_price = trade_event.price
+        self._last_trade_price_updated = time.perf_counter()
         self.c_trigger_event(self.ORDER_BOOK_TRADE_EVENT_TAG, trade_event)
 
     @property
@@ -141,6 +144,10 @@ cdef class OrderBook(PubSub):
     @last_trade_price.setter
     def last_trade_price(self, value: float):
         self._last_trade_price = value
+
+    @property
+    def last_trade_price_updated(self) -> float:
+        return self._last_trade_price_updated
 
     @property
     def snapshot_uid(self) -> int:
