@@ -6,7 +6,6 @@ from enum import Enum
 import logging
 import pandas as pd
 import re
-import time
 from typing import (
     Dict,
     Set,
@@ -14,7 +13,7 @@ from typing import (
     Optional,
     Tuple,
     List)
-
+import time
 from hummingbot.core.event.events import OrderBookTradeEvent, TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book import OrderBook
@@ -149,13 +148,19 @@ class OrderBookTracker(ABC):
             self._tracking_tasks.clear()
 
     async def _update_last_trade_prices_loop(self):
+        '''
+        Updates last trade price for all order books, this is fall-back mechanism for when the web socket
+        has not yet started receiving messages or fails for some reasons.
+        '''
+        await wait_til(lambda: len(self.data_source._trading_pairs) == len(self._order_books.keys()))
         while True:
             try:
-                await wait_til(lambda: len(self.data_source._trading_pairs) == len(self._order_books.keys()))
-                last_prices = await self.data_source.get_last_traded_prices(list(self._order_books.keys()))
-                for trading_pair, last_price in last_prices.items():
-                    self._order_books[trading_pair].last_trade_price = last_price
-                await asyncio.sleep(10)
+                for trading_pair, order_book in self._order_books.items():
+                    if order_book.last_trade_price_updated >= time.perf_counter() - (60. * 3):
+                        continue
+                    last_price = await self.data_source.get_last_traded_prices([trading_pair])
+                    order_book.last_trade_price = last_price[trading_pair]
+                await asyncio.sleep(3)
             except asyncio.CancelledError:
                 raise
             except Exception:
