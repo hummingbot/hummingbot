@@ -18,7 +18,6 @@ from typing import (
 )
 
 from hummingbot import data_path
-from os.path import join
 from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
@@ -241,7 +240,7 @@ class MarketsRecorder:
 
     def append_to_csv(self, trade: TradeFill):
         csv_file = "trades_" + trade.config_file_path[:-4] + ".csv"
-        csv_path = join(data_path(), csv_file)
+        csv_path = os.path.join(data_path(), csv_file)
         # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
         age = "n/a"
         if "//" not in trade.order_id:
