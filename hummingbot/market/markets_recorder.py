@@ -16,7 +16,8 @@ from typing import (
     Union
 )
 
-from hummingbot.client.settings import CONF_FILE_PATH
+from hummingbot import data_path
+from os.path import join
 from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
@@ -238,10 +239,15 @@ class MarketsRecorder:
         self.append_to_csv(trade_fill_record)
 
     def append_to_csv(self, trade: TradeFill):
-        csv_file = CONF_FILE_PATH + "/trades_" + trade.config_file_path + ".csv"
+        csv_file = "trades_" + trade.config_file_path[:-4] + ".csv"
+        csv_path = join(data_path(), csv_file)
+        # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
+        age = "n/a"
+        if "//" not in trade.order_id:
+            age = pd.Timestamp(int(trade.timestamp / 1e3 - int(trade.order_id[-16:]) / 1e6), unit='s').strftime('%H:%M:%S')
         df = pd.DataFrame([[trade.config_file_path, trade.strategy, trade.market, trade.symbol, trade.base_asset, trade.quote_asset, trade.timestamp,
-                            trade.order_id, trade.trade_type, trade.order_type, trade.price, trade.amount, trade.trade_fee, trade.exchange_trade_id]])
-        df.to_csv(csv_file, mode='a', header=False, index=False)
+                            trade.order_id, trade.trade_type, trade.order_type, trade.price, trade.amount, trade.trade_fee, trade.exchange_trade_id, age]])
+        df.to_csv(csv_path, mode='a', header=False, index=False)
 
     def _update_order_status(self,
                              event_tag: int,
