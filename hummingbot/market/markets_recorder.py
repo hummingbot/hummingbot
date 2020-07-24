@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os.path
 import pandas as pd
 import asyncio
 from sqlalchemy.orm import (
@@ -245,8 +246,12 @@ class MarketsRecorder:
         age = "n/a"
         if "//" not in trade.order_id:
             age = pd.Timestamp(int(trade.timestamp / 1e3 - int(trade.order_id[-16:]) / 1e6), unit='s').strftime('%H:%M:%S')
-        df = pd.DataFrame([[trade.config_file_path, trade.strategy, trade.market, trade.symbol, trade.base_asset, trade.quote_asset, trade.timestamp,
-                            trade.order_id, trade.trade_type, trade.order_type, trade.price, trade.amount, trade.trade_fee, trade.exchange_trade_id, age]])
+        if not os.path.exists(csv_path):
+            df_header = pd.DataFrame([["Config File", "Strategy", "Exchange", "Timestamp", "Market", "Base", "Quote",
+                                       "Trade", "Type", "Price", "Amount", "Fee", "Age", "Order ID", "Exchange Trade ID"]])
+            df_header.to_csv(csv_path, mode='a', header=False, index=False)
+        df = pd.DataFrame([[trade.config_file_path, trade.strategy, trade.market, trade.timestamp, trade.symbol, trade.base_asset, trade.quote_asset,
+                            trade.trade_type, trade.order_type, trade.price, trade.amount, trade.trade_fee, age, trade.order_id, trade.exchange_trade_id]])
         df.to_csv(csv_path, mode='a', header=False, index=False)
 
     def _update_order_status(self,
