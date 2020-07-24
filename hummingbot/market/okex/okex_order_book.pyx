@@ -20,7 +20,7 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage, Order
 _hob_logger = None
 
 
-cdef class HuobiOrderBook(OrderBook):
+cdef class OKExOrderBook(OrderBook):
     @classmethod
     def logger(cls) -> HummingbotLogger:
         global _hob_logger

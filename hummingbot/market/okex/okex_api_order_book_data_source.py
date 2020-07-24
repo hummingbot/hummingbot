@@ -24,15 +24,21 @@ from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerE
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.huobi.huobi_order_book import HuobiOrderBook
+from hummingbot.market.okex.okex_order_book import OKExOrderBook
 
-HUOBI_SYMBOLS_URL = "https://api.huobi.pro/v1/common/symbols"
-HUOBI_TICKER_URL = "https://api.huobi.pro/market/tickers"
-HUOBI_DEPTH_URL = "https://api.huobi.pro/market/depth"
-HUOBI_WS_URI = "wss://api.huobi.pro/ws"
+from urllib.parse import urljoin
 
 
-class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
+OKEX_BASE_URL = "https://okex.com/api/"
+
+OKEX_SYMBOLS_URL = urljoin(OKEX_BASE_URL, "spot/v3/instruments/ticker")
+OKEX_DEPTH_URL = urljoin(OKEX_BASE_URL, "spot/v3/instruments/{trading_pair}/book")
+
+# HUOBI_TICKER_URL = "https://api.huobi.pro/market/tickers"
+# HUOBI_WS_URI = "wss://api.huobi.pro/ws"
+
+
+class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
@@ -53,47 +59,39 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
         """
+        Performs the necessary API request(s) to get all currently active trading pairs on the 
+        exchange and returns a pandas.DataFrame with each row representing one active trading pair.
+
+        Also the the base and quote currency should be represented under the baseAsset and quoteAsset 
+        columns respectively in the DataFrame.
+
+        Refer to Calling a Class method for an example on how to test this particular function.
         Returned data frame should have trading pair as index and include usd volume, baseAsset and quoteAsset
         """
         async with aiohttp.ClientSession() as client:
+        
+            # TODO mock this in a test
+            async with client.get(OKEX_SYMBOLS_URL) as products_response:
+                
+                products_response: aiohttp.ClientResponse = products_response
+                if products_response.status != 200:
+                    raise IOError(f"Error fetching active OKEx markets. HTTP status is {products_response.status}.")
 
-            market_response, exchange_response = await safe_gather(
-                client.get(HUOBI_TICKER_URL),
-                client.get(HUOBI_SYMBOLS_URL)
-            )
-            market_response: aiohttp.ClientResponse = market_response
-            exchange_response: aiohttp.ClientResponse = exchange_response
+                data = await products_response.json()
 
-            if market_response.status != 200:
-                raise IOError(f"Error fetching Huobi markets information. "
-                              f"HTTP status is {market_response.status}.")
-            if exchange_response.status != 200:
-                raise IOError(f"Error fetching Huobi exchange information. "
-                              f"HTTP status is {exchange_response.status}.")
+                all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data)
+                
+                all_markets.rename({"quote_volume_24h": "volume", "last": "price"},
+                                   axis="columns", inplace=True)
 
-            market_data = await market_response.json()
-            exchange_data = await exchange_response.json()
 
-            attr_name_map = {"base-currency": "baseAsset", "quote-currency": "quoteAsset"}
-
-            trading_pairs: Dict[str, Any] = {
-                item["symbol"]: {attr_name_map[k]: item[k] for k in ["base-currency", "quote-currency"]}
-                for item in exchange_data["data"]
-                if item["state"] == "online"
-            }
-
-            market_data: List[Dict[str, Any]] = [
-                {**item, **trading_pairs[item["symbol"]]}
-                for item in market_data["data"]
-                if item["symbol"] in trading_pairs
-            ]
-
-            # Build the data frame.
-            all_markets: pd.DataFrame = pd.DataFrame.from_records(data=market_data, index="symbol")
-            all_markets.loc[:, "USDVolume"] = all_markets.amount
-            all_markets.loc[:, "volume"] = all_markets.vol
-
-            return all_markets.sort_values("USDVolume", ascending=False)
+                base_quote = all_markets["product_id"].str.split("-", n=1, expand=True)
+                all_markets["baseAsset"] = base_quote[0]
+                all_markets["quoteAsset"] = base_quote[1]
+                # Adding a collum in the format Hummingbot used "BTCLTC"
+                all_markets["reformated_instrument"] = base_quote[0] + base_quote[1]
+                
+                return all_markets
 
     async def get_trading_pairs(self) -> List[str]:
         if not self._trading_pairs:
@@ -111,16 +109,49 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
+        """Fetches order book snapshot for a particular trading pair from the exchange REST API."""
         # when type is set to "step0", the default value of "depth" is 150
-        params: Dict = {"symbol": trading_pair, "type": "step0"}
-        async with client.get(HUOBI_DEPTH_URL, params=params) as response:
+        
+        # get trading_par in OKEx format:
+        markets = await  OKExAPIOrderBookDataSource.get_active_exchange_markets()
+        translated_trading_pair = markets.loc[markets['reformated_instrument'] == trading_pair]['product_id'].values[0]
+        #print(translated_trading_pair['product_id'].values[0])
+
+        print("translated trading pair is " + str(translated_trading_pair))
+
+        
+        params = {} # default {'size':?, 'depth':?}
+        print("url is: "  + OKEX_DEPTH_URL.format(trading_pair=translated_trading_pair))
+        async with client.get(OKEX_DEPTH_URL.format(trading_pair=translated_trading_pair), params=params) as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
-                raise IOError(f"Error fetching Huobi market snapshot for {trading_pair}. "
+                raise IOError(f"Error fetching OKEX market snapshot for {trading_pair}. "
                               f"HTTP status is {response.status}.")
             api_data = await response.read()
             data: Dict[str, Any] = json.loads(api_data)
+            # format is, is this correct?
+            # {
+            #     "asks": [[
+                    # "9341.1",
+                    # "0.1400433",
+                    # "1"
+                    # ],
+                    # [
+                    # "9341.2",
+                    # "0.356",
+                    # "2"
+                    # ],
+                    # [
+                    # "9341.4",
+                    # "0.02",
+                    # "1"
+                    # ]],
+            #     "bids": [], # left incomplete, same as ask
+            #     "timestamp": "2020-07-22T16:46:03.223Z"
+            # }
+
             return data
+
 
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
         # Get the currently active markets
@@ -132,7 +163,7 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
             for index, trading_pair in enumerate(trading_pairs):
                 try:
                     snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
-                    snapshot_msg: OrderBookMessage = HuobiOrderBook.snapshot_message_from_exchange(
+                    snapshot_msg: OrderBookMessage = OKExOrderBook.snapshot_message_from_exchange(
                         snapshot,
                         metadata={"trading_pair": trading_pair}
                     )

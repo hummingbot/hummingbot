@@ -31,7 +31,7 @@ cdef class CoinbaseProOrderBook(OrderBook):
 
     @classmethod
     def snapshot_message_from_exchange(cls,
-                                       msg: Dict[str, any],
+                                       msg: Dict[str, any], # snapshot
                                        timestamp: float,
                                        metadata: Optional[Dict] = None) -> OrderBookMessage:
         """
