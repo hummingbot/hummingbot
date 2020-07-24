@@ -90,6 +90,8 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
 
     order_book_parser = subparsers.add_parser("order_book", help="Display current order book.")
     order_book_parser.add_argument("--lines", type=int, default=5, dest="lines", help="Number of lines to display")
+    order_book_parser.add_argument("--exchange", type=str, dest="exchange", help="The exchange of the market")
+    order_book_parser.add_argument("--market", type=str, dest="market", help="The market (trading pair) of the order book")
     order_book_parser.set_defaults(func=hummingbot.order_book)
 
     return parser
