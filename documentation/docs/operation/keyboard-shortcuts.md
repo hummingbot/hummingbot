@@ -17,21 +17,34 @@
 
 ## Copy and Paste
 
-Linux
+### Linux
 
 | Keyboard Combo | Command |
 |-------- | ----------- |
 | CTRL + C | Copy
 | SHIFT + RMB <img src="/assets/img/rmb.png" height="15"> | Paste
 
-macOS
+To highlight, hold **SHIFT + LMB** <img src="/assets/img/lmb.svg" height="13"> and drag across the text you want to select.
+
+### macOS
 
 | Keyboard Combo | Command |
 |-------- | ----------- |
 | ⌘ + C | Copy
 | ⌘ + V | Paste
 
-Windows
+To enable highlighting in Hummingbot installed via macOS binary dmg installer, disable mouse reporting by pressing **`⌘ + R`** or go to **View > Allow Mouse Reporting**.
+
+<img src="/assets/img/allow_mouse_reporting.png" height="500">
+
+Then you should be able to select text by dragging or holding **`⌥ + shift`** to select specific lines.
+
+![](/assets/img/highlight_macos.png)
+
+When accessing Hummingbot on a Linux cloud server through `ssh` using a macOS terminal, hold down the **`Option ⌥`** key or **`⌥ + ⌘`** to highlight text.
+
+
+###Windows
 
 | Keyboard Combo | Command |
 |-------- | ----------- |
