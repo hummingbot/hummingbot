@@ -33,7 +33,9 @@ To highlight, hold **SHIFT + LMB** <img src="/assets/img/lmb.svg" height="13"> a
 | ⌘ + C | Copy
 | ⌘ + V | Paste
 
-To enable highlighting in Hummingbot installed via macOS binary dmg installer, disable mouse reporting by pressing **`⌘ + R`** or go to **View > Allow Mouse Reporting**.
+
+!!! note "Allow Mouse Reporting"
+    To select text on macOS, you may need to enable the **Allow Mouse Reporting** option by pressing **`⌘ + R`** or selecting  **View > Allow Mouse Reporting** in the menu bar.
 
 <img src="/assets/img/allow_mouse_reporting.png" height="500">
 
