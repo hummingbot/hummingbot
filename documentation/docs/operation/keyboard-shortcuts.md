@@ -37,7 +37,7 @@ To enable highlighting in Hummingbot installed via macOS binary dmg installer, d
 
 <img src="/assets/img/allow_mouse_reporting.png" height="500">
 
-Then you should be able to select text by dragging or holding **`⌥ + shift`** to select specific lines.
+Then you should be able to select text by holding **`LMB`** <img src="/assets/img/lmb.svg" height="13"> and drag. You can also hold down **`⌥ + shift`** to select specific lines like the image below.
 
 ![](/assets/img/highlight_macos.png)
 
