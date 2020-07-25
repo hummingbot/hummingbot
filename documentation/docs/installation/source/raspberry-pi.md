@@ -111,3 +111,8 @@ Select the menu in the top left corner of the screen then go to **Preferences > 
 Type `ifconfig` to get the IP address of your Raspberry Pi to enter into your VNC Viewer. For SSH, you can run `ssh pi@[ipaddress]`. The IP address is the `inet` address which is not the localhost IP address 127.0.0.1:
 
 ![](/assets/img/rpi-private-address.jpg)
+
+!!! tip
+    Set a default screen resolution in `raspi-config` to enable the VNC access to the GUI when you boot up the raspberry pi without a connected monitor. For troubleshooting please visit this [link](https://www.raspberrypi.org/forums/viewtopic.php?t=216737).
+    
+Otherwise it will show this: ![](/assets/img/rasp-no-monitor.png)
