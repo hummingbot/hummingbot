@@ -12,6 +12,8 @@ from cachetools import TTLCache
 
 from typing import Optional, Dict, AsyncIterable, Any
 
+from contextlib import suppress
+
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.wallet.ethereum.watcher.base_watcher import BaseWatcher
 from hummingbot.logger import HummingbotLogger
@@ -87,6 +89,7 @@ class WSNewBlocksWatcher(BaseWatcher):
     async def disconnect(self):
         try:
             await self._client.close()
+            self._client = None
         except Exception as e:
             self.logger().network(f"ERROR in disconnection: {e}")
 
@@ -129,6 +132,9 @@ class WSNewBlocksWatcher(BaseWatcher):
             return
         finally:
             await self.disconnect()
+            # Reconnect and subscribe in case a disconnect happens
+            await self.connect()
+            await self.subscribe(["newHeads"])
 
     async def fetch_new_blocks_loop(self):
         while True:
@@ -140,19 +146,18 @@ class WSNewBlocksWatcher(BaseWatcher):
                         incoming_block = subscription_result_params.get("result", None) \
                             if subscription_result_params is not None else None
                         if incoming_block is not None:
-                            new_block: AttributeDict = await self.call_async(self._w3.eth.getBlock,
-                                                                             incoming_block.get("hash"), True)
-                            self._current_block_number = new_block.get("number")
-                            self._block_cache[new_block.get("hash")] = new_block
-                            self.trigger_event(NewBlocksWatcherEvent.NewBlocks, [new_block])
+                            with suppress(BlockNotFound):
+                                new_block: AttributeDict = await self.call_async(self._w3.eth.getBlock,
+                                                                                 incoming_block.get("hash"), True)
+                                self._current_block_number = new_block.get("number")
+                                self._block_cache[new_block.get("hash")] = new_block
+                                self.trigger_event(NewBlocksWatcherEvent.NewBlocks, [new_block])
             except asyncio.TimeoutError:
                 self.logger().network("Timed out fetching new block.", exc_info=True,
                                       app_warning_msg="Timed out fetching new block. "
                                                       "Check wallet network connection")
             except asyncio.CancelledError:
                 raise
-            except BlockNotFound:
-                pass
             except Exception as e:
                 self.logger().network(f"Error fetching new block: {e}", exc_info=True,
                                       app_warning_msg="Error fetching new block. "
