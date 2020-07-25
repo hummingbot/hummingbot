@@ -113,6 +113,6 @@ Type `ifconfig` to get the IP address of your Raspberry Pi to enter into your VN
 ![](/assets/img/rpi-private-address.jpg)
 
 !!! tip
-    Set a default screen resolution in `raspi-config` to enable the VNC access to the GUI when you boot up the raspberry pi without a connected monitor. For troubleshooting please visit this [link](https://www.raspberrypi.org/forums/viewtopic.php?t=216737).
-    
+    Set a default screen resolution in `raspi-config` select: `7 Advanced Options` > `A5 Resolution`. To enable the VNC access to the GUI when you boot up the Raspberry Pi without a connected monitor. For troubleshooting please visit this [link](https://www.raspberrypi.org/forums/viewtopic.php?t=216737).
+
 Otherwise it will show this: ![](/assets/img/rasp-no-monitor.png)
