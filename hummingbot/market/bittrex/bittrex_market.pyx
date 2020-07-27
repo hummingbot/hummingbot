@@ -750,9 +750,10 @@ cdef class BittrexMarket(MarketBase):
             object tracked_order
 
         decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
-        decimal_price = (self.c_quantize_order_price(trading_pair, price)
-                         if order_type is OrderType.LIMIT
-                         else s_decimal_0)
+        if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
+            decimal_price = self.c_quantize_order_price(trading_pair, price)
+        else:
+            decimal_price = s_decimal_0
 
         if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
@@ -860,9 +861,10 @@ cdef class BittrexMarket(MarketBase):
             object tracked_order
 
         decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
-        decimal_price = (self.c_quantize_order_price(trading_pair, price)
-                         if order_type is OrderType.LIMIT
-                         else s_decimal_0)
+        if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
+            decimal_price = self.c_quantize_order_price(trading_pair, price)
+        else: 
+            decimal_price = s_decimal_0
 
         if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Sell order amount {decimal_amount} is lower than the minimum order size "
