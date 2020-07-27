@@ -101,6 +101,7 @@ nav:
         - Linux: installation/source/linux.md
         - macOS: installation/source/macOS.md
         - Windows: installation/source/windows.md
+        - Raspberry Pi: installation/source/raspberry-pi.md
       - Cloud Server Guide: installation/cloud.md
       - Updating Hummingbot: installation/updating.md
     - Operation:

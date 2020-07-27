@@ -156,7 +156,10 @@ Liquidity mining sets forth an analytical framework for determining market maker
 
 ## Upcoming changes to campaign terms
 
-No upcoming changes.
+**Spread curve update starting July 28, 2020 12.00am UTC**
+
+After discussions with miners and traders in our community, we have decided to revise the spread density function constant to increase rewards for placing orders with tighter spreads vs those placed at wider spreads.
+You can read more about it here, [Change to spread factor constant](https://www.reddit.com/r/Hummingbot/comments/hx9wy5/change_to_spread_factor_constant_more_rewards_for/)
 
 ## Token Issuers
 
