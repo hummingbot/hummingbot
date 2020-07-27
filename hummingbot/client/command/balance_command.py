@@ -8,10 +8,32 @@ from typing import TYPE_CHECKING, Dict
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
+OPTIONS = {
+    "limit",
+}
+
 
 class BalanceCommand:
-    def balance(self):
-        safe_ensure_future(self.show_balances())
+    def balance(self,
+                option: str = None):
+        self.app.clear_input()
+        if option is None:
+            safe_ensure_future(self.show_balances())
+        elif option in OPTIONS:
+            if option == "limit":
+                self._notify(f"Setting balance limit for Hummingbot Client...")
+                # if token is None:
+                #     safe_ensure_future(self.show_asset_limits())
+                # else:
+                #     if amount is None:
+                #         self._notify("")
+        else:
+            self.list_options()
+            self._notify("Invalid option, please choose from the list.")
+            return
+
+    async def list_options(self):
+        pass
 
     async def show_balances(self):
         self._notify("Updating balances, please wait...")
@@ -74,3 +96,6 @@ class BalanceCommand:
         df = pd.DataFrame(data=rows, columns=["asset", "amount"])
         df.sort_values(by=["asset"], inplace=True)
         return df
+
+    async def show_asset_limits(self):
+        pass
