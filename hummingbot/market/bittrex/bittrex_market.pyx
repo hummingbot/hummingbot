@@ -764,7 +764,7 @@ cdef class BittrexMarket(MarketBase):
                 decimal_price,
                 decimal_amount
             )
-            if order_type is OrderType.LIMIT:
+            if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
 
                 order_result = await self.place_order(order_id,
                                                       trading_pair,
@@ -789,7 +789,12 @@ cdef class BittrexMarket(MarketBase):
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None and exchange_order_id:
                 tracked_order.update_exchange_order_id(exchange_order_id)
-                order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
+                if order_type == OrderType.MARKET:
+                    order_type_str = "MARKET" 
+                elif order_type == OrderType.LIMIT:
+                    order_type_str = "LIMIT"
+                elif order_type == OrderType.LIMIT_MAKER:
+                    order_type_str = "LIMIT_MAKER"
                 self.logger().info(f"Created {order_type_str} buy order {order_id} for "
                                    f"{decimal_amount} {trading_pair}")
                 self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
@@ -871,7 +876,7 @@ cdef class BittrexMarket(MarketBase):
                 decimal_amount
             )
 
-            if order_type is OrderType.LIMIT:
+            if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
                 order_result = await self.place_order(order_id,
                                                       trading_pair,
                                                       decimal_amount,
@@ -893,7 +898,12 @@ cdef class BittrexMarket(MarketBase):
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None and exchange_order_id:
                 tracked_order.update_exchange_order_id(exchange_order_id)
-                order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
+                if order_type == OrderType.MARKET:
+                    order_type_str = "MARKET" 
+                elif order_type == OrderType.LIMIT:
+                    order_type_str = "LIMIT"
+                elif order_type == OrderType.LIMIT_MAKER:
+                    order_type_str = "LIMIT_MAKER"
                 self.logger().info(f"Created {order_type_str} sell order {order_id} for "
                                    f"{decimal_amount} {trading_pair}.")
                 self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
