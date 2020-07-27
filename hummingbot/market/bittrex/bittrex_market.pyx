@@ -196,7 +196,7 @@ cdef class BittrexMarket(MarketBase):
 
         return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
         """
-        is_maker = order_type is OrderType.LIMIT
+        is_maker = order_type is OrderType.LIMIT_MAKER
         return estimate_fee("bittrex", is_maker)
 
     async def _update_balances(self):
@@ -381,7 +381,12 @@ cdef class BittrexMarket(MarketBase):
                     continue
 
                 order_state = order["status"]
-                order_type = "LIMIT" if tracked_order.order_type is OrderType.LIMIT else "MARKET"
+                if tracked_order.order_type is OrderType.LIMIT:
+                    order_type = "LIMIT"
+                elif tracked_order.order_type is OrderType.LIMIT_MAKER:
+                    order_type = "LIMIT_MAKER"
+                elif tracked_order.order_type is OrderType.MARKET:
+                    order_type = "MARKER"
                 trade_type = "BUY" if tracked_order.trade_type is TradeType.BUY else "SELL"
                 order_type_description = tracked_order.order_type_description
 

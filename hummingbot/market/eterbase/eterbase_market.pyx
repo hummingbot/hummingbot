@@ -374,7 +374,7 @@ cdef class EterbaseMarket(MarketBase):
             self._maker_fee = maker_fee
             self._taker_fee = taker_fee
 
-        return TradeFee(percent=self._maker_fee if order_type is OrderType.LIMIT else self._taker_fee)
+        return TradeFee(percent=self._maker_fee if order_type is OrderType.LIMIT_MAKER else self._taker_fee)
 
     async def _update_balances(self):
         """
@@ -614,7 +614,7 @@ cdef class EterbaseMarket(MarketBase):
                                                                     tracked_order.executed_amount_base,
                                                                     tracked_order.executed_amount_quote,
                                                                     tracked_order.fee_paid,
-                                                                    order_type))
+                                                                    tracked_order.order_type))
                     else:
                         self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
                                            f"according to order status API.")
@@ -628,7 +628,7 @@ cdef class EterbaseMarket(MarketBase):
                                                                      tracked_order.executed_amount_base,
                                                                      tracked_order.executed_amount_quote,
                                                                      tracked_order.fee_paid,
-                                                                     order_type))
+                                                                     tracked_order.order_type))
                 else:
                     self.logger().info(f"The market order {tracked_order.client_order_id} has failed/been cancelled "
                                        f"according to order status API.")
