@@ -31,17 +31,17 @@ class SillyCommands:
             await self.cls_n_display(self.yield_alert())
             await asyncio.sleep(0.5)
             self.clear_output_field()
+        hb_with_flower_1 = open(f"{RESOURCES_PATH}hb_with_flower_1.txt").readlines()
+        hb_with_flower_2 = open(f"{RESOURCES_PATH}hb_with_flower_2.txt").readlines()
+        hb_with_flower_up_close_1 = open(f"{RESOURCES_PATH}hb_with_flower_up_close_1.txt").readlines()
+        hb_with_flower_up_close_2 = open(f"{RESOURCES_PATH}hb_with_flower_up_close_2.txt").readlines()
         for _ in range(0, 2):
             for _ in range(0, 5):
-                hb_bird = open(f"{RESOURCES_PATH}hb_with_flower_1.txt").readlines()
-                await self.cls_n_display(hb_bird, 0.125)
-                hb_bird = open(f"{RESOURCES_PATH}hb_with_flower_2.txt").readlines()
-                await self.cls_n_display(hb_bird, 0.125)
+                await self.cls_n_display(hb_with_flower_1, 0.125)
+                await self.cls_n_display(hb_with_flower_2, 0.125)
             for _ in range(0, 5):
-                hb_bird = open(f"{RESOURCES_PATH}hb_with_flower_up_close_1.txt").readlines()
-                await self.cls_n_display(hb_bird, 0.125)
-                hb_bird = open(f"{RESOURCES_PATH}hb_with_flower_up_close_2.txt").readlines()
-                await self.cls_n_display(hb_bird, 0.125)
+                await self.cls_n_display(hb_with_flower_up_close_1, 0.125)
+                await self.cls_n_display(hb_with_flower_up_close_2, 0.125)
         self._notify(last_output)
         self.placeholder_mode = False
         self.app.hide_input = False
