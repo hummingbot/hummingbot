@@ -23,7 +23,9 @@ class SillyCommands:
 
     async def silly_hummingbot(self,  # type: HummingbotApplication
                                ):
-        last_output = "\n".join(self.app.output_field.document.lines[-50:])
+        last_output = "\n".join(self.app.output_field.document.lines)
+        self.placeholder_mode = True
+        self.app.hide_input = True
         self.clear_output_field()
         for _ in range(0, 3):
             await self.cls_n_display(self.yield_alert())
@@ -41,6 +43,8 @@ class SillyCommands:
                 hb_bird = open(f"{RESOURCES_PATH}hb_with_flower_up_close_2.txt").readlines()
                 await self.cls_n_display(hb_bird, 0.125)
         self._notify(last_output)
+        self.placeholder_mode = False
+        self.app.hide_input = False
 
     async def cls_n_display(self, lines, delay=0.5):
         await asyncio.sleep(delay)
