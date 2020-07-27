@@ -20,6 +20,7 @@ from hummingbot.core.data_type.remote_api_order_book_data_source import RemoteAP
 from hummingbot.market.kraken.kraken_api_order_book_data_source import KrakenAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.utils.async_utils import wait_til
 
 
 class KrakenOrderBookTracker(OrderBookTracker):
@@ -67,6 +68,7 @@ class KrakenOrderBookTracker(OrderBookTracker):
         messages_accepted: int = 0
         messages_rejected: int = 0
 
+        await wait_til(lambda: len(self.data_source._trading_pairs) == len(self._order_books.keys()))
         while True:
             try:
                 ob_message: OrderBookMessage = await self._order_book_diff_stream.get()
