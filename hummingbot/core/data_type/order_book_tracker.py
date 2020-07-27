@@ -149,18 +149,24 @@ class OrderBookTracker(ABC):
 
     async def _update_last_trade_prices_loop(self):
         '''
-        Updates last trade price for all order books, this is fall-back mechanism for when the web socket
-        has not yet started receiving messages or fails for some reasons.
+        Updates last trade price for all order books through REST API, it is to initiate last_trade_price and as
+        fall-back mechanism for when the web socket update channel fails.
         '''
         await wait_til(lambda: len(self.data_source._trading_pairs) == len(self._order_books.keys()))
         while True:
             try:
-                for trading_pair, order_book in self._order_books.items():
-                    if order_book.last_trade_price_updated >= time.perf_counter() - (60. * 3):
-                        continue
-                    last_price = await self.data_source.get_last_traded_prices([trading_pair])
-                    order_book.last_trade_price = last_price[trading_pair]
-                await asyncio.sleep(3)
+                to_update = any(
+                    o.last_applied_trade < time.perf_counter() - (60. * 3) and
+                    o.last_trade_price_rest_updated < time.perf_counter() - 5
+                    for o in self._order_books.values()
+                )
+                if to_update:
+                    last_prices = await self.data_source.get_last_traded_prices(list(self._order_books.keys()))
+                    for trading_pair, last_price in last_prices.items():
+                        self._order_books[trading_pair].last_trade_price = last_price
+                        self._order_books[trading_pair].last_trade_price_rest_updated = time.perf_counter()
+                else:
+                    await asyncio.sleep(1)
             except asyncio.CancelledError:
                 raise
             except Exception:
