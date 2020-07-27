@@ -287,6 +287,7 @@ cdef class KucoinMarket(MarketBase):
                 
                 # Refer to https://docs.kucoin.com/#private-order-change-events
                 if event_type == "message" and event_topic == "/spotMarket/tradeOrders":
+                    execution_status = execution_data["status"]
                     execution_type = execution_data["type"]
                     client_order_id = execution_data["clientOid"]
 
@@ -299,9 +300,9 @@ cdef class KucoinMarket(MarketBase):
                 else:
                     continue
 
-                if execution_type == "update" and execution_data["filledSize"] > 0:
+                if (execution_status == "open" or execution_status == "match") and Decimal(execution_data["matchSize"]) > 0:
                     order_type_description = tracked_order.order_type_description
-                    execute_amount_diff = Decimal(execution_data["filledSize"]) - Decimal(tracked_order.executed_amount_base)
+                    execute_amount_diff = Decimal(execution_data["matchSize"])
                     execute_price = Decimal(execution_data["price"])
                     tracked_order.executed_amount_base = Decimal(execution_data["filledSize"])
                     tracked_order.executed_amount_quote = Decimal(execution_data["filledSize"]) * Decimal(execute_price)
@@ -327,7 +328,7 @@ cdef class KucoinMarket(MarketBase):
                                              tracked_order.exchange_order_id
                                              ))
 
-                if execution_type == "match" or execution_type == "filled":
+                if (execution_status == "done" or execution_status == "match") and (execution_type == "match" or execution_type == "filled"):
                     tracked_order.executed_amount_base = Decimal(execution_data["filledSize"])
                     tracked_order.executed_amount_quote = Decimal(execution_data["filledSize"]) * Decimal(execution_data["price"])
                     if tracked_order.trade_type == TradeType.BUY:
@@ -360,7 +361,7 @@ cdef class KucoinMarket(MarketBase):
                                                                       tracked_order.order_type))
                     self.c_stop_tracking_order(tracked_order.client_order_id)
                                           
-                elif execution_type == "canceled":
+                elif execution_status == "done" and execution_type == "canceled":
                     self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
                     self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
 					 OrderCancelledEvent(
