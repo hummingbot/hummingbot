@@ -13,6 +13,7 @@ from .create_command import CreateCommand
 from .import_command import ImportCommand
 from .export_command import ExportCommand
 from .silly_commands import SillyCommands
+from .order_book_command import OrderBookCommand
 
 
 __all__ = [
@@ -30,5 +31,6 @@ __all__ = [
     CreateCommand,
     ImportCommand,
     ExportCommand,
-    SillyCommands
+    SillyCommands,
+    OrderBookCommand
 ]
