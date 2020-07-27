@@ -150,7 +150,8 @@ class HummingbotApplication(*commands):
         except InvalidCommandError as e:
             self._notify("Invalid command: %s" % (str(e),))
         except ArgumentParserError as e:
-            self._notify(str(e))
+            if not self.be_silly(raw_command):
+                self._notify(str(e))
         except NotImplementedError:
             self._notify("Command not yet implemented. This feature is currently under development.")
         except Exception as e:
