@@ -155,13 +155,11 @@ class OrderBookTracker(ABC):
         await wait_til(lambda: len(self.data_source._trading_pairs) == len(self._order_books.keys()))
         while True:
             try:
-                to_update = any(
-                    o.last_applied_trade < time.perf_counter() - (60. * 3) and
-                    o.last_trade_price_rest_updated < time.perf_counter() - 5
-                    for o in self._order_books.values()
-                )
-                if to_update:
-                    last_prices = await self.data_source.get_last_traded_prices(list(self._order_books.keys()))
+                outdateds = [t_pair for t_pair, o_book in self._order_books.items()
+                             if o_book.last_applied_trade < time.perf_counter() - (60. * 3)
+                             and o_book.last_trade_price_rest_updated < time.perf_counter() - 5]
+                if outdateds:
+                    last_prices = await self.data_source.get_last_traded_prices(outdateds)
                     for trading_pair, last_price in last_prices.items():
                         self._order_books[trading_pair].last_trade_price = last_price
                         self._order_books[trading_pair].last_trade_price_rest_updated = time.perf_counter()
