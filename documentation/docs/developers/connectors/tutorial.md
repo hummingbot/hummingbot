@@ -157,7 +157,7 @@ The role of the `Market` class can be broken down into placing and tracking orde
 
 Placing and tracking of orders on the exchange normally requiring a form of authentication tied to every requests to ensure protected access/actions to the assets that users have on the respective exchanges. 
 
-As such, it is would only make sense to have a module dedicated to handling authentication.
+As such, it would only make sense to have a module dedicated to handling authentication.
 
 As briefly mentioned, the `Auth` class is responsible for creating the request parameters and/or data bodies necessary to authenticate an API request.
 
@@ -865,7 +865,7 @@ This option, like in Option 2, is mainly used to test specific functions. This i
 i.e. Initializing a simple websocket connection to listen and output all captured messages to examine the user stream message when placing/cancelling an order. 
 This is helpful when determining the exact response fields to use.
 
-i.e. A simple function to craft the Authentication signature of a request. This together with [POSTMAN](https://www.getpostman.com/) can be used to check if the you are generating the appropriate authentication signature for the respective requests.
+i.e. A simple function to craft the Authentication signature of a request. This together with [POSTMAN](https://www.getpostman.com/) can be used to check if you are generating the appropriate authentication signature for the respective requests.
 
 #### API Request: POST Order
 
@@ -909,7 +909,7 @@ async def _api_request(http_method: str,
                               data=body) as response:
         data: Dict[str, any] = await response.json()
         if response.status not in [200,201]:
-            print(f"Error occured. HTTP Status {response.status}: {data}")
+            print(f"Error occurred. HTTP Status {response.status}: {data}")
         print(data)
 
 # POST order
