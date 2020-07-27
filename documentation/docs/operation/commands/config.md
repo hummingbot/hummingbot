@@ -7,40 +7,48 @@ Display the current bot's configuration.
 Global Configurations:
                      Key   Value
      kill_switch_enabled   False
-        kill_switch_rate    -0.1
+        kill_switch_rate    -100
         telegram_enabled   False
           telegram_token    None
         telegram_chat_id    None
          send_error_logs    True
+       0x_active_cancels   False
+          script_enabled   False
+        script_file_path    None
 
 Strategy Configurations:
-                            Key               Value
-                       strategy  pure_market_making
-                       exchange             binance
-                         market             ETH-BTC
-                     bid_spread                 1.0
-                     ask_spread                 1.0
-             order_refresh_time                  30
-                   order_amount                 1.0
-          order_expiration_time                 130
-                   order_levels                   1
-             order_level_amount                   0
-             order_level_spread                 1.0
-         inventory_skew_enabled                True
-      inventory_target_base_pct                None
-     inventory_range_multiplier                 1.0
-             filled_order_delay                  60
-         hanging_orders_enabled               False
-      hanging_orders_cancel_pct                10.0
-     order_optimization_enabled               False
-       order_optimization_depth                   0
-          add_transaction_costs               False
-           price_source_enabled               False
-              price_source_type                None
-          price_source_exchange                None
-            price_source_market                None
-            price_source_custom                None
-                take_if_crossed               False
+                              Key               Value
+                         strategy  pure_market_making
+                         exchange             binance
+                           market             ETH-BTC
+                       bid_spread                   1
+                       ask_spread                   1
+                   minimum_spread                -100
+               order_refresh_time                  30
+      order_refresh_tolerance_pct                   0
+                     order_amount                   1
+                    price_ceiling                  -1
+                      price_floor                  -1
+                ping_pong_enabled                True
+                     order_levels                   1
+               order_level_amount                   0
+               order_level_spread                   1
+           inventory_skew_enabled               False
+        inventory_target_base_pct                  50
+       inventory_range_multiplier                   1
+               filled_order_delay                  60
+           hanging_orders_enabled               False
+        hanging_orders_cancel_pct                  10
+       order_optimization_enabled               False
+     ask_order_optimization_depth                   0
+     bid_order_optimization_depth                   0
+            add_transaction_costs               False
+             price_source_enabled               False
+                price_source_type                None
+            price_source_exchange                None
+              price_source_market                None
+              price_source_custom                None
+                  take_if_crossed                None
 ```
 
 ## config [ key ]

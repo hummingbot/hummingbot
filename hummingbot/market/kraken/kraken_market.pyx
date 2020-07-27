@@ -572,7 +572,13 @@ cdef class KrakenMarket(MarketBase):
                                                               tracked_order.order_type,
                                                               Decimal(trade.get("price")),
                                                               Decimal(trade.get("vol")),
-                                                              TradeFee(0, [(tracked_order.quote_asset, Decimal(trade.get("fee")))]),
+                                                              self.c_get_fee(
+                                                                  tracked_order.base_asset,
+                                                                  tracked_order.quote_asset,
+                                                                  tracked_order.order_type,
+                                                                  tracked_order.trade_type,
+                                                                  float(Decimal(trade.get("price"))),
+                                                                  float(Decimal(trade.get("vol")))),
                                                               trade.get("trade_id")))
 
                         if tracked_order.is_done:

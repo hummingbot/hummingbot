@@ -95,7 +95,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
         if API_MOCK_ENABLED:
             cls.web_app = HummingWebApp.get_instance()
-            cls.web_app.add_host_to_mock(cls.base_api_url, ["/api/v1/ping", "/api/v1/exchangeInfo", "/api/v1/time"])
+            cls.web_app.add_host_to_mock(cls.base_api_url, ["/api/v1/ping", "/api/v1/time"])
             cls.web_app.start()
             cls.ev_loop.run_until_complete(cls.web_app.wait_til_started())
             cls._patcher = mock.patch("aiohttp.client.URL")
@@ -106,6 +106,8 @@ class BinanceMarketUnitTest(unittest.TestCase):
             cls._req_url_mock = cls._req_patcher.start()
             cls._req_url_mock.side_effect = HummingWebApp.reroute_request
             cls.web_app.update_response("get", cls.base_api_url, "/api/v3/account", FixtureBinance.GET_ACCOUNT)
+            cls.web_app.update_response("get", cls.base_api_url, "/api/v1/exchangeInfo",
+                                        FixtureBinance.EXCHANGE_INFO)
             cls.web_app.update_response("get", cls.base_api_url, "/wapi/v3/tradeFee.html",
                                         FixtureBinance.GET_TRADE_FEES)
             cls.web_app.update_response("post", cls.base_api_url, "/api/v1/userDataStream",
@@ -222,15 +224,9 @@ class BinanceMarketUnitTest(unittest.TestCase):
         maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
-        l_maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
-                                                    Decimal('0.1'))
-        self.assertAlmostEqual(Decimal("0.005"), l_maker_fee.percent)
-        l_maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.SELL, Decimal(1),
-                                                    Decimal('0.1'))
-        self.assertAlmostEqual(Decimal("0.005"), l_maker_fee.percent)
 
     def test_buy_and_sell(self):
-        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
+        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.05"))
         amount: Decimal = 1
         quantized_amount: Decimal = self.market.quantize_order_amount("LINKETH", amount)
 
@@ -281,7 +277,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
                              for event in self.market_logger.event_log]))
 
     def test_limit_buy_and_sell(self):
-        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
+        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.05"))
 
         # Try to put limit buy order for 1 LINK, and watch for completion event.
         ask_price: Decimal = self.market.get_price("LINKETH", False) * Decimal("1.01")
@@ -341,7 +337,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
                              for event in self.market_logger.event_log]))
 
     def test_limit_maker_rejections(self):
-        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
+        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.05"))
 
         # Try to put a buy limit maker order that is going to match, this should triggers order failure event.
         price: Decimal = self.market.get_price("LINKETH", True) * Decimal('1.02')
@@ -468,7 +464,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
         binance_client = self.market.binance_client
 
         # Make sure there's enough balance to make the limit orders.
-        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
+        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.05"))
         self.assertGreater(self.market.get_balance("LINK"), amount * 2)
 
         # Intentionally set some prices with too many decimal places s.t. they

@@ -9,6 +9,7 @@ Testing connections, please wait...
           binance          Yes              Yes
           bittrex          Yes              Yes
      coinbase_pro           No               No
+         eterbase           No               No
          ethereum          Yes              Yes
             huobi           No               No
            kraken           No               No

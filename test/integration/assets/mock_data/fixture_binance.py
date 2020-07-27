@@ -113,7 +113,7 @@ class FixtureBinance:
                            "side": "BUY", "fills": []}
 
     ORDER_BUY_PRECISION_GET = {"symbol": "LINKETH", "orderId": 154388421, "orderListId": -1,
-                               "clientOrderId": "buy-LINKETH-1580289856010707", "price": "0.01447314",
+                               "clientOrderId": "buy-LINKETH-1580289856010707", "price": "0.01447300",
                                "origQty": "3.00000000", "executedQty": "0.00000000",
                                "cummulativeQuoteQty": "0.00000000", "status": "NEW", "timeInForce": "GTC",
                                "type": "LIMIT", "side": "BUY", "stopPrice": "0.00000000", "icebergQty": "0.00000000",
@@ -127,9 +127,59 @@ class FixtureBinance:
                             "side": "SELL", "fills": []}
 
     ORDER_SELL_PRECISION_GET = {"symbol": "LINKETH", "orderId": 154388434, "orderListId": -1,
-                                "clientOrderId": "sell-LINKETH-1580289858445415", "price": "0.01627079",
-                                "origQty": "1.00000000", "executedQty": "0.00000000",
+                                "clientOrderId": "sell-LINKETH-1580289858445415", "price": "0.01627100",
+                                "origQty": "1.23000000", "executedQty": "0.00000000",
                                 "cummulativeQuoteQty": "0.00000000", "status": "NEW", "timeInForce": "GTC",
                                 "type": "LIMIT", "side": "SELL", "stopPrice": "0.00000000", "icebergQty": "0.00000000",
                                 "time": 1580289858734, "updateTime": 1580289858734, "isWorking": True,
                                 "origQuoteOrderQty": "0.00000000"}
+
+    EXCHANGE_INFO = {
+        "timezone": "UTC", "serverTime": 1594871960959,
+        "rateLimits":
+            [{"rateLimitType": "REQUEST_WEIGHT", "interval": "MINUTE", "intervalNum": 1, "limit": 1200},
+             {"rateLimitType": "ORDERS", "interval": "SECOND", "intervalNum": 10, "limit": 100},
+             {"rateLimitType": "ORDERS", "interval": "DAY", "intervalNum": 1, "limit": 200000}],
+        "exchangeFilters": [],
+        "symbols": [
+            {"symbol": "ETHBTC", "status": "TRADING", "baseAsset": "ETH", "baseAssetPrecision": 8,
+             "quoteAsset": "BTC", "quotePrecision": 8, "quoteAssetPrecision": 8,
+             "baseCommissionPrecision": 8, "quoteCommissionPrecision": 8,
+             "orderTypes": ["LIMIT", "LIMIT_MAKER", "MARKET", "STOP_LOSS_LIMIT",
+                            "TAKE_PROFIT_LIMIT"], "icebergAllowed": True, "ocoAllowed": True,
+             "quoteOrderQtyMarketAllowed": True, "isSpotTradingAllowed": True,
+             "isMarginTradingAllowed": True,
+             "filters":
+                 [{"filterType": "PRICE_FILTER", "minPrice": "0.00000100", "maxPrice": "100000.00000000",
+                   "tickSize": "0.00000100"},
+                  {"filterType": "PERCENT_PRICE", "multiplierUp": "5", "multiplierDown": "0.2",
+                   "avgPriceMins": 5},
+                  {"filterType": "LOT_SIZE", "minQty": "0.00100000", "maxQty": "100000.00000000",
+                   "stepSize": "0.00100000"},
+                  {"filterType": "MIN_NOTIONAL", "minNotional": "0.00010000", "applyToMarket": True,
+                   "avgPriceMins": 5}, {"filterType": "ICEBERG_PARTS", "limit": 10},
+                  {"filterType": "MARKET_LOT_SIZE", "minQty": "0.00000000", "maxQty": "14907.84524965",
+                   "stepSize": "0.00000000"}, {"filterType": "MAX_NUM_ORDERS", "maxNumOrders": 200},
+                  {"filterType": "MAX_NUM_ALGO_ORDERS", "maxNumAlgoOrders": 5}],
+             "permissions": ["SPOT", "MARGIN"]},
+            {"symbol": "LINKETH", "status": "TRADING", "baseAsset": "LINK",
+             "baseAssetPrecision": 8, "quoteAsset": "ETH", "quotePrecision": 8,
+             "quoteAssetPrecision": 8, "baseCommissionPrecision": 8, "quoteCommissionPrecision": 8,
+             "orderTypes": ["LIMIT", "LIMIT_MAKER", "MARKET", "STOP_LOSS_LIMIT",
+                            "TAKE_PROFIT_LIMIT"], "icebergAllowed": True, "ocoAllowed": True,
+             "quoteOrderQtyMarketAllowed": True, "isSpotTradingAllowed": True,
+             "isMarginTradingAllowed": False,
+             "filters":
+                 [{"filterType": "PRICE_FILTER", "minPrice": "0.00000100",
+                   "maxPrice": "1000.00000000", "tickSize": "0.00000100"},
+                  {"filterType": "PERCENT_PRICE", "multiplierUp": "5", "multiplierDown": "0.2",
+                   "avgPriceMins": 5},
+                  {"filterType": "LOT_SIZE", "minQty": "0.01000000", "maxQty": "90000000.00000000",
+                   "stepSize": "0.01000000"},
+                  {"filterType": "MIN_NOTIONAL", "minNotional": "0.01000000", "applyToMarket": True,
+                   "avgPriceMins": 5}, {"filterType": "ICEBERG_PARTS", "limit": 10},
+                  {"filterType": "MARKET_LOT_SIZE", "minQty": "0.00000000",
+                   "maxQty": "52705.60641168", "stepSize": "0.00000000"},
+                  {"filterType": "MAX_NUM_ALGO_ORDERS", "maxNumAlgoOrders": 5},
+                  {"filterType": "MAX_NUM_ORDERS", "maxNumOrders": 200}], "permissions": ["SPOT"]}]
+    }

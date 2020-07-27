@@ -61,13 +61,11 @@ Enter `stop` to stop the bot, or `exit` to stop and also exit Hummingbot.
 
 Both `stop` and `exit` automatically cancels all outstanding orders and notifies you if it believes that there are potentially uncancelled orders.
 
-When you restart Hummingbot, you can import your saved configuration file, which was automatically named `conf_pure_market_making_strategy_0.yml`:
+When you restart Hummingbot, you can import your saved configuration file, which was automatically named `conf_pure_mm_1.yml`:
 ```
-Import previous configs or create a new config file? (import/create) >>>
-import
-
-Enter path to your strategy file (e.g. "conf_pure_market_making_stategy_0.yml")
-conf_pure_market_making_stategy_0.yml
+>>>  import
+---------------------------------------------------------------------------------------------------------
+Enter path to your strategy file (e.g. "conf_pure_mm_1.yml") >>>
 ```
 
 ---
