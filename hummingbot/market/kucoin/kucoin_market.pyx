@@ -300,33 +300,33 @@ cdef class KucoinMarket(MarketBase):
                 else:
                     continue
 
-                if (execution_status == "open" or execution_status == "match") and Decimal(execution_data["matchSize"]) > 0:
-                    order_type_description = tracked_order.order_type_description
-                    execute_amount_diff = Decimal(execution_data["matchSize"])
-                    execute_price = Decimal(execution_data["price"])
-                    tracked_order.executed_amount_base = Decimal(execution_data["filledSize"])
-                    tracked_order.executed_amount_quote = Decimal(execution_data["filledSize"]) * Decimal(execute_price)
-                    self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
-                                       f"{order_type_description} order {tracked_order.client_order_id}")
-                    self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
-                                         OrderFilledEvent(
-                                             self._current_timestamp,
-                                             tracked_order.client_order_id,
-                                             tracked_order.trading_pair,
-                                             tracked_order.trade_type,
-                                             tracked_order.order_type,
-                                             execute_price,
-                                             execute_amount_diff,
-                                             self.c_get_fee(
-                                                 tracked_order.base_asset,
-                                                 tracked_order.quote_asset,
-                                                 tracked_order.order_type,
-                                                 tracked_order.trade_type,
-                                                 execute_price,
-                                                 execute_amount_diff,
-                                                 ),
-                                             tracked_order.exchange_order_id
-                                             ))
+                if (execution_status == "open" or execution_status == "match") and execution_type != "open":
+                    if Decimal(execution_data["matchSize"]) > 0 :
+                        execute_amount_diff = Decimal(execution_data["matchSize"])
+                        execute_price = Decimal(execution_data["price"])
+                        tracked_order.executed_amount_base = Decimal(execution_data["filledSize"])
+                        tracked_order.executed_amount_quote = Decimal(execution_data["filledSize"]) * Decimal(execute_price)
+                        self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
+                                           f"order {tracked_order.client_order_id}.")
+                        self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
+                                            OrderFilledEvent(
+                                                self._current_timestamp,
+                                                tracked_order.client_order_id,
+                                                tracked_order.trading_pair,
+                                                tracked_order.trade_type,
+                                                tracked_order.order_type,
+                                                execute_price,
+                                                execute_amount_diff,
+                                                self.c_get_fee(
+                                                    tracked_order.base_asset,
+                                                    tracked_order.quote_asset,
+                                                    tracked_order.order_type,
+                                                    tracked_order.trade_type,
+                                                    execute_price,
+                                                    execute_amount_diff,
+                                                    ),
+                                                tracked_order.exchange_order_id
+                                                ))
 
                 if (execution_status == "done" or execution_status == "match") and (execution_type == "match" or execution_type == "filled"):
                     tracked_order.executed_amount_base = Decimal(execution_data["filledSize"])
