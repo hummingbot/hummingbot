@@ -74,6 +74,25 @@ paper_trade_account_balance:
 - - DAI
   - 1000
 
+# Balance Limit Configurations
+balance_asset_limit:
+- - USDT
+  - 1000
+- - ONE
+  - 1000
+- - USDQ
+  - 1000
+- - TUSD
+  - 1000
+- - ETH
+  - 10
+- - WETH
+  - 10
+- - USDC
+  - 1000
+- - DAI
+  - 1000
+
 # Telegram integration
 telegram_enabled: false
 telegram_token: null
