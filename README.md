@@ -21,7 +21,7 @@ HAPPY LIQUIDITY MINING!
 `docker run -it loopring:latest bash`
 
 3. Run hummingbot with the loopring connector by then running this command inside the container: 
-`/opt/conda/envs/hummingbot/bin/python3 bin/hummingbot_quickstart.py`
+`python3 bin/hummingbot_quickstart.py`
 
 4. You can use the loopring connector by then running the following hummingbot command: 
 `connect loopring` 
