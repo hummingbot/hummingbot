@@ -34,7 +34,6 @@ from hummingbot.core.event.events import (
     OrderCancelledEvent,
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
-    MarketWithdrawAssetEvent,
     MarketTransactionFailureEvent,
     MarketOrderFailureEvent
 )
@@ -49,7 +48,6 @@ from hummingbot.market.liquid.liquid_auth import LiquidAuth
 from hummingbot.market.liquid.liquid_order_book_tracker import LiquidOrderBookTracker
 from hummingbot.market.liquid.liquid_user_stream_tracker import LiquidUserStreamTracker
 from hummingbot.market.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
-from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.market.market_base import (
     MarketBase,
     OrderType,
@@ -77,38 +75,13 @@ cdef class LiquidMarketTransactionTracker(TransactionTracker):
         TransactionTracker.c_did_timeout_tx(self, tx_id)
         self._owner.c_did_timeout_tx(tx_id)
 
-
-cdef class InFlightDeposit:
-    cdef:
-        public str tracking_id
-        public int64_t timestamp_ms
-        public str tx_hash
-        public str from_address
-        public str to_address
-        public object amount
-        public str currency
-        public bint has_tx_receipt
-
-    def __init__(self, tracking_id: str, tx_hash: str, from_address: str, to_address: str, amount: Decimal, currency: str):
-        self.tracking_id = tracking_id
-        self.timestamp_ms = int(time.time() * 1000)
-        self.tx_hash = tx_hash
-        self.from_address = from_address
-        self.to_address = to_address
-        self.amount = amount
-        self.currency = currency
-        self.has_tx_receipt = False
-
     def __repr__(self) -> str:
-        return f"InFlightDeposit(tracking_id='{self.tracking_id}', timestamp_ms={self.timestamp_ms}, " \
-               f"tx_hash='{self.tx_hash}', has_tx_receipt={self.has_tx_receipt})"
+        return f"tx_hash='{self.tx_hash}', has_tx_receipt={self.has_tx_receipt})"
 
 
 cdef class LiquidMarket(MarketBase):
-    MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset.value
     MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
@@ -1198,107 +1171,6 @@ cdef class LiquidMarket(MarketBase):
         path_url = Constants.LIST_ORDERS_URI
         result = await self._api_request("get", path_url=path_url)
         return result
-
-    async def get_transfers(self) -> Dict[str, Any]:
-        """
-        Gets a list of the user's transfers via rest API
-        :returns: json response
-        """
-        # TODO: figure out what this transfer is
-        path_url = "/transfers"
-        result = await self._api_request("get", path_url=path_url)
-        return result
-
-    async def list_liquid_accounts(self) -> Dict[str, str]:
-        """
-        Gets a list of the user's liquid accounts via rest API
-        :returns: json response
-        """
-        accounts_dict = {}
-
-        crypto_accounts_path = Constants.CRYPTO_ACCOUNTS_URI
-        crypto_accounts = await self._api_request("get", path_url=crypto_accounts_path) or []
-
-        for account in crypto_accounts:
-            accounts_dict[account['currency']] = account
-        return accounts_dict
-
-    async def get_deposit_address(self, asset: str) -> str:
-        """
-        Gets a list of the user's crypto address for a particular asset,
-        so that the bot can deposit funds into liquid
-        :returns: json response
-        """
-        liquid_accounts = await self.list_liquid_accounts()
-        account = liquid_accounts.get(asset, {})
-        return account.get('address'), account
-
-    async def get_deposit_info(self, asset: str) -> DepositInfo:
-        """
-        Calls `self.get_deposit_address` and format the response into a DepositInfo instance
-        :returns: a DepositInfo instance
-        """
-        address, extras = await self.get_deposit_address(asset)
-        return DepositInfo(address=address, extras=extras)
-
-    async def execute_withdraw(self, str tracking_id, str to_address, str currency, object amount):
-        """
-        Function that makes API request to withdraw funds
-        Request payload example:
-        {
-            "auth_code":"0000",  # Optional
-            "crypto_withdrawal":{
-                "currency":"BTC",
-                "amount":"1",
-                "address":"1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2",
-                "payment_id": null,
-                "memo_type": null,
-                "memo_value": null
-            }
-        }
-        """
-        path_url = Constants.CRYPTO_WITHDRAWAL_URI
-
-        data = {
-            "crypto_withdrawal": {
-                "currency": currency,
-                "amount": str(amount),
-                "address": to_address,
-                "payment_id": None,
-                "memo_type": None,
-                "memo_value": None
-            }
-        }
-        try:
-            withdraw_result = await self._api_request("post", path_url=path_url, data=data)
-            self.logger().info(f"Successfully withdrew {amount} of {currency}. {withdraw_result}")
-            # Withdrawing of digital assets from Liquid is currently free
-            withdraw_fee = s_decimal_0
-            self.c_trigger_event(self.MARKET_WITHDRAW_ASSET_EVENT_TAG,
-                                 MarketWithdrawAssetEvent(self._current_timestamp, tracking_id, to_address, currency,
-                                                          amount, withdraw_fee))
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            self.logger().network(
-                f"Error sending withdraw request to Liquid for {currency}.",
-                exc_info=True,
-                app_warning_msg=f"Failed to issue withdrawal request for {currency} from Liquid. "
-                                f"Check API key and network connection.{e}"
-            )
-            self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                                 MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
-
-    cdef str c_withdraw(self, str to_address, str currency, object amount):
-        """
-        *required
-        Synchronous wrapper that schedules a withdrawal.
-        """
-        cdef:
-            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
-            str tracking_id = str(f"withdraw://{currency}/{tracking_nonce}")
-        safe_ensure_future(self.execute_withdraw(tracking_id, to_address, currency, amount))
-        return tracking_id
 
     cdef OrderBook c_get_order_book(self, str trading_pair):
         """

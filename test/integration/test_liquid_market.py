@@ -14,7 +14,7 @@ from typing import (
     Optional
 )
 import unittest
-
+import math
 from hummingbot.core.clock import (
     Clock,
     ClockMode
@@ -26,7 +26,6 @@ from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     MarketOrderFailureEvent,
     MarketEvent,
-    MarketWithdrawAssetEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
     OrderType,
@@ -50,7 +49,6 @@ from hummingbot.model.sql_connection_manager import (
     SQLConnectionType
 )
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.wallet.ethereum.mock_wallet import MockWallet
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from test.integration.humming_web_app import HummingWebApp
 from test.integration.assets.mock_data.fixture_liquid import FixtureLiquid
@@ -66,10 +64,8 @@ API_HOST = "api.liquid.com"
 
 class LiquidMarketUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
-        MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
-        MarketEvent.WithdrawAsset,
         MarketEvent.OrderFilled,
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
@@ -568,6 +564,14 @@ class LiquidMarketUnitTest(unittest.TestCase):
 
             recorder.stop()
             os.unlink(self.db_path)
+
+    def test_update_last_prices(self):
+        # This is basic test to see if order_book last_trade_price is initiated and updated.
+        for order_book in self.market.order_books.values():
+            for _ in range(5):
+                self.ev_loop.run_until_complete(asyncio.sleep(1))
+                print(order_book.last_trade_price)
+                self.assertFalse(math.isnan(order_book.last_trade_price))
 
 
 if __name__ == "__main__":

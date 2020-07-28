@@ -6,7 +6,7 @@ Arbitrage is described in [Strategies](/strategies/), with a further discussion 
 
 ### Schematic
 
-The diagram below illustrates how arbitrage works.  The transaction involves two exchanges: **Exchange A** and a **Exchange B**. Hummingbot monitors the prices on both exchanges and transacts when a profit opportunity arises.
+The diagram below illustrates how arbitrage works.  The transaction involves two exchanges: **Exchange A** and **Exchange B**. Hummingbot monitors the prices on both exchanges and transacts when a profit opportunity arises.
 
 An opportunity arises when Hummingbot can buy on one exchange at a lower price and sell on the other exchange at a higher price.
 
