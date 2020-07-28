@@ -76,10 +76,6 @@ class FixtureBinance:
 
     LIMIT_MAKER_ERROR = {'code': -2010, 'msg': 'Order would immediately match and take.'}
 
-    GET_DEPOSIT_INFO = {"address": "bnb136ns6lfw4zs5hg4n85vdthaad7hq5m4gtkgf23", "success": True,
-                        "addressTag": "104312555", "asset": "BNB",
-                        "url": "https://explorer.binance.org/address/bnb136ns6lfw4zs5hg4n85vdthaad7hq5m4gtkgf23"}
-
     ORDER_BUY_NOT_FILLED = {"symbol": "LINKETH", "orderId": 154316832, "orderListId": -1,
                             "clientOrderId": "buy-LINKETH-1580268987255692", "transactTime": 1580268987325,
                             "price": "0.01059657", "origQty": "1.00000000", "executedQty": "0.00000000",

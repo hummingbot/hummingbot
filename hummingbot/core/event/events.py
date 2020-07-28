@@ -26,7 +26,7 @@ class MarketEvent(Enum):
     BuyOrderCompleted = 102
     SellOrderCompleted = 103
     # Trade = 104  Deprecated
-    WithdrawAsset = 105
+    WithdrawAsset = 105  # Locally Deprecated, but still present in hummingsim
     OrderCancelled = 106
     OrderFilled = 107
     OrderExpired = 108

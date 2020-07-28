@@ -64,10 +64,8 @@ MOCK_HUOBI_SECRET_KEY = "11111111-aaaaaaaa-22222222-bbbbb"
 
 class HuobiMarketUnitTest(AioHTTPTestCase):
     events: List[MarketEvent] = [
-        MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
-        MarketEvent.WithdrawAsset,
         MarketEvent.OrderFilled,
         MarketEvent.OrderCancelled,
         MarketEvent.TransactionFailure,
