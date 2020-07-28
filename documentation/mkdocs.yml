@@ -164,7 +164,6 @@ nav:
       - Kill Switch: advanced/kill-switch.md
       - Fee Overrides: advanced/fee-overrides.md
       - Logs and Logging: advanced/logging.md
-      - Exchange Rates: advanced/exchange-rates.md
       - Ethereum Wallet: advanced/wallet.md
       - Ethereum Node: advanced/node.md
       - Telegram: advanced/telegram.md
