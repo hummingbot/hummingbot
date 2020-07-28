@@ -24,6 +24,7 @@ from .order_book_message import (
     OrderBookMessage,
 )
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.utils.async_utils import wait_til
 
 TRADING_PAIR_FILTER = re.compile(r"(BTC|ETH|USDT)$")
 
@@ -216,7 +217,7 @@ class OrderBookTracker(ABC):
         last_message_timestamp: float = time.time()
         messages_accepted: int = 0
         messages_rejected: int = 0
-
+        await wait_til(lambda: len(self.data_source._trading_pairs) == len(self._order_books.keys()))
         while True:
             try:
                 ob_message: OrderBookMessage = await self._order_book_diff_stream.get()
@@ -255,6 +256,7 @@ class OrderBookTracker(ABC):
         """
         Route the real-time order book snapshot messages to the correct order book.
         """
+        await wait_til(lambda: len(self.data_source._trading_pairs) == len(self._order_books.keys()))
         while True:
             try:
                 ob_message: OrderBookMessage = await self._order_book_snapshot_stream.get()
@@ -309,6 +311,7 @@ class OrderBookTracker(ABC):
         last_message_timestamp: float = time.time()
         messages_accepted: int = 0
         messages_rejected: int = 0
+        await wait_til(lambda: len(self.data_source._trading_pairs) == len(self._order_books.keys()))
         while True:
             try:
                 trade_message: OrderBookMessage = await self._order_book_trade_stream.get()
