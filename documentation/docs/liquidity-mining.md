@@ -31,7 +31,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
 !!! note "Campaign updates for the week starting July 21, 2020 12.00am UTC"
     <li>**New COTI campaign** is live!
 
-**Current reward period: July 14, 2020 12.00am UTC to July 21, 2020 12.00am UTC**
+**Current reward period: July 28, 2020 12.00am UTC to August 3, 2020 12.00am UTC**
 
 <table>
   <thead>
