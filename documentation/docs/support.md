@@ -4,7 +4,7 @@ We recognize that running a trading bot for the first time is a big step for man
 
 ## Needed support info
 
-Before you reporting bugs or issues, please collect these three items which helps our support team triage your issue promptly.
+Before reporting bugs or issues, please collect these three items which helps our support team triage your issue promptly.
 
 1. **Screenshot**: In the Hummingbot client, run the `status` command and take a screenshot that includes the full terminal/bash window. Make sure to include both the left pane and the right log pane of Hummingbot.
 

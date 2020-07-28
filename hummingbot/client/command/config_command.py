@@ -11,15 +11,18 @@ from hummingbot.client.settings import (
     CONF_FILE_PATH,
 )
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.client.config.config_helpers import (
     missing_required_configs,
     save_to_yml
 )
 from hummingbot.client.config.security import Security
+from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.strategy.pure_market_making import (
     PureMarketMakingStrategy
 )
+from hummingbot.user.user_balances import UserBalances
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -32,7 +35,9 @@ global_configs_to_display = ["0x_active_cancels",
                              "telegram_enabled",
                              "telegram_token",
                              "telegram_chat_id",
-                             "send_error_logs"]
+                             "send_error_logs",
+                             "script_enabled",
+                             "script_file_path"]
 
 
 class ConfigCommand:
@@ -117,9 +122,12 @@ class ConfigCommand:
                 config_map = self.strategy_config_map
                 file_path = join(CONF_FILE_PATH, self.strategy_file_name)
             config_var = config_map[key]
-            if input_value is not None:
+            if input_value is None:
                 self._notify("Please follow the prompt to complete configurations: ")
-            await self.prompt_a_config(config_var, input_value=input_value, assign_default=False)
+            if config_var.key == "inventory_target_base_pct":
+                await self.asset_ratio_maintenance_prompt(config_map, input_value)
+            else:
+                await self.prompt_a_config(config_var, input_value=input_value, assign_default=False)
             if self.app.to_stop_config:
                 self.app.to_stop_config = False
                 return
@@ -158,3 +166,40 @@ class ConfigCommand:
         if missing_required_configs(config_map):
             return missings + (await self._prompt_missing_configs(config_map))
         return missings
+
+    async def asset_ratio_maintenance_prompt(self,  # type: HummingbotApplication
+                                             config_map,
+                                             input_value = None):
+        if input_value:
+            config_map['inventory_target_base_pct'].value = Decimal(input_value)
+        else:
+            exchange = config_map['exchange'].value
+            market = config_map["market"].value
+            base, quote = market.split("-")
+            balances = await UserBalances.instance().balances(exchange, base, quote)
+            if balances is None:
+                return
+            base_ratio = UserBalances.base_amount_ratio(exchange, market, balances)
+            if base_ratio is None:
+                return
+            base_ratio = round(base_ratio, 3)
+            quote_ratio = 1 - base_ratio
+            base, quote = config_map["market"].value.split("-")
+
+            cvar = ConfigVar(key="temp_config",
+                             prompt=f"On {exchange}, you have {balances.get(base, 0):.4f} {base} and "
+                                    f"{balances.get(quote, 0):.4f} {quote}. By market value, "
+                                    f"your current inventory split is {base_ratio:.1%} {base} "
+                                    f"and {quote_ratio:.1%} {quote}."
+                                    f" Would you like to keep this ratio? (Yes/No) >>> ",
+                             required_if=lambda: True,
+                             type_str="bool",
+                             validator=validate_bool)
+            await self.prompt_a_config(cvar)
+            if cvar.value:
+                config_map['inventory_target_base_pct'].value = round(base_ratio * Decimal('100'), 1)
+            else:
+                if self.app.to_stop_config:
+                    self.app.to_stop_config = False
+                    return
+                await self.prompt_a_config(config_map["inventory_target_base_pct"])

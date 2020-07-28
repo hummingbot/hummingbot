@@ -21,6 +21,9 @@ class StopCommand:
             import appnope
             appnope.nap()
 
+        if self._script_iterator is not None:
+            self._script_iterator.stop(self.clock)
+
         if self._trading_required and not skip_order_cancellation:
             # Remove the strategy from clock before cancelling orders, to
             # prevent race condition where the strategy tries to create more

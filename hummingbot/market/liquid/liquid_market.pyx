@@ -1062,6 +1062,10 @@ cdef class LiquidMarket(MarketBase):
                 self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
+            elif order_status == "filled" and cancelled_id == exchange_order_id:
+                self.logger().info(f"The order {order_id} has already been filled on Liquid. No cancellation needed.")
+                await self._update_order_status()  # We do this to correctly process the order fill and stop tracking.
+                return order_id
         except IOError as e:
             if "order not found" in str(e).lower():
                 # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
