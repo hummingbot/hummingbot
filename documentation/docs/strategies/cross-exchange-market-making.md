@@ -43,6 +43,55 @@ When placing orders on the maker market and filling orders on the taker market, 
 
 You can find more information about this for each [Connector](https://docs.hummingbot.io/connectors/) under Miscellaneous section.
 
+### Exchange Rate Conversion
+
+From past versions of Hummingbot it uses CoinGecko and CoinCap public APIs to fetch asset prices. However, this dependency caused issues for users when those APIs were unavailable. Starting on version [0.28.0](/release-notes/0.28.0/#removed-dependency-on-external-data-feeds), Hummingbot uses exchange order books to perform necessary conversions rather than data feeds.
+
+When you run strategies on multiple exchanges, there may be instances where you need to utilize an exchange rate to convert between assets.
+
+In particular, you may need to convert the value of one stablecoin to another when you use different stablecoins in multi-legged strategy like cross-exchange market making.
+
+For example, if you make a market in the WETH/DAI pair on a decentralized exchange, you may want to hedge filled orders using the ETH-USDT pair on Binance. Using exchange rates for USDT and DAI against ETH allows Hummingbot to take into account differences in prices.
+
+
+```
+maker_market: bamboo_relay
+taker_market: binance
+maker_market_trading_pair: WETH-DAI
+taker_market_trading_pair: ETH-USDT
+```
+
+By default taker to maker base conversion rate and taker to maker quote conversion rate value are both `1`
+
+
+```
+taker_to_maker_base_conversion_rate: 1
+taker_to_maker_quote_conversion_rate: 1
+```
+
+![](/assets/img/exchange_default.png)
+
+Type `config taker_to_maker_base_conversion_rate` and `config taker_to_maker_quote_conversion_rate` to set values for these parameters. 
+
+
+```
+# if maker base asset is WETH, taker is ETH and 1 WETH is worth 0.99 ETH
+# the conversion rate is (1 / 0.99) = 1.01
+
+# if maker quote asset is DAI, taker is USDT and 1 DAI is worth 1.01 USDT
+# the conversion rate is (1 / 1.01) = 0.99
+```
+
+In the example above, 1 WETH is assumed worth 0.99 ETH and 1 DAI is assumed worth 1.01 USDT. By replacing the value of our setting to the desired conversion rate.
+
+
+```
+taker_to_maker_base_conversion_rate: 1.01
+taker_to_maker_quote_conversion_rate: 0.99
+```
+
+![](/assets/img/exchange_custom.png)
+
 ### Adjusting Orders and Maker Price calculations
 
 If the user has the following configuration,
@@ -92,3 +141,5 @@ The following parameters are fields in Hummingbot configuration files (located i
 | **order_size_taker_volume_factor** | Specifies the percentage of hedge-able volume on taker side which will be considered for calculating the market making price.
 | **order_size_taker_balance_factor** | Specifies the percentage of asset balance to be used for hedging the trade on taker side.
 | **order_size_portfolio_ratio_limit** | Specifies the ratio of total portfolio value on both maker and taker markets to be used for calculating the order size if order_amount is not specified.
+| **taker_to_maker_base_conversion_rate** | Specifies conversion rate for taker base asset value to maker base asset value.
+| **taker_to_maker_quote_conversion_rate** | Specifies conversion rate for taker quote asset value to maker quote asset value.
