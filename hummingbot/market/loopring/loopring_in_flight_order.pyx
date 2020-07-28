@@ -142,9 +142,9 @@ cdef class LoopringInFlightOrder(InFlightOrderBase):
             diff_quote : Decimal = new_executed_amount_quote - self.executed_amount_quote
             diff_fee : Decimal = new_fee_paid - self.fee_paid
             if diff_quote > Decimal(0):
-                price : Decimal = diff_base / diff_quote
+                price : Decimal =  diff_quote / diff_base
             else:
-                price : Decimal = self.executed_amount_base / self.executed_amount_quote
+                price : Decimal = self.executed_amount_quote / self.executed_amount_base
                 
             events.append( (MarketEvent.OrderFilled, diff_base, price, diff_fee) )
 
