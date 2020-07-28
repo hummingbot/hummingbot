@@ -8,6 +8,7 @@ from decimal import Decimal
 import logging
 import os
 import time
+import math
 from typing import (
     List,
     Dict,
@@ -95,7 +96,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
         if API_MOCK_ENABLED:
             cls.web_app = HummingWebApp.get_instance()
-            cls.web_app.add_host_to_mock(cls.base_api_url, ["/api/v1/ping", "/api/v1/time"])
+            cls.web_app.add_host_to_mock(cls.base_api_url, ["/api/v1/ping", "/api/v1/time", "/api/v1/ticker/24hr"])
             cls.web_app.start()
             cls.ev_loop.run_until_complete(cls.web_app.wait_til_started())
             cls._patcher = mock.patch("aiohttp.client.URL")
@@ -653,6 +654,14 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
             recorder.stop()
             os.unlink(self.db_path)
+
+    def test_update_last_prices(self):
+        # This is basic test to see if order_book last_trade_price is initiated and updated.
+        for order_book in self.market.order_books.values():
+            for _ in range(5):
+                self.ev_loop.run_until_complete(asyncio.sleep(1))
+                print(order_book.last_trade_price)
+                self.assertFalse(math.isnan(order_book.last_trade_price))
 
     def test_order_fill_record(self):
         config_path: str = "test_config"
