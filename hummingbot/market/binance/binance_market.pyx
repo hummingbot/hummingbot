@@ -138,8 +138,7 @@ cdef class BinanceMarket(MarketBase):
         self.monkey_patch_binance_time()
         super().__init__()
         self._trading_required = trading_required
-        self._order_book_tracker = BinanceOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
-                                                           trading_pairs=trading_pairs)
+        self._order_book_tracker = BinanceOrderBookTracker(trading_pairs=trading_pairs)
         self._binance_client = BinanceClient(binance_api_key, binance_api_secret)
         self._user_stream_tracker = BinanceUserStreamTracker(
             data_source_type=user_stream_tracker_data_source_type, binance_client=self._binance_client)
