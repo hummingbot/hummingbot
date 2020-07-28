@@ -218,18 +218,6 @@ global_config_map = {
                   required_if=using_exchange("kucoin"),
                   is_secure=True,
                   is_connect_key=True),
-    "bitcoin_com_api_key":
-        ConfigVar(key="bitcoin_com_api_key",
-                  prompt="Enter your bitcoin_com API key >>> ",
-                  required_if=using_exchange("bitcoin_com"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "bitcoin_com_secret_key":
-        ConfigVar(key="bitcoin_com_secret_key",
-                  prompt="Enter your bitcoin_com secret key >>> ",
-                  required_if=using_exchange("bitcoin_com"),
-                  is_secure=True,
-                  is_connect_key=True),
     "eterbase_api_key":
         ConfigVar(key="eterbase_api_key",
                   prompt="Enter your Eterbase API key >>> ",

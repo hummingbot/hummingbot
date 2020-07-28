@@ -36,6 +36,18 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         self.trading_pair_id_conversion_dict: Dict[str, int] = {}
 
+    @classmethod
+    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
+        results = dict()
+        async with aiohttp.ClientSession() as client:
+            resp = await client.get(Constants.GET_EXCHANGE_MARKETS_URL)
+            resp_json = await resp.json()
+            for record in resp_json:
+                trading_pair = f"{record['base_currency']}-{record['quoted_currency']}"
+                if trading_pair in trading_pairs:
+                    results[trading_pair] = float(record["last_traded_price"])
+        return results
+
     @staticmethod
     def reformat_trading_pairs(products):
         """

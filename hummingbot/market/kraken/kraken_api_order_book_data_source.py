@@ -18,6 +18,7 @@ from websockets.exceptions import ConnectionClosed
 from collections import defaultdict
 
 from hummingbot.core.utils import async_ttl_cache
+from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
@@ -50,6 +51,20 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
         super().__init__()
         self._trading_pairs: Optional[List[str]] = trading_pairs
         self._order_book_create_function = lambda: OrderBook()
+
+    @classmethod
+    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
+        tasks = [cls.get_last_traded_price(t_pair) for t_pair in trading_pairs]
+        results = await safe_gather(*tasks)
+        return {t_pair: result for t_pair, result in zip(trading_pairs, results)}
+
+    @classmethod
+    async def get_last_traded_price(cls, trading_pair: str) -> float:
+        async with aiohttp.ClientSession() as client:
+            resp = await client.get(f"{TICKER_URL}?pair={trading_pair}")
+            resp_json = await resp.json()
+            record = list(resp_json["result"].values())[0]
+            return float(record["c"][0])
 
     @classmethod
     @async_ttl_cache(ttl=60 * 30, maxsize=1)

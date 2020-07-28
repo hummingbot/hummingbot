@@ -25,6 +25,7 @@ from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerE
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.market.coinbase_pro.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book_tracker_entry import CoinbaseProOrderBookTrackerEntry
+from hummingbot.core.utils.async_utils import safe_gather
 
 COINBASE_REST_URL = "https://api.pro.coinbase.com"
 COINBASE_WS_FEED = "wss://ws-feed.pro.coinbase.com"
@@ -48,6 +49,20 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def __init__(self, trading_pairs: Optional[List[str]] = None):
         super().__init__()
         self._trading_pairs: Optional[List[str]] = trading_pairs
+
+    @classmethod
+    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
+        tasks = [cls.get_last_traded_price(t_pair) for t_pair in trading_pairs]
+        results = await safe_gather(*tasks)
+        return {t_pair: result for t_pair, result in zip(trading_pairs, results)}
+
+    @classmethod
+    async def get_last_traded_price(cls, trading_pair: str) -> float:
+        async with aiohttp.ClientSession() as client:
+            ticker_url: str = f"{COINBASE_REST_URL}/products/{trading_pair}/ticker"
+            resp = await client.get(ticker_url)
+            resp_json = await resp.json()
+            return float(resp_json["price"])
 
     @classmethod
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
