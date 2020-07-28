@@ -2,7 +2,7 @@
 
 **Updated as of `v0.28.0`**
 
-This features enables the ping pong strategy, in which Hummingbot alternates buy and sell orders.
+This feature enables the ping pong strategy, in which Hummingbot alternates buy and sell orders.
 
 
 ## How It Works
@@ -45,4 +45,4 @@ Let's say initially we have 2 orders on each side, buy orders $b1$, $b2$, and se
 
 | Parameter | Prompt | Definition |
 |-----------|--------|------------|
-| **ping_pong_enabled** | `Do you want to alternate between buys and sells?` | Whether to alternate between buys and sells. |
+| **ping_pong_enabled** | `Would you like to use the ping pong feature and alternate between buy and sell orders after fills?` | Whether to alternate between buys and sells. |

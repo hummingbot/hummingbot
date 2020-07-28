@@ -92,11 +92,11 @@ The bot will leave these orders because they are within the order refresh tolera
 Not cancelling active orders since difference between new order prices
 and current order prices is within 1.00% order_refresh_tolerance_pct
 ```
-Lets say that a market taker thinks the market price will decrease substantially and likes your bid-spread. They then can to fill your buy order at 195.02.
+Lets say that a market taker thinks the market price will decrease substantially and likes your bid-spread. They then can fill your buy order at 195.02.
 
 ## How Is This Parameter Helpful
 
-The default for this parameter is a tolerance of 0%. Thus, at each refresh cycle, if the spreads changes *at all*, then the bot will cancel the orders and place new orders at the configuration spread. Because the spread resets at every refresh cycle, this increases the likelyhood that the bid and ask spread are closer to the original bid and ask spread. This reduces the risk that the spread substantially strays away from the original spread, perhaps preventing a loss. *However*, as we have seen above, the strategy can capitalize on the flexibility (tolerance) of the bid and asks spreads because price takers could be looking for some range of spreads that is unknown to you.
+The default for this parameter is a tolerance of 0%. Thus, at each refresh cycle, if the spreads changes *at all*, then the bot will cancel the orders and place new orders at the configuration spread. Because the spread resets at every refresh cycle, this increases the likelyhood that the bid and ask spread are closer to the original bid and ask spread. This reduces the risk that the spread substantially strays away from the original spread, perhaps preventing a loss. *However*, as we have seen above, the strategy can capitalize on the flexibility (tolerance) of the bid and ask spreads because price takers could be looking for some range of spreads that is unknown to you.
 
 ## Relevant Parameters
 

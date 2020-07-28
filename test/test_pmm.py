@@ -222,15 +222,15 @@ class PMMUnitTest(unittest.TestCase):
         for order in strategy.active_buys:
             strategy.cancel_order(order.client_order_id)
 
-        self.market.set_balance("HBOT", Decimal("1.5"))
-        self.market.set_balance("ETH", Decimal("160"))
+        self.market.set_balance("HBOT", Decimal("6.0"))
+        self.market.set_balance("ETH", Decimal("586.0"))
         self.clock.backtest_til(self.start_timestamp + 20)
-        self.assertEqual(2, len(strategy.active_buys))
-        self.assertEqual(2, len(strategy.active_sells))
-        self.assertEqual(Decimal("98"), strategy.active_buys[-1].price)
-        self.assertEqual(Decimal("0.622448"), strategy.active_buys[-1].quantity)
-        self.assertEqual(Decimal("102"), strategy.active_sells[-1].price)
-        self.assertEqual(Decimal("0.5"), strategy.active_sells[-1].quantity)
+        self.assertEqual(3, len(strategy.active_buys))
+        self.assertEqual(3, len(strategy.active_sells))
+        self.assertEqual(Decimal("97"), strategy.active_buys[-1].price)
+        self.assertEqual(Decimal("3"), strategy.active_buys[-1].quantity)
+        self.assertEqual(Decimal("103"), strategy.active_sells[-1].price)
+        self.assertEqual(Decimal("3"), strategy.active_sells[-1].quantity)
 
     def test_market_become_wider(self):
         strategy = self.one_level_strategy

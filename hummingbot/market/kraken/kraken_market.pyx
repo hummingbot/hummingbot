@@ -205,7 +205,7 @@ cdef class KrakenMarket(MarketBase):
 
     @staticmethod
     def convert_from_exchange_symbol(symbol: str) -> str:
-        if len(symbol) == 4 and (symbol[0] == "X" or symbol[0] == "Z"):
+        if (len(symbol) == 4 or len(symbol) == 6) and (symbol[0] == "X" or symbol[0] == "Z"):
             symbol = symbol[1:]
         if symbol == "XBT":
             symbol = "BTC"
@@ -222,8 +222,15 @@ cdef class KrakenMarket(MarketBase):
         base, quote = None, None
         for quote_asset in constants.QUOTES:
             if quote_asset == exchange_trading_pair[-len(quote_asset):]:
-                base, quote = exchange_trading_pair[:-len(quote_asset)], exchange_trading_pair[-len(quote_asset):]
-                break
+                if len(exchange_trading_pair[:-len(quote_asset)]) > 2 or exchange_trading_pair[:-len(quote_asset)] == "SC":
+                    base, quote = exchange_trading_pair[:-len(quote_asset)], exchange_trading_pair[-len(quote_asset):]
+                    break
+        if not base:
+            quote_asset_d = [quote + ".d" for quote in constants.QUOTES]
+            for quote_asset in quote_asset_d:
+                if quote_asset == exchange_trading_pair[-len(quote_asset):]:
+                    base, quote = exchange_trading_pair[:-len(quote_asset)], exchange_trading_pair[-len(quote_asset):]
+                    break
         return base, quote
 
     @staticmethod
@@ -243,6 +250,11 @@ cdef class KrakenMarket(MarketBase):
 
     @staticmethod
     def convert_to_exchange_trading_pair(hb_trading_pair: str, delimiter: str = "") -> str:
+        """
+        Note: The result of this method can safely be used to submit/make queries.
+        Result shouldn't be used to parse responses as Kraken add special formating to most pairs.
+        """
+        
         if "-" in hb_trading_pair:
             base, quote = hb_trading_pair.split("-")
         elif "/" in hb_trading_pair:
@@ -251,6 +263,7 @@ cdef class KrakenMarket(MarketBase):
             return hb_trading_pair
         base = KrakenMarket.convert_to_exchange_symbol(base)
         quote = KrakenMarket.convert_to_exchange_symbol(quote)
+
         exchange_trading_pair = f"{base}{delimiter}{quote}"
         return exchange_trading_pair
 
@@ -384,6 +397,7 @@ cdef class KrakenMarket(MarketBase):
         for trading_pair, rule in asset_pairs_dict.items():
             try:
                 base, quote = KrakenMarket.split_to_base_quote(trading_pair)
+                base = KrakenMarket.convert_from_exchange_symbol(base)
                 min_order_size = Decimal(constants.BASE_ORDER_MIN.get(base, 0))
                 min_price_increment = Decimal(f"1e-{rule.get('pair_decimals')}")
                 min_base_amount_increment = Decimal(f"1e-{rule.get('lot_decimals')}")
