@@ -75,7 +75,7 @@ websockets.exceptions.InvalidStatusCode: Status code not 101: 502
 
 ### Minimum Order Sizes
 
-The minimum acceptable order size is 0.00000001 normalized units of price, amount or total, whichever of these is the lowest.
+The minimum acceptable order size is 0.004 WETH for pairs traded against WETH, this is to prevent transactional costs being higher than the nominal order amount.
 
 ### Transaction Fees
 

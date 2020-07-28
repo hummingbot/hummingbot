@@ -31,7 +31,6 @@ from hummingbot.market.bittrex.bittrex_auth import BittrexAuth
 from hummingbot.market.bittrex.bittrex_in_flight_order import BittrexInFlightOrder
 from hummingbot.market.bittrex.bittrex_order_book_tracker import BittrexOrderBookTracker
 from hummingbot.market.bittrex.bittrex_user_stream_tracker import BittrexUserStreamTracker
-from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.market.market_base import NaN
 from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
@@ -57,7 +56,6 @@ cdef class BittrexMarket(MarketBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset.value
     MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
@@ -241,8 +239,7 @@ cdef class BittrexMarket(MarketBase):
                 last_trade_rate = Decimal(market.get("lastTradeRate"))
 
                 # skip offline trading pair
-                if market.get("status") != "OFFLINE" :
-
+                if market.get("status") != "OFFLINE":
                     # min_order_value is the base asset value corresponding to 50,000 Satoshis(~0.0005BTC)
                     # https://bittrex.zendesk.com/hc/en-us/articles/360001473863-Bittrex-Trading-Rules
                     min_order_value = (
@@ -255,12 +252,12 @@ cdef class BittrexMarket(MarketBase):
 
                     # Trading Rules info from Bittrex API response
                     retval.append(TradingRule(trading_pair,
-                                            min_order_size=Decimal(min_trade_size),
-                                            min_price_increment=Decimal(f"1e-{precision}"),
-                                            min_base_amount_increment=Decimal(f"1e-{precision}"),
-                                            min_quote_amount_increment=Decimal(f"1e-{precision}"),
-                                            min_order_value=Decimal(min_order_value),
-                                            ))
+                                              min_order_size=Decimal(min_trade_size),
+                                              min_price_increment=Decimal(f"1e-{precision}"),
+                                              min_base_amount_increment=Decimal(f"1e-{precision}"),
+                                              min_quote_amount_increment=Decimal(f"1e-{precision}"),
+                                              min_order_value=Decimal(min_order_value),
+                                              ))
                     # https://bittrex.zendesk.com/hc/en-us/articles/360001473863-Bittrex-Trading-Rules
                     # "No maximum, but the user must have sufficient funds to cover the order at the time it is placed."
             except Exception:
@@ -338,8 +335,8 @@ cdef class BittrexMarket(MarketBase):
             # are not capturing the updates as intended. Also handles filled events that are not captured by
             # _user_stream_event_listener
             # The poll interval for order status is 10 seconds.
-            int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.UPDATE_ORDERS_INTERVAL)
-            int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDERS_INTERVAL)
+            int64_t last_tick = <int64_t> (self._last_poll_timestamp / self.UPDATE_ORDERS_INTERVAL)
+            int64_t current_tick = <int64_t> (self._current_timestamp / self.UPDATE_ORDERS_INTERVAL)
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
 
@@ -614,15 +611,6 @@ cdef class BittrexMarket(MarketBase):
                                       app_warning_msg=f"Could not fetch updates from Bitrrex. "
                                                       f"Check API key and network connection.")
                 await asyncio.sleep(0.5)
-
-    async def get_deposit_address(self, currency: str) -> str:
-        path_url = f"/addresses/{currency}"
-
-        deposit_result = await self._api_request("GET", path_url=path_url)
-        return deposit_result.get("cryptoAddress")
-
-    async def get_deposit_info(self, asset: str) -> DepositInfo:
-        return DepositInfo(await self.get_deposit_address(asset))
 
     cdef OrderBook c_get_order_book(self, str trading_pair):
         cdef:
@@ -950,6 +938,11 @@ cdef class BittrexMarket(MarketBase):
                 self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
+
+            if "ORDER_NOT_OPEN" in str(err):
+                path_url = f"/orders/{order_id}"
+                state_result = await self._api_request("GET", path_url=path_url)
+                self.logger().info(f"{state_result}")
 
             self.logger().network(
                 f"Failed to cancel order {order_id}: {str(err)}.",

@@ -6,7 +6,7 @@ Arbitrage is described in [Strategies](/strategies/), with a further discussion 
 
 ### Schematic
 
-The diagram below illustrates how arbitrage works.  The transaction involves two exchanges: **Exchange A** and a **Exchange B**. Hummingbot monitors the prices on both exchanges and transacts when a profit opportunity arises.
+The diagram below illustrates how arbitrage works.  The transaction involves two exchanges: **Exchange A** and **Exchange B**. Hummingbot monitors the prices on both exchanges and transacts when a profit opportunity arises.
 
 An opportunity arises when Hummingbot can buy on one exchange at a lower price and sell on the other exchange at a higher price.
 
@@ -21,7 +21,7 @@ An opportunity arises when Hummingbot can buy on one exchange at a lower price a
 
 ## Configuration Parameters and Walkthrough
 
-The following walks through all the steps when running `create` command. These parameters are fields in Hummingbot configuration files (located in the `/conf` folder, e.g. `conf/arb_[#].yml`).
+The following walks through all the steps when running `create` command. These parameters are fields in Hummingbot configuration files (located in the `/conf` folder, e.g. `conf/conf_arb_[#].yml`).
 
 | Parameter | Prompt | Definition |
 |-----------|--------|------------|
@@ -30,6 +30,6 @@ The following walks through all the steps when running `create` command. These p
 | **primary_market_trading_pair** | `Enter the token trading pair you would like to trade on [primary_market]` | Enter the token trading pair for the primary exchange. |
 | **secondary_market_trading_pair** | `Enter the token trading pair you would like to trade on [secondary_market]` | Enter the token trading pair for the secondary exchange. |
 | **min_profitability** | `What is the minimum profitability for you to make a trade?` | Minimum profitability target required to execute trades. |
-<br/>
+
 !!! tip "Tip: Autocomplete Inputs during Configuration"
     When going through the command line config process, pressing `<TAB>` at a prompt will display valid available inputs.

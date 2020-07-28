@@ -34,6 +34,7 @@ The table below details the **required** functions in `OrderBookTrackerDataSourc
 
 Function<div style="width:200px"/> | Input Parameter(s) | Expected Output(s) | Description
 ---|---|---|---
+`get_last_traded_prices` | trading_pairs: List[str] | `Dict[str, float]` | Performs the necessary API request(s) to get last traded price for the given markets (trading_pairs) and return a dictionary of trading_pair and last traded price.
 `get_active_exchange_markets` | None | `pandas.DataFrame` | Performs the necessary API request(s) to get all currently active trading pairs on the exchange and returns a `pandas.DataFrame` with each row representing one active trading pair.<br/><br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: If none of the API requests returns a traded `USDVolume` of a trading pair, you are required to calculate it and include it as a column in the `DataFrame`.<br/><br/>Also the the base and quote currency should be represented under the `baseAsset` and `quoteAsset` columns respectively in the `DataFrame`.<br/><br/> Refer to [Calling a Class method](#calling-a-class-method) for an example on how to test this particular function.</td></tr></tbody></table>
 `get_trading_pairs` | None | `List[str]` | Calls `get_active_exchange_market` to retrieve a list of active trading pairs.<br/><br/>Ensure that all trading pairs are in the right format.
 `get_snapshot` | client: `aiohttp.ClientSession`, trading_pair: `str` | `Dict[str, any]` | Fetches order book snapshot for a particular trading pair from the exchange REST API. <table><tbody><tr><td bgcolor="#ecf3ff">**Note**: Certain exchanges do not add a timestamp/nonce to the snapshot response. In this case, to maintain a real-time order book would require generating a timestamp for every order book snapshot and delta messages received and applying them accordingly.<br/><br/>In [Bittrex](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/bittrex/bittrex_api_order_book_data_source.py), this is performed by invoking the `queryExchangeState` topic on the SignalR WebSocket client.</td></tr></tbody></table>
@@ -104,15 +105,15 @@ The `UserStreamTracker` main responsibility is to fetch user account data and qu
 
 ### UserStreamTrackerDataSource
 
-The `UserStreamTrackerDataSource` class is responsible for making API calls and/or WebSocket queries to obtain order book snapshots, order book deltas and miscellaneous information on order book.
+The `UserStreamTrackerDataSource` class is responsible for initializing a WebSocket connection to obtain user related trade and balances updates.
 
-Integrating your own data source component would require you to extend from the OrderBookTrackerDataSource base class here.
+Integrating your own data source component would require you to extend from the UserStreamTrackerDataSource base class here.
 
 The table below details the **required** functions in `UserStreamTrackerDataSource`:
 
 Function<div style="width:200px"/> | Input Parameter(s) | Expected Output(s) | Description
 ---|---|---|---
-`order_book_class` | None | `OrderBook` | Get relevant order book class to access class specific methods.<br/><br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: You are also required to implement your own `OrderBook` class that converts JSON data into a standard `OrderBookMessage` format.</td></tr></tbody></table>
+`last_recv_time` | None | `float` | Should be updated(using python's time.time()) everytime a message is received from the websocket.	
 `listen_for_user_stream` | ev_loop: `asyncio.BaseEventLoop`<br/>output: `asyncio.Queue` | None | Subscribe to user stream via web socket, and keep the connection open for incoming messages
 
 ### UserStreamTracker
@@ -124,7 +125,7 @@ This can be achieved in 2 ways(depending on the available API on the exchange):
 1. **REST API**
 
     In this scenario, we would have to periodically make API requests to the exchange to retrieve information on the user's **account balances** and **order statuses**.
-    An example of this can be seen in the [Huobi](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/huobi/huobi_market.pyx) connector.
+    An example of this can be seen in [Huobi's connector market file](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/huobi/huobi_market.pyx) connector. The market file shows that Huobi uses REST API alone by periodically calling the market's `_update_balances()` and `_update_order_status()` through the `_status_polling_loop()`. Also, it can be seen that no user stream files exist in Huobi's connector directory.
 
 2. **WebSocket API**
 
@@ -157,7 +158,7 @@ The role of the `Market` class can be broken down into placing and tracking orde
 
 Placing and tracking of orders on the exchange normally requiring a form of authentication tied to every requests to ensure protected access/actions to the assets that users have on the respective exchanges. 
 
-As such, it is would only make sense to have a module dedicated to handling authentication.
+As such, it would only make sense to have a module dedicated to handling authentication.
 
 As briefly mentioned, the `Auth` class is responsible for creating the request parameters and/or data bodies necessary to authenticate an API request.
 
@@ -865,7 +866,7 @@ This option, like in Option 2, is mainly used to test specific functions. This i
 i.e. Initializing a simple websocket connection to listen and output all captured messages to examine the user stream message when placing/cancelling an order. 
 This is helpful when determining the exact response fields to use.
 
-i.e. A simple function to craft the Authentication signature of a request. This together with [POSTMAN](https://www.getpostman.com/) can be used to check if the you are generating the appropriate authentication signature for the respective requests.
+i.e. A simple function to craft the Authentication signature of a request. This together with [POSTMAN](https://www.getpostman.com/) can be used to check if you are generating the appropriate authentication signature for the respective requests.
 
 #### API Request: POST Order
 
@@ -909,7 +910,7 @@ async def _api_request(http_method: str,
                               data=body) as response:
         data: Dict[str, any] = await response.json()
         if response.status not in [200,201]:
-            print(f"Error occured. HTTP Status {response.status}: {data}")
+            print(f"Error occurred. HTTP Status {response.status}: {data}")
         print(data)
 
 # POST order

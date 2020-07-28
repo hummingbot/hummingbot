@@ -1,12 +1,14 @@
 import random
-from typing import Callable
+from typing import Callable, Optional
 from decimal import Decimal
+import os.path
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.settings import (
     required_exchanges,
     DEXES,
     DEFAULT_KEY_FILE_PATH,
     DEFAULT_LOG_FILE_PATH,
+    SCRIPTS_PATH
 )
 from hummingbot.client.config.config_validators import (
     validate_bool,
@@ -34,6 +36,14 @@ def using_wallet() -> bool:
 
 def using_bamboo_coordinator_mode() -> bool:
     return global_config_map.get("bamboo_relay_use_coordinator").value
+
+
+def validate_script_file_path(file_path: str) -> Optional[bool]:
+    path, name = os.path.split(file_path)
+    if path == "":
+        file_path = os.path.join(SCRIPTS_PATH, file_path)
+    if not os.path.isfile(file_path):
+        return f"{file_path} file does not exist."
 
 
 MIN_QUOTE_ORDER_AMOUNTS = [["BTC", 0.0011],
@@ -208,18 +218,6 @@ global_config_map = {
                   required_if=using_exchange("kucoin"),
                   is_secure=True,
                   is_connect_key=True),
-    "bitcoin_com_api_key":
-        ConfigVar(key="bitcoin_com_api_key",
-                  prompt="Enter your bitcoin_com API key >>> ",
-                  required_if=using_exchange("bitcoin_com"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "bitcoin_com_secret_key":
-        ConfigVar(key="bitcoin_com_secret_key",
-                  prompt="Enter your bitcoin_com secret key >>> ",
-                  required_if=using_exchange("bitcoin_com"),
-                  is_secure=True,
-                  is_connect_key=True),
     "eterbase_api_key":
         ConfigVar(key="eterbase_api_key",
                   prompt="Enter your Eterbase API key >>> ",
@@ -297,6 +295,11 @@ global_config_map = {
         ConfigVar(key="ethereum_rpc_url",
                   prompt="Which Ethereum node would you like your client to connect to? >>> ",
                   required_if=lambda: global_config_map["ethereum_wallet"].value is not None,
+                  is_connect_key=True),
+    "ethereum_rpc_ws_url":
+        ConfigVar(key="ethereum_rpc_ws_url",
+                  prompt="Enter the Websocket Address of your Ethereum Node >>> ",
+                  required_if=lambda: global_config_map["ethereum_rpc_url"].value is not None,
                   is_connect_key=True),
     "ethereum_chain_name":
         ConfigVar(key="ethereum_chain_name",
@@ -400,4 +403,16 @@ global_config_map = {
                   type_str="bool",
                   default=False,
                   validator=validate_bool),
+    "script_enabled":
+        ConfigVar(key="script_enabled",
+                  prompt="Would you like to enable script feature? (Yes/No) >>> ",
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool),
+    "script_file_path":
+        ConfigVar(key="script_file_path",
+                  prompt='Enter path to your script file >>> ',
+                  type_str="str",
+                  required_if=lambda: global_config_map["script_enabled"].value,
+                  validator=validate_script_file_path),
 }
