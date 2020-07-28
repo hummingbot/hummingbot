@@ -5,8 +5,8 @@
 | CTRL + C + C | Exit | Press CTRL + C twice to exit the bot.
 | CTRL + S | Status | Show bot status.
 | CTRL + F | Search | Toggles search in log pane (see below for usage)
-| CTRL + A | Select All | Select all text in input pane only.
-| CTRL + Z | Undo | Undo action in input pane only.
+| CTRL + A | Select All | Select all text in the input pane only.
+| CTRL + Z | Undo | Undo action in the input pane only.
 | CTRL + X | Exit Config | Exit from the current configuration question.
 
 !!! tip "Tip: How to use the Search feature"

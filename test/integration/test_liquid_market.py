@@ -14,7 +14,7 @@ from typing import (
     Optional
 )
 import unittest
-
+import math
 from hummingbot.core.clock import (
     Clock,
     ClockMode
@@ -25,7 +25,6 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketEvent,
-    MarketWithdrawAssetEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
     OrderType,
@@ -49,7 +48,6 @@ from hummingbot.model.sql_connection_manager import (
     SQLConnectionType
 )
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.wallet.ethereum.mock_wallet import MockWallet
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from test.integration.humming_web_app import HummingWebApp
 from test.integration.assets.mock_data.fixture_liquid import FixtureLiquid
@@ -65,10 +63,8 @@ API_HOST = "api.liquid.com"
 
 class LiquidMarketUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
-        MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
-        MarketEvent.WithdrawAsset,
         MarketEvent.OrderFilled,
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
@@ -327,32 +323,6 @@ class LiquidMarketUnitTest(unittest.TestCase):
         self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
 
-    @unittest.skipUnless(any("test_withdraw" in arg for arg in sys.argv), "Withdraw test requires manual action.")
-    def test_withdraw(self):
-        # CEL_ABI contract file can be found in
-        # https://etherscan.io/address/0xe41d2489571d322189246dafa5ebde1f4699f498#code
-        with open(realpath(join(__file__, "../../../data/CELABI.json"))) as fd:
-            zrx_abi: str = fd.read()
-
-        local_wallet: MockWallet = MockWallet(conf.web3_test_private_key_a,
-                                              conf.test_web3_provider_list[0],
-                                              {"0xE41d2489571d322189246DaFA5ebDe1F4699F498": zrx_abi},
-                                              chain_id=1)
-
-        # Ensure the market account has enough balance for withdraw testing.
-        self.assertGreaterEqual(self.market.get_balance("CEL"), Decimal('10'))
-
-        # Withdraw CEL from Liquid to test wallet.
-        self.market.withdraw(local_wallet.address, "CEL", Decimal('10'))
-        [withdraw_asset_event] = self.run_parallel(
-            self.market_logger.wait_for(MarketWithdrawAssetEvent)
-        )
-        withdraw_asset_event: MarketWithdrawAssetEvent = withdraw_asset_event
-        self.assertEqual(local_wallet.address, withdraw_asset_event.to_address)
-        self.assertEqual("CEL", withdraw_asset_event.asset_name)
-        self.assertEqual(Decimal('10'), withdraw_asset_event.amount)
-        self.assertGreater(withdraw_asset_event.fee_amount, Decimal(0))
-
     def test_cancel_all(self):
         trading_pair = "CEL-ETH"
         bid_price: Decimal = self.market.get_price(trading_pair, True)
@@ -511,6 +481,14 @@ class LiquidMarketUnitTest(unittest.TestCase):
 
             recorder.stop()
             os.unlink(self.db_path)
+
+    def test_update_last_prices(self):
+        # This is basic test to see if order_book last_trade_price is initiated and updated.
+        for order_book in self.market.order_books.values():
+            for _ in range(5):
+                self.ev_loop.run_until_complete(asyncio.sleep(1))
+                print(order_book.last_trade_price)
+                self.assertFalse(math.isnan(order_book.last_trade_price))
 
 
 if __name__ == "__main__":
