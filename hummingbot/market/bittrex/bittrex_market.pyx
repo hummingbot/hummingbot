@@ -383,7 +383,7 @@ cdef class BittrexMarket(MarketBase):
                 elif tracked_order.order_type is OrderType.LIMIT_MAKER:
                     order_type = "LIMIT_MAKER"
                 elif tracked_order.order_type is OrderType.MARKET:
-                    order_type = "MARKER"
+                    order_type = "MARKET"
                 trade_type = "BUY" if tracked_order.trade_type is TradeType.BUY else "SELL"
                 order_type_description = tracked_order.order_type_description
 
