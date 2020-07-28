@@ -1,7 +1,7 @@
 class FixtureKucoin:
     EMPTY = {}
 
-    LIMIT_MAKER_ERROR = {}
+    LIMIT_MAKER_ERROR = {'code': '300000', 'msg': 'Order price invalid.'}
 
     GET_ACCOUNT = {"code": "200000", "data": [
         {"balance": "0.1910973", "available": "0.1910973", "holds": "0", "currency": "ETH",

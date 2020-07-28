@@ -1,7 +1,7 @@
 class FixtureBittrex:
     EMPTY = {}
 
-    LIMIT_MAKER_ERROR = {}
+    LIMIT_MAKER_ERROR = {'code': 'POST_ONLY_NOT_MET'}
 
     PING = {"serverTime": 1582535502000}
 
