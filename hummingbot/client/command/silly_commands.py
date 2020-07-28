@@ -56,9 +56,9 @@ class SillyCommands:
 
     def yield_alert(self):
         return """
-                                  =================
-                                  ║               ║
-                                  ║  YIELD ALERT  ║
-                                  ║               ║
-                                  =================
+                                ====================================
+                                ║                                  ║
+                                ║  OPEN SOFTWARE FOR OPEN FINANCE  ║
+                                ║                                  ║
+                                ====================================
         """ + ("\n" * 18)
