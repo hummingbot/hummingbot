@@ -124,10 +124,8 @@ class OrderBookUtils:
 
 class PaperTradeMarketTest(unittest.TestCase):
     events: List[MarketEvent] = [
-        MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
-        MarketEvent.WithdrawAsset,
         MarketEvent.OrderFilled,
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,

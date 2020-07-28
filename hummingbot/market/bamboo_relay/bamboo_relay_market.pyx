@@ -123,7 +123,6 @@ cdef class BambooRelayMarket(MarketBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset.value
     MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
@@ -978,10 +977,10 @@ cdef class BambooRelayMarket(MarketBase):
 
     def get_zero_ex_signature(self, order_hash_hex: str) -> str:
         signature = self._wallet.current_backend.sign_hash(hexstr=order_hash_hex)
-        fixed_signature = fix_signature(self._provider, 
-                                        self._wallet.address, 
+        fixed_signature = fix_signature(self._provider,
+                                        self._wallet.address,
                                         order_hash_hex,
-                                        signature, 
+                                        signature,
                                         self._chain_id)
         return fixed_signature
 

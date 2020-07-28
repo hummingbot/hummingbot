@@ -53,6 +53,17 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._tp_map_mrktid: Dict[str, str] = None
 
     @classmethod
+    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
+        results = dict()
+        async with aiohttp.ClientSession() as client:
+            resp = await client.get(f"{constants.REST_URL}/tickers")
+            resp_json = await resp.json()
+            for trading_pair in trading_pairs:
+                resp_record = [o for o in resp_json if o["symbol"] == trading_pair][0]
+                results[trading_pair] = float(resp_record["price"])
+        return results
+
+    @classmethod
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
         """
