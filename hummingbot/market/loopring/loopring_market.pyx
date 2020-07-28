@@ -417,6 +417,8 @@ cdef class LoopringMarket(MarketBase):
             }
 
             res = await self.api_request("DELETE", ORDER_CANCEL_ROUTE, params=cancellation_payload, secure=True)
+            if res['resultInfo']['code'] != 0:
+                raise Exception(f"Cancel order returned code {res['resultInfo']['code']} ({res['resultInfo']['message']})")
 
             self.logger().info(f"Successfully cancelled order {client_order_id}")
             self.stop_tracking(client_order_id)
