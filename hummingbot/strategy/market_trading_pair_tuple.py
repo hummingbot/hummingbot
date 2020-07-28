@@ -33,6 +33,9 @@ class MarketTradingPairTuple(NamedTuple):
     def get_mid_price(self) -> Decimal:
         return self.market.get_mid_price(self.trading_pair)
 
+    def get_last_price(self) -> Decimal:
+        return Decimal(str(self.order_book.last_trade_price))
+
     def get_price(self, is_buy: bool) -> Decimal:
         return self.market.get_price(self.trading_pair, is_buy)
 

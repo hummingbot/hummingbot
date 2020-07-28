@@ -195,10 +195,10 @@ class PMMUnitTest(unittest.TestCase):
         # After filled_ore
         self.clock.backtest_til(self.start_timestamp + 7)
         buy_1 = strategy.active_buys[0]
-        self.assertEqual(97.911, buy_1.price)
+        self.assertEqual(Decimal('97.911'), buy_1.price)
         self.assertEqual(1, buy_1.quantity)
         sell_1 = strategy.active_sells[0]
-        self.assertEqual(99.889, sell_1.price)
+        self.assertEqual(Decimal('99.889'), sell_1.price)
         self.assertEqual(1, sell_1.quantity)
 
     def test_basic_multiple_levels(self):

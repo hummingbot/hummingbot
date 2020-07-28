@@ -1,3 +1,4 @@
+import math
 from decimal import Decimal
 import logging
 import pandas as pd
@@ -141,7 +142,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._logging_options = logging_options
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
-        self._last_price = Decimal(-1)
 
         self.c_add_markets([market_info.market])
 
@@ -328,19 +328,19 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     def trading_pair(self):
         return self._market_info.trading_pair
 
-    def get_price(self):
+    def get_price(self) -> float:
         if not self._price_is_mid:
-            return self.get_last_price()
+            price = self.get_last_price()
+            if math.isnan(price):
+                price = self.get_mid_price()
         else:
-            return self.get_mid_price()
+            price = self.get_mid_price()
+        return Decimal(price)
 
-    def get_last_price(self):
-        if self._last_price != Decimal(-1):
-            return self._last_price
-        else:
-            return self.get_mid_price()
+    def get_last_price(self) -> float:
+        return self._market_info.get_last_price()
 
-    def get_mid_price(self):
+    def get_mid_price(self) -> float:
         return self.c_get_mid_price()
 
     cdef object c_get_mid_price(self):
@@ -854,8 +854,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         cdef:
             str order_id = order_completed_event.order_id
             limit_order_record = self._sb_order_tracker.c_get_limit_order(self._market_info, order_id)
-        if self._price_is_mid:
-            self._last_price = float(order_completed_event.price)
         if limit_order_record is None:
             return
         active_sell_ids = [x.client_order_id for x in self.active_orders if not x.is_buy]
@@ -900,8 +898,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         cdef:
             str order_id = order_completed_event.order_id
             LimitOrder limit_order_record = self._sb_order_tracker.c_get_limit_order(self._market_info, order_id)
-        if self._price_is_mid:
-            self._last_price = float(order_completed_event.price)
         if limit_order_record is None:
             return
         active_buy_ids = [x.client_order_id for x in self.active_orders if x.is_buy]
@@ -1023,8 +1019,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     cdef bint c_to_create_orders(self, object proposal):
         return self._create_timestamp < self._current_timestamp and \
-            proposal is not None and \
-            len(self.active_non_hanging_orders) == 0
+               proposal is not None and \
+               len(self.active_non_hanging_orders) == 0
 
     cdef c_execute_orders_proposal(self, object proposal):
         cdef:
