@@ -1,5 +1,5 @@
 class FixtureHuobi:
-    LIMIT_MAKER_ERROR = {}
+    LIMIT_MAKER_ERROR = {'status': 'error', 'err-code': 'order-invalid-price', 'err-msg': 'invalid price', 'data': None}
 
     GET_ACCOUNTS = {"status": "ok", "data": [{"id": 11899168, "type": "spot", "subtype": "", "state": "working"}]}
 

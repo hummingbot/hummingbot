@@ -12,7 +12,7 @@ class FixtureLiquid:
 
     EMPTY = {}
 
-    LIMIT_MAKER_ERROR = {}
+    LIMIT_MAKER_ERROR = {'errors': {'order': ['do_not_initiate']}}
 
     EXCHANGE_MARKETS_DATA = [
         {
