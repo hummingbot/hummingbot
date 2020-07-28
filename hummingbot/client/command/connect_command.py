@@ -143,6 +143,7 @@ class ConnectCommand:
             public_address = Security.add_private_key(private_key)
             global_config_map["ethereum_wallet"].value = public_address
             await self.prompt_a_config(global_config_map["ethereum_rpc_url"])
+            await self.prompt_a_config(global_config_map["ethereum_rpc_ws_url"])
             if self.app.to_stop_config:
                 self.app.to_stop_config = False
                 return

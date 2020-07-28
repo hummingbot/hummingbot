@@ -25,7 +25,6 @@ from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
 from hummingbot.market.loopring.loopring_market import LoopringMarket
-from hummingbot.market.bitcoin_com.bitcoin_com_market import BitcoinComMarket
 from hummingbot.market.kraken.kraken_market import KrakenMarket
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
@@ -63,7 +62,6 @@ MARKET_CLASSES = {
     "loopring": LoopringMarket,
     "bittrex": BittrexMarket,
     "kucoin": KucoinMarket,
-    "bitcoin_com": BitcoinComMarket,
     "eterbase": EterbaseMarket,
     "kraken": KrakenMarket
 }
@@ -121,6 +119,7 @@ class HummingbotApplication(*commands):
 
         self.trade_fill_db: SQLConnectionManager = SQLConnectionManager.get_trade_fills_instance()
         self.markets_recorder: Optional[MarketsRecorder] = None
+        self._script_iterator = None
 
     @property
     def strategy_config_map(self):
@@ -354,14 +353,6 @@ class HummingbotApplication(*commands):
                                       order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                       trading_pairs=trading_pairs,
                                       trading_required=self._trading_required)
-            elif market_name == "bitcoin_com":
-                bitcoin_com_api_key = global_config_map.get("bitcoin_com_api_key").value
-                bitcoin_com_secret_key = global_config_map.get("bitcoin_com_secret_key").value
-                market = BitcoinComMarket(bitcoin_com_api_key,
-                                          bitcoin_com_secret_key,
-                                          order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                                          trading_pairs=trading_pairs,
-                                          trading_required=self._trading_required)
             elif market_name == "eterbase":
                 eterbase_api_key = global_config_map.get("eterbase_api_key").value
                 eterbase_secret_key = global_config_map.get("eterbase_secret_key").value

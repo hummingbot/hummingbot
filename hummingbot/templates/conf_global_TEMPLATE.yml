@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 8
+template_version: 9
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -11,9 +11,6 @@ bamboo_relay_pre_emptive_soft_cancels: false
 
 binance_api_key: null
 binance_api_secret: null
-
-bitcoin_com_api_key: null
-bitcoin_com_secret_key: null
 
 bittrex_api_key: null
 bittrex_secret_key: null
@@ -50,6 +47,7 @@ celo_password: null
 # Ethereum wallet address: required for trading on a DEX
 ethereum_wallet: null
 ethereum_rpc_url: null
+ethereum_rpc_ws_url: null
 ethereum_chain_name: MAIN_NET
 ethereum_token_overrides: {}
 
@@ -112,6 +110,10 @@ min_quote_order_amount:
   - 11
 - - BNB
   - 0.5
+- - USDT
+  - 11
+- - USDC
+  - 11
 
 # Advanced database options, currently supports SQLAlchemy's included dialects
 # Reference: https://docs.sqlalchemy.org/en/13/dialects/
@@ -121,4 +123,7 @@ db_port: null
 db_username: null
 db_password: null
 db_name: null
+
+script_enabled: null
+script_file_path: null
 

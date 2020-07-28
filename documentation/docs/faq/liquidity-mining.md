@@ -144,6 +144,6 @@ In return for administering liquidity mining programs, collecting the data neces
 Yes, you can run different instances of Hummingbot or your own software in order to earn rewards in multiple markets simultaneously.
 
 ### Do I need to use the Hummingbot client to participate in liquidity mining?
-No; if you already have your own trading bots and strategies, you can still participate in liquidity mining by registering at [Hummingbot Miner](https://miner.hummingbot.io) and adding your exchange read-only API key.
+No; if you already have your own trading bots and strategies, you can still participate in liquidity mining by registering at [Hummingbot Miner](https://miners.hummingbot.io) and adding your exchange read-only API key.
 
 For the general pool of users who don't have their own trading bots, we created Hummingbot as a way to provide them access to quant/algo strategies and the ability to market make.

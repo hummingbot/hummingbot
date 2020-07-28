@@ -23,7 +23,6 @@ BITTREX_ENDPOINT = "https://api.bittrex.com/v3/markets"
 KUCOIN_ENDPOINT = "https://api.kucoin.com/api/v1/symbols"
 DOLOMITE_ENDPOINT = "https://exchange-api.dolomite.io/v1/markets"
 LOOPRING_ENDPOINT = "https://api.loopring.io/api/v2/exchange/markets"
-BITCOIN_COM_ENDPOINT = "https://api.exchange.bitcoin.com/api/2/public/symbol"
 ETERBASE_ENDPOINT = "https://api.eterbase.exchange/api/markets"
 KRAKEN_ENDPOINT = "https://api.kraken.com/0/public/AssetPairs"
 
@@ -354,30 +353,6 @@ class TradingPairFetcher:
 
         return []
 
-    async def fetch_bitcoin_com_trading_pairs(self) -> List[str]:
-        try:
-            from hummingbot.market.bitcoin_com.bitcoin_com_market import BitcoinComMarket
-
-            client: aiohttp.ClientSession = TradingPairFetcher.http_client()
-            async with client.get(BITCOIN_COM_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
-                if response.status == 200:
-                    raw_trading_pairs: List[Dict[str, Any]] = await response.json()
-                    trading_pairs: List[str] = list([item["id"] for item in raw_trading_pairs])
-                    trading_pair_list: List[str] = []
-                    for raw_trading_pair in trading_pairs:
-                        converted_trading_pair: Optional[str] = \
-                            BitcoinComMarket.convert_from_exchange_trading_pair(raw_trading_pair)
-                        if converted_trading_pair is not None:
-                            trading_pair_list.append(converted_trading_pair)
-                        else:
-                            self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
-                    return trading_pair_list
-        except Exception:
-            # Do nothing if the request fails -- there will be no autocomplete available
-            pass
-
-        return []
-
     async def fetch_all(self):
         tasks = [self.fetch_binance_trading_pairs(),
                  self.fetch_bamboo_relay_trading_pairs(),
@@ -387,7 +362,6 @@ class TradingPairFetcher:
                  self.fetch_liquid_trading_pairs(),
                  self.fetch_bittrex_trading_pairs(),
                  self.fetch_kucoin_trading_pairs(),
-                 self.fetch_bitcoin_com_trading_pairs(),
                  self.fetch_kraken_trading_pairs(),
                  self.fetch_radar_relay_trading_pairs(),
                  self.fetch_eterbase_trading_pairs(),
@@ -407,10 +381,9 @@ class TradingPairFetcher:
             "liquid": results[5],
             "bittrex": results[6],
             "kucoin": results[7],
-            "bitcoin_com": results[8],
-            "kraken": results[9],
-            "radar_relay": results[10],
-            "eterbase": results[11],
-            "loopring": results[12]
+            "kraken": results[8],
+            "radar_relay": results[9],
+            "eterbase": results[10],
+            "loopring": results[11]
         }
         self.ready = True

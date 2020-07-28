@@ -103,6 +103,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._minimum_spread = minimum_spread
         self._order_amount = order_amount
         self._order_levels = order_levels
+        self._buy_levels = order_levels
+        self._sell_levels = order_levels
         self._order_level_spread = order_level_spread
         self._order_level_amount = order_level_amount
         self._order_refresh_time = order_refresh_time
@@ -128,7 +130,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._cancel_timestamp = 0
         self._create_timestamp = 0
         self._limit_order_type = OrderType.LIMIT
-        if market_info.market.name == "binance" and paper_trade_disabled():
+        if market_info.market.name == "binance" and not take_if_crossed and paper_trade_disabled():
             self._limit_order_type = OrderType.LIMIT_MAKER
         self._all_markets_ready = False
         self._filled_buys_balance = 0
@@ -140,6 +142,25 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         self.c_add_markets([market_info.market])
 
+    def all_markets_ready(self):
+        return all([market.ready for market in self._sb_markets])
+
+    @property
+    def order_refresh_tolerance_pct(self) -> Decimal:
+        return self._order_refresh_tolerance_pct
+
+    @order_refresh_tolerance_pct.setter
+    def order_refresh_tolerance_pct(self, value: Decimal):
+        self._order_refresh_tolerance_pct = value
+
+    @property
+    def order_amount(self) -> Decimal:
+        return self._order_amount
+
+    @order_amount.setter
+    def order_amount(self, value: Decimal):
+        self._order_amount = value
+
     @property
     def order_levels(self) -> int:
         return self._order_levels
@@ -147,6 +168,22 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @order_levels.setter
     def order_levels(self, value: int):
         self._order_levels = value
+
+    @property
+    def buy_levels(self) -> int:
+        return self._buy_levels
+
+    @buy_levels.setter
+    def buy_levels(self, value: int):
+        self._buy_levels = value
+
+    @property
+    def sell_levels(self) -> int:
+        return self._sell_levels
+
+    @sell_levels.setter
+    def sell_levels(self, value: int):
+        self._sell_levels = value
 
     @property
     def order_level_amount(self) -> Decimal:
@@ -432,7 +469,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         active_orders = self.active_orders
         no_sells = len([o for o in active_orders if not o.is_buy and o.client_order_id not in self._hanging_order_ids])
         active_orders.sort(key=lambda x: x.price, reverse=True)
-        columns = ["Level", "Type", "Price", "Spread", "Amount (Orig)", "Amount (Adj)", "Age", "Hang"]
+        columns = ["Level", "Type", "Price", "Spread", "Amount (Orig)", "Amount (Adj)", "Age"]
         data = []
         lvl_buy, lvl_sell = 0, 0
         for idx in range(0, len(active_orders)):
@@ -453,14 +490,13 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                                    unit='s').strftime('%H:%M:%S')
             amount_orig = "" if level is None else self._order_amount + ((level - 1) * self._order_level_amount)
             data.append([
-                "" if level is None else level,
+                "hang" if order.client_order_id in self._hanging_order_ids else level,
                 "buy" if order.is_buy else "sell",
                 float(order.price),
                 f"{spread:.2%}",
                 amount_orig,
                 float(order.quantity),
-                age,
-                "yes" if order.client_order_id in self._hanging_order_ids else "no"
+                age
             ])
 
         return pd.DataFrame(data=data, columns=columns)
@@ -568,14 +604,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             MarketBase market = self._market_info.market
             list buys = []
             list sells = []
-        for level in range(0, self._order_levels):
+        for level in range(0, self._buy_levels):
             price = self.c_get_mid_price() * (Decimal("1") - self._bid_spread - (level * self._order_level_spread))
             price = market.c_quantize_order_price(self.trading_pair, price)
             size = self._order_amount + (self._order_level_amount * level)
             size = market.c_quantize_order_amount(self.trading_pair, size)
             if size > 0:
                 buys.append(PriceSize(price, size))
-        for level in range(0, self._order_levels):
+        for level in range(0, self._sell_levels):
             price = self.c_get_mid_price() * (Decimal("1") + self._ask_spread + (level * self._order_level_spread))
             price = market.c_quantize_order_price(self.trading_pair, price)
             size = self._order_amount + (self._order_level_amount * level)
@@ -728,35 +764,37 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             else:
                 own_sell_size = order.quantity
 
-        # Get the top bid price in the market using order_optimization_depth and your buy order volume
-        top_bid_price = self._market_info.get_price_for_volume(
-            False, self._bid_order_optimization_depth + own_buy_size).result_price
-        price_quantum = market.c_get_order_price_quantum(
-            self.trading_pair,
-            top_bid_price
-        )
-        # Get the price above the top bid
-        price_above_bid = (ceil(top_bid_price / price_quantum) + 1) * price_quantum
+        if len(proposal.buys) == 1:
+            # Get the top bid price in the market using order_optimization_depth and your buy order volume
+            top_bid_price = self._market_info.get_price_for_volume(
+                False, self._bid_order_optimization_depth + own_buy_size).result_price
+            price_quantum = market.c_get_order_price_quantum(
+                self.trading_pair,
+                top_bid_price
+            )
+            # Get the price above the top bid
+            price_above_bid = (ceil(top_bid_price / price_quantum) + 1) * price_quantum
 
-        # If the price_above_bid is lower than the price suggested by the pricing proposal,
-        # lower your price to this
-        lower_buy_price = min(proposal.buys[0].price, price_above_bid)
-        proposal.buys[0].price = market.c_quantize_order_price(self.trading_pair, lower_buy_price)
+            # If the price_above_bid is lower than the price suggested by the pricing proposal,
+            # lower your price to this
+            lower_buy_price = min(proposal.buys[0].price, price_above_bid)
+            proposal.buys[0].price = market.c_quantize_order_price(self.trading_pair, lower_buy_price)
 
-        # Get the top ask price in the market using order_optimization_depth and your sell order volume
-        top_ask_price = self._market_info.get_price_for_volume(
-            True, self._ask_order_optimization_depth + own_sell_size).result_price
-        price_quantum = market.c_get_order_price_quantum(
-            self.trading_pair,
-            top_ask_price
-        )
-        # Get the price below the top ask
-        price_below_ask = (floor(top_ask_price / price_quantum) - 1) * price_quantum
+        if len(proposal.sells) == 1:
+            # Get the top ask price in the market using order_optimization_depth and your sell order volume
+            top_ask_price = self._market_info.get_price_for_volume(
+                True, self._ask_order_optimization_depth + own_sell_size).result_price
+            price_quantum = market.c_get_order_price_quantum(
+                self.trading_pair,
+                top_ask_price
+            )
+            # Get the price below the top ask
+            price_below_ask = (floor(top_ask_price / price_quantum) - 1) * price_quantum
 
-        # If the price_below_ask is higher than the price suggested by the pricing proposal,
-        # increase your price to this
-        higher_sell_price = max(proposal.sells[0].price, price_below_ask)
-        proposal.sells[0].price = market.c_quantize_order_price(self.trading_pair, higher_sell_price)
+            # If the price_below_ask is higher than the price suggested by the pricing proposal,
+            # increase your price to this
+            higher_sell_price = max(proposal.sells[0].price, price_below_ask)
+            proposal.sells[0].price = market.c_quantize_order_price(self.trading_pair, higher_sell_price)
 
     cdef object c_apply_add_transaction_costs(self, object proposal):
         cdef:
