@@ -4,7 +4,7 @@ Running Hummingbot on a Raspberry Pi has the same main benefit of running it on 
 
 ![](/assets/img/rpi-hummingbot.jpg)
 
-Read through our full blog post about [Deploying Hummingbot on a Raspberrry Pi](https://hummingbot.io/blog/2020-07-deploying-hummingbot-on-a-raspberry-pi/).
+Read through our full blog post about [Deploying Hummingbot on a Raspberry Pi](https://hummingbot.io/blog/2020-07-deploying-hummingbot-on-a-raspberry-pi/).
 
 The only way to currently install Hummingbot on a Raspberry Pi is by downloading the source files from GitHub and compiling and running from source. This adds a few more steps than downloading binaries or running from Docker, but below we have provided a step-by-step guide to walk you through the process.
 
@@ -104,10 +104,17 @@ Under Interfacing Options, enable SSH and VNC.
 
 Select the menu in the top left corner of the screen then go to **Preferences > Raspberry Pi configuration > Interfaces** from there you will see options to enable SSH and VNC.
 
-![](rpi-config.jpg)
+![](/assets/img/rpi-config.jpg)
 
-**Step 2. Get your Raspberry Pi’s private IP address**
+!!! tip
+    Set a default screen resolution in `raspi-config` select: `7 Advanced Options` > `A5 Resolution` to enable VNC access to the GUI whenever you boot the Raspberry Pi without a connected monitor. For troubleshooting please visit this [link](https://www.raspberrypi.org/forums/viewtopic.php?t=216737).
+
+Setting a default resolution will avoid the following error: ![](/assets/img/rasp-no-monitor.png)
+
+**Step 2. Get your Raspberry Pi’s IP address**
 
 Type `ifconfig` to get the IP address of your Raspberry Pi to enter into your VNC Viewer. For SSH, you can run `ssh pi@[ipaddress]`. The IP address is the `inet` address which is not the localhost IP address 127.0.0.1:
 
 ![](/assets/img/rpi-private-address.jpg)
+
+
