@@ -6,7 +6,6 @@ from enum import Enum
 import logging
 import pandas as pd
 import re
-import time
 from typing import (
     Dict,
     Set,
@@ -14,12 +13,12 @@ from typing import (
     Optional,
     Tuple,
     List)
-
+import time
 from hummingbot.core.event.events import OrderBookTradeEvent, TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
-from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future, wait_til
 from .order_book_message import (
     OrderBookMessageType,
     OrderBookMessage,
@@ -65,6 +64,7 @@ class OrderBookTracker(ABC):
         self._order_book_snapshot_listener_task: Optional[asyncio.Task] = None
         self._order_book_diff_router_task: Optional[asyncio.Task] = None
         self._order_book_snapshot_router_task: Optional[asyncio.Task] = None
+        self._update_last_trade_prices_task: Optional[asyncio.Task] = None
 
     @property
     @abstractmethod
@@ -111,6 +111,9 @@ class OrderBookTracker(ABC):
         self._order_book_snapshot_router_task = safe_ensure_future(
             self._order_book_snapshot_router()
         )
+        self._update_last_trade_prices_task = safe_ensure_future(
+            self._update_last_trade_prices_loop()
+        )
 
     def stop(self):
         if self._emit_trade_event_task is not None:
@@ -137,10 +140,37 @@ class OrderBookTracker(ABC):
         if self._order_book_snapshot_router_task is not None:
             self._order_book_snapshot_router_task.cancel()
             self._order_book_snapshot_router_task = None
+        if self._update_last_trade_prices_task is not None:
+            self._update_last_trade_prices_task.cancel()
+            self._update_last_trade_prices_task = None
         if len(self._tracking_tasks) > 0:
             for _, task in self._tracking_tasks.items():
                 task.cancel()
             self._tracking_tasks.clear()
+
+    async def _update_last_trade_prices_loop(self):
+        '''
+        Updates last trade price for all order books through REST API, it is to initiate last_trade_price and as
+        fall-back mechanism for when the web socket update channel fails.
+        '''
+        await wait_til(lambda: len(self.data_source._trading_pairs) == len(self._order_books.keys()))
+        while True:
+            try:
+                outdateds = [t_pair for t_pair, o_book in self._order_books.items()
+                             if o_book.last_applied_trade < time.perf_counter() - (60. * 3)
+                             and o_book.last_trade_price_rest_updated < time.perf_counter() - 5]
+                if outdateds:
+                    last_prices = await self.data_source.get_last_traded_prices(outdateds)
+                    for trading_pair, last_price in last_prices.items():
+                        self._order_books[trading_pair].last_trade_price = last_price
+                        self._order_books[trading_pair].last_trade_price_rest_updated = time.perf_counter()
+                else:
+                    await asyncio.sleep(1)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().network("Unexpected error while fetching last trade price.", exc_info=True)
+                await asyncio.sleep(30)
 
     async def _refresh_tracking_tasks(self):
         """
