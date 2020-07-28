@@ -64,10 +64,8 @@ EXCHANGE_ORDER_ID = 20001
 
 class KucoinMarketUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
-        MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
-        MarketEvent.WithdrawAsset,
         MarketEvent.OrderFilled,
         MarketEvent.OrderCancelled,
         MarketEvent.TransactionFailure,
