@@ -42,17 +42,17 @@ class SillyCommands:
             for _ in range(0, 5):
                 await self.cls_n_display(hb_with_flower_up_close_1, 0.125)
                 await self.cls_n_display(hb_with_flower_up_close_2, 0.125)
-        self._notify(last_output)
+        self.app.log(last_output)
         self.placeholder_mode = False
         self.app.hide_input = False
 
     async def cls_n_display(self, lines, delay=0.5):
         await asyncio.sleep(delay)
         self.clear_output_field()
-        self._notify("".join(lines))
+        self.app.log("".join(lines))
 
     def clear_output_field(self):
-        self._notify("\n" * 50)
+        self.app.log("\n" * 50)
 
     def yield_alert(self):
         return """
