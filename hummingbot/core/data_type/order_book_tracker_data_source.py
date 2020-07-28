@@ -33,6 +33,10 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
         raise NotImplementedError
 
+    @classmethod
+    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
+        raise NotImplementedError
+
     @abstractmethod
     async def get_trading_pairs(self) -> List[str]:
         raise NotImplementedError
