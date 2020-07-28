@@ -14,7 +14,7 @@ from typing import (
     Optional
 )
 import unittest
-
+import math
 from hummingbot.core.clock import (
     Clock,
     ClockMode
@@ -481,6 +481,14 @@ class LiquidMarketUnitTest(unittest.TestCase):
 
             recorder.stop()
             os.unlink(self.db_path)
+
+    def test_update_last_prices(self):
+        # This is basic test to see if order_book last_trade_price is initiated and updated.
+        for order_book in self.market.order_books.values():
+            for _ in range(5):
+                self.ev_loop.run_until_complete(asyncio.sleep(1))
+                print(order_book.last_trade_price)
+                self.assertFalse(math.isnan(order_book.last_trade_price))
 
 
 if __name__ == "__main__":

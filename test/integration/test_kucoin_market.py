@@ -4,7 +4,7 @@ from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-
+import math
 import asyncio
 import contextlib
 from decimal import Decimal
@@ -529,6 +529,14 @@ class KucoinMarketUnitTest(unittest.TestCase):
             recorder.stop()
             os.unlink(self.db_path)
             self.market_logger.clear()
+
+    def test_update_last_prices(self):
+        # This is basic test to see if order_book last_trade_price is initiated and updated.
+        for order_book in self.market.order_books.values():
+            for _ in range(5):
+                self.ev_loop.run_until_complete(asyncio.sleep(1))
+                print(order_book.last_trade_price)
+                self.assertFalse(math.isnan(order_book.last_trade_price))
 
 
 if __name__ == "__main__":

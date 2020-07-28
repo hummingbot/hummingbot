@@ -72,7 +72,7 @@ conda activate hummingbot
 bin/hummingbot.py
 ```
 
-Solution 2: make sure you're have conda section in ~/.bashrc. Run `conda init` if it is not there. Explanation: if you have custom PATH defined in ~/.bashrc, supplied scripts (`./compile` etc) may pick wrong python binary, causing different errors.
+Solution 2: make sure you have conda section in ~/.bashrc. Run `conda init` if it is not there. Explanation: if you have custom PATH defined in ~/.bashrc, supplied scripts (`./compile` etc) may pick wrong python binary, causing different errors.
 
 ## Configuration
 
@@ -176,9 +176,9 @@ docker inspect $instance_name
 
 ### How do I edit my config files from the command line?
 
-If Hummingbot is installed on a virtual machine or a Linux cloud server, you can use the `vi` text editor (or any text editor of your choice). Run command `vi $filename`. See [this page](https://www.tipsandtricks-hq.com/unix-vi-commands-take-advantage-of-the-unix-vi-editor-374) for more information how to use this text editor.
+If Hummingbot is installed on a virtual machine or a Linux cloud server, you can use the `vi` text editor (or any text editor of your choice). Run command `vi $filename`. See [this page](https://www.tipsandtricks-hq.com/unix-vi-commands-take-advantage-of-the-unix-vi-editor-374) for more information on how to use this text editor.
 
-You can also use an FTP client software (e.g. WinSCP, FileZila) to copy, move, files and folders from your virtual machine to your local machine and vice versa.
+You can also use an FTP client software (e.g. WinSCP, FileZilla) to copy, move, files and folders from your virtual machine to your local machine and vice versa.
 
 ### I forgot my password. How do I reset it?
 
