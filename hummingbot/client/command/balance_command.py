@@ -49,7 +49,6 @@ class BalanceCommand:
                     asset = asset.upper()
                     self._notify(f"Limit for {asset} token, set to {amount}")
                     asset_limit_config[asset] = amount
-                    self._notify(f"{config_var.value}")
                 else:
                     safe_ensure_future(self.show_asset_limits())
                     safe_ensure_future(self.list_options())
