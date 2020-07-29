@@ -42,6 +42,7 @@ def start(self):
         bid_order_optimization_depth = c_map.get("bid_order_optimization_depth").value
         add_transaction_costs_to_orders = c_map.get("add_transaction_costs").value
         price_source = c_map.get("price_source").value
+        price_type = c_map.get("price_type").value
         price_source_exchange = c_map.get("price_source_exchange").value
         price_source_market = c_map.get("price_source_market").value
         price_source_custom_api = c_map.get("price_source_custom_api").value
@@ -64,6 +65,7 @@ def start(self):
             asset_price_delegate = OrderBookAssetPriceDelegate(ext_market, asset_trading_pair)
         elif price_source == "custom_api":
             asset_price_delegate = APIAssetPriceDelegate(price_source_custom_api)
+        price_is_mid = (price_type == "mid_price")
         take_if_crossed = c_map.get("take_if_crossed").value
 
         strategy_logging_options = PureMarketMakingStrategy.OPTION_LOG_ALL
@@ -88,6 +90,7 @@ def start(self):
             add_transaction_costs_to_orders=add_transaction_costs_to_orders,
             logging_options=strategy_logging_options,
             asset_price_delegate=asset_price_delegate,
+            price_is_mid=price_is_mid,
             take_if_crossed=take_if_crossed,
             price_ceiling=price_ceiling,
             price_floor=price_floor,

@@ -163,6 +163,44 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(1, len(strategy.active_buys))
         self.assertEqual(1, len(strategy.active_sells))
 
+    def test_basic_one_level_price_type_last_trade(self):
+        strategy = PureMarketMakingStrategy(
+            self.market_info,
+            bid_spread=Decimal("0.01"),
+            ask_spread=Decimal("0.01"),
+            order_amount=Decimal("1"),
+            order_refresh_time=5.0,
+            filled_order_delay=5.0,
+            order_refresh_tolerance_pct=-1,
+            minimum_spread=-1,
+            price_is_mid=False,
+        )
+        self.clock.add_iterator(strategy)
+
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+        buy_1 = strategy.active_buys[0]
+        self.assertEqual(99, buy_1.price)
+        self.assertEqual(1, buy_1.quantity)
+        sell_1 = strategy.active_sells[0]
+        self.assertEqual(101, sell_1.price)
+        self.assertEqual(1, sell_1.quantity)
+
+        # Simulate buy order filled
+        self.simulate_maker_market_trade(False, 100, 98.9)
+        self.assertEqual(0, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+
+        # After filled_ore
+        self.clock.backtest_til(self.start_timestamp + 7)
+        buy_1 = strategy.active_buys[0]
+        self.assertEqual(Decimal('97.911'), buy_1.price)
+        self.assertEqual(1, buy_1.quantity)
+        sell_1 = strategy.active_sells[0]
+        self.assertEqual(Decimal('99.889'), sell_1.price)
+        self.assertEqual(1, sell_1.quantity)
+
     def test_basic_multiple_levels(self):
         strategy = self.multi_levels_strategy
         self.clock.add_iterator(strategy)
