@@ -391,4 +391,10 @@ global_config_map = {
                   type_str="str",
                   required_if=lambda: global_config_map["script_enabled"].value,
                   validator=validate_script_file_path),
+    "balance_asset_limit":
+        ConfigVar(key="balance_asset_limit",
+                  prompt="Use the `balance limit` command"
+                         "e.g. balance limit [ASSET] [AMOUNT]",
+                  required_if=lambda: False,
+                  type_str="json"),
 }
