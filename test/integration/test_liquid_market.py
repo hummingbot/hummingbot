@@ -14,7 +14,7 @@ from typing import (
     Optional
 )
 import unittest
-
+import math
 from hummingbot.core.clock import (
     Clock,
     ClockMode
@@ -24,8 +24,8 @@ from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataS
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
+    MarketOrderFailureEvent,
     MarketEvent,
-    MarketWithdrawAssetEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
     OrderType,
@@ -49,7 +49,6 @@ from hummingbot.model.sql_connection_manager import (
     SQLConnectionType
 )
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.wallet.ethereum.mock_wallet import MockWallet
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from test.integration.humming_web_app import HummingWebApp
 from test.integration.assets.mock_data.fixture_liquid import FixtureLiquid
@@ -65,15 +64,14 @@ API_HOST = "api.liquid.com"
 
 class LiquidMarketUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
-        MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
-        MarketEvent.WithdrawAsset,
         MarketEvent.OrderFilled,
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
-        MarketEvent.OrderCancelled
+        MarketEvent.OrderCancelled,
+        MarketEvent.OrderFailure
     ]
 
     market: LiquidMarket
@@ -327,6 +325,61 @@ class LiquidMarketUnitTest(unittest.TestCase):
         self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
 
+    def test_limit_maker_rejections(self):
+        trading_pair = "CEL-ETH"
+
+        # Try to put a buy limit maker order that is going to match, this should triggers order failure event.
+        price: Decimal = self.market.get_price(trading_pair, True) * Decimal('1.02')
+        price: Decimal = self.market.quantize_order_price(trading_pair, price)
+        amount = self.market.quantize_order_amount(trading_pair, 1)
+
+        order_id = self.place_order(True, trading_pair, amount, OrderType.LIMIT_MAKER,
+                                    price, 10001,
+                                    FixtureLiquid.LIMIT_MAKER_ERROR, FixtureLiquid.EMPTY)
+        [order_failure_event] = self.run_parallel(self.market_logger.wait_for(MarketOrderFailureEvent))
+        self.assertEqual(order_id, order_failure_event.order_id)
+
+        self.market_logger.clear()
+
+        # Try to put a sell limit maker order that is going to match, this should triggers order failure event.
+        price: Decimal = self.market.get_price(trading_pair, True) * Decimal('0.98')
+        price: Decimal = self.market.quantize_order_price(trading_pair, price)
+        amount = self.market.quantize_order_amount(trading_pair, 1)
+
+        order_id = self.place_order(False, trading_pair, amount, OrderType.LIMIT_MAKER,
+                                    price, 10002,
+                                    FixtureLiquid.LIMIT_MAKER_ERROR, FixtureLiquid.EMPTY)
+        [order_failure_event] = self.run_parallel(self.market_logger.wait_for(MarketOrderFailureEvent))
+        self.assertEqual(order_id, order_failure_event.order_id)
+
+    def test_limit_makers_unfilled(self):
+        trading_pair = "CEL-USDT"
+        price = self.market.get_price(trading_pair, True) * Decimal("0.8")
+        price = self.market.quantize_order_price(trading_pair, price)
+        amount = self.market.quantize_order_amount(trading_pair, 1)
+
+        order_id = self.place_order(True, trading_pair, amount, OrderType.LIMIT_MAKER,
+                                    price, 10001,
+                                    FixtureLiquid.ORDER_BUY_LIMIT, FixtureLiquid.ORDERS_GET_AFTER_SELL_LIMIT)
+        [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
+        order_created_event: BuyOrderCreatedEvent = order_created_event
+        self.assertEqual(order_id, order_created_event.order_id)
+
+        price = self.market.get_price(trading_pair, True) * Decimal("1.2")
+        price = self.market.quantize_order_price(trading_pair, price)
+        amount = self.market.quantize_order_amount(trading_pair, 1)
+
+        order_id = self.place_order(False, trading_pair, amount, OrderType.LIMIT_MAKER,
+                                    price, 10002,
+                                    FixtureLiquid.ORDER_SELL_LIMIT, FixtureLiquid.ORDERS_GET_AFTER_SELL_LIMIT)
+        [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
+        order_created_event: BuyOrderCreatedEvent = order_created_event
+        self.assertEqual(order_id, order_created_event.order_id)
+
+        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
+        for cr in cancellation_results:
+            self.assertEqual(cr.success, True)
+
     @unittest.skipUnless(any("test_withdraw" in arg for arg in sys.argv), "Withdraw test requires manual action.")
     def test_withdraw(self):
         # CEL_ABI contract file can be found in
@@ -511,6 +564,14 @@ class LiquidMarketUnitTest(unittest.TestCase):
 
             recorder.stop()
             os.unlink(self.db_path)
+
+    def test_update_last_prices(self):
+        # This is basic test to see if order_book last_trade_price is initiated and updated.
+        for order_book in self.market.order_books.values():
+            for _ in range(5):
+                self.ev_loop.run_until_complete(asyncio.sleep(1))
+                print(order_book.last_trade_price)
+                self.assertFalse(math.isnan(order_book.last_trade_price))
 
 
 if __name__ == "__main__":

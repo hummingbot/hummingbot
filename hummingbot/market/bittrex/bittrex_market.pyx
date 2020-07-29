@@ -31,7 +31,6 @@ from hummingbot.market.bittrex.bittrex_auth import BittrexAuth
 from hummingbot.market.bittrex.bittrex_in_flight_order import BittrexInFlightOrder
 from hummingbot.market.bittrex.bittrex_order_book_tracker import BittrexOrderBookTracker
 from hummingbot.market.bittrex.bittrex_user_stream_tracker import BittrexUserStreamTracker
-from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.market.market_base import NaN
 from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
@@ -57,7 +56,6 @@ cdef class BittrexMarket(MarketBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset.value
     MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
@@ -196,7 +194,7 @@ cdef class BittrexMarket(MarketBase):
 
         return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
         """
-        is_maker = order_type is OrderType.LIMIT
+        is_maker = order_type is OrderType.LIMIT_MAKER
         return estimate_fee("bittrex", is_maker)
 
     async def _update_balances(self):
@@ -241,8 +239,7 @@ cdef class BittrexMarket(MarketBase):
                 last_trade_rate = Decimal(market.get("lastTradeRate"))
 
                 # skip offline trading pair
-                if market.get("status") != "OFFLINE" :
-
+                if market.get("status") != "OFFLINE":
                     # min_order_value is the base asset value corresponding to 50,000 Satoshis(~0.0005BTC)
                     # https://bittrex.zendesk.com/hc/en-us/articles/360001473863-Bittrex-Trading-Rules
                     min_order_value = (
@@ -255,12 +252,12 @@ cdef class BittrexMarket(MarketBase):
 
                     # Trading Rules info from Bittrex API response
                     retval.append(TradingRule(trading_pair,
-                                            min_order_size=Decimal(min_trade_size),
-                                            min_price_increment=Decimal(f"1e-{precision}"),
-                                            min_base_amount_increment=Decimal(f"1e-{precision}"),
-                                            min_quote_amount_increment=Decimal(f"1e-{precision}"),
-                                            min_order_value=Decimal(min_order_value),
-                                            ))
+                                              min_order_size=Decimal(min_trade_size),
+                                              min_price_increment=Decimal(f"1e-{precision}"),
+                                              min_base_amount_increment=Decimal(f"1e-{precision}"),
+                                              min_quote_amount_increment=Decimal(f"1e-{precision}"),
+                                              min_order_value=Decimal(min_order_value),
+                                              ))
                     # https://bittrex.zendesk.com/hc/en-us/articles/360001473863-Bittrex-Trading-Rules
                     # "No maximum, but the user must have sufficient funds to cover the order at the time it is placed."
             except Exception:
@@ -338,8 +335,8 @@ cdef class BittrexMarket(MarketBase):
             # are not capturing the updates as intended. Also handles filled events that are not captured by
             # _user_stream_event_listener
             # The poll interval for order status is 10 seconds.
-            int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.UPDATE_ORDERS_INTERVAL)
-            int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDERS_INTERVAL)
+            int64_t last_tick = <int64_t> (self._last_poll_timestamp / self.UPDATE_ORDERS_INTERVAL)
+            int64_t current_tick = <int64_t> (self._current_timestamp / self.UPDATE_ORDERS_INTERVAL)
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
 
@@ -381,7 +378,12 @@ cdef class BittrexMarket(MarketBase):
                     continue
 
                 order_state = order["status"]
-                order_type = "LIMIT" if tracked_order.order_type is OrderType.LIMIT else "MARKET"
+                if tracked_order.order_type is OrderType.LIMIT:
+                    order_type = "LIMIT"
+                elif tracked_order.order_type is OrderType.LIMIT_MAKER:
+                    order_type = "LIMIT_MAKER"
+                elif tracked_order.order_type is OrderType.MARKET:
+                    order_type = "MARKET"
                 trade_type = "BUY" if tracked_order.trade_type is TradeType.BUY else "SELL"
                 order_type_description = tracked_order.order_type_description
 
@@ -615,15 +617,6 @@ cdef class BittrexMarket(MarketBase):
                                                       f"Check API key and network connection.")
                 await asyncio.sleep(0.5)
 
-    async def get_deposit_address(self, currency: str) -> str:
-        path_url = f"/addresses/{currency}"
-
-        deposit_result = await self._api_request("GET", path_url=path_url)
-        return deposit_result.get("cryptoAddress")
-
-    async def get_deposit_info(self, asset: str) -> DepositInfo:
-        return DepositInfo(await self.get_deposit_address(asset))
-
     cdef OrderBook c_get_order_book(self, str trading_pair):
         cdef:
             dict order_books = self._order_book_tracker.order_books
@@ -682,6 +675,9 @@ cdef class BittrexMarket(MarketBase):
 
         return quantized_amount
 
+    def supported_order_types(self):
+        return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
+
     async def place_order(self,
                           order_id: str,
                           trading_pair: str,
@@ -713,6 +709,15 @@ cdef class BittrexMarket(MarketBase):
                 "timeInForce": "IMMEDIATE_OR_CANCEL"
                 # Available options [IMMEDIATE_OR_CANCEL, FILL_OR_KILL]
             }
+        elif order_type is OrderType.LIMIT_MAKER:
+            body = {
+                    "marketSymbol": str(trading_pair),
+                    "direction": "BUY" if is_buy else "SELL",
+                    "type": "LIMIT",
+                    "quantity": f"{amount:f}",
+                    "limit": f"{price:f}",
+                    "timeInForce": "POST_ONLY_GOOD_TIL_CANCELLED"
+                    }
 
         api_response = await self._api_request("POST", path_url=path_url, body=body)
 
@@ -733,9 +738,10 @@ cdef class BittrexMarket(MarketBase):
             object tracked_order
 
         decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
-        decimal_price = (self.c_quantize_order_price(trading_pair, price)
-                         if order_type is OrderType.LIMIT
-                         else s_decimal_0)
+        if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
+            decimal_price = self.c_quantize_order_price(trading_pair, price)
+        else:
+            decimal_price = s_decimal_0
 
         if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
@@ -752,7 +758,7 @@ cdef class BittrexMarket(MarketBase):
                 decimal_price,
                 decimal_amount
             )
-            if order_type is OrderType.LIMIT:
+            if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
 
                 order_result = await self.place_order(order_id,
                                                       trading_pair,
@@ -777,7 +783,12 @@ cdef class BittrexMarket(MarketBase):
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None and exchange_order_id:
                 tracked_order.update_exchange_order_id(exchange_order_id)
-                order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
+                if order_type == OrderType.MARKET:
+                    order_type_str = "MARKET" 
+                elif order_type == OrderType.LIMIT:
+                    order_type_str = "LIMIT"
+                elif order_type == OrderType.LIMIT_MAKER:
+                    order_type_str = "LIMIT_MAKER"
                 self.logger().info(f"Created {order_type_str} buy order {order_id} for "
                                    f"{decimal_amount} {trading_pair}")
                 self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
@@ -838,9 +849,10 @@ cdef class BittrexMarket(MarketBase):
             object tracked_order
 
         decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
-        decimal_price = (self.c_quantize_order_price(trading_pair, price)
-                         if order_type is OrderType.LIMIT
-                         else s_decimal_0)
+        if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
+            decimal_price = self.c_quantize_order_price(trading_pair, price)
+        else: 
+            decimal_price = s_decimal_0
 
         if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Sell order amount {decimal_amount} is lower than the minimum order size "
@@ -859,7 +871,7 @@ cdef class BittrexMarket(MarketBase):
                 decimal_amount
             )
 
-            if order_type is OrderType.LIMIT:
+            if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
                 order_result = await self.place_order(order_id,
                                                       trading_pair,
                                                       decimal_amount,
@@ -881,7 +893,12 @@ cdef class BittrexMarket(MarketBase):
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None and exchange_order_id:
                 tracked_order.update_exchange_order_id(exchange_order_id)
-                order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
+                if order_type == OrderType.MARKET:
+                    order_type_str = "MARKET" 
+                elif order_type == OrderType.LIMIT:
+                    order_type_str = "LIMIT"
+                elif order_type == OrderType.LIMIT_MAKER:
+                    order_type_str = "LIMIT_MAKER"
                 self.logger().info(f"Created {order_type_str} sell order {order_id} for "
                                    f"{decimal_amount} {trading_pair}.")
                 self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
@@ -953,7 +970,7 @@ cdef class BittrexMarket(MarketBase):
 
             if "ORDER_NOT_OPEN" in str(err):
                 path_url = f"/orders/{order_id}"
-                state_result  = await self._api_request("GET", path_url=path_url)
+                state_result = await self._api_request("GET", path_url=path_url)
                 self.logger().info(f"{state_result}")
 
             self.logger().network(

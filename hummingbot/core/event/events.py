@@ -26,7 +26,7 @@ class MarketEvent(Enum):
     BuyOrderCompleted = 102
     SellOrderCompleted = 103
     # Trade = 104  Deprecated
-    WithdrawAsset = 105
+    WithdrawAsset = 105  # Locally Deprecated, but still present in hummingsim
     OrderCancelled = 106
     OrderFilled = 107
     OrderExpired = 108
@@ -69,6 +69,13 @@ class OrderType(Enum):
 
     def is_limit_type(self):
         return self in (OrderType.LIMIT, OrderType.LIMIT_MAKER)
+
+
+class PriceType(Enum):
+    MidPrice = 1
+    BestBid = 2
+    BestAsk = 3
+    LastTrade = 4
 
 
 class MarketTransactionFailureEvent(NamedTuple):
