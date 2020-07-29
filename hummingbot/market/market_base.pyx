@@ -129,11 +129,11 @@ cdef class MarketBase(NetworkIterator):
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         raise NotImplementedError
 
-    cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.MARKET,
+    cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.LIMIT,
                    object price=s_decimal_NaN, dict kwargs={}):
         raise NotImplementedError
 
-    cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.MARKET,
+    cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.LIMIT,
                     object price=s_decimal_NaN, dict kwargs={}):
         raise NotImplementedError
 
@@ -315,11 +315,11 @@ cdef class MarketBase(NetworkIterator):
     def get_price(self, trading_pair: str, is_buy: bool) -> Decimal:
         return self.c_get_price(trading_pair, is_buy)
 
-    def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+    def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.LIMIT,
             price: Decimal = s_decimal_NaN, **kwargs) -> str:
         return self.c_buy(trading_pair, amount, order_type, price, kwargs)
 
-    def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+    def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.LIMIT,
              price: Decimal = s_decimal_NaN, **kwargs) -> str:
         return self.c_sell(trading_pair, amount, order_type, price, kwargs)
 
