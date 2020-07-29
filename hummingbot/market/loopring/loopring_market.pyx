@@ -322,16 +322,18 @@ cdef class LoopringMarket(MarketBase):
 
         try:
             created_at : int = int(time.time())
+            in_flight_order = LoopringInFlightOrder.from_loopring_order(self, order_side, client_order_id, created_at, None, trading_pair, price, amount)
+            self.start_tracking(in_flight_order)
+
             creation_response = await self.place_order(client_order_id, trading_pair, amount, order_side is TradeType.BUY, order_type, price)
             
             # Verify the response from the exchange
             if "data" not in creation_response.keys():
                 raise Exception(creation_response['resultInfo']['message'])
-            loopring_order = creation_response["data"]
+            loopring_order_hash = creation_response["data"]
+            in_flight_order.update_exchange_order_id(loopring_order_hash)
 
             # Begin tracking order
-            in_flight_order = LoopringInFlightOrder.from_loopring_order(self, order_side, client_order_id, created_at, loopring_order, trading_pair, price, amount)
-            self.start_tracking(in_flight_order)
             self.logger().info(
                 f"Created {in_flight_order.description} order {client_order_id} for {amount} {trading_pair}.")
 
@@ -652,8 +654,8 @@ cdef class LoopringMarket(MarketBase):
                     tracked_order : LoopringInFlightOrder = self._in_flight_orders.get(client_order_id)
 
                     if tracked_order is None:
-                        self.logger().debug(f"Unrecognized order ID from user stream: {client_order_id}.")
-                        self.logger().debug(f"Event: {event_message}")
+                        self.logger().warning(f"Unrecognized order ID from user stream: {client_order_id}.")
+                        self.logger().warning(f"Event: {event_message}")
                         continue
                     
                     # update the tracked order
@@ -735,6 +737,8 @@ cdef class LoopringMarket(MarketBase):
 
         for client_order_id, tracked_order in tracked_orders.iteritems():
             loopring_order_id = tracked_order.exchange_order_id
+            if loopring_order_id is None:
+                continue # This order is still pending acknowledgement from the exchange
 
             try:
                 loopring_order_request = await self.api_request("GET",
