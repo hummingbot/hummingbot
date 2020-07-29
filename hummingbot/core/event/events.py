@@ -63,9 +63,8 @@ class TradeType(Enum):
 
 
 class OrderType(Enum):
-    MARKET = 1
-    LIMIT = 2
-    LIMIT_MAKER = 3
+    LIMIT = 1
+    LIMIT_MAKER = 2
 
     def is_limit_type(self):
         return self in (OrderType.LIMIT, OrderType.LIMIT_MAKER)
