@@ -1,4 +1,8 @@
 class FixtureCoinbasePro:
+    EMPTY = {}
+
+    LIMIT_MAKER_ERROR = {'message': 'Post only mode'}
+
     ACCOUNTS_GET = [{"id": "2d36cb78-5145-41fe-90b0-3f204f2e357d", "currency": "USDC", "balance": "90.1480261500000000",
                      "available": "90.14802615", "hold": "0.0000000000000000",
                      "profile_id": "bc2f3a64-0c0b-49ce-bb3e-5efc978b5b5c", "trading_enabled": True},
