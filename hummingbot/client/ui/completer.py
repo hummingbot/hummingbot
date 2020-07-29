@@ -124,6 +124,11 @@ class HummingbotCompleter(Completer):
         index: int = text_before_cursor.index(' ')
         return text_before_cursor[0:index] in self.parser.commands
 
+    def _complete_balance_limit_exchanges(self, document: Document):
+        text_before_cursor: str = document.text_before_cursor
+        command_args = text_before_cursor.split(" ")
+        return len(command_args) == 3 and command_args[0] == "balance" and command_args[1] == "limit"
+
     def get_completions(self, document: Document, complete_event: CompleteEvent):
         """
         Get completions for the current scope. This is the defining function for the completer
@@ -172,6 +177,10 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_options(document):
             for c in self._option_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_balance_limit_exchanges(document):
+            for c in self._connect_exchange_completer.get_completions(document, complete_event):
                 yield c
 
         else:

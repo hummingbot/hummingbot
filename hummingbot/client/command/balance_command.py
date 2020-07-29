@@ -44,16 +44,22 @@ class BalanceCommand:
             config_map = global_config_map
             file_path = GLOBAL_CONFIG_PATH
             if option == "limit":
+
                 config_var = config_map[LIMIT_GLOBAL_CONFIG]
+                if exchange is None and asset is None and amount is None:
+                    safe_ensure_future(self.show_asset_limits())
+                    return
+
                 if asset is not None and amount is not None and exchange is not None:
                     exchange_limit_conf = config_var.value[exchange]
                     asset = asset.upper()
                     self._notify(f"Limit for {asset} token, set to {amount}")
                     exchange_limit_conf[asset] = amount
-                else:
-                    safe_ensure_future(self.show_asset_limits())
-                    safe_ensure_future(self.list_options())
                     return
+
+                self._notify("Error with command arguments. See command details below.")
+                safe_ensure_future(self.list_options())
+                return
 
             save_to_yml(file_path, config_map)
 
