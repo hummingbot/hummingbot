@@ -343,7 +343,7 @@ cdef class EterbaseMarket(MarketBase):
             self._maker_fee = maker_fee
             self._taker_fee = taker_fee
 
-        return TradeFee(percent=self._maker_fee if order_type is OrderType.LIMIT else self._taker_fee)
+        return TradeFee(percent=self._maker_fee if order_type is OrderType.LIMIT_MAKER else self._taker_fee)
 
     async def _update_balances(self):
         """
@@ -515,7 +515,6 @@ cdef class EterbaseMarket(MarketBase):
 
             client_order_id = tracked_order.client_order_id
             order_type_description = tracked_order.order_type_description
-            order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
             # Emit event if executed amount is greater than 0.
             if (execute_amount_diff > s_decimal_0):
                 # Find execute price
@@ -528,13 +527,13 @@ cdef class EterbaseMarket(MarketBase):
                                 tracked_order.client_order_id,
                                 tracked_order.trading_pair,
                                 tracked_order.trade_type,
-                                order_type,
+                                tracked_order.order_type,
                                 execute_price,
                                 execute_amount_diff,
                                 self.c_get_fee(
                                     tracked_order.base_asset,
                                     tracked_order.quote_asset,
-                                    order_type,
+                                    tracked_order.order_type,
                                     tracked_order.trade_type,
                                     execute_price,
                                     execute_amount_diff,
@@ -584,7 +583,7 @@ cdef class EterbaseMarket(MarketBase):
                                                                     tracked_order.executed_amount_base,
                                                                     tracked_order.executed_amount_quote,
                                                                     tracked_order.fee_paid,
-                                                                    order_type))
+                                                                    tracked_order.order_type))
                     else:
                         self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
                                            f"according to order status API.")
@@ -598,7 +597,7 @@ cdef class EterbaseMarket(MarketBase):
                                                                      tracked_order.executed_amount_base,
                                                                      tracked_order.executed_amount_quote,
                                                                      tracked_order.fee_paid,
-                                                                     order_type))
+                                                                     tracked_order.order_type))
                 else:
                     self.logger().info(f"The market order {tracked_order.client_order_id} has failed/been cancelled "
                                        f"according to order status API.")
@@ -728,6 +727,9 @@ cdef class EterbaseMarket(MarketBase):
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(5.0)
 
+    def supported_order_types(self):
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
+
     async def place_order(self, order_id: str, trading_pair: str, amount: Decimal, is_buy: bool, order_type: OrderType,
                           price: Decimal, cost: Optional[Decimal]):
         """
@@ -737,7 +739,7 @@ cdef class EterbaseMarket(MarketBase):
         tp_map_mkrtid: Dict[str, str] = await EterbaseAPIOrderBookDataSource.get_map_market_id()
         path_url = "/orders"
 
-        if order_type is OrderType.LIMIT:
+        if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
             type_order = 2
         elif order_type is OrderType.MARKET:
             type_order = 1
@@ -759,9 +761,11 @@ cdef class EterbaseMarket(MarketBase):
             "refId": order_id
         }
 
-        if order_type is OrderType.LIMIT:
+        if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
             data["limitPrice"] = str(price)
             data["qty"] = str(amount)
+            if order_type is OrderType.LIMIT_MAKER:
+                data["postOnly"] = True
         elif order_type is OrderType.MARKET:
             if is_buy:
                 data["cost"] = str(cost)
@@ -801,7 +805,7 @@ cdef class EterbaseMarket(MarketBase):
             if decimal_cost > trading_rule.max_order_value:
                 raise ValueError(f"Buy order cost {decimal_cost} is higer than the maximum order cost "
                                  f"{trading_rule.max_order_value}.")
-        elif (order_type == OrderType.LIMIT):
+        elif (order_type == OrderType.LIMIT or order_type == OrderType.LIMIT_MAKER):
             # convert price according significant digits
             decimal_price = self.c_round_to_sig_digits(decimal_price, trading_rule.max_price_significant_digits)
             if decimal_amount < trading_rule.min_order_size:
@@ -833,7 +837,12 @@ cdef class EterbaseMarket(MarketBase):
             raise
         except Exception:
             self.c_stop_tracking_order(order_id)
-            order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
+            if order_type == OrderType.MARKET:
+                order_type_str = "MARKET" 
+            elif order_type == OrderType.LIMIT:
+                order_type_str = "LIMIT"
+            elif order_type == OrderType.LIMIT_MAKER:
+                order_type_str = "LIMIT_MAKER"
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Eterbase for "
                 f"{decimal_amount} {trading_pair} {price}.",
@@ -901,7 +910,12 @@ cdef class EterbaseMarket(MarketBase):
             raise
         except Exception as e:
             self.c_stop_tracking_order(order_id)
-            order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
+            if order_type == OrderType.MARKET:
+                order_type_str = "MARKET" 
+            elif order_type == OrderType.LIMIT:
+                order_type_str = "LIMIT"
+            elif order_type == OrderType.LIMIT_MAKER:
+                order_type_str = "LIMIT_MAKER"
             self.logger().network(
                 f"Error submitting sell {order_type_str} order to Eterbase for "
                 f"{decimal_amount} {trading_pair} {price}.",
