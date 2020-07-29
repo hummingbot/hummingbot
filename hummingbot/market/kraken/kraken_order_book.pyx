@@ -37,7 +37,7 @@ cdef class KrakenOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": KrakenMarket.convert_from_exchange_trading_pair(msg["trading_pair"]).replace("XBT", "BTC").replace('-', ''),
+            "trading_pair": msg["trading_pair"].replace("/", ""),
             "update_id": msg["latest_update"],
             "bids": msg["bids"],
             "asks": msg["asks"]
@@ -51,7 +51,7 @@ cdef class KrakenOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "trading_pair": KrakenMarket.convert_from_exchange_trading_pair(msg["trading_pair"]).replace("XBT", "BTC").replace('-', ''),
+            "trading_pair": msg["trading_pair"].replace("/", ""),
             "update_id": msg["update_id"],
             "bids": msg["bids"],
             "asks": msg["asks"]
@@ -65,7 +65,7 @@ cdef class KrakenOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": KrakenMarket.convert_from_exchange_trading_pair(msg["trading_pair"]).replace("XBT", "BTC").replace('-', ''),
+            "trading_pair": msg["trading_pair"].replace("/", ""),
             "update_id": msg["update_id"],
             "bids": msg["bids"],
             "asks": msg["asks"]
@@ -77,7 +77,7 @@ cdef class KrakenOrderBook(OrderBook):
             msg.update(metadata)
         ts = float(msg["trade"][2])
         return OrderBookMessage(OrderBookMessageType.TRADE, {
-            "trading_pair": KrakenMarket.convert_from_exchange_trading_pair(msg["pair"]).replace("XBT", "BTC").replace('-', ''),
+            "trading_pair": msg["pair"].replace("/", ""),
             "trade_type": float(TradeType.SELL.value) if msg["trade"][3] == "s" else float(TradeType.BUY.value),
             "trade_id": ts,
             "update_id": ts,

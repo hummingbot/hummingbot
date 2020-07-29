@@ -129,9 +129,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         self._cancel_timestamp = 0
         self._create_timestamp = 0
-        self._limit_order_type = OrderType.LIMIT
-        if market_info.market.name == "binance" and not take_if_crossed and paper_trade_disabled():
+        if paper_trade_disabled() and not take_if_crossed and OrderType.LIMIT_MAKER in self._market_info.market.supported_order_types():
             self._limit_order_type = OrderType.LIMIT_MAKER
+        else:
+            self._limit_order_type = OrderType.LIMIT
         self._all_markets_ready = False
         self._filled_buys_balance = 0
         self._filled_sells_balance = 0

@@ -9,7 +9,7 @@ This section is for developers looking to contribute to Hummingbot or extend its
 
 ## Contributing to Hummingbot
 
-Hummingbot is an open source project intended to provide a base layer infrastructure for users to customize and develope their own strategies, features, and add on new exchange connectors.
+Hummingbot is an open source project intended to provide a base layer infrastructure for users to customize and develop their own strategies, features, and add on new exchange connectors.
 
 We welcome code contributions.
 
