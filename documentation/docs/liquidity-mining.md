@@ -24,7 +24,8 @@ Liquidity mining sets forth an analytical framework for determining market maker
 - [Get help on Discord](https://discord.hummingbot.io): Join the **#liquidity-mining** channel for 24/7 support
 
 ## Current campaign terms
-
+!!! note
+    Currently, only orders that have been outstanding for less than 30 minutes are eligible to earn rewards.  This imposed limit is due to errors created by longer-duration orders.  Work on removing this limit is in progress, read more [here](https://www.reddit.com/r/Hummingbot/comments/hz5xv3/tracking_rewards_for_orders_longer_than_30m/)
 !!! warning "Terms subject to change"
     Please check this page or the [Miner's app](https://miners.hummingbot.io) for the most up-to-date terms.<br/>We will notify participants of changes, if any, on our [Discord](https://discord.hummingbot.io) and [reddit](https://www.reddit.com/r/Hummingbot/).
 
