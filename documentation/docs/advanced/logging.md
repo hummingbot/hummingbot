@@ -1,4 +1,4 @@
-# Logs and Logging
+﻿# Logs and Logging
 
 As Hummingbot is an in-progress, open-access software, logs are available locally for each time an instance is run. Logs contain records of what happens when a bot is run, including the results of specified checks and behaviors as well as error tracing.
 
@@ -6,9 +6,9 @@ As Hummingbot is an in-progress, open-access software, logs are available locall
 
 The way that log files are structured is contained within `conf/hummingbot_logs.yml`. For now, we request that users leave the log settings at the defaults. This makes it easier for the Hummingbot team to trace bugs and other problems that users face when logs are submitted.
 
-## Error log collection
+## Error Log Collection
 
-The only data Hummingbot requests from users is error logs. We collect error logs for the sole purpose of debugging and continuously improving hummingbot. We'll never share the data with a third party.
+The only data Hummingbot requests from users is error logs. We collect error logs for the sole purpose of debugging and continuously improving Hummingbot. We'll never share the data with a third party.
 
 You can choose to disable error logging.
 

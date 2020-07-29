@@ -843,6 +843,9 @@ cdef class BinanceMarket(MarketBase):
     def to_hb_order_type(binance_type: str) -> OrderType:
         return OrderType[binance_type]
 
+    def supported_order_types(self):
+        return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
+
     async def create_order(self,
                            trade_type: TradeType,
                            order_id: str,

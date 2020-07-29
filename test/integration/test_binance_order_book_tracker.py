@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 import math
-import time
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent, TradeType
 
 from hummingbot.market.binance.binance_order_book_tracker import BinanceOrderBookTracker
+from hummingbot.market.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 import asyncio
 import logging
 from typing import (
@@ -74,6 +74,7 @@ class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
         """
         self.run_parallel(self.event_logger.wait_for(OrderBookTradeEvent))
         for ob_trade_event in self.event_logger.event_log:
+            print(f"ob_trade_event: {ob_trade_event}")
             self.assertTrue(type(ob_trade_event) == OrderBookTradeEvent)
             self.assertTrue(ob_trade_event.trading_pair in self.trading_pairs)
             self.assertTrue(type(ob_trade_event.timestamp) == float)
@@ -101,6 +102,17 @@ class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
                                 xrpusdt_book.get_price(True))
         self.assertLessEqual(xrpusdt_book.get_price_for_volume(False, 10000).result_price,
                              xrpusdt_book.get_price(False))
+        for order_book in self.order_book_tracker.order_books.values():
+            print(order_book.last_trade_price)
+            self.assertFalse(math.isnan(order_book.last_trade_price))
+
+    def test_api_get_last_traded_prices(self):
+        prices = self.ev_loop.run_until_complete(
+            BinanceAPIOrderBookDataSource.get_last_traded_prices(["BTCUSDT", "LTCBTC"]))
+        for key, value in prices.items():
+            print(f"{key} last_trade_price: {value}")
+        self.assertGreater(prices["BTCUSDT"], 1000)
+        self.assertLess(prices["LTCBTC"], 1)
 
 
 def main():
