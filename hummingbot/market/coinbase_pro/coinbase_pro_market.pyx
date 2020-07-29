@@ -345,7 +345,7 @@ cdef class CoinbaseProMarket(MarketBase):
             return TradeFee(percent=fee_overrides_config_map["coinbase_pro_taker_fee"].value / Decimal("100"))
         return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
         """
-        is_maker = order_type is OrderType.LIMIT
+        is_maker = order_type is OrderType.LIMIT_MAKER
         return estimate_fee("coinbase_pro", is_maker)
 
     async def _update_fee_percentage(self):
@@ -478,7 +478,7 @@ cdef class CoinbaseProMarket(MarketBase):
                 else Decimal(order_update["executed_value"]) / new_confirmed_amount
 
             order_type_description = tracked_order.order_type_description
-            order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
+            order_type = tracked_order.order_type
             # Emit event if executed amount is greater than 0.
             if execute_amount_diff > s_decimal_0:
                 order_filled_event = OrderFilledEvent(
@@ -682,7 +682,7 @@ cdef class CoinbaseProMarket(MarketBase):
                 await asyncio.sleep(5.0)
 
     def supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     async def place_order(self, order_id: str, trading_pair: str, amount: Decimal, is_buy: bool, order_type: OrderType,
                           price: Decimal):
@@ -695,7 +695,7 @@ cdef class CoinbaseProMarket(MarketBase):
             "size": f"{amount:f}",
             "product_id": trading_pair,
             "side": "buy" if is_buy else "sell",
-            "type": "market" if order_type is OrderType.MARKET else "limit",
+            "type": "limit",
         }
         if order_type is OrderType.LIMIT:
             data["price"] = f"{price:f}"
@@ -745,7 +745,7 @@ cdef class CoinbaseProMarket(MarketBase):
             raise
         except Exception:
             self.c_stop_tracking_order(order_id)
-            order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
+            order_type_str = "LIMIT_MAKER" if order_type == OrderType.LIMIT_MAKER else "LIMIT"
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Coinbase Pro for "
                 f"{decimal_amount} {trading_pair} {price}.",
@@ -756,7 +756,7 @@ cdef class CoinbaseProMarket(MarketBase):
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
-    cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.MARKET, object price=s_decimal_0,
+    cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.LIMIT, object price=s_decimal_0,
                    dict kwargs={}):
         """
         *required
@@ -809,7 +809,7 @@ cdef class CoinbaseProMarket(MarketBase):
             raise
         except Exception:
             self.c_stop_tracking_order(order_id)
-            order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
+            order_type_str = "LIMIT_MAKER" if order_type == OrderType.LIMIT_MAKER else "LIMIT"
             self.logger().network(
                 f"Error submitting sell {order_type_str} order to Coinbase Pro for "
                 f"{decimal_amount} {trading_pair} {price}.",
@@ -823,7 +823,7 @@ cdef class CoinbaseProMarket(MarketBase):
     cdef str c_sell(self,
                     str trading_pair,
                     object amount,
-                    object order_type=OrderType.MARKET,
+                    object order_type=OrderType.LIMIT,
                     object price=s_decimal_0,
                     dict kwargs={}):
         """
