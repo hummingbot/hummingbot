@@ -81,11 +81,11 @@ The following walks through all the steps when running `create` command.
 
 ### Exchange Rate Conversion
 
-From past versions of Hummingbot it uses CoinGecko and CoinCap public APIs to fetch asset prices. However, this dependency caused issues for users when those APIs were unavailable. Starting on version [0.28.0](/release-notes/0.28.0/#removed-dependency-on-external-data-feeds), Hummingbot uses exchange order books to perform necessary conversions rather than data feeds.
+From past versions of Hummingbot it uses [CoinGecko](https://www.coingecko.com/en/api) and [CoinCap](https://docs.coincap.io/?version=latest) public APIs to fetch asset prices. However, this dependency caused issues for users when those APIs were unavailable. Starting on version [0.28.0](/release-notes/0.28.0/#removed-dependency-on-external-data-feeds), Hummingbot uses exchange order books to perform necessary conversions rather than data feeds.
 
 When you run strategies on multiple exchanges, there may be instances where you need to utilize an exchange rate to convert between assets.
 
-In particular, you may need to convert the value of one stablecoin to another when you use different stablecoins in multi-legged strategy like cross-exchange market making.
+In particular, you may need to convert the value of one stablecoin to another when you use different stablecoins in multi-legged strategy like [cross-exchange market making](/strategies/cross-exchange-market-making/).
 
 For example, if you make a market in the WETH/DAI pair on a decentralized exchange, you may want to hedge filled orders using the ETH-USDT pair on Binance. Using exchange rates for USDT and DAI against ETH allows Hummingbot to take into account differences in prices.
 
@@ -99,22 +99,20 @@ taker_to_maker_base_conversion_rate: 1
 taker_to_maker_quote_conversion_rate: 1
 ```
 
-By default, taker to maker base conversion rate and taker to maker quote conversion rate value are both `1`. Using the configuration above shows the `status` command output below.
 
-![](/assets/img/exchange_default.png)
+By default, taker to maker base conversion rate and taker to maker quote conversion rate value are both `1`. 
 
 Our maker base asset is WETH and taker is ETH. 1 WETH is worth 0.99 ETH (1 / 0.99) so we will set the `taker_to_maker_base_conversion_rate` value to 1.01.
 
 While our maker quote asset is DAI, taker is USDT and 1 DAI is worth 1.01 USDT (1 / 1.01). similar to the calculation we did for the base asset. In this case, we will set the `taker_to_maker_quote_conversion_rate` to 0.99.
 
+To configure a parameter value without going through the prompts, input command as `config [ key ] [ value ]`. These can be reconfigured without stopping the bot however, it will only take effect after restarting the strategy. 
+
+
 ```
 config taker_to_maker_base_conversion_rate 1.01
 config taker_to_maker_quote_conversion_rate 0.99
 ```
-
-Then `stop` and `start` the strategy for the changes to take effect. Notice the change in balance calculation after modifying the conversion rate values.
-
-![](/assets/img/exchange_custom.png)
 
 
 The following parameters are fields in Hummingbot configuration files (located in the `/conf` folder, e.g. `conf/conf_xemm_[#].yml`).
