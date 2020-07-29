@@ -2,6 +2,8 @@ import argparse
 from typing import (
     List,
 )
+
+from client.settings import EXCHANGES
 from hummingbot.client.errors import ArgumentParserError
 from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
 
@@ -57,7 +59,7 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
 
     balance_parser = subparsers.add_parser("balance", help=f"Display your asset balances across all connected exchanges")
     balance_parser.add_argument("option", nargs="?", choices=["limit"], default=None, help="Option for balance configuration")
-    balance_parser.add_argument("exchange", nargs="?", default=None, help="Name of Exchange")
+    balance_parser.add_argument("exchange", nargs="?", choices=EXCHANGES, default=None, help="Name of Exchange")
     balance_parser.add_argument("asset", nargs="?", default=None, help="Name of Asset Token")
     balance_parser.add_argument("amount", nargs="?", default=None, help="Amount to limit")
     balance_parser.set_defaults(func=hummingbot.balance)
