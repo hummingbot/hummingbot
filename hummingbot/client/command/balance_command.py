@@ -19,11 +19,11 @@ OPTIONS = [
 ]
 
 OPTION_HELP = {
-    "limit": "balance limit [ASSET] [AMOUNT]",
+    "limit": "balance limit [exchange] [ASSET] [AMOUNT]",
 }
 
 OPTION_DESCRIPTION = {
-    "limit": "Configure the asset limits for Hummingbot",
+    "limit": "Configure the asset limits for specified exchange",
 }
 
 LIMIT_GLOBAL_CONFIG = "balance_asset_limit"
@@ -32,6 +32,7 @@ LIMIT_GLOBAL_CONFIG = "balance_asset_limit"
 class BalanceCommand:
     def balance(self,
                 option: str = None,
+                exchange: str = None,
                 asset: str = None,
                 amount: str = None,
                 ):
@@ -44,11 +45,11 @@ class BalanceCommand:
             file_path = GLOBAL_CONFIG_PATH
             if option == "limit":
                 config_var = config_map[LIMIT_GLOBAL_CONFIG]
-                asset_limit_config = config_var.value
-                if asset is not None and amount is not None:
+                if asset is not None and amount is not None and exchange is not None:
+                    exchange_limit_conf = config_var.value[exchange]
                     asset = asset.upper()
                     self._notify(f"Limit for {asset} token, set to {amount}")
-                    asset_limit_config[asset] = amount
+                    exchange_limit_conf[asset] = amount
                 else:
                     safe_ensure_future(self.show_asset_limits())
                     safe_ensure_future(self.list_options())
@@ -67,9 +68,10 @@ class BalanceCommand:
     async def show_balances(self):
         self._notify("Updating balances, please wait...")
         all_ex_bals = await UserBalances.instance().all_balances_all_exchanges()
+        all_ex_limits = global_config_map[LIMIT_GLOBAL_CONFIG].value
         for exchange, bals in all_ex_bals.items():
             self._notify(f"\n{exchange}:")
-            df = await self.exchange_balances_df(bals)
+            df = await self.exchange_balances_df(bals, all_ex_limits[exchange])
             if df.empty:
                 self._notify("You have no balance on this exchange.")
             else:
@@ -96,15 +98,17 @@ class BalanceCommand:
             self._notify("\n".join(lines))
 
     async def exchange_balances_df(self,  # type: HummingbotApplication
-                                   ex_bals: Dict[str, Decimal]):
+                                   exchange_balances: Dict[str, Decimal],
+                                   exchange_limits: Dict[str, str] = None):
         rows = []
-        for token, bal in ex_bals.items():
-            if bal == 0:
+        for token, bal in exchange_balances.items():
+            limit = Decimal(exchange_limits.get(token, 0))
+            if bal == 0 and limit == 0:
                 continue
             token = token.upper()
-            rows.append({"asset": token.upper(), "amount": round(bal, 4)})
-        df = pd.DataFrame(data=rows, columns=["asset", "amount"])
-        df.sort_values(by=["asset"], inplace=True)
+            rows.append({"Asset": token.upper(), "Amount": round(bal, 4), "Limit": round(limit, 4)})
+        df = pd.DataFrame(data=rows, columns=["Asset", "Amount", "Limit"])
+        df.sort_values(by=["Asset"], inplace=True)
         return df
 
     async def celo_balances_df(self,  # type: HummingbotApplication
@@ -137,14 +141,20 @@ class BalanceCommand:
         return df
 
     async def show_asset_limits(self):
-        self._notify(f"Balance Limits per Asset...\n")
+        self._notify(f"Balance Limits per exchange...")
         config_var = global_config_map[LIMIT_GLOBAL_CONFIG]
-        asset_limit_config = config_var.value
+        exchange_limit_conf: Dict[str, Dict[str, str]] = config_var.value
 
-        if len(asset_limit_config.keys()) == 0:
-            self._notify("You have not configured any balance limits.")
-            return
+        for exchange, asset_limit_config in exchange_limit_conf.items():
+            if asset_limit_config is None:
+                continue
 
-        df = await self.asset_limits_df(asset_limit_config)
-        self._notify(f"{df.to_string(index=False)}\n")
+            self._notify(f"\n{exchange}")
+            df = await self.asset_limits_df(asset_limit_config)
+            if df.empty:
+                self._notify("You have no limits on this exchange.")
+            else:
+                lines = ["    " + line for line in df.to_string(index=False).split("\n")]
+                self._notify("\n".join(lines))
+        self._notify("\n")
         return
