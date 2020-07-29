@@ -55,9 +55,10 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     help_parser.add_argument("command", nargs="?", default="all", help="Enter ")
     help_parser.set_defaults(func=hummingbot.help)
 
-    balance_parser = subparsers.add_parser("balance", help=f"Display your asset balances across all connected exchanges. "
-                                                           f"Also Display additional balance configurations.")
-    balance_parser.add_argument("-l", "-limit", nargs="?", default=None, help="Configure asset limit for client")
+    balance_parser = subparsers.add_parser("balance", help=f"Display your asset balances across all connected exchanges")
+    balance_parser.add_argument("option", nargs="?", choices=["limit"], default=None, help="Option for balance configuration")
+    balance_parser.add_argument("asset", nargs="?", default=None, help="Name of Asset Token")
+    balance_parser.add_argument("amount", nargs="?", default=None, help="Amount to limit")
     balance_parser.set_defaults(func=hummingbot.balance)
 
     config_parser = subparsers.add_parser("config", help="Display the current bot's configuration")
