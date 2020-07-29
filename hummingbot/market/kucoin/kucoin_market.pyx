@@ -741,11 +741,16 @@ cdef class KucoinMarket(MarketBase):
             raise
         except Exception:
             self.c_stop_tracking_order(order_id)
-            order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
+            if order_type == OrderType.MARKET:
+                order_type_str = "MARKET" 
+            elif order_type == OrderType.LIMIT:
+                order_type_str = "LIMIT"
+            elif order_type == OrderType.LIMIT_MAKER:
+                order_type_str = "LIMIT_MAKER"
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Kucoin for "
                 f"{decimal_amount} {trading_pair} "
-                f"{decimal_price if order_type is OrderType.LIMIT else ''}.",
+                f"{decimal_price}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit buy order to Kucoin. Check API key and network connection."
             )
@@ -780,7 +785,7 @@ cdef class KucoinMarket(MarketBase):
 
         decimal_amount = self.quantize_order_amount(trading_pair, amount)
         decimal_price = (self.c_quantize_order_price(trading_pair, price)
-                         if order_type is OrderType.LIMIT
+                         if order_type is not OrderType.MARKET
                          else s_decimal_0)
         if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Sell order amount {decimal_amount} is lower than the minimum order size "
@@ -813,11 +818,16 @@ cdef class KucoinMarket(MarketBase):
             raise
         except Exception:
             self.c_stop_tracking_order(order_id)
-            order_type_str = "MARKET" if order_type is OrderType.MARKET else "LIMIT"
+            if order_type == OrderType.MARKET:
+                order_type_str = "MARKET" 
+            elif order_type == OrderType.LIMIT:
+                order_type_str = "LIMIT"
+            elif order_type == OrderType.LIMIT_MAKER:
+                order_type_str = "LIMIT_MAKER"
             self.logger().network(
                 f"Error submitting sell {order_type_str} order to Kucoin for "
                 f"{decimal_amount} {trading_pair} "
-                f"{decimal_price if order_type is OrderType.LIMIT else ''}.",
+                f"{decimal_price}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit sell order to Kucoin. Check API key and network connection."
             )
