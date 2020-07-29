@@ -835,6 +835,9 @@ cdef class LiquidMarket(MarketBase):
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(5.0)
 
+    def supported_order_types(self):
+        return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
+
     async def place_order(self, order_id: str, trading_pair: str, amount: Decimal, is_buy: bool, order_type: OrderType,
                           price: Decimal):
         """
@@ -844,6 +847,13 @@ cdef class LiquidMarket(MarketBase):
         path_url = Constants.ORDER_CREATION_URI
         product_id = self._product_dict.get(trading_pair).get('id')
 
+        if order_type is OrderType.LIMIT:
+            order_type_str = "limit"
+        elif order_type is OrderType.MARKET:
+            order_type_str = "market"
+        elif order_type is OrderType.LIMIT_MAKER:
+            order_type_str = "limit_post_only"
+
         data = {
             "order": {
                 "client_order_id": order_id,
@@ -851,7 +861,7 @@ cdef class LiquidMarket(MarketBase):
                 "quantity": "{:10.8f}".format(amount),
                 "product_id": product_id,
                 "side": "buy" if is_buy else "sell",
-                "order_type": "limit" if order_type is OrderType.LIMIT else "market",
+                "order_type": order_type_str,
             }
         }
 
