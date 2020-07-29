@@ -15,7 +15,7 @@ from typing import (
     Optional
 )
 import unittest
-
+import math
 import conf
 from hummingbot.core.clock import (
     Clock,
@@ -24,6 +24,7 @@ from hummingbot.core.clock import (
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
+    MarketOrderFailureEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
     OrderFilledEvent,
@@ -65,13 +66,13 @@ class HuobiMarketUnitTest(unittest.TestCase):
         MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
-        MarketEvent.WithdrawAsset,
         MarketEvent.OrderFilled,
         MarketEvent.OrderCancelled,
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
-        MarketEvent.OrderCancelled
+        MarketEvent.OrderCancelled,
+        MarketEvent.OrderFailure
     ]
 
     market: HuobiMarket
@@ -296,6 +297,61 @@ class HuobiMarketUnitTest(unittest.TestCase):
         # Reset the logs
         self.market_logger.clear()
 
+    def test_limit_maker_rejections(self):
+        trading_pair = "ethusdt"
+
+        # Try to put a buy limit maker order that is going to match, this should triggers order failure event.
+        price: Decimal = self.market.get_price(trading_pair, True) * Decimal('1.02')
+        price: Decimal = self.market.quantize_order_price(trading_pair, price)
+        amount = self.market.quantize_order_amount(trading_pair, Decimal("0.06"))
+
+        order_id = self.place_order(True, trading_pair, amount, OrderType.LIMIT_MAKER,
+                                    price, 10001,
+                                    FixtureHuobi.LIMIT_MAKER_ERROR)
+        [order_failure_event] = self.run_parallel(self.market_logger.wait_for(MarketOrderFailureEvent))
+        self.assertEqual(order_id, order_failure_event.order_id)
+
+        self.market_logger.clear()
+
+        # Try to put a sell limit maker order that is going to match, this should triggers order failure event.
+        price: Decimal = self.market.get_price(trading_pair, True) * Decimal('0.98')
+        price: Decimal = self.market.quantize_order_price(trading_pair, price)
+        amount = self.market.quantize_order_amount(trading_pair, Decimal("0.06"))
+
+        order_id = self.place_order(False, trading_pair, amount, OrderType.LIMIT_MAKER,
+                                    price, 10002,
+                                    FixtureHuobi.LIMIT_MAKER_ERROR)
+        [order_failure_event] = self.run_parallel(self.market_logger.wait_for(MarketOrderFailureEvent))
+        self.assertEqual(order_id, order_failure_event.order_id)
+
+    def test_limit_makers_unfilled(self):
+        trading_pair = "ethusdt"
+        price = self.market.get_price(trading_pair, True) * Decimal("0.8")
+        price = self.market.quantize_order_price(trading_pair, price)
+        amount = self.market.quantize_order_amount(trading_pair, Decimal("0.06"))
+
+        order_id = self.place_order(True, trading_pair, amount, OrderType.LIMIT_MAKER,
+                                    price, 10001,
+                                    FixtureHuobi.ORDER_GET_LIMIT_BUY_UNFILLED)
+        [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
+        order_created_event: BuyOrderCreatedEvent = order_created_event
+        self.assertEqual(order_id, order_created_event.order_id)
+
+        price = self.market.get_price(trading_pair, True) * Decimal("1.2")
+        price = self.market.quantize_order_price(trading_pair, price)
+        amount = self.market.quantize_order_amount(trading_pair, Decimal("0.06"))
+
+        order_id = self.place_order(False, trading_pair, amount, OrderType.LIMIT_MAKER,
+                                    price, 10002,
+                                    FixtureHuobi.ORDER_GET_LIMIT_SELL_UNFILLED)
+        [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
+        order_created_event: BuyOrderCreatedEvent = order_created_event
+        self.assertEqual(order_id, order_created_event.order_id)
+
+        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
+        for cr in cancellation_results:
+            self.assertEqual(cr.success, True)
+
     def test_market_buy(self):
         trading_pair = "ethusdt"
         amount: Decimal = Decimal("0.06")
@@ -516,6 +572,14 @@ class HuobiMarketUnitTest(unittest.TestCase):
 
             recorder.stop()
             os.unlink(self.db_path)
+
+    def test_update_last_prices(self):
+        # This is basic test to see if order_book last_trade_price is initiated and updated.
+        for order_book in self.market.order_books.values():
+            for _ in range(5):
+                self.ev_loop.run_until_complete(asyncio.sleep(1))
+                print(order_book.last_trade_price)
+                self.assertFalse(math.isnan(order_book.last_trade_price))
 
 
 if __name__ == "__main__":

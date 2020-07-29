@@ -4,7 +4,7 @@ from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-
+import math
 import asyncio
 import contextlib
 from decimal import Decimal
@@ -24,6 +24,7 @@ from hummingbot.core.clock import (
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
+    MarketOrderFailureEvent,
     MarketWithdrawAssetEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
@@ -39,7 +40,6 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
-from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.market.market_base import OrderType
 from hummingbot.market.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
@@ -71,13 +71,13 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
-        MarketEvent.WithdrawAsset,
         MarketEvent.OrderFilled,
         MarketEvent.OrderCancelled,
         MarketEvent.TransactionFailure,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
-        MarketEvent.OrderCancelled
+        MarketEvent.OrderCancelled,
+        MarketEvent.OrderFailure
     ]
 
     market: CoinbaseProMarket
@@ -254,6 +254,61 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         # Reset the logs
         self.market_logger.clear()
 
+    def test_limit_maker_rejections(self):
+        trading_pair = "ETH-USDC"
+
+        # Try to put a buy limit maker order that is going to match, this should triggers order failure event.
+        price: Decimal = self.market.get_price(trading_pair, True) * Decimal('1.02')
+        price: Decimal = self.market.quantize_order_price(trading_pair, price)
+        amount = self.market.quantize_order_amount(trading_pair, Decimal("0.02"))
+
+        order_id = self.place_order(True, trading_pair, amount, OrderType.LIMIT_MAKER,
+                                    price, 10001,
+                                    FixtureCoinbasePro.LIMIT_MAKER_ERROR, FixtureCoinbasePro.EMPTY)
+        [order_failure_event] = self.run_parallel(self.market_logger.wait_for(MarketOrderFailureEvent))
+        self.assertEqual(order_id, order_failure_event.order_id)
+
+        self.market_logger.clear()
+
+        # Try to put a sell limit maker order that is going to match, this should triggers order failure event.
+        price: Decimal = self.market.get_price(trading_pair, True) * Decimal('0.98')
+        price: Decimal = self.market.quantize_order_price(trading_pair, price)
+        amount = self.market.quantize_order_amount(trading_pair, Decimal("0.02"))
+
+        order_id = self.place_order(False, trading_pair, amount, OrderType.LIMIT_MAKER,
+                                    price, 10002,
+                                    FixtureCoinbasePro.LIMIT_MAKER_ERROR, FixtureCoinbasePro.EMPTY)
+        [order_failure_event] = self.run_parallel(self.market_logger.wait_for(MarketOrderFailureEvent))
+        self.assertEqual(order_id, order_failure_event.order_id)
+
+    def test_limit_makers_unfilled(self):
+        trading_pair = "ETH-USDC"
+        price = self.market.get_price(trading_pair, True) * Decimal("0.8")
+        price = self.market.quantize_order_price(trading_pair, price)
+        amount = self.market.quantize_order_amount(trading_pair, Decimal("0.02"))
+
+        order_id = self.place_order(True, trading_pair, amount, OrderType.LIMIT_MAKER,
+                                    price, 10001,
+                                    FixtureCoinbasePro.ORDERS_LIMIT, FixtureCoinbasePro.WS_ORDER_OPEN)
+        [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
+        order_created_event: BuyOrderCreatedEvent = order_created_event
+        self.assertEqual(order_id, order_created_event.order_id)
+
+        price = self.market.get_price(trading_pair, True) * Decimal("1.2")
+        price = self.market.quantize_order_price(trading_pair, price)
+        amount = self.market.quantize_order_amount(trading_pair, Decimal("0.02"))
+
+        order_id = self.place_order(False, trading_pair, amount, OrderType.LIMIT_MAKER,
+                                    price, 10002,
+                                    FixtureCoinbasePro.ORDERS_LIMIT_2, FixtureCoinbasePro.WS_ORDER_OPEN)
+        [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
+        order_created_event: BuyOrderCreatedEvent = order_created_event
+        self.assertEqual(order_id, order_created_event.order_id)
+
+        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
+        for cr in cancellation_results:
+            self.assertEqual(cr.success, True)
+
     def test_limit_sell(self):
         trading_pair = "ETH-USDC"
         amount: Decimal = Decimal("0.02")
@@ -406,37 +461,6 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
 
         self.market_logger.clear()
 
-    def test_deposit_info(self):
-        if API_MOCK_ENABLED:
-            accs_resp = FixtureCoinbasePro.COINBASE_ACCOUNTS_GET.copy()
-            account_id = [x for x in accs_resp if x["currency"] == "ETH"][0]["id"]
-            deposit_info_resp = FixtureCoinbasePro.DEPOSIT_INFO
-            self.web_app.update_response("get", API_BASE_URL, f"/coinbase-accounts", accs_resp)
-            self.web_app.update_response("post", API_BASE_URL, f"/coinbase-accounts/{account_id}/addresses",
-                                         deposit_info_resp)
-        [deposit_info] = self.run_parallel(
-            self.market.get_deposit_info("ETH")
-        )
-        deposit_info: DepositInfo = deposit_info
-        self.assertIsInstance(deposit_info, DepositInfo)
-        self.assertGreater(len(deposit_info.address), 0)
-
-    @unittest.skipUnless(any("test_withdraw" in arg for arg in sys.argv), "Withdraw test requires manual action.")
-    def test_withdraw(self):
-        # Ensure the market account has enough balance for withdraw testing.
-        self.assertGreaterEqual(self.market.get_balance("ZRX"), Decimal('1'))
-
-        # Withdraw ZRX from Coinbase Pro to test wallet.
-        self.market.withdraw(self.wallet.address, "ZRX", Decimal('1'))
-        [withdraw_asset_event] = self.run_parallel(
-            self.market_logger.wait_for(MarketWithdrawAssetEvent)
-        )
-        withdraw_asset_event: MarketWithdrawAssetEvent = withdraw_asset_event
-        self.assertEqual(self.wallet.address, withdraw_asset_event.to_address)
-        self.assertEqual("ZRX", withdraw_asset_event.asset_name)
-        self.assertEqual(Decimal('1'), withdraw_asset_event.amount)
-        self.assertEqual(withdraw_asset_event.fee_amount, Decimal(0))
-
     def test_orders_saving_and_restoration(self):
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
@@ -517,6 +541,14 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
 
             recorder.stop()
             os.unlink(self.db_path)
+
+    def test_update_last_prices(self):
+        # This is basic test to see if order_book last_trade_price is initiated and updated.
+        for order_book in self.market.order_books.values():
+            for _ in range(5):
+                self.ev_loop.run_until_complete(asyncio.sleep(1))
+                print(order_book.last_trade_price)
+                self.assertFalse(math.isnan(order_book.last_trade_price))
 
     def test_order_fill_record(self):
         config_path: str = "test_config"

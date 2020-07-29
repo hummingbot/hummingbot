@@ -30,7 +30,6 @@ from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSou
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.events import (
     MarketEvent,
-    MarketWithdrawAssetEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
     OrderFilledEvent,
@@ -89,10 +88,8 @@ cdef class HuobiMarketTransactionTracker(TransactionTracker):
 
 
 cdef class HuobiMarket(MarketBase):
-    MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset.value
     MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
@@ -594,6 +591,9 @@ cdef class HuobiMarket(MarketBase):
     def ready(self) -> bool:
         return all(self.status_dict.values())
 
+    def supported_order_types(self):
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
+
     async def place_order(self,
                           order_id: str,
                           trading_pair: str,
@@ -603,7 +603,13 @@ cdef class HuobiMarket(MarketBase):
                           price: Decimal) -> str:
         path_url = "order/orders/place"
         side = "buy" if is_buy else "sell"
-        order_type_str = "limit" if order_type is OrderType.LIMIT else "market"
+        if order_type is OrderType.LIMIT:
+            order_type_str = "limit"
+        elif order_type is OrderType.LIMIT_MAKER:
+            order_type_str = "limit-maker"
+        elif order_type is OrderType.MARKET:
+            order_type_str = "market"
+
         params = {
             "account-id": self._account_id,
             "amount": f"{amount:f}",
@@ -611,7 +617,7 @@ cdef class HuobiMarket(MarketBase):
             "symbol": trading_pair,
             "type": f"{side}-{order_type_str}",
         }
-        if order_type is OrderType.LIMIT:
+        if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
             params["price"] = f"{price:f}"
         exchange_order_id = await self._api_request(
             "post",
@@ -674,11 +680,16 @@ cdef class HuobiMarket(MarketBase):
             raise
         except Exception:
             self.c_stop_tracking_order(order_id)
-            order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
+            if order_type == OrderType.MARKET:
+                order_type_str = "MARKET"
+            elif order_type == OrderType.LIMIT:
+                order_type_str = "LIMIT"
+            elif order_type == OrderType.LIMIT_MAKER:
+                order_type_str = "LIMIT_LIMIT"
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Huobi for "
                 f"{decimal_amount} {trading_pair} "
-                f"{decimal_price if order_type is OrderType.LIMIT else ''}.",
+                f"{decimal_price if order_type is not OrderType.MARKET else ''}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit buy order to Huobi. Check API key and network connection."
             )
@@ -713,7 +724,7 @@ cdef class HuobiMarket(MarketBase):
 
         decimal_amount = self.quantize_order_amount(trading_pair, amount)
         decimal_price = (self.c_quantize_order_price(trading_pair, price)
-                         if order_type is OrderType.LIMIT
+                         if order_type is not OrderType.MARKET
                          else s_decimal_0)
         if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Sell order amount {decimal_amount} is lower than the minimum order size "
@@ -746,11 +757,16 @@ cdef class HuobiMarket(MarketBase):
             raise
         except Exception:
             self.c_stop_tracking_order(order_id)
-            order_type_str = "MARKET" if order_type is OrderType.MARKET else "LIMIT"
+            if order_type == OrderType.MARKET:
+                order_type_str = "MARKET"
+            elif order_type == OrderType.LIMIT:
+                order_type_str = "LIMIT"
+            elif order_type == OrderType.LIMIT_MAKER:
+                order_type_str = "LIMIT_LIMIT"
             self.logger().network(
                 f"Error submitting sell {order_type_str} order to Huobi for "
                 f"{decimal_amount} {trading_pair} "
-                f"{decimal_price if order_type is OrderType.LIMIT else ''}.",
+                f"{decimal_price if order_type is not OrderType.MARKET else ''}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit sell order to Huobi. Check API key and network connection."
             )

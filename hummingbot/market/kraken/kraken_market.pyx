@@ -86,7 +86,6 @@ cdef class KrakenMarket(MarketBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset.value
     MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
@@ -94,7 +93,6 @@ cdef class KrakenMarket(MarketBase):
     MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
 
-    # DEPOSIT_TIMEOUT = 1800.0
     API_CALL_TIMEOUT = 10.0
     KRAKEN_TRADE_TOPIC_NAME = "kraken-trade.serialized"
     KRAKEN_USER_STREAM_TOPIC_NAME = "kraken-user-stream.serialized"
@@ -254,7 +252,7 @@ cdef class KrakenMarket(MarketBase):
         Note: The result of this method can safely be used to submit/make queries.
         Result shouldn't be used to parse responses as Kraken add special formating to most pairs.
         """
-        
+
         if "-" in hb_trading_pair:
             base, quote = hb_trading_pair.split("-")
         elif "/" in hb_trading_pair:
@@ -572,7 +570,13 @@ cdef class KrakenMarket(MarketBase):
                                                               tracked_order.order_type,
                                                               Decimal(trade.get("price")),
                                                               Decimal(trade.get("vol")),
-                                                              TradeFee(0, [(tracked_order.quote_asset, Decimal(trade.get("fee")))]),
+                                                              self.c_get_fee(
+                                                                  tracked_order.base_asset,
+                                                                  tracked_order.quote_asset,
+                                                                  tracked_order.order_type,
+                                                                  tracked_order.trade_type,
+                                                                  float(Decimal(trade.get("price"))),
+                                                                  float(Decimal(trade.get("vol")))),
                                                               trade.get("trade_id")))
 
                         if tracked_order.is_done:
@@ -804,6 +808,9 @@ cdef class KrakenMarket(MarketBase):
                                          data={"txid": o.exchange_order_id},
                                          is_auth_required=True)
         return result
+
+    def supported_order_types(self):
+        return [OrderType.LIMIT, OrderType.MARKET]
 
     async def place_order(self,
                           userref: int,
