@@ -331,7 +331,7 @@ class PaperTradeMarketTest(unittest.TestCase):
 
         matched_order_complete_events = TestUtils.get_match_events(
             self.market_logger.event_log, BuyOrderCompletedEvent, {
-                "order_type": OrderType.LIMIT_MAKER,
+                "order_type": OrderType.LIMIT,
                 "quote_asset_amount": base_quantity * best_bid_price,
                 "order_id": client_order_id
             })
@@ -340,12 +340,12 @@ class PaperTradeMarketTest(unittest.TestCase):
 
         matched_order_fill_events = TestUtils.get_match_events(
             self.market_logger.event_log, OrderFilledEvent, {
-                "order_type": OrderType.LIMIT_MAKER,
+                "order_type": OrderType.LIMIT,
                 "trade_type": TradeType.BUY,
                 "trading_pair": trading_pair.trading_pair,
                 "order_id": client_order_id
             })
-        # Market should emit OrderFilledEvent
+        # Marketshould emit OrderFilledEvent
         self.assertEqual(1, len(matched_order_fill_events))
 
         # Market should have no more on hold balance
@@ -413,7 +413,7 @@ class PaperTradeMarketTest(unittest.TestCase):
 
         matched_order_complete_events = TestUtils.get_match_events(
             self.market_logger.event_log, SellOrderCompletedEvent, {
-                "order_type": OrderType.LIMIT_MAKER,
+                "order_type": OrderType.LIMIT,
                 "quote_asset_amount": base_quantity * base_quantity,
                 "order_id": client_order_id
             })
@@ -422,7 +422,7 @@ class PaperTradeMarketTest(unittest.TestCase):
 
         matched_order_fill_events = TestUtils.get_match_events(
             self.market_logger.event_log, OrderFilledEvent, {
-                "order_type": OrderType.LIMIT_MAKER,
+                "order_type": OrderType.LIMIT,
                 "trade_type": TradeType.SELL,
                 "trading_pair": trading_pair.trading_pair,
                 "order_id": client_order_id

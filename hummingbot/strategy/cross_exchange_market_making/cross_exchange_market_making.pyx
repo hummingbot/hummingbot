@@ -1240,13 +1240,13 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     # <editor-fold desc="+ Order tracking entry points">
     # Override the stop tracking entry points to include the market pair tracker as well.
     # ----------------------------------------------------------------------------------------------------------
-    cdef c_stop_tracking_limit_order(self, object market_trading_pair_tuple, str order_id):
+    cdef c_stop_tracking_maker_order(self, object market_trading_pair_tuple, str order_id):
         self._market_pair_tracker.c_stop_tracking_order_id(order_id)
-        StrategyBase.c_stop_tracking_limit_order(self, market_trading_pair_tuple, order_id)
+        StrategyBase.c_stop_tracking_maker_order(self, market_trading_pair_tuple, order_id)
 
-    cdef c_stop_tracking_market_order(self, object market_trading_pair_tuple, str order_id):
+    cdef c_stop_tracking_taker_order(self, object market_trading_pair_tuple, str order_id):
         self._market_pair_tracker.c_stop_tracking_order_id(order_id)
-        StrategyBase.c_stop_tracking_market_order(self, market_trading_pair_tuple, order_id)
+        StrategyBase.c_stop_tracking_taker_order(self, market_trading_pair_tuple, order_id)
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
 

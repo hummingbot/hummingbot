@@ -670,14 +670,14 @@ cdef class RadarRelayMarket(MarketBase):
     async def submit_market_order(self,
                                   trading_pair: str,
                                   trade_type: TradeType,
-                                  price: Decimal
+                                  price: Decimal,
                                   amount: Decimal) -> Tuple[float, str]:
         response = await self.request_signed_market_orders(trading_pair=trading_pair,
                                                            trade_type=trade_type,
                                                            amount=str(amount))
         signed_market_orders = response["orders"]
         average_price = Decimal(response["averagePrice"])
-        worst_price Decimal(response["worstPrice"])
+        worst_price = Decimal(response["worstPrice"])
         base_asset_increment = self.trading_rules.get(trading_pair).min_base_amount_increment
         base_asset_decimals = -int(math.ceil(math.log10(base_asset_increment)))
         amt_with_decimals = amount * Decimal(f"1e{base_asset_decimals}")

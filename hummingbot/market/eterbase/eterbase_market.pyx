@@ -1199,6 +1199,31 @@ cdef class EterbaseMarket(MarketBase):
 
         return quantized_amount
 
+    cdef object c_quantize_cost(self, str trading_pair, object amount, object price):
+        """
+        *required
+        Check current order cost against trading rule, and correct any rule violations
+        :return: Valid order cost in Decimal format
+        """
+        cdef:
+            EterbaseTradingRule trading_rule = self._trading_rules[trading_pair]
+
+        global s_decimal_0
+
+        cost = amount * price
+        # only 8 decimal places are allowed for cost in API
+        quantized_cost = self.c_round_to_sig_digits(cost, trading_rule.max_cost_significant_digits, 8)
+
+        # Check against min_order_value. If not passing either check, return 0.
+        if quantized_cost < trading_rule.min_order_value:
+            return s_decimal_0
+
+        # Check against max_order_value. If not passing either check, return 0.
+        if quantized_cost > trading_rule.max_order_value:
+            return s_decimal_0
+
+        return quantized_cost
+
     cdef object c_quantize_order_price(self, str trading_pair, object price):
         """
         *required
