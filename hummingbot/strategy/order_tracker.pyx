@@ -174,7 +174,7 @@ cdef class OrderTracker(TimeIterator):
 
         return self._shadow_tracked_limit_orders.get(market_pair, {}).get(order_id)
 
-    cdef c_start_tracking_limit_order(self, object market_pair, str order_id, bint is_buy, object price,
+    cdef c_start_tracking_maker_order(self, object market_pair, str order_id, bint is_buy, object price,
                                       object quantity):
         if market_pair not in self._tracked_limit_orders:
             self._tracked_limit_orders[market_pair] = {}
@@ -194,7 +194,7 @@ cdef class OrderTracker(TimeIterator):
         self._order_id_to_market_pair[order_id] = market_pair
         self._shadow_order_id_to_market_pair[order_id] = market_pair
 
-    cdef c_stop_tracking_limit_order(self, object market_pair, str order_id):
+    cdef c_stop_tracking_maker_order(self, object market_pair, str order_id):
         if market_pair in self._tracked_limit_orders and order_id in self._tracked_limit_orders[market_pair]:
             del self._tracked_limit_orders[market_pair][order_id]
             if len(self._tracked_limit_orders[market_pair]) < 1:
@@ -210,7 +210,7 @@ cdef class OrderTracker(TimeIterator):
         if order_id in self._in_flight_cancels:
             del self._in_flight_cancels[order_id]
 
-    cdef c_start_tracking_market_order(self, object market_pair, str order_id, bint is_buy, object quantity):
+    cdef c_start_tracking_taker_order(self, object market_pair, str order_id, bint is_buy, object quantity):
         if market_pair not in self._tracked_market_orders:
             self._tracked_market_orders[market_pair] = {}
         self._tracked_market_orders[market_pair][order_id] = MarketOrder(
@@ -224,7 +224,7 @@ cdef class OrderTracker(TimeIterator):
         )
         self._order_id_to_market_pair[order_id] = market_pair
 
-    cdef c_stop_tracking_market_order(self, object market_pair, str order_id):
+    cdef c_stop_tracking_taker_order(self, object market_pair, str order_id):
         if market_pair in self._tracked_market_orders and order_id in self._tracked_market_orders[market_pair]:
             del self._tracked_market_orders[market_pair][order_id]
             if len(self._tracked_market_orders[market_pair]) < 1:

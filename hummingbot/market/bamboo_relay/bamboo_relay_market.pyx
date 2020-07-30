@@ -1418,7 +1418,7 @@ cdef class BambooRelayMarket(MarketBase):
                                                                                      amount=q_amt,
                                                                                      price=q_price,
                                                                                      expires=expires)
-                    self.c_start_tracking_limit_order(order_id=order_id,
+                    self.c_start_tracking_maker_order(order_id=order_id,
                                                       exchange_order_id=exchange_order_id,
                                                       trading_pair=trading_pair,
                                                       order_type=order_type,
@@ -1444,7 +1444,7 @@ cdef class BambooRelayMarket(MarketBase):
                                                                   amount=q_amt,
                                                                   price=price)
                 q_price = self.c_quantize_order_price(trading_pair, Decimal(avg_price))
-                self.c_start_tracking_market_order(order_id=order_id,
+                self.c_start_tracking_taker_order(order_id=order_id,
                                                    trading_pair=trading_pair,
                                                    order_type=order_type,
                                                    is_coordinated=is_coordinated,
@@ -1696,7 +1696,7 @@ cdef class BambooRelayMarket(MarketBase):
         self.c_check_and_remove_expired_orders()
         self._last_timestamp = timestamp
 
-    cdef c_start_tracking_limit_order(self,
+    cdef c_start_tracking_maker_order(self,
                                       str order_id,
                                       str exchange_order_id,
                                       str trading_pair,
@@ -1723,7 +1723,7 @@ cdef class BambooRelayMarket(MarketBase):
         # Watch for Fill events for this order hash
         safe_ensure_future(self._wallet.current_backend.zeroex_fill_watcher.watch_order_hash(exchange_order_id, self._update_single_limit_order))
 
-    cdef c_start_tracking_market_order(self,
+    cdef c_start_tracking_taker_order(self,
                                        str order_id,
                                        str trading_pair,
                                        object order_type,

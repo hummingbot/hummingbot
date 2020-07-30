@@ -44,7 +44,7 @@ cdef class BambooRelayMarket(MarketBase):
         str _coordinator_address
         str _fee_recipient_address
 
-    cdef c_start_tracking_limit_order(self,
+    cdef c_start_tracking_maker_order(self,
                                       str order_id,
                                       str exchange_order_id,
                                       str trading_pair,
@@ -55,7 +55,7 @@ cdef class BambooRelayMarket(MarketBase):
                                       object amount,
                                       int expires,
                                       object zero_ex_order)
-    cdef c_start_tracking_market_order(self,
+    cdef c_start_tracking_taker_order(self,
                                        str order_id,
                                        str trading_pair,
                                        object order_type,
