@@ -327,9 +327,9 @@ cdef class StrategyBase(TimeIterator):
             object order_type = order_failed_event.order_type
             object market_pair = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
 
-        if order_type.is_limit_type():
+        if order_type is OrderType.LIMIT_MAKER:
             self.c_stop_tracking_limit_order(market_pair, order_id)
-        elif order_type == OrderType.MARKET:
+        elif order_type is OrderType.LIMIT:
             self.c_stop_tracking_market_order(market_pair, order_id)
 
     cdef c_did_cancel_order_tracker(self, object order_cancelled_event):
@@ -349,9 +349,9 @@ cdef class StrategyBase(TimeIterator):
             object order_type = order_completed_event.order_type
 
         if market_pair is not None:
-            if order_type.is_limit_type():
+            if order_type is OrderType.LIMIT_MAKER:
                 self.c_stop_tracking_limit_order(market_pair, order_id)
-            elif order_type == OrderType.MARKET:
+            elif order_type is OrderType.LIMIT:
                 self.c_stop_tracking_market_order(market_pair, order_id)
 
     cdef c_did_complete_sell_order_tracker(self, object order_completed_event):
@@ -363,7 +363,7 @@ cdef class StrategyBase(TimeIterator):
     # ----------------------------------------------------------------------------------------------------------
 
     def buy_with_specific_market(self, market_trading_pair_tuple, amount,
-                                 order_type=OrderType.MARKET,
+                                 order_type=OrderType.LIMIT,
                                  price=s_decimal_nan,
                                  expiration_seconds=NaN):
         return self.c_buy_with_specific_market(market_trading_pair_tuple, amount,
@@ -372,7 +372,7 @@ cdef class StrategyBase(TimeIterator):
                                                expiration_seconds)
 
     cdef str c_buy_with_specific_market(self, object market_trading_pair_tuple, object amount,
-                                        object order_type=OrderType.MARKET,
+                                        object order_type=OrderType.LIMIT,
                                         object price=s_decimal_nan,
                                         double expiration_seconds=NaN):
         if self._sb_delegate_lock:
@@ -398,15 +398,15 @@ cdef class StrategyBase(TimeIterator):
                                         kwargs=kwargs)
 
         # Start order tracking
-        if order_type.is_limit_type():
+        if order_type is OrderType.LIMIT_MAKER:
             self.c_start_tracking_limit_order(market_trading_pair_tuple, order_id, True, price, amount)
-        elif order_type == OrderType.MARKET:
+        elif order_type is OrderType.LIMIT:
             self.c_start_tracking_market_order(market_trading_pair_tuple, order_id, True, amount)
 
         return order_id
 
     def sell_with_specific_market(self, market_trading_pair_tuple, amount,
-                                  order_type=OrderType.MARKET,
+                                  order_type=OrderType.LIMIT,
                                   price=s_decimal_nan,
                                   expiration_seconds=NaN):
         return self.c_sell_with_specific_market(market_trading_pair_tuple, amount,
@@ -415,7 +415,7 @@ cdef class StrategyBase(TimeIterator):
                                                 expiration_seconds)
 
     cdef str c_sell_with_specific_market(self, object market_trading_pair_tuple, object amount,
-                                         object order_type=OrderType.MARKET,
+                                         object order_type=OrderType.LIMIT,
                                          object price=s_decimal_nan,
                                          double expiration_seconds=NaN):
         if self._sb_delegate_lock:
@@ -439,9 +439,9 @@ cdef class StrategyBase(TimeIterator):
                                          order_type=order_type, price=price, kwargs=kwargs)
 
         # Start order tracking
-        if order_type.is_limit_type():
+        if order_type is OrderType.LIMIT_MAKER:
             self.c_start_tracking_limit_order(market_trading_pair_tuple, order_id, False, price, amount)
-        elif order_type == OrderType.MARKET:
+        elif order_type is OrderType.LIMIT:
             self.c_start_tracking_market_order(market_trading_pair_tuple, order_id, False, amount)
 
         return order_id

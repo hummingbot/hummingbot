@@ -66,9 +66,6 @@ class OrderType(Enum):
     LIMIT = 1
     LIMIT_MAKER = 2
 
-    def is_limit_type(self):
-        return self in (OrderType.LIMIT, OrderType.LIMIT_MAKER)
-
 
 class PriceType(Enum):
     MidPrice = 1
