@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import os.path
+import pandas as pd
 import asyncio
 from sqlalchemy.orm import (
     Session,
@@ -15,6 +17,7 @@ from typing import (
     Union
 )
 
+from hummingbot import data_path
 from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
@@ -233,6 +236,22 @@ class MarketsRecorder:
         session.add(trade_fill_record)
         self.save_market_states(self._config_file_path, market, no_commit=True)
         session.commit()
+        self.append_to_csv(trade_fill_record)
+
+    def append_to_csv(self, trade: TradeFill):
+        csv_file = "trades_" + trade.config_file_path[:-4] + ".csv"
+        csv_path = os.path.join(data_path(), csv_file)
+        # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
+        age = "n/a"
+        if "//" not in trade.order_id:
+            age = pd.Timestamp(int(trade.timestamp / 1e3 - int(trade.order_id[-16:]) / 1e6), unit='s').strftime('%H:%M:%S')
+        if not os.path.exists(csv_path):
+            df_header = pd.DataFrame([["Config File", "Strategy", "Exchange", "Timestamp", "Market", "Base", "Quote",
+                                       "Trade", "Type", "Price", "Amount", "Fee", "Age", "Order ID", "Exchange Trade ID"]])
+            df_header.to_csv(csv_path, mode='a', header=False, index=False)
+        df = pd.DataFrame([[trade.config_file_path, trade.strategy, trade.market, trade.timestamp, trade.symbol, trade.base_asset, trade.quote_asset,
+                            trade.trade_type, trade.order_type, trade.price, trade.amount, trade.trade_fee, age, trade.order_id, trade.exchange_trade_id]])
+        df.to_csv(csv_path, mode='a', header=False, index=False)
 
     def _update_order_status(self,
                              event_tag: int,
