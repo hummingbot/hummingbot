@@ -126,10 +126,10 @@ class DolomiteMarketUnitTest(unittest.TestCase):
     # ====================================================
 
     def test_get_fee(self):
-        limit_trade_fee: TradeFee = self.market.get_fee("WETH", "DAI", OrderType.LIMIT, TradeType.BUY, 10000, 1)
+        limit_trade_fee: TradeFee = self.market.get_fee("WETH", "DAI", OrderType.LIMIT_MAKER, TradeType.BUY, 10000, 1)
         self.assertLess(limit_trade_fee.percent, 0.01)
         self.assertEqual(len(limit_trade_fee.flat_fees), 0)
-        market_trade_fee: TradeFee = self.market.get_fee("WETH", "DAI", OrderType.MARKET, TradeType.BUY, 0.1)
+        market_trade_fee: TradeFee = self.market.get_fee("WETH", "DAI", OrderType.LIMIT, TradeType.BUY, 0.1)
         self.assertGreater(market_trade_fee.percent, 0)
         self.assertEqual(len(market_trade_fee.flat_fees), 1)
         self.assertEqual(market_trade_fee.flat_fees[0][0], "DAI")
@@ -153,7 +153,7 @@ class DolomiteMarketUnitTest(unittest.TestCase):
         amount = 0.5
 
         # Intentionally setting invalid price to prevent getting filled
-        client_order_id = self.market.buy(trading_pair, amount, OrderType.LIMIT, bid_price * 0.7)
+        client_order_id = self.market.buy(trading_pair, amount, OrderType.LIMIT_MAKER, bid_price * 0.7)
         self.run_parallel(asyncio.sleep(1.0))
         self.market.cancel(trading_pair, client_order_id)
         [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
@@ -163,6 +163,7 @@ class DolomiteMarketUnitTest(unittest.TestCase):
         self.assertEqual(0, len(self.market.limit_orders))
         self.assertEqual(client_order_id, order_cancelled_event.order_id)
 
+    # NOTE: this actually tests maker order
     def test_place_limit_buy_and_sell(self):
         self.assertGreater(self.market.get_balance("WETH"), 0.4)
         self.assertGreater(self.market.get_balance("DAI"), 60)
@@ -171,7 +172,7 @@ class DolomiteMarketUnitTest(unittest.TestCase):
         trading_pair = "WETH-DAI"
         bid_price: float = self.market.get_price(trading_pair, True)
         amount: float = 0.4
-        buy_order_id: str = self.market.buy(trading_pair, amount, OrderType.LIMIT, bid_price * 0.7)
+        buy_order_id: str = self.market.buy(trading_pair, amount, OrderType.LIMIT_MAKER, bid_price * 0.7)
         [buy_order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         self.assertEqual(buy_order_id, buy_order_created_event.order_id)
         self.market.cancel(trading_pair, buy_order_id)
@@ -179,7 +180,7 @@ class DolomiteMarketUnitTest(unittest.TestCase):
 
         # Try to sell 0.2 WETH to the exchange, and watch for creation event.
         ask_price: float = self.market.get_price(trading_pair, False)
-        sell_order_id: str = self.market.sell(trading_pair, amount, OrderType.LIMIT, ask_price * 1.5)
+        sell_order_id: str = self.market.sell(trading_pair, amount, OrderType.LIMIT_MAKER, ask_price * 1.5)
         [sell_order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         self.assertEqual(sell_order_id, sell_order_created_event.order_id)
         self.market.cancel(trading_pair, sell_order_id)

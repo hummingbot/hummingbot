@@ -202,7 +202,7 @@ class PaperTradeMarketTest(unittest.TestCase):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_place_market_orders(self):
-        self.market.sell("ETHUSDT", 30, OrderType.MARKET)
+        self.market.sell("ETHUSDT", 30, OrderType.LIMIT)
         list_queued_orders: List[QueuedOrder] = self.market.queued_orders
         first_queued_order: QueuedOrder = list_queued_orders[0]
         self.assertFalse(first_queued_order.is_buy, msg="Market order is not sell")
@@ -211,7 +211,7 @@ class PaperTradeMarketTest(unittest.TestCase):
         self.assertEqual(len(list_queued_orders), 1, msg="First market order did not get added")
 
         # Figure out why this test is failing
-        self.market.buy("BTCUSDT", 30, OrderType.MARKET)
+        self.market.buy("BTCUSDT", 30, OrderType.LIMIT)
         list_queued_orders: List[QueuedOrder] = self.market.queued_orders
         second_queued_order: QueuedOrder = list_queued_orders[1]
         self.assertTrue(second_queued_order.is_buy, msg="Market order is not buy")
@@ -223,7 +223,7 @@ class PaperTradeMarketTest(unittest.TestCase):
     def test_market_order_simulation(self):
         self.market.set_balance("ETH", 20)
         self.market.set_balance("USDT", 100)
-        self.market.sell("ETHUSDT", 10, OrderType.MARKET)
+        self.market.sell("ETHUSDT", 10, OrderType.LIMIT)
         self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 
         # Get diff between composite bid entries and original bid entries
@@ -239,7 +239,7 @@ class PaperTradeMarketTest(unittest.TestCase):
         self.assertFalse(diff_bid.to_numpy().any())
 
         self.assertEquals(10, self.market.get_balance("ETH"), msg="Balance was not updated.")
-        self.market.buy("ETHUSDT", 5, OrderType.MARKET)
+        self.market.buy("ETHUSDT", 5, OrderType.LIMIT)
         self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
         # Get diff between composite bid entries and original bid entries
@@ -260,13 +260,13 @@ class PaperTradeMarketTest(unittest.TestCase):
         starting_quote_balance = 1000
         self.market.set_balance("ETH", starting_base_balance)
         self.market.set_balance("USDT", starting_quote_balance)
-        self.market.sell("ETHUSDT", 10, OrderType.LIMIT, 100)
+        self.market.sell("ETHUSDT", 10, OrderType.LIMIT_MAKER, 100)
         self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         self.assertEquals(starting_base_balance - 10, self.market.get_balance("ETH"),
                           msg="ETH Balance was not updated.")
         self.assertEquals(starting_quote_balance + 1000, self.market.get_balance("USDT"),
                           msg="USDT Balance was not updated.")
-        self.market.buy("ETHUSDT", 1, OrderType.LIMIT, 500)
+        self.market.buy("ETHUSDT", 1, OrderType.LIMIT_MAKER, 500)
         self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         self.assertEquals(11, self.market.get_balance("ETH"),
                           msg="ETH Balance was not updated.")
@@ -285,7 +285,7 @@ class PaperTradeMarketTest(unittest.TestCase):
         self.market.set_balance(trading_pair.quote_asset, starting_quote_balance)
 
         best_bid_price = self.market.order_books[trading_pair.trading_pair].get_price(True)
-        client_order_id = self.market.buy(trading_pair.trading_pair, base_quantity, OrderType.LIMIT, best_bid_price)
+        client_order_id = self.market.buy(trading_pair.trading_pair, base_quantity, OrderType.LIMIT_MAKER, best_bid_price)
 
         matched_limit_orders = TestUtils.get_match_limit_orders(self.market.limit_orders, {
             "client_order_id": client_order_id,
@@ -307,7 +307,7 @@ class PaperTradeMarketTest(unittest.TestCase):
                                starting_quote_balance - base_quantity * best_bid_price)
 
         matched_order_create_events = TestUtils.get_match_events(self.market_logger.event_log, BuyOrderCreatedEvent, {
-            "type": OrderType.LIMIT,
+            "type": OrderType.LIMIT_MAKER,
             "amount": base_quantity,
             "price": best_bid_price,
             "order_id": client_order_id
@@ -331,7 +331,7 @@ class PaperTradeMarketTest(unittest.TestCase):
 
         matched_order_complete_events = TestUtils.get_match_events(
             self.market_logger.event_log, BuyOrderCompletedEvent, {
-                "order_type": OrderType.LIMIT,
+                "order_type": OrderType.LIMIT_MAKER,
                 "quote_asset_amount": base_quantity * best_bid_price,
                 "order_id": client_order_id
             })
@@ -340,7 +340,7 @@ class PaperTradeMarketTest(unittest.TestCase):
 
         matched_order_fill_events = TestUtils.get_match_events(
             self.market_logger.event_log, OrderFilledEvent, {
-                "order_type": OrderType.LIMIT,
+                "order_type": OrderType.LIMIT_MAKER,
                 "trade_type": TradeType.BUY,
                 "trading_pair": trading_pair.trading_pair,
                 "order_id": client_order_id
@@ -366,7 +366,7 @@ class PaperTradeMarketTest(unittest.TestCase):
         self.market.set_balance(trading_pair.quote_asset, starting_quote_balance)
 
         best_ask_price = self.market.order_books[trading_pair.trading_pair].get_price(False)
-        client_order_id = self.market.sell(trading_pair.trading_pair, base_quantity, OrderType.LIMIT, best_ask_price)
+        client_order_id = self.market.sell(trading_pair.trading_pair, base_quantity, OrderType.LIMIT_MAKER, best_ask_price)
 
         matched_limit_orders = TestUtils.get_match_limit_orders(self.market.limit_orders, {
             "client_order_id": client_order_id,
@@ -387,7 +387,7 @@ class PaperTradeMarketTest(unittest.TestCase):
                                starting_base_balance - base_quantity)
 
         matched_order_create_events = TestUtils.get_match_events(self.market_logger.event_log, SellOrderCreatedEvent, {
-            "type": OrderType.LIMIT,
+            "type": OrderType.LIMIT_MAKER,
             "amount": base_quantity,
             "price": best_ask_price,
             "order_id": client_order_id
@@ -413,7 +413,7 @@ class PaperTradeMarketTest(unittest.TestCase):
 
         matched_order_complete_events = TestUtils.get_match_events(
             self.market_logger.event_log, SellOrderCompletedEvent, {
-                "order_type": OrderType.LIMIT,
+                "order_type": OrderType.LIMIT_MAKER,
                 "quote_asset_amount": base_quantity * base_quantity,
                 "order_id": client_order_id
             })
@@ -422,7 +422,7 @@ class PaperTradeMarketTest(unittest.TestCase):
 
         matched_order_fill_events = TestUtils.get_match_events(
             self.market_logger.event_log, OrderFilledEvent, {
-                "order_type": OrderType.LIMIT,
+                "order_type": OrderType.LIMIT_MAKER,
                 "trade_type": TradeType.SELL,
                 "trading_pair": trading_pair.trading_pair,
                 "order_id": client_order_id
@@ -445,9 +445,9 @@ class PaperTradeMarketTest(unittest.TestCase):
         self.market.set_balance(trading_pair.quote_asset, starting_quote_balance)
         best_ask_price = self.market.order_books[trading_pair.trading_pair].get_price(False)
         ask_client_order_id = self.market.sell(trading_pair.trading_pair, base_quantity,
-                                               OrderType.LIMIT, best_ask_price)
+                                               OrderType.LIMIT_MAKER, best_ask_price)
         best_bid_price = self.market.order_books[trading_pair.trading_pair].get_price(True)
-        self.market.buy(trading_pair.trading_pair, base_quantity, OrderType.LIMIT, best_bid_price)
+        self.market.buy(trading_pair.trading_pair, base_quantity, OrderType.LIMIT_MAKER, best_bid_price)
 
         # Market should track limit orders
         self.assertEqual(2, len(self.market.limit_orders))
@@ -482,9 +482,9 @@ class PaperTradeMarketTest(unittest.TestCase):
         self.market.set_balance(trading_pair.quote_asset, starting_quote_balance)
         best_ask_price = self.market.order_books[trading_pair.trading_pair].get_price(False)
         self.market.sell(trading_pair.trading_pair, base_quantity,
-                         OrderType.LIMIT, best_ask_price)
+                         OrderType.LIMIT_MAKER, best_ask_price)
         best_bid_price = self.market.order_books[trading_pair.trading_pair].get_price(True)
-        self.market.buy(trading_pair.trading_pair, base_quantity, OrderType.LIMIT, best_bid_price)
+        self.market.buy(trading_pair.trading_pair, base_quantity, OrderType.LIMIT_MAKER, best_bid_price)
 
         # Market should track limit orders
         self.assertEqual(2, len(self.market.limit_orders))
