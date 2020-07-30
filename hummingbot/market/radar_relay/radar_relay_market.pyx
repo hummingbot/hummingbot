@@ -795,7 +795,7 @@ cdef class RadarRelayMarket(MarketBase):
                                                                                      amount=q_amt,
                                                                                      price=q_price,
                                                                                      expires=expires)
-                    self.c_start_tracking_limit_order(order_id=order_id,
+                    self.c_start_tracking_maker_order(order_id=order_id,
                                                       exchange_order_id=exchange_order_id,
                                                       trading_pair=trading_pair,
                                                       order_type=order_type,
@@ -810,7 +810,7 @@ cdef class RadarRelayMarket(MarketBase):
                                                                     price=price,
                                                                     amount=q_amt)
                 q_price = str(self.c_quantize_order_price(trading_pair, Decimal(avg_price)))
-                self.c_start_tracking_market_order(order_id=order_id,
+                self.c_start_tracking_taker_order(order_id=order_id,
                                                    trading_pair=trading_pair,
                                                    order_type=order_type,
                                                    trade_type=trade_type,
@@ -982,7 +982,7 @@ cdef class RadarRelayMarket(MarketBase):
         self.c_check_and_remove_expired_orders()
         self._last_timestamp = timestamp
 
-    cdef c_start_tracking_limit_order(self,
+    cdef c_start_tracking_maker_order(self,
                                       str order_id,
                                       str exchange_order_id,
                                       str trading_pair,
@@ -1003,7 +1003,7 @@ cdef class RadarRelayMarket(MarketBase):
             zero_ex_order=zero_ex_order
         )
 
-    cdef c_start_tracking_market_order(self,
+    cdef c_start_tracking_taker_order(self,
                                        str order_id,
                                        str trading_pair,
                                        object order_type,
