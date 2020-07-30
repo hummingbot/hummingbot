@@ -870,7 +870,7 @@ cdef class BinanceMarket(MarketBase):
                       "quantity": amount_str,
                       "type": type_str,
                       "newClientOrderId": order_id,
-                      api_params["price"] = price_str}
+                      "price": price_str}
         if order_type == OrderType.LIMIT:
             api_params["timeInForce"] = BinanceClient.TIME_IN_FORCE_GTC
         self.c_start_tracking_order(order_id,

@@ -1500,7 +1500,7 @@ cdef class BambooRelayMarket(MarketBase):
             double current_timestamp = self._current_timestamp
         expires = kwargs.get("expiration_ts", None)
         if expires is not None and not math.isnan(expires):
-            expires = int(expire)
+            expires = int(expires)
         else:
             expires = int(current_timestamp) + 120
         if order_type is OrderType.LIMIT_MAKER:
