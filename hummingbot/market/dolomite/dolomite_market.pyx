@@ -206,7 +206,7 @@ cdef class DolomiteMarket(MarketBase):
 
         for in_flight_order in self._in_flight_orders.values():
             dolomite_flight_order = in_flight_order
-            if dolomite_flight_order.order_type is OrderType.LIMIT:
+            if dolomite_flight_order.order_type is OrderType.LIMIT_MAKER:
                 retval.append(dolomite_flight_order.to_limit_order())
         return retval
 
@@ -235,9 +235,9 @@ cdef class DolomiteMarket(MarketBase):
             exchange_info = self._exchange_info
 
             # Check order type support
-            if order_type == OrderType.LIMIT and trading_rule.supports_limit_orders is False:
-                raise ValueError("LIMIT orders are not supported")
-            elif order_type == OrderType.MARKET and trading_rule.supports_market_orders is False:
+            if order_type == OrderType.LIMIT_MAKER and trading_rule.supports_limit_orders is False:
+                raise ValueError("LIMIT_MAKER orders are not supported")
+            elif order_type == OrderType.LIMIT and trading_rule.supports_market_orders is False:
                 raise ValueError("MARKET orders are not supported")
 
             # Calculate amounts and get token info
@@ -282,7 +282,7 @@ cdef class DolomiteMarket(MarketBase):
             unsigned_order = {
                 "owner_address": self._wallet.address,
                 "market": f"{primary_token.contract_address}-{secondary_token.contract_address}",
-                "order_type": "LIMIT" if order_type == OrderType.LIMIT else "MARKET",
+                "order_type": "LIMIT" if order_type == OrderType.LIMIT_MAKER else "MARKET",
                 "order_side": "BUY" if order_side == TradeType.BUY else "SELL",
                 "primary_padded_amount": primary_token.pad(primary_amount),
                 "secondary_padded_amount": secondary_token.pad(secondary_amount),
@@ -342,7 +342,7 @@ cdef class DolomiteMarket(MarketBase):
                 self.c_trigger_event(SELL_ORDER_CREATED_EVENT, sell_event)
 
         except Exception as e:
-            order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
+            order_type_str = "LIMIT" if order_type == OrderType.LIMIT else "LIMIT_MAKER"
             order_side_str = "buy" if order_side == TradeType.BUY else "sell"
 
             self.logger().warn(f"Error submitting {order_side_str} {order_type_str} order to Dolomite for "
@@ -353,13 +353,13 @@ cdef class DolomiteMarket(MarketBase):
             self.stop_tracking(client_order_id)
             self.c_trigger_event(ORDER_FAILURE_EVENT, MarketOrderFailureEvent(now(), client_order_id, order_type))
 
-    cdef str c_buy(self, str trading_pair, object amount, object order_type = OrderType.MARKET, object price = 0.0,
+    cdef str c_buy(self, str trading_pair, object amount, object order_type = OrderType.LIMIT, object price = 0.0,
                    dict kwargs = {}):
         cdef str client_order_id = str(uuid.uuid1())[:8]
         safe_ensure_future(self.place_order(client_order_id, trading_pair, TradeType.BUY, amount, order_type, price))
         return client_order_id
 
-    cdef str c_sell(self, str trading_pair, object amount, object order_type = OrderType.MARKET, object price = 0.0,
+    cdef str c_sell(self, str trading_pair, object amount, object order_type = OrderType.LIMIT, object price = 0.0,
                     dict kwargs = {}):
         cdef str client_order_id = str(uuid.uuid1())[:8]
         safe_ensure_future(self.place_order(client_order_id, trading_pair, TradeType.SELL, amount, order_type, price))
@@ -432,7 +432,7 @@ cdef class DolomiteMarket(MarketBase):
         maker_fee_percentage = Decimal(exchange_info.maker_fee_percentage)
         taker_fee_percentage = Decimal(exchange_info.taker_fee_percentage)
 
-        if order_type is OrderType.LIMIT:
+        if order_type is OrderType.LIMIT_MAKER:
             secondary_amount = self.c_quantize_order_amount(trading_pair, amount * price)
             service_fee = max(Decimal(maker_fee_percentage) * secondary_amount, s_decimal_0)
             return TradeFee(percent=maker_fee_percentage), secondary_amount, service_fee, 0, s_decimal_0, s_decimal_0
@@ -482,7 +482,7 @@ cdef class DolomiteMarket(MarketBase):
                 price=(None if price is None else Decimal(price)))
         return order_fill_and_fee_result[0]
         """
-        is_maker = order_type is OrderType.LIMIT
+        is_maker = order_type is OrderType.LIMIT_MAKER
         return estimate_fee("dolomite", is_maker)
 
     cdef object c_get_price(self, str trading_pair, bint is_buy):
