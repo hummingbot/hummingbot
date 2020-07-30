@@ -394,7 +394,7 @@ global_config_map = {
     "balance_asset_limit":
         ConfigVar(key="balance_asset_limit",
                   prompt="Use the `balance limit` command"
-                         "e.g. balance limit [ASSET] [AMOUNT]",
+                         "e.g. balance limit [EXCHANGE] [ASSET] [AMOUNT]",
                   required_if=lambda: False,
                   type_str="json"),
 }
