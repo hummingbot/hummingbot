@@ -169,28 +169,28 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_get_fee(self):
-        limit_fee: TradeFee = self.market.get_fee("ETH", "USDC", OrderType.LIMIT, TradeType.BUY, 1, 1)
+        limit_fee: TradeFee = self.market.get_fee("ETH", "USDC", OrderType.LIMIT_MAKER, TradeType.BUY, 1, 1)
         self.assertGreater(limit_fee.percent, 0)
         self.assertEqual(len(limit_fee.flat_fees), 0)
-        market_fee: TradeFee = self.market.get_fee("ETH", "USDC", OrderType.MARKET, TradeType.BUY, 1)
+        market_fee: TradeFee = self.market.get_fee("ETH", "USDC", OrderType.LIMIT, TradeType.BUY, 1)
         self.assertGreater(market_fee.percent, 0)
         self.assertEqual(len(market_fee.flat_fees), 0)
 
     def test_fee_overrides_config(self):
         fee_overrides_config_map["coinbase_pro_taker_fee"].value = None
-        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
+        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.005"), taker_fee.percent)
         fee_overrides_config_map["coinbase_pro_taker_fee"].value = Decimal('0.2')
-        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
+        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.002"), taker_fee.percent)
         fee_overrides_config_map["coinbase_pro_maker_fee"].value = None
-        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
         fee_overrides_config_map["coinbase_pro_maker_fee"].value = Decimal('0.75')
-        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.0075"), maker_fee.percent)
 
@@ -222,37 +222,6 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             resp = fixture_ws.copy()
             resp["order_id"] = exchange_order_id
             HummingWsServerFactory.send_json_threadsafe(WS_BASE_URL, resp, delay=0.1)
-
-    def test_limit_buy(self):
-        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
-        trading_pair = "ETH-USDC"
-        amount: Decimal = Decimal("0.02")
-        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
-
-        current_bid_price: Decimal = self.market.get_price(trading_pair, True)
-        bid_price: Decimal = current_bid_price + Decimal("0.05") * current_bid_price
-        quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
-
-        order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price,
-                                       10001, FixtureCoinbasePro.ORDERS_LIMIT, FixtureCoinbasePro.WS_ORDER_FILLED)
-        [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
-        order_completed_event: BuyOrderCompletedEvent = order_completed_event
-        trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
-                                                if isinstance(t, OrderFilledEvent)]
-        base_amount_traded: Decimal = sum(t.amount for t in trade_events)
-        quote_amount_traded: Decimal = sum(t.amount * t.price for t in trade_events)
-
-        self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
-        self.assertEqual(order_id, order_completed_event.order_id)
-        self.assertAlmostEqual(quantized_amount, order_completed_event.base_asset_amount)
-        self.assertEqual("ETH", order_completed_event.base_asset)
-        self.assertEqual("USDC", order_completed_event.quote_asset)
-        self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
-        self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
-        self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
-                             for event in self.market_logger.event_log]))
-        # Reset the logs
-        self.market_logger.clear()
 
     def test_limit_maker_rejections(self):
         trading_pair = "ETH-USDC"
@@ -309,42 +278,15 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
 
-    def test_limit_sell(self):
-        trading_pair = "ETH-USDC"
-        amount: Decimal = Decimal("0.02")
-        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
-        current_ask_price: Decimal = self.market.get_price(trading_pair, False)
-        ask_price: Decimal = current_ask_price - Decimal("0.05") * current_ask_price
-        quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price)
-
-        order_id, _ = self.place_order(False, trading_pair, amount, OrderType.LIMIT, quantize_ask_price, 10001,
-                                       FixtureCoinbasePro.ORDERS_LIMIT, FixtureCoinbasePro.WS_ORDER_FILLED)
-        [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
-        order_completed_event: SellOrderCompletedEvent = order_completed_event
-        trade_events = [t for t in self.market_logger.event_log if isinstance(t, OrderFilledEvent)]
-        base_amount_traded = sum(t.amount for t in trade_events)
-        quote_amount_traded = sum(t.amount * t.price for t in trade_events)
-
-        self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
-        self.assertEqual(order_id, order_completed_event.order_id)
-        self.assertAlmostEqual(quantized_amount, order_completed_event.base_asset_amount)
-        self.assertEqual("ETH", order_completed_event.base_asset)
-        self.assertEqual("USDC", order_completed_event.quote_asset)
-        self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
-        self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
-        self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == order_id
-                             for event in self.market_logger.event_log]))
-        # Reset the logs
-        self.market_logger.clear()
-
     # NOTE that orders of non-USD pairs (including USDC pairs) are LIMIT only
     def test_market_buy(self):
         self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
         trading_pair = "ETH-USDC"
+        price: Decimal = self.market.get_price(trading_pair, True)
         amount: Decimal = Decimal("0.02")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.MARKET, Decimal("nan"), 10001,
+        order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT, price, 10001,
                                        FixtureCoinbasePro.ORDERS_MARKET, FixtureCoinbasePro.WS_MARKET_FILLED)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
@@ -353,7 +295,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         base_amount_traded: Decimal = sum(t.amount for t in trade_events)
         quote_amount_traded: Decimal = sum(t.amount * t.price for t in trade_events)
 
-        self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
+        self.assertTrue([evt.order_type == OrderType.LIMIT_MAKER for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertAlmostEqual(quantized_amount, order_completed_event.base_asset_amount)
         self.assertEqual("ETH", order_completed_event.base_asset)
@@ -368,10 +310,11 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
     # NOTE that orders of non-USD pairs (including USDC pairs) are LIMIT only
     def test_market_sell(self):
         trading_pair = "ETH-USDC"
+        price: Decimal = self.market.get_price(trading_pair, False)
         amount: Decimal = Decimal("0.02")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        order_id, _ = self.place_order(False, trading_pair, quantized_amount, OrderType.MARKET, Decimal("nan"), 10001,
+        order_id, _ = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT, price, 10001,
                                        FixtureCoinbasePro.ORDERS_MARKET, FixtureCoinbasePro.WS_MARKET_FILLED)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
@@ -379,7 +322,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         base_amount_traded = sum(t.amount for t in trade_events)
         quote_amount_traded = sum(t.amount * t.price for t in trade_events)
 
-        self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
+        self.assertTrue([evt.order_type == OrderType.LIMIT_MAKER for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertAlmostEqual(quantized_amount, order_completed_event.base_asset_amount)
         self.assertEqual("ETH", order_completed_event.base_asset)
@@ -402,7 +345,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT,
+        order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
                                                    quantize_bid_price, 10001, FixtureCoinbasePro.ORDERS_LIMIT,
                                                    FixtureCoinbasePro.WS_ORDER_OPEN)
 
@@ -422,9 +365,9 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price * Decimal("0.7"))
         quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price * Decimal("1.5"))
 
-        _, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price,
+        _, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_bid_price,
                                             10001, FixtureCoinbasePro.ORDERS_LIMIT, FixtureCoinbasePro.WS_ORDER_OPEN)
-        _, exch_order_id_2 = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT,
+        _, exch_order_id_2 = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
                                               quantize_ask_price, 10002, FixtureCoinbasePro.ORDERS_LIMIT_2,
                                               FixtureCoinbasePro.WS_ORDER_OPEN)
         self.run_parallel(asyncio.sleep(1))
@@ -454,7 +397,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         bid_price: Decimal = current_bid_price + Decimal("0.05") * current_bid_price
         quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
 
-        self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
+        self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_bid_price)
         self.run_parallel(asyncio.sleep(1))
         [order_details] = self.run_parallel(self.market.list_orders())
         self.assertGreaterEqual(len(order_details), 1)
@@ -481,7 +424,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             amount: Decimal = Decimal("0.02")
             quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-            order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT,
+            order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
                                                        quantize_bid_price, 10001, FixtureCoinbasePro.ORDERS_LIMIT,
                                                        FixtureCoinbasePro.WS_ORDER_OPEN)
             [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
@@ -561,8 +504,9 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
 
         try:
             # Try to buy 0.04 ETH from the exchange, and watch for completion event.
+            price: Decimal = self.market.get_price(trading_pair, True)
             amount: Decimal = Decimal("0.02")
-            order_id, exch_order_id = self.place_order(True, trading_pair, amount, OrderType.MARKET, Decimal("nan"),
+            order_id, exch_order_id = self.place_order(True, trading_pair, amount, OrderType.LIMIT, price,
                                                        10001, FixtureCoinbasePro.ORDERS_MARKET,
                                                        FixtureCoinbasePro.WS_MARKET_FILLED)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
@@ -571,8 +515,9 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             self.market_logger.clear()
 
             # Try to sell back the same amount of ETH to the exchange, and watch for completion event.
+            price: Decimal = self.market.get_price(trading_pair, False)
             amount = buy_order_completed_event.base_asset_amount
-            order_id, exch_order_id = self.place_order(False, trading_pair, amount, OrderType.MARKET, Decimal("nan"),
+            order_id, exch_order_id = self.place_order(False, trading_pair, amount, OrderType.LIMIT, price,
                                                        10002, FixtureCoinbasePro.ORDERS_MARKET_2,
                                                        FixtureCoinbasePro.WS_MARKET_FILLED)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))

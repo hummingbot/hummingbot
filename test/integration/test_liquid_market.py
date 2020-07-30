@@ -160,33 +160,33 @@ class LiquidMarketUnitTest(unittest.TestCase):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_get_fee(self):
-        maker_buy_trade_fee: TradeFee = self.market.get_fee("BTC", "USD", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+        maker_buy_trade_fee: TradeFee = self.market.get_fee("BTC", "USD", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
                                                             Decimal(4000))
         self.assertGreater(maker_buy_trade_fee.percent, 0)
         self.assertEqual(len(maker_buy_trade_fee.flat_fees), 0)
-        taker_buy_trade_fee: TradeFee = self.market.get_fee("BTC", "USD", OrderType.MARKET, TradeType.BUY, Decimal(1))
+        taker_buy_trade_fee: TradeFee = self.market.get_fee("BTC", "USD", OrderType.LIMIT, TradeType.BUY, Decimal(1))
         self.assertGreater(taker_buy_trade_fee.percent, 0)
         self.assertEqual(len(taker_buy_trade_fee.flat_fees), 0)
-        sell_trade_fee: TradeFee = self.market.get_fee("BTC", "USD", OrderType.LIMIT, TradeType.SELL, Decimal(1),
+        sell_trade_fee: TradeFee = self.market.get_fee("BTC", "USD", OrderType.LIMIT_MAKER, TradeType.SELL, Decimal(1),
                                                        Decimal(4000))
         self.assertGreater(sell_trade_fee.percent, 0)
         self.assertEqual(len(sell_trade_fee.flat_fees), 0)
 
     def test_fee_overrides_config(self):
         fee_overrides_config_map["liquid_taker_fee"].value = None
-        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
+        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.001"), taker_fee.percent)
         fee_overrides_config_map["liquid_taker_fee"].value = Decimal('0.2')
-        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
+        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.002"), taker_fee.percent)
         fee_overrides_config_map["liquid_maker_fee"].value = None
-        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.001"), maker_fee.percent)
         fee_overrides_config_map["liquid_maker_fee"].value = Decimal('0.5')
-        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
 
@@ -217,65 +217,8 @@ class LiquidMarketUnitTest(unittest.TestCase):
         amount: Decimal = 1
         quantized_amount: Decimal = self.market.quantize_order_amount("CEL-ETH", amount)
 
-        order_id, _ = self.place_order(True, "CEL-ETH", amount, OrderType.MARKET, current_price, 10001,
+        order_id, _ = self.place_order(True, "CEL-ETH", amount, OrderType.LIMIT, current_price, 10001,
                                        FixtureLiquid.ORDER_BUY, FixtureLiquid.ORDERS_GET_AFTER_BUY)
-        [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
-        order_completed_event: BuyOrderCompletedEvent = order_completed_event
-        trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
-                                                if isinstance(t, OrderFilledEvent)]
-        base_amount_traded: Decimal = sum(t.amount for t in trade_events)
-        quote_amount_traded: Decimal = sum(t.amount * t.price for t in trade_events)
-
-        self.assertTrue([evt.order_type == OrderType.MARKET for evt in trade_events])
-        self.assertEqual(order_id, order_completed_event.order_id)
-        self.assertEqual(quantized_amount, order_completed_event.base_asset_amount)
-        self.assertEqual("CEL", order_completed_event.base_asset)
-        self.assertEqual("ETH", order_completed_event.quote_asset)
-        self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
-        self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
-        self.assertGreater(order_completed_event.fee_amount, Decimal(0))
-        self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
-                             for event in self.market_logger.event_log]))
-
-        # Reset the logs
-        self.market_logger.clear()
-
-        # Try to sell back the same amount of CEL to the exchange, and watch for completion event.
-        amount = order_completed_event.base_asset_amount
-        quantized_amount = order_completed_event.base_asset_amount
-        order_id, _ = self.place_order(False, "CEL-ETH", amount, OrderType.MARKET, current_price, 10002,
-                                       FixtureLiquid.ORDER_SELL, FixtureLiquid.ORDERS_GET_AFTER_SELL)
-        [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
-        order_completed_event: SellOrderCompletedEvent = order_completed_event
-        trade_events = [t for t in self.market_logger.event_log
-                        if isinstance(t, OrderFilledEvent)]
-        base_amount_traded = sum(t.amount for t in trade_events)
-        quote_amount_traded = sum(t.amount * t.price for t in trade_events)
-
-        self.assertTrue([evt.order_type == OrderType.MARKET for evt in trade_events])
-        self.assertEqual(order_id, order_completed_event.order_id)
-        self.assertEqual(quantized_amount, order_completed_event.base_asset_amount)
-        self.assertEqual("CEL", order_completed_event.base_asset)
-        self.assertEqual("ETH", order_completed_event.quote_asset)
-        self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
-        self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
-        self.assertGreater(order_completed_event.fee_amount, Decimal(0))
-        self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == order_id
-                             for event in self.market_logger.event_log]))
-
-    def test_limit_buy_and_sell(self):
-        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.001"))
-
-        # Try to put limit buy order for 0.05 ETH worth of CEL, and watch for completion event.
-        current_bid_price: Decimal = self.market.get_price("CEL-ETH", True)
-        bid_price: Decimal = current_bid_price + Decimal("0.05") * current_bid_price
-        quantize_bid_price: Decimal = self.market.quantize_order_price("CEL-ETH", bid_price)
-
-        amount: Decimal = 1
-        quantized_amount: Decimal = self.market.quantize_order_amount("CEL-ETH", amount)
-
-        order_id, _ = self.place_order(True, "CEL-ETH", quantized_amount, OrderType.LIMIT, quantize_bid_price,
-                                       10001, FixtureLiquid.ORDER_BUY_LIMIT, FixtureLiquid.ORDERS_GET_AFTER_LIMIT_BUY)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -297,16 +240,11 @@ class LiquidMarketUnitTest(unittest.TestCase):
         # Reset the logs
         self.market_logger.clear()
 
-        # Try to put limit sell order for 0.05 ETH worth of CEL, and watch for completion event.
-        current_ask_price: Decimal = self.market.get_price("CEL-ETH", False)
-        ask_price: Decimal = current_ask_price - Decimal("0.05") * current_ask_price
-        quantize_ask_price: Decimal = self.market.quantize_order_price("CEL-ETH", ask_price)
-
+        # Try to sell back the same amount of CEL to the exchange, and watch for completion event.
+        amount = order_completed_event.base_asset_amount
         quantized_amount = order_completed_event.base_asset_amount
-
-        order_id, _ = self.place_order(False, "CEL-ETH", quantized_amount, OrderType.LIMIT, quantize_ask_price,
-                                       10002, FixtureLiquid.ORDER_SELL_LIMIT, FixtureLiquid.ORDERS_GET_AFTER_SELL_LIMIT)
-
+        order_id, _ = self.place_order(False, "CEL-ETH", amount, OrderType.LIMIT, current_price, 10002,
+                                       FixtureLiquid.ORDER_SELL, FixtureLiquid.ORDERS_GET_AFTER_SELL)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         trade_events = [t for t in self.market_logger.event_log
@@ -417,10 +355,10 @@ class LiquidMarketUnitTest(unittest.TestCase):
         quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price * Decimal("0.7"))
         quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price * Decimal("1.5"))
 
-        _, buy_exchange_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price,
+        _, buy_exchange_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_bid_price,
                                               10001, FixtureLiquid.ORDER_BUY_CANCEL_ALL,
                                               FixtureLiquid.ORDERS_GET_AFTER_BUY)
-        _, sell_exchange_id = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT,
+        _, sell_exchange_id = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
                                                quantize_ask_price, 10002, FixtureLiquid.ORDER_SELL_CANCEL_ALL,
                                                FixtureLiquid.ORDERS_GET_AFTER_SELL)
 
@@ -455,7 +393,7 @@ class LiquidMarketUnitTest(unittest.TestCase):
             amount: Decimal = 1
             quantized_amount: Decimal = self.market.quantize_order_amount("CEL-ETH", amount)
 
-            order_id, buy_exchange_id = self.place_order(True, "CEL-ETH", quantized_amount, OrderType.LIMIT,
+            order_id, buy_exchange_id = self.place_order(True, "CEL-ETH", quantized_amount, OrderType.LIMIT_MAKER,
                                                          quantize_bid_price, 10001, FixtureLiquid.ORDER_SAVE_RESTORE,
                                                          FixtureLiquid.ORDERS_GET_AFTER_BUY)
             [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
@@ -534,7 +472,7 @@ class LiquidMarketUnitTest(unittest.TestCase):
             # Try to buy 1 CEL from the exchange, and watch for completion event.
             current_price: Decimal = self.market.get_price("CEL-ETH", True)
             amount: Decimal = 1
-            order_id, _ = self.place_order(True, "CEL-ETH", amount, OrderType.MARKET, current_price, 10001,
+            order_id, _ = self.place_order(True, "CEL-ETH", amount, OrderType.LIMIT, current_price, 10001,
                                            FixtureLiquid.ORDER_BUY_LIMIT, FixtureLiquid.ORDERS_GET_AFTER_LIMIT_BUY)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
@@ -542,8 +480,9 @@ class LiquidMarketUnitTest(unittest.TestCase):
             self.market_logger.clear()
 
             # Try to sell back the same amount of CEL to the exchange, and watch for completion event.
+            current_price: Decimal = self.market.get_price("CEL-ETH", False)
             amount = buy_order_completed_event.base_asset_amount
-            order_id, _ = self.place_order(False, "CEL-ETH", amount, OrderType.MARKET, current_price, 10002,
+            order_id, _ = self.place_order(False, "CEL-ETH", amount, OrderType.LIMIT, current_price, 10002,
                                            FixtureLiquid.ORDER_SELL_LIMIT, FixtureLiquid.ORDERS_GET_AFTER_SELL_LIMIT)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 
