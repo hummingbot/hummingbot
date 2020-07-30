@@ -19,9 +19,9 @@ cdef class BambooRelayMarket(MarketBase):
         double _last_update_trading_rules_timestamp
         double _last_update_available_balance_timestamp
         double _poll_interval
-        dict _in_flight_limit_orders
-        dict _in_flight_market_orders
-        object _in_flight_pending_limit_orders
+        dict _in_flight_maker_orders
+        dict _in_flight_taker_orders
+        object _in_flight_pending_maker_orders
         object _in_flight_cancels
         object _in_flight_pending_cancels
         list _filled_order_hashes
