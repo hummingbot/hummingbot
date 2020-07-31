@@ -87,7 +87,7 @@ class HistoryCommand:
 
     def _calculate_trade_performance(self,  # type: HummingbotApplication
                                      ) -> Tuple[Dict, Dict]:
-        raw_queried_trades = self._get_trades_from_session(self.init_time)
+        raw_queried_trades = self._get_trades_from_session(self.init_time, config_file_path=self.strategy_file_name)
         current_strategy_name: str = self.markets_recorder.strategy_name
         conversion_rate = secondary_market_conversion_rate(current_strategy_name)
         trade_performance_stats, market_trading_pair_stats = calculate_trade_performance(
@@ -172,7 +172,8 @@ class HistoryCommand:
         else:
             # Query for maximum number of trades to display + 1
             queried_trades: List[TradeFill] = self._get_trades_from_session(self.init_time,
-                                                                            MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT + 1)
+                                                                            MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT + 1,
+                                                                            self.strategy_file_name)
             if self.strategy_name == "celo_arb":
                 celo_trades = self.strategy.celo_orders_to_trade_fills()
                 queried_trades = queried_trades + celo_trades
