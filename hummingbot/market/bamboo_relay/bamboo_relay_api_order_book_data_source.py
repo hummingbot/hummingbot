@@ -22,6 +22,7 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.bamboo_relay.bamboo_relay_order_book import BambooRelayOrderBook
 from hummingbot.market.bamboo_relay.bamboo_relay_order_book_message import BambooRelayOrderBookMessage
+from hummingbot.market.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.market.bamboo_relay.bamboo_relay_constants import (
     BAMBOO_RELAY_REST_ENDPOINT,
@@ -112,7 +113,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                               f"HTTP status is {response.status}.")
             return await response.json()
 
-    async def get_order_book_snapshot_message(self, trading_pair: str) -> OrderBookMessage:
+    async def get_new_order_book(self, trading_pair: str) -> BambooRelayOrderBook:
         async with aiohttp.ClientSession() as client:
             snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair, self._api_endpoint,
                                                                self._api_prefix)
@@ -122,7 +123,12 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 snapshot_timestamp,
                 metadata={"trading_pair": trading_pair}
             )
-            return snapshot_msg
+            bamboo_relay_active_order_tracker: BambooRelayActiveOrderTracker = BambooRelayActiveOrderTracker()
+            bids, asks = bamboo_relay_active_order_tracker.convert_snapshot_message_to_order_book_row(
+                snapshot_msg)
+            order_book = self.order_book_create_function()
+            order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
+            return order_book
 
     async def _inner_messages(self,
                               ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
