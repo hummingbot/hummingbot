@@ -194,7 +194,7 @@ cdef class BittrexMarket(MarketBase):
 
         return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
         """
-        is_maker = order_type is OrderType.LIMIT
+        is_maker = order_type is OrderType.LIMIT_MAKER
         return estimate_fee("bittrex", is_maker)
 
     async def _update_balances(self):
@@ -378,7 +378,12 @@ cdef class BittrexMarket(MarketBase):
                     continue
 
                 order_state = order["status"]
-                order_type = "LIMIT" if tracked_order.order_type is OrderType.LIMIT else "MARKET"
+                if tracked_order.order_type is OrderType.LIMIT:
+                    order_type = "LIMIT"
+                elif tracked_order.order_type is OrderType.LIMIT_MAKER:
+                    order_type = "LIMIT_MAKER"
+                elif tracked_order.order_type is OrderType.MARKET:
+                    order_type = "MARKET"
                 trade_type = "BUY" if tracked_order.trade_type is TradeType.BUY else "SELL"
                 order_type_description = tracked_order.order_type_description
 
@@ -670,6 +675,9 @@ cdef class BittrexMarket(MarketBase):
 
         return quantized_amount
 
+    def supported_order_types(self):
+        return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
+
     async def place_order(self,
                           order_id: str,
                           trading_pair: str,
@@ -701,6 +709,15 @@ cdef class BittrexMarket(MarketBase):
                 "timeInForce": "IMMEDIATE_OR_CANCEL"
                 # Available options [IMMEDIATE_OR_CANCEL, FILL_OR_KILL]
             }
+        elif order_type is OrderType.LIMIT_MAKER:
+            body = {
+                    "marketSymbol": str(trading_pair),
+                    "direction": "BUY" if is_buy else "SELL",
+                    "type": "LIMIT",
+                    "quantity": f"{amount:f}",
+                    "limit": f"{price:f}",
+                    "timeInForce": "POST_ONLY_GOOD_TIL_CANCELLED"
+                    }
 
         api_response = await self._api_request("POST", path_url=path_url, body=body)
 
@@ -721,9 +738,10 @@ cdef class BittrexMarket(MarketBase):
             object tracked_order
 
         decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
-        decimal_price = (self.c_quantize_order_price(trading_pair, price)
-                         if order_type is OrderType.LIMIT
-                         else s_decimal_0)
+        if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
+            decimal_price = self.c_quantize_order_price(trading_pair, price)
+        else:
+            decimal_price = s_decimal_0
 
         if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
@@ -740,7 +758,7 @@ cdef class BittrexMarket(MarketBase):
                 decimal_price,
                 decimal_amount
             )
-            if order_type is OrderType.LIMIT:
+            if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
 
                 order_result = await self.place_order(order_id,
                                                       trading_pair,
@@ -765,7 +783,12 @@ cdef class BittrexMarket(MarketBase):
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None and exchange_order_id:
                 tracked_order.update_exchange_order_id(exchange_order_id)
-                order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
+                if order_type == OrderType.MARKET:
+                    order_type_str = "MARKET" 
+                elif order_type == OrderType.LIMIT:
+                    order_type_str = "LIMIT"
+                elif order_type == OrderType.LIMIT_MAKER:
+                    order_type_str = "LIMIT_MAKER"
                 self.logger().info(f"Created {order_type_str} buy order {order_id} for "
                                    f"{decimal_amount} {trading_pair}")
                 self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
@@ -826,9 +849,10 @@ cdef class BittrexMarket(MarketBase):
             object tracked_order
 
         decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
-        decimal_price = (self.c_quantize_order_price(trading_pair, price)
-                         if order_type is OrderType.LIMIT
-                         else s_decimal_0)
+        if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
+            decimal_price = self.c_quantize_order_price(trading_pair, price)
+        else: 
+            decimal_price = s_decimal_0
 
         if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Sell order amount {decimal_amount} is lower than the minimum order size "
@@ -847,7 +871,7 @@ cdef class BittrexMarket(MarketBase):
                 decimal_amount
             )
 
-            if order_type is OrderType.LIMIT:
+            if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
                 order_result = await self.place_order(order_id,
                                                       trading_pair,
                                                       decimal_amount,
@@ -869,7 +893,12 @@ cdef class BittrexMarket(MarketBase):
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None and exchange_order_id:
                 tracked_order.update_exchange_order_id(exchange_order_id)
-                order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
+                if order_type == OrderType.MARKET:
+                    order_type_str = "MARKET" 
+                elif order_type == OrderType.LIMIT:
+                    order_type_str = "LIMIT"
+                elif order_type == OrderType.LIMIT_MAKER:
+                    order_type_str = "LIMIT_MAKER"
                 self.logger().info(f"Created {order_type_str} sell order {order_id} for "
                                    f"{decimal_amount} {trading_pair}.")
                 self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
