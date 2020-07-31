@@ -24,14 +24,17 @@ Liquidity mining sets forth an analytical framework for determining market maker
 - [Get help on Discord](https://discord.hummingbot.io): Join the **#liquidity-mining** channel for 24/7 support
 
 ## Current campaign terms
-
+!!! note
+    Currently, only orders that have been outstanding for less than 30 minutes are eligible to earn rewards.  This imposed limit is due to errors created by longer-duration orders.  Work on removing this limit is in progress, read more [here](https://www.reddit.com/r/Hummingbot/comments/hz5xv3/tracking_rewards_for_orders_longer_than_30m/)
 !!! warning "Terms subject to change"
     Please check this page or the [Miner's app](https://miners.hummingbot.io) for the most up-to-date terms.<br/>We will notify participants of changes, if any, on our [Discord](https://discord.hummingbot.io) and [reddit](https://www.reddit.com/r/Hummingbot/).
 
-!!! note "Campaign updates for the week starting July 21, 2020 12.00am UTC"
-    <li>**New COTI campaign** is live!
+!!! note "Campaign updates for the week starting July 28, 2020 12.00am UTC"
+    After discussions with miners and traders in our community, we have decided to revise the spread density function constant to increase rewards for placing orders with tighter spreads vs those placed at wider spreads.
+    
+    You can read more about it in our [Reddit post](https://www.reddit.com/r/Hummingbot/comments/hx9wy5/change_to_spread_factor_constant_more_rewards_for/).
 
-**Current reward period: July 14, 2020 12.00am UTC to July 21, 2020 12.00am UTC**
+**Current reward period: July 28, 2020 12.00am UTC to August 3, 2020 12.00am UTC**
 
 <table>
   <thead>
@@ -39,6 +42,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
     <th>Trading pair</th>
     <th>Exchange</th>
     <th>Maximum spread</th>
+    <th>Spread factor *</th>
     <th>Weekly rewards</th>
   </thead>
   <tbody>
@@ -47,18 +51,21 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>COTI/BTC</td>
       <td>Binance.com</td>
       <td>2%</td>
+      <td>8</td>
       <td>USDC 250</td>
     </tr>
     <tr>
       <td>COTI/USDT</td>
       <td>Binance.com</td>
       <td>2%</td>
+      <td>8</td>
       <td>USDC 250</td>
     </tr>
     <tr>
       <td>COTI/BNB</td>
       <td>Binance.com</td>
       <td>2%</td>
+      <td>8</td>
       <td>USDC 250</td>
     </tr>        
     <tr>
@@ -66,18 +73,21 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>MFT/USDT</td>
       <td>Binance.com</td>
       <td>2%</td>
+      <td>8</td>
       <td>USDC 200</td>
     </tr>
     <tr>
       <td>MFT/ETH</td>
       <td>Binance.com</td>
       <td>2%</td>
+      <td>8</td>
       <td>USDC 275</td>
     </tr>
     <tr>
       <td>MFT/BNB</td>
       <td>Binance.com</td>
       <td>2%</td>
+      <td>8</td>
       <td>USDC 275</td>
     </tr>
     <tr>
@@ -85,18 +95,21 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>NULS/BTC</td>
       <td>Binance.com</td>
       <td>2%</td>
+      <td>8</td>
       <td>USDC 666</td>
     </tr>
     <tr>
       <td>NULS/USDT</td>
       <td>Binance.com</td>
       <td>2%</td>
+      <td>8</td>
       <td>USDC 667</td>
     </tr>
     <tr>
       <td>NULS/ETH</td>
       <td>Binance.com</td>
       <td>2%</td>
+      <td>8</td>
       <td>USDC 667</td>
     </tr>
     <tr>
@@ -104,18 +117,21 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>RLC/BTC</td>
       <td>Binance.com</td>
       <td>2%</td>
+      <td>8</td>
       <td>USDC 250</td>
     </tr>
     <tr>
       <td>RLC/USDT</td>
       <td>Binance.com</td>
       <td>2%</td>
+      <td>8</td>
       <td>USDC 250</td>
     </tr>
     <tr>
       <td>RLC/ETH</td>
       <td>Binance.com</td>
       <td>2%</td>
+      <td>8</td>
       <td>USDC 250</td>
     </tr>
     <tr>
@@ -123,18 +139,21 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>SOL/BTC</td>
       <td>Binance.com</td>
       <td>2%</td>
+      <td>8</td>
       <td>USDC 250</td>
     </tr>
     <tr>
       <td>SOL/BUSD</td>
       <td>Binance.com</td>
       <td>2%</td>
+      <td>8</td>
       <td>USDC 250</td>
     </tr>
     <tr>
       <td>SOL/BNB</td>
       <td>Binance.com</td>
       <td>2%</td>
+      <td>8</td>
       <td>USDC 125</td>
     </tr>
     <tr>
@@ -142,28 +161,30 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>XZC/BTC</td>
       <td>Binance.com</td>
       <td>2%</td>
+      <td>8</td>
       <td>USDC 375</td>
     </tr>
     <tr>
       <td>XZC/USDT</td>
       <td>Binance.com</td>
       <td>2%</td>
+      <td>8</td>
       <td>USDC 375</td>
     </tr>
   </tbody>
 </table>
 
 
+\* Spread density function constant is one of the factors that determines the relative weighting of orders by spread, i.e., the amount of additional rewards for orders with tighter spreads vs those with wider spreads. Refer to this [spreadsheet](https://docs.google.com/spreadsheets/d/1mUZsQoiqlMs5HjcL6AXSKIx1oaULsmuQStJaCc2wggQ/edit?ts=5f1e89bd#gid=18167917) for the spread weights and for a visual of the graph that shows the curve.
+
+
 ## Upcoming changes to campaign terms
 
-**Spread curve update starting July 28, 2020 12.00am UTC**
-
-After discussions with miners and traders in our community, we have decided to revise the spread density function constant to increase rewards for placing orders with tighter spreads vs those placed at wider spreads.
-You can read more about it here, [Change to spread factor constant](https://www.reddit.com/r/Hummingbot/comments/hx9wy5/change_to_spread_factor_constant_more_rewards_for/)
+No upcoming changes.
 
 ## Token Issuers
 
-### Coti
+### COTI
 [COTI](https://coti.io/) is a fully encompassing “finance on the blockchain” ecosystem that is designed specifically to meet the challenges of traditional finance (fees, latency, global inclusion and risk) by introducing a new type of DAG based base protocol and infrastructure that is scalable, fast, private, inclusive, low cost and is optimized for real time payments. The ecosystem includes a [DAG based Blockchain](https://www.youtube.com/watch?v=kSdRxqHDKe8), a [Proof of Trust Consensus Algorithm](https://coti.io/files/COTI-technical-whitepaper.pdf), a [multiDAG](https://medium.com/cotinetwork%27/coti-is-launching-multidag-a-protocol-to-issue-tokens-on-a-dag-infrastructure-5c6282e5c3d1) a [Global Trust System](https://medium.com/cotinetwork/introducing-cotis-global-trust-system-gts-an-advanced-layer-of-trust-for-any-blockchain-7e44587b8bda), a [Universal Payment Solution](https://medium.com/cotinetwork/coti-universal-payment-system-ups-8614e149ee76), a [Payment Gateway](https://medium.com/cotinetwork/announcing-the-first-release-of-the-coti-payment-gateway-4a9f3e515b86), as well as consumer (COTI Pay) and merchant (COTI Pay Business) applications.
 
 ### iExec
