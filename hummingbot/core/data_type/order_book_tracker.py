@@ -42,10 +42,10 @@ class OrderBookTracker(ABC):
             cls._obt_logger = logging.getLogger(__name__)
         return cls._obt_logger
 
-    def __init__(self, data_source: OrderBookTrackerDataSource, trading_pairs: Optional[List[str]] = None):
-        self._data_source = data_source
-        self._trading_pairs = trading_pairs
-        self._order_books_initialized = asyncio.Event()
+    def __init__(self, data_source: OrderBookTrackerDataSource, trading_pairs: List[str]):
+        self._data_source: OrderBookTrackerDataSource = data_source
+        self._trading_pairs: List[str] = trading_pairs
+        self._order_books_initialized: asyncio.Event = asyncio.Event()
         self._tracking_tasks: Dict[str, asyncio.Task] = {}
         self._order_books: Dict[str, OrderBook] = {}
         self._tracking_message_queues: Dict[str, asyncio.Queue] = {}
