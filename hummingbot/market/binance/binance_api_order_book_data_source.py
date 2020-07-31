@@ -78,7 +78,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             return data
 
-    async def get_order_book_snapshot_message(self, trading_pair: str) -> OrderBookMessage:
+    async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         async with aiohttp.ClientSession() as client:
             snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, 1000)
             snapshot_timestamp: float = time.time()
@@ -87,7 +87,9 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 snapshot_timestamp,
                 metadata={"trading_pair": trading_pair}
             )
-            return snapshot_msg
+            order_book = self.order_book_create_function()
+            order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
+            return order_book
 
     async def _inner_messages(self,
                               ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:

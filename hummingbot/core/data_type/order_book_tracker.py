@@ -171,9 +171,7 @@ class OrderBookTracker(ABC):
         Initialize order books
         """
         for index, trading_pair in enumerate(self._trading_pairs):
-            self._order_books[trading_pair] = self._data_source.order_book_create_function()
-            snapshot_msg = await self._data_source.get_order_book_snapshot_message(trading_pair)
-            self._order_books[trading_pair].apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
+            self._order_books[trading_pair] = await self._data_source.get_new_order_book(trading_pair)
             self._tracking_message_queues[trading_pair] = asyncio.Queue()
             self._tracking_tasks[trading_pair] = safe_ensure_future(self._track_single_book(trading_pair))
             self.logger().info(f"Initialized order book for {trading_pair}. "
