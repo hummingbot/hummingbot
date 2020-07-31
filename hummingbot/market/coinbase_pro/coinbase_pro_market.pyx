@@ -109,8 +109,7 @@ cdef class CoinbaseProMarket(MarketBase):
         super().__init__()
         self._trading_required = trading_required
         self._coinbase_auth = CoinbaseProAuth(coinbase_pro_api_key, coinbase_pro_secret_key, coinbase_pro_passphrase)
-        self._order_book_tracker = CoinbaseProOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
-                                                               trading_pairs=trading_pairs)
+        self._order_book_tracker = CoinbaseProOrderBookTracker(trading_pairs=trading_pairs)
         self._user_stream_tracker = CoinbaseProUserStreamTracker(coinbase_pro_auth=self._coinbase_auth,
                                                                  trading_pairs=trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
