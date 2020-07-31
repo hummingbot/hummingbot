@@ -77,7 +77,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
             data: Dict[str, Any] = await response.json()
             return data
 
-    async def get_order_book_snapshot_message(self, trading_pair: str) -> OrderBookMessage:
+    async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         async with aiohttp.ClientSession() as client:
             snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
             snapshot_timestamp: float = time.time()
@@ -86,7 +86,11 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 snapshot_timestamp,
                 metadata={"trading_pair": trading_pair}
             )
-            return snapshot_msg
+            active_order_tracker: CoinbaseProActiveOrderTracker = CoinbaseProActiveOrderTracker()
+            bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
+            order_book = self.order_book_create_function()
+            order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
+            return order_book
 
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
         """
