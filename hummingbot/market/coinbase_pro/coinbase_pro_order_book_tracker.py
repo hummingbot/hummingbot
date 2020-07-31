@@ -24,7 +24,6 @@ from hummingbot.core.data_type.order_book_message import (
     OrderBookMessageType,
     OrderBookMessage,
 )
-from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
 from hummingbot.market.coinbase_pro.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
 
@@ -58,23 +57,6 @@ class CoinbaseProOrderBookTracker(OrderBookTracker):
         Name of the current exchange
         """
         return "coinbase_pro"
-
-    async def _init_order_books(self):
-        """
-        Initialize order books
-        """
-        for index, trading_pair in enumerate(self._trading_pairs):
-            self._order_books[trading_pair] = self._data_source.order_book_create_function()
-            snapshot_msg = await self._data_source.get_order_book_snapshot_message(trading_pair)
-            active_order_tracker: CoinbaseProActiveOrderTracker = CoinbaseProActiveOrderTracker()
-            bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
-            self._order_books[trading_pair].apply_snapshot(bids, asks, snapshot_msg.update_id)
-            self._tracking_message_queues[trading_pair] = asyncio.Queue()
-            self._tracking_tasks[trading_pair] = safe_ensure_future(self._track_single_book(trading_pair))
-            self.logger().info(f"Initialized order book for {trading_pair}. "
-                               f"{index + 1}/{len(self._trading_pairs)} completed.")
-            await asyncio.sleep(1)
-        self._order_books_initialized.set()
 
     async def _order_book_diff_router(self):
         """
