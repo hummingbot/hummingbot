@@ -10,7 +10,7 @@ from typing import (
     Dict,
     List,
 )
-from hummingbot.core.data_type.order_book import OrderBook, OrderBookMessage
+from hummingbot.core.data_type.order_book import OrderBook
 
 
 class OrderBookTrackerDataSource(metaclass=ABCMeta):
@@ -32,7 +32,7 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
         raise NotImplementedError
 
     @abstractmethod
-    async def get_order_book_snapshot_message(self, trading_pair: str) -> OrderBookMessage:
+    async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         raise NotImplementedError
 
     @abstractmethod
