@@ -15,7 +15,8 @@ from hummingbot.core.data_type.order_book import OrderBook, OrderBookMessage
 
 class OrderBookTrackerDataSource(metaclass=ABCMeta):
 
-    def __init__(self):
+    def __init__(self, trading_pairs: List[str]):
+        self._trading_pairs: List[str] = trading_pairs
         self._order_book_create_function = lambda: OrderBook()
 
     @property

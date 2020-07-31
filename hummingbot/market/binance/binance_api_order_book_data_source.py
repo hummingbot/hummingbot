@@ -45,9 +45,8 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._baobds_logger = logging.getLogger(__name__)
         return cls._baobds_logger
 
-    def __init__(self, trading_pairs: Optional[List[str]] = None):
-        super().__init__()
-        self._trading_pairs: Optional[List[str]] = trading_pairs
+    def __init__(self, trading_pairs: List[str]):
+        super().__init__(trading_pairs)
         self._order_book_create_function = lambda: OrderBook()
 
     @classmethod
