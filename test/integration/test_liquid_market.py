@@ -271,9 +271,7 @@ class LiquidMarketUnitTest(unittest.TestCase):
         price: Decimal = self.market.quantize_order_price(trading_pair, price)
         amount = self.market.quantize_order_amount(trading_pair, 1)
 
-        order_id = self.place_order(True, trading_pair, amount, OrderType.LIMIT_MAKER,
-                                    price, 10001,
-                                    FixtureLiquid.LIMIT_MAKER_ERROR, FixtureLiquid.EMPTY)
+        order_id = self.market.buy(trading_pair, amount, OrderType.LIMIT_MAKER, price)
         [order_failure_event] = self.run_parallel(self.market_logger.wait_for(MarketOrderFailureEvent))
         self.assertEqual(order_id, order_failure_event.order_id)
 
@@ -284,9 +282,7 @@ class LiquidMarketUnitTest(unittest.TestCase):
         price: Decimal = self.market.quantize_order_price(trading_pair, price)
         amount = self.market.quantize_order_amount(trading_pair, 1)
 
-        order_id = self.place_order(False, trading_pair, amount, OrderType.LIMIT_MAKER,
-                                    price, 10002,
-                                    FixtureLiquid.LIMIT_MAKER_ERROR, FixtureLiquid.EMPTY)
+        order_id = self.market.sell(trading_pair, amount, OrderType.LIMIT_MAKER, price)
         [order_failure_event] = self.run_parallel(self.market_logger.wait_for(MarketOrderFailureEvent))
         self.assertEqual(order_id, order_failure_event.order_id)
 
@@ -296,9 +292,9 @@ class LiquidMarketUnitTest(unittest.TestCase):
         price = self.market.quantize_order_price(trading_pair, price)
         amount = self.market.quantize_order_amount(trading_pair, 1)
 
-        order_id = self.place_order(True, trading_pair, amount, OrderType.LIMIT_MAKER,
-                                    price, 10001,
-                                    FixtureLiquid.ORDER_BUY_LIMIT, FixtureLiquid.ORDERS_GET_AFTER_SELL_LIMIT)
+        order_id, _ = self.place_order(True, trading_pair, amount, OrderType.LIMIT_MAKER,
+                                       price, 10001,
+                                       FixtureLiquid.ORDER_BUY_LIMIT, FixtureLiquid.ORDERS_GET_AFTER_SELL_LIMIT)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id, order_created_event.order_id)
@@ -307,9 +303,9 @@ class LiquidMarketUnitTest(unittest.TestCase):
         price = self.market.quantize_order_price(trading_pair, price)
         amount = self.market.quantize_order_amount(trading_pair, 1)
 
-        order_id = self.place_order(False, trading_pair, amount, OrderType.LIMIT_MAKER,
-                                    price, 10002,
-                                    FixtureLiquid.ORDER_SELL_LIMIT, FixtureLiquid.ORDERS_GET_AFTER_SELL_LIMIT)
+        order_id, _ = self.place_order(False, trading_pair, amount, OrderType.LIMIT_MAKER,
+                                       price, 10002,
+                                       FixtureLiquid.ORDER_SELL_LIMIT, FixtureLiquid.ORDERS_GET_AFTER_SELL_LIMIT)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id, order_created_event.order_id)

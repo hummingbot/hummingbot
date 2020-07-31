@@ -231,9 +231,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         price: Decimal = self.market.quantize_order_price(trading_pair, price)
         amount = self.market.quantize_order_amount(trading_pair, Decimal("0.02"))
 
-        order_id = self.place_order(True, trading_pair, amount, OrderType.LIMIT_MAKER,
-                                    price, 10001,
-                                    FixtureCoinbasePro.LIMIT_MAKER_ERROR, FixtureCoinbasePro.EMPTY)
+        order_id = self.market.buy(trading_pair, amount, OrderType.LIMIT_MAKER, price)
         [order_failure_event] = self.run_parallel(self.market_logger.wait_for(MarketOrderFailureEvent))
         self.assertEqual(order_id, order_failure_event.order_id)
 
@@ -244,9 +242,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         price: Decimal = self.market.quantize_order_price(trading_pair, price)
         amount = self.market.quantize_order_amount(trading_pair, Decimal("0.02"))
 
-        order_id = self.place_order(False, trading_pair, amount, OrderType.LIMIT_MAKER,
-                                    price, 10002,
-                                    FixtureCoinbasePro.LIMIT_MAKER_ERROR, FixtureCoinbasePro.EMPTY)
+        order_id = self.market.sell(trading_pair, amount, OrderType.LIMIT_MAKER, price)
         [order_failure_event] = self.run_parallel(self.market_logger.wait_for(MarketOrderFailureEvent))
         self.assertEqual(order_id, order_failure_event.order_id)
 
@@ -256,9 +252,9 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         price = self.market.quantize_order_price(trading_pair, price)
         amount = self.market.quantize_order_amount(trading_pair, Decimal("0.02"))
 
-        order_id = self.place_order(True, trading_pair, amount, OrderType.LIMIT_MAKER,
-                                    price, 10001,
-                                    FixtureCoinbasePro.ORDERS_LIMIT, FixtureCoinbasePro.WS_ORDER_OPEN)
+        order_id, _ = self.place_order(True, trading_pair, amount, OrderType.LIMIT_MAKER,
+                                       price, 10001,
+                                       FixtureCoinbasePro.ORDERS_LIMIT, FixtureCoinbasePro.WS_ORDER_OPEN)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id, order_created_event.order_id)
@@ -267,9 +263,9 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         price = self.market.quantize_order_price(trading_pair, price)
         amount = self.market.quantize_order_amount(trading_pair, Decimal("0.02"))
 
-        order_id = self.place_order(False, trading_pair, amount, OrderType.LIMIT_MAKER,
-                                    price, 10002,
-                                    FixtureCoinbasePro.ORDERS_LIMIT_2, FixtureCoinbasePro.WS_ORDER_OPEN)
+        order_id, _ = self.place_order(False, trading_pair, amount, OrderType.LIMIT_MAKER,
+                                       price, 10002,
+                                       FixtureCoinbasePro.ORDERS_LIMIT_2, FixtureCoinbasePro.WS_ORDER_OPEN)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id, order_created_event.order_id)
