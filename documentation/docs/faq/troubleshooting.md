@@ -200,7 +200,7 @@ rm hummingbot/conf/encrypted* hummingbot/conf/key_file*
 
 If Hummingbot is installed on Windows, simply delete the encrypted files found in `%localappdata%\hummingbot.io\Hummingbot\conf`.
 
-If Hummingbot is installed on MacOs, simply delete the encrypted files found in `~/Library/Application\ Support/Hummingbot/Conf`.
+If Hummingbot is installed on MacOS, simply delete the encrypted files found in `~/Library/Application\ Support/Hummingbot/Conf`.
 
 !!! warning
     Be careful when deleting the local wallet key file created through Hummingbot, i.e, a wallet that was not imported from Metamask; deleting the key file will result in a permanent loss of access to that wallet and any assets it may contain.
@@ -227,7 +227,7 @@ rm hummingbot/conf/conf_global.yml
 
 If Hummingbot is installed on Windows, simply delete the `conf_global.yml` found in `%localappdata%\hummingbot.io\Hummingbot\conf`.
 
-If Hummingbot is installed on MacOs, simply delete the `conf_global.yml` found in `~/Library/Application\ Support/Hummingbot/Conf`.
+If Hummingbot is installed on MacOS, simply delete the `conf_global.yml` found in `~/Library/Application\ Support/Hummingbot/Conf`.
 
 !!! Note
     If telegram is enabled make sure to backup your telegram token and chat id when deleting `conf_global.yml`.
