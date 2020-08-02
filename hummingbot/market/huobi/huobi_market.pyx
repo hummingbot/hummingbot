@@ -50,6 +50,11 @@ from hummingbot.core.utils.async_utils import (
 )
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.huobi.huobi_api_order_book_data_source import HuobiAPIOrderBookDataSource
+from hummingbot.market.huobi.huobi_api_user_stream_data_source import (
+    HUOBI_SUBSCRIBE_TOPICS,
+    HUOBI_ACCOUNT_UPDATE_TOPIC,
+    HUOBI_ORDER_UPDATE_TOPIC
+)
 from hummingbot.market.huobi.huobi_auth import HuobiAuth
 from hummingbot.market.huobi.huobi_in_flight_order import HuobiInFlightOrder
 from hummingbot.market.huobi.huobi_order_book_tracker import HuobiOrderBookTracker
@@ -58,15 +63,10 @@ from hummingbot.market.market_base import (
     MarketBase,
     NaN,
     s_decimal_NaN)
+from hummingbot.market.huobi.huobi_user_stream_tracker import HuobiUserStreamTracker
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.core.utils.estimate_fee import estimate_fee
-from market.huobi.huobi_api_user_stream_data_source import (
-    HUOBI_SUBSCRIBE_TOPICS,
-    HUOBI_ACCOUNT_UPDATE_TOPIC,
-    HUOBI_ORDER_UPDATE_TOPIC
-)
-from market.huobi.huobi_user_stream_tracker import HuobiUserStreamTracker
 
 hm_logger = None
 s_decimal_0 = Decimal(0)
