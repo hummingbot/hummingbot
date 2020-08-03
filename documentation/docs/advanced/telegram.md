@@ -45,9 +45,7 @@ Below, we show how to create a Telegram bot that integrates with your Hummingbot
 
 ### 3. Configure the Telegram Settings in Hummingbot
 
-* In the directory where you have installed Hummingbot, go to your global configuration file: `conf/conf_global.yml`.
-
-* Enter the following parameters at the end of the file:
+* In the directory where you have installed Hummingbot, go to your global configuration file `conf/conf_global.yml` and edit the following parameters inside the file:
 
 ```
 telegram_enabled: true
