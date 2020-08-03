@@ -76,7 +76,6 @@ cdef class KucoinMarketTransactionTracker(TransactionTracker):
         TransactionTracker.c_did_timeout_tx(self, tx_id)
         self._owner.c_did_timeout_tx(tx_id)
 
-
 cdef class KucoinMarket(MarketBase):
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
@@ -113,7 +112,8 @@ cdef class KucoinMarket(MarketBase):
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._data_source_type = order_book_tracker_data_source_type
         self._ev_loop = asyncio.get_event_loop()
-        self._kucoin_auth = KucoinAuth(api_key=kucoin_api_key, passphrase=kucoin_passphrase, secret_key=kucoin_secret_key)
+        self._kucoin_auth = KucoinAuth(api_key=kucoin_api_key, passphrase=kucoin_passphrase,
+                                       secret_key=kucoin_secret_key)
         self._in_flight_orders = {}
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
@@ -233,7 +233,6 @@ cdef class KucoinMarket(MarketBase):
         if self._user_stream_event_listener_task is not None:
             self._user_stream_event_listener_task.cancel()
             self._user_stream_event_listener_task = None
-			
 
     async def stop_network(self):
         self._stop_network()
@@ -253,8 +252,8 @@ cdef class KucoinMarket(MarketBase):
             double poll_interval = (self.SHORT_POLL_INTERVAL
                                     if now - self.user_stream_tracker.last_recv_time > 60.0
                                     else self.LONG_POLL_INTERVAL)
-            int64_t last_tick = <int64_t > (self._last_timestamp / poll_interval)
-            int64_t current_tick = <int64_t > (timestamp / poll_interval)
+            int64_t last_tick = <int64_t> (self._last_timestamp / poll_interval)
+            int64_t current_tick = <int64_t> (timestamp / poll_interval)
         MarketBase.c_tick(self, timestamp)
         self._tx_tracker.c_tick(timestamp)
         if current_tick > last_tick:
@@ -270,10 +269,10 @@ cdef class KucoinMarket(MarketBase):
                 raise
             except Exception:
                 self.logger().network(
-                        "Unknown error. Retrying after 1 seconds.",
-                        exc_info=True,
-                        app_warning_msg="Could not fetch user events from Binance. Check API key and network connection."
-                        )
+                    "Unknown error. Retrying after 1 seconds.",
+                    exc_info=True,
+                    app_warning_msg="Could not fetch user events from Binance. Check API key and network connection."
+                )
                 await asyncio.sleep(1.0)
 
     async def _user_stream_event_listener(self):
@@ -282,7 +281,7 @@ cdef class KucoinMarket(MarketBase):
                 event_type = event_message.get("type")
                 event_topic = event_message.get("topic")
                 execution_data = event_message.get("data")
-                
+
                 # Refer to https://docs.kucoin.com/#private-order-change-events
                 if event_type == "message" and event_topic == "/spotMarket/tradeOrders":
                     execution_status = execution_data["status"]
@@ -295,40 +294,49 @@ cdef class KucoinMarket(MarketBase):
                         self.logger().debug(f"Unrecognized order ID from user stream: {client_order_id}.")
                         self.logger().debug(f"Event: {event_message}")
                         continue
+                elif event_type == "message" and event_topic == "/account/balance":
+                    currency = execution_data["currency"]
+                    available_balance = execution_data["available"]
+                    total_balance = execution_data["total"]
+                    self._account_balances.update({currency, total_balance})
+                    self._account_available_balances.update({currency, available_balance})
                 else:
                     continue
 
                 if (execution_status == "open" or execution_status == "match") and execution_type != "open":
-                    if Decimal(execution_data["matchSize"]) > 0 :
+                    if Decimal(execution_data["matchSize"]) > 0:
                         execute_amount_diff = Decimal(execution_data["matchSize"])
                         execute_price = Decimal(execution_data["price"])
                         tracked_order.executed_amount_base = Decimal(execution_data["filledSize"])
-                        tracked_order.executed_amount_quote = Decimal(execution_data["filledSize"]) * Decimal(execute_price)
+                        tracked_order.executed_amount_quote = Decimal(execution_data["filledSize"]) * Decimal(
+                            execute_price)
                         self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                            f"order {tracked_order.client_order_id}.")
                         self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
-                                            OrderFilledEvent(
-                                                self._current_timestamp,
-                                                tracked_order.client_order_id,
-                                                tracked_order.trading_pair,
-                                                tracked_order.trade_type,
-                                                tracked_order.order_type,
-                                                execute_price,
-                                                execute_amount_diff,
-                                                self.c_get_fee(
-                                                    tracked_order.base_asset,
-                                                    tracked_order.quote_asset,
-                                                    tracked_order.order_type,
-                                                    tracked_order.trade_type,
-                                                    execute_price,
-                                                    execute_amount_diff,
-                                                    ),
-                                                tracked_order.exchange_order_id
-                                                ))
+                                             OrderFilledEvent(
+                                                 self._current_timestamp,
+                                                 tracked_order.client_order_id,
+                                                 tracked_order.trading_pair,
+                                                 tracked_order.trade_type,
+                                                 tracked_order.order_type,
+                                                 execute_price,
+                                                 execute_amount_diff,
+                                                 self.c_get_fee(
+                                                     tracked_order.base_asset,
+                                                     tracked_order.quote_asset,
+                                                     tracked_order.order_type,
+                                                     tracked_order.trade_type,
+                                                     execute_price,
+                                                     execute_amount_diff,
+                                                 ),
+                                                 tracked_order.exchange_order_id
+                                             ))
 
-                if (execution_status == "done" or execution_status == "match") and (execution_type == "match" or execution_type == "filled"):
+                if (execution_status == "done" or execution_status == "match") and (
+                        execution_type == "match" or execution_type == "filled"):
                     tracked_order.executed_amount_base = Decimal(execution_data["filledSize"])
-                    tracked_order.executed_amount_quote = Decimal(execution_data["filledSize"]) * Decimal(execution_data["price"])
+                    tracked_order.executed_amount_quote = Decimal(execution_data["filledSize"]) * Decimal(
+                        execution_data["price"])
                     if tracked_order.trade_type == TradeType.BUY:
                         self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
                                            f"according to KuCoin user stream.")
@@ -344,29 +352,29 @@ cdef class KucoinMarket(MarketBase):
                                                                     tracked_order.fee_paid,
                                                                     tracked_order.order_type))
                     else:
-                         self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
-                                            f"according to KuCoin user stream.")
-                         self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
-                                              SellOrderCompletedEvent(self._current_timestamp,
-                                                                      tracked_order.client_order_id,
-                                                                      tracked_order.base_asset,
-                                                                      tracked_order.quote_asset,
-                                                                      (tracked_order.fee_asset
-                                                                       or tracked_order.quote_asset),
-                                                                      tracked_order.executed_amount_base,
-                                                                      tracked_order.executed_amount_quote,
-                                                                      tracked_order.fee_paid,
-                                                                      tracked_order.order_type))
+                        self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
+                                           f"according to KuCoin user stream.")
+                        self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
+                                             SellOrderCompletedEvent(self._current_timestamp,
+                                                                     tracked_order.client_order_id,
+                                                                     tracked_order.base_asset,
+                                                                     tracked_order.quote_asset,
+                                                                     (tracked_order.fee_asset
+                                                                      or tracked_order.quote_asset),
+                                                                     tracked_order.executed_amount_base,
+                                                                     tracked_order.executed_amount_quote,
+                                                                     tracked_order.fee_paid,
+                                                                     tracked_order.order_type))
                     self.c_stop_tracking_order(tracked_order.client_order_id)
-                                          
+
                 elif execution_status == "done" and execution_type == "canceled":
                     self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
                     self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-					 OrderCancelledEvent(
+                                         OrderCancelledEvent(
                                              self._current_timestamp,
                                              tracked_order.client_order_id))
                     self.c_stop_tracking_order(tracked_order.client_order_id)
-					
+
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -475,8 +483,8 @@ cdef class KucoinMarket(MarketBase):
     async def _update_trading_rules(self):
         cdef:
             # The poll interval for trade rules is 60 seconds.
-            int64_t last_tick = <int64_t > (self._last_timestamp / 60.0)
-            int64_t current_tick = <int64_t > (self._current_timestamp / 60.0)
+            int64_t last_tick = <int64_t> (self._last_timestamp / 60.0)
+            int64_t current_tick = <int64_t> (self._current_timestamp / 60.0)
         if current_tick > last_tick or len(self._trading_rules) < 1:
             exchange_info = await self._api_request("get", path_url="/api/v1/symbols")
             trading_rules_list = self._format_trading_rules(exchange_info)
@@ -510,8 +518,8 @@ cdef class KucoinMarket(MarketBase):
     async def _update_order_status(self):
         cdef:
             # The poll interval for order status is 10 seconds.
-            int64_t last_tick = <int64_t > (self._last_poll_timestamp / self.UPDATE_ORDERS_INTERVAL)
-            int64_t current_tick = <int64_t > (self._current_timestamp / self.UPDATE_ORDERS_INTERVAL)
+            int64_t last_tick = <int64_t> (self._last_poll_timestamp / self.UPDATE_ORDERS_INTERVAL)
+            int64_t current_tick = <int64_t> (self._current_timestamp / self.UPDATE_ORDERS_INTERVAL)
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
@@ -539,7 +547,8 @@ cdef class KucoinMarket(MarketBase):
                         tracked_order.last_state = "DONE"
                 else:
                     tracked_order.last_state = "CANCEL"
-                new_confirmed_amount = Decimal(order_update["data"]["dealFunds"])  # API isn't detailed enough assuming dealSize
+                new_confirmed_amount = Decimal(
+                    order_update["data"]["dealFunds"])  # API isn't detailed enough assuming dealSize
                 execute_amount_diff = Decimal(order_update["data"]["dealSize"])
 
                 if execute_amount_diff > s_decimal_0:
@@ -715,7 +724,8 @@ cdef class KucoinMarket(MarketBase):
                 raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                                  f"{trading_rule.min_order_size}.")
         try:
-            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, True, order_type, decimal_price)
+            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, True, order_type,
+                                                       decimal_price)
             self.c_start_tracking_order(
                 client_order_id=order_id,
                 exchange_order_id=exchange_order_id,
@@ -742,7 +752,7 @@ cdef class KucoinMarket(MarketBase):
         except Exception:
             self.c_stop_tracking_order(order_id)
             if order_type == OrderType.MARKET:
-                order_type_str = "MARKET" 
+                order_type_str = "MARKET"
             elif order_type == OrderType.LIMIT:
                 order_type_str = "LIMIT"
             elif order_type == OrderType.LIMIT_MAKER:
@@ -792,7 +802,8 @@ cdef class KucoinMarket(MarketBase):
                              f"{trading_rule.min_order_size}.")
 
         try:
-            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, False, order_type, decimal_price)
+            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, False, order_type,
+                                                       decimal_price)
             self.c_start_tracking_order(
                 client_order_id=order_id,
                 exchange_order_id=exchange_order_id,
@@ -819,7 +830,7 @@ cdef class KucoinMarket(MarketBase):
         except Exception:
             self.c_stop_tracking_order(order_id)
             if order_type == OrderType.MARKET:
-                order_type_str = "MARKET" 
+                order_type_str = "MARKET"
             elif order_type == OrderType.LIMIT:
                 order_type_str = "LIMIT"
             elif order_type == OrderType.LIMIT_MAKER:
