@@ -684,7 +684,7 @@ cdef class RadarRelayMarket(MarketBase):
 
         # check that price equal or  within the worstPrice recieved from marker_orders response
         if trade_type is TradeType.BUY and price < worst_price:
-            raise ValueError("Buy price too low for the amount, recalculate market sell price")
+            raise ValueError("Buy price too low for the amount, recalculate market buy price")
         elif trade_type is TradeType.SELL and price > worst_price:
             raise ValueError("Sell price too low for the amount, recalculate market sell price")
 
