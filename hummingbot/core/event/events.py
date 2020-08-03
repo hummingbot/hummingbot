@@ -65,6 +65,7 @@ class TradeType(Enum):
 class OrderType(Enum):
     LIMIT = 1
     LIMIT_MAKER = 2
+    MARKET = 3
 
 
 class PriceType(Enum):
