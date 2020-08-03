@@ -26,6 +26,9 @@ from hummingbot.core.event.events import (
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
+from hummingbot.market.market_base import (
+    MarketBase,
+)
 from hummingbot.market.bittrex.bittrex_api_order_book_data_source import BittrexAPIOrderBookDataSource
 from hummingbot.market.bittrex.bittrex_auth import BittrexAuth
 from hummingbot.market.bittrex.bittrex_in_flight_order import BittrexInFlightOrder
@@ -206,13 +209,22 @@ cdef class BittrexMarket(MarketBase):
             set remote_asset_names = set()
             set asset_names_to_remove
 
+        exchange_limits = self.load_exchange_limit_config(self.name)
         path_url = "/balances"
         account_balances = await self._api_request("GET", path_url=path_url)
 
         for balance_entry in account_balances:
             asset_name = balance_entry["currencySymbol"]
-            available_balance = Decimal(balance_entry["available"])
-            total_balance = Decimal(balance_entry["total"])
+            asset_limit = exchange_limits.get(asset_name.upper(), None)
+
+            if asset_limit is not None:
+                asset_limit = Decimal(asset_limit)
+                available_balance = min(Decimal(balance_entry["available"]), asset_limit)
+                total_balance = min(Decimal(balance_entry["total"]), asset_limit)
+            else:
+                available_balance = Decimal(balance_entry["available"])
+                total_balance = Decimal(balance_entry["total"])
+
             self._account_available_balances[asset_name] = available_balance
             self._account_balances[asset_name] = total_balance
             remote_asset_names.add(asset_name)
@@ -479,8 +491,18 @@ cdef class BittrexMarket(MarketBase):
                 if event_type == "uB":  # Updates total balance and available balance of specified currency
                     balance_delta = content["d"]
                     asset_name = balance_delta["c"]
-                    total_balance = Decimal(balance_delta["b"])
-                    available_balance = Decimal(balance_delta["a"])
+
+                    exchange_asset_limits = self.get_exchange_limit_config(self.name)
+                    asset_limit = exchange_asset_limits.get(asset_name.upper(), None)
+
+                    if asset_limit is not None:
+                        asset_limit = Decimal(asset_limit)
+                        available_balance = min(Decimal(balance_delta["a"]), asset_limit)
+                        total_balance = min(Decimal(balance_delta["b"]), asset_limit)
+                    else:
+                        available_balance = Decimal(balance_delta["a"])
+                        total_balance = Decimal(balance_delta["b"])
+
                     self._account_available_balances[asset_name] = available_balance
                     self._account_balances[asset_name] = total_balance
                 elif event_type == "uO":  # Updates track order status
@@ -711,13 +733,13 @@ cdef class BittrexMarket(MarketBase):
             }
         elif order_type is OrderType.LIMIT_MAKER:
             body = {
-                    "marketSymbol": str(trading_pair),
-                    "direction": "BUY" if is_buy else "SELL",
-                    "type": "LIMIT",
-                    "quantity": f"{amount:f}",
-                    "limit": f"{price:f}",
-                    "timeInForce": "POST_ONLY_GOOD_TIL_CANCELLED"
-                    }
+                "marketSymbol": str(trading_pair),
+                "direction": "BUY" if is_buy else "SELL",
+                "type": "LIMIT",
+                "quantity": f"{amount:f}",
+                "limit": f"{price:f}",
+                "timeInForce": "POST_ONLY_GOOD_TIL_CANCELLED"
+            }
 
         api_response = await self._api_request("POST", path_url=path_url, body=body)
 
@@ -784,7 +806,7 @@ cdef class BittrexMarket(MarketBase):
             if tracked_order is not None and exchange_order_id:
                 tracked_order.update_exchange_order_id(exchange_order_id)
                 if order_type == OrderType.MARKET:
-                    order_type_str = "MARKET" 
+                    order_type_str = "MARKET"
                 elif order_type == OrderType.LIMIT:
                     order_type_str = "LIMIT"
                 elif order_type == OrderType.LIMIT_MAKER:
@@ -851,7 +873,7 @@ cdef class BittrexMarket(MarketBase):
         decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
         if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
             decimal_price = self.c_quantize_order_price(trading_pair, price)
-        else: 
+        else:
             decimal_price = s_decimal_0
 
         if decimal_amount < trading_rule.min_order_size:
@@ -894,7 +916,7 @@ cdef class BittrexMarket(MarketBase):
             if tracked_order is not None and exchange_order_id:
                 tracked_order.update_exchange_order_id(exchange_order_id)
                 if order_type == OrderType.MARKET:
-                    order_type_str = "MARKET" 
+                    order_type_str = "MARKET"
                 elif order_type == OrderType.LIMIT:
                     order_type_str = "LIMIT"
                 elif order_type == OrderType.LIMIT_MAKER:

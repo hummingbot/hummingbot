@@ -329,6 +329,8 @@ cdef class HuobiMarket(MarketBase):
             str asset_name
             object balance
 
+        exchange_limits = self.get_exchange_limit_config(self.name)
+
         data = await self._api_request("get", path_url=path_url, is_auth_required=True)
         balances = data.get("list", [])
         if len(balances) > 0:
@@ -346,9 +348,20 @@ cdef class HuobiMarket(MarketBase):
                 if balance_entry["type"] == "trade":
                     new_available_balances[asset_name] = balance
 
-            self._account_available_balances.clear()
-            self._account_available_balances = new_available_balances
             self._account_balances.clear()
+            self._account_available_balances.clear()
+
+            for asset, unrestricted_balance in new_available_balances.items():
+                if asset.upper() in exchange_limits:
+                    asset_limit = Decimal(exchange_limits[asset.upper()])
+                    new_available_balances.update({asset: min(unrestricted_balance, asset_limit)})
+
+            for asset, unrestricted_balance in new_balances.items():
+                if asset.upper() in exchange_limits:
+                    asset_limit = Decimal(exchange_limits[asset.upper()])
+                    new_available_balances.update({asset: min(unrestricted_balance, asset_limit)})
+
+            self._account_available_balances = new_available_balances
             self._account_balances = new_balances
 
     cdef object c_get_fee(self,
