@@ -114,10 +114,12 @@ class BalanceCommand:
         rows = []
         for token, bal in exchange_balances.items():
             limit = Decimal(exchange_limits.get(token.upper(), 0)) if exchange_limits is not None else Decimal(0)
-            if bal == 0 and limit == 0:
+            if bal == Decimal(0) and limit == Decimal(0):
                 continue
             token = token.upper()
-            rows.append({"Asset": token.upper(), "Amount": round(bal, 4), "Limit": round(limit, 4)})
+            rows.append({"Asset": token.upper(),
+                         "Amount": round(bal, 4),
+                         "Limit": round(limit, 4) if limit > Decimal(0) else "---"})
         df = pd.DataFrame(data=rows, columns=["Asset", "Amount", "Limit"])
         df.sort_values(by=["Asset"], inplace=True)
         return df
