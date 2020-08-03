@@ -7,7 +7,7 @@ from typing import (
     Optional,
     Iterator)
 
-from client.config.global_config_map import (
+from hummingbot.client.config.global_config_map import (
     global_config_map,
     LIMIT_GLOBAL_CONFIG,
 )
