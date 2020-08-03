@@ -117,8 +117,7 @@ cdef class RadarRelayMarket(MarketBase):
                  trading_required: bool = True):
         super().__init__()
         self._trading_required = trading_required
-        self._order_book_tracker = RadarRelayOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
-                                                              trading_pairs=trading_pairs)
+        self._order_book_tracker = RadarRelayOrderBookTracker(trading_pairs=trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
