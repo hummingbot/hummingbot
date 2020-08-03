@@ -87,6 +87,10 @@ balance_asset_limit:
     kucoin:
     eterbase:
     kraken:
+# e.g. Setting USDT limits on Binance.
+# balance_asset_limit:
+#   binance:
+#     USDT: 1000
 
 # Telegram integration
 telegram_enabled: false
