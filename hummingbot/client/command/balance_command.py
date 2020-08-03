@@ -119,7 +119,7 @@ class BalanceCommand:
             token = token.upper()
             rows.append({"Asset": token.upper(),
                          "Amount": round(bal, 4),
-                         "Limit": round(limit, 4) if limit > Decimal(0) else "---"})
+                         "Limit": round(limit, 4) if limit > Decimal(0) else "-"})
         df = pd.DataFrame(data=rows, columns=["Asset", "Amount", "Limit"])
         df.sort_values(by=["Asset"], inplace=True)
         return df
