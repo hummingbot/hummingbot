@@ -284,12 +284,21 @@ cdef class BinanceMarket(MarketBase):
             set remote_asset_names = set()
             set asset_names_to_remove
 
+        exchange_limits = self.get_exchange_limit_config(self.name)
+
         account_info = await self.query_api(self._binance_client.get_account)
         balances = account_info["balances"]
         for balance_entry in balances:
             asset_name = balance_entry["asset"]
-            free_balance = Decimal(balance_entry["free"])
-            total_balance = Decimal(balance_entry["free"]) + Decimal(balance_entry["locked"])
+            asset_limit = exchange_limits.get(asset_name.upper(), None)
+
+            if asset_limit is not None:
+                asset_limit = Decimal(asset_limit)
+                free_balance = min(Decimal(balance_entry["free"]), asset_limit)
+                total_balance = min((Decimal(balance_entry["free"]) + Decimal(balance_entry["locked"])), asset_limit)
+            else:
+                free_balance = Decimal(balance_entry["free"])
+                total_balance = Decimal(balance_entry["free"]) + Decimal(balance_entry["locked"])
             self._account_available_balances[asset_name] = free_balance
             self._account_balances[asset_name] = total_balance
             remote_asset_names.add(asset_name)

@@ -357,12 +357,21 @@ cdef class EterbaseMarket(MarketBase):
             set remote_asset_names = set()
             set asset_names_to_remove
 
+        exchange_limits = self.get_exchange_limit_config(self.name)
+
         path_url = f"/accounts/{self._eterbase_account}/balances"
         account_balances = await api_request("get", path_url=path_url, auth=self._eterbase_auth)
         for balance_entry in account_balances:
             asset_name = balance_entry["assetId"]
-            available_balance = Decimal(balance_entry["available"])
-            total_balance = Decimal(balance_entry["balance"])
+            asset_limit = exchange_limits.get(asset_name.upper(), None)
+
+            if asset_limit is not None:
+                asset_limit = Decimal(asset_limit)
+                available_balance = min(Decimal(balance_entry["available"]), asset_limit)
+                total_balance = min(Decimal(balance_entry["balance"]), asset_limit)
+            else:
+                available_balance = Decimal(balance_entry["available"])
+                total_balance = Decimal(balance_entry["balance"])
             self._account_available_balances[asset_name] = available_balance
             self._account_balances[asset_name] = total_balance
             remote_asset_names.add(asset_name)
@@ -838,7 +847,7 @@ cdef class EterbaseMarket(MarketBase):
         except Exception:
             self.c_stop_tracking_order(order_id)
             if order_type == OrderType.MARKET:
-                order_type_str = "MARKET" 
+                order_type_str = "MARKET"
             elif order_type == OrderType.LIMIT:
                 order_type_str = "LIMIT"
             elif order_type == OrderType.LIMIT_MAKER:
@@ -911,7 +920,7 @@ cdef class EterbaseMarket(MarketBase):
         except Exception as e:
             self.c_stop_tracking_order(order_id)
             if order_type == OrderType.MARKET:
-                order_type_str = "MARKET" 
+                order_type_str = "MARKET"
             elif order_type == OrderType.LIMIT:
                 order_type_str = "LIMIT"
             elif order_type == OrderType.LIMIT_MAKER:
