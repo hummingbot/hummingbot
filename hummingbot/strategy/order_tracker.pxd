@@ -25,11 +25,11 @@ cdef class OrderTracker(TimeIterator):
     cdef LimitOrder c_get_limit_order(self, object market_pair, str order_id)
     cdef object c_get_market_order(self, object market_pair, str order_id)
     cdef LimitOrder c_get_shadow_limit_order(self, str order_id)
-    cdef c_start_tracking_maker_order(self, object market_pair, str order_id, bint is_buy, object price,
+    cdef c_start_tracking_limit_order(self, object market_pair, str order_id, bint is_buy, object price,
                                       object quantity)
-    cdef c_stop_tracking_maker_order(self, object market_pair, str order_id)
-    cdef c_start_tracking_taker_order(self, object market_pair, str order_id, bint is_buy, object quantity)
-    cdef c_stop_tracking_taker_order(self, object market_pair, str order_id)
+    cdef c_stop_tracking_limit_order(self, object market_pair, str order_id)
+    cdef c_start_tracking_market_order(self, object market_pair, str order_id, bint is_buy, object quantity)
+    cdef c_stop_tracking_market_order(self, object market_pair, str order_id)
     cdef c_check_and_cleanup_shadow_records(self)
     cdef c_add_create_order_pending(self, str order_id)
     cdef c_remove_create_order_pending(self, str order_id)
