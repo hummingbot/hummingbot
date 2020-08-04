@@ -34,6 +34,11 @@ Liquidity mining sets forth an analytical framework for determining market maker
     
     You can read more about it in our [Reddit post](https://www.reddit.com/r/Hummingbot/comments/hx9wy5/change_to_spread_factor_constant_more_rewards_for/).
 
+!!! note "Campaign updates for the week starting August 4, 2020 12.00am UTC"
+    SOL liquidity mining campaign will be paused. After we add other exchanges where SOL trades, we and Solana will revisit liquidity incentives for SOL.
+    
+    You can read more about it on this [Reddit post](https://www.reddit.com/r/Hummingbot/comments/i32roh/sol_liquidity_mining_campaign_paused/).    
+
 **Current reward period: July 28, 2020 12.00am UTC to August 10, 2020 12.00am UTC**
 
 <table>
