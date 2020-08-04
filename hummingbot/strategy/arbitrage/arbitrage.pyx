@@ -112,7 +112,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                          ["    " + line for line in str(assets_df).split("\n")])
 
             lines.extend(
-                ["", "  Profitability:"] +
+                ["", "  Profitability(without fees):"] +
                 [f"    take bid on {market_pair.first.market.name}, "
                  f"take ask on {market_pair.second.market.name}: {round(self._current_profitability[0] * 100, 4)} %"] +
                 [f"    take ask on {market_pair.first.market.name}, "
