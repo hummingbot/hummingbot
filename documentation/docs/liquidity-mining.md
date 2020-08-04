@@ -34,7 +34,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
     
     You can read more about it in our [Reddit post](https://www.reddit.com/r/Hummingbot/comments/hx9wy5/change_to_spread_factor_constant_more_rewards_for/).
 
-**Current reward period: July 28, 2020 12.00am UTC to August 10, 2020 12.00am UTC**
+**Current reward period: August 4, 2020 12.00am UTC to August 10, 2020 12.00am UTC**
 
 <table>
   <thead>
