@@ -129,9 +129,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         self._cancel_timestamp = 0
         self._create_timestamp = 0
-        if not take_if_crossed and OrderType.LIMIT_MAKER in self._market_info.market.supported_order_types():
-            self._limit_order_type = OrderType.LIMIT_MAKER
-        else:
+        self._limit_order_type = self.c_get_maker_order_type(self._market_info)
+        if take_if_crossed:
             self._limit_order_type = OrderType.LIMIT
         self._all_markets_ready = False
         self._filled_buys_balance = 0
@@ -802,12 +801,12 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             MarketBase market = self._market_info.market
         for buy in proposal.buys:
             fee = market.c_get_fee(self.base_asset, self.quote_asset,
-                                   OrderType.LIMIT_MAKER, TradeType.BUY, buy.size, buy.price)
+                                   self._limit_order_type, TradeType.BUY, buy.size, buy.price)
             price = buy.price * (Decimal(1) - fee.percent)
             buy.price = market.c_quantize_order_price(self.trading_pair, price)
         for sell in proposal.sells:
             fee = market.c_get_fee(self.base_asset, self.quote_asset,
-                                   OrderType.LIMIT_MAKER, TradeType.SELL, sell.size, sell.price)
+                                   self._limit_order_type, TradeType.SELL, sell.size, sell.price)
             price = sell.price * (Decimal(1) + fee.percent)
             sell.price = market.c_quantize_order_price(self.trading_pair, price)
 
