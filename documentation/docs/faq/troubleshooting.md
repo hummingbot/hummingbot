@@ -200,10 +200,37 @@ rm hummingbot/conf/encrypted* hummingbot/conf/key_file*
 
 If Hummingbot is installed on Windows, simply delete the encrypted files found in `%localappdata%\hummingbot.io\Hummingbot\conf`.
 
+If Hummingbot is installed on MacOS, simply delete the encrypted files found in `~/Library/Application\ Support/Hummingbot/Conf`.
+
 !!! warning
     Be careful when deleting the local wallet key file created through Hummingbot, i.e, a wallet that was not imported from Metamask; deleting the key file will result in a permanent loss of access to that wallet and any assets it may contain.
 
 ![delete_encrypted_files](/assets/img/ts_delete_encrypted.gif)
+
+### How to reset global configs to default settings?
+
+Editing `conf_global.yml` from text editor sometimes can cause error or corrupted configuration when running Hummingbot, its because of incorrect format, incorrect parameters, wrong spelling and unintentional added characters to the global config.
+
+1. Run `exit` command to exit from the Hummingbot client.
+2. Delete `conf_global.yml` from the `hummingbot_conf` folder.
+3. Restart Hummingbot and a new generated `conf_global.yml` will be created, type `config` command to see the global configuration.
+
+If using Linux, copy the commands below and run in your terminal to delete the file. You will be prompted to confirm before proceeding.
+
+```bash tab="Docker build"
+rm hummingbot_files/hummingbot_conf/conf_global.yml
+```
+
+```bash tab="Source build"
+rm hummingbot/conf/conf_global.yml
+```
+
+If Hummingbot is installed on Windows, simply delete the `conf_global.yml` found in `%localappdata%\hummingbot.io\Hummingbot\conf`.
+
+If Hummingbot is installed on MacOS, simply delete the `conf_global.yml` found in `~/Library/Application\ Support/Hummingbot/Conf`.
+
+!!! Note
+    If telegram is enabled make sure to backup your telegram token and chat id when deleting `conf_global.yml`.
 
 ### How do I adjust paper trade asset balances?
 
