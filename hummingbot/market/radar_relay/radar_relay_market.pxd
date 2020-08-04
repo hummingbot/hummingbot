@@ -17,8 +17,8 @@ cdef class RadarRelayMarket(MarketBase):
         double _last_update_trading_rules_timestamp
         double _last_update_available_balance_timestamp
         double _poll_interval
-        dict _in_flight_maker_orders
-        dict _in_flight_taker_orders
+        dict _in_flight_limit_orders
+        dict _in_flight_market_orders
         object _order_expiry_queue
         TransactionTracker _tx_tracker
         object _w3
@@ -31,7 +31,7 @@ cdef class RadarRelayMarket(MarketBase):
         public object _approval_tx_polling_task
         int64_t _latest_salt
 
-    cdef c_start_tracking_maker_order(self,
+    cdef c_start_tracking_limit_order(self,
                                       str order_id,
                                       str exchange_order_id,
                                       str trading_pair,
@@ -40,7 +40,7 @@ cdef class RadarRelayMarket(MarketBase):
                                       object price,
                                       object amount,
                                       object zero_ex_order)
-    cdef c_start_tracking_taker_order(self,
+    cdef c_start_tracking_market_order(self,
                                        str order_id,
                                        str trading_pair,
                                        object order_type,
