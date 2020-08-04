@@ -1,30 +1,71 @@
+import re
+from enum import Enum
+from os.path import join, realpath
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
+
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.market.binance_perpetual.binance_perpetual_order_book_data_source import \
+    BinancePerpetualOrderBookDataSource
+
 import asyncio
 import hashlib
 import hmac
 import time
 import logging
+import pandas as pd
 from decimal import Decimal
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any, Tuple
 from urllib.parse import urlencode
+from libc.stdint cimport int64_t
 
 import aiohttp
 
-from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
-from hummingbot.core.event.events import OrderType, TradeType, MarketOrderFailureEvent
+from hummingbot.core.event.events import OrderType, TradeType, MarketOrderFailureEvent, MarketEvent, OrderCancelledEvent
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
-from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.utils.async_utils import safe_gather, safe_ensure_future
 from hummingbot.core.utils.asyncio_throttle import Throttler
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.binance_perpetual.binance_perpetual_order_book_tracker import BinancePerpetualOrderBookTracker
 from hummingbot.market.binance_perpetual.binance_perpetual_user_stream_tracker import BinancePerpetualUserStreamTracker
 from hummingbot.market.market_base import MarketBase, s_decimal_NaN
-from hummingbot.market.trading_rule import TradingRule
+from hummingbot.market.trading_rule cimport TradingRule
+
+
+class MethodType(Enum):
+    GET = "GET"
+    POST = "POST"
+    DELETE = "DELETE"
+    PUT = "PUT"
+
 
 bpm_logger = None
 
+TRADING_PAIR_SPLITTER = re.compile(
+    r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|USDS|TUSD|PAX|TRX|BUSD|NGN|RUB|TRY|EUR|IDRT|ZAR|UAH|GBP|BKRW|BIDR)$")
+BROKER_ID = "x-XEKWYICX"
+
+cdef str get_client_order_id(str order_side, object trading_pair):
+    cdef:
+        int64_t nonce = <int64_t> get_tracking_nonce()
+        object symbols = trading_pair.split("-")
+        str base = symbols[0].upper()
+        str quote = symbols[1].upper()
+    return f"{BROKER_ID}-{order_side.upper()[0]}{base[0]}{base[-1]}{quote[0]}{quote[-1]}{nonce}"
+
 cdef class BinancePerpetualMarket(MarketBase):
+    MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
+    MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
+    MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
+    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
+    MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
+    MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
+    MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
+    MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
+    MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
+
     @classmethod
     def logger(cls) -> HummingbotLogger:
         global bpm_logger
@@ -73,11 +114,11 @@ cdef class BinancePerpetualMarket(MarketBase):
 
     @property
     def ready(self):
-        raise NotImplementedError
+        pass
 
     @property
     def limit_orders(self):
-        raise NotImplementedError
+        pass
 
     async def execute_buy(self,
                           order_id: str,
@@ -85,6 +126,7 @@ cdef class BinancePerpetualMarket(MarketBase):
                           amount: Decimal,
                           order_type: OrderType,
                           price: Optional[Decimal] = s_decimal_NaN):
+        print("WESLEY TESTING--- EXECUTE BUY")
         return await self.create_order(TradeType.BUY, order_id, trading_pair, amount, order_type, price)
 
     cdef str c_buy(self,
@@ -93,42 +135,111 @@ cdef class BinancePerpetualMarket(MarketBase):
                    object order_type=OrderType.MARKET,
                    object price=s_decimal_NaN,
                    dict kwargs={}):
-        raise NotImplementedError
+        cdef:
+            str t_pair = BinancePerpetualMarket.convert_from_exchange_trading_pair(trading_pair)
+            str order_id = get_client_order_id("buy", t_pair)
+        print("WESLEY TESTING--- C_BUY")
+        safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
+        return order_id
 
-    def c_sell(self, trading_pair, amount, order_type=OrderType.MARKET, price=s_decimal_NaN, kwargs={}):
-        raise NotImplementedError
+    async def execute_sell(self,
+                           order_id: str,
+                           trading_pair: str,
+                           amount: Decimal,
+                           order_type: OrderType,
+                           price: Optional[Decimal] = Decimal("NaN")):
+        return await self.create_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price)
 
-    async def get_active_exchange_markets(self):
-        raise NotImplementedError
+    cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.MARKET,
+                    object price=s_decimal_NaN, dict kwargs={}):
+        cdef:
+            str t_pair = BinancePerpetualMarket.convert_from_exchange_trading_pair(trading_pair)
+            str order_id = get_client_order_id("sell", t_pair)
+        safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
+        return order_id
+
+    # TODO: DEPRECATED
+    async def get_active_exchange_markets(self) -> pd.DataFrame:
+        return await BinancePerpetualOrderBookDataSource.get_active_exchange_markets()
 
     async def get_deposit_info(self, asset: str):
-        raise NotImplementedError
+        pass
 
     async def cancel_all(self, timeout_seconds: float):
-        raise NotImplementedError
+        pass
 
-    def c_cancel(self, trading_pair, client_order_id):
-        raise NotImplementedError
+    cdef c_cancel(self, str trading_pair, str client_order_id):
+        safe_ensure_future(self.execute_cancel(trading_pair, client_order_id))
+        return client_order_id
 
-    def c_stop_tracking_order(self, order_id):
-        raise NotImplementedError
+    async def execute_cancel(self, trading_pair: str, client_order_id: str):
+        try:
+            params = {
+                "origClientOrderId": client_order_id,
+                "symbol": trading_pair
+            }
+            response = await self.request(
+                path="order",
+                params=params,
+                method=MethodType.DELETE,
+                is_signed=True
+            )
+        except Exception as e:
+            self.logger().error(f"Could not cancel order {client_order_id} (on Binance Perp. {trading_pair})")
+            raise e
+        if response.get("status", None) == "CANCELED":
+            self.logger().info(f"Successfully canceled order {client_order_id}")
+            self.c_stop_tracking_order(client_order_id)
+            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                 OrderCancelledEvent(self._current_timestamp, client_order_id))
+        return response
 
-    def c_get_fee(self, base_currency, quote_currency, order_type, order_side, amount, price):
-        raise NotImplementedError
+    cdef c_start_tracking_order(self, str order_id, str exchange_order_id, str trading_pair, object trading_type,
+                                object price, object amount, object order_type):
+        pass
 
-    def c_withdraw(self, address, currency, amount):
-        raise NotImplementedError
+    cdef c_stop_tracking_order(self, str order_id):
+        pass
 
-    def c_get_order_book(self, trading_pair):
-        raise NotImplementedError
+    cdef object c_get_fee(self, str base_currency, str quote_currency, object order_type, object order_side,
+                          object amount, object price):
+        return
 
-    def c_get_order_price_quantum(self, trading_pair, price):
-        raise NotImplementedError
+    cdef OrderBook c_get_order_book(self, str trading_pair):
+        cdef:
+            dict order_books = self._order_book_tracker.order_books
+        if trading_pair not in order_books:
+            raise ValueError(f"No order book exists for '{trading_pair}'.")
+        return order_books[trading_pair]
 
-    def c_get_order_size_quantum(self, trading_pair, order_size):
-        raise NotImplementedError
+    cdef object c_get_order_price_quantum(self, str trading_pair, object price):
+        return
+
+    cdef object c_get_order_size_quantum(self, str trading_pair, object order_size):
+        return
+
+    # TODO: IMPLEMENT WITH A 1X MARGIN INITIALLY (KEEPS ASSET MANAGEMENT EASIER)
+    def set_margin(self, margin: int):
+        pass
 
     # Helper Functions ---
+    @staticmethod
+    def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
+        try:
+            m = TRADING_PAIR_SPLITTER.match(trading_pair)
+            return m.group(1), m.group(2)
+        # Exceptions are now logged as warnings in trading pair fetcher
+        except Exception as e:
+            return None
+
+    @staticmethod
+    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
+        if BinancePerpetualMarket.split_trading_pair(exchange_trading_pair) is None:
+            return None
+        # Binance does not split BASEQUOTE (BTCUSDT)
+        base_asset, quote_asset = BinancePerpetualMarket.split_trading_pair(exchange_trading_pair)
+        return f"{base_asset}-{quote_asset}"
+
     async def create_order(self,
                            trade_type: TradeType,
                            order_id: str,
@@ -140,8 +251,8 @@ cdef class BinancePerpetualMarket(MarketBase):
         #     TradingRule trading_rule = self._trading_rules[trading_pair]
         if order_type == OrderType.LIMIT_MAKER:
             raise ValueError("Binance Perpetuals does not support the Limit Maker order type.")
-        amount = self.c_quantize_order_amount(trading_pair, amount)
-        price = Decimal("NaN") if order_type == OrderType.MARKET else self.c_quantize_order_price(trading_pair, price)
+        # amount = self.c_quantize_order_amount(trading_pair, amount)
+        # price = Decimal("NaN") if order_type == OrderType.MARKET else self.c_quantize_order_price(trading_pair, price)
 
         # if amount < trading_rule.min_order_size:
         #     raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
@@ -152,57 +263,160 @@ cdef class BinancePerpetualMarket(MarketBase):
                       "side": "BUY" if trade_type is TradeType.BUY else "SELL",
                       "type": order_type.name.upper(),
                       "quantity": f"{amount}",
-                      "newClientOrderId": order_id}
+                      "timestamp": f"{int(time.time()) * 1000}",
+                      "newClientOrderId": order_id
+                      }
         if order_type != OrderType.MARKET:
             api_params["price"] = f"{price}"
         if order_type == OrderType.LIMIT:
             api_params["timeInForce"] = "GTC"
 
-        # TODO: Uncomment when implemented
-        # self.c_start_tracking_order(order_id, "", trading_pair, trade_type, price, amount, order_type)
+        self.c_start_tracking_order(order_id, "", trading_pair, trade_type, price, amount, order_type)
 
         try:
-            order_result = await self.signed_request("order", api_params)
+            order_result = await self.request(path="order",
+                                              params=api_params,
+                                              method=MethodType.POST,
+                                              is_signed=True)
+            self.logger().debug(f"WESLEY TESTING --- ORDER RESULTS: {order_result}")
+            print(f"ORDER RESULTS --- {order_result}")
+            return order_result
         except asyncio.CancelledError:
             raise
         except Exception as e:
             # TODO: Uncomment when implemented
-            # self.c_stop_tracking_order(order_id)
-
+            self.c_stop_tracking_order(order_id)
+            self.logger().debug(f"WESLEY TESTING --- Error: {e}")
+            print(e)
             self.logger().network(
                 f"Error submitting order to Binance Perpetuals for {amount} {trading_pair} "
-                f"{''if order_type is OrderType.MARKET else price}.",
+                f"{'' if order_type is OrderType.MARKET else price}.",
                 exc_info=True,
                 app_warning_msg=str(e)
             )
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
-    async def signed_request(self, path: str, params, request_weight: int = 1):
+    async def request(self, path: str, params: Dict[str, Any] = {}, method: MethodType = MethodType.GET,
+                      is_signed: bool = False, request_weight: int = 1):
         async with self._throttler.weighted_task(request_weight):
             try:
                 async with aiohttp.ClientSession() as client:
-                    secret = bytes(self._binance_api_secret.encode("utf-8"))
-                    signature = hmac.new(secret, params.encode("utf-8"), hashlib.sha256).hexdigest()
-                    query = urlencode(sorted(params.items())) + f"&timestamp={int(time.time()) * 1000}" \
-                                                                f"&signature={signature}"
-
-                    response = await safe_gather(
-                        client.post("https://fapi.binance.com/fapi/v1/" + path + "?" + query,
-                                    headers={"X-MBX-APIKEY": self._binance_api_key})
-                    )
-                    if response.status != 200:
-                        raise IOError(f"Error fetching data from {path}. HTTP status is {response.status}.")
+                    query = urlencode(sorted(params.items()))
+                    if is_signed:
+                        secret = bytes(self._binance_api_secret.encode("utf-8"))
+                        signature = hmac.new(secret, query.encode("utf-8"), hashlib.sha256).hexdigest()
+                        query += f"&signature={signature}"
+                    async with client.request(
+                            method=method.value,
+                            url="https://fapi.binance.com/fapi/v1/" + path + "?" + query,
+                            headers={"X-MBX-APIKEY": self._binance_api_key}) as response:
+                        if response.status != 200:
+                            raise IOError(f"Error fetching data from {path}. HTTP status is {response.status}.")
+                        return response
             except Exception as e:
                 self.logger().warning(f"Error fetching {path}")
                 raise e
 
-    cdef c_start_tracking_order(self, str order_id, str exchange_order_id, str trading_pair, object trading_type,
-                                object price, object amount, object order_type):
-        raise NotImplementedError
-
-    cdef c_stop_tracking_order(self, str order_id):
-        raise NotImplementedError
-
     cdef c_did_timout_tx(self, str tracking_id):
-        raise NotImplementedError
+        pass
+
+    async def _update_trading_rules(self):
+        cdef:
+            int64_t last_tick = <int64_t> (self._last_timestamp / 60.0)
+            int64_t current_tick = <int64_t> (self._current_timestamp / 60.0)
+        if current_tick > last_tick or len(self._trading_rules) < 1:
+            exchange_info = await self.request(path="exchangeInfo", method=MethodType.GET, is_signed=False)
+            trading_rules_list = self.format_trading_rules(exchange_info)
+            self._trading_rules.clear()
+            for trading_rule in trading_rules_list:
+                self._trading_rules[trading_rule.trading_pair] = trading_rule
+
+    def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
+        """
+            Example:
+            {
+                "symbol": "BTCUSDT",
+                "status": "TRADING",
+                "maintMarginPercent": "2.5000",
+                "requiredMarginPercent": "5.0000",
+                "baseAsset": "BTC",
+                "quoteAsset": "USDT",
+                "pricePrecision": 2,
+                "quantityPrecision": 3,
+                "baseAssetPrecision": 8,
+                "quotePrecision": 8,
+                "filters": [
+                    {
+                        "minPrice": "0.01",
+                        "maxPrice": "100000",
+                        "filterType": "PRICE_FILTER",
+                        "tickSize": "0.01"
+                    },
+                    {
+                        "stepSize": "0.001",
+                        "filterType": "LOT_SIZE",
+                        "maxQty": "1000",
+                        "minQty": "0.001"
+                    },
+                    {
+                        "stepSize": "0.001",
+                        "filterType": "MARKET_LOT_SIZE",
+                        "maxQty": "1000",
+                        "minQty": "0.001"
+                    },
+                    {
+                        "limit": 0,
+                        "filterType": "MAX_NUM_ORDERS"
+                    },
+                    {
+                        "multiplierDown": "0.7000",
+                        "multiplierUp": "1.3000",
+                        "multiplierDecimal": "4",
+                        "filterType": "PERCENT_PRICE"
+                    }
+                ],
+                "orderTypes": [
+                    "LIMIT",
+                    "MARKET",
+                    "STOP",
+                    "STOP_MARKET",
+                    "TAKE_PROFIT",
+                    "TAKE_PROFIT_MARKET"
+                ],
+                "timeInForce": [
+                    "GTC",
+                    "IOC",
+                    "FOK",
+                    "GTX"
+                ]
+            }
+        """
+        cdef:
+            list rules = exchange_info_dict.get("symbols", [])
+            list return_val = []
+        for rule in rules:
+            try:
+                trading_pair = rule["symbol"]
+                filters = rule["filters"]
+                filt_dict = {fil["filterType"]: fil for fil in filters}
+
+                min_order_size = Decimal(filt_dict.get("LOT_SIZE").get("minQty"))
+                step_size = Decimal(filt_dict.get("LOT_SIZE").get("stepSize"))
+                tick_size = Decimal(filt_dict.get("PRICE_FILTER").get("tickSize"))
+
+                # TODO: BINANCE PERPETUALS DOES NOT HAVE A MIN NOTIONAL VALUE, NEED TO CHECK
+                # min_notional = 0
+
+                return_val.append(
+                    TradingRule(trading_pair,
+                                min_order_size=min_order_size,
+                                min_price_increment=Decimal(tick_size),
+                                min_base_amount_increment=Decimal(step_size),
+                                # min_notional_size=Decimal(min_notional))
+                                )
+                )
+            except Exception as e:
+                self.logger().error(f"Error parsing the trading pair rule {rule}. Error: {e}. Skipping...",
+                                    exc_info=True)
+        return return_val
