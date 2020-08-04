@@ -26,9 +26,6 @@ from hummingbot.core.event.events import (
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.market_base import (
-    MarketBase,
-)
 from hummingbot.market.bittrex.bittrex_api_order_book_data_source import BittrexAPIOrderBookDataSource
 from hummingbot.market.bittrex.bittrex_auth import BittrexAuth
 from hummingbot.market.bittrex.bittrex_in_flight_order import BittrexInFlightOrder
@@ -209,22 +206,13 @@ cdef class BittrexMarket(MarketBase):
             set remote_asset_names = set()
             set asset_names_to_remove
 
-        exchange_limits = self.load_exchange_limit_config(self.name)
         path_url = "/balances"
         account_balances = await self._api_request("GET", path_url=path_url)
 
         for balance_entry in account_balances:
             asset_name = balance_entry["currencySymbol"]
-            asset_limit = exchange_limits.get(asset_name.upper(), None)
-
-            if asset_limit is not None:
-                asset_limit = Decimal(asset_limit)
-                available_balance = min(Decimal(balance_entry["available"]), asset_limit)
-                total_balance = min(Decimal(balance_entry["total"]), asset_limit)
-            else:
-                available_balance = Decimal(balance_entry["available"])
-                total_balance = Decimal(balance_entry["total"])
-
+            available_balance = Decimal(balance_entry["available"])
+            total_balance = Decimal(balance_entry["total"])
             self._account_available_balances[asset_name] = available_balance
             self._account_balances[asset_name] = total_balance
             remote_asset_names.add(asset_name)
@@ -491,18 +479,8 @@ cdef class BittrexMarket(MarketBase):
                 if event_type == "uB":  # Updates total balance and available balance of specified currency
                     balance_delta = content["d"]
                     asset_name = balance_delta["c"]
-
-                    exchange_asset_limits = self.get_exchange_limit_config(self.name)
-                    asset_limit = exchange_asset_limits.get(asset_name.upper(), None)
-
-                    if asset_limit is not None:
-                        asset_limit = Decimal(asset_limit)
-                        available_balance = min(Decimal(balance_delta["a"]), asset_limit)
-                        total_balance = min(Decimal(balance_delta["b"]), asset_limit)
-                    else:
-                        available_balance = Decimal(balance_delta["a"])
-                        total_balance = Decimal(balance_delta["b"])
-
+                    total_balance = Decimal(balance_delta["b"])
+                    available_balance = Decimal(balance_delta["a"])
                     self._account_available_balances[asset_name] = available_balance
                     self._account_balances[asset_name] = total_balance
                 elif event_type == "uO":  # Updates track order status

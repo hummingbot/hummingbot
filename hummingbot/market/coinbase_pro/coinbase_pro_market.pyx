@@ -376,21 +376,13 @@ cdef class CoinbaseProMarket(MarketBase):
             set remote_asset_names = set()
             set asset_names_to_remove
 
-        exchange_limits = self.get_exchange_limit_config(self.name)
-
         path_url = "/accounts"
         account_balances = await self._api_request("get", path_url=path_url)
 
         for balance_entry in account_balances:
             asset_name = balance_entry["currency"]
-            asset_limit = exchange_limits.get(asset_name.upper(), None)
-            if asset_limit is not None:
-                asset_limit = Decimal(asset_limit)
-                available_balance = min(Decimal(balance_entry["available"]), asset_limit)
-                total_balance = min(Decimal(balance_entry["balance"]), asset_limit)
-            else:
-                available_balance = Decimal(balance_entry["available"])
-                total_balance = Decimal(balance_entry["balance"])
+            available_balance = Decimal(balance_entry["available"])
+            total_balance = Decimal(balance_entry["balance"])
             self._account_available_balances[asset_name] = available_balance
             self._account_balances[asset_name] = total_balance
             remote_asset_names.add(asset_name)

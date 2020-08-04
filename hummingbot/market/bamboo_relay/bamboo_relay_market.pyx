@@ -431,17 +431,7 @@ cdef class BambooRelayMarket(MarketBase):
         return estimate_fee("bamboo_relay", is_maker)
 
     def _update_balances(self):
-        exchange_limits = self.get_exchange_limit_config(self.name())
-
-        account_balances = self.wallet.get_all_balances().copy()
-        for asset, balance in account_balances.items():
-            asset_limit = exchange_limits.get(asset.upper(), None)
-            if asset_limit is not None:
-                asset_limit = Decimal(asset_limit)
-                restricted_balance = min(balance, asset_limit)
-                account_balances[asset] = restricted_balance
-
-        self._account_balances = account_balances.copy()
+        self._account_balances = self.wallet.get_all_balances().copy()
 
     def _update_available_balances(self):
         cdef:
@@ -451,8 +441,6 @@ cdef class BambooRelayMarket(MarketBase):
             str currency
             list pair_split
             dict locked_balances = {}
-
-        exchange_limits = self.get_exchange_limit_config(self.name())
 
         if current_timestamp - self._last_update_available_balance_timestamp > 10.0:
 
@@ -487,17 +475,8 @@ cdef class BambooRelayMarket(MarketBase):
                     locked_balances[currency] = locked_balances.get(currency, s_decimal_0) + amount
 
                 for currency, balance in total_balances.items():
-                    asset_limit = exchange_limits.get(currency.upper(), None)
-
-                    if asset_limit is not None:
-                        asset_limit = Decimal(asset_limit)
-                        available_balance = Decimal(total_balances[currency]) - locked_balances.get(currency, s_decimal_0)
-                        restricted_balance = min(available_balance, asset_limit)
-                        self._account_available_balances[currency] = restricted_balance
-                    else:
-
-                        self._account_available_balances[currency] = \
-                            Decimal(total_balances[currency]) - locked_balances.get(currency, s_decimal_0)
+                    self._account_available_balances[currency] = \
+                        Decimal(total_balances[currency]) - locked_balances.get(currency, s_decimal_0)
             else:
                 self._account_available_balances = self._account_balances.copy()
 
