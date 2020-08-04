@@ -16,6 +16,9 @@ from hummingbot.client.config.config_validators import (
 )
 
 
+LIMIT_GLOBAL_CONFIG = "balance_asset_limit"
+
+
 def generate_client_id() -> str:
     vals = [random.choice(range(0, 256)) for i in range(0, 20)]
     return "".join([f"{val:02x}" for val in vals])

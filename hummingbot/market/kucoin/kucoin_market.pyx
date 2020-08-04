@@ -300,6 +300,7 @@ cdef class KucoinMarket(MarketBase):
                     total_balance = execution_data["total"]
                     self._account_balances.update({currency, total_balance})
                     self._account_available_balances.update({currency, available_balance})
+                    self.apply_balance_restriction()
                 else:
                     continue
 
@@ -460,6 +461,8 @@ cdef class KucoinMarket(MarketBase):
             self._account_available_balances = new_available_balances
             self._account_balances.clear()
             self._account_balances = new_balances
+
+        self.apply_balance_restriction()
 
     cdef object c_get_fee(self,
                           str base_currency,
