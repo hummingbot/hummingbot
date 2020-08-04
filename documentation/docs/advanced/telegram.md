@@ -53,6 +53,14 @@ telegram_token: <TELEGRAM TOKEN FROM STEP 1>
 telegram_chat_id: <TELEGRAM ID FROM STEP 2>
 ```
 
+* Alternatively, you can also configure your Telegram bot inside the Hummingbot client by using the following commands:
+
+```
+config telegram_enabled
+config telegram_token
+config telegram_chat_id
+```
+
 ### 4. Startup Hummingbot
 
 You can now startup Hummingbot and confirm that the integration is properly configured.
