@@ -162,7 +162,7 @@ cdef class OrderBookMarketOrderFillListener(EventListener):
 
     cdef c_call(self, object event_object):
 
-        if event_object.trading_pair not in self._market.order_books or event_object.order_type != OrderType.LIMIT:
+        if event_object.trading_pair not in self._market.order_books or event_object.order_type != OrderType.MARKET:
             return
         order_book = self._market.order_books[event_object.trading_pair]
         order_book.record_filled_order(event_object)
@@ -330,7 +330,7 @@ cdef class PaperTradeMarket(MarketBase):
     cdef str c_buy(self,
                    str trading_pair_str,
                    object amount,
-                   object order_type=OrderType.LIMIT,
+                   object order_type=OrderType.MARKET,
                    object price=s_decimal_0,
                    dict kwargs={}):
         if trading_pair_str not in self._trading_pairs:
@@ -347,12 +347,14 @@ cdef class PaperTradeMarket(MarketBase):
             SingleTradingPairLimitOrders *limit_orders_collection_ptr = NULL
             pair[LimitOrders.iterator, cppbool] insert_result
 
-        quantized_price = self.c_quantize_order_price(trading_pair_str, price)
+        quantized_price = (self.c_quantize_order_price(trading_pair_str, price)
+                           if order_type is OrderType.LIMIT
+                           else s_decimal_0)
         quantized_amount = self.c_quantize_order_amount(trading_pair_str, amount)
-        if order_type is OrderType.LIMIT:
+        if order_type is OrderType.MARKET:
             self._queued_orders.append(QueuedOrder(self._current_timestamp, order_id, True, trading_pair_str,
                                                    quantized_amount))
-        elif order_type is OrderType.LIMIT_MAKER:
+        elif order_type is OrderType.LIMIT:
 
             map_it = self._bid_limit_orders.find(cpp_trading_pair_str)
 
@@ -384,7 +386,7 @@ cdef class PaperTradeMarket(MarketBase):
     cdef str c_sell(self,
                     str trading_pair_str,
                     object amount,
-                    object order_type=OrderType.LIMIT,
+                    object order_type=OrderType.MARKET,
                     object price=s_decimal_0,
                     dict kwargs={}):
 
@@ -401,12 +403,14 @@ cdef class PaperTradeMarket(MarketBase):
             SingleTradingPairLimitOrders *limit_orders_collection_ptr = NULL
             pair[LimitOrders.iterator, cppbool] insert_result
 
-        quantized_price = self.c_quantize_order_price(trading_pair_str, price)
+        quantized_price = (self.c_quantize_order_price(trading_pair_str, price)
+                           if order_type is OrderType.LIMIT
+                           else s_decimal_0)
         quantized_amount = self.c_quantize_order_amount(trading_pair_str, amount)
-        if order_type is OrderType.LIMIT:
+        if order_type is OrderType.MARKET:
             self._queued_orders.append(QueuedOrder(self._current_timestamp, order_id, False, trading_pair_str,
                                                    quantized_amount))
-        elif order_type is OrderType.LIMIT_MAKER:
+        elif order_type is OrderType.LIMIT:
             map_it = self._ask_limit_orders.find(cpp_trading_pair_str)
 
             if map_it == self._ask_limit_orders.end():
@@ -453,7 +457,7 @@ cdef class PaperTradeMarket(MarketBase):
                                   f"{total_quote_needed} {quote_asset} required for the order.")
             self.c_trigger_event(
                 self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                MarketOrderFailureEvent(self._current_timestamp, order_id, OrderType.LIMIT)
+                MarketOrderFailureEvent(self._current_timestamp, order_id, OrderType.MARKET)
             )
             return
 
@@ -467,7 +471,7 @@ cdef class PaperTradeMarket(MarketBase):
         fees = estimate_fee(self.name, False)
 
         order_filled_events = OrderFilledEvent.order_filled_events_from_order_book_rows(
-            self._current_timestamp, order_id, trading_pair, TradeType.BUY, OrderType.LIMIT,
+            self._current_timestamp, order_id, trading_pair, TradeType.BUY, OrderType.MARKET,
             fees, buy_entries
         )
 
@@ -484,7 +488,7 @@ cdef class PaperTradeMarket(MarketBase):
                                    total_base_acquired,
                                    total_quote_needed,
                                    s_decimal_0,
-                                   OrderType.LIMIT))
+                                   OrderType.MARKET))
 
     cdef c_execute_sell(self, str order_id, str trading_pair_str, object amount):
         cdef:
@@ -502,7 +506,7 @@ cdef class PaperTradeMarket(MarketBase):
                                   f"{amount} {base_asset} required for the order.")
             self.c_trigger_event(
                 self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                MarketOrderFailureEvent(self._current_timestamp, order_id, OrderType.LIMIT)
+                MarketOrderFailureEvent(self._current_timestamp, order_id, OrderType.MARKET)
             )
             return
 
@@ -528,7 +532,7 @@ cdef class PaperTradeMarket(MarketBase):
 
         order_filled_events = OrderFilledEvent.order_filled_events_from_order_book_rows(
             self._current_timestamp, order_id, trading_pair_str, TradeType.SELL,
-            OrderType.LIMIT, fees, sell_entries
+            OrderType.MARKET, fees, sell_entries
         )
 
         for order_filled_event in order_filled_events:
@@ -544,7 +548,7 @@ cdef class PaperTradeMarket(MarketBase):
                                     sold_amount,
                                     acquired_amount,
                                     fee_amount,
-                                    OrderType.LIMIT))
+                                    OrderType.MARKET))
 
     cdef c_process_market_orders(self):
         cdef:
