@@ -127,8 +127,8 @@ cdef class RadarRelayMarket(MarketBase):
         self._last_update_trading_rules_timestamp = 0
         self._last_update_available_balance_timestamp = 0
         self._poll_interval = poll_interval
-        self._in_flight_maker_orders = {}  # limit orders are off chain
-        self._in_flight_taker_orders = {}  # market orders are on chain
+        self._in_flight_limit_orders = {}  # limit orders are off chain
+        self._in_flight_market_orders = {}  # market orders are on chain
         self._order_expiry_queue = deque()
         self._tx_tracker = RadarRelayTransactionTracker(self)
         self._w3 = Web3(Web3.HTTPProvider(ethereum_rpc_url))
@@ -179,11 +179,11 @@ cdef class RadarRelayMarket(MarketBase):
 
     @property
     def in_flight_limit_orders(self) -> Dict[str, RadarRelayInFlightOrder]:
-        return self._in_flight_maker_orders
+        return self._in_flight_limit_orders
 
     @property
     def in_flight_market_orders(self) -> Dict[str, RadarRelayInFlightOrder]:
-        return self._in_flight_taker_orders
+        return self._in_flight_market_orders
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
@@ -194,9 +194,9 @@ cdef class RadarRelayMarket(MarketBase):
             str quote_currency
             set expiring_order_ids = set([order_id for _, order_id in self._order_expiry_queue])
 
-        for in_flight_order in self._in_flight_maker_orders.values():
+        for in_flight_order in self._in_flight_limit_orders.values():
             typed_in_flight_order = in_flight_order
-            if typed_in_flight_order.order_type is not OrderType.LIMIT_MAKER:
+            if typed_in_flight_order.order_type is not OrderType.LIMIT:
                 continue
             if typed_in_flight_order.client_order_id in expiring_order_ids:
                 continue
@@ -208,20 +208,20 @@ cdef class RadarRelayMarket(MarketBase):
         return {
             "market_orders": {
                 key: value.to_json()
-                for key, value in self._in_flight_taker_orders.items()
+                for key, value in self._in_flight_market_orders.items()
             },
             "limit_orders": {
                 key: value.to_json()
-                for key, value in self._in_flight_maker_orders.items()
+                for key, value in self._in_flight_limit_orders.items()
             }
         }
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
-        self._in_flight_taker_orders.update({
+        self._in_flight_market_orders.update({
             key: RadarRelayInFlightOrder.from_json(value)
             for key, value in saved_states["market_orders"].items()
         })
-        self._in_flight_maker_orders.update({
+        self._in_flight_limit_orders.update({
             key: RadarRelayInFlightOrder.from_json(value)
             for key, value in saved_states["limit_orders"].items()
         })
@@ -271,7 +271,7 @@ cdef class RadarRelayMarket(MarketBase):
         transaction_cost_eth = self._wallet.gas_price * gas_estimate / 1e18
         return TradeFee(percent=Decimal(0.0), flat_fees=[("ETH", transaction_cost_eth)])
         """
-        is_maker = order_type is OrderType.LIMIT_MAKER
+        is_maker = order_type is OrderType.LIMIT
         return estimate_fee("radar_relay", is_maker)
 
     def _update_balances(self):
@@ -283,11 +283,11 @@ cdef class RadarRelayMarket(MarketBase):
 
         if current_timestamp - self._last_update_available_balance_timestamp > 10.0:
 
-            if len(self._in_flight_maker_orders) >= 0:
+            if len(self._in_flight_limit_orders) >= 0:
                 locked_balances = {}
                 total_balances = self._account_balances
 
-                for order in self._in_flight_maker_orders.values():
+                for order in self._in_flight_limit_orders.values():
                     # Orders that are done, cancelled or expired don't deduct from the available balance
                     if (not order.is_cancelled and
                             not order.is_expired and
@@ -382,8 +382,8 @@ cdef class RadarRelayMarket(MarketBase):
         if current_timestamp - self._last_update_limit_order_timestamp <= self.UPDATE_OPEN_LIMIT_ORDERS_INTERVAL:
             return
 
-        if len(self._in_flight_maker_orders) > 0:
-            tracked_limit_orders = list(self._in_flight_maker_orders.values())
+        if len(self._in_flight_limit_orders) > 0:
+            tracked_limit_orders = list(self._in_flight_limit_orders.values())
             order_updates = await self._get_order_updates(tracked_limit_orders)
             for order_update, tracked_limit_order in zip(order_updates, tracked_limit_orders):
                 if isinstance(order_update, Exception):
@@ -411,7 +411,7 @@ cdef class RadarRelayMarket(MarketBase):
                 tracked_limit_order.executed_amount_quote = order_remaining_quote_token_amount
                 if order_executed_amount_base > 0:
                     self.logger().info(f"Filled {order_executed_amount_base} out of {tracked_limit_order.amount} of the "
-                                       f"limit maker order {tracked_limit_order.client_order_id}.")
+                                       f"limit order {tracked_limit_order.client_order_id}.")
                     self.c_trigger_event(
                         self.MARKET_ORDER_FILLED_EVENT_TAG,
                         OrderFilledEvent(
@@ -419,7 +419,7 @@ cdef class RadarRelayMarket(MarketBase):
                             tracked_limit_order.client_order_id,
                             tracked_limit_order.trading_pair,
                             tracked_limit_order.trade_type,
-                            OrderType.LIMIT_MAKER,
+                            OrderType.LIMIT,
                             tracked_limit_order.price,
                             order_executed_amount_base,
                             TradeFee(0.0),  # no fee for limit order fills
@@ -429,7 +429,7 @@ cdef class RadarRelayMarket(MarketBase):
 
                 # do not retrigger order events if order was already in that state previously
                 if not previous_is_cancelled and tracked_limit_order.is_cancelled:
-                    self.logger().info(f"The limit maker order {tracked_limit_order.client_order_id} has cancelled according "
+                    self.logger().info(f"The limit order {tracked_limit_order.client_order_id} has cancelled according "
                                        f"to order status API.")
                     self.c_expire_order(tracked_limit_order.client_order_id)
                     self.c_trigger_event(
@@ -437,7 +437,7 @@ cdef class RadarRelayMarket(MarketBase):
                         OrderCancelledEvent(self._current_timestamp, tracked_limit_order.client_order_id)
                     )
                 elif not previous_is_expired and tracked_limit_order.is_expired:
-                    self.logger().info(f"The limit maker order {tracked_limit_order.client_order_id} has expired according "
+                    self.logger().info(f"The limit order {tracked_limit_order.client_order_id} has expired according "
                                        f"to order status API.")
                     self.c_expire_order(tracked_limit_order.client_order_id)
                     self.c_trigger_event(
@@ -445,19 +445,19 @@ cdef class RadarRelayMarket(MarketBase):
                         OrderExpiredEvent(self._current_timestamp, tracked_limit_order.client_order_id)
                     )
                 elif not previous_is_failure and tracked_limit_order.is_failure:
-                    self.logger().info(f"The limit maker order {tracked_limit_order.client_order_id} has failed "
+                    self.logger().info(f"The limit order {tracked_limit_order.client_order_id} has failed "
                                        f"according to order status API.")
                     self.c_expire_order(tracked_limit_order.client_order_id)
                     self.c_trigger_event(
                         self.MARKET_ORDER_FAILURE_EVENT_TAG,
                         MarketOrderFailureEvent(self._current_timestamp,
                                                 tracked_limit_order.client_order_id,
-                                                OrderType.LIMIT_MAKER)
+                                                OrderType.LIMIT)
                     )
                 elif not previous_is_done and tracked_limit_order.is_done:
                     self.c_expire_order(tracked_limit_order.client_order_id)
                     if tracked_limit_order.trade_type is TradeType.BUY:
-                        self.logger().info(f"The limit maker buy order {tracked_limit_order.client_order_id}"
+                        self.logger().info(f"The limit buy order {tracked_limit_order.client_order_id}"
                                            f"has completed according to order status API.")
                         self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
                                              BuyOrderCompletedEvent(self._current_timestamp,
@@ -468,9 +468,9 @@ cdef class RadarRelayMarket(MarketBase):
                                                                     tracked_limit_order.executed_amount_base,
                                                                     tracked_limit_order.executed_amount_quote,
                                                                     tracked_limit_order.gas_fee_amount,
-                                                                    OrderType.LIMIT_MAKER))
+                                                                    OrderType.LIMIT))
                     else:
-                        self.logger().info(f"The limit maker sell order {tracked_limit_order.client_order_id}"
+                        self.logger().info(f"The limit sell order {tracked_limit_order.client_order_id}"
                                            f"has completed according to order status API.")
                         self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
                                              SellOrderCompletedEvent(self._current_timestamp,
@@ -481,7 +481,7 @@ cdef class RadarRelayMarket(MarketBase):
                                                                      tracked_limit_order.executed_amount_base,
                                                                      tracked_limit_order.executed_amount_quote,
                                                                      tracked_limit_order.gas_fee_amount,
-                                                                     OrderType.LIMIT_MAKER))
+                                                                     OrderType.LIMIT))
         self._last_update_limit_order_timestamp = current_timestamp
 
     async def _update_market_order_status(self):
@@ -491,8 +491,8 @@ cdef class RadarRelayMarket(MarketBase):
         if current_timestamp - self._last_update_market_order_timestamp <= self.UPDATE_MARKET_ORDERS_INTERVAL:
             return
 
-        if len(self._in_flight_taker_orders) > 0:
-            tracked_market_orders = list(self._in_flight_taker_orders.values())
+        if len(self._in_flight_market_orders) > 0:
+            tracked_market_orders = list(self._in_flight_market_orders.values())
             for tracked_market_order in tracked_market_orders:
                 receipt = self.get_tx_hash_receipt(tracked_market_order.tx_hash)
 
@@ -507,7 +507,7 @@ cdef class RadarRelayMarket(MarketBase):
                         self.MARKET_ORDER_FAILURE_EVENT_TAG,
                         MarketOrderFailureEvent(self._current_timestamp,
                                                 tracked_market_order.client_order_id,
-                                                OrderType.LIMIT)
+                                                OrderType.MARKET)
                     )
                 elif receipt["status"] == 1:
                     gas_used = float(receipt.get("gasUsed", 0.0))
@@ -518,7 +518,7 @@ cdef class RadarRelayMarket(MarketBase):
                             tracked_market_order.client_order_id,
                             tracked_market_order.trading_pair,
                             tracked_market_order.trade_type,
-                            OrderType.LIMIT,
+                            OrderType.MARKET,
                             tracked_market_order.price,
                             tracked_market_order.amount,
                             TradeFee(0.0, [("ETH", gas_used)]),
@@ -538,7 +538,7 @@ cdef class RadarRelayMarket(MarketBase):
                                                                     tracked_market_order.amount,
                                                                     tracked_market_order.executed_amount_quote,
                                                                     tracked_market_order.gas_fee_amount,
-                                                                    OrderType.LIMIT))
+                                                                    OrderType.MARKET))
                     else:
                         self.logger().info(f"The market sell order "
                                            f"{tracked_market_order.client_order_id} has completed according to "
@@ -552,7 +552,7 @@ cdef class RadarRelayMarket(MarketBase):
                                                                      tracked_market_order.amount,
                                                                      tracked_market_order.executed_amount_quote,
                                                                      tracked_market_order.gas_fee_amount,
-                                                                     OrderType.LIMIT))
+                                                                     OrderType.MARKET))
                 else:
                     err_msg = (f"Unrecognized transaction status for market order "
                                f"{tracked_market_order.client_order_id}. Check transaction hash "
@@ -562,7 +562,7 @@ cdef class RadarRelayMarket(MarketBase):
                         self.MARKET_ORDER_FAILURE_EVENT_TAG,
                         MarketOrderFailureEvent(self._current_timestamp,
                                                 tracked_market_order.client_order_id,
-                                                OrderType.LIMIT)
+                                                OrderType.MARKET)
                     )
 
                 self.c_stop_tracking_order(tracked_market_order.tx_hash)
@@ -670,23 +670,15 @@ cdef class RadarRelayMarket(MarketBase):
     async def submit_market_order(self,
                                   trading_pair: str,
                                   trade_type: TradeType,
-                                  price: Decimal,
                                   amount: Decimal) -> Tuple[float, str]:
         response = await self.request_signed_market_orders(trading_pair=trading_pair,
                                                            trade_type=trade_type,
                                                            amount=str(amount))
         signed_market_orders = response["orders"]
         average_price = Decimal(response["averagePrice"])
-        worst_price = Decimal(response["worstPrice"])
         base_asset_increment = self.trading_rules.get(trading_pair).min_base_amount_increment
         base_asset_decimals = -int(math.ceil(math.log10(base_asset_increment)))
         amt_with_decimals = amount * Decimal(f"1e{base_asset_decimals}")
-
-        # check that price equal or  within the worstPrice recieved from marker_orders response
-        if trade_type is TradeType.BUY and price < worst_price:
-            raise ValueError("Buy price too low for the amount, recalculate market buy price")
-        elif trade_type is TradeType.SELL and price > worst_price:
-            raise ValueError("Sell price too low for the amount, recalculate market sell price")
 
         signatures = []
         orders = []
@@ -733,7 +725,7 @@ cdef class RadarRelayMarket(MarketBase):
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         incomplete_order_ids = [o.client_order_id
-                                for o in self._in_flight_maker_orders.values()
+                                for o in self._in_flight_limit_orders.values()
                                 if not (o.is_done or o.is_cancelled or o.is_expired or o.is_failure)]
         if self._latest_salt == -1 or len(incomplete_order_ids) == 0:
             return []
@@ -781,11 +773,11 @@ cdef class RadarRelayMarket(MarketBase):
                 raise ValueError(f"{trade_type_desc.capitalize()} order amount {q_amt} is greater than the "
                                  f"maximum order size {trading_rule.max_order_size}")
 
-            if order_type is OrderType.LIMIT_MAKER:
+            if order_type is OrderType.LIMIT:
                 if math.isnan(price):
-                    raise ValueError(f"Limit maker orders require a price. Aborting.")
+                    raise ValueError(f"Limit orders require a price. Aborting.")
                 elif expires is None:
-                    raise ValueError(f"Limit maker orders require an expiration timestamp 'expiration_ts'. Aborting.")
+                    raise ValueError(f"Limit orders require an expiration timestamp 'expiration_ts'. Aborting.")
                 elif expires < time.time():
                     raise ValueError(f"expiration time {expires} must be greater than current time {time.time()}")
                 else:
@@ -795,7 +787,7 @@ cdef class RadarRelayMarket(MarketBase):
                                                                                      amount=q_amt,
                                                                                      price=q_price,
                                                                                      expires=expires)
-                    self.c_start_tracking_maker_order(order_id=order_id,
+                    self.c_start_tracking_limit_order(order_id=order_id,
                                                       exchange_order_id=exchange_order_id,
                                                       trading_pair=trading_pair,
                                                       order_type=order_type,
@@ -803,14 +795,12 @@ cdef class RadarRelayMarket(MarketBase):
                                                       price=q_price,
                                                       amount=q_amt,
                                                       zero_ex_order=zero_ex_order)
-            elif order_type is OrderType.LIMIT:
-                # note OrderType.LIMIT is thesame as a market taker
+            elif order_type is OrderType.MARKET:
                 avg_price, tx_hash = await self.submit_market_order(trading_pair=trading_pair,
                                                                     trade_type=trade_type,
-                                                                    price=price,
                                                                     amount=q_amt)
                 q_price = str(self.c_quantize_order_price(trading_pair, Decimal(avg_price)))
-                self.c_start_tracking_taker_order(order_id=order_id,
+                self.c_start_tracking_market_order(order_id=order_id,
                                                    trading_pair=trading_pair,
                                                    order_type=order_type,
                                                    trade_type=trade_type,
@@ -855,7 +845,7 @@ cdef class RadarRelayMarket(MarketBase):
     cdef str c_buy(self,
                    str trading_pair,
                    object amount,
-                   object order_type=OrderType.LIMIT,
+                   object order_type=OrderType.MARKET,
                    object price=s_decimal_NaN,
                    dict kwargs={}):
         cdef:
@@ -876,7 +866,7 @@ cdef class RadarRelayMarket(MarketBase):
     cdef str c_sell(self,
                     str trading_pair,
                     object amount,
-                    object order_type=OrderType.LIMIT,
+                    object order_type=OrderType.MARKET,
                     object price=s_decimal_NaN,
                     dict kwargs={}):
         cdef:
@@ -895,7 +885,7 @@ cdef class RadarRelayMarket(MarketBase):
         return order_id
 
     async def cancel_order(self, client_order_id: str) -> Dict[str, Any]:
-        order = self._in_flight_maker_orders.get(client_order_id)
+        order = self._in_flight_limit_orders.get(client_order_id)
         if not order:
             self.logger().info(f"Failed to cancel order {client_order_id}. Order not found in tracked orders.")
             return
@@ -982,7 +972,7 @@ cdef class RadarRelayMarket(MarketBase):
         self.c_check_and_remove_expired_orders()
         self._last_timestamp = timestamp
 
-    cdef c_start_tracking_maker_order(self,
+    cdef c_start_tracking_limit_order(self,
                                       str order_id,
                                       str exchange_order_id,
                                       str trading_pair,
@@ -991,7 +981,7 @@ cdef class RadarRelayMarket(MarketBase):
                                       object price,
                                       object amount,
                                       object zero_ex_order):
-        self._in_flight_maker_orders[order_id] = RadarRelayInFlightOrder(
+        self._in_flight_limit_orders[order_id] = RadarRelayInFlightOrder(
             client_order_id=order_id,
             exchange_order_id=exchange_order_id,
             trading_pair=trading_pair,
@@ -1003,7 +993,7 @@ cdef class RadarRelayMarket(MarketBase):
             zero_ex_order=zero_ex_order
         )
 
-    cdef c_start_tracking_taker_order(self,
+    cdef c_start_tracking_market_order(self,
                                        str order_id,
                                        str trading_pair,
                                        object order_type,
@@ -1011,7 +1001,7 @@ cdef class RadarRelayMarket(MarketBase):
                                        object price,
                                        object amount,
                                        str tx_hash):
-        self._in_flight_taker_orders[tx_hash] = RadarRelayInFlightOrder(
+        self._in_flight_market_orders[tx_hash] = RadarRelayInFlightOrder(
             client_order_id=order_id,
             exchange_order_id=None,
             trading_pair=trading_pair,
@@ -1035,10 +1025,10 @@ cdef class RadarRelayMarket(MarketBase):
             self.c_stop_tracking_order(order_id)
 
     cdef c_stop_tracking_order(self, str order_id):
-        if order_id in self._in_flight_maker_orders:
-            del self._in_flight_maker_orders[order_id]
-        elif order_id in self._in_flight_taker_orders:
-            del self._in_flight_taker_orders[order_id]
+        if order_id in self._in_flight_limit_orders:
+            del self._in_flight_limit_orders[order_id]
+        elif order_id in self._in_flight_market_orders:
+            del self._in_flight_market_orders[order_id]
 
     cdef object c_get_order_price_quantum(self, str trading_pair, object price):
         cdef:

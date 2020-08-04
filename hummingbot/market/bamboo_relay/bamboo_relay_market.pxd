@@ -19,9 +19,9 @@ cdef class BambooRelayMarket(MarketBase):
         double _last_update_trading_rules_timestamp
         double _last_update_available_balance_timestamp
         double _poll_interval
-        dict _in_flight_maker_orders
-        dict _in_flight_taker_orders
-        object _in_flight_pending_maker_orders
+        dict _in_flight_limit_orders
+        dict _in_flight_market_orders
+        object _in_flight_pending_limit_orders
         object _in_flight_cancels
         object _in_flight_pending_cancels
         list _filled_order_hashes
@@ -44,7 +44,7 @@ cdef class BambooRelayMarket(MarketBase):
         str _coordinator_address
         str _fee_recipient_address
 
-    cdef c_start_tracking_maker_order(self,
+    cdef c_start_tracking_limit_order(self,
                                       str order_id,
                                       str exchange_order_id,
                                       str trading_pair,
@@ -55,7 +55,7 @@ cdef class BambooRelayMarket(MarketBase):
                                       object amount,
                                       int expires,
                                       object zero_ex_order)
-    cdef c_start_tracking_taker_order(self,
+    cdef c_start_tracking_market_order(self,
                                        str order_id,
                                        str trading_pair,
                                        object order_type,
