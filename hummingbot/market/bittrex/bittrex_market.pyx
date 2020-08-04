@@ -26,6 +26,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
+from hummingbot.market.market_base import MarketBase
 from hummingbot.market.bittrex.bittrex_api_order_book_data_source import BittrexAPIOrderBookDataSource
 from hummingbot.market.bittrex.bittrex_auth import BittrexAuth
 from hummingbot.market.bittrex.bittrex_in_flight_order import BittrexInFlightOrder
@@ -221,6 +222,8 @@ cdef class BittrexMarket(MarketBase):
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
+
+        self.apply_balance_restriction()
 
     def _format_trading_rules(self, market_dict: Dict[str, Any]) -> List[TradingRule]:
         cdef:
@@ -483,6 +486,7 @@ cdef class BittrexMarket(MarketBase):
                     available_balance = Decimal(balance_delta["a"])
                     self._account_available_balances[asset_name] = available_balance
                     self._account_balances[asset_name] = total_balance
+                    self.apply_balance_restriction()
                 elif event_type == "uO":  # Updates track order status
                     order = content["o"]
                     order_status = content["TY"]
