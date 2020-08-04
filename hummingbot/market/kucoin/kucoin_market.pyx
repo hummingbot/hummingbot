@@ -295,18 +295,9 @@ cdef class KucoinMarket(MarketBase):
                         self.logger().debug(f"Event: {event_message}")
                         continue
                 elif event_type == "message" and event_topic == "/account/balance":
-                    exchange_limits = self.get_exchange_limit_config(self.name)
-
                     currency = execution_data["currency"]
-
-                    asset_limit = exchange_limits.get(currency.upper(), None)
-                    if asset_limit is not None:
-                        asset_limit = Decimal(asset_limit)
-                        available_balance = min(execution_data["available"], asset_limit)
-                        total_balance = min(execution_data["total"], asset_limit)
-                    else:
-                        available_balance = execution_data["available"]
-                        total_balance = execution_data["total"]
+                    available_balance = execution_data["available"]
+                    total_balance = execution_data["total"]
                     self._account_balances.update({currency, total_balance})
                     self._account_available_balances.update({currency, available_balance})
                 else:
@@ -450,8 +441,6 @@ cdef class KucoinMarket(MarketBase):
             str asset_name
             object balance
 
-        exchange_limits = self.get_exchange_limit_config(self.name)
-
         if data:
             for balance_entry in data["data"]:
                 asset_name = balance_entry["currency"]
@@ -467,20 +456,9 @@ cdef class KucoinMarket(MarketBase):
                 if balance_entry["type"] == "trade":
                     new_available_balances[asset_name] = Decimal(balance_entry["available"])
 
-            self._account_balances.clear()
             self._account_available_balances.clear()
-
-            for asset, unrestricted_balance in new_available_balances.items():
-                if asset.upper() in exchange_limits:
-                    asset_limit = Decimal(exchange_limits[asset.upper()])
-                    new_available_balances.update({asset: min(unrestricted_balance, asset_limit)})
-
-            for asset, unrestricted_balance in new_balances.items():
-                if asset.upper() in exchange_limits:
-                    asset_limit = Decimal(exchange_limits[asset.upper()])
-                    new_available_balances.update({asset: min(unrestricted_balance, asset_limit)})
-
             self._account_available_balances = new_available_balances
+            self._account_balances.clear()
             self._account_balances = new_balances
 
     cdef object c_get_fee(self,

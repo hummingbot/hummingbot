@@ -397,8 +397,6 @@ cdef class LiquidMarket(MarketBase):
             set remote_asset_names = set()
             set asset_names_to_remove
 
-        exchange_limits = self.get_exchange_limit_config(self.name)
-
         fiat_accounts_path = Constants.FIAT_ACCOUNTS_URI
         crypto_accounts_path = Constants.CRYPTO_ACCOUNTS_URI
 
@@ -407,15 +405,8 @@ cdef class LiquidMarket(MarketBase):
 
         for balance_entry in fiat_acct_balances + crypto_acct_balances:
             asset_name = balance_entry["currency"]
-
-            asset_limit = exchange_limits.get(asset_limit.upper(), None)
-            if asset_limit is not None:
-                asset_limit = Decimal(asset_limit)
-                available_balance = min(Decimal(balance_entry["balance"] - balance_entry["reserved_balance"]), asset_limit)
-                total_balance = min(Decimal(balance_entry["balance"]), asset_limit)
-            else:
-                available_balance = Decimal(balance_entry["balance"] - balance_entry['reserved_balance'])
-                total_balance = Decimal(balance_entry["balance"])
+            available_balance = Decimal(balance_entry["balance"] - balance_entry['reserved_balance'])
+            total_balance = Decimal(balance_entry["balance"])
             self._account_available_balances[asset_name] = available_balance
             self._account_balances[asset_name] = total_balance
             remote_asset_names.add(asset_name)
