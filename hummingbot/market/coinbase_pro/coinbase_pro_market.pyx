@@ -745,7 +745,7 @@ cdef class CoinbaseProMarket(MarketBase):
             raise
         except Exception:
             self.c_stop_tracking_order(order_id)
-            order_type_str = "LIMIT_MAKER" if order_type == OrderType.LIMIT_MAKER else "LIMIT"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Coinbase Pro for "
                 f"{decimal_amount} {trading_pair} {price}.",
@@ -809,7 +809,7 @@ cdef class CoinbaseProMarket(MarketBase):
             raise
         except Exception:
             self.c_stop_tracking_order(order_id)
-            order_type_str = "LIMIT_MAKER" if order_type == OrderType.LIMIT_MAKER else "LIMIT"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting sell {order_type_str} order to Coinbase Pro for "
                 f"{decimal_amount} {trading_pair} {price}.",

@@ -378,8 +378,8 @@ cdef class BittrexMarket(MarketBase):
                     continue
 
                 order_state = order["status"]
-                order_type = "LIMIT" if tracked_order.order_type is OrderType.LIMIT else "LIMIT_MAKER"
-                trade_type = "BUY" if tracked_order.trade_type is TradeType.BUY else "SELL"
+                order_type = tracked_order.order_type.name.lower()
+                trade_type = tracked_order.trade_type.name.lower()
                 order_type_description = tracked_order.order_type_description
 
                 executed_price = Decimal(order["limit"])
@@ -759,7 +759,7 @@ cdef class BittrexMarket(MarketBase):
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None and exchange_order_id:
                 tracked_order.update_exchange_order_id(exchange_order_id)
-                order_type_str = "LIMIT" if order_type == OrderType.LIMIT else "LIMIT_MAKER"
+                order_type_str = order_type.name.lower()
                 self.logger().info(f"Created {order_type_str} buy order {order_id} for "
                                    f"{decimal_amount} {trading_pair}")
                 self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
@@ -778,7 +778,7 @@ cdef class BittrexMarket(MarketBase):
             tracked_order = self._in_flight_orders.get(order_id)
             tracked_order.last_state = "FAILURE"
             self.c_stop_tracking_order(order_id)
-            order_type_str = "LIMIT" if order_type is OrderType.LIMIT else "MARKET"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Bittrex for "
                 f"{decimal_amount} {trading_pair} "
@@ -856,7 +856,7 @@ cdef class BittrexMarket(MarketBase):
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None and exchange_order_id:
                 tracked_order.update_exchange_order_id(exchange_order_id)
-                order_type_str = "LIMIT" if order_type == OrderType.LIMIT else "LIMIT_MAKER"
+                order_type_str = order_type.name.lower()
                 self.logger().info(f"Created {order_type_str} sell order {order_id} for "
                                    f"{decimal_amount} {trading_pair}.")
                 self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
@@ -874,7 +874,7 @@ cdef class BittrexMarket(MarketBase):
             tracked_order = self._in_flight_orders.get(order_id)
             tracked_order.last_state = "FAILURE"
             self.c_stop_tracking_order(order_id)
-            order_type_str = "LIMIT" if order_type is OrderType.LIMIT else "MARKET"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting sell {order_type_str} order to Bittrex for "
                 f"{decimal_amount} {trading_pair} "

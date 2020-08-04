@@ -811,7 +811,7 @@ cdef class EterbaseMarket(MarketBase):
             raise
         except Exception:
             self.c_stop_tracking_order(order_id)
-            order_type_str = "LIMIT" if order_type == OrderType.LIMIT else "LIMIT_MAKER"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Eterbase for "
                 f"{decimal_amount} {trading_pair} {price}.",
@@ -877,7 +877,7 @@ cdef class EterbaseMarket(MarketBase):
             raise
         except Exception as e:
             self.c_stop_tracking_order(order_id)
-            order_type_str = "LIMIT" if order_type == OrderType.LIMIT else "LIMIT_MAKER"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting sell {order_type_str} order to Eterbase for "
                 f"{decimal_amount} {trading_pair} {price}.",
