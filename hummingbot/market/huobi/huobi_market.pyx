@@ -670,7 +670,7 @@ cdef class HuobiMarket(MarketBase):
             raise
         except Exception:
             self.c_stop_tracking_order(order_id)
-            order_type_str = "LIMIT" if order_type == OrderType.LIMIT else "LIMIT_LIMIT"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Huobi for "
                 f"{decimal_amount} {trading_pair} "
@@ -741,7 +741,7 @@ cdef class HuobiMarket(MarketBase):
             raise
         except Exception:
             self.c_stop_tracking_order(order_id)
-            order_type_str = "LIMIT" if order_type == OrderType.LIMIT else "LIMIT_LIMIT"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting sell {order_type_str} order to Huobi for "
                 f"{decimal_amount} {trading_pair} "

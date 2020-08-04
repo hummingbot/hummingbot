@@ -668,7 +668,7 @@ cdef class KucoinMarket(MarketBase):
                           price: Decimal) -> str:
         path_url = "/api/v1/orders"
         side = "buy" if is_buy else "sell"
-        order_type_str = "limit_maker" if order_type is OrderType.LIMIT_MAKER else "limit"
+        order_type_str = order_type.name.lower()
         params = {
             "size": str(amount),
             "clientOid": order_id,
@@ -738,7 +738,7 @@ cdef class KucoinMarket(MarketBase):
             raise
         except Exception:
             self.c_stop_tracking_order(order_id)
-            order_type_str = "LIMIT" if order_type == OrderType.LIMIT else "LIMIT_MAKER"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Kucoin for "
                 f"{decimal_amount} {trading_pair} "
@@ -808,7 +808,7 @@ cdef class KucoinMarket(MarketBase):
             raise
         except Exception:
             self.c_stop_tracking_order(order_id)
-            order_type_str = "LIMIT" if order_type == OrderType.LIMIT else "LIMIT_MAKER"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting sell {order_type_str} order to Kucoin for "
                 f"{decimal_amount} {trading_pair} "
