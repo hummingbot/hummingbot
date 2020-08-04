@@ -42,11 +42,11 @@ cdef class StrategyBase(TimeIterator):
                                          object order_type = *, object price = *, double expiration_seconds = *)
     cdef c_cancel_order(self, object market_pair, str order_id)
 
-    cdef c_start_tracking_maker_order(self, object market_pair, str order_id, bint is_buy, object price,
+    cdef c_start_tracking_limit_order(self, object market_pair, str order_id, bint is_buy, object price,
                                       object quantity)
-    cdef c_stop_tracking_maker_order(self, object market_pair, str order_id)
-    cdef c_start_tracking_taker_order(self, object market_pair, str order_id, bint is_buy, object quantity)
-    cdef c_stop_tracking_taker_order(self, object market_pair, str order_id)
+    cdef c_stop_tracking_limit_order(self, object market_pair, str order_id)
+    cdef c_start_tracking_market_order(self, object market_pair, str order_id, bint is_buy, object quantity)
+    cdef c_stop_tracking_market_order(self, object market_pair, str order_id)
     cdef object c_sum_flat_fees(self,
                                 str quote_currency,
                                 list flat_fees)
