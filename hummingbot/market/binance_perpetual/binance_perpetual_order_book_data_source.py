@@ -40,6 +40,7 @@ class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
             cls._bpobds_logger = logging.getLogger(__name__)
         return cls._bpobds_logger
 
+    # TODO: DEPRECATED
     @classmethod
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
     async def get_active_exchange_markets(cls) -> pd.DataFrame:
