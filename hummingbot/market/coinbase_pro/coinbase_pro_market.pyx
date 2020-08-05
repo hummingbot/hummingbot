@@ -392,6 +392,8 @@ cdef class CoinbaseProMarket(MarketBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
+        self.apply_balance_restriction()
+
     async def _update_trading_rules(self):
         """
         Pulls the API for trading rules (min / max order size, etc)
@@ -725,6 +727,13 @@ cdef class CoinbaseProMarket(MarketBase):
                              f"{trading_rule.min_order_size}.")
 
         try:
+            self.apply_execute_order_to_available_balance(
+                trading_pair=trading_pair,
+                order_amount=decimal_amount,
+                order_price=decimal_price,
+                is_buy=True
+            )
+
             self.c_start_tracking_order(order_id, trading_pair, order_type, TradeType.BUY, decimal_price, decimal_amount)
             order_result = await self.place_order(order_id, trading_pair, decimal_amount, True, order_type, decimal_price)
 
@@ -789,6 +798,12 @@ cdef class CoinbaseProMarket(MarketBase):
                              f"{trading_rule.min_order_size}.")
 
         try:
+            self.apply_execute_order_to_available_balance(
+                trading_pair=trading_pair,
+                order_amount=decimal_amount,
+                order_price=decimal_price,
+                is_buy=False
+            )
             self.c_start_tracking_order(order_id, trading_pair, order_type, TradeType.SELL, decimal_price, decimal_amount)
             order_result = await self.place_order(order_id, trading_pair, decimal_amount, False, order_type, decimal_price)
 
@@ -846,6 +861,7 @@ cdef class CoinbaseProMarket(MarketBase):
             cancelled_id = await self._api_request("delete", path_url=path_url)
             if cancelled_id == exchange_order_id:
                 self.logger().info(f"Successfully cancelled order {order_id}.")
+                self.apply_execute_cancel_to_available_balance(self._in_flight_orders[order_id])
                 self.c_stop_tracking_order(order_id)
                 self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
@@ -854,6 +870,7 @@ cdef class CoinbaseProMarket(MarketBase):
             if "order not found" in str(e):
                 # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
                 self.logger().info(f"The order {order_id} does not exist on Coinbase Pro. No cancellation needed.")
+                self.apply_execute_cancel_to_available_balance(self._in_flight_orders[order_id])
                 self.c_stop_tracking_order(order_id)
                 self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))

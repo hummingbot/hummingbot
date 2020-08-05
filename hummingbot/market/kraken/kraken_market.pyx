@@ -860,6 +860,12 @@ cdef class KrakenMarket(MarketBase):
                              f"{trading_rule.min_order_size}.")
 
         try:
+            self.apply_execute_order_to_available_balance(
+                trading_pair=trading_pair,
+                order_amount=decimal_amount,
+                order_price=decimal_price,
+                is_buy=True
+            )
             order_result = None
             order_decimal_amount = f"{decimal_amount:f}"
             if order_type is OrderType.LIMIT:
@@ -959,6 +965,12 @@ cdef class KrakenMarket(MarketBase):
                              f"{trading_rule.min_order_size}.")
 
         try:
+            self.apply_execute_order_to_available_balance(
+                trading_pair=trading_pair,
+                order_amount=decimal_amount,
+                order_price=decimal_price,
+                is_buy=False
+            )
             order_result = None
             order_decimal_amount = f"{decimal_amount:f}"
             if order_type is OrderType.LIMIT:
@@ -1054,6 +1066,7 @@ cdef class KrakenMarket(MarketBase):
 
         if isinstance(cancel_result, dict) and (cancel_result.get("count") == 1 or cancel_result.get("error") is not None):
             self.logger().info(f"Successfully cancelled order {order_id}.")
+            self.apply_execute_cancel_to_available_balance(self._in_flight_orders[order_id])
             self.c_stop_tracking_order(order_id)
             self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                  OrderCancelledEvent(self._current_timestamp, order_id))

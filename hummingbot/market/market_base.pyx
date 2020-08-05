@@ -31,6 +31,7 @@ from hummingbot.core.network_iterator import NetworkIterator
 from hummingbot.core.data_type.order_book import OrderBook
 
 from .deposit_info import DepositInfo
+from .in_flight_order_base import InFlightOrderBase
 
 NaN = float("nan")
 s_decimal_NaN = Decimal("nan")
@@ -153,6 +154,37 @@ cdef class MarketBase(NetworkIterator):
             if asset_name.upper() in exchange_limits:
                 asset_limit = Decimal(exchange_limits[asset_name.upper()])
                 self._account_available_balances.update({asset_name, min(available_balance, asset_limit)})
+
+    def apply_execute_order_to_available_balance(self, trading_pair: str, order_amount: Decimal, order_price: Decimal, is_buy: bool):
+        base_asset, quote_asset = self.split_trading_pair(trading_pair)
+        if is_buy:
+            asset = quote_asset
+            order_value = Decimal(order_amount * order_price)
+        else:
+            asset = base_asset
+            order_value = order_amount
+
+        if asset in self._account_available_balances and order_value < self._account_available_balances[asset]:
+            available_balance = self._account_available_balances[asset]
+            if order_value > available_balance:
+                raise ValueError(f"Order amount exceeds available balance for {quote_asset}")
+            self._account_available_balances.update({asset: available_balance - order_value})
+
+    def apply_execute_cancel_to_available_balance(self, order: InFlightOrderBase):
+        trade_type = order.trade_type
+        trading_pair = order.trading_pair
+        base_asset, quote_asset = self.split_trading_pair(trading_pair)
+        if trade_type is TradeType.BUY:
+            asset = quote_asset
+            order_value = Decimal(order.amount * order.price)
+            freed_asset_value = order_value - order.executed_amount_quote
+        else:
+            asset = base_asset
+            freed_asset_value = order.executed_amount_base
+
+        if asset in self._account_available_balances:
+            current_balance = self._account_available_balances[asset]
+            self._account_available_balances.update({asset: current_balance + freed_asset_value})
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         """
