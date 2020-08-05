@@ -1,9 +1,7 @@
-from hummingbot.client.settings import (
-    GLOBAL_CONFIG_PATH,
-)
 from hummingbot.user.user_balances import UserBalances
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.config.global_config_map import global_config_map
+
 from hummingbot.client.config.config_helpers import (
     save_to_yml
 )
@@ -88,14 +86,9 @@ class BalanceCommand:
     async def show_balances(self):
         self._notify("Updating balances, please wait...")
         all_ex_bals = await UserBalances.instance().all_balances_all_exchanges()
-        all_ex_limits: Optional[Dict[str, Dict[str, str]]] = global_config_map[LIMIT_GLOBAL_CONFIG].value
-
-        if all_ex_limits is None:
-            all_ex_limits = {}
-
         for exchange, bals in all_ex_bals.items():
             self._notify(f"\n{exchange}:")
-            df = await self.exchange_balances_df(bals, all_ex_limits.get(exchange, {}))
+            df = await self.exchange_balances_df(bals)
             if df.empty:
                 self._notify("You have no balance on this exchange.")
             else:
@@ -122,19 +115,15 @@ class BalanceCommand:
             self._notify("\n".join(lines))
 
     async def exchange_balances_df(self,  # type: HummingbotApplication
-                                   exchange_balances: Dict[str, Decimal],
-                                   exchange_limits: Dict[str, str]):
+                                   ex_bals: Dict[str, Decimal]):
         rows = []
-        for token, bal in exchange_balances.items():
-            limit = Decimal(exchange_limits.get(token.upper(), 0)) if exchange_limits is not None else Decimal(0)
-            if bal == Decimal(0) and limit == Decimal(0):
+        for token, bal in ex_bals.items():
+            if bal == 0:
                 continue
             token = token.upper()
-            rows.append({"Asset": token.upper(),
-                         "Amount": round(bal, 4),
-                         "Limit": round(limit, 4) if limit > Decimal(0) else "-"})
-        df = pd.DataFrame(data=rows, columns=["Asset", "Amount", "Limit"])
-        df.sort_values(by=["Asset"], inplace=True)
+            rows.append({"asset": token.upper(), "amount": round(bal, 4)})
+        df = pd.DataFrame(data=rows, columns=["asset", "amount"])
+        df.sort_values(by=["asset"], inplace=True)
         return df
 
     async def celo_balances_df(self,  # type: HummingbotApplication
@@ -155,6 +144,7 @@ class BalanceCommand:
         df = pd.DataFrame(data=rows, columns=["asset", "amount"])
         df.sort_values(by=["asset"], inplace=True)
         return df
+
 
     async def asset_limits_df(self,
                               asset_limit_conf: Dict[str, str]):
@@ -221,3 +211,4 @@ class BalanceCommand:
         self._notify("\n".join(lines))
         self._notify("\n")
         return
+
