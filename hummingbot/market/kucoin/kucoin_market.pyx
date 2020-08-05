@@ -469,7 +469,7 @@ cdef class KucoinMarket(MarketBase):
             return TradeFee(percent=fee_overrides_config_map["kucoin_taker_fee"].value / Decimal("100"))
         return TradeFee(percent=Decimal("0.001"))
         """
-        is_maker = order_type is OrderType.LIMIT
+        is_maker = order_type is OrderType.LIMIT_MAKER
         return estimate_fee("kucoin", is_maker)
 
     async def _update_trading_rules(self):
@@ -657,7 +657,7 @@ cdef class KucoinMarket(MarketBase):
         return self._account_balances.copy()
 
     def supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     async def place_order(self,
                           order_id: str,
@@ -668,7 +668,7 @@ cdef class KucoinMarket(MarketBase):
                           price: Decimal) -> str:
         path_url = "/api/v1/orders"
         side = "buy" if is_buy else "sell"
-        order_type_str = "market" if order_type is OrderType.MARKET else "limit"
+        order_type_str = order_type.name.lower()
         params = {
             "size": str(amount),
             "clientOid": order_id,
@@ -705,10 +705,7 @@ cdef class KucoinMarket(MarketBase):
             str exchange_order_id
             object tracked_order
 
-        if order_type is OrderType.MARKET:
-            decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
-            decimal_price = s_decimal_0
-        else:
+        if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
             decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
             decimal_price = self.c_quantize_order_price(trading_pair, price)
             if decimal_amount < trading_rule.min_order_size:
@@ -741,12 +738,7 @@ cdef class KucoinMarket(MarketBase):
             raise
         except Exception:
             self.c_stop_tracking_order(order_id)
-            if order_type == OrderType.MARKET:
-                order_type_str = "MARKET" 
-            elif order_type == OrderType.LIMIT:
-                order_type_str = "LIMIT"
-            elif order_type == OrderType.LIMIT_MAKER:
-                order_type_str = "LIMIT_MAKER"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Kucoin for "
                 f"{decimal_amount} {trading_pair} "
@@ -760,7 +752,7 @@ cdef class KucoinMarket(MarketBase):
     cdef str c_buy(self,
                    str trading_pair,
                    object amount,
-                   object order_type = OrderType.MARKET,
+                   object order_type = OrderType.LIMIT,
                    object price = s_decimal_0,
                    dict kwargs = {}):
         cdef:
@@ -784,9 +776,7 @@ cdef class KucoinMarket(MarketBase):
             object tracked_order
 
         decimal_amount = self.quantize_order_amount(trading_pair, amount)
-        decimal_price = (self.c_quantize_order_price(trading_pair, price)
-                         if order_type is not OrderType.MARKET
-                         else s_decimal_0)
+        decimal_price = self.c_quantize_order_price(trading_pair, price)
         if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Sell order amount {decimal_amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
@@ -818,12 +808,7 @@ cdef class KucoinMarket(MarketBase):
             raise
         except Exception:
             self.c_stop_tracking_order(order_id)
-            if order_type == OrderType.MARKET:
-                order_type_str = "MARKET" 
-            elif order_type == OrderType.LIMIT:
-                order_type_str = "LIMIT"
-            elif order_type == OrderType.LIMIT_MAKER:
-                order_type_str = "LIMIT_MAKER"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting sell {order_type_str} order to Kucoin for "
                 f"{decimal_amount} {trading_pair} "
@@ -837,7 +822,7 @@ cdef class KucoinMarket(MarketBase):
     cdef str c_sell(self,
                     str trading_pair,
                     object amount,
-                    object order_type = OrderType.MARKET,
+                    object order_type = OrderType.LIMIT,
                     object price = s_decimal_0,
                     dict kwargs = {}):
         cdef:
