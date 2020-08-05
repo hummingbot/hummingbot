@@ -372,8 +372,6 @@ cdef class EterbaseMarket(MarketBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-        self.apply_balance_restriction()
-
     async def _update_trading_rules(self):
         """
         Pulls the API for trading rules (min / max order size, etc)
@@ -819,13 +817,6 @@ cdef class EterbaseMarket(MarketBase):
         else:
             raise ValueError(f"Unsuported Order type {order_type}.")
         try:
-            self.apply_execute_order_to_available_balance(
-                trading_pair=trading_pair,
-                order_amount=decimal_amount,
-                order_price=decimal_price,
-                is_buy=True
-            )
-
             self.c_start_tracking_order(order_id, trading_pair, order_type, TradeType.BUY, decimal_price, decimal_amount, decimal_cost)
             order_result = await self.place_order(order_id, trading_pair, decimal_amount, True, order_type, decimal_price, decimal_cost)
 
@@ -846,12 +837,7 @@ cdef class EterbaseMarket(MarketBase):
             raise
         except Exception:
             self.c_stop_tracking_order(order_id)
-            if order_type == OrderType.MARKET:
-                order_type_str = "MARKET"
-            elif order_type == OrderType.LIMIT:
-                order_type_str = "LIMIT"
-            elif order_type == OrderType.LIMIT_MAKER:
-                order_type_str = "LIMIT_MAKER"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Eterbase for "
                 f"{decimal_amount} {trading_pair} {price}.",
@@ -899,13 +885,6 @@ cdef class EterbaseMarket(MarketBase):
                              f"{trading_rule.min_order_size}.")
 
         try:
-            self.apply_execute_order_to_available_balance(
-                trading_pair=trading_pair,
-                order_amount=decimal_amount,
-                order_price=decimal_price,
-                is_buy=False
-            )
-
             self.c_start_tracking_order(order_id, trading_pair, order_type, TradeType.SELL, decimal_price, decimal_amount, decimal_cost)
             order_result = await self.place_order(order_id, trading_pair, decimal_amount, False, order_type, decimal_price, decimal_cost)
 
@@ -926,12 +905,7 @@ cdef class EterbaseMarket(MarketBase):
             raise
         except Exception as e:
             self.c_stop_tracking_order(order_id)
-            if order_type == OrderType.MARKET:
-                order_type_str = "MARKET"
-            elif order_type == OrderType.LIMIT:
-                order_type_str = "LIMIT"
-            elif order_type == OrderType.LIMIT_MAKER:
-                order_type_str = "LIMIT_MAKER"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting sell {order_type_str} order to Eterbase for "
                 f"{decimal_amount} {trading_pair} {price}.",
@@ -963,7 +937,6 @@ cdef class EterbaseMarket(MarketBase):
             path_url = f"/orders/{exchange_order_id}"
             await api_request("delete", path_url=path_url, auth=self._eterbase_auth)
             self.logger().info(f"Successfully cancelled order {order_id}. Exchange_Order_Id {exchange_order_id}")
-            self.apply_execute_cancel_to_available_balance(self._in_flight_orders[order_id])
             self.c_stop_tracking_order(order_id)
             self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                  OrderCancelledEvent(self._current_timestamp, order_id))

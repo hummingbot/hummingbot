@@ -61,7 +61,6 @@ cdef class MarketBase(NetworkIterator):
 
         self._account_balances = {}  # Dict[asset_name:str, Decimal]
         self._account_available_balances = {}  # Dict[asset_name:str, Decimal]
-        self._asset_limit = {}  # Dict[asset_name: str, Decimal]
         self._order_book_tracker = None
 
     @staticmethod
@@ -264,9 +263,6 @@ cdef class MarketBase(NetworkIterator):
         order_size_quantum = self.c_get_order_size_quantum(trading_pair, amount)
         return (amount // order_size_quantum) * order_size_quantum
 
-    def supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.MARKET]
-
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
 
@@ -429,5 +425,23 @@ cdef class MarketBase(NetworkIterator):
     def quantize_order_amount(self, trading_pair: str, amount: Decimal) -> Decimal:
         return self.c_quantize_order_amount(trading_pair, amount)
 
+    def supported_order_types(self):
+        return [OrderType.LIMIT]
+
+    def get_maker_order_type(self):
+        if OrderType.LIMIT_MAKER in self.supported_order_types():
+            return OrderType.LIMIT_MAKER
+        elif OrderType.LIMIT in self.supported_order_types():
+            return OrderType.LIMIT
+        else:
+            raise Exception("There is no maker order type supported by this exchange.")
+
+    def get_taker_order_type(self):
+        if OrderType.MARKET in self.supported_order_types():
+            return OrderType.MARKET
+        elif OrderType.LIMIT in self.supported_order_types():
+            return OrderType.LIMIT
+        else:
+            raise Exception("There is no taker order type supported by this exchange.")
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>

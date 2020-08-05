@@ -34,7 +34,12 @@ Liquidity mining sets forth an analytical framework for determining market maker
     
     You can read more about it in our [Reddit post](https://www.reddit.com/r/Hummingbot/comments/hx9wy5/change_to_spread_factor_constant_more_rewards_for/).
 
-**Current reward period: July 28, 2020 12.00am UTC to August 3, 2020 12.00am UTC**
+!!! note "Campaign updates for the week starting August 4, 2020 12.00am UTC"
+    SOL liquidity mining campaign will be paused. After we add other exchanges where SOL trades, we and Solana will revisit liquidity incentives for SOL.
+    
+    You can read more about it on this [Reddit post](https://www.reddit.com/r/Hummingbot/comments/i32roh/sol_liquidity_mining_campaign_paused/).    
+
+**Current reward period: July 28, 2020 12.00am UTC to August 10, 2020 12.00am UTC**
 
 <table>
   <thead>
@@ -135,28 +140,6 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>USDC 250</td>
     </tr>
     <tr>
-      <td rowspan="3"><a href="#solana">Solana</a><br></td>
-      <td>SOL/BTC</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td>USDC 250</td>
-    </tr>
-    <tr>
-      <td>SOL/BUSD</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td>USDC 250</td>
-    </tr>
-    <tr>
-      <td>SOL/BNB</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td>USDC 125</td>
-    </tr>
-    <tr>
       <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
       <td>XZC/BTC</td>
       <td>Binance.com</td>
@@ -206,12 +189,6 @@ The [Mainframe (MFT)](https://mainframe.com/) Lending Protocol allows anyone to 
 [NULS](https://nuls.io) is a microservices-driven blockchain project that uses the Proof of Credit (PoC) consensus mechanism (dPoS plus credit rating) to mine via staking. The NULS modular design features NULSTAR, a microservices-based framework reportedly enabling enterprise-grade blockchain solutions for smart contracts, private chains, public chains, dApps and NRC-20 tokenization. NULS 1.0 mainnet launched in July, 2018. The main product of NULS is Chain Factory, a chain-building tool that allows businesses to utilize the plug-and-play selection of modules from the NULS Module Repository including cross-chain consensus for asset value circulation within the NULS ecosystem.
 
 [Blog](https://medium.com/@nuls) | [Twitter](https://twitter.com/Nuls) | [Github](https://github.com/nuls-io) | [CoinMarketCap](https://coinmarketcap.com/currencies/nuls/) | [CoinGecko](https://www.coingecko.com/en/coins/nuls)
-
-### Solana
-
-[Solana (SOL)](https://solana.com) is a high-performance blockchain based out of San Francisco. The project was founded with the mission to support all high-growth and high-frequency blockchain applications, and to democratize the world’s financial systems. As of today, Solana can support up to 50,000 transactions per second, with 400ms block times and transaction fees estimated to be $0.00001 each, which will continue to scale further as its network architecture was designed from the ground up to leverage improvements in hardware and bandwidth.
-
-[Whitepaper](https://solana.com/solana-whitepaper.pdf) | [Blog](https://medium.com/solana-labs) | [Podcast](https://podcast.solana.com/) | [Twitter](https://twitter.com/solana) | [Telegram](https://t.me/solanaio) | [Discord](https://discordapp.com/invite/pquxPsq) | [Github](https://github.com/solana-labs) | [CoinMarketCap](https://coinmarketcap.com/currencies/solana/markets/) | [CoinGecko](https://www.coingecko.com/en/coins/solana)
 
 ### Zcoin
 

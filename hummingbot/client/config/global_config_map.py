@@ -8,7 +8,7 @@ from hummingbot.client.settings import (
     DEXES,
     DEFAULT_KEY_FILE_PATH,
     DEFAULT_LOG_FILE_PATH,
-    SCRIPTS_PATH, EXCHANGES
+    SCRIPTS_PATH
 )
 from hummingbot.client.config.config_validators import (
     validate_bool,
@@ -273,13 +273,11 @@ global_config_map = {
     "ethereum_rpc_url":
         ConfigVar(key="ethereum_rpc_url",
                   prompt="Which Ethereum node would you like your client to connect to? >>> ",
-                  required_if=lambda: global_config_map["ethereum_wallet"].value is not None,
-                  is_connect_key=True),
+                  required_if=lambda: global_config_map["ethereum_wallet"].value is not None),
     "ethereum_rpc_ws_url":
         ConfigVar(key="ethereum_rpc_ws_url",
                   prompt="Enter the Websocket Address of your Ethereum Node >>> ",
-                  required_if=lambda: global_config_map["ethereum_rpc_url"].value is not None,
-                  is_connect_key=True),
+                  required_if=lambda: global_config_map["ethereum_rpc_url"].value is not None),
     "ethereum_chain_name":
         ConfigVar(key="ethereum_chain_name",
                   prompt="What is your preferred ethereum chain name? >>> ",
@@ -394,11 +392,4 @@ global_config_map = {
                   type_str="str",
                   required_if=lambda: global_config_map["script_enabled"].value,
                   validator=validate_script_file_path),
-    "balance_asset_limit":
-        ConfigVar(key="balance_asset_limit",
-                  prompt="Use the `balance limit` command"
-                         "e.g. balance limit [EXCHANGE] [ASSET] [AMOUNT]",
-                  required_if=lambda: False,
-                  type_str="json",
-                  default={exchange: None for exchange in EXCHANGES}),
 }

@@ -74,24 +74,6 @@ paper_trade_account_balance:
 - - DAI
   - 1000
 
-# Balance Limit Configurations
-balance_asset_limit:
-    bamboo_relay:
-    binance:
-    coinbase_pro:
-    huobi:
-    liquid:
-    radar_relay:
-    dolomite:
-    bittrex:
-    kucoin:
-    eterbase:
-    kraken:
-# e.g. Setting USDT limits on Binance.
-# balance_asset_limit:
-#   binance:
-#     USDT: 1000
-
 # Telegram integration
 telegram_enabled: false
 telegram_token: null
