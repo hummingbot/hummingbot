@@ -8,7 +8,7 @@ from hummingbot.client.settings import (
     DEXES,
     DEFAULT_KEY_FILE_PATH,
     DEFAULT_LOG_FILE_PATH,
-    SCRIPTS_PATH
+    SCRIPTS_PATH, EXCHANGES
 )
 from hummingbot.client.config.config_validators import (
     validate_bool,
@@ -389,4 +389,11 @@ global_config_map = {
                   type_str="str",
                   required_if=lambda: global_config_map["script_enabled"].value,
                   validator=validate_script_file_path),
+    "balance_asset_limit":
+        ConfigVar(key="balance_asset_limit",
+                  prompt="Use the `balance limit` command"
+                         "e.g. balance limit [EXCHANGE] [ASSET] [AMOUNT]",
+                  required_if=lambda: False,
+                  type_str="json",
+                  default={exchange: None for exchange in EXCHANGES}),
 }
