@@ -7,7 +7,7 @@
 
 ---
 
-If you have successfully configure a pure market making bot in step 3, you should see the following message in the left pane of Hummingbot:
+If you have successfully configured a pure market making bot in step 3, you should see the following message in the left pane of Hummingbot:
 
 ![](/assets/img/quickstart_start.png)
 
