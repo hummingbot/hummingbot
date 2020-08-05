@@ -131,7 +131,6 @@ cdef class HuobiMarket(MarketBase):
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
         self._order_book_tracker = HuobiOrderBookTracker(
-            data_source_type=order_book_tracker_data_source_type,
             trading_pairs=trading_pairs
         )
         self._poll_notifier = asyncio.Event()

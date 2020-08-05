@@ -94,8 +94,7 @@ cdef class BittrexMarket(MarketBase):
         self._in_flight_orders = {}
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
-        self._order_book_tracker = BittrexOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
-                                                           trading_pairs=trading_pairs)
+        self._order_book_tracker = BittrexOrderBookTracker(trading_pairs=trading_pairs)
         self._order_not_found_records = {}
         self._poll_notifier = asyncio.Event()
         self._poll_interval = poll_interval
@@ -697,16 +696,14 @@ cdef class BittrexMarket(MarketBase):
             }
         elif order_type is OrderType.LIMIT_MAKER:
             body = {
-                    "marketSymbol": str(trading_pair),
-                    "direction": "BUY" if is_buy else "SELL",
-                    "type": "LIMIT",
-                    "quantity": f"{amount:f}",
-                    "limit": f"{price:f}",
-                    "timeInForce": "POST_ONLY_GOOD_TIL_CANCELLED"
-                    }
-
+                "marketSymbol": str(trading_pair),
+                "direction": "BUY" if is_buy else "SELL",
+                "type": "LIMIT",
+                "quantity": f"{amount:f}",
+                "limit": f"{price:f}",
+                "timeInForce": "POST_ONLY_GOOD_TIL_CANCELLED"
+            }
         api_response = await self._api_request("POST", path_url=path_url, body=body)
-
         return api_response
 
     async def execute_buy(self,
@@ -822,7 +819,7 @@ cdef class BittrexMarket(MarketBase):
         decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
         if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
             decimal_price = self.c_quantize_order_price(trading_pair, price)
-        else: 
+        else:
             decimal_price = s_decimal_0
 
         if decimal_amount < trading_rule.min_order_size:
