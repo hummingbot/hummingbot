@@ -381,7 +381,7 @@ cdef class HuobiMarket(MarketBase):
             return TradeFee(percent=fee_overrides_config_map["huobi_taker_fee"].value / Decimal("100"))
         return TradeFee(percent=Decimal("0.002"))
         """
-        is_maker = order_type is OrderType.LIMIT
+        is_maker = order_type is OrderType.LIMIT_MAKER
         return estimate_fee("huobi", is_maker)
 
     async def _update_trading_rules(self):
@@ -732,7 +732,7 @@ cdef class HuobiMarket(MarketBase):
         return all(self.status_dict.values())
 
     def supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     async def place_order(self,
                           order_id: str,
@@ -743,12 +743,7 @@ cdef class HuobiMarket(MarketBase):
                           price: Decimal) -> str:
         path_url = "/order/orders/place"
         side = "buy" if is_buy else "sell"
-        if order_type is OrderType.LIMIT:
-            order_type_str = "limit"
-        elif order_type is OrderType.LIMIT_MAKER:
-            order_type_str = "limit-maker"
-        elif order_type is OrderType.MARKET:
-            order_type_str = "market"
+        order_type_str = "limit" if order_type is OrderType.LIMIT else "limit-maker"
 
         params = {
             "account-id": self._account_id,
@@ -782,12 +777,7 @@ cdef class HuobiMarket(MarketBase):
             str exchange_order_id
             object tracked_order
 
-        if order_type is OrderType.MARKET:
-            quote_amount = self.c_get_quote_volume_for_base_amount(trading_pair, True, amount).result_volume
-            # Quantize according to price rules, not base token amount rules.
-            decimal_amount = self.c_quantize_order_price(trading_pair, Decimal(quote_amount))
-            decimal_price = s_decimal_0
-        else:
+        if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
             decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
             decimal_price = self.c_quantize_order_price(trading_pair, price)
             if decimal_amount < trading_rule.min_order_size:
@@ -820,16 +810,11 @@ cdef class HuobiMarket(MarketBase):
             raise
         except Exception:
             self.c_stop_tracking_order(order_id)
-            if order_type == OrderType.MARKET:
-                order_type_str = "MARKET"
-            elif order_type == OrderType.LIMIT:
-                order_type_str = "LIMIT"
-            elif order_type == OrderType.LIMIT_MAKER:
-                order_type_str = "LIMIT_LIMIT"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Huobi for "
                 f"{decimal_amount} {trading_pair} "
-                f"{decimal_price if order_type is not OrderType.MARKET else ''}.",
+                f"{decimal_price}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit buy order to Huobi. Check API key and network connection."
             )
@@ -839,7 +824,7 @@ cdef class HuobiMarket(MarketBase):
     cdef str c_buy(self,
                    str trading_pair,
                    object amount,
-                   object order_type=OrderType.MARKET,
+                   object order_type=OrderType.LIMIT,
                    object price=s_decimal_0,
                    dict kwargs={}):
         cdef:
@@ -863,9 +848,8 @@ cdef class HuobiMarket(MarketBase):
             object tracked_order
 
         decimal_amount = self.quantize_order_amount(trading_pair, amount)
-        decimal_price = (self.c_quantize_order_price(trading_pair, price)
-                         if order_type is not OrderType.MARKET
-                         else s_decimal_0)
+        decimal_price = self.c_quantize_order_price(trading_pair, price)
+
         if decimal_amount < trading_rule.min_order_size:
             raise ValueError(f"Sell order amount {decimal_amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
@@ -897,16 +881,11 @@ cdef class HuobiMarket(MarketBase):
             raise
         except Exception:
             self.c_stop_tracking_order(order_id)
-            if order_type == OrderType.MARKET:
-                order_type_str = "MARKET"
-            elif order_type == OrderType.LIMIT:
-                order_type_str = "LIMIT"
-            elif order_type == OrderType.LIMIT_MAKER:
-                order_type_str = "LIMIT_LIMIT"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting sell {order_type_str} order to Huobi for "
                 f"{decimal_amount} {trading_pair} "
-                f"{decimal_price if order_type is not OrderType.MARKET else ''}.",
+                f"{decimal_price}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit sell order to Huobi. Check API key and network connection."
             )
@@ -916,7 +895,7 @@ cdef class HuobiMarket(MarketBase):
     cdef str c_sell(self,
                     str trading_pair,
                     object amount,
-                    object order_type=OrderType.MARKET, object price=s_decimal_0,
+                    object order_type=OrderType.LIMIT, object price=s_decimal_0,
                     dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t> get_tracking_nonce()
