@@ -377,13 +377,8 @@ cdef class BittrexMarket(MarketBase):
                     continue
 
                 order_state = order["status"]
-                if tracked_order.order_type is OrderType.LIMIT:
-                    order_type = "LIMIT"
-                elif tracked_order.order_type is OrderType.LIMIT_MAKER:
-                    order_type = "LIMIT_MAKER"
-                elif tracked_order.order_type is OrderType.MARKET:
-                    order_type = "MARKET"
-                trade_type = "BUY" if tracked_order.trade_type is TradeType.BUY else "SELL"
+                order_type = tracked_order.order_type.name.lower()
+                trade_type = tracked_order.trade_type.name.lower()
                 order_type_description = tracked_order.order_type_description
 
                 executed_price = Decimal(order["limit"])
@@ -675,7 +670,7 @@ cdef class BittrexMarket(MarketBase):
         return quantized_amount
 
     def supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     async def place_order(self,
                           order_id: str,
@@ -698,15 +693,6 @@ cdef class BittrexMarket(MarketBase):
                 "timeInForce": "GOOD_TIL_CANCELLED"
                 # Available options [GOOD_TIL_CANCELLED, IMMEDIATE_OR_CANCEL,
                 # FILL_OR_KILL, POST_ONLY_GOOD_TIL_CANCELLED]
-            }
-        elif order_type is OrderType.MARKET:
-            body = {
-                "marketSymbol": str(trading_pair),
-                "direction": "BUY" if is_buy else "SELL",
-                "type": "MARKET",
-                "quantity": str(amount),
-                "timeInForce": "IMMEDIATE_OR_CANCEL"
-                # Available options [IMMEDIATE_OR_CANCEL, FILL_OR_KILL]
             }
         elif order_type is OrderType.LIMIT_MAKER:
             body = {
@@ -756,22 +742,12 @@ cdef class BittrexMarket(MarketBase):
                 decimal_amount
             )
             if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
-
                 order_result = await self.place_order(order_id,
                                                       trading_pair,
                                                       decimal_amount,
                                                       True,
                                                       order_type,
                                                       decimal_price)
-            elif order_type is OrderType.MARKET:
-                decimal_price = self.c_get_price(trading_pair, True)
-                order_result = await self.place_order(order_id,
-                                                      trading_pair,
-                                                      decimal_amount,
-                                                      True,
-                                                      order_type,
-                                                      decimal_price)
-
             else:
                 raise ValueError(f"Invalid OrderType {order_type}. Aborting.")
 
@@ -780,12 +756,7 @@ cdef class BittrexMarket(MarketBase):
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None and exchange_order_id:
                 tracked_order.update_exchange_order_id(exchange_order_id)
-                if order_type == OrderType.MARKET:
-                    order_type_str = "MARKET"
-                elif order_type == OrderType.LIMIT:
-                    order_type_str = "LIMIT"
-                elif order_type == OrderType.LIMIT_MAKER:
-                    order_type_str = "LIMIT_MAKER"
+                order_type_str = order_type.name.lower()
                 self.logger().info(f"Created {order_type_str} buy order {order_id} for "
                                    f"{decimal_amount} {trading_pair}")
                 self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
@@ -804,7 +775,7 @@ cdef class BittrexMarket(MarketBase):
             tracked_order = self._in_flight_orders.get(order_id)
             tracked_order.last_state = "FAILURE"
             self.c_stop_tracking_order(order_id)
-            order_type_str = "LIMIT" if order_type is OrderType.LIMIT else "MARKET"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Bittrex for "
                 f"{decimal_amount} {trading_pair} "
@@ -875,14 +846,6 @@ cdef class BittrexMarket(MarketBase):
                                                       False,
                                                       order_type,
                                                       decimal_price)
-            elif order_type is OrderType.MARKET:
-                decimal_price = self.c_get_price(trading_pair, False)
-                order_result = await self.place_order(order_id,
-                                                      trading_pair,
-                                                      decimal_amount,
-                                                      False,
-                                                      order_type,
-                                                      decimal_price)
             else:
                 raise ValueError(f"Invalid OrderType {order_type}. Aborting.")
 
@@ -890,12 +853,7 @@ cdef class BittrexMarket(MarketBase):
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None and exchange_order_id:
                 tracked_order.update_exchange_order_id(exchange_order_id)
-                if order_type == OrderType.MARKET:
-                    order_type_str = "MARKET"
-                elif order_type == OrderType.LIMIT:
-                    order_type_str = "LIMIT"
-                elif order_type == OrderType.LIMIT_MAKER:
-                    order_type_str = "LIMIT_MAKER"
+                order_type_str = order_type.name.lower()
                 self.logger().info(f"Created {order_type_str} sell order {order_id} for "
                                    f"{decimal_amount} {trading_pair}.")
                 self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
@@ -913,7 +871,7 @@ cdef class BittrexMarket(MarketBase):
             tracked_order = self._in_flight_orders.get(order_id)
             tracked_order.last_state = "FAILURE"
             self.c_stop_tracking_order(order_id)
-            order_type_str = "LIMIT" if order_type is OrderType.LIMIT else "MARKET"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting sell {order_type_str} order to Bittrex for "
                 f"{decimal_amount} {trading_pair} "
@@ -927,7 +885,7 @@ cdef class BittrexMarket(MarketBase):
     cdef str c_sell(self,
                     str trading_pair,
                     object amount,
-                    object order_type=OrderType.MARKET,
+                    object order_type=OrderType.LIMIT,
                     object price=0.0,
                     dict kwargs={}):
         cdef:
