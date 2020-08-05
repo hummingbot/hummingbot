@@ -264,6 +264,8 @@ class LiquidMarketUnitTest(unittest.TestCase):
                              for event in self.market_logger.event_log]))
 
     def test_limit_maker_rejections(self):
+        if API_MOCK_ENABLED:
+            return
         trading_pair = "CEL-ETH"
 
         # Try to put a buy limit maker order that is going to match, this should triggers order failure event.
@@ -287,6 +289,8 @@ class LiquidMarketUnitTest(unittest.TestCase):
         self.assertEqual(order_id, order_failure_event.order_id)
 
     def test_limit_makers_unfilled(self):
+        if API_MOCK_ENABLED:
+            return
         trading_pair = "CEL-USDT"
         price = self.market.get_price(trading_pair, True) * Decimal("0.8")
         price = self.market.quantize_order_price(trading_pair, price)
@@ -313,32 +317,6 @@ class LiquidMarketUnitTest(unittest.TestCase):
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
-
-    @unittest.skipUnless(any("test_withdraw" in arg for arg in sys.argv), "Withdraw test requires manual action.")
-    def test_withdraw(self):
-        # CEL_ABI contract file can be found in
-        # https://etherscan.io/address/0xe41d2489571d322189246dafa5ebde1f4699f498#code
-        with open(realpath(join(__file__, "../../../data/CELABI.json"))) as fd:
-            zrx_abi: str = fd.read()
-
-        local_wallet: MockWallet = MockWallet(conf.web3_test_private_key_a,
-                                              conf.test_web3_provider_list[0],
-                                              {"0xE41d2489571d322189246DaFA5ebDe1F4699F498": zrx_abi},
-                                              chain_id=1)
-
-        # Ensure the market account has enough balance for withdraw testing.
-        self.assertGreaterEqual(self.market.get_balance("CEL"), Decimal('10'))
-
-        # Withdraw CEL from Liquid to test wallet.
-        self.market.withdraw(local_wallet.address, "CEL", Decimal('10'))
-        [withdraw_asset_event] = self.run_parallel(
-            self.market_logger.wait_for(MarketWithdrawAssetEvent)
-        )
-        withdraw_asset_event: MarketWithdrawAssetEvent = withdraw_asset_event
-        self.assertEqual(local_wallet.address, withdraw_asset_event.to_address)
-        self.assertEqual("CEL", withdraw_asset_event.asset_name)
-        self.assertEqual(Decimal('10'), withdraw_asset_event.amount)
-        self.assertGreater(withdraw_asset_event.fee_amount, Decimal(0))
 
     def test_cancel_all(self):
         trading_pair = "CEL-ETH"

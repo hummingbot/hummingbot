@@ -25,7 +25,6 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
     MarketOrderFailureEvent,
-    MarketWithdrawAssetEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
     OrderFilledEvent,
@@ -224,6 +223,8 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             HummingWsServerFactory.send_json_threadsafe(WS_BASE_URL, resp, delay=0.1)
 
     def test_limit_maker_rejections(self):
+        if API_MOCK_ENABLED:
+            return
         trading_pair = "ETH-USDC"
 
         # Try to put a buy limit maker order that is going to match, this should triggers order failure event.
@@ -247,6 +248,8 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         self.assertEqual(order_id, order_failure_event.order_id)
 
     def test_limit_makers_unfilled(self):
+        if API_MOCK_ENABLED:
+            return
         trading_pair = "ETH-USDC"
         price = self.market.get_price(trading_pair, True) * Decimal("0.8")
         price = self.market.quantize_order_price(trading_pair, price)

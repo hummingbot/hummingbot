@@ -129,11 +129,11 @@ cdef class MarketBase(NetworkIterator):
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         raise NotImplementedError
 
-    cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.LIMIT,
+    cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.MARKET,
                    object price=s_decimal_NaN, dict kwargs={}):
         raise NotImplementedError
 
-    cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.LIMIT,
+    cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.MARKET,
                     object price=s_decimal_NaN, dict kwargs={}):
         raise NotImplementedError
 
@@ -193,9 +193,6 @@ cdef class MarketBase(NetworkIterator):
     cdef object c_quantize_order_amount(self, str trading_pair, object amount, object price=s_decimal_NaN):
         order_size_quantum = self.c_get_order_size_quantum(trading_pair, amount)
         return (amount // order_size_quantum) * order_size_quantum
-
-    def supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
@@ -318,11 +315,11 @@ cdef class MarketBase(NetworkIterator):
     def get_price(self, trading_pair: str, is_buy: bool) -> Decimal:
         return self.c_get_price(trading_pair, is_buy)
 
-    def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.LIMIT,
+    def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
             price: Decimal = s_decimal_NaN, **kwargs) -> str:
         return self.c_buy(trading_pair, amount, order_type, price, kwargs)
 
-    def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.LIMIT,
+    def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
              price: Decimal = s_decimal_NaN, **kwargs) -> str:
         return self.c_sell(trading_pair, amount, order_type, price, kwargs)
 
@@ -359,5 +356,23 @@ cdef class MarketBase(NetworkIterator):
     def quantize_order_amount(self, trading_pair: str, amount: Decimal) -> Decimal:
         return self.c_quantize_order_amount(trading_pair, amount)
 
+    def supported_order_types(self):
+        return [OrderType.LIMIT]
+
+    def get_maker_order_type(self):
+        if OrderType.LIMIT_MAKER in self.supported_order_types():
+            return OrderType.LIMIT_MAKER
+        elif OrderType.LIMIT in self.supported_order_types():
+            return OrderType.LIMIT
+        else:
+            raise Exception("There is no maker order type supported by this exchange.")
+
+    def get_taker_order_type(self):
+        if OrderType.MARKET in self.supported_order_types():
+            return OrderType.MARKET
+        elif OrderType.LIMIT in self.supported_order_types():
+            return OrderType.LIMIT
+        else:
+            raise Exception("There is no taker order type supported by this exchange.")
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>

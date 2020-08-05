@@ -357,24 +357,6 @@ cdef class StrategyBase(TimeIterator):
     cdef c_did_complete_sell_order_tracker(self, object order_completed_event):
         self.c_did_complete_buy_order_tracker(order_completed_event)
 
-    cdef c_get_maker_order_type(self, object maker_market):
-        cdef:
-            orde_type = OrderType.LIMIT_MAKER
-
-        if OrderType.LIMIT_MAKER not in maker_market.supported_order_types():
-            order_type = OrderType.LIMIT
-
-        return order_type
-
-    cdef c_get_taker_order_type(self, object taker_market):
-        cdef:
-            orde_type = OrderType.MARKET
-
-        if OrderType.MARKET not in taker_market.supported_order_types():
-            order_type = OrderType.LIMIT
-
-        return order_type
-
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
 
