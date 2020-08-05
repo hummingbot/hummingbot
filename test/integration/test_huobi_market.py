@@ -235,6 +235,8 @@ class HuobiMarketUnitTest(unittest.TestCase):
             self.web_app.update_response("get", API_BASE_URL, f"/v1/order/orders/{exchange_order_id}", resp)
 
     def test_limit_maker_rejections(self):
+        if API_MOCK_ENABLED:
+            return
         trading_pair = "ethusdt"
 
         # Try to put a buy limit maker order that is going to match, this should triggers order failure event.
@@ -258,6 +260,8 @@ class HuobiMarketUnitTest(unittest.TestCase):
         self.assertEqual(order_id, order_failure_event.order_id)
 
     def test_limit_makers_unfilled(self):
+        if API_MOCK_ENABLED:
+            return
         trading_pair = "ethusdt"
         price = self.market.get_price(trading_pair, True) * Decimal("0.8")
         price = self.market.quantize_order_price(trading_pair, price)

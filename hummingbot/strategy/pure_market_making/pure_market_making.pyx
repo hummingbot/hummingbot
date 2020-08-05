@@ -129,7 +129,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         self._cancel_timestamp = 0
         self._create_timestamp = 0
-        self._limit_order_type = self.c_get_maker_order_type(self._market_info)
+        self._limit_order_type = self._market_info.market.get_maker_order_type()
         if take_if_crossed:
             self._limit_order_type = OrderType.LIMIT
         self._all_markets_ready = False

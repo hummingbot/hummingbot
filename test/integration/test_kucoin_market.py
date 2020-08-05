@@ -224,6 +224,8 @@ class KucoinMarketUnitTest(unittest.TestCase):
         self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
 
     def test_limit_maker_rejections(self):
+        if API_MOCK_ENABLED:
+            return
         trading_pair = "ETH-USDT"
 
         # Try to put a buy limit maker order that is going to match, this should triggers order failure event.
@@ -247,6 +249,8 @@ class KucoinMarketUnitTest(unittest.TestCase):
         self.assertEqual(order_id, order_failure_event.order_id)
 
     def test_limit_makers_unfilled(self):
+        if API_MOCK_ENABLED:
+            return
         trading_pair = "ETH-USDT"
         price = self.market.get_price(trading_pair, True) * Decimal("0.8")
         price = self.market.quantize_order_price(trading_pair, price)
