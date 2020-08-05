@@ -132,7 +132,6 @@ cdef class RadarRelayMarket(MarketBase):
         self._tx_tracker = RadarRelayTransactionTracker(self)
         self._w3 = Web3(Web3.HTTPProvider(ethereum_rpc_url))
         self._provider = Web3.HTTPProvider(ethereum_rpc_url)
-        self._withdraw_rules = {}
         self._trading_rules = {}
         self._pending_approval_tx_hashes = set()
         self._status_polling_task = None
@@ -763,7 +762,7 @@ cdef class RadarRelayMarket(MarketBase):
             object q_price
             object q_amt = self.c_quantize_order_amount(trading_pair, amount)
             TradingRule trading_rule = self._trading_rules[trading_pair]
-            str trade_type_desc = "buy" if trade_type is TradeType.BUY else "sell"
+            str trade_type_desc = trade_type.name.lower()
         try:
             if q_amt < trading_rule.min_order_size:
                 raise ValueError(f"{trade_type_desc.capitalize()} order amount {q_amt} is lower than the "

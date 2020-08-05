@@ -266,7 +266,7 @@ cdef class ArbitrageStrategy(StrategyBase):
         for market_trading_pair_tuple in market_trading_pair_tuples:
             # Do not continue if there are pending limit order
             if len(tracked_limit_orders.get(market_trading_pair_tuple, {})) > 0:
-                    return False
+                return False
             # Wait for the cool off interval before the next trade, so wallet balance is up to date
             ready_to_trade_time = self._last_trade_timestamps.get(market_trading_pair_tuple, 0) + self._next_trade_delay
             if market_trading_pair_tuple in self._last_trade_timestamps and ready_to_trade_time > self._current_timestamp:
@@ -345,12 +345,15 @@ cdef class ArbitrageStrategy(StrategyBase):
                                     f"at {sell_market_trading_pair_tuple.market.name} "
                                     f"with amount {quantized_order_amount}, "
                                     f"and profitability {best_profitability}")
+            # get OrderTypes
+            buy_order_type = buy_market_trading_pair_tuple.market.get_taker_order_type()
+            sell_order_type = sell_market_trading_pair_tuple.market.get_taker_order_type()
 
             # Set limit order expiration_seconds to _next_trade_delay for connectors that require order expiration for limit orders
             self.c_buy_with_specific_market(buy_market_trading_pair_tuple, quantized_order_amount,
-                                            order_type=OrderType.LIMIT, price=buy_price, expiration_seconds=self._next_trade_delay)
+                                            order_type=buy_order_type, price=buy_price, expiration_seconds=self._next_trade_delay)
             self.c_sell_with_specific_market(sell_market_trading_pair_tuple, quantized_order_amount,
-                                             order_type=OrderType.LIMIT, price=sell_price, expiration_seconds=self._next_trade_delay)
+                                             order_type=sell_order_type, price=sell_price, expiration_seconds=self._next_trade_delay)
             self.logger().info(self.format_status())
 
     @staticmethod
@@ -424,7 +427,7 @@ cdef class ArbitrageStrategy(StrategyBase):
             buy_fee = buy_market.c_get_fee(
                 buy_market_trading_pair_tuple.base_asset,
                 buy_market_trading_pair_tuple.quote_asset,
-                OrderType.MARKET,
+                buy_market_trading_pair_tuple.market.get_taker_order_type(),
                 TradeType.BUY,
                 total_previous_step_base_amount + amount,
                 ask_price
@@ -432,7 +435,7 @@ cdef class ArbitrageStrategy(StrategyBase):
             sell_fee = sell_market.c_get_fee(
                 sell_market_trading_pair_tuple.base_asset,
                 sell_market_trading_pair_tuple.quote_asset,
-                OrderType.MARKET,
+                sell_market_trading_pair_tuple.market.get_taker_order_type(),
                 TradeType.SELL,
                 total_previous_step_base_amount + amount,
                 bid_price

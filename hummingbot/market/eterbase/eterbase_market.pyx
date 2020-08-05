@@ -505,12 +505,8 @@ cdef class EterbaseMarket(MarketBase):
             # Cost only for MARKET order BUY
             execute_amount_diff = s_decimal_0
             new_confirmed_amount = s_decimal_0
-            if (tracked_order.order_type == OrderType.MARKET) and (tracked_order.trade_type == TradeType.BUY):
-                new_confirmed_amount = Decimal(order_update["cost"]) - Decimal(order_update["remainingCost"])
-                execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
-            else:
-                new_confirmed_amount = Decimal(order_update["qty"]) - Decimal(order_update["remainingQty"])
-                execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
+            new_confirmed_amount = Decimal(order_update["qty"]) - Decimal(order_update["remainingQty"])
+            execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
 
             client_order_id = tracked_order.client_order_id
             order_type_description = tracked_order.order_type_description
@@ -541,12 +537,8 @@ cdef class EterbaseMarket(MarketBase):
                                 # Using order_id here for easier data validation
                                 exchange_trade_id = exchange_order_id,
                             )
-                            if (tracked_order.order_type == OrderType.MARKET) and (tracked_order.trade_type == TradeType.BUY):
-                                self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.cost} costs of the "
-                                                   f"{order_type_description} order {client_order_id}.")
-                            else:
-                                self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
-                                                   f"{order_type_description} order {client_order_id}.")
+                            self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
+                                               f"{order_type_description} order {client_order_id}.")
 
                             self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
@@ -727,7 +719,7 @@ cdef class EterbaseMarket(MarketBase):
                 await asyncio.sleep(5.0)
 
     def supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     async def place_order(self, order_id: str, trading_pair: str, amount: Decimal, is_buy: bool, order_type: OrderType,
                           price: Decimal, cost: Optional[Decimal]):
@@ -740,8 +732,6 @@ cdef class EterbaseMarket(MarketBase):
 
         if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
             type_order = 2
-        elif order_type is OrderType.MARKET:
-            type_order = 1
         else:
             self.logger().error(f"Unsuported Order type value - {order_type}.", exc_info=True)
 
@@ -765,11 +755,6 @@ cdef class EterbaseMarket(MarketBase):
             data["qty"] = str(amount)
             if order_type is OrderType.LIMIT_MAKER:
                 data["postOnly"] = True
-        elif order_type is OrderType.MARKET:
-            if is_buy:
-                data["cost"] = str(cost)
-            else:
-                data["qty"] = str(amount)
         else:
             self.logger().error(f"Unsuported OrderType - {order_type}.", exc_info=True)
 
@@ -790,21 +775,10 @@ cdef class EterbaseMarket(MarketBase):
         cdef:
             EterbaseTradingRule trading_rule = self._trading_rules[trading_pair]
         decimal_amount = self.quantize_order_amount(trading_pair, amount)
-        if (order_type == OrderType.MARKET) and (price != price):
-            price = self.get_price(trading_pair, True)
         decimal_price = self.quantize_order_price(trading_pair, price)
         decimal_cost = s_decimal_0
         # For Order Market type is needed cost
-        if (order_type == OrderType.MARKET):
-            decimal_cost = self.c_quantize_cost(trading_pair, amount, price)
-            decimal_cost = self.c_round_to_sig_digits(decimal_cost, trading_rule.max_cost_significant_digits, 8)
-            if decimal_cost < trading_rule.min_order_value:
-                raise ValueError(f"Buy order cost {decimal_cost} is lower than the minimum order cost "
-                                 f"{trading_rule.min_order_value}.")
-            if decimal_cost > trading_rule.max_order_value:
-                raise ValueError(f"Buy order cost {decimal_cost} is higer than the maximum order cost "
-                                 f"{trading_rule.max_order_value}.")
-        elif (order_type == OrderType.LIMIT or order_type == OrderType.LIMIT_MAKER):
+        if (order_type == OrderType.LIMIT or order_type == OrderType.LIMIT_MAKER):
             # convert price according significant digits
             decimal_price = self.c_round_to_sig_digits(decimal_price, trading_rule.max_price_significant_digits)
             if decimal_amount < trading_rule.min_order_size:
@@ -836,12 +810,7 @@ cdef class EterbaseMarket(MarketBase):
             raise
         except Exception:
             self.c_stop_tracking_order(order_id)
-            if order_type == OrderType.MARKET:
-                order_type_str = "MARKET"
-            elif order_type == OrderType.LIMIT:
-                order_type_str = "LIMIT"
-            elif order_type == OrderType.LIMIT_MAKER:
-                order_type_str = "LIMIT_MAKER"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Eterbase for "
                 f"{decimal_amount} {trading_pair} {price}.",
@@ -852,7 +821,7 @@ cdef class EterbaseMarket(MarketBase):
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
-    cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.MARKET, object price=s_decimal_0,
+    cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.LIMIT, object price=s_decimal_0,
                    dict kwargs={}):
         """
         *required
@@ -876,8 +845,6 @@ cdef class EterbaseMarket(MarketBase):
         """
         cdef:
             EterbaseTradingRule trading_rule = self._trading_rules[trading_pair]
-        if price.is_nan() and order_type==OrderType.MARKET:
-            price = s_decimal_0
         decimal_amount = self.quantize_order_amount(trading_pair, amount)
         decimal_price = self.quantize_order_price(trading_pair, price)
         decimal_cost = s_decimal_0
@@ -909,12 +876,7 @@ cdef class EterbaseMarket(MarketBase):
             raise
         except Exception as e:
             self.c_stop_tracking_order(order_id)
-            if order_type == OrderType.MARKET:
-                order_type_str = "MARKET"
-            elif order_type == OrderType.LIMIT:
-                order_type_str = "LIMIT"
-            elif order_type == OrderType.LIMIT_MAKER:
-                order_type_str = "LIMIT_MAKER"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting sell {order_type_str} order to Eterbase for "
                 f"{decimal_amount} {trading_pair} {price}.",
@@ -925,7 +887,7 @@ cdef class EterbaseMarket(MarketBase):
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
-    cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.MARKET, object price=s_decimal_0,
+    cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.LIMIT, object price=s_decimal_0,
                     dict kwargs={}):
         """
         *required
