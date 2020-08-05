@@ -162,8 +162,7 @@ cdef class BambooRelayMarket(MarketBase):
             int chain_id
         super().__init__()
         self._trading_required = trading_required
-        self._order_book_tracker = BambooRelayOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
-                                                               trading_pairs=trading_pairs,
+        self._order_book_tracker = BambooRelayOrderBookTracker(trading_pairs=trading_pairs,
                                                                chain=wallet.chain)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()

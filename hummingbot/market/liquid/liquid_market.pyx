@@ -110,8 +110,7 @@ cdef class LiquidMarket(MarketBase):
 
         self._trading_required = trading_required
         self._liquid_auth = LiquidAuth(liquid_api_key, liquid_secret_key)
-        self._order_book_tracker = LiquidOrderBookTracker(
-            data_source_type=order_book_tracker_data_source_type, trading_pairs=trading_pairs)
+        self._order_book_tracker = LiquidOrderBookTracker(trading_pairs=trading_pairs)
         self._user_stream_tracker = LiquidUserStreamTracker(liquid_auth=self._liquid_auth, trading_pairs=trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()

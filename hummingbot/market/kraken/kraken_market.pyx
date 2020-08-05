@@ -119,8 +119,7 @@ cdef class KrakenMarket(MarketBase):
 
         super().__init__()
         self._trading_required = trading_required
-        self._order_book_tracker = KrakenOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
-                                                          trading_pairs=trading_pairs)
+        self._order_book_tracker = KrakenOrderBookTracker(trading_pairs=trading_pairs)
         self._kraken_auth = KrakenAuth(kraken_api_key, kraken_api_secret)
         self._user_stream_tracker = KrakenUserStreamTracker(
             kraken_auth=self._kraken_auth,

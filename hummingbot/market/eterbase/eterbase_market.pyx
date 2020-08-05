@@ -124,8 +124,7 @@ cdef class EterbaseMarket(MarketBase):
         self._eterbase_account = eterbase_account
         self._eterbase_auth = EterbaseAuth(eterbase_api_key,
                                            eterbase_secret_key)
-        self._order_book_tracker = EterbaseOrderBookTracker(data_source_type = order_book_tracker_data_source_type,
-                                                            trading_pairs = trading_pairs)
+        self._order_book_tracker = EterbaseOrderBookTracker(trading_pairs = trading_pairs)
         self._user_stream_tracker = EterbaseUserStreamTracker(eterbase_auth = self._eterbase_auth,
                                                               eterbase_account = self._eterbase_account,
                                                               trading_pairs = trading_pairs)
