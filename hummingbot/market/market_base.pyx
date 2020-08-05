@@ -55,7 +55,6 @@ cdef class MarketBase(NetworkIterator):
 
         self._account_balances = {}  # Dict[asset_name:str, Decimal]
         self._account_available_balances = {}  # Dict[asset_name:str, Decimal]
-        self._asset_limit = {}  # Dict[asset_name: str, Decimal]
         self._order_book_tracker = None
 
     @staticmethod
