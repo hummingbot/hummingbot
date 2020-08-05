@@ -118,10 +118,7 @@ Later, you can access and configure the advanced parameters of this strategy. A 
 
 The ping pong feature helps users in managing inventory risk by alternating buy and sell orders after a fill.
 
-```
-Would you like to use the ping pong feature and alternate between
-buy and sell orders after fills? (Yes/No) >>>
-```
+![](/assets/img/quickstart_pingpong.png)
 
 For more information, you may read through [Ping Pong](/strategies/advanced-mm/ping-pong) in the Advanced Market Making section.
 
@@ -130,7 +127,7 @@ For more information, you may read through [Ping Pong](/strategies/advanced-mm/p
 
 Enter the name you want for your configuration file to complete the process.
 
-![](/assets/img/quickstart_complete_save.png)
+![](/assets/img/quickstart_start.png)
 
 Proceed to the next section: [Run Your First Trading Bot](run-bot.md)
 
