@@ -19,7 +19,10 @@ cdef class HuobiMarket(MarketBase):
         object _shared_client
         public object _status_polling_task
         dict _trading_rules
+        object _user_stream_tracker
         public object _trading_rules_polling_task
+        public object _user_stream_event_listener_task
+        public object _user_stream_tracker_task
         TransactionTracker _tx_tracker
 
     cdef c_did_timeout_tx(self, str tracking_id)
