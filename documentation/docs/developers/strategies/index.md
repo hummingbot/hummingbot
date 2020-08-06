@@ -101,7 +101,7 @@ Creates a buy or a sell order in the market specified by `market_trading_pair_tu
 - **market_trading_pair_tuple**: a [`MarketTradingPairTuple`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/market_trading_pair_tuple.py) object specifying the `MarketBase` object and trading pair to create the order for.
 - **amount**: a `Decimal` object, specifying the order size in terms of the base asset.
 - **order_type**: an optional [`OrderType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py) enum specifying the order type. Default value is `OrderType.MARKET`.
-- **price**: an optional `Decimal` object, specifying the price for a limit order. This parameter is ignored if `order_type` is not `OrderType.LIMIT`.
+- **price**: an optional `Decimal` object, specifying the price for a limit order. This parameter is ignored if `order_type` is not `OrderType.LIMIT` or `OrderType.LIMIT_MAKER`.
 - **expiration_seconds**: an optional number, which specifies how long a limit should automatically expire. This is only used by Ethereum-based decentralized exchanges like Radar Relay where active order cancellation costs gas. By default, passive cancellation via expiration is used on these exchanges.
 
 ### Cancel order
