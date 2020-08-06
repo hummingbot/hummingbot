@@ -110,8 +110,7 @@ cdef class LiquidMarket(MarketBase):
 
         self._trading_required = trading_required
         self._liquid_auth = LiquidAuth(liquid_api_key, liquid_secret_key)
-        self._order_book_tracker = LiquidOrderBookTracker(
-            data_source_type=order_book_tracker_data_source_type, trading_pairs=trading_pairs)
+        self._order_book_tracker = LiquidOrderBookTracker(trading_pairs=trading_pairs)
         self._user_stream_tracker = LiquidUserStreamTracker(liquid_auth=self._liquid_auth, trading_pairs=trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
@@ -344,7 +343,7 @@ cdef class LiquidMarket(MarketBase):
             return TradeFee(percent=fee_overrides_config_map["liquid_taker_fee"].value / Decimal("100"))
         return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
         """
-        is_maker = order_type is OrderType.LIMIT
+        is_maker = order_type is OrderType.LIMIT_MAKER
         return estimate_fee("liquid", is_maker)
 
     async def _update_balances(self):
@@ -625,7 +624,7 @@ cdef class LiquidMarket(MarketBase):
                 else Decimal(order_update["average_price"])
 
             order_type_description = tracked_order.order_type_description
-            order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
+            order_type = tracked_order.order_type
             # Emit event if executed amount is greater than 0.
             if execute_amount_diff > s_decimal_0:
                 order_filled_event = OrderFilledEvent(
@@ -838,7 +837,7 @@ cdef class LiquidMarket(MarketBase):
                 await asyncio.sleep(5.0)
 
     def supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     async def place_order(self, order_id: str, trading_pair: str, amount: Decimal, is_buy: bool, order_type: OrderType,
                           price: Decimal):
@@ -851,8 +850,6 @@ cdef class LiquidMarket(MarketBase):
 
         if order_type is OrderType.LIMIT:
             order_type_str = "limit"
-        elif order_type is OrderType.MARKET:
-            order_type_str = "market"
         elif order_type is OrderType.LIMIT_MAKER:
             order_type_str = "limit_post_only"
 
@@ -942,7 +939,7 @@ cdef class LiquidMarket(MarketBase):
             raise
         except Exception as e:
             self.c_stop_tracking_order(order_id)
-            order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Liquid for "
                 f"{decimal_amount} {trading_pair} {price}.",
@@ -953,7 +950,7 @@ cdef class LiquidMarket(MarketBase):
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
-    cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.MARKET, object price=s_decimal_0,
+    cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.LIMIT, object price=s_decimal_0,
                    dict kwargs={}):
         """
         *required
@@ -1006,7 +1003,7 @@ cdef class LiquidMarket(MarketBase):
             raise
         except Exception as e:
             self.c_stop_tracking_order(order_id)
-            order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting sell {order_type_str} order to Liquid for "
                 f"{decimal_amount} {trading_pair} {price}.",
@@ -1017,7 +1014,7 @@ cdef class LiquidMarket(MarketBase):
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
-    cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.MARKET, object price=s_decimal_0,
+    cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.LIMIT, object price=s_decimal_0,
                     dict kwargs={}):
         """
         *required

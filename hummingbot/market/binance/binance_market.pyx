@@ -138,8 +138,7 @@ cdef class BinanceMarket(MarketBase):
         self.monkey_patch_binance_time()
         super().__init__()
         self._trading_required = trading_required
-        self._order_book_tracker = BinanceOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
-                                                           trading_pairs=trading_pairs)
+        self._order_book_tracker = BinanceOrderBookTracker(trading_pairs=trading_pairs)
         self._binance_client = BinanceClient(binance_api_key, binance_api_secret)
         self._user_stream_tracker = BinanceUserStreamTracker(
             data_source_type=user_stream_tracker_data_source_type, binance_client=self._binance_client)
@@ -344,7 +343,7 @@ cdef class BinanceMarket(MarketBase):
             maker_trade_fee, taker_trade_fee = self._trade_fees.get(trading_pair)
         return TradeFee(percent=maker_trade_fee if order_type.is_limit_type() else taker_trade_fee)
         """
-        is_maker = order_type is OrderType.LIMIT
+        is_maker = order_type is OrderType.LIMIT_MAKER
         return estimate_fee("binance", is_maker)
 
     async def _update_trading_rules(self):
@@ -830,7 +829,7 @@ cdef class BinanceMarket(MarketBase):
                           price: Optional[Decimal] = s_decimal_NaN):
         return await self.create_order(TradeType.BUY, order_id, trading_pair, amount, order_type, price)
 
-    cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.MARKET, object price=s_decimal_NaN,
+    cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.LIMIT, object price=s_decimal_NaN,
                    dict kwargs={}):
         cdef:
             str t_pair = BinanceMarket.convert_from_exchange_trading_pair(trading_pair)
@@ -847,7 +846,7 @@ cdef class BinanceMarket(MarketBase):
         return OrderType[binance_type]
 
     def supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     async def create_order(self,
                            trade_type: TradeType,
@@ -859,8 +858,7 @@ cdef class BinanceMarket(MarketBase):
         cdef:
             TradingRule trading_rule = self._trading_rules[trading_pair]
         amount = self.c_quantize_order_amount(trading_pair, amount)
-        price = Decimal("NaN") if order_type == OrderType.MARKET else \
-            self.c_quantize_order_price(trading_pair, price)
+        price = self.c_quantize_order_price(trading_pair, price)
         if amount < trading_rule.min_order_size:
             raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
@@ -873,9 +871,8 @@ cdef class BinanceMarket(MarketBase):
                       "side": side_str,
                       "quantity": amount_str,
                       "type": type_str,
-                      "newClientOrderId": order_id}
-        if order_type != OrderType.MARKET:
-            api_params["price"] = price_str
+                      "newClientOrderId": order_id,
+                      "price": price_str}
         if order_type == OrderType.LIMIT:
             api_params["timeInForce"] = BinanceClient.TIME_IN_FORCE_GTC
         self.c_start_tracking_order(order_id,
@@ -914,7 +911,7 @@ cdef class BinanceMarket(MarketBase):
             self.logger().network(
                 f"Error submitting {side_str} {type_str} order to Binance for "
                 f"{amount} {trading_pair} "
-                f"{''if order_type is OrderType.MARKET else price}.",
+                f"{price}.",
                 exc_info=True,
                 app_warning_msg=str(e)
             )
@@ -929,7 +926,7 @@ cdef class BinanceMarket(MarketBase):
                            price: Optional[Decimal] = Decimal("NaN")):
         return await self.create_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price)
 
-    cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.MARKET, object price=s_decimal_NaN,
+    cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.LIMIT, object price=s_decimal_NaN,
                     dict kwargs={}):
         cdef:
             str t_pair = BinanceMarket.convert_from_exchange_trading_pair(trading_pair)
