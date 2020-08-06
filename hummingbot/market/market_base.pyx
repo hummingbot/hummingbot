@@ -137,6 +137,9 @@ cdef class MarketBase(NetworkIterator):
         To be called after every REST API fetch or WebSocket API update.
         """
         exchange_limits = self.get_exchange_limit_config(self.name)
+        if exchange_limits is None:
+            self.logger().warning("`balance_asset_limit` in global config is UNSET!")
+            return False
 
         for asset_name, total_balance in self._account_balances.items():
             if asset_name.upper() in exchange_limits:
@@ -146,7 +149,7 @@ cdef class MarketBase(NetworkIterator):
         for asset_name, available_balance in self._account_available_balances.items():
             if asset_name.upper() in exchange_limits:
                 asset_limit = Decimal(exchange_limits[asset_name.upper()])
-                self._account_available_balances.update({asset_name, min(available_balance, asset_limit)})
+                self._account_available_balances.update({asset_name: min(available_balance, asset_limit)})
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         """
