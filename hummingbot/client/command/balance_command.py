@@ -3,7 +3,11 @@ from hummingbot.client.settings import (
 )
 from hummingbot.user.user_balances import UserBalances
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.client.config.global_config_map import global_config_map, LIMIT_GLOBAL_CONFIG
+from hummingbot.client.config.global_config_map import (
+    global_config_map,
+    LIMIT_GLOBAL_CONFIG,
+    PAPER_ACC_BALANCE_CONFIG,
+)
 from hummingbot.client.config.config_helpers import (
     save_to_yml
 )
@@ -30,10 +34,6 @@ OPTION_DESCRIPTION = {
     "limit": "Configure the asset limits for specified exchange",
     "paper": "Configure asset balances used in paper trading mode"
 }
-
-
-LIMIT_GLOBAL_CONFIG = "balance_asset_limit"
-PAPER_ACC_BALANCE_CONFIG = "paper_trade_account_balance"
 
 
 class BalanceCommand:

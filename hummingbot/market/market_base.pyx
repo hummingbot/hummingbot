@@ -114,12 +114,6 @@ cdef class MarketBase(NetworkIterator):
     def get_mid_price(self, trading_pair: str) -> Decimal:
         return (self.get_price(trading_pair, True) + self.get_price(trading_pair, False)) / Decimal("2")
 
-    def get_exchange_limit_config(self, market: str) -> Dict[str, object]:
-        all_ex_limit = global_config_map[LIMIT_GLOBAL_CONFIG].value
-
-        exchange_limits = all_ex_limit.get(market, {})
-        return exchange_limits
-
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         """
         Restores the tracking states from a previously saved state.
