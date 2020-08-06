@@ -151,6 +151,6 @@ cdef class OKExOrderBook(OrderBook):
 
     @classmethod
     def from_snapshot(cls, msg: OrderBookMessage) -> "OrderBook":
-        retval = HuobiOrderBook()
+        retval = OKExOrderBook()
         retval.apply_snapshot(msg.bids, msg.asks, msg.update_id)
         return retval
