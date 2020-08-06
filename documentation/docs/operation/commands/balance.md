@@ -35,7 +35,7 @@ ethereum:
       ETH  0.0453
 ```
 
-## balance limit [exchange] [asset] [amount]
+## balance limit [ exchange ] [ asset ] [ amount ]
 
 Set the amount limit on how much assets Hummingbot can use in an exchange or wallet. This can be useful when running multiple bots on different trading pairs with same tokens e.g. running a BTC-USDT pair and another bot on ETH-USDT using the same account.
 
@@ -82,7 +82,7 @@ Paper account balances:
       ZRX  1000.0000
 ```
 
-## balance paper [asset] [amount]
+## balance paper [ asset ] [ amount ]
 
 Set the amount of asset balance for paper trading mode. For example, we want to add 0.5 BTC to our paper account balance.
 
