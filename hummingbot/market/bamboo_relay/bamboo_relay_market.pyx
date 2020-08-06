@@ -440,6 +440,10 @@ cdef class BambooRelayMarket(MarketBase):
             list pair_split
             dict locked_balances = {}
 
+        # Retrieve account balance from wallet
+        self._account_balances = self.wallet.get_all_balances().copy()
+
+        # Calculate available balance
         if current_timestamp - self._last_update_available_balance_timestamp > 10.0:
 
             if len(self._in_flight_limit_orders) >= 0:
@@ -479,6 +483,7 @@ cdef class BambooRelayMarket(MarketBase):
                 self._account_available_balances = self._account_balances.copy()
 
             self._last_update_available_balance_timestamp = current_timestamp
+        self.apply_balance_restriction()
 
     async def list_market(self) -> Dict[str, Any]:
         url = f"{self._api_endpoint}{self._api_prefix}/markets?perPage=1000&include=base"

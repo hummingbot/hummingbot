@@ -6,6 +6,11 @@ from typing import (
     Tuple,
     Optional,
     Iterator)
+
+from hummingbot.client.config.global_config_map import (
+    global_config_map,
+    LIMIT_GLOBAL_CONFIG,
+)
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.order_book_query_result import (
     OrderBookQueryResult,
@@ -116,6 +121,32 @@ cdef class MarketBase(NetworkIterator):
         :param saved_states: Previously saved tracking states from `tracking_states` property.
         """
         pass
+
+    def get_exchange_limit_config(self, market: str) -> Dict[str, object]:
+        """
+        Retrieves the Balance Limits for the specified market.
+        """
+        all_ex_limit = global_config_map[LIMIT_GLOBAL_CONFIG].value
+
+        exchange_limits = all_ex_limit.get(market, {})
+        return exchange_limits
+
+    def apply_balance_restriction(self):
+        """
+        Updates self._account_balances and self._account_available_balances.
+        To be called after every REST API fetch or WebSocket API update.
+        """
+        exchange_limits = self.get_exchange_limit_config(self.name)
+
+        for asset_name, total_balance in self._account_balances.items():
+            if asset_name.upper() in exchange_limits:
+                asset_limit = Decimal(exchange_limits[asset_name.upper()])
+                self._account_balances.update({asset_name: min(total_balance, asset_limit)})
+
+        for asset_name, available_balance in self._account_available_balances.items():
+            if asset_name.upper() in exchange_limits:
+                asset_limit = Decimal(exchange_limits[asset_name.upper()])
+                self._account_available_balances.update({asset_name, min(available_balance, asset_limit)})
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         """
