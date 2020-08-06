@@ -28,6 +28,7 @@ from hummingbot.market.okex.okex_order_book import OKExOrderBook
 
 from urllib.parse import urljoin
 
+from dateutil.parser import parse as dataparse
 
 OKEX_BASE_URL = "https://okex.com/api/"
 
@@ -112,7 +113,7 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """Fetches order book snapshot for a particular trading pair from the exchange REST API."""
         # when type is set to "step0", the default value of "depth" is 150
         
-        # get trading_par in OKEx format:
+        # get trading_pair in OKEx format:
         markets = await  OKExAPIOrderBookDataSource.get_active_exchange_markets()
         translated_trading_pair = markets.loc[markets['reformated_instrument'] == trading_pair]['product_id'].values[0]
         #print(translated_trading_pair['product_id'].values[0])
@@ -146,10 +147,13 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     # "0.02",
                     # "1"
                     # ]],
-            #     "bids": [], # left incomplete, same as ask
+            #     "bids": [...], # left incomplete, same as ask
             #     "timestamp": "2020-07-22T16:46:03.223Z"
             # }
 
+            # convert str date to timestamp
+            data['timestamp'] = dataparse("2020-08-06T12:59:38.927Z").timestamp()
+            
             return data
 
 
@@ -165,6 +169,7 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
                     snapshot_msg: OrderBookMessage = OKExOrderBook.snapshot_message_from_exchange(
                         snapshot,
+                        timestamp=snapshot['timestamp'],
                         metadata={"trading_pair": trading_pair}
                     )
                     order_book: OrderBook = self.order_book_create_function()
@@ -172,7 +177,7 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     retval[trading_pair] = OrderBookTrackerEntry(trading_pair, snapshot_msg.timestamp, order_book)
                     self.logger().info(f"Initialized order book for {trading_pair}. "
                                        f"{index + 1}/{number_of_pairs} completed.")
-                    # Huobi rate limit is 100 https requests per 10 seconds
+                    # OKEX rate limit is 20 requests per 2 seconds
                     await asyncio.sleep(0.4)
                 except Exception:
                     self.logger().error(f"Error getting snapshot for {trading_pair}. ", exc_info=True)

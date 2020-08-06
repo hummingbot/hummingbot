@@ -7,6 +7,13 @@ from unittest import mock
 import asyncio
 import aiohttp
 
+from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
+from typing import (
+    Any,
+    Dict,
+)
+
+
 EXAMPLE_MARKET_DATA = [
   {
     "best_ask": "0.004693",
@@ -53,8 +60,10 @@ class AsyncMock(mock.MagicMock):
 
 class TestOKExAPIOrderBookDataSource(unittest.TestCase):
     def setUp(self):
-        pass
+        self.mocked_trading_pairs = ["BTCUSDT", "ETHUSDT"]
+        self.order_book_data_source = OKExAPIOrderBookDataSource(self.mocked_trading_pairs)
 
+    @unittest.skip("demonstrating skipping")
     def test_example_market(self):
         ev_loop = asyncio.get_event_loop()
         # TODO this is currently executing the call, how to mock this?
@@ -63,15 +72,33 @@ class TestOKExAPIOrderBookDataSource(unittest.TestCase):
 
         #assert False
     
+    @unittest.skip("demonstrating skipping")
     def test_get_snapshot(self):
         ev_loop = asyncio.get_event_loop()
         # TODO this is currently executing the call, how to mock this?
         restult = ev_loop.run_until_complete(self.get_snapshot())
 
     async def get_snapshot(self):
-        self.order_book_data_source = OKExAPIOrderBookDataSource(["BTCUSDT", "ETHUSDT"])
-
         async with aiohttp.ClientSession() as client:
 
             snapshot: Dict[str, Any] = await self.order_book_data_source.get_snapshot(client, 'BTCUSDT')
             return snapshot
+
+    def test_get_tracking_pairs(self):
+        
+        tracking_pairs = asyncio.get_event_loop().run_until_complete(self.order_book_data_source.get_tracking_pairs())
+
+        # Validate the number of tracking pairs is equal to the number of trading pairs received
+        self.assertEqual(len(self.mocked_trading_pairs), len(tracking_pairs))
+
+        # Make sure the entry key in tracking pairs matches with what's in the trading pairs
+        for trading_pair, tracking_pair_obj in zip(self.mocked_trading_pairs, list(tracking_pairs.keys())):
+            self.assertEqual(trading_pair, tracking_pair_obj)
+
+        # Validate the data type for each tracking pair value is OrderBookTrackerEntry
+        for order_book_tracker_entry in tracking_pairs.values():
+            self.assertIsInstance(order_book_tracker_entry, OrderBookTrackerEntry)
+
+        # Validate the order book tracker entry trading_pairs are valid
+        for trading_pair, order_book_tracker_entry in zip(self.mocked_trading_pairs, tracking_pairs.values()):
+            self.assertEqual(order_book_tracker_entry.trading_pair, trading_pair)
