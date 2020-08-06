@@ -94,10 +94,6 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             raise
 
     async def get_snapshot(self, trading_pair: str) -> OrderBookMessage:
-
-        # TODO: Refactor accordingly when V3 WebSocket API is released
-        temp_trading_pair = f"{trading_pair.split('-')[1]}-{trading_pair.split('-')[0]}"
-
         get_snapshot_attempts = 0
         while get_snapshot_attempts < MAX_RETRIES:
             get_snapshot_attempts += 1
@@ -110,7 +106,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                f"{get_snapshot_attempts}/{MAX_RETRIES}")
 
             try:
-                return await self.wait_for_snapshot(temp_trading_pair, invoke_timestamp)
+                return await self.wait_for_snapshot(trading_pair, invoke_timestamp)
             except asyncio.TimeoutError:
                 self.logger().warning("Snapshot query timed out. Retrying...")
             except Exception:
