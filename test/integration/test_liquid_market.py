@@ -263,6 +263,35 @@ class LiquidMarketUnitTest(unittest.TestCase):
         self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
 
+    def test_balance_updates(self):
+        trading_pair = "CEL-ETH"
+        eth_bal = self.market.get_balance("ETH")
+        print(f"ETH balance: {eth_bal}")
+        cel_bal = self.market.get_balance("CEL")
+        print(f"CEL balance: {cel_bal}")
+
+        bid_price: Decimal = self.market.get_price(trading_pair, True)
+        amount: Decimal = 1
+        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
+        quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price * Decimal("0.7"))
+
+        order_id, buy_exchange_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
+                                                     quantize_bid_price,
+                                                     10001, FixtureLiquid.ORDER_BUY_CANCEL_ALL,
+                                                     FixtureLiquid.ORDERS_GET_AFTER_BUY)
+        [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
+        eth_after_bal = self.market.get_balance("ETH")
+        print(f"After order ETH balance: {eth_after_bal}")
+        inflight_balances = self.market._inflight_orders_balances(self.market.inflight_orders)
+        print(f"inflight_balances: {inflight_balances}")
+
+        if API_MOCK_ENABLED:
+            order_cancel_resp = FixtureLiquid.ORDER_CANCEL_SAVE_RESTORE.copy()
+            self.web_app.update_response("put", API_HOST, f"/orders/{str(buy_exchange_id)}/cancel",
+                                         order_cancel_resp)
+        self.market.cancel("CEL-ETH", order_id)
+        self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+
     def test_limit_maker_rejections(self):
         if API_MOCK_ENABLED:
             return

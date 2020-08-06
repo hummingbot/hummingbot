@@ -64,6 +64,10 @@ cdef class MarketBase(NetworkIterator):
         self._asset_limit = {}  # Dict[asset_name: str, Decimal]
         self._order_book_tracker = None
 
+        self._ws_user_balance_update = True
+        # self._in_flight_orders = {}
+        self._in_flight_orders_snapshot = {}
+
     @staticmethod
     def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
         try:
@@ -106,6 +110,10 @@ cdef class MarketBase(NetworkIterator):
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
+        raise NotImplementedError
+
+    @property
+    def inflight_orders(self) -> Dict[str, InFlightOrderBase]:
         raise NotImplementedError
 
     @property
@@ -170,9 +178,8 @@ cdef class MarketBase(NetworkIterator):
                 raise ValueError(f"Order amount exceeds available balance for {quote_asset}")
             self._account_available_balances.update({asset: available_balance - order_value})
 
-    def apply_execute_cancel_to_available_balance(self, order: InFlightOrderBase):
+    def apply_execute_cancel_to_available_balance(self, trading_pair: str, order: InFlightOrderBase):
         trade_type = order.trade_type
-        trading_pair = order.trading_pair
         base_asset, quote_asset = self.split_trading_pair(trading_pair)
         if trade_type is TradeType.BUY:
             asset = quote_asset
@@ -185,6 +192,23 @@ cdef class MarketBase(NetworkIterator):
         if asset in self._account_available_balances:
             current_balance = self._account_available_balances[asset]
             self._account_available_balances.update({asset: current_balance + freed_asset_value})
+
+    @staticmethod
+    def _inflight_orders_balances(inflight_orders: Dict[str, InFlightOrderBase]) -> Dict[str, Decimal]:
+        balances = {}
+        for order in [o for o in inflight_orders.values() if not (o.is_done or o.is_failure or o.is_cancelled)]:
+            if order.trade_type is TradeType.BUY:
+                order_value = Decimal(order.amount * order.price)
+                outstanding_value = order_value - order.executed_amount_quote
+                if order.quote_asset not in balances:
+                    balances[order.quote_asset] = s_decimal_0
+                balances[order.quote_asset] += outstanding_value
+            else:
+                outstanding_value = order.amount = order.executed_amount_base
+                if order.base_asset not in balances:
+                    balances[order.base_asset] = s_decimal_0
+                balances[order.base_asset] += outstanding_value
+        return balances
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         """
@@ -240,7 +264,14 @@ cdef class MarketBase(NetworkIterator):
         :returns: Balance available for trading for a specific asset
         (balances used to place open orders are not available for trading)
         """
-        return self._account_available_balances.get(currency, s_decimal_0)
+        if self._ws_user_balance_update:
+            return self._account_available_balances.get(currency, s_decimal_0)
+        else:
+            snapshot_bal = self._account_available_balances.get(currency, s_decimal_0)
+            in_flight_snap_bals = self._inflight_orders_balances(self._in_flight_orders_snapshot)
+            in_flight_current_bals = self._inflight_orders_balances(self.limit_orders)
+            delta = in_flight_current_bals.get(currency, s_decimal_0) - in_flight_snap_bals.get(currency, s_decimal_0)
+            return snapshot_bal - delta
 
     cdef str c_withdraw(self, str address, str currency, object amount):
         raise NotImplementedError

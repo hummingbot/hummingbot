@@ -16,6 +16,7 @@ from typing import (
     AsyncIterable,
 )
 from libc.stdint cimport int64_t
+import copy
 
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -127,6 +128,7 @@ cdef class LiquidMarket(MarketBase):
         self._product_dict = {}
         self._trading_rules_polling_task = None
         self._shared_client = None
+        self._ws_user_balance_update = False
 
     @property
     def name(self) -> str:
@@ -183,6 +185,14 @@ cdef class LiquidMarket(MarketBase):
             in_flight_order.to_limit_order()
             for in_flight_order in self._in_flight_orders.values()
         ]
+
+    @property
+    def inflight_orders(self) -> Dict[str, LiquidInFlightOrder]:
+        """
+        *required
+        :return: list of inflight orders
+        """
+        return self._in_flight_orders
 
     @property
     def tracking_states(self) -> Dict[str, any]:
@@ -1137,6 +1147,7 @@ cdef class LiquidMarket(MarketBase):
                     self._update_balances(),
                     self._update_order_status(),
                 )
+                self._in_flight_orders_snapshot = copy.deepcopy(self._in_flight_orders)
             except asyncio.CancelledError:
                 raise
             except Exception:
