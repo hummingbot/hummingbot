@@ -2,7 +2,7 @@
 
 import aiohttp
 import asyncio
-import gzip
+import zlib
 import json
 import logging
 import pandas as pd
@@ -36,7 +36,7 @@ OKEX_SYMBOLS_URL = urljoin(OKEX_BASE_URL, "spot/v3/instruments/ticker")
 OKEX_DEPTH_URL = urljoin(OKEX_BASE_URL, "spot/v3/instruments/{trading_pair}/book")
 
 # HUOBI_TICKER_URL = "https://api.huobi.pro/market/tickers"
-# HUOBI_WS_URI = "wss://api.huobi.pro/ws"
+OKCOIN_WS_URI = "wss://real.okex.com:8443/ws/v3"
 
 
 class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -152,12 +152,16 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
             # }
 
             # convert str date to timestamp
-            data['timestamp'] = dataparse("2020-08-06T12:59:38.927Z").timestamp()
+            data['timestamp'] = __class__.iso_to_timestamp(data['timestamp'])
             
             return data
 
+    @classmethod
+    def iso_to_timestamp(cls, date:str):
+        return dataparse(date).timestamp()
 
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
+        """Initializes order books and order book trackers for the list of trading pairs."""
         # Get the currently active markets
         async with aiohttp.ClientSession() as client:
             trading_pairs: List[str] = await self.get_trading_pairs()
@@ -184,6 +188,49 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     await asyncio.sleep(5)
             return retval
 
+    #TODO TEST ME
+    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        """Subscribes to the trade channel of the exchange. Adds incoming messages(of filled orders) to the output queue, to be processed by"""
+
+        while True:
+            try:
+                trading_pairs: List[str] = await self.get_trading_pairs()
+                async with websockets.connect(OKCOIN_WS_URI) as ws:
+                    ws: websockets.WebSocketClientProtocol = ws
+
+                    for trading_pair in trading_pairs:
+                        subscribe_request: Dict[str, Any] = {
+                            "op": "subscribe",
+                            "args": [f"spot/trade:{trading_pair}"]
+                            }
+                        await ws.send(json.dumps(subscribe_request))
+
+                    async for raw_msg in self._inner_messages(ws):
+                        # OKEx compresses their ws data
+                        decoded_msg: str = self.inflate(raw_msg).decode('utf-8')
+                        
+                        if "spot/trade" in decoded_msg:
+                            data: Dict[str, Any] = json.loads(decoded_msg)['data']
+                            trading_pair = data['instrument_id']
+                            # why there was a for loop here? (huobi implementation)
+                            # for data in msg["tick"]["data"]:
+                            #     trade_message: OrderBookMessage = OKExOrderBook.trade_message_from_exchange(
+                            #         data, metadata={"trading_pair": trading_pair}
+                            #     )
+                            #     output.put_nowait(trade_message)
+                            trade_message: OrderBookMessage = OKExOrderBook.trade_message_from_exchange(
+                                data, __class__.iso_to_timestamp(data['timestamp']),  metadata={"trading_pair": trading_pair}
+                            )
+                            output.put_nowait(trade_message)
+                        else:
+                            self.logger().debug(f"Unrecognized message received from OKEx websocket: {decoded_msg}")
+            except asyncio.CancelledError:
+                raise
+            except:
+                self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
+                                    exc_info=True)
+                await asyncio.sleep(30.0)
+
     async def _inner_messages(self,
                               ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
@@ -193,11 +240,12 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
                     yield msg
                 except asyncio.TimeoutError:
-                    try:
-                        pong_waiter = await ws.ping()
-                        await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
-                    except asyncio.TimeoutError:
-                        raise
+                    # try:
+                    pong_waiter = await ws.ping()
+                    await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
+                    # removed this try as it would fail anyway, #TODO check this
+                    # except asyncio.TimeoutError:
+                    #     raise
         except asyncio.TimeoutError:
             self.logger().warning("WebSocket ping timed out. Going to reconnect...")
             return
@@ -206,45 +254,20 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         finally:
             await ws.close()
 
-    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        while True:
-            try:
-                trading_pairs: List[str] = await self.get_trading_pairs()
-                async with websockets.connect(HUOBI_WS_URI) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
-                    for trading_pair in trading_pairs:
-                        subscribe_request: Dict[str, Any] = {
-                            "sub": f"market.{trading_pair}.trade.detail",
-                            "id": trading_pair
-                        }
-                        await ws.send(json.dumps(subscribe_request))
+    @staticmethod
+    def inflate(data):
+        """decrypts the OKEx data.
+        Copied from OKEx SDK: https://github.com/okex/V3-Open-API-SDK/blob/d8becc67af047726c66d9a9b29d99e99c595c4f7/okex-python-sdk-api/websocket_example.py#L46"""
+        decompress = zlib.decompressobj(
+                -zlib.MAX_WBITS
+        )
+        inflated = decompress.decompress(data)
+        inflated += decompress.flush()
+        return inflated
 
-                    async for raw_msg in self._inner_messages(ws):
-                        # Huobi compresses their ws data
-                        encoded_msg: bytes = gzip.decompress(raw_msg)
-                        # Huobi's data value for id is a large int too big for ujson to parse
-                        msg: Dict[str, Any] = json.loads(encoded_msg.decode('utf-8'))
-                        if "ping" in msg:
-                            await ws.send(f'{{"op":"pong","ts": {str(msg["ping"])}}}')
-                        elif "subbed" in msg:
-                            pass
-                        elif "ch" in msg:
-                            trading_pair = msg["ch"].split(".")[1]
-                            for data in msg["tick"]["data"]:
-                                trade_message: OrderBookMessage = HuobiOrderBook.trade_message_from_exchange(
-                                    data, metadata={"trading_pair": trading_pair}
-                                )
-                                output.put_nowait(trade_message)
-                        else:
-                            self.logger().debug(f"Unrecognized message received from Huobi websocket: {msg}")
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
-                                    exc_info=True)
-                await asyncio.sleep(30.0)
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        """Fetches or Subscribes to the order book snapshots for each trading pair. Additionally, parses the incoming message into a OrderBookMessage and appends it into the output Queue."""
         while True:
             try:
                 trading_pairs: List[str] = await self.get_trading_pairs()
@@ -279,6 +302,7 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await asyncio.sleep(30.0)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        """Fetches or Subscribes to the order book deltas(diffs) for each trading pair. Additionally, parses the incoming message into a OrderBookMessage and appends it into the output Queue."""
         while True:
             try:
                 trading_pairs: List[str] = await self.get_trading_pairs()
