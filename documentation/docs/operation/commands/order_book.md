@@ -1,5 +1,5 @@
 
-Displays the top bid/ask prices and volume of the current market, similar to how they're displayed in the exchange's order book.
+Displays the top 5 bid/ask prices and volume of the current market, similar to how they're displayed in the exchange's order book.
 
 ```
 >>>  order_book
@@ -16,7 +16,7 @@ Displays the top bid/ask prices and volume of the current market, similar to how
 !!! Note
     This command will only work while a strategy is running.
 
-By default, it shows the top 5 bid and ask orders. Run `order_book --lines [value]` to specify the number of lines displayed.
+Run `order_book --lines [value]` to specify the number of lines displayed.
 
 ```
 >>>  order_book --lines 15
@@ -40,7 +40,7 @@ By default, it shows the top 5 bid and ask orders. Run `order_book --lines [valu
         395.75      2.9788     396.08     1.21638
 ```
 
-By default, running `order_book` command shows only the maker market in cross-exchange strategy or primary market when using arbitrage.
+By default, the `order_book` command shows only the maker market in cross-exchange strategy or primary market when using arbitrage.
 
 Optional arguments `--exchange` and `--market` allows you to check the order book of the taker market or secondary market.
 
