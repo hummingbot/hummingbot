@@ -51,7 +51,7 @@ from test.integration.assets.mock_data.fixture_bittrex import FixtureBittrex
 from unittest import mock
 import json
 
-API_MOCK_ENABLED = True  # conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
+API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
 API_KEY = "XXXX" if API_MOCK_ENABLED else conf.bittrex_api_key
 API_SECRET = "YYYY" if API_MOCK_ENABLED else conf.bittrex_secret_key
 API_BASE_URL = "api.bittrex.com"
