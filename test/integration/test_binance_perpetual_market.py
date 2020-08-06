@@ -10,7 +10,13 @@ from hummingbot.core.clock_mode import ClockMode
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import OrderType, MarketEvent, BuyOrderCompletedEvent
+from hummingbot.core.event.events import (
+    OrderType,
+    MarketEvent,
+    BuyOrderCreatedEvent,
+    SellOrderCreatedEvent,
+    OrderCancelledEvent
+)
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.market.binance_perpetual.binance_perpetual_market import BinancePerpetualMarket
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -73,38 +79,46 @@ class BinancePerpetualMarketUnitTest(unittest.TestCase):
     def run_parallel(self, *tasks):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
-    def test_buy_and_sell_order(self):
-        order_id = self.market.buy(
-            trading_pair="ETHUSDT",
+    def test_buy_and_sell_order_then_cancel(self):
+        trading_pair = "ETHUSDT"
+        # Create Buy Order
+        buy_order_id = self.market.buy(
+            trading_pair=trading_pair,
             amount=0.01,
             order_type=OrderType.LIMIT,
             price=300
         )
+        [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
+        order_created_event: BuyOrderCreatedEvent = order_created_event
+        self.assertEqual(buy_order_id, order_created_event.order_id)
+        self.assertEqual(trading_pair, order_created_event.trading_pair)
 
-        [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
-        order_completed_event: BuyOrderCompletedEvent = order_completed_event
-        self.assertEqual(order_id, order_completed_event.order_id)
-        self.assertEqual("ETH", order_completed_event.base_asset)
-        self.assertEqual("USDT", order_completed_event.quote_asset)
-
-        order_id = self.market.sell(
-            trading_pair="ETHUSDT",
+        # Create Sell Order
+        sell_order_id = self.market.sell(
+            trading_pair=trading_pair,
             amount=0.01,
             order_type=OrderType.LIMIT,
             price=500
         )
-        self.assertEqual(order_id, order_completed_event.order_id)
-        self.assertEqual("ETH", order_completed_event.base_asset)
-        self.assertEqual("USDT", order_completed_event.quote_asset)
+        [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
+        order_created_event: SellOrderCreatedEvent = order_created_event
+        self.assertEqual(sell_order_id, order_created_event.order_id)
+        self.assertEqual(trading_pair, order_created_event.trading_pair)
 
-    # def test_order_and_cancel(self):
-    #     order_id = self.market.buy(
-    #         trading_pair="ETHUSDT",
-    #         amount=0.01,
-    #         order_type=OrderType.LIMIT,
-    #         price=300
-    #     )
-    #     print("BUY ORDER ID --- {order_id}")
+        # Cancel Buy Order
+        self.market.cancel(trading_pair, buy_order_id)
+        [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+        order_cancelled_event: OrderCancelledEvent = order_cancelled_event
+        self.assertEqual(buy_order_id, order_cancelled_event.order_id)
+
+        # Cancel Sell Order
+        self.market.cancel(trading_pair, sell_order_id)
+        [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+        order_cancelled_event: OrderCancelledEvent = order_cancelled_event
+        self.assertEqual(sell_order_id, order_cancelled_event.order_id)
+
+        # Testing Cancelling All Open Orders on Account
+        # self.ev_loop.run_until_complete(safe_ensure_future(self.market.cancel_all_account_orders(trading_pair)))
 
 
 def main():
