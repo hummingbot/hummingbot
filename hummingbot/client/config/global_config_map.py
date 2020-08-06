@@ -17,6 +17,7 @@ from hummingbot.client.config.config_validators import (
 
 
 LIMIT_GLOBAL_CONFIG = "balance_asset_limit"
+PAPER_ACC_BALANCE_CONFIG = "paper_trade_account_balance"
 
 
 def generate_client_id() -> str:
