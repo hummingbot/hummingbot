@@ -298,6 +298,8 @@ cdef class BinanceMarket(MarketBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
+        self.apply_balance_restriction()
+
     async def _update_trade_fees(self):
         cdef:
             double current_timestamp = self._current_timestamp
@@ -700,6 +702,7 @@ cdef class BinanceMarket(MarketBase):
                     for asset_name in asset_names_to_remove:
                         del self._account_available_balances[asset_name]
                         del self._account_balances[asset_name]
+                    self.apply_balance_restriction()
 
             except asyncio.CancelledError:
                 raise

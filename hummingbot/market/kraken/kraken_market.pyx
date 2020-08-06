@@ -326,6 +326,8 @@ cdef class KrakenMarket(MarketBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
+        self.apply_balance_restriction()
+
     cdef object c_get_fee(self,
                           str base_currency,
                           str quote_currency,
