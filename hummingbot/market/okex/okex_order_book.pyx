@@ -35,7 +35,7 @@ cdef class OKExOrderBook(OrderBook):
                                        metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
-        msg_ts = int(msg["timestamp"] * 1e-3) # TODO is this required?
+        msg_ts = int(timestamp * 1e-3) # TODO is this required?
         content = {
             "trading_pair": msg["trading_pair"],
             "update_id": msg_ts,
@@ -51,13 +51,13 @@ cdef class OKExOrderBook(OrderBook):
                                    metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
-        msg_ts = int(msg["timestamp"] * 1e-3) # TODO is this required?
+        msg_ts = int(timestamp * 1e-3) # TODO is this required?
         content = {
             "trading_pair": msg["trading_pair"],
-            "trade_type": float(TradeType.SELL.value) if msg["direction"] == "buy" else float(TradeType.BUY.value),
-            "trade_id": msg["id"],
+            "trade_type": float(TradeType.SELL.value) if msg["side"] == "buy" else float(TradeType.BUY.value),
+            "trade_id": msg["trade_id"],
             "update_id": msg_ts,
-            "amount": msg["amount"],
+            "amount": msg["size"],
             "price": msg["price"]
         }
         return OrderBookMessage(OrderBookMessageType.DIFF, content, timestamp or msg_ts)
