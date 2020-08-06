@@ -35,12 +35,12 @@ cdef class OKExOrderBook(OrderBook):
                                        metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
-        msg_ts = int(msg["ts"] * 1e-3)
+        msg_ts = int(msg["timestamp"] * 1e-3) # TODO is this required?
         content = {
             "trading_pair": msg["trading_pair"],
             "update_id": msg_ts,
-            "bids": msg["tick"]["bids"],
-            "asks": msg["tick"]["asks"]
+            "bids": msg["bids"],
+            "asks": msg["asks"]
         }
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, content, timestamp or msg_ts)
 
@@ -51,7 +51,7 @@ cdef class OKExOrderBook(OrderBook):
                                    metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
-        msg_ts = int(msg["ts"] * 1e-3)
+        msg_ts = int(msg["timestamp"] * 1e-3) # TODO is this required?
         content = {
             "trading_pair": msg["trading_pair"],
             "trade_type": float(TradeType.SELL.value) if msg["direction"] == "buy" else float(TradeType.BUY.value),
