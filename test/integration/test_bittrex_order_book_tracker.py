@@ -23,7 +23,9 @@ class BittrexOrderBookTrackerUnitTest(unittest.TestCase):
     events: List[OrderBookEvent] = [
         OrderBookEvent.TradeEvent
     ]
-    trading_pairs: List[str] = [
+
+    # TODO: Update trading pair format to V3 WebSocket API
+    trading_pairs: List[str] = [  # Trading Pair in v1.1 format(Quote-Base)
         "LTC-BTC",
         "LTC-ETH"
     ]
