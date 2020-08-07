@@ -117,6 +117,7 @@ cdef class LiquidMarket(MarketBase):
         self._last_timestamp = 0
         self._last_order_update_timestamp = 0
         self._poll_interval = poll_interval
+        self._in_flight_orders = {}
         self._tx_tracker = LiquidMarketTransactionTracker(self)
         self._trading_rules = {}
         self._data_source_type = order_book_tracker_data_source_type

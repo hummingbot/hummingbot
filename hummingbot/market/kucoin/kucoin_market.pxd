@@ -11,6 +11,7 @@ cdef class KucoinMarket(MarketBase):
         object _data_source_type
         object _ev_loop
         object _kucoin_auth
+        dict _in_flight_orders
         double _last_poll_timestamp
         double _last_timestamp
         object _poll_notifier

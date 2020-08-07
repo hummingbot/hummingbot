@@ -166,6 +166,7 @@ cdef class DolomiteMarket(MarketBase):
         self._exchange_info = None
         self._exchange_rates = None
         self._pending_approval_tx_hashes = set()
+        self._in_flight_orders = {}
 
     @property
     def name(self) -> str:

@@ -145,7 +145,7 @@ cdef class BinanceMarket(MarketBase):
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
-        # self._in_flight_orders = {}  # Dict[client_order_id:str, BinanceInFlightOrder]
+        self._in_flight_orders = {}  # Dict[client_order_id:str, BinanceInFlightOrder]
         self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
         self._tx_tracker = BinanceMarketTransactionTracker(self)
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]

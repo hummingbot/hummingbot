@@ -14,7 +14,6 @@ cdef class MarketBase(NetworkIterator):
         dict _account_available_balances
         dict _account_balances
         dict _asset_limit
-        dict _in_flight_orders
         bint _trading_required
         object _order_book_tracker
 
