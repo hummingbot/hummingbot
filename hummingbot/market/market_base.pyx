@@ -29,7 +29,7 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkIterator
 from hummingbot.core.data_type.order_book import OrderBook
-
+from hummingbot.market.in_flight_order_base import InFlightOrderBase
 from .deposit_info import DepositInfo
 
 NaN = float("nan")
@@ -70,6 +70,23 @@ cdef class MarketBase(NetworkIterator):
         # Exceptions are logged as warnings in Trading pair fetcher class
         except Exception:
             return None
+
+    @staticmethod
+    def in_flight_balances(inflight_orders: Dict[str, InFlightOrderBase]) -> Dict[str, Decimal]:
+        balances = {}
+        for order in [o for o in inflight_orders.values() if not (o.is_done or o.is_failure or o.is_cancelled)]:
+            if order.trade_type is TradeType.BUY:
+                order_value = Decimal(order.amount * order.price)
+                outstanding_value = order_value - order.executed_amount_quote
+                if order.quote_asset not in balances:
+                    balances[order.quote_asset] = s_decimal_0
+                balances[order.quote_asset] += outstanding_value
+            else:
+                outstanding_value = order.amount = order.executed_amount_base
+                if order.base_asset not in balances:
+                    balances[order.base_asset] = s_decimal_0
+                balances[order.base_asset] += outstanding_value
+        return balances
 
     @staticmethod
     def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
@@ -127,9 +144,8 @@ cdef class MarketBase(NetworkIterator):
         Retrieves the Balance Limits for the specified market.
         """
         all_ex_limit = global_config_map[LIMIT_GLOBAL_CONFIG].value
-
         exchange_limits = all_ex_limit.get(market, {})
-        return exchange_limits
+        return exchange_limits if exchange_limits is not None else {}
 
     def apply_balance_restriction(self):
         """
@@ -141,12 +157,12 @@ cdef class MarketBase(NetworkIterator):
         for asset_name, total_balance in self._account_balances.items():
             if asset_name.upper() in exchange_limits:
                 asset_limit = Decimal(exchange_limits[asset_name.upper()])
-                self._account_balances.update({asset_name: min(total_balance, asset_limit)})
+                self._account_balances[asset_name] = min(total_balance, asset_limit)
 
         for asset_name, available_balance in self._account_available_balances.items():
             if asset_name.upper() in exchange_limits:
                 asset_limit = Decimal(exchange_limits[asset_name.upper()])
-                self._account_available_balances.update({asset_name, min(available_balance, asset_limit)})
+                self._account_available_balances[asset_name] = min(available_balance, asset_limit)
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         """
@@ -202,6 +218,11 @@ cdef class MarketBase(NetworkIterator):
         :returns: Balance available for trading for a specific asset
         (balances used to place open orders are not available for trading)
         """
+        exchange_limits = self.get_exchange_limit_config(self.name)
+        if currency in exchange_limits:
+            pass
+            # ToDo: need to get outstanding balances in in_flight_orders here then the limit will be limit - outstanding
+            # inflight_balances = self.in_flight_balances()
         return self._account_available_balances.get(currency, s_decimal_0)
 
     cdef str c_withdraw(self, str address, str currency, object amount):
