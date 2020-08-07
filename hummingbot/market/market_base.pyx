@@ -159,7 +159,7 @@ cdef class MarketBase(NetworkIterator):
 
         for asset_name, available_balance in self._account_available_balances.items():
             if asset_name.upper() in exchange_limits:
-                asset_limit = Decimal(exchange_limits[asset_name.upper()])
+                asset_limit = Decimal(str(exchange_limits[asset_name.upper()]))
 
                 active_asset_balance = self.in_flight_asset_balances(self.in_flight_orders).get(asset_name.upper(),
                                                                                                 s_decimal_0)
