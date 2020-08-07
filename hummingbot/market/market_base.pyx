@@ -85,7 +85,7 @@ cdef class MarketBase(NetworkIterator):
                     asset_balances[order.quote_asset] = s_decimal_0
                 asset_balances[order.quote_asset] += outstanding_value
             else:
-                outstanding_value = order.amount = order.executed_amount_base
+                outstanding_value = order.amount - order.executed_amount_base
                 if order.base_asset not in asset_balances:
                     asset_balances[order.base_asset] = s_decimal_0
                 asset_balances[order.base_asset] += outstanding_value
@@ -148,7 +148,7 @@ cdef class MarketBase(NetworkIterator):
         """
         all_ex_limit = global_config_map[LIMIT_GLOBAL_CONFIG].value
         exchange_limits = all_ex_limit.get(market, {})
-        return exchange_limits
+        return exchange_limits if exchange_limits is not None else {}
 
     def apply_balance_restriction(self):
         """
@@ -161,10 +161,11 @@ cdef class MarketBase(NetworkIterator):
             if asset_name.upper() in exchange_limits:
                 asset_limit = Decimal(exchange_limits[asset_name.upper()])
 
-                active_asset_balance = self.in_flight_asset_balances(self.in_flight_orders).get(asset_name.upper(), s_decimal_0)
+                active_asset_balance = self.in_flight_asset_balances(self.in_flight_orders).get(asset_name.upper(),
+                                                                                                s_decimal_0)
                 current_asset_available_balance = self._account_available_balances.get(asset_name.upper(), s_decimal_0)
-
-                new_asset_available_balance = min(Decimal(current_asset_available_balance + active_asset_balance), asset_limit)
+                new_asset_available_balance = min(current_asset_available_balance,
+                                                  max(asset_limit - active_asset_balance, s_decimal_0))
                 self._account_available_balances[asset_name] = new_asset_available_balance
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
