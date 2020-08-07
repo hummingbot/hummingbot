@@ -214,6 +214,10 @@ cdef class RadarRelayMarket(MarketBase):
             }
         }
 
+    @property
+    def in_flight_orders(self) -> Dict[str, RadarRelayInFlightOrder]:
+        return {**self._in_flight_limit_orders, **self._in_flight_market_orders}
+
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         self._in_flight_market_orders.update({
             key: RadarRelayInFlightOrder.from_json(value)
