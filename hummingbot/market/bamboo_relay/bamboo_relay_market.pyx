@@ -325,6 +325,10 @@ cdef class BambooRelayMarket(MarketBase):
             }
         }
 
+    @property
+    def in_flight_orders(self) -> Dict[str, BambooRelayInFlightOrder]:
+        return {**self.in_flight_limit_orders, **self.in_flight_market_orders}
+
     def reset_state(self):
         self._in_flight_market_orders = {}
         self._in_flight_limit_orders = {}
