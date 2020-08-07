@@ -19,7 +19,6 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.arbitrage.arbitrage_market_pair import ArbitrageMarketPair
-from hummingbot.strategy.arbitrage.order_id_market_pair_tracker import OrderIDMarketPairTracker
 
 NaN = float("nan")
 s_decimal_0 = Decimal(0)
@@ -363,9 +362,9 @@ cdef class ArbitrageStrategy(StrategyBase):
             sell_order_type = sell_market_trading_pair_tuple.market.get_taker_order_type()
 
             # Set limit order expiration_seconds to _next_trade_delay for connectors that require order expiration for limit orders
-            order_id_1 = self.c_buy_with_specific_market(buy_market_trading_pair_tuple, quantized_order_amount,
+            self.c_buy_with_specific_market(buy_market_trading_pair_tuple, quantized_order_amount,
                                             order_type=buy_order_type, price=buy_price, expiration_seconds=self._next_trade_delay)
-            order_id_2 = self.c_sell_with_specific_market(sell_market_trading_pair_tuple, quantized_order_amount,
+            self.c_sell_with_specific_market(sell_market_trading_pair_tuple, quantized_order_amount,
                                              order_type=sell_order_type, price=sell_price, expiration_seconds=self._next_trade_delay)
             self.logger().info(self.format_status())
 
