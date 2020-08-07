@@ -92,7 +92,6 @@ cdef class BittrexMarket(MarketBase):
         self._bittrex_auth = BittrexAuth(bittrex_api_key, bittrex_secret_key)
         self._data_source_type = order_book_tracker_data_source_type
         self._ev_loop = asyncio.get_event_loop()
-        self._in_flight_orders = {}
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
         self._order_book_tracker = BittrexOrderBookTracker(trading_pairs=trading_pairs)

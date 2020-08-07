@@ -114,7 +114,6 @@ cdef class KucoinMarket(MarketBase):
         self._ev_loop = asyncio.get_event_loop()
         self._kucoin_auth = KucoinAuth(api_key=kucoin_api_key, passphrase=kucoin_passphrase,
                                        secret_key=kucoin_secret_key)
-        self._in_flight_orders = {}
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
         self._order_book_tracker = KucoinOrderBookTracker(trading_pairs)
