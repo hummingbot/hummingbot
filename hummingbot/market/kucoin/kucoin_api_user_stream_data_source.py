@@ -19,6 +19,11 @@ from hummingbot.logger import HummingbotLogger
 KUCOIN_API_ENDPOINT = "https://api.kucoin.com"
 KUCOIN_USER_STREAM_ENDPOINT = "/api/v1/bullet-private"
 
+KUCOIN_PRIVATE_TOPICS = [
+    "/spotMarket/tradeOrders",
+    "/account/balance",
+]
+
 
 class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
@@ -55,13 +60,14 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _subscribe_topic(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         try:
-            subscribe_request = {
-                "id": int(time.time()),
-                "type": "subscribe",
-                "topic": "/spotMarket/tradeOrders",
-                "privateChannel": True,
-                "response": True}
-            await ws.send(ujson.dumps(subscribe_request))
+            for topic in KUCOIN_PRIVATE_TOPICS:
+                subscribe_request = {
+                    "id": int(time.time()),
+                    "type": "subscribe",
+                    "topic": topic,
+                    "privateChannel": True,
+                    "response": True}
+                await ws.send(ujson.dumps(subscribe_request))
         except asyncio.CancelledError:
             raise
         except Exception:
