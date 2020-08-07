@@ -157,15 +157,15 @@ cdef class MarketBase(NetworkIterator):
         """
         exchange_limits = self.get_exchange_limit_config(self.name)
 
-        for asset_name, total_balance in self._account_balances.items():
-            if asset_name.upper() in exchange_limits:
-                asset_limit = Decimal(exchange_limits[asset_name.upper()])
-                self._account_balances[asset_name] = min(total_balance, asset_limit)
-
         for asset_name, available_balance in self._account_available_balances.items():
             if asset_name.upper() in exchange_limits:
                 asset_limit = Decimal(exchange_limits[asset_name.upper()])
-                self._account_available_balances[asset_name] = min(available_balance, asset_limit)
+
+                active_asset_balance = self.in_flight_asset_balances().get(asset_name.upper(), s_decimal_0)
+                current_asset_available_balance = self._account_available_balances.get(asset_name.upper(), s_decimal_0)
+
+                new_asset_available_balance = min(Decimal(current_asset_available_balance + active_asset_balance), asset_limit)
+                self._account_available_balances[asset_name] = new_asset_available_balance
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         """
@@ -221,17 +221,6 @@ cdef class MarketBase(NetworkIterator):
         :returns: Balance available for trading for a specific asset
         (balances used to place open orders are not available for trading)
         """
-        exchange_limits = self.get_exchange_limit_config(self.name)
-        if currency in exchange_limits:
-            # Takes into account any assets currently in in_flight_orders in available balances
-            asset_limit = Decimal(exchange_limits[currency])
-
-            active_asset_balance = self.in_flight_asset_balances().get(currency, s_decimal_0)
-            current_asset_available_balance = self._account_available_balances.get(currency, s_decimal_0)
-
-            new_asset_available_balance = min(Decimal(current_asset_available_balance + active_asset_balance), asset_limit)
-            self._account_available_balances.update({currency: new_asset_available_balance})
-
         return self._account_available_balances.get(currency, s_decimal_0)
 
     cdef str c_withdraw(self, str address, str currency, object amount):
