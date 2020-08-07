@@ -91,8 +91,13 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 all_markets["quoteAsset"] = base_quote[1]
                 # Adding a collum in the format Hummingbot used "BTCLTC"
                 all_markets["reformated_instrument"] = base_quote[0] + base_quote[1]
-                
+
                 return all_markets
+
+    async def internal_get_trading_pairs(self) -> List[str]:
+        # TODO don't know if this function is required
+        active_markets: pd.DataFrame = await self.get_active_exchange_markets()
+        return active_markets['product_id'].tolist()
 
     async def get_trading_pairs(self) -> List[str]:
         if not self._trading_pairs:
@@ -189,12 +194,12 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return retval
 
     #TODO TEST ME
-    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_trades(self, ev_loop: Optional[asyncio.BaseEventLoop], output: asyncio.Queue):
         """Subscribes to the trade channel of the exchange. Adds incoming messages(of filled orders) to the output queue, to be processed by"""
 
         while True:
             try:
-                trading_pairs: List[str] = await self.get_trading_pairs()
+                trading_pairs: List[str] = await self.internal_get_trading_pairs()
                 async with websockets.connect(OKCOIN_WS_URI) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
 
@@ -208,20 +213,23 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     async for raw_msg in self._inner_messages(ws):
                         # OKEx compresses their ws data
                         decoded_msg: str = self.inflate(raw_msg).decode('utf-8')
-                        
-                        if "spot/trade" in decoded_msg:
-                            data: Dict[str, Any] = json.loads(decoded_msg)['data']
-                            trading_pair = data['instrument_id']
-                            # why there was a for loop here? (huobi implementation)
-                            # for data in msg["tick"]["data"]:
-                            #     trade_message: OrderBookMessage = OKExOrderBook.trade_message_from_exchange(
-                            #         data, metadata={"trading_pair": trading_pair}
-                            #     )
-                            #     output.put_nowait(trade_message)
-                            trade_message: OrderBookMessage = OKExOrderBook.trade_message_from_exchange(
-                                data, __class__.iso_to_timestamp(data['timestamp']),  metadata={"trading_pair": trading_pair}
-                            )
-                            output.put_nowait(trade_message)
+
+                        self.logger().debug("decode menssage:" + decoded_msg)
+
+                        if '"event":"subscribe"' in decoded_msg:
+                            self.logger().debug(f"Subscribed to channel, full message: {decoded_msg}")
+                            pass
+                        elif '"table":"spot/trade"' in decoded_msg:
+                            self.logger().debug(f"Received new trade: {decoded_msg}")
+                            
+                            for data in json.loads(decoded_msg)['data']:
+                                data['timestamp'] = (data['timestamp'])
+                                trading_pair = data['instrument_id']
+                                trade_message: OrderBookMessage = OKExOrderBook.trade_message_from_exchange(
+                                    data, __class__.iso_to_timestamp(data['timestamp']),  metadata={"trading_pair": trading_pair}
+                                )
+                                self.logger().debug(f"Putting msg in queue: {str(trade_message)}")
+                                output.put_nowait(trade_message)
                         else:
                             self.logger().debug(f"Unrecognized message received from OKEx websocket: {decoded_msg}")
             except asyncio.CancelledError:
