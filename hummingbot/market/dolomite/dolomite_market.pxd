@@ -19,4 +19,3 @@ cdef class DolomiteMarket(MarketBase):
         object _exchange_info
         object _exchange_rates
         object _pending_approval_tx_hashes
-        dict _in_flight_orders
