@@ -15,7 +15,7 @@ cdef class BinancePerpetualsInFlightOrder(InFlightOrderBase):
                  price: Decimal,
                  amount: Decimal,
                  initial_state: str = "NEW"):
-        super.__init__(
+        super().__init__(
             BinancePerpetualMarket,
             client_order_id,
             exchange_order_id,
@@ -66,7 +66,7 @@ cdef class BinancePerpetualsInFlightOrder(InFlightOrderBase):
             return
         self.trade_id_set.add(trade_id)
         last_executed_quantity = Decimal(order_report.get("l"))
-        last_commission_amount = Decimal(order_report.get("n"))
+        last_commission_amount = Decimal(order_report.get("n", "0"))
         last_commission_asset = order_report.get("N")
         last_order_state = order_report.get("X")
         last_executed_price = Decimal(order_report.get("L"))
