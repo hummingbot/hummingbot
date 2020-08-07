@@ -60,11 +60,11 @@ class BalanceCommand:
                 exchange = args[0]
                 asset = args[1].upper()
                 amount = float(args[2])
-                exchange_limit_conf = config_var.value[exchange]
-                if exchange_limit_conf is None:
-                    config_var.value.update({asset: {}})
+                if exchange not in config_var.value or config_var.value[exchange] is None:
+                    config_var.value[exchange] = {}
+                config_var.value[exchange][asset] = amount
+
                 self._notify(f"Limit for {asset} on {exchange} exchange set to {amount}")
-                config_var.value[exchange].update({asset: amount})
                 save_to_yml(file_path, config_map)
 
             elif option == "paper":
