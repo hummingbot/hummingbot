@@ -11,6 +11,7 @@ cdef class BittrexMarket(MarketBase):
         object _coro_queue
         object _data_source_type
         object _ev_loop
+        dict _in_flight_orders
         double _last_timestamp
         double _last_poll_timestamp
         dict _order_not_found_records

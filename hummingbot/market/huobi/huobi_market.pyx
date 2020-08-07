@@ -127,6 +127,7 @@ cdef class HuobiMarket(MarketBase):
         self._data_source_type = order_book_tracker_data_source_type
         self._ev_loop = asyncio.get_event_loop()
         self._huobi_auth = HuobiAuth(api_key=huobi_api_key, secret_key=huobi_secret_key)
+        self._in_flight_orders = {}
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
         self._order_book_tracker = HuobiOrderBookTracker(

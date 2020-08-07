@@ -129,6 +129,7 @@ cdef class KrakenMarket(MarketBase):
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
         self._poll_interval = poll_interval
+        self._in_flight_orders = {}  # Dict[client_order_id:str, KrakenInFlightOrder]
         self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
         self._tx_tracker = KrakenMarketTransactionTracker(self)
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]

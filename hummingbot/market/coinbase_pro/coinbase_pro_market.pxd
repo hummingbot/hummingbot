@@ -14,6 +14,7 @@ cdef class CoinbaseProMarket(MarketBase):
         object _maker_fee_percentage
         object _taker_fee_percentage
         double _poll_interval
+        dict _in_flight_orders
         TransactionTracker _tx_tracker
         dict _trading_rules
         object _data_source_type

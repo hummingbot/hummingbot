@@ -11,6 +11,7 @@ cdef class EterbaseMarket(MarketBase):
         double _last_timestamp
         double _last_order_update_timestamp
         double _poll_interval
+        dict _in_flight_orders
         TransactionTracker _tx_tracker
         dict _trading_rules
         object _data_source_type
