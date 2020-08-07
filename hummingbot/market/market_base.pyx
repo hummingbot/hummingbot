@@ -72,21 +72,24 @@ cdef class MarketBase(NetworkIterator):
             return None
 
     @staticmethod
-    def in_flight_balances(inflight_orders: Dict[str, InFlightOrderBase]) -> Dict[str, Decimal]:
-        balances = {}
-        for order in [o for o in inflight_orders.values() if not (o.is_done or o.is_failure or o.is_cancelled)]:
+    def in_flight_asset_balances(in_flight_orders: Dict[str, InFlightOrderBase]) -> Dict[str, Decimal]:
+        """
+        Calculates the individual asset balances used in in_flight_orders
+        """
+        asset_balances = {}
+        for order in [o for o in in_flight_orders.values() if not (o.is_done or o.is_failure or o.is_cancelled)]:
             if order.trade_type is TradeType.BUY:
                 order_value = Decimal(order.amount * order.price)
                 outstanding_value = order_value - order.executed_amount_quote
-                if order.quote_asset not in balances:
-                    balances[order.quote_asset] = s_decimal_0
-                balances[order.quote_asset] += outstanding_value
+                if order.quote_asset not in asset_balances:
+                    asset_balances[order.quote_asset] = s_decimal_0
+                asset_balances[order.quote_asset] += outstanding_value
             else:
                 outstanding_value = order.amount = order.executed_amount_base
-                if order.base_asset not in balances:
-                    balances[order.base_asset] = s_decimal_0
-                balances[order.base_asset] += outstanding_value
-        return balances
+                if order.base_asset not in asset_balances:
+                    asset_balances[order.base_asset] = s_decimal_0
+                asset_balances[order.base_asset] += outstanding_value
+        return asset_balances
 
     @staticmethod
     def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
@@ -145,7 +148,7 @@ cdef class MarketBase(NetworkIterator):
         """
         all_ex_limit = global_config_map[LIMIT_GLOBAL_CONFIG].value
         exchange_limits = all_ex_limit.get(market, {})
-        return exchange_limits if exchange_limits is not None else {}
+        return exchange_limits
 
     def apply_balance_restriction(self):
         """
@@ -220,9 +223,15 @@ cdef class MarketBase(NetworkIterator):
         """
         exchange_limits = self.get_exchange_limit_config(self.name)
         if currency in exchange_limits:
-            pass
-            # ToDo: need to get outstanding balances in in_flight_orders here then the limit will be limit - outstanding
-            # inflight_balances = self.in_flight_balances()
+            # Takes into account any assets currently in in_flight_orders in available balances
+            asset_limit = Decimal(exchange_limits[currency])
+
+            active_asset_balance = self.in_flight_asset_balances().get(currency, s_decimal_0)
+            current_asset_available_balance = self._account_available_balances.get(currency, s_decimal_0)
+
+            new_asset_available_balance = min(Decimal(current_asset_available_balance + active_asset_balance), asset_limit)
+            self._account_available_balances.update({currency: new_asset_available_balance})
+
         return self._account_available_balances.get(currency, s_decimal_0)
 
     cdef str c_withdraw(self, str address, str currency, object amount):
