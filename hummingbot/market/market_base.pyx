@@ -161,7 +161,7 @@ cdef class MarketBase(NetworkIterator):
             if asset_name.upper() in exchange_limits:
                 asset_limit = Decimal(exchange_limits[asset_name.upper()])
 
-                active_asset_balance = self.in_flight_asset_balances().get(asset_name.upper(), s_decimal_0)
+                active_asset_balance = self.in_flight_asset_balances(self.in_flight_orders).get(asset_name.upper(), s_decimal_0)
                 current_asset_available_balance = self._account_available_balances.get(asset_name.upper(), s_decimal_0)
 
                 new_asset_available_balance = min(Decimal(current_asset_available_balance + active_asset_balance), asset_limit)
