@@ -164,6 +164,10 @@ class HummingbotCompleter(Completer):
             for c in self._export_completer.get_completions(document, complete_event):
                 yield c
 
+        elif self._complete_balance_limit_exchanges(document):
+            for c in self._connect_exchange_completer.get_completions(document, complete_event):
+                yield c
+
         elif self._complete_balance_options(document):
             for c in self._balance_completer.get_completions(document, complete_event):
                 yield c
@@ -186,10 +190,6 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_options(document):
             for c in self._option_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_balance_limit_exchanges(document):
-            for c in self._connect_exchange_completer.get_completions(document, complete_event):
                 yield c
 
         else:
