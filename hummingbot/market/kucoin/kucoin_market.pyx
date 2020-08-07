@@ -657,9 +657,6 @@ cdef class KucoinMarket(MarketBase):
     def ready(self) -> bool:
         return all(self.status_dict.values())
 
-    def get_all_balances(self) -> Dict[str, Decimal]:
-        return self._account_balances.copy()
-
     def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
