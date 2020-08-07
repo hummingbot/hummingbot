@@ -149,6 +149,10 @@ cdef class BittrexMarket(MarketBase):
             for key, value in self._in_flight_orders.items()
         }
 
+    @property
+    def in_flight_orders(self) -> Dict[str, BittrexInFlightOrder]:
+        return self._in_flight_orders
+
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         self._in_flight_orders.update({
             key: BittrexInFlightOrder.from_json(value)

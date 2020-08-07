@@ -210,6 +210,10 @@ cdef class DolomiteMarket(MarketBase):
                 retval.append(dolomite_flight_order.to_limit_order())
         return retval
 
+    @property
+    def in_flight_orders(self) -> Dict[str, DolomiteInFlightOrder]:
+        return self._in_flight_orders
+
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         return await DolomiteAPIOrderBookDataSource.get_active_exchange_markets()
 
