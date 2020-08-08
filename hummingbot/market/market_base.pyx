@@ -31,6 +31,7 @@ from hummingbot.core.network_iterator import NetworkIterator
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 from .deposit_info import DepositInfo
+from hummingbot.core.event.events import OrderFilledEvent
 
 NaN = float("nan")
 s_decimal_NaN = Decimal("nan")
@@ -75,6 +76,8 @@ cdef class MarketBase(NetworkIterator):
     def in_flight_asset_balances(in_flight_orders: Dict[str, InFlightOrderBase]) -> Dict[str, Decimal]:
         """
         Calculates the individual asset balances used in in_flight_orders
+        For BUY order, this is the quote asset balance locked in the order
+        For SELL order, this is the base asset balance locked in the order
         """
         asset_balances = {}
         for order in [o for o in in_flight_orders.values() if not (o.is_done or o.is_failure or o.is_cancelled)]:
@@ -90,6 +93,31 @@ cdef class MarketBase(NetworkIterator):
                     asset_balances[order.base_asset] = s_decimal_0
                 asset_balances[order.base_asset] += outstanding_value
         return asset_balances
+
+    def order_filled_balances(self):
+        """
+        Calculates the individual asset balances as a result of order being filled
+        For BUY filled order, the quote balance goes down while the base balance goes up, and for SELL order, it's the
+        opposite. This does not account for fee.
+        """
+        order_filled_events = list(filter(lambda e: isinstance(e, OrderFilledEvent), self.event_logs))
+        balances = {}
+        for event in order_filled_events:
+            hb_trading_pair = self.convert_from_exchange_trading_pair(event.trading_pair)
+            base, quote = hb_trading_pair.split("-")[0], hb_trading_pair.split("-")[1]
+            if event.trade_type is TradeType.BUY:
+                quote_value = Decimal("-1") * event.price * event.amount
+                base_value = event.amount
+            else:
+                quote_value = event.price * event.amount
+                base_value = Decimal("-1") * event.amount
+            if base not in balances:
+                balances[base] = s_decimal_0
+            if quote not in balances:
+                balances[quote] = s_decimal_0
+            balances[base] += base_value
+            balances[quote] += quote_value
+        return balances
 
     @staticmethod
     def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
@@ -150,24 +178,6 @@ cdef class MarketBase(NetworkIterator):
         exchange_limits = all_ex_limit.get(market, {})
         return exchange_limits if exchange_limits is not None else {}
 
-    def apply_balance_restriction(self):
-        """
-        Updates self._account_balances and self._account_available_balances.
-        To be called after every REST API fetch or WebSocket API update.
-        """
-        exchange_limits = self.get_exchange_limit_config(self.name)
-
-        for asset_name, available_balance in self._account_available_balances.items():
-            if asset_name.upper() in exchange_limits:
-                asset_limit = Decimal(str(exchange_limits[asset_name.upper()]))
-
-                active_asset_balance = self.in_flight_asset_balances(self.in_flight_orders).get(asset_name.upper(),
-                                                                                                s_decimal_0)
-                current_asset_available_balance = self._account_available_balances.get(asset_name.upper(), s_decimal_0)
-                new_asset_available_balance = min(current_asset_available_balance,
-                                                  max(asset_limit - active_asset_balance, s_decimal_0))
-                self._account_available_balances[asset_name] = new_asset_available_balance
-
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         """
         :return: data frame with trading_pair as index, and at least the following columns --
@@ -217,12 +227,34 @@ cdef class MarketBase(NetworkIterator):
         """
         return self._account_balances.get(currency, s_decimal_0)
 
+    def available_balance_limit_applied(self, currency: str, limit: Decimal) -> Decimal:
+        """
+        Apply budget limit on an available balance, the limit is calculated as followings:
+        - Minus balance used in outstanding orders (in flight orders), if the budget is 1 ETH and the bot has already
+          used 0.5 ETH to put a maker buy order, the budget is now 0.5
+        - Plus balance accredited from filled orders (since the bot started), if the budget is 1 ETH and the bot has
+          bought LINK (for 0.5 ETH), the ETH budget is now 0.5. However if later on the bot has sold LINK (for 0.5 ETH)
+          the budget is now 1 ETH
+        """
+        in_flight_balance = self.in_flight_asset_balances(self.in_flight_orders).get(currency.upper(), s_decimal_0)
+        limit -= in_flight_balance
+        filled_balance = self.order_filled_balances().get(currency.upper(), s_decimal_0)
+        limit += filled_balance
+        asset_limit = max(limit, s_decimal_0)
+        available_balance = self._account_available_balances.get(currency.upper(), s_decimal_0)
+        return min(available_balance, asset_limit)
+
     cdef object c_get_available_balance(self, str currency):
         """
+        If there is a budget limit set on the balance
         :returns: Balance available for trading for a specific asset
-        (balances used to place open orders are not available for trading)
         """
-        return self._account_available_balances.get(currency, s_decimal_0)
+        exchange_limits = self.get_exchange_limit_config(self.name)
+        if currency.upper() in exchange_limits:
+            asset_limit = Decimal(str(exchange_limits[currency.upper()]))
+            return self.available_balance_limit_applied(currency, asset_limit)
+        else:
+            return self._account_available_balances.get(currency, s_decimal_0)
 
     cdef str c_withdraw(self, str address, str currency, object amount):
         raise NotImplementedError
