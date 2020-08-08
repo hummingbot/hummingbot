@@ -487,7 +487,6 @@ cdef class BambooRelayMarket(MarketBase):
                 self._account_available_balances = self._account_balances.copy()
 
             self._last_update_available_balance_timestamp = current_timestamp
-        self.apply_balance_restriction()
 
     async def list_market(self) -> Dict[str, Any]:
         url = f"{self._api_endpoint}{self._api_prefix}/markets?perPage=1000&include=base"
