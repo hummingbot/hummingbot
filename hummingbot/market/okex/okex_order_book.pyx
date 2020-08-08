@@ -31,6 +31,7 @@ cdef class OKExOrderBook(OrderBook):
     @classmethod
     def snapshot_message_from_exchange(cls,
                                        msg: Dict[str, Any],
+                                       trading_pair: str,
                                        timestamp: Optional[float] = None,
                                        metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
@@ -65,16 +66,18 @@ cdef class OKExOrderBook(OrderBook):
     @classmethod
     def diff_message_from_exchange(cls,
                                    msg: Dict[str, Any],
-                                   timestamp: Optional[float] = None,
+                                   timestamp: float = None,
                                    metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
-        msg_ts = int(msg["ts"] * 1e-3)
+        
+        msg_ts = int(timestamp * 1e-3)
+        
         content = {
-            "trading_pair": msg["ch"].split(".")[1],
+            "trading_pair": msg["instrument_id"],
             "update_id": msg_ts,
-            "bids": msg["tick"]["bids"],
-            "asks": msg["tick"]["asks"]
+            "bids":msg["bids"],
+            "asks": msg["asks"]
         }
         return OrderBookMessage(OrderBookMessageType.DIFF, content, timestamp or msg_ts)
 
