@@ -669,7 +669,7 @@ cdef class KucoinMarket(MarketBase):
                           price: Decimal) -> str:
         path_url = "/api/v1/orders"
         side = "buy" if is_buy else "sell"
-        order_type_str = "market" if order_type is OrderType.MARKET else "limit"
+        order_type_str = "limit"
         params = {
             "size": str(amount),
             "clientOid": order_id,
