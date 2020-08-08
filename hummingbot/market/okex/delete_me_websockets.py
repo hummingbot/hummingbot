@@ -15,7 +15,7 @@ async def sockets():
     async with websockets.connect(OKCOIN_WS_URI) as ws:
         ws: websockets.WebSocketClientProtocol = ws
 
-        subscribe_request = {"op": "subscribe", "args": ["spot/trade:BTC-USDT"]}
+        subscribe_request = {"op": "subscribe", "args": ["spot/depth:BTC-USDT"]}
 
         await ws.send(json.dumps(subscribe_request))
         while True:
@@ -23,6 +23,7 @@ async def sockets():
             # uses Deflate compression: https://en.wikipedia.org/wiki/DEFLATE
             decripted_msg = inflate(msg).decode('utf-8')
             print(decripted_msg)
+            print()
 
 
 

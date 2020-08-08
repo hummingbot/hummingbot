@@ -107,7 +107,6 @@ class TestOKExAPIOrderBookDataSource(unittest.TestCase):
 
     async def listen_for_trades(self):
         q = asyncio.Queue()
-        # Create a "cancel_me" Task
         
         # mock to have only CELO
         async def mock_internal_get_trading_pairs():
@@ -127,5 +126,21 @@ class TestOKExAPIOrderBookDataSource(unittest.TestCase):
         q = asyncio.Queue()
         asyncio.get_event_loop().run_until_complete(self.listen_for_trades())
         
+    async def listen_for_order_book_diffs(self):
+        q = asyncio.Queue()
+        
+        # mock to have only CELO
+        async def mock_internal_get_trading_pairs():
+            return ['BTC-USDT']
+        self.order_book_data_source.internal_get_trading_pairs = mock_internal_get_trading_pairs
 
-    
+        task = asyncio.create_task(self.order_book_data_source.listen_for_order_book_diffs(None, q))
+
+        await asyncio.sleep(10)
+        task.cancel()
+        
+        self.assertFalse(q.empty())
+
+    def test_listen_for_order_book_diffs(self):
+        q = asyncio.Queue()
+        asyncio.get_event_loop().run_until_complete(self.listen_for_order_book_diffs())
