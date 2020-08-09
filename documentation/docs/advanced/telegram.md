@@ -53,6 +53,14 @@ telegram_token: <TELEGRAM TOKEN FROM STEP 1>
 telegram_chat_id: <TELEGRAM ID FROM STEP 2>
 ```
 
+* Locating your global configuration:<br />
+    * Installed from source: `hummingbot/conf`<br />
+    * Installed via Docker: `hummingbot_files/hummingbot_conf`<br />
+        `hummingbot_files` is the default name of the parent directory. This can be different depending on the setup
+        when the instance was created.<br />
+    * Installed via Binary (Windows): `%localappdata%\hummingbot.io\Hummingbot\conf`<br />
+    * Installed via Binary (MacOS): `~/Library/Application\ Support/Hummingbot/Conf`<br />
+
 * Alternatively, you can also configure your Telegram bot inside the Hummingbot client by using the following commands:
 
 ```
@@ -78,3 +86,5 @@ your hummingbot CLI window.
 
 ![](/assets/img/telegram-buttons.png)
 
+!!! tip
+    If you are running multiple bots with telegram enabled, you can use same [telegram chat id](https://telegram.me/userinfobot) with different telegram token from each bot you created to control all of them and to organize your bots you can enable [telegram chat folder](tg://settings/folders) or visit [telegram blog page](https://telegram.org/blog/folders) for more info. 
