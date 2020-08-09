@@ -295,8 +295,8 @@ cdef class KucoinMarket(MarketBase):
                     currency = execution_data["currency"]
                     available_balance = execution_data["available"]
                     total_balance = execution_data["total"]
-                    self._account_balances.update({currency, total_balance})
-                    self._account_available_balances.update({currency, available_balance})
+                    self._account_balances.update({currency: total_balance})
+                    self._account_available_balances.update({currency: available_balance})
                     self.apply_balance_restriction()
                 else:
                     continue
