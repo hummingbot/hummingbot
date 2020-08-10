@@ -293,11 +293,12 @@ cdef class KucoinMarket(MarketBase):
                         continue
                 elif event_type == "message" and event_topic == "/account/balance":
                     currency = execution_data["currency"]
-                    available_balance = execution_data["available"]
-                    total_balance = execution_data["total"]
+                    available_balance = Decimal(execution_data["available"])
+                    total_balance = Decimal(execution_data["total"])
                     self._account_balances.update({currency: total_balance})
                     self._account_available_balances.update({currency: available_balance})
                     self.apply_balance_restriction()
+                    continue
                 else:
                     continue
 
