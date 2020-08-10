@@ -51,16 +51,16 @@ Run the `balance` command again to confirm the limit has been applied.
 Updating balances, please wait...
 
 binance:
-     Asset    Amount  Limit
-       BNB    0.0000      -
-       BTC    0.0000      -
-       ETH    0.0000      -
-     TFUEL    0.0187      -
-     THETA    0.5880      -
-      USDC    0.0090      -
-      USDT  158.8197  100.0
-       XRP    0.8440      -
-       XZC    0.0076      -
+     Asset    Amount     Limit
+       BNB    0.0000         -
+       BTC    0.0000         -
+       ETH    0.0000         -
+     TFUEL    0.0187         -
+     THETA    0.5880         -
+      USDC    0.0090         -
+      USDT  158.8197  100.0000
+       XRP    0.8440         -
+       XZC    0.0076         -
 ```
 
 ## balance paper
