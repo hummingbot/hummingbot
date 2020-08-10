@@ -3,11 +3,7 @@ from hummingbot.client.settings import (
 )
 from hummingbot.user.user_balances import UserBalances
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.client.config.global_config_map import (
-    global_config_map,
-    LIMIT_GLOBAL_CONFIG,
-    PAPER_ACC_BALANCE_CONFIG,
-)
+from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import (
     save_to_yml
 )
@@ -15,7 +11,7 @@ from hummingbot.client.config.config_validators import validate_decimal, validat
 from hummingbot.market.celo.celo_cli import CeloCLI
 import pandas as pd
 from decimal import Decimal
-from typing import TYPE_CHECKING, Dict, Optional, List, Any
+from typing import TYPE_CHECKING, Dict, Optional, List
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -24,16 +20,6 @@ OPTIONS = [
     "limit",
     "paper"
 ]
-
-OPTION_HELP = {
-    "limit": "balance limit [exchange] [ASSET] [AMOUNT]",
-    "paper": "balance paper [ASSET] [AMOUNT]"
-}
-
-OPTION_DESCRIPTION = {
-    "limit": "Configure the asset limits for specified exchange",
-    "paper": "Configure asset balances used in paper trading mode"
-}
 
 
 class BalanceCommand:
@@ -49,7 +35,7 @@ class BalanceCommand:
             config_map = global_config_map
             file_path = GLOBAL_CONFIG_PATH
             if option == "limit":
-                config_var = config_map[LIMIT_GLOBAL_CONFIG]
+                config_var = config_map["balance_asset_limit"]
                 if args is None or len(args) == 0:
                     safe_ensure_future(self.show_asset_limits())
                     return
@@ -68,7 +54,7 @@ class BalanceCommand:
                 save_to_yml(file_path, config_map)
 
             elif option == "paper":
-                config_var = config_map[PAPER_ACC_BALANCE_CONFIG]
+                config_var = config_map["paper_trade_account_balance"]
                 if args is None or len(args) == 0:
                     safe_ensure_future(self.show_paper_account_balance())
                     return
@@ -78,18 +64,16 @@ class BalanceCommand:
                     return
                 asset = args[0].upper()
                 amount = float(args[1])
-                asset_config = [c for c in config_var.value if c[0] == asset]
-                if asset_config:
-                    asset_config[0][1] = amount
-                else:
-                    config_var.value.append([asset, amount])
+                paper_balances = dict(config_var.value)
+                paper_balances[asset] = amount
+                config_var.value = paper_balances
                 self._notify(f"Paper balance for {asset} token set to {amount}")
                 save_to_yml(file_path, config_map)
 
     async def show_balances(self):
         self._notify("Updating balances, please wait...")
         all_ex_bals = await UserBalances.instance().all_balances_all_exchanges()
-        all_ex_limits: Optional[Dict[str, Dict[str, str]]] = global_config_map[LIMIT_GLOBAL_CONFIG].value
+        all_ex_limits: Optional[Dict[str, Dict[str, str]]] = global_config_map["balance_asset_limit"].value
 
         if all_ex_limits is None:
             all_ex_limits = {}
@@ -168,7 +152,7 @@ class BalanceCommand:
         return df
 
     async def show_asset_limits(self):
-        config_var = global_config_map[LIMIT_GLOBAL_CONFIG]
+        config_var = global_config_map["balance_asset_limit"]
         exchange_limit_conf: Dict[str, Dict[str, str]] = config_var.value
 
         if not any(list(exchange_limit_conf.values())):
@@ -192,10 +176,10 @@ class BalanceCommand:
         self._notify("\n")
         return
 
-    async def paper_acccount_balance_df(self, paper_balances: List[List[Any]]):
+    async def paper_acccount_balance_df(self, paper_balances: Dict[str, Decimal]):
         rows = []
-        for balance in paper_balances:
-            rows.append({"Asset": balance[0], "Balance": round(Decimal(balance[1]), 4)})
+        for asset, balance in paper_balances.items():
+            rows.append({"Asset": asset, "Balance": round(Decimal(str(balance)), 4)})
         df = pd.DataFrame(data=rows, columns=["Asset", "Balance"])
         df.sort_values(by=["Asset"], inplace=True)
         return df
@@ -211,7 +195,7 @@ class BalanceCommand:
                      "e.g. balance paper BTC 0.1")
 
     async def show_paper_account_balance(self):
-        paper_balances = global_config_map[PAPER_ACC_BALANCE_CONFIG].value
+        paper_balances = global_config_map["paper_trade_account_balance"].value
         if not paper_balances:
             self._notify("You have not set any paper account balance.")
             self.notify_balance_paper_set()
