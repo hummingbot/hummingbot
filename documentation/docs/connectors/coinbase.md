@@ -58,7 +58,9 @@ The API Key, Secret, and Passphrase are required for using Hummingbot.
 
 ### Minimum Order Sizes
 
-Pairs on Coinbase Pro generally require a minimum order size equivalent to between $5 and $10. The specific details for different base pairs can be found [here](https://www.coinbase.com/legal/trading_rules).
+All Market Orders, Limit Orders, and Stop Orders placed on Coinbase Markets are subject to the minimum order size requirements listed in their [Market Information](https://pro.coinbase.com/markets) page.
+
+![coinbase6](/assets/img/coinbase6.png)
 
 ### Transaction Fees
 
@@ -69,3 +71,9 @@ Read through their article below related to trading fees and discounts.
 * [What are the fees on Coinbase Pro?](https://help.coinbase.com/en/pro/trading-and-funding/trading-rules-and-fees/fees.html)
 
 Users can override the default fees by editing [`conf_fee_overrides.yml`](/advanced/fee-overrides/).
+
+### Trading Pair Limitations
+
+Coinbase Pro has trading pair limitations on certain regions.
+
+Read through their [article](https://help.coinbase.com/en/pro/trading-and-funding/cryptocurrency-trading-pairs/locations-and-trading-pairs) regarding their trading pair limitations.
