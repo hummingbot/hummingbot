@@ -13,6 +13,7 @@ from hummingbot.core.event.events import (
     OrderType,
 )
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.market_order import MarketOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.strategy.strategy_base import StrategyBase
@@ -92,8 +93,16 @@ cdef class ArbitrageStrategy(StrategyBase):
         return self._sb_order_tracker.tracked_limit_orders
 
     @property
+    def tracked_market_orders(self) -> List[Tuple[MarketBase, MarketOrder]]:
+        return self._sb_order_tracker.tracked_market_orders
+
+    @property
     def tracked_limit_orders_data_frame(self) -> List[pd.DataFrame]:
         return self._sb_order_tracker.tracked_limit_orders_data_frame
+
+    @property
+    def tracked_market_orders_data_frame(self) -> List[pd.DataFrame]:
+        return self._sb_order_tracker.tracked_market_orders_data_frame
 
     def format_status(self) -> str:
         cdef:
@@ -121,12 +130,15 @@ cdef class ArbitrageStrategy(StrategyBase):
                  f"take bid on {market_pair.second.market.name}: {round(profitability_buy_1_sell_2 * 100, 4)} %"])
 
             # See if there're any pending limit orders.
-            tracked_orders_df = self.tracked_limit_orders_data_frame
+            tracked_limit_orders_df = self.tracked_limit_orders_data_frame
+            tracked_market_orders_df = self.tracked_market_orders_data_frame
 
-            if len(tracked_orders_df) > 0:
-                df_lines = str(tracked_orders_df).split("\n")
+            if len(tracked_limit_orders_df) > 0 or len(tracked_market_orders_df) > 0:
+                df_limit_lines = str(tracked_limit_orders_df).split("\n")
+                df_market_lines = str(tracked_market_orders_df).split("\n")
                 lines.extend(["", "  Pending limit orders:"] +
-                             ["    " + line for line in df_lines])
+                             ["    " + line for line in df_limit_lines] +
+                             ["    " + line for line in df_market_lines])
             else:
                 lines.extend(["", "  No pending limit orders."])
 
@@ -261,11 +273,11 @@ cdef class ArbitrageStrategy(StrategyBase):
         """
         cdef:
             double time_left
-            dict tracked_limit_orders = self._sb_order_tracker.c_get_limit_orders()
+            dict tracked_taker_orders = {**self._sb_order_tracker.c_get_limit_orders(), ** self._sb_order_tracker.c_get_market_orders()}
 
         for market_trading_pair_tuple in market_trading_pair_tuples:
             # Do not continue if there are pending limit order
-            if len(tracked_limit_orders.get(market_trading_pair_tuple, {})) > 0:
+            if len(tracked_taker_orders.get(market_trading_pair_tuple, {})) > 0:
                 return False
             # Wait for the cool off interval before the next trade, so wallet balance is up to date
             ready_to_trade_time = self._last_trade_timestamps.get(market_trading_pair_tuple, 0) + self._next_trade_delay
