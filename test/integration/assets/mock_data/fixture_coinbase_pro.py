@@ -1,4 +1,8 @@
 class FixtureCoinbasePro:
+    EMPTY = {}
+
+    LIMIT_MAKER_ERROR = {'message': 'Post only mode'}
+
     ACCOUNTS_GET = [{"id": "2d36cb78-5145-41fe-90b0-3f204f2e357d", "currency": "USDC", "balance": "90.1480261500000000",
                      "available": "90.14802615", "hold": "0.0000000000000000",
                      "profile_id": "bc2f3a64-0c0b-49ce-bb3e-5efc978b5b5c", "trading_enabled": True},
@@ -62,18 +66,3 @@ class FixtureCoinbasePro:
              "type": "wallet", "primary": False, "active": True, "available_on_consumer": True, "hold_balance": "0.00",
              "hold_currency": "PHP"},
         ]
-
-    DEPOSIT_INFO = {"id": "1ce80c77-c500-57ab-b5cf-3d523081d871",
-                    "address": "0xC642d20e12C37CA8D684F4c41e492f2Fb8C7fA13",
-                    "address_info": {"address": "0xC642d20e12C37CA8D684F4c41e492f2Fb8C7fA13"},
-                    "name": "New exchange deposit address", "created_at": "2020-02-17T06:34:29Z",
-                    "updated_at": "2020-02-17T06:34:29Z", "network": "ethereum", "uri_scheme": "ethereum",
-                    "resource": "address",
-                    "resource_path": "/v2/accounts/8543f030-4a21-58d6-ba63-3446e74a01fe/addresses/1ce80c77-c500-57ab-b5cf-3d523081d871",
-                    "warnings": [{"title": "Only send Ether (ETH) to this address",
-                                  "details": "Sending any other digital asset, including Ethereum Classic (ETC), will result in permanent loss.",
-                                  "image_url": "https://dynamic-assets.coinbase.com/7796fb1bd5752a156c77e0b1fa28fb17e93d03b4b8e2dcff58dcaf8f99b2e4a3c3af2cd905d5536761c54ac273d62d91a38ef8e5702fa988c37264e7aba36b3b/asset_icons/3af4b33bde3012fd29dd1366b0ad737660f24acc91750ee30a034a0679256d0b.png"}],
-                    "warning_title": "Only send Ether (ETH) to this address",
-                    "warning_details": "Sending any other digital asset, including Ethereum Classic (ETC), will result in permanent loss.",
-                    "deposit_uri": "ethereum:0xC642d20e12C37CA8D684F4c41e492f2Fb8C7fA13", "callback_url": None,
-                    "exchange_deposit_address": True}

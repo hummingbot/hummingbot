@@ -5,11 +5,11 @@ channels:
   - defaults
 dependencies:
   - appnope=0.1.0=py38_0
-  - blas=1.0=mkl
+  - blas=1.0=openblas
   - blosc=1.16.3=hd9629dc_0
   - bzip2=1.0.8=h1de35cc_0
-  - ca-certificates=2020.1.1=0
-  - certifi=2019.11.28=py38_0
+  - ca-certificates=2020.6.24=0
+  - certifi=2020.6.20=py38_0
   - cython=0.29.15=py38h0a44026_0
   - hdf5=1.10.4=hfa1e0ec_0
   - intel-openmp=2019.4=233
@@ -17,19 +17,17 @@ dependencies:
   - libedit=3.1.20181209=hb402a30_0
   - libffi=3.2.1=h6de7cb9_1006
   - libgfortran=3.0.1=h93005f0_2
+  - libopenblas=0.3.10=h0794777_0
   - lz4-c=1.8.1.2=h1de35cc_0
   - lzo=2.10=h362108e_2
-  - mkl=2019.4=233
-  - mkl-service=2.3.0=py38hfbe908c_0
-  - mkl_fft=1.0.15=py38h5e564d8_0
-  - mkl_random=1.1.0=py38h6440ff4_0
   - mock=4.0.1=py_0
   - ncurses=6.1=h0a44026_1002
+  - nomkl=3.0=0
   - nose=1.3.7=py38_2
-  - numexpr=2.7.1=py38hce01a72_0
-  - numpy=1.18.1=py38h7241aed_0
-  - numpy-base=1.18.1=py38h6575580_1
-  - openssl=1.1.1d=h1de35cc_4
+  - numexpr=2.7.1=py38h9ff8ad3_0
+  - numpy=1.18.5=py38h00fe2a6_0
+  - numpy-base=1.18.5=py38hc72aeb7_0
+  - openssl=1.1.1g=h1de35cc_0
   - pandas=1.0.1=py38h6c726b0_0
   - pip=20.0.2=py_2
   - prompt_toolkit=3.0.3=py_0
@@ -111,6 +109,7 @@ dependencies:
     - mypy-extensions==0.4.3
     - netaddr==0.7.19
     - nodeenv==1.3.5
+    - objgraph==3.4.1
     - parsimonious==0.8.1
     - pre-commit==2.1.1
     - protobuf==3.11.3

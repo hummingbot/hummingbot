@@ -72,7 +72,7 @@ conda activate hummingbot
 bin/hummingbot.py
 ```
 
-Solution 2: make sure you're have conda section in ~/.bashrc. Run `conda init` if it is not there. Explanation: if you have custom PATH defined in ~/.bashrc, supplied scripts (`./compile` etc) may pick wrong python binary, causing different errors.
+Solution 2: make sure you have conda section in ~/.bashrc. Run `conda init` if it is not there. Explanation: if you have custom PATH defined in ~/.bashrc, supplied scripts (`./compile` etc) may pick wrong python binary, causing different errors.
 
 ## Configuration
 
@@ -176,9 +176,9 @@ docker inspect $instance_name
 
 ### How do I edit my config files from the command line?
 
-If Hummingbot is installed on a virtual machine or a Linux cloud server, you can use the `vi` text editor (or any text editor of your choice). Run command `vi $filename`. See [this page](https://www.tipsandtricks-hq.com/unix-vi-commands-take-advantage-of-the-unix-vi-editor-374) for more information how to use this text editor.
+If Hummingbot is installed on a virtual machine or a Linux cloud server, you can use the `vi` text editor (or any text editor of your choice). Run command `vi $filename`. See [this page](https://www.tipsandtricks-hq.com/unix-vi-commands-take-advantage-of-the-unix-vi-editor-374) for more information on how to use this text editor.
 
-You can also use an FTP client software (e.g. WinSCP, FileZila) to copy, move, files and folders from your virtual machine to your local machine and vice versa.
+You can also use an FTP client software (e.g. WinSCP, FileZilla) to copy, move, files and folders from your virtual machine to your local machine and vice versa.
 
 ### I forgot my password. How do I reset it?
 
@@ -200,10 +200,37 @@ rm hummingbot/conf/encrypted* hummingbot/conf/key_file*
 
 If Hummingbot is installed on Windows, simply delete the encrypted files found in `%localappdata%\hummingbot.io\Hummingbot\conf`.
 
+If Hummingbot is installed on MacOS, simply delete the encrypted files found in `~/Library/Application\ Support/Hummingbot/Conf`.
+
 !!! warning
     Be careful when deleting the local wallet key file created through Hummingbot, i.e, a wallet that was not imported from Metamask; deleting the key file will result in a permanent loss of access to that wallet and any assets it may contain.
 
 ![delete_encrypted_files](/assets/img/ts_delete_encrypted.gif)
+
+### How to reset global configs to default settings?
+
+Editing `conf_global.yml` from text editor sometimes can cause error or corrupted configuration when running Hummingbot, its because of incorrect format, incorrect parameters, wrong spelling and unintentional added characters to the global config.
+
+1. Run `exit` command to exit from the Hummingbot client.
+2. Delete `conf_global.yml` from the `hummingbot_conf` folder.
+3. Restart Hummingbot and a new generated `conf_global.yml` will be created, type `config` command to see the global configuration.
+
+If using Linux, copy the commands below and run in your terminal to delete the file. You will be prompted to confirm before proceeding.
+
+```bash tab="Docker build"
+rm hummingbot_files/hummingbot_conf/conf_global.yml
+```
+
+```bash tab="Source build"
+rm hummingbot/conf/conf_global.yml
+```
+
+If Hummingbot is installed on Windows, simply delete the `conf_global.yml` found in `%localappdata%\hummingbot.io\Hummingbot\conf`.
+
+If Hummingbot is installed on MacOS, simply delete the `conf_global.yml` found in `~/Library/Application\ Support/Hummingbot/Conf`.
+
+!!! Note
+    If telegram is enabled make sure to backup your telegram token and chat id when deleting `conf_global.yml`.
 
 ### How do I adjust paper trade asset balances?
 
@@ -295,7 +322,40 @@ Failed connections:                                                             
 10:12:24 - kraken_market - Error received from https://api.kraken.com/0/private/Balance. Response is {'error': []}.
 ```
 
-This error occurs when Kraken account is not verified and no current funds on the exchange. Get verified and fund your account to fix the error. For more info visit this [article](https://support.kraken.com/hc/en-us/articles/360001491786-API-Error-Codes).
+This error occurs when Kraken account currently has no funds on the exchange. Fund your account to fix the error. For more info visit this [article](https://support.kraken.com/hc/en-us/articles/360001491786-API-Error-Codes).
+
+### MAC mismatch error 
+
+```
+Hummingbot.core.utils.async_utils - ERROR - Unhandled error in background task: MAC mismatch Traceback (most recent call last):
+File "/home/ubuntu/hummingbot/hummingbot/core/utils/async_utils.py", line 9, in safe_wrapper return await c
+File "/home/ubuntu/hummingbot/hummingbot/core/utils/async_call_scheduler.py", line 128, in call_async return await self.schedule_async_call coro, timeout_seconds, app_warning_msg=app_warning_msg)
+File "/home/ubuntu/hummingbot/hummingbot/core/utils/async_call_scheduler.py", line 117, in schedule_async_call return await fut
+File "/home/ubuntu/hummingbot/hummingbot/core/utils/async_call_scheduler.py", line 80, in _coro_scheduler fut.set_result(await coro)
+File "/home/ubuntu/miniconda3/envs/hummingbot/lib/python3.8/concurrent/futures/thread.py", line 57, in run result = self.fn(*self.args, **self.kwargs)
+File "/home/ubuntu/hummingbot/hummingbot/client/config/security.py", line 88, in decrypt_all cls.decrypt_file(file)
+File "/home/ubuntu/hummingbot/hummingbot/client/config/security.py", line 73, in decrypt_file cls._secure_configs[key_name] = decrypt_file(file_path, Security.password)
+File "/home/ubuntu/hummingbot/hummingbot/client/config/config_crypt.py", line 67, in decrypt_file secured_value = Account.decrypt(encrypted, password)
+File "/home/ubuntu/miniconda3/envs/hummingbot/lib/python3.8/site-packages/eth_account/account.py", line 134, in decrypt return HexBytes(decode_keyfile_json(keyfile, password_bytes))
+File "/home/ubuntu/miniconda3/envs/hummingbot/lib/python3.8/site-packages/eth_keyfile/keyfile.py", line 49, in decode_keyfile_json return _decode_keyfile_json_v3(keyfile_json, password)
+File "/home/ubuntu/miniconda3/envs/hummingbot/lib/python3.8/site-packages/eth_keyfile/keyfile.py", line 170, in _decode_keyfile_json_v3 raise ValueError("MAC mismatch") 
+ValueError: MAC mismatch
+```
+This error is usually caused by having multiple encrypted keys with different passwords in the same config folder. For example:
+```
+Instance1                       Instance2
+Password  : 1234                Password  : 5678 
+API key/s : Binance             API key/s : Bittrex, Coinbase Pro, 
+                                            Eterbase, Kraken, Huobi
+```
+
+Copying encrypted Binance key file from Instance1 to Instance2 will result to this error. To fix this:
+
+1. Delete just the `encrypted_binance_api/secret_key.json` from Instance2's conf folder
+2. Restart Hummingbot and password 5678 remains unchanged
+3. Run `connect binance` and add the API keys - this will encrypt it with 5678 password and sync it with the rest of the API keys
+
+
 
 ## Miscellaneous
 
@@ -342,3 +402,4 @@ Here are the steps to set your Brave browser to always use Metamask when connect
 4. Click the dropdown for **Web3 provider for using Dapps** and select **Metamask** 
 
 ![](/assets/img/brave_with_metamask.gif)
+

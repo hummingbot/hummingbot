@@ -114,20 +114,20 @@ A bot's strategy parameters control how it behaves. During this step, you will d
 Later, you can access and configure the advanced parameters of this strategy. A more detailed explanation of each prompt for basic pure market making strategy are explained [here](/strategies/pure-market-making/#configuration-walkthrough) and advanced market making [here](/strategies/advanced-mm/#advanced-configuration-parameters).
 
 
-## Adjust inventory ratio
+## Alternate buy and sell orders
 
-If paper trade mode is not enabled, you will be asked whether you want to keep your current inventory ratio. The inventory skew feature lets you set and maintain a target inventory split between the base and quote assets.
+The ping pong feature helps users in managing inventory risk by alternating buy and sell orders after a fill.
 
-![](/assets/img/quickstart_inventory_skew.png)
+![](/assets/img/quickstart_pingpong.png)
 
-For more information, you may read through [Inventory Skew](/strategies/advanced-mm/inventory-skew) in the Advanced Market Making section.
+For more information, you may read through [Ping Pong](/strategies/advanced-mm/ping-pong) in the Advanced Market Making section.
 
 
 ## Save configuration
 
 Enter the name you want for your configuration file to complete the process.
 
-![](/assets/img/quickstart_complete_save.png)
+![](/assets/img/quickstart_start.png)
 
 Proceed to the next section: [Run Your First Trading Bot](run-bot.md)
 

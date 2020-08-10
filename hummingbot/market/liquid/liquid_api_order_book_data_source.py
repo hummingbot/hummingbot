@@ -28,13 +28,23 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._laobds_logger = logging.getLogger(__name__)
         return cls._laobds_logger
 
-    def __init__(self, trading_pairs: Optional[List[str]] = None):
-        super().__init__()
+    def __init__(self, trading_pairs: List[str]):
+        super().__init__(trading_pairs)
 
-        self._trading_pairs: Optional[List[str]] = trading_pairs
         self._order_book_create_function = lambda: OrderBook()
-
         self.trading_pair_id_conversion_dict: Dict[str, int] = {}
+
+    @classmethod
+    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
+        results = dict()
+        async with aiohttp.ClientSession() as client:
+            resp = await client.get(Constants.GET_EXCHANGE_MARKETS_URL)
+            resp_json = await resp.json()
+            for record in resp_json:
+                trading_pair = f"{record['base_currency']}-{record['quoted_currency']}"
+                if trading_pair in trading_pairs:
+                    results[trading_pair] = float(record["last_traded_price"])
+        return results
 
     @staticmethod
     def reformat_trading_pairs(products):
@@ -203,6 +213,21 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 **snapshot,
                 'trading_pair': trading_pair
             }
+
+    async def get_new_order_book(self, trading_pair: str) -> OrderBook:
+        await self.get_trading_pairs()
+        async with aiohttp.ClientSession() as client:
+            snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, 1)
+            snapshot_timestamp: float = time.time()
+            snapshot_msg: OrderBookMessage = LiquidOrderBook.snapshot_message_from_exchange(
+                snapshot,
+                snapshot_timestamp,
+                metadata={"trading_pair": trading_pair}
+            )
+
+            order_book: OrderBook = self.order_book_create_function()
+            order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
+            return order_book
 
     async def get_tracking_pairs(self) -> Dict[str, LiquidOrderBookTrackerEntry]:
         """
