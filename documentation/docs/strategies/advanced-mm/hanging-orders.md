@@ -52,15 +52,15 @@ Let's see how this configuration works in the scenario below:
 - hanging_orders_cancel_pct: 2
 ```
 
-![](/assets/img/hanging_order1.png)
-
-When the buy order `...1497` was completely filled, it will not cancel the sell order `...1840`. After 60 seconds, Hummingbot will create a new set of buy and sell orders. The `status` output will show all active orders while indicating which orders are hanging.
-
 ![](/assets/img/hanging_order2.png)
+
+When the buy order was completely filled, it will not cancel the sell order. After 60 seconds, Hummingbot will create a new set of buy and sell orders. The `status` output will show all active orders while indicating which orders are hanging.
+
+![](/assets/img/hanging_order3.png)
 
 The hanging order will stay outstanding and will be cancelled if its spread goes above 2% as specified in our `hanging_orders_cancel_pct`.
 
-![](/assets/img/hanging_order3.png)
+![](/assets/img/hanging_order4.png)
 
 ## Hanging Orders with Multiple Order Levels
 

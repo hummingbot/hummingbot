@@ -101,6 +101,7 @@ nav:
         - Linux: installation/source/linux.md
         - macOS: installation/source/macOS.md
         - Windows: installation/source/windows.md
+        - Raspberry Pi: installation/source/raspberry-pi.md
       - Cloud Server Guide: installation/cloud.md
       - Updating Hummingbot: installation/updating.md
     - Operation:
@@ -147,12 +148,13 @@ nav:
     - Connectors:
       - Overview: connectors/index.md
       - Binance: connectors/binance.md
-      - Coinbase Pro: connectors/coinbase.md
-      - Huobi Global: connectors/huobi.md
       - Bittrex Global: connectors/bittrex.md
-      - Liquid: connectors/liquid.md
+      - Coinbase Pro: connectors/coinbase.md
+      - Eterbase: connectors/eterbase.md
+      - Huobi Global: connectors/huobi.md
       - KuCoin: connectors/kucoin.md
       - Kraken: connectors/kraken.md
+      - Liquid: connectors/liquid.md
       - Radar Relay: connectors/radar-relay.md
       - Community Connectors:
         - Bamboo Relay: connectors/bamboo-relay.md
@@ -162,7 +164,6 @@ nav:
       - Kill Switch: advanced/kill-switch.md
       - Fee Overrides: advanced/fee-overrides.md
       - Logs and Logging: advanced/logging.md
-      - Exchange Rates: advanced/exchange-rates.md
       - Ethereum Wallet: advanced/wallet.md
       - Ethereum Node: advanced/node.md
       - Telegram: advanced/telegram.md
@@ -214,6 +215,7 @@ nav:
       - Configuration: developers/config.md
   - Release Notes:
     - About Releases: release-notes/index.md
+    - 0.29.0: release-notes/0.29.0.md
     - 0.28.1: release-notes/0.28.1.md
     - 0.28.0: release-notes/0.28.0.md
     - 0.27.0: release-notes/0.27.0.md
