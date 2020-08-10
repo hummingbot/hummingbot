@@ -297,7 +297,6 @@ cdef class KucoinMarket(MarketBase):
                     total_balance = Decimal(execution_data["total"])
                     self._account_balances.update({currency: total_balance})
                     self._account_available_balances.update({currency: available_balance})
-                    self.apply_balance_restriction()
                     continue
                 else:
                     continue
