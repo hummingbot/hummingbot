@@ -90,16 +90,11 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                 return all_markets
 
-    async def internal_get_trading_pairs(self) -> List[str]:
-        # TODO don't know if this function is required, and adjust formats of all tickers accordinly
-        active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-        return active_markets['product_id'].tolist()
-
     async def get_trading_pairs(self) -> List[str]:
         if not self._trading_pairs:
             try:
                 active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                self._trading_pairs = active_markets.index.tolist()
+                self._trading_pairs = active_markets['product_id'].tolist()
             except Exception:
                 self._trading_pairs = []
                 self.logger().network(
@@ -166,7 +161,7 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         while True:
             try:
-                trading_pairs: List[str] = await self.internal_get_trading_pairs()
+                trading_pairs: List[str] = await self.get_trading_pairs()
                 async with websockets.connect(OKCOIN_WS_URI) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
 
@@ -243,7 +238,7 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """Fetches or Subscribes to the order book snapshots for each trading pair. Additionally, parses the incoming message into a OrderBookMessage and appends it into the output Queue."""
         while True:
             try:
-                trading_pairs: List[str] = await self.internal_get_trading_pairs()
+                trading_pairs: List[str] = await self.get_trading_pairs()
                 async with websockets.connect(OKCOIN_WS_URI) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     
@@ -278,7 +273,7 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """Fetches or Subscribes to the order book deltas(diffs) for each trading pair. Additionally, parses the incoming message into a OrderBookMessage and appends it into the output Queue."""
         while True:
             try:
-                trading_pairs: List[str] = await self.internal_get_trading_pairs()
+                trading_pairs: List[str] = await self.get_trading_pairs()
                 async with aiohttp.ClientSession() as client:
                     for trading_pair in trading_pairs:
                         try:
