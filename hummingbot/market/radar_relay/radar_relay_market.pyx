@@ -314,7 +314,6 @@ cdef class RadarRelayMarket(MarketBase):
                 self._account_available_balances = self._account_balances.copy()
 
             self._last_update_available_balance_timestamp = current_timestamp
-        self.apply_balance_restriction()
 
     async def list_market(self) -> Dict[str, Any]:
         url = f"{RADAR_RELAY_REST_ENDPOINT}/markets?include=base"
