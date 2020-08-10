@@ -375,8 +375,6 @@ cdef class EterbaseMarket(MarketBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-        self.apply_balance_restriction()
-
     async def _update_trading_rules(self):
         """
         Pulls the API for trading rules (min / max order size, etc)

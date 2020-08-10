@@ -252,23 +252,23 @@ class KucoinMarketUnitTest(unittest.TestCase):
         if API_MOCK_ENABLED:
             return
         trading_pair = "ETH-USDT"
-        price = self.market.get_price(trading_pair, True) * Decimal("0.8")
-        price = self.market.quantize_order_price(trading_pair, price)
-        amount = self.market.quantize_order_amount(trading_pair, Decimal(0.01))
+        bid_price = self.market.get_price(trading_pair, True) * Decimal("0.8")
+        quantized_bid_price = self.market.quantize_order_price(trading_pair, bid_price)
+        quantized_bid_amount = self.market.quantize_order_amount(trading_pair, Decimal(0.01))
 
-        order_id, _ = self.place_order(True, trading_pair, amount, OrderType.LIMIT_MAKER,
-                                       price, 10001,
+        order_id, _ = self.place_order(True, trading_pair, quantized_bid_amount, OrderType.LIMIT_MAKER,
+                                       quantized_bid_price, 10001,
                                        FixtureKucoin.ORDER_PLACE, FixtureKucoin.ORDER_GET_BUY_UNMATCHED)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id, order_created_event.order_id)
 
-        price = self.market.get_price(trading_pair, True) * Decimal("1.2")
-        price = self.market.quantize_order_price(trading_pair, price)
-        amount = self.market.quantize_order_amount(trading_pair, Decimal(0.01))
+        ask_price = self.market.get_price(trading_pair, True) * Decimal("1.2")
+        quatized_ask_price = self.market.quantize_order_price(trading_pair, ask_price)
+        quatized_ask_amount = self.market.quantize_order_amount(trading_pair, Decimal(0.01))
 
-        order_id, _ = self.place_order(False, trading_pair, amount, OrderType.LIMIT_MAKER,
-                                       price, 10002,
+        order_id, _ = self.place_order(False, trading_pair, quatized_ask_amount, OrderType.LIMIT_MAKER,
+                                       quatized_ask_price, 10002,
                                        FixtureKucoin.ORDER_PLACE, FixtureKucoin.ORDER_GET_SELL_UNMATCHED)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
@@ -278,7 +278,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
 
-    def test_market_buy(self):
+    def test_limit_taker_buy(self):
         self.assertGreater(self.market.get_balance("ETH"), Decimal("0.05"))
         trading_pair = "ETH-USDT"
         price: Decimal = self.market.get_price(trading_pair, True)
@@ -307,7 +307,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
         # Reset the logs
         self.market_logger.clear()
 
-    def test_market_sell(self):
+    def test_limit_taker_sell(self):
         self.assertGreater(self.market.get_balance("ETH"), Decimal("0.05"))
         trading_pair = "ETH-USDT"
         price: Decimal = self.market.get_price(trading_pair, False)
