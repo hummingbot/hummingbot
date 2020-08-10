@@ -196,6 +196,10 @@ cdef class LiquidMarket(MarketBase):
             for key, value in self._in_flight_orders.items()
         }
 
+    @property
+    def in_flight_orders(self) -> Dict[str, LiquidInFlightOrder]:
+        return self._in_flight_orders
+
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         """
         *required
@@ -414,6 +418,8 @@ cdef class LiquidMarket(MarketBase):
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
+
+        self.apply_balance_restriction()
 
     async def _update_trading_rules(self):
         """

@@ -6,6 +6,11 @@ from typing import (
     Tuple,
     Optional,
     Iterator)
+
+from hummingbot.client.config.global_config_map import (
+    global_config_map,
+    LIMIT_GLOBAL_CONFIG,
+)
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.order_book_query_result import (
     OrderBookQueryResult,
@@ -24,7 +29,7 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkIterator
 from hummingbot.core.data_type.order_book import OrderBook
-
+from hummingbot.market.in_flight_order_base import InFlightOrderBase
 from .deposit_info import DepositInfo
 
 NaN = float("nan")
@@ -65,6 +70,26 @@ cdef class MarketBase(NetworkIterator):
         # Exceptions are logged as warnings in Trading pair fetcher class
         except Exception:
             return None
+
+    @staticmethod
+    def in_flight_asset_balances(in_flight_orders: Dict[str, InFlightOrderBase]) -> Dict[str, Decimal]:
+        """
+        Calculates the individual asset balances used in in_flight_orders
+        """
+        asset_balances = {}
+        for order in [o for o in in_flight_orders.values() if not (o.is_done or o.is_failure or o.is_cancelled)]:
+            if order.trade_type is TradeType.BUY:
+                order_value = Decimal(order.amount * order.price)
+                outstanding_value = order_value - order.executed_amount_quote
+                if order.quote_asset not in asset_balances:
+                    asset_balances[order.quote_asset] = s_decimal_0
+                asset_balances[order.quote_asset] += outstanding_value
+            else:
+                outstanding_value = order.amount - order.executed_amount_base
+                if order.base_asset not in asset_balances:
+                    asset_balances[order.base_asset] = s_decimal_0
+                asset_balances[order.base_asset] += outstanding_value
+        return asset_balances
 
     @staticmethod
     def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
@@ -116,6 +141,32 @@ cdef class MarketBase(NetworkIterator):
         :param saved_states: Previously saved tracking states from `tracking_states` property.
         """
         pass
+
+    def get_exchange_limit_config(self, market: str) -> Dict[str, object]:
+        """
+        Retrieves the Balance Limits for the specified market.
+        """
+        all_ex_limit = global_config_map[LIMIT_GLOBAL_CONFIG].value
+        exchange_limits = all_ex_limit.get(market, {})
+        return exchange_limits if exchange_limits is not None else {}
+
+    def apply_balance_restriction(self):
+        """
+        Updates self._account_balances and self._account_available_balances.
+        To be called after every REST API fetch or WebSocket API update.
+        """
+        exchange_limits = self.get_exchange_limit_config(self.name)
+
+        for asset_name, available_balance in self._account_available_balances.items():
+            if asset_name.upper() in exchange_limits:
+                asset_limit = Decimal(str(exchange_limits[asset_name.upper()]))
+
+                active_asset_balance = self.in_flight_asset_balances(self.in_flight_orders).get(asset_name.upper(),
+                                                                                                s_decimal_0)
+                current_asset_available_balance = self._account_available_balances.get(asset_name.upper(), s_decimal_0)
+                new_asset_available_balance = min(current_asset_available_balance,
+                                                  max(asset_limit - active_asset_balance, s_decimal_0))
+                self._account_available_balances[asset_name] = new_asset_available_balance
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         """

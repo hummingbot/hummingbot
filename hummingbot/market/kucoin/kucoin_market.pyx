@@ -76,7 +76,6 @@ cdef class KucoinMarketTransactionTracker(TransactionTracker):
         TransactionTracker.c_did_timeout_tx(self, tx_id)
         self._owner.c_did_timeout_tx(tx_id)
 
-
 cdef class KucoinMarket(MarketBase):
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
@@ -113,7 +112,8 @@ cdef class KucoinMarket(MarketBase):
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._data_source_type = order_book_tracker_data_source_type
         self._ev_loop = asyncio.get_event_loop()
-        self._kucoin_auth = KucoinAuth(api_key=kucoin_api_key, passphrase=kucoin_passphrase, secret_key=kucoin_secret_key)
+        self._kucoin_auth = KucoinAuth(api_key=kucoin_api_key, passphrase=kucoin_passphrase,
+                                       secret_key=kucoin_secret_key)
         self._in_flight_orders = {}
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
@@ -249,8 +249,8 @@ cdef class KucoinMarket(MarketBase):
             double poll_interval = (self.SHORT_POLL_INTERVAL
                                     if now - self.user_stream_tracker.last_recv_time > 60.0
                                     else self.LONG_POLL_INTERVAL)
-            int64_t last_tick = <int64_t > (self._last_timestamp / poll_interval)
-            int64_t current_tick = <int64_t > (timestamp / poll_interval)
+            int64_t last_tick = <int64_t> (self._last_timestamp / poll_interval)
+            int64_t current_tick = <int64_t> (timestamp / poll_interval)
         MarketBase.c_tick(self, timestamp)
         self._tx_tracker.c_tick(timestamp)
         if current_tick > last_tick:
@@ -291,6 +291,13 @@ cdef class KucoinMarket(MarketBase):
                         self.logger().debug(f"Unrecognized order ID from user stream: {client_order_id}.")
                         self.logger().debug(f"Event: {event_message}")
                         continue
+                elif event_type == "message" and event_topic == "/account/balance":
+                    currency = execution_data["currency"]
+                    available_balance = execution_data["available"]
+                    total_balance = execution_data["total"]
+                    self._account_balances.update({currency, total_balance})
+                    self._account_available_balances.update({currency, available_balance})
+                    self.apply_balance_restriction()
                 else:
                     continue
 
@@ -299,7 +306,8 @@ cdef class KucoinMarket(MarketBase):
                         execute_amount_diff = Decimal(execution_data["matchSize"])
                         execute_price = Decimal(execution_data["price"])
                         tracked_order.executed_amount_base = Decimal(execution_data["filledSize"])
-                        tracked_order.executed_amount_quote = Decimal(execution_data["filledSize"]) * Decimal(execute_price)
+                        tracked_order.executed_amount_quote = Decimal(execution_data["filledSize"]) * Decimal(
+                            execute_price)
                         self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                            f"order {tracked_order.client_order_id}.")
                         self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
@@ -323,7 +331,8 @@ cdef class KucoinMarket(MarketBase):
                                              ))
                 if (execution_status == "done" or execution_status == "match") and (execution_type == "match" or execution_type == "filled"):
                     tracked_order.executed_amount_base = Decimal(execution_data["filledSize"])
-                    tracked_order.executed_amount_quote = Decimal(execution_data["filledSize"]) * Decimal(execution_data["price"])
+                    tracked_order.executed_amount_quote = Decimal(execution_data["filledSize"]) * Decimal(
+                        execution_data["price"])
                     if tracked_order.trade_type == TradeType.BUY:
                         self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
                                            f"according to KuCoin user stream.")
@@ -445,6 +454,8 @@ cdef class KucoinMarket(MarketBase):
             self._account_balances.clear()
             self._account_balances = new_balances
 
+        self.apply_balance_restriction()
+
     cdef object c_get_fee(self,
                           str base_currency,
                           str quote_currency,
@@ -467,8 +478,8 @@ cdef class KucoinMarket(MarketBase):
     async def _update_trading_rules(self):
         cdef:
             # The poll interval for trade rules is 60 seconds.
-            int64_t last_tick = <int64_t > (self._last_timestamp / 60.0)
-            int64_t current_tick = <int64_t > (self._current_timestamp / 60.0)
+            int64_t last_tick = <int64_t> (self._last_timestamp / 60.0)
+            int64_t current_tick = <int64_t> (self._current_timestamp / 60.0)
         if current_tick > last_tick or len(self._trading_rules) < 1:
             exchange_info = await self._api_request("get", path_url="/api/v1/symbols")
             trading_rules_list = self._format_trading_rules(exchange_info)
@@ -502,8 +513,8 @@ cdef class KucoinMarket(MarketBase):
     async def _update_order_status(self):
         cdef:
             # The poll interval for order status is 10 seconds.
-            int64_t last_tick = <int64_t > (self._last_poll_timestamp / self.UPDATE_ORDERS_INTERVAL)
-            int64_t current_tick = <int64_t > (self._current_timestamp / self.UPDATE_ORDERS_INTERVAL)
+            int64_t last_tick = <int64_t> (self._last_poll_timestamp / self.UPDATE_ORDERS_INTERVAL)
+            int64_t current_tick = <int64_t> (self._current_timestamp / self.UPDATE_ORDERS_INTERVAL)
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
@@ -531,7 +542,8 @@ cdef class KucoinMarket(MarketBase):
                         tracked_order.last_state = "DONE"
                 else:
                     tracked_order.last_state = "CANCEL"
-                new_confirmed_amount = Decimal(order_update["data"]["dealFunds"])  # API isn't detailed enough assuming dealSize
+                new_confirmed_amount = Decimal(
+                    order_update["data"]["dealFunds"])  # API isn't detailed enough assuming dealSize
                 execute_amount_diff = Decimal(order_update["data"]["dealSize"])
 
                 if execute_amount_diff > s_decimal_0:
@@ -645,9 +657,6 @@ cdef class KucoinMarket(MarketBase):
     def ready(self) -> bool:
         return all(self.status_dict.values())
 
-    def get_all_balances(self) -> Dict[str, Decimal]:
-        return self._account_balances.copy()
-
     def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
@@ -704,7 +713,8 @@ cdef class KucoinMarket(MarketBase):
                 raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                                  f"{trading_rule.min_order_size}.")
         try:
-            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, True, order_type, decimal_price)
+            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, True, order_type,
+                                                       decimal_price)
             self.c_start_tracking_order(
                 client_order_id=order_id,
                 exchange_order_id=exchange_order_id,
@@ -774,7 +784,8 @@ cdef class KucoinMarket(MarketBase):
                              f"{trading_rule.min_order_size}.")
 
         try:
-            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, False, order_type, decimal_price)
+            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, False, order_type,
+                                                       decimal_price)
             self.c_start_tracking_order(
                 client_order_id=order_id,
                 exchange_order_id=exchange_order_id,

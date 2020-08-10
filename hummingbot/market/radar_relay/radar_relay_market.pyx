@@ -214,6 +214,10 @@ cdef class RadarRelayMarket(MarketBase):
             }
         }
 
+    @property
+    def in_flight_orders(self) -> Dict[str, RadarRelayInFlightOrder]:
+        return {**self._in_flight_limit_orders, **self._in_flight_market_orders}
+
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         self._in_flight_market_orders.update({
             key: RadarRelayInFlightOrder.from_json(value)
@@ -234,7 +238,6 @@ cdef class RadarRelayMarket(MarketBase):
                 await self._poll_notifier.wait()
 
                 self._update_balances()
-                self._update_available_balances()
                 await safe_gather(
                     self._update_trading_rules(),
                     self._update_limit_order_status(),
@@ -279,6 +282,10 @@ cdef class RadarRelayMarket(MarketBase):
         cdef:
             double current_timestamp = self._current_timestamp
 
+        # Retrieve account balance from wallet.
+        self._account_balances = self.wallet.get_all_balances().copy()
+
+        # Calculate available balance
         if current_timestamp - self._last_update_available_balance_timestamp > 10.0:
 
             if len(self._in_flight_limit_orders) >= 0:
@@ -307,6 +314,7 @@ cdef class RadarRelayMarket(MarketBase):
                 self._account_available_balances = self._account_balances.copy()
 
             self._last_update_available_balance_timestamp = current_timestamp
+        self.apply_balance_restriction()
 
     async def list_market(self) -> Dict[str, Any]:
         url = f"{RADAR_RELAY_REST_ENDPOINT}/markets?include=base"

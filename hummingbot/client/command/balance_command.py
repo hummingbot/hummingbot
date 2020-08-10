@@ -3,7 +3,11 @@ from hummingbot.client.settings import (
 )
 from hummingbot.user.user_balances import UserBalances
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.global_config_map import (
+    global_config_map,
+    LIMIT_GLOBAL_CONFIG,
+    PAPER_ACC_BALANCE_CONFIG,
+)
 from hummingbot.client.config.config_helpers import (
     save_to_yml
 )
@@ -31,9 +35,6 @@ OPTION_DESCRIPTION = {
     "paper": "Configure asset balances used in paper trading mode"
 }
 
-LIMIT_GLOBAL_CONFIG = "balance_asset_limit"
-PAPER_ACC_BALANCE_CONFIG = "paper_trade_account_balance"
-
 
 class BalanceCommand:
     def balance(self,
@@ -59,11 +60,11 @@ class BalanceCommand:
                 exchange = args[0]
                 asset = args[1].upper()
                 amount = float(args[2])
-                exchange_limit_conf = config_var.value[exchange]
-                if exchange_limit_conf is None:
-                    config_var.value.update({asset: {}})
+                if exchange not in config_var.value or config_var.value[exchange] is None:
+                    config_var.value[exchange] = {}
+                config_var.value[exchange][asset] = amount
+
                 self._notify(f"Limit for {asset} on {exchange} exchange set to {amount}")
-                config_var.value[exchange].update({asset: amount})
                 save_to_yml(file_path, config_map)
 
             elif option == "paper":
