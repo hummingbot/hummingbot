@@ -245,7 +245,7 @@ class HummingbotApplication(*commands):
                 except Exception:
                     raise
                 paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
-                for asset, balance in paper_trade_account_balance:
+                for asset, balance in paper_trade_account_balance.items():
                     market.set_balance(asset, balance)
 
             elif market_name == "binance":
