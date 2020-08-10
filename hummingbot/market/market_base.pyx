@@ -236,12 +236,12 @@ cdef class MarketBase(NetworkIterator):
           bought LINK (for 0.5 ETH), the ETH budget is now 0.5. However if later on the bot has sold LINK (for 0.5 ETH)
           the budget is now 1 ETH
         """
-        in_flight_balance = self.in_flight_asset_balances(self.in_flight_orders).get(currency.upper(), s_decimal_0)
+        in_flight_balance = self.in_flight_asset_balances(self.in_flight_orders).get(currency, s_decimal_0)
         limit -= in_flight_balance
-        filled_balance = self.order_filled_balances().get(currency.upper(), s_decimal_0)
+        filled_balance = self.order_filled_balances().get(currency, s_decimal_0)
         limit += filled_balance
         asset_limit = max(limit, s_decimal_0)
-        available_balance = self._account_available_balances.get(currency.upper(), s_decimal_0)
+        available_balance = self._account_available_balances.get(currency, s_decimal_0)
         return min(available_balance, asset_limit)
 
     cdef object c_get_available_balance(self, str currency):
