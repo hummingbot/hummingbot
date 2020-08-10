@@ -1,4 +1,5 @@
 import re
+from collections import defaultdict
 from enum import Enum
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
@@ -86,6 +87,12 @@ cdef class BinancePerpetualMarket(MarketBase):
     MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
 
+    API_CALL_TIMEOUT = 10.0
+    SHORT_POLL_INTERVAL = 5.0
+    UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
+    LONG_POLL_INTERVAL = 120.0
+    ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
+
     @classmethod
     def logger(cls) -> HummingbotLogger:
         global bpm_logger
@@ -143,10 +150,7 @@ cdef class BinancePerpetualMarket(MarketBase):
     def status_dict(self):
         return {
             "order_books_initialized": self._order_book_tracker.ready,
-
-            # TODO: Uncomment when Implemented
-            # "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-
+            "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0
 
             # TODO: Uncomment when figured out trade fees
@@ -234,8 +238,6 @@ cdef class BinancePerpetualMarket(MarketBase):
                                               params=api_params,
                                               method=MethodType.POST,
                                               is_signed=True)
-            print(f"ORDER RESULTS --- {order_result}")
-
             event_tag = self.MARKET_BUY_ORDER_CREATED_EVENT_TAG if trade_type is TradeType.BUY \
                 else self.MARKET_SELL_ORDER_CREATED_EVENT_TAG
             event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
@@ -328,14 +330,20 @@ cdef class BinancePerpetualMarket(MarketBase):
                 "timestamp": f"{int(time.time()) * 1000}",
                 "symbol": trading_pair
             }
-            return await self.request(
+            response = await self.request(
                 path="/fapi/v1/allOpenOrders",
                 params=params,
                 method=MethodType.DELETE,
                 is_signed=True
             )
+            if response.get("code") == 200:
+                print("CANCELLING ALL ORDERS")
+                for order_id in list(self._in_flight_orders.keys()):
+                    self.c_stop_tracking_order(order_id)
+            else:
+                raise IOError(f"Error cancelling all account orders. Server Response: {response}")
         except Exception as e:
-            self.logger().error(f"Could not cancel all account orders.")
+            self.logger().error("Could not cancel all account orders.")
             raise e
 
     cdef c_cancel(self, str trading_pair, str client_order_id):
@@ -355,7 +363,6 @@ cdef class BinancePerpetualMarket(MarketBase):
                 method=MethodType.DELETE,
                 is_signed=True
             )
-            print(f"WESLEY TESTING --- Cancelled Response: {response}")
         except Exception as e:
             self.logger().error(f"Could not cancel order {client_order_id} (on Binance Perp. {trading_pair})")
             raise e
@@ -435,6 +442,10 @@ cdef class BinancePerpetualMarket(MarketBase):
                 if event_type == "ORDER_TRADE_UPDATE":
                     order_message = event_message.get("o")
                     client_order_id = order_message.get("c")
+
+                    # If the order has already been cancelled
+                    if client_order_id not in self._in_flight_orders:
+                        continue
 
                     tracked_order = self._in_flight_orders.get(client_order_id)
                     tracked_order.update_with_execution_report(event_message)
@@ -575,6 +586,8 @@ cdef class BinancePerpetualMarket(MarketBase):
             try:
                 await safe_gather(
                     self._update_trading_rules()
+
+                    # TODO: Uncomment when implemented
                     # self._update_trade_fees()
                 )
                 await asyncio.sleep(60)
@@ -605,7 +618,6 @@ cdef class BinancePerpetualMarket(MarketBase):
                                                       "Check API key and network connection.")
                 await asyncio.sleep(0.5)
 
-    # TODO: IMPLEMENT
     async def _update_balances(self):
         cdef:
             dict account_info
@@ -614,30 +626,160 @@ cdef class BinancePerpetualMarket(MarketBase):
             set local_asset_names = set(self._account_balances.keys())
             set remote_asset_names = set()
             set asset_names_to_remove
-        while True:
-            try:
-                params = {"timestamp": f"{int(time.time()) * 1000}"}
-                account_info = await self.request(path="/fapi/v2/account", is_signed=True, params=params)
-                print(account_info)
-                assets = account_info.get("assets")
-                print(f"ASSETS: {assets}")
-                for asset in assets:
-                    asset_name = asset.get("asset")
-                    available_balance = Decimal(asset.get("availableBalance"))
-                    total_balance = available_balance + Decimal(asset.get("walletBalance"))
-                    print(f"WESLEY TESTING --- BALANCE ({asset_name}): {available_balance}, WALLET BALANCE: {asset.get('walletBalance')}")
-            except Exception as e:
-                print(f"EXCEPTION: {e}")
-                raise e
-            await asyncio.sleep(2.0)
+        params = {"timestamp": f"{int(time.time()) * 1000}"}
+        account_info = await self.request(path="/fapi/v2/account", is_signed=True, params=params)
+        assets = account_info.get("assets")
+        for asset in assets:
+            asset_name = asset.get("asset")
+            available_balance = Decimal(asset.get("availableBalance"))
+            wallet_balance = Decimal(asset.get("walletBalance"))
+            self._account_available_balances[asset_name] = available_balance
+            self._account_balances[asset_name] = wallet_balance
+            remote_asset_names.add(asset_name)
 
-    # TODO: IMPLEMENT
+        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+        for asset_name in asset_names_to_remove:
+            del self._account_available_balances[asset_name]
+            del self._account_balances[asset_name]
+
     async def _update_order_fills_from_trades(self):
-        pass
+        cdef:
+            int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
+            int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
+        if current_tick > last_tick and len(self._in_flight_orders) > 0:
+            trading_pairs_to_order_map = defaultdict(lambda: {})
+            for order in self._in_flight_orders.values():
+                trading_pairs_to_order_map[order.trading_pair][order.exchange_order_id] = order
+            trading_pairs = list(trading_pairs_to_order_map.keys())
+            tasks = [
+                self.request(
+                    path="/fapi/v1/userTrades",
+                    params={
+                        "timestamp": f"{int(time.time()) * 1000}",
+                        "symbol": trading_pair
+                    }
+                ) for trading_pair in trading_pairs]
+            self.logger().debug(f"Polling for order fills of {len(tasks)} trading_pairs.")
+            results = await safe_gather(*tasks, return_exceptions=True)
+            for trades, trading_pair in zip(results, trading_pairs):
+                order_map = trading_pairs_to_order_map.get(trading_pair)
+                if isinstance(trades, Exception):
+                    self.logger().network(
+                        f"Error fetching trades update for the order {trading_pair}: {trades}.",
+                        app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
+                    )
+                    continue
+                for trade in trades:
+                    order_id = str(trade.get("orderId"))
+                    if order_id in order_map:
+                        tracked_order = order_map.get(order_id)
+                        order_type = tracked_order.order_type
+                        applied_trade = tracked_order.update_with_trade_updates(trade)
+                        if applied_trade:
+                            self.c_trigger_event(
+                                self.MARKET_ORDER_FILLED_EVENT_TAG,
+                                OrderFilledEvent(
+                                    self._current_timestamp,
+                                    tracked_order.client_order_id,
+                                    tracked_order.trading_pair,
+                                    tracked_order.trade_type,
+                                    order_type,
+                                    Decimal(trade.get("price")),
+                                    Decimal(trade.get("qty")),
+                                    self.c_get_fee(
+                                        tracked_order.base_asset,
+                                        tracked_order.quote_asset,
+                                        order_type,
+                                        tracked_order.trade_type,
+                                        Decimal(trade["price"]),
+                                        Decimal(trade["qty"])),
+                                    exchange_trade_id=trade["id"]
+                                )
+                            )
 
-    # TODO: IMPLEMENT
     async def _update_order_status(self):
-        pass
+        cdef:
+            int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
+            int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
+        if current_tick > last_tick and len(self._in_flight_orders) > 0:
+            tracked_orders = list(self._in_flight_orders)
+            tasks = [self.request(path="/fapi/v1/order",
+                                  params={
+                                      "symbol": order.trading_pair,
+                                      "origClientOrderId": order.client_order_id,
+                                      "timestamp": f"{int(time.time()) * 1000}"
+                                  },
+                                  method=MethodType.GET,
+                                  is_signed=True)
+                     for order in tracked_orders]
+            self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
+            results = await safe_gather(*tasks, return_exceptions=True)
+            for order_update, tracked_order in zip(results, tracked_orders):
+                client_order_id = tracked_order.client_order_id
+                if client_order_id not in self._in_flight_orders:
+                    continue
+                if isinstance(order_update, Exception):
+                    # NO_SUCH_ORDER code
+                    if order_update.code == 2013 or order_update.message == "Order does not exist.":
+                        self._order_not_found_records[client_order_id] = \
+                            self._order_not_found_records.get(client_order_id, 0) + 1
+                        if self._order_not_found_records[client_order_id] < self.ORDER_NOT_EXIST_CONFIRMATION_COUNT:
+                            continue
+                        self.c_trigger_event(
+                            self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                            MarketOrderFailureEvent(self._current_timestamp, client_order_id, tracked_order.order_type)
+                        )
+                        self.c_stop_tracking_order(client_order_id)
+                    else:
+                        self.logger().network(f"Error fetching status update for the order {client_order_id}: "
+                                              f"{order_update}.")
+                    continue
+                tracked_order.last_state = order_update.get("status")
+                order_type = OrderType[order_update.get("type")]
+                executed_amount_base = Decimal(order_update.get("executedQty"))
+                executed_amount_quote = Decimal(order_update.get("cumQuote"))
+
+                if tracked_order.is_done:
+                    if not tracked_order.is_failure:
+                        event_tag = None
+                        event_class = None
+                        if tracked_order.trade_type is TradeType.BUY:
+                            event_tag = self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG
+                            event_class = BuyOrderCompletedEvent
+                        else:
+
+                            event_tag = self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG
+                            event_class = SellOrderCompletedEvent
+                        self.logger().info(f"The market {tracked_order.trade_type.name} order {client_order_id} has "
+                                           f"completed according to order status API.")
+                        self.c_trigger_event(event_tag,
+                                             event_class(self._current_timestamp,
+                                                         client_order_id,
+                                                         tracked_order.base_asset,
+                                                         tracked_order.quote_asset,
+                                                         (tracked_order.fee_asset
+                                                          or tracked_order.base_asset),
+                                                         executed_amount_base,
+                                                         executed_amount_quote,
+                                                         tracked_order.fee_paid,
+                                                         order_type))
+                    else:
+                        if tracked_order.is_cancelled:
+                            self.logger().info(f"Successfully cancelled order {client_order_id}.")
+                            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                                 OrderCancelledEvent(
+                                                     self._current_timestamp,
+                                                     client_order_id))
+                        else:
+                            self.logger().info(f"The market order {client_order_id} has failed according to "
+                                               f"order status API.")
+                            self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                                                 MarketOrderFailureEvent(
+                                                     self._current_timestamp,
+                                                     client_order_id,
+                                                     order_type
+                                                 ))
+                    self.c_stop_tracking_order(client_order_id)
 
     # TODO: QUESTION: What do I do about trading fees
     # async def _update_trade_fees(self):
@@ -663,6 +805,10 @@ cdef class BinancePerpetualMarket(MarketBase):
     async def set_margin(self, margin: int):
         pass
 
+    # TODO: IMPLEMENT (ADDITIONAL) --> Return order PnL
+    async def get_order_pnl(self, client_order_id: str):
+        pass
+
     # Helper Functions ---
     @staticmethod
     def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
@@ -685,6 +831,7 @@ cdef class BinancePerpetualMarket(MarketBase):
                       is_signed: bool = False, request_weight: int = 1):
         async with self._throttler.weighted_task(request_weight):
             try:
+                # TODO: QUESTION --- SHOULD I ADD AN ASYNC TIMEOUT? (aync with timeout(API_CALL_TIMEOUT)
                 async with aiohttp.ClientSession() as client:
                     query = urlencode(sorted(params.items()))
                     if is_signed:
