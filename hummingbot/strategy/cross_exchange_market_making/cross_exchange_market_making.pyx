@@ -399,10 +399,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         cdef:
             str order_id = order_filled_event.order_id
             object market_pair = self._market_pair_tracker.c_get_market_pair_from_order_id(order_id)
+            object exchange = self._market_pair_tracker.c_get_exchange_from_order_id(order_id)
             tuple order_fill_record
 
         # Make sure to only hedge limit orders.
-        if market_pair is not None and order_filled_event.order_type is OrderType.LIMIT:
+        if market_pair is not None and order_filled_event.order_type is exchange.get_maker_order_type():
             limit_order_record = self._sb_order_tracker.c_get_shadow_limit_order(order_id)
             order_fill_record = (limit_order_record, order_filled_event)
 
@@ -448,11 +449,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         cdef:
             str order_id = order_completed_event.order_id
             object market_pair = self._market_pair_tracker.c_get_market_pair_from_order_id(order_id)
+            object exchange = self._market_pair_tracker.c_get_exchange_from_order_id(order_id)
             LimitOrder limit_order_record
             object order_type = order_completed_event.order_type
 
         if market_pair is not None:
-            if order_type == OrderType.LIMIT:
+            if order_type == exchange.get_maker_order_type():
                 limit_order_record = self._sb_order_tracker.c_get_limit_order(market_pair.maker, order_id)
                 self.log_with_clock(
                     logging.INFO,
@@ -464,7 +466,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     f"Maker BUY order ({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                     f"{limit_order_record.price} {limit_order_record.quote_currency}) is filled."
                 )
-            if order_type == OrderType.MARKET:
+            if order_type == exchange.get_taker_order_type():
                 market_order_record = self._sb_order_tracker.c_get_market_order(market_pair.taker, order_id)
                 if market_order_record is not None:
                     self.log_with_clock(
@@ -484,11 +486,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         cdef:
             str order_id = order_completed_event.order_id
             object market_pair = self._market_pair_tracker.c_get_market_pair_from_order_id(order_id)
+            object exchange = self._market_pair_tracker.c_get_exchange_from_order_id(order_id)
             LimitOrder limit_order_record
 
         order_type = order_completed_event.order_type
         if market_pair is not None:
-            if order_type == OrderType.LIMIT:
+            if order_type == exchange.get_maker_order_type():
                 limit_order_record = self._sb_order_tracker.c_get_limit_order(market_pair.maker, order_id)
                 self.log_with_clock(
                     logging.INFO,
@@ -500,7 +503,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     f"Maker sell order ({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                     f"{limit_order_record.price} {limit_order_record.quote_currency}) is filled."
                 )
-            if order_type == OrderType.MARKET:
+            if order_type == exchange.get_taker_order_type():
                 market_order_record = self._sb_order_tracker.c_get_market_order(market_pair.taker, order_id)
                 if market_order_record is not None:
                     self.log_with_clock(
@@ -1190,6 +1193,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     # <editor-fold desc="+ Creating and canceling orders">
     # Override the default buy, sell and cancel functions to allow the use of XEMM market pair, and the correct
     # attribution of trades to XEMM market pairs.
+    # Note: The order_type argument is only used to determine if the order will be a maker or taker order,
+    #       it doesn't represent the actual order type to the exchange.
     # ----------------------------------------------------------------------------------------------------------
     cdef str c_buy_with_specific_market(self, object market_pair, object amount,
                                         object order_type=OrderType.MARKET,
@@ -1199,6 +1204,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             raise TypeError("market_pair must be a CrossExchangeMarketPair.")
 
         market_trading_pair_tuple = market_pair.maker if order_type is OrderType.LIMIT else market_pair.taker
+        order_type = market_pair.maker.market.get_maker_order_type() if order_type is OrderType.LIMIT \
+                else market_pair.taker.market.get_taker_order_type()
 
         if not self._active_order_canceling:
             expiration_seconds = self._limit_order_min_expiration
@@ -1208,7 +1215,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                                                    order_type=order_type, price=price,
                                                                    expiration_seconds=expiration_seconds)
         self._sb_order_tracker.c_add_create_order_pending(order_id)
-        self._market_pair_tracker.c_start_tracking_order_id(order_id, market_pair)
+        self._market_pair_tracker.c_start_tracking_order_id(order_id, market_trading_pair_tuple.market, market_pair)
         return order_id
 
     cdef str c_sell_with_specific_market(self, object market_pair, object amount,
@@ -1219,6 +1226,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             raise TypeError("market_pair must be a CrossExchangeMarketPair.")
 
         market_trading_pair_tuple = market_pair.maker if order_type is OrderType.LIMIT else market_pair.taker
+        order_type = market_pair.maker.market.get_maker_order_type() if order_type is OrderType.LIMIT \
+                else market_pair.taker.market.get_taker_order_type()
 
         if not self._active_order_canceling:
             expiration_seconds = self._limit_order_min_expiration
@@ -1228,7 +1237,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                                                     order_type=order_type, price=price,
                                                                     expiration_seconds=expiration_seconds)
         self._sb_order_tracker.c_add_create_order_pending(order_id)
-        self._market_pair_tracker.c_start_tracking_order_id(order_id, market_pair)
+        self._market_pair_tracker.c_start_tracking_order_id(order_id, market_trading_pair_tuple.market, market_pair)
         return order_id
 
     cdef c_cancel_order(self, object market_pair, str order_id):

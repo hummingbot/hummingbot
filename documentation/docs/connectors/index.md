@@ -13,12 +13,13 @@ Connectors are packages of code that link Hummingbot's internal trading algorith
 ## Hummingbot-Supported Connectors
 
 * [Binance](/connectors/binance)
-* [Coinbase Pro](/connectors/coinbase)
-* [Huobi Global](/connectors/huobi)
 * [Bittrex Global](/connectors/bittrex)
-* [Liquid](/connectors/liquid)
-* [KuCoin](/connectors/kucoin)
+* [Coinbase Pro](/connectors/coinbase)
+* [Eterbase](/connectors/eterbase)
+* [Huobi Global](/connectors/huobi)
 * [Kraken](/connectors/kraken)
+* [KuCoin](/connectors/kucoin)
+* [Liquid](/connectors/liquid)
 * [Radar Relay](/connectors/radar-relay)
 
 ## Community-Contributed Exchange Connectors
