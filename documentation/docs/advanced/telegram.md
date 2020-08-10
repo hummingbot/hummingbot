@@ -87,4 +87,4 @@ your hummingbot CLI window.
 ![](/assets/img/telegram-buttons.png)
 
 !!! tip
-    If you are running multiple bots with telegram enabled, you can use same [telegram chat id](https://telegram.me/userinfobot) with different telegram token from each bot you created to control all of them and to organize your bots you can enable [telegram chat folder](tg://settings/folders) or visit [telegram blog page](https://telegram.org/blog/folders) for more info. 
+    If you are running multiple bots with telegram enabled, you can use same [telegram chat id](https://telegram.me/userinfobot) with different telegram tokens from each bot you created to control all of them.  You can also enable [telegram chat folders](tg://settings/folders) to organize your bots.  Visit [telegram blog page](https://telegram.org/blog/folders) for more info. 
