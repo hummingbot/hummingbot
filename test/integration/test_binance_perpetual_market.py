@@ -105,7 +105,7 @@ class BinancePerpetualMarketUnitTest(unittest.TestCase):
         network_status: NetworkStatus = self.ev_loop.run_until_complete(self.market.check_network())
         self.assertEqual(NetworkStatus.CONNECTED, network_status)
 
-    @unittest.skip("Skip")
+    # @unittest.skip("")
     def test_buy_and_sell_order_then_cancel_individually(self):
         trading_pair = "ETHUSDT"
         # Create Buy Order
@@ -155,7 +155,7 @@ class BinancePerpetualMarketUnitTest(unittest.TestCase):
         self.assertTrue(sell_order_id not in self.market.in_flight_orders)
         self.assertTrue(buy_order_id not in self.market.in_flight_orders)
 
-    @unittest.skip("Skip")
+    # @unittest.skip("")
     def test_buy_and_sell_order_then_cancel_all(self):
         trading_pair = "ETHUSDT"
         # Create Buy Order
@@ -187,9 +187,6 @@ class BinancePerpetualMarketUnitTest(unittest.TestCase):
         self.assertTrue(sell_order_id in self.market.in_flight_orders)
         self.assertTrue(buy_order_id in self.market.in_flight_orders)
 
-        # Testing Cancelling All Open Orders on Account
-        # self.ev_loop.run_until_complete(safe_ensure_future(self.market.cancel_all_account_orders(trading_pair)))
-
         # Cancel All Orders
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
         for cancel_result in cancellation_results:
@@ -199,8 +196,43 @@ class BinancePerpetualMarketUnitTest(unittest.TestCase):
         self.assertTrue(sell_order_id not in self.market.in_flight_orders)
         self.assertTrue(buy_order_id not in self.market.in_flight_orders)
 
-    def test_account_balances(self):
-        self.ev_loop.run_until_complete(self.market._update_balances())
+    # @unittest.skip("")
+    def test_buy_and_sell_order_then_cancel_account_orders(self):
+        trading_pair = "ETHUSDT"
+        # Create Buy Order
+        buy_order_id = self.market.buy(
+            trading_pair=trading_pair,
+            amount=Decimal(0.01),
+            order_type=OrderType.LIMIT,
+            price=Decimal(300)
+        )
+        [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
+        order_created_event: BuyOrderCreatedEvent = order_created_event
+        self.assertEqual(buy_order_id, order_created_event.order_id)
+        self.assertEqual(trading_pair, order_created_event.trading_pair)
+        self.assertEqual(1, len(self.market.in_flight_orders))
+        self.assertTrue(buy_order_id in self.market.in_flight_orders)
+
+        # Create Sell Order
+        sell_order_id = self.market.sell(
+            trading_pair=trading_pair,
+            amount=Decimal(0.01),
+            order_type=OrderType.LIMIT,
+            price=Decimal(500)
+        )
+        [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
+        order_created_event: SellOrderCreatedEvent = order_created_event
+        self.assertEqual(sell_order_id, order_created_event.order_id)
+        self.assertEqual(trading_pair, order_created_event.trading_pair)
+        self.assertEqual(2, len(self.market.in_flight_orders))
+        self.assertTrue(sell_order_id in self.market.in_flight_orders)
+        self.assertTrue(buy_order_id in self.market.in_flight_orders)
+
+        # Cancel All Open Orders on Account (specified by trading pair)
+        self.ev_loop.run_until_complete(safe_ensure_future(self.market.cancel_all_account_orders(trading_pair)))
+        self.assertEqual(0, len(self.market.in_flight_orders))
+        self.assertTrue(sell_order_id not in self.market.in_flight_orders)
+        self.assertTrue(buy_order_id not in self.market.in_flight_orders)
 
 
 def main():
