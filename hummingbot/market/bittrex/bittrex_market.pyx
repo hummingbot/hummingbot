@@ -226,8 +226,6 @@ cdef class BittrexMarket(MarketBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-        self.apply_balance_restriction()
-
     def _format_trading_rules(self, market_dict: Dict[str, Any]) -> List[TradingRule]:
         cdef:
             list retval = []
@@ -484,7 +482,6 @@ cdef class BittrexMarket(MarketBase):
                     available_balance = Decimal(balance_delta["a"])
                     self._account_available_balances[asset_name] = available_balance
                     self._account_balances[asset_name] = total_balance
-                    self.apply_balance_restriction()
                 elif event_type == "uO":  # Updates track order status
                     order = content["o"]
                     order_status = content["TY"]
