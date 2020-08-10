@@ -172,7 +172,7 @@ class KrakenMarketUnitTest(unittest.TestCase):
     def cancel_order(self, trading_pair, order_id):
         self.market.cancel(trading_pair, order_id)
 
-    def test_market_buy(self):
+    def test_limit_taker_buy(self):
         self.assertGreater(self.market.get_balance(QUOTE), 6)
         trading_pair = PAIR
 
@@ -207,7 +207,7 @@ class KrakenMarketUnitTest(unittest.TestCase):
         # Reset the logs
         self.market_logger.clear()
 
-    def test_market_sell(self):
+    def test_limit_sell(self):
         self.assertGreater(self.market.get_balance(BASE), 0.02)
         trading_pair = PAIR
 

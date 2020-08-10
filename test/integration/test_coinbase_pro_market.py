@@ -251,34 +251,46 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         if API_MOCK_ENABLED:
             return
         trading_pair = "ETH-USDC"
-        price = self.market.get_price(trading_pair, True) * Decimal("0.8")
-        price = self.market.quantize_order_price(trading_pair, price)
-        amount = self.market.quantize_order_amount(trading_pair, Decimal("0.02"))
+        bid_price: Decimal = self.market.get_price(trading_pair, True) * Decimal("0.5")
+        ask_price: Decimal = self.market.get_price(trading_pair, False) * 2
+        amount: Decimal = 10 / bid_price
+        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        order_id, _ = self.place_order(True, trading_pair, amount, OrderType.LIMIT_MAKER,
-                                       price, 10001,
-                                       FixtureCoinbasePro.ORDERS_LIMIT, FixtureCoinbasePro.WS_ORDER_OPEN)
+        # Intentionally setting invalid price to prevent getting filled
+        quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price * Decimal("0.7"))
+        quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price * Decimal("1.5"))
+
+        order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_bid_price,
+                                            10001, FixtureCoinbasePro.ORDERS_LIMIT, FixtureCoinbasePro.WS_ORDER_OPEN)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id, order_created_event.order_id)
 
-        price = self.market.get_price(trading_pair, True) * Decimal("1.2")
-        price = self.market.quantize_order_price(trading_pair, price)
-        amount = self.market.quantize_order_amount(trading_pair, Decimal("0.02"))
-
-        order_id, _ = self.place_order(False, trading_pair, amount, OrderType.LIMIT_MAKER,
-                                       price, 10002,
-                                       FixtureCoinbasePro.ORDERS_LIMIT_2, FixtureCoinbasePro.WS_ORDER_OPEN)
+        order_id_2, exch_order_id_2 = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
+                                              quantize_ask_price, 10002, FixtureCoinbasePro.ORDERS_LIMIT_2,
+                                              FixtureCoinbasePro.WS_ORDER_OPEN)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
-        self.assertEqual(order_id, order_created_event.order_id)
+        self.assertEqual(order_id_2, order_created_event.order_id)
 
+        self.run_parallel(asyncio.sleep(1))
+
+        if API_MOCK_ENABLED:
+            self.web_app.update_response("delete", API_BASE_URL, f"/orders/{exch_order_id}", exch_order_id)
+            self.web_app.update_response("delete", API_BASE_URL, f"/orders/{exch_order_id_2}", exch_order_id_2)
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
+        if API_MOCK_ENABLED:
+            resp = FixtureCoinbasePro.WS_ORDER_CANCELLED.copy()
+            resp["order_id"] = exch_order_id
+            HummingWsServerFactory.send_json_threadsafe(WS_BASE_URL, resp, delay=0.1)
+            resp = FixtureCoinbasePro.WS_ORDER_CANCELLED.copy()
+            resp["order_id"] = exch_order_id_2
+            HummingWsServerFactory.send_json_threadsafe(WS_BASE_URL, resp, delay=0.11)
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
 
     # NOTE that orders of non-USD pairs (including USDC pairs) are LIMIT only
-    def test_market_buy(self):
+    def test_limit_taker_buy(self):
         self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
         trading_pair = "ETH-USDC"
         price: Decimal = self.market.get_price(trading_pair, True)
@@ -307,7 +319,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     # NOTE that orders of non-USD pairs (including USDC pairs) are LIMIT only
-    def test_market_sell(self):
+    def test_limit_taker_sell(self):
         trading_pair = "ETH-USDC"
         price: Decimal = self.market.get_price(trading_pair, False)
         amount: Decimal = Decimal("0.02")

@@ -455,8 +455,6 @@ cdef class KucoinMarket(MarketBase):
             self._account_balances.clear()
             self._account_balances = new_balances
 
-        self.apply_balance_restriction()
-
     cdef object c_get_fee(self,
                           str base_currency,
                           str quote_currency,

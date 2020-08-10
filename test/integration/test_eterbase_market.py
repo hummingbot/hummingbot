@@ -163,30 +163,32 @@ class EterbaseMarketUnitTest(unittest.TestCase):
 
     def test_limit_makers_unfilled(self):
         trading_pair = "ETHEUR"
-        price = self.market.get_price(trading_pair, True) * Decimal("0.8")
-        price = self.market.quantize_order_price(trading_pair, price)
-        amount = self.market.quantize_order_amount(trading_pair, Decimal("0.01"))
+        bid_price: Decimal = self.market.get_price(trading_pair, True) * Decimal("0.5")
+        ask_price: Decimal = self.market.get_price(trading_pair, False) * 2
+        amount: Decimal = 10 / bid_price
+        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        order_id = self.market.buy(trading_pair, amount, OrderType.LIMIT_MAKER, price)
+        # Intentionally setting invalid price to prevent getting filled.
+        quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price * Decimal("0.7"))
+        quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price * Decimal("1.5"))
+
+        order_id = self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_bid_price)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id, order_created_event.order_id)
 
-        price = self.market.get_price(trading_pair, True) * Decimal("1.2")
-        price = self.market.quantize_order_price(trading_pair, price)
-        amount = self.market.quantize_order_amount(trading_pair, Decimal("0.01"))
-
-        order_id = self.market.sell(trading_pair, amount, OrderType.LIMIT_MAKER, price)
+        order_id_2 = self.market.sell(trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_ask_price)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
-        self.assertEqual(order_id, order_created_event.order_id)
-
+        self.assertEqual(order_id_2, order_created_event.order_id)
+        
+        self.run_parallel(asyncio.sleep(1))
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
 
     # NOTE that orders of non-USD pairs (including USDC pairs) are LIMIT only
-    def test_market_buy(self):
+    def test_limit_taker_buy(self):
         self.assertGreater(self.market.get_balance("ETH"), Decimal("0.2"))
         trading_pair = "ETHEUR"
         amount: Decimal = Decimal("0.02")
@@ -238,7 +240,7 @@ class EterbaseMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     # NOTE that orders of non-USD pairs (including USDC pairs) are LIMIT only
-    def test_market_sell(self):
+    def test_limit_taker_sell(self):
         trading_pair = "ETHEUR"
         price: Decimal = self.market.get_price(trading_pair, False)
         amount: Decimal = Decimal("0.02")
