@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 9
+template_version: 10
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -76,17 +76,17 @@ paper_trade_account_balance:
 
 # Balance Limit Configurations
 balance_asset_limit:
-    bamboo_relay:
-    binance:
-    coinbase_pro:
-    huobi:
-    liquid:
-    radar_relay:
-    dolomite:
-    bittrex:
-    kucoin:
-    eterbase:
-    kraken:
+  bamboo_relay:
+  binance:
+  coinbase_pro:
+  huobi:
+  liquid:
+  radar_relay:
+  dolomite:
+  bittrex:
+  kucoin:
+  eterbase:
+  kraken:
 # e.g. Setting USDT limits on Binance.
 # balance_asset_limit:
 #   binance:
