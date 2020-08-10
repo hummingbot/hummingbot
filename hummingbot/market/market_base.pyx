@@ -250,8 +250,8 @@ cdef class MarketBase(NetworkIterator):
         :returns: Balance available for trading for a specific asset
         """
         exchange_limits = self.get_exchange_limit_config(self.name)
-        if currency.upper() in exchange_limits:
-            asset_limit = Decimal(str(exchange_limits[currency.upper()]))
+        if currency in exchange_limits:
+            asset_limit = Decimal(str(exchange_limits[currency]))
             return self.available_balance_limit_applied(currency, asset_limit)
         else:
             return self._account_available_balances.get(currency, s_decimal_0)
