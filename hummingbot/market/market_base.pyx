@@ -9,7 +9,6 @@ from typing import (
 
 from hummingbot.client.config.global_config_map import (
     global_config_map,
-    LIMIT_GLOBAL_CONFIG,
 )
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.order_book_query_result import (
@@ -178,7 +177,7 @@ cdef class MarketBase(NetworkIterator):
         """
         Retrieves the Balance Limits for the specified market.
         """
-        all_ex_limit = global_config_map[LIMIT_GLOBAL_CONFIG].value
+        all_ex_limit = global_config_map["balance_asset_limit"].value
         exchange_limits = all_ex_limit.get(market, {})
         return exchange_limits if exchange_limits is not None else {}
 
