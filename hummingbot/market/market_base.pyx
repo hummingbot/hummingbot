@@ -156,6 +156,10 @@ cdef class MarketBase(NetworkIterator):
         raise NotImplementedError
 
     @property
+    def in_flight_orders(self) -> Dict[str, InFlightOrderBase]:
+        raise NotImplementedError
+
+    @property
     def tracking_states(self) -> Dict[str, any]:
         return {}
 
