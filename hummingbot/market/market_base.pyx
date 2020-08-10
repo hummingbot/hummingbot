@@ -444,7 +444,7 @@ cdef class MarketBase(NetworkIterator):
         return self.c_quantize_order_amount(trading_pair, amount)
 
     def supported_order_types(self):
-        return [OrderType.LIMIT]
+        return [OrderType.LIMIT, OrderType.MARKET]
 
     def get_maker_order_type(self):
         if OrderType.LIMIT_MAKER in self.supported_order_types():
