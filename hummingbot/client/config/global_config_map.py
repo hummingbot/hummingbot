@@ -16,10 +16,6 @@ from hummingbot.client.config.config_validators import (
 )
 
 
-LIMIT_GLOBAL_CONFIG = "balance_asset_limit"
-PAPER_ACC_BALANCE_CONFIG = "paper_trade_account_balance"
-
-
 def generate_client_id() -> str:
     vals = [random.choice(range(0, 256)) for i in range(0, 20)]
     return "".join([f"{val:02x}" for val in vals])
@@ -49,11 +45,6 @@ def validate_script_file_path(file_path: str) -> Optional[bool]:
     if not os.path.isfile(file_path):
         return f"{file_path} file does not exist."
 
-
-MIN_QUOTE_ORDER_AMOUNTS = [["BTC", 0.0011],
-                           ["ETH", 0.05],
-                           ["USD", 11],
-                           ["BNB", 0.5]]
 
 # Main global config store
 global_config_map = {
@@ -116,14 +107,7 @@ global_config_map = {
                          "e.g. [[\"ETH\", 10.0], [\"USDC\", 100]]) >>> ",
                   required_if=lambda: False,
                   type_str="json",
-                  default=[["USDT", 3000],
-                           ["ONE", 1000],
-                           ["BTC", 1],
-                           ["ETH", 10],
-                           ["WETH", 10],
-                           ["USDC", 3000],
-                           ["TUSD", 3000],
-                           ["PAX", 3000]]),
+                  ),
     "binance_api_key":
         ConfigVar(key="binance_api_key",
                   prompt="Enter your Binance API key >>> ",
@@ -337,7 +321,7 @@ global_config_map = {
                   prompt=None,
                   required_if=lambda: False,
                   type_str="json",
-                  default=MIN_QUOTE_ORDER_AMOUNTS),
+                  ),
     # Database options
     "db_engine":
         ConfigVar(key="db_engine",
