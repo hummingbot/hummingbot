@@ -21,6 +21,7 @@ positional arguments:
     exit                Exit and cancel all outstanding orders
     paper_trade         Toggle paper trade mode on and off
     export              Export secure information
+    order_book          Display current order book
      
 ```
 
