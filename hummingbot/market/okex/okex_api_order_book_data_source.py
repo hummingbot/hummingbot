@@ -18,6 +18,7 @@ import websockets
 from websockets.exceptions import ConnectionClosed
 
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.logger import HummingbotLogger
@@ -48,9 +49,9 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._haobds_logger = logging.getLogger(__name__)
         return cls._haobds_logger
 
-    def __init__(self, trading_pairs: Optional[List[str]] = None):
-        super().__init__()
-        self._trading_pairs: Optional[List[str]] = trading_pairs
+    def __init__(self, trading_pairs: List[str]):
+        super().__init__(trading_pairs)
+        self._trading_pairs: List[str] = trading_pairs
 
     @classmethod
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
@@ -82,13 +83,46 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                    axis="columns", inplace=True)
 
 
-                base_quote = all_markets["product_id"].str.split("-", n=1, expand=True)
-                all_markets["baseAsset"] = base_quote[0]
-                all_markets["quoteAsset"] = base_quote[1]
-                # Adding a collum in the format Hummingbot used "BTCLTC"
-                all_markets["reformated_instrument"] = base_quote[0] + base_quote[1]
+                # base_quote = all_markets["product_id"].str.split("-", n=1, expand=True)
+                # all_markets["baseAsset"] = base_quote[0]
+                # all_markets["quoteAsset"] = base_quote[1]
+                # # Adding a collum in the format Hummingbot used "BTCLTC"
+                # all_markets["reformated_instrument"] = base_quote[0] + base_quote[1]
 
                 return all_markets
+
+    async def get_new_order_book(self, trading_pair: str) -> OrderBook:
+        async with aiohttp.ClientSession() as client:
+            snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
+            
+            snapshot_msg: OrderBookMessage = OKExOrderBook.snapshot_message_from_exchange(
+                                snapshot,
+                                trading_pair,
+                                timestamp=__class__.iso_to_timestamp(snapshot['timestamp']) ,
+                                metadata={"trading_pair": trading_pair})
+            order_book: OrderBook = self.order_book_create_function()
+            order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
+            return order_book
+
+
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        async with aiohttp.ClientSession() as client:
+            async with client.get(OKEX_SYMBOLS_URL) as products_response:
+                
+                products_response: aiohttp.ClientResponse = products_response
+                if products_response.status != 200:
+                    raise IOError(f"Error fetching active OKEx markets. HTTP status is {products_response.status}.")
+
+                data = await products_response.json()
+                all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data)
+                all_markets.set_index('product_id', inplace=True)
+                
+                out: Dict[str, float] = {}
+                
+                for trading_pair in trading_pairs:
+                    out[trading_pair] = float(all_markets['last'][trading_pair])
+                
+                return out
 
     async def get_trading_pairs(self) -> List[str]:
         if not self._trading_pairs:
@@ -161,7 +195,7 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         while True:
             try:
-                trading_pairs: List[str] = await self.get_trading_pairs()
+                trading_pairs: List[str] = self._trading_pairs
                 async with websockets.connect(OKCOIN_WS_URI) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
 
