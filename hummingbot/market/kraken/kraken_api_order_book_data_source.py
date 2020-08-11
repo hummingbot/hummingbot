@@ -15,11 +15,9 @@ import time
 import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
-from collections import defaultdict
 
-from hummingbot.core.utils import async_ttl_cache
+from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.logger import HummingbotLogger
@@ -46,110 +44,23 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._kraobds_logger = logging.getLogger(__name__)
         return cls._kraobds_logger
 
-    def __init__(self, trading_pairs: Optional[List[str]] = None):
-        super().__init__()
-        self._trading_pairs: Optional[List[str]] = trading_pairs
+    def __init__(self, trading_pairs: List[str]):
+        super().__init__(trading_pairs)
         self._order_book_create_function = lambda: OrderBook()
 
     @classmethod
-    @async_ttl_cache(ttl=60 * 30, maxsize=1)
-    async def get_active_exchange_markets(cls) -> pd.DataFrame:
-        """
-        Returned data frame should have trading_pair as index and include usd volume, baseAsset and quoteAsset
-        """
+    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
+        tasks = [cls.get_last_traded_price(t_pair) for t_pair in trading_pairs]
+        results = await safe_gather(*tasks)
+        return {t_pair: result for t_pair, result in zip(trading_pairs, results)}
+
+    @classmethod
+    async def get_last_traded_price(cls, trading_pair: str) -> float:
         async with aiohttp.ClientSession() as client:
-
-            trading_pairs_response = await client.get(ASSET_PAIRS_URL)
-            trading_pairs_response: aiohttp.ClientResponse = trading_pairs_response
-
-            if trading_pairs_response.status != 200:
-                raise IOError(f"Error fetching Kraken trading pairs. "
-                              f"HTTP status is {trading_pairs_response.status}.")
-
-            trading_pairs_data: Dict[str, Any] = await trading_pairs_response.json()
-            trading_pairs_data["result"] = {
-                pair: details for pair, details in trading_pairs_data["result"].items() if "." not in pair}
-
-            wsname_dict: Dict[str, str] = {pair: details["wsname"]
-                                           for pair, details in trading_pairs_data["result"].items()}
-            trading_pairs: Dict[str, Any] = {pair: {"baseAsset": wsname_dict[pair].split("/")[0],
-                                                    "quoteAsset": wsname_dict[pair].split("/")[1],
-                                                    "wsname": wsname_dict[pair]}
-                                             for pair in trading_pairs_data["result"]}
-
-            trading_pairs_str: str = ','.join(trading_pairs.keys())
-
-            market_response = await client.get(f"{TICKER_URL}?pair={trading_pairs_str}")
-            market_response: aiohttp.ClientResponse = market_response
-
-            if market_response.status != 200:
-                raise IOError(f"Error fetching Kraken markets information. "
-                              f"HTTP status is {market_response.status}.")
-
-            market_data = await market_response.json()
-
-            market_data: List[Dict[str, Any]] = [{"pair": pair, **market_data["result"][pair], **trading_pairs[pair]}
-                                                 for pair in market_data["result"]
-                                                 if pair in trading_pairs]
-
-            # Build the data frame.
-            all_markets: pd.DataFrame = pd.DataFrame.from_records(data=market_data, index="pair")
-            all_markets["lastPrice"] = all_markets.c.map(lambda x: x[0]).astype("float")
-            all_markets.loc[:, "volume"] = all_markets.v.map(lambda x: x[1]).astype("float")
-
-            price_dict: Dict[str, float] = await cls.get_prices_from_df(all_markets)
-
-            usd_volume: List[float] = [
-                (
-                    baseVolume * price_dict[baseAsset] if baseAsset in price_dict else -1
-                )
-                for baseAsset, baseVolume in zip(all_markets.baseAsset,
-                                                 all_markets.volume)]
-            all_markets.loc[:, "USDVolume"] = usd_volume
-
-            return all_markets.sort_values("USDVolume", ascending=False)
-
-    @staticmethod
-    async def get_prices_from_df(df: pd.DataFrame) -> Dict[str, float]:
-        row_dict: Dict[str, Dict[str, pd.Series]] = defaultdict(dict)
-        for (i, row) in df.iterrows():
-            row_dict[row.baseAsset][row.quoteAsset] = row
-
-        price_dict: Dict[str, float] = {base: None for base in row_dict}
-
-        quote_prices: Dict[str, float] = {
-            quote: row_dict[quote]["USD"].lastPrice for quote in constants.CRYPTO_QUOTES
-        }
-
-        def get_price(base, depth=0) -> float:
-            if price_dict.get(base) is not None:
-                return price_dict[base]
-            elif base == "USD":
-                return 1.
-            elif "USD" in row_dict[base]:
-                return row_dict[base]["USD"].lastPrice
-            else:
-                for quote in row_dict[base]:
-                    if quote in quote_prices:
-                        return quote_prices[quote] * row_dict[base][quote].lastPrice
-
-        for base in price_dict:
-            price_dict[base] = get_price(base)
-
-        return price_dict
-
-    async def get_trading_pairs(self) -> Optional[List[str]]:
-        if not self._trading_pairs:
-            try:
-                active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                self._trading_pairs = active_markets.index.tolist()
-            except Exception:
-                self.logger().network(
-                    f"Error getting active exchange information.",
-                    exc_info=True,
-                    app_warning_msg=f"Error getting active exchange information. Check network connection."
-                )
-        return self._trading_pairs
+            resp = await client.get(f"{TICKER_URL}?pair={trading_pair}")
+            resp_json = await resp.json()
+            record = list(resp_json["result"].values())[0]
+            return float(record["c"][0])
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, limit: int = 1000) -> Dict[str, Any]:
@@ -174,33 +85,18 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             return data
 
-    async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
-        # Get the currently active markets
+    async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         async with aiohttp.ClientSession() as client:
-            trading_pairs: List[str] = await self.get_trading_pairs()
-            retval: Dict[str, OrderBookTrackerEntry] = {}
-
-            number_of_pairs: int = len(trading_pairs)
-            for index, trading_pair in enumerate(trading_pairs):
-                try:
-                    snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, 1000)
-                    snapshot_timestamp: float = time.time()
-                    snapshot_msg: OrderBookMessage = KrakenOrderBook.snapshot_message_from_exchange(
-                        snapshot,
-                        snapshot_timestamp,
-                        metadata={"trading_pair": trading_pair}
-                    )
-                    order_book: OrderBook = self.order_book_create_function()
-                    order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
-                    retval[trading_pair] = OrderBookTrackerEntry(trading_pair, snapshot_timestamp, order_book)
-                    self.logger().info(f"Initialized order book for {trading_pair}. "
-                                       f"{index+1}/{number_of_pairs} completed.")
-                    # Each 1000 limit snapshot costs 10 requests and Binance rate limit is 20 requests per second.
-                    await asyncio.sleep(1.0)
-                except Exception:
-                    self.logger().error(f"Error getting snapshot for {trading_pair}. ", exc_info=True)
-                    await asyncio.sleep(5.0)
-            return retval
+            snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, 1000)
+            snapshot_timestamp: float = time.time()
+            snapshot_msg: OrderBookMessage = KrakenOrderBook.snapshot_message_from_exchange(
+                snapshot,
+                snapshot_timestamp,
+                metadata={"trading_pair": trading_pair}
+            )
+            order_book: OrderBook = self.order_book_create_function()
+            order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
+            return order_book
 
     async def _inner_messages(self,
                               ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
@@ -280,9 +176,8 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                trading_pairs: List[str] = await self.get_trading_pairs()
                 async with aiohttp.ClientSession() as client:
-                    for trading_pair in trading_pairs:
+                    for trading_pair in self._trading_pairs:
                         try:
                             snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
                             snapshot_timestamp: float = time.time()
