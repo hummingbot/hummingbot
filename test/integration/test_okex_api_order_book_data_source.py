@@ -53,6 +53,8 @@ from typing import (
 #   }
 # ]
 
+trading_pairs = ['CELO-USDT', 'BTC-USDT']
+
 class AsyncMock(mock.MagicMock):
     async def __call__(self, *args, **kwargs):
         return super().__call__(*args, **kwargs)
@@ -126,6 +128,7 @@ class TestOKExAPIOrderBookDataSource(unittest.TestCase):
         q = asyncio.Queue()
         asyncio.get_event_loop().run_until_complete(self.listen_for_trades())
         
+    @unittest.skip("skipping, REMOVE ME")
     async def listen_for_order_book_diffs(self):
         q = asyncio.Queue()
         
@@ -141,6 +144,15 @@ class TestOKExAPIOrderBookDataSource(unittest.TestCase):
         
         self.assertFalse(q.empty())
 
+    @unittest.skip("skipping, REMOVE ME")
     def test_listen_for_order_book_diffs(self):
         q = asyncio.Queue()
         asyncio.get_event_loop().run_until_complete(self.listen_for_order_book_diffs())
+
+
+    def test_get_last_traded_prices(self):
+        out = asyncio.get_event_loop().run_until_complete(self.order_book_data_source.get_last_traded_prices(trading_pairs))
+
+        self.assertTrue('CELO-USDT' in out)
+        self.assertTrue(type(out['CELO-USDT']) is float)
+        
