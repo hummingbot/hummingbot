@@ -56,6 +56,21 @@ The API Key, Secret, and Passphrase are required for using Hummingbot.
 
 ## Miscellaneous Info
 
+### Trading Pair Limitations
+
+Coinbase Pro has trading pair limitations on certain regions. Some countries have access to crypto/fiat trading pairs while other countries can only access crypto/crypto trading pairs.
+
+Running Hummingbot with this connector on a pair that your country has no access to will result to this error:
+
+```
+OSError: Error fetching data from https://api.pro.coinbase.com/orders.
+HTTP status is 400. {'message': 'Trading pair not available'}
+```
+
+For more information, read through their article below.
+
+* [Locations and trading pairs](https://help.coinbase.com/en/pro/trading-and-funding/cryptocurrency-trading-pairs/locations-and-trading-pairs)
+
 ### Minimum Order Sizes
 
 All Market Orders, Limit Orders, and Stop Orders placed on Coinbase Markets are subject to the minimum order size requirements listed in their [Market Information](https://pro.coinbase.com/markets) page.
@@ -71,9 +86,3 @@ Read through their article below related to trading fees and discounts.
 * [What are the fees on Coinbase Pro?](https://help.coinbase.com/en/pro/trading-and-funding/trading-rules-and-fees/fees.html)
 
 Users can override the default fees by editing [`conf_fee_overrides.yml`](/advanced/fee-overrides/).
-
-### Trading Pair Limitations
-
-Coinbase Pro has trading pair limitations on certain regions.
-
-Read through their [article](https://help.coinbase.com/en/pro/trading-and-funding/cryptocurrency-trading-pairs/locations-and-trading-pairs) regarding their trading pair limitations.
