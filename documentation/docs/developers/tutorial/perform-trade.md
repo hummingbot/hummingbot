@@ -30,7 +30,7 @@ The OrderTracker class includes functions monitoring when order tracking begins,
 
 The order state, specifically, whether the order is partially or completely filled is managed by events in the MarketBase class. Specifically, the logic regarding order creation, cancelation, filling, and completion can be found in the following functions in [market_base.pyx](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/market_base.pyx): `buy()`, `sell()`, `cancel()`, `get_order_price_quantum()` (gets the required or allowed order price), and `get_order_size_quantum()` (gets the required or allowed order size).
 
-The order tracking logic can be found in the `c_start_tracking_maker_order()`, `c_stop_tracking_maker_order()`, `c_has_in_flight_cancel()` and `c_check_and_track_cancel()` function inside [order_tracker.pyx](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/order_tracker.pyx).
+The order tracking logic can be found in the `c_start_tracking_limit_order()`, `c_stop_tracking_limit_order()`, `c_has_in_flight_cancel()` and `c_check_and_track_cancel()` function inside [order_tracker.pyx](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/order_tracker.pyx).
 
 ## Logging
 

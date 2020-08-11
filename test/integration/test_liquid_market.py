@@ -56,7 +56,7 @@ from unittest import mock
 
 MAINNET_RPC_URL = "http://mainnet-rpc.mainnet:8545"
 logging.basicConfig(level=METRICS_LOG_LEVEL)
-API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
+API_MOCK_ENABLED = True #conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
 API_KEY = "XXX" if API_MOCK_ENABLED else conf.liquid_api_key
 API_SECRET = "YYY" if API_MOCK_ENABLED else conf.liquid_secret_key
 API_HOST = "api.liquid.com"
@@ -210,7 +210,7 @@ class LiquidMarketUnitTest(unittest.TestCase):
             self.web_app.update_response("get", API_HOST, "/orders", resp)
         return order_id, exchange_id
 
-    def test_buy_and_sell(self):
+    def test_limit_taker_buy_and_sell(self):
         self.assertGreater(self.market.get_balance("ETH"), Decimal("0.05"))
 
         current_price: Decimal = self.market.get_price("CEL-ETH", True)
@@ -289,31 +289,40 @@ class LiquidMarketUnitTest(unittest.TestCase):
         self.assertEqual(order_id, order_failure_event.order_id)
 
     def test_limit_makers_unfilled(self):
-        if API_MOCK_ENABLED:
-            return
-        trading_pair = "CEL-USDT"
-        price = self.market.get_price(trading_pair, True) * Decimal("0.8")
-        price = self.market.quantize_order_price(trading_pair, price)
-        amount = self.market.quantize_order_amount(trading_pair, 1)
+        #if API_MOCK_ENABLED:
+         #   return
+        trading_pair = "CEL-ETH"
+        bid_price: Decimal = self.market.get_price(trading_pair, True)
+        ask_price: Decimal = self.market.get_price(trading_pair, False)
+        amount: Decimal = 1
+        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
+        
+        # Intentionally setting invalid price to prevent getting filled
+        quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price * Decimal("0.7"))
+        quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price * Decimal("1.5"))
 
-        order_id, _ = self.place_order(True, trading_pair, amount, OrderType.LIMIT_MAKER,
-                                       price, 10001,
-                                       FixtureLiquid.ORDER_BUY_LIMIT, FixtureLiquid.ORDERS_GET_AFTER_SELL_LIMIT)
+        buy_order_id, buy_exchange_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_bid_price,
+                                              10001, FixtureLiquid.ORDER_BUY_CANCEL_ALL,
+                                              FixtureLiquid.ORDERS_GET_AFTER_BUY)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
-        self.assertEqual(order_id, order_created_event.order_id)
+        self.assertEqual(buy_order_id, order_created_event.order_id)
 
-        price = self.market.get_price(trading_pair, True) * Decimal("1.2")
-        price = self.market.quantize_order_price(trading_pair, price)
-        amount = self.market.quantize_order_amount(trading_pair, 1)
-
-        order_id, _ = self.place_order(False, trading_pair, amount, OrderType.LIMIT_MAKER,
-                                       price, 10002,
-                                       FixtureLiquid.ORDER_SELL_LIMIT, FixtureLiquid.ORDERS_GET_AFTER_SELL_LIMIT)
+        sell_order_id, sell_exchange_id = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
+                                               quantize_ask_price, 10002, FixtureLiquid.ORDER_SELL_CANCEL_ALL,
+                                               FixtureLiquid.ORDERS_GET_AFTER_SELL)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
-        self.assertEqual(order_id, order_created_event.order_id)
+        self.assertEqual(sell_order_id, order_created_event.order_id)
 
+        self.run_parallel(asyncio.sleep(1))
+        if API_MOCK_ENABLED:
+            order_cancel_resp = FixtureLiquid.ORDER_CANCEL_ALL_1
+            self.web_app.update_response("put", API_HOST, f"/orders/{str(buy_exchange_id)}/cancel",
+                                         order_cancel_resp)
+            order_cancel_resp = FixtureLiquid.ORDER_CANCEL_ALL_2
+            self.web_app.update_response("put", API_HOST, f"/orders/{str(sell_exchange_id)}/cancel",
+                                         order_cancel_resp)
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
