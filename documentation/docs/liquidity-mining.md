@@ -29,17 +29,17 @@ Liquidity mining sets forth an analytical framework for determining market maker
 !!! warning "Terms subject to change"
     Please check this page or the [Miner's app](https://miners.hummingbot.io) for the most up-to-date terms.<br/>We will notify participants of changes, if any, on our [Discord](https://discord.hummingbot.io) and [reddit](https://www.reddit.com/r/Hummingbot/).
 
-!!! note "Campaign updates for the week starting July 28, 2020 12.00am UTC"
-    After discussions with miners and traders in our community, we have decided to revise the spread density function constant to increase rewards for placing orders with tighter spreads vs those placed at wider spreads.
-    
-    You can read more about it in our [Reddit post](https://www.reddit.com/r/Hummingbot/comments/hx9wy5/change_to_spread_factor_constant_more_rewards_for/).
-
 !!! note "Campaign updates for the week starting August 4, 2020 12.00am UTC"
     SOL liquidity mining campaign will be paused. After we add other exchanges where SOL trades, we and Solana will revisit liquidity incentives for SOL.
 
     You can read more about it on this [Reddit post](https://www.reddit.com/r/Hummingbot/comments/i32roh/sol_liquidity_mining_campaign_paused/).   
 
-**Current reward period: August 4, 2020 12.00am UTC to August 10, 2020 12.00am UTC**
+!!! note "Campaign updates for the week starting August 10, 2020 12.00am UTC"
+    NULS completed its campaign and will continue to evaluate future collaboration with Hummingbot.
+    
+    You can read more about it in our [Reddit post](https://www.reddit.com/r/Hummingbot/comments/i7wh55/nuls_completes_its_liquidity_mining_campaign/).
+
+**Current reward period: August 10, 2020 12.00am UTC to August 17, 2020 12.00am UTC**
 
 <table>
   <thead>
@@ -94,28 +94,6 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>2%</td>
       <td>8</td>
       <td>USDC 275</td>
-    </tr>
-    <tr>
-      <td rowspan="3"><a href="#nuls">NULS</a><br></td>
-      <td>NULS/BTC</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td>USDC 666</td>
-    </tr>
-    <tr>
-      <td>NULS/USDT</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td>USDC 667</td>
-    </tr>
-    <tr>
-      <td>NULS/ETH</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td>USDC 667</td>
     </tr>
     <tr>
       <td rowspan="3"><a href="#iexec">iExec</a><br></td>
@@ -183,12 +161,6 @@ No upcoming changes.
 The [Mainframe (MFT)](https://mainframe.com/) Lending Protocol allows anyone to borrow against their crypto. Mainframe uses a bond-like instrument, representing an on-chain obligation that settles on a specific future date. Buying and selling the tokenized debt enables fixed-rate lending and borrowing — something much needed in decentralized finance today.
 
 [Blog](https://blog.mainframe.com) | [Twitter](https://twitter.com/Mainframe_HQ) | [Discord](https://discord.gg/mhtSRz6) | [Github](https://github.com/MainframeHQ) | [CoinMarketCap](https://coinmarketcap.com/currencies/mainframe/) | [CoinGecko](https://www.coingecko.com/en/coins/mainframe)
-
-### NULS
-
-[NULS](https://nuls.io) is a microservices-driven blockchain project that uses the Proof of Credit (PoC) consensus mechanism (dPoS plus credit rating) to mine via staking. The NULS modular design features NULSTAR, a microservices-based framework reportedly enabling enterprise-grade blockchain solutions for smart contracts, private chains, public chains, dApps and NRC-20 tokenization. NULS 1.0 mainnet launched in July, 2018. The main product of NULS is Chain Factory, a chain-building tool that allows businesses to utilize the plug-and-play selection of modules from the NULS Module Repository including cross-chain consensus for asset value circulation within the NULS ecosystem.
-
-[Blog](https://medium.com/@nuls) | [Twitter](https://twitter.com/Nuls) | [Github](https://github.com/nuls-io) | [CoinMarketCap](https://coinmarketcap.com/currencies/nuls/) | [CoinGecko](https://www.coingecko.com/en/coins/nuls)
 
 ### Zcoin
 
