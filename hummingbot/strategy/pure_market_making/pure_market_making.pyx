@@ -14,7 +14,7 @@ from math import (
 )
 import time
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.event.events import TradeType
+from hummingbot.core.event.events import TradeType, PriceType
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
@@ -83,7 +83,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                  bid_order_optimization_depth: Decimal = s_decimal_zero,
                  add_transaction_costs_to_orders: bool = False,
                  asset_price_delegate: AssetPriceDelegate = None,
-                 price_is_mid: bool = True,
+                 price_type: str = "mid_price",
                  take_if_crossed: bool = False,
                  price_ceiling: Decimal = s_decimal_neg_one,
                  price_floor: Decimal = s_decimal_neg_one,
@@ -122,7 +122,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._bid_order_optimization_depth = bid_order_optimization_depth
         self._add_transaction_costs_to_orders = add_transaction_costs_to_orders
         self._asset_price_delegate = asset_price_delegate
-        self._price_is_mid = price_is_mid
+        self._price_type = self.get_price_type(price_type_str=price_type)
         self._take_if_crossed = take_if_crossed
         self._price_ceiling = price_ceiling
         self._price_floor = price_floor
@@ -330,13 +330,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         return self._market_info.trading_pair
 
     def get_price(self) -> float:
-        if not self._price_is_mid:
-            price = self.get_last_price()
-            if math.isnan(price):
-                price = self.get_mid_price()
-        else:
-            price = self.get_mid_price()
-        return Decimal(price)
+        return self._market_info.get_price_by_type(price_type=self._price_type)
 
     def get_last_price(self) -> float:
         return self._market_info.get_last_price()
@@ -1083,3 +1077,13 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         if self._hb_app_notification:
             from hummingbot.client.hummingbot_application import HummingbotApplication
             HummingbotApplication.main_application()._notify(msg)
+
+    def get_price_type(self, price_type_str: str) -> PriceType:
+        if price_type_str == "mid_price":
+            return PriceType.MidPrice
+        elif price_type_str == "best_bid":
+            return PriceType.BestBid
+        elif price_type_str == "best_ask":
+            return PriceType.BestAsk
+        elif price_type_str == "last_trade":
+            return PriceType.LastTrade
