@@ -210,6 +210,8 @@ cdef class MarketBase(NetworkIterator):
             top_price = Decimal(order_book.c_get_price(is_buy))
         except EnvironmentError as e:
             self.logger().warning(f"{'Ask' if is_buy else 'Buy'} orderbook for {trading_pair} is empty.")
+            self.logger().debug(f"WESLEY TESTING --- EXCEPTION: {e}")
+            self.logger().debug(f"ORDER BOOK: \n {order_book}")
             return s_decimal_NaN
 
         return self.c_quantize_order_price(trading_pair, top_price)

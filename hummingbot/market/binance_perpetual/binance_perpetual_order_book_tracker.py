@@ -49,8 +49,7 @@ class BinancePerpetualOrderBookTracker(OrderBookTracker):
 
     @property
     def exchange_name(self) -> str:
-        # TODO: Dont know if this is correct
-        return "binance_perpetual"
+        return "binance_perpetuals"
 
     async def _order_book_diff_router(self):
         """

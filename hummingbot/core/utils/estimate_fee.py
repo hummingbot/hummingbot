@@ -5,6 +5,7 @@ from hummingbot.client.config.fee_overrides_config_map import fee_overrides_conf
 default_cex_estimate = {
     # exchange: [maker_fee, taker_fee]
     "binance": [0.1, 0.1],
+    "binance_perpetuals": [0.1, 0.1],
     "bittrex": [0.25, 0.25],
     "coinbase_pro": [0.5, 0.5],
     "huobi": [0.2, 0.2],

@@ -13,6 +13,7 @@ from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataS
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.market.binance.binance_market import BinanceMarket
+from hummingbot.market.binance_perpetual.binance_perpetual_market import BinancePerpetualMarket
 from hummingbot.market.bittrex.bittrex_market import BittrexMarket
 from hummingbot.market.kucoin.kucoin_market import KucoinMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
@@ -54,6 +55,7 @@ s_logger = None
 MARKET_CLASSES = {
     "bamboo_relay": BambooRelayMarket,
     "binance": BinanceMarket,
+    "binance_perpetuals": BinancePerpetualMarket,
     "coinbase_pro": CoinbaseProMarket,
     "huobi": HuobiMarket,
     "liquid": LiquidMarket,
@@ -258,6 +260,18 @@ class HummingbotApplication(*commands):
                     order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                     trading_pairs=trading_pairs,
                     trading_required=self._trading_required,
+                )
+
+            elif market_name == "binance_perpetuals":
+                print("WESLEY TESTING --- INITIALIZING MARKET (HUMMINGBOT APPLICATION)")
+                binance_perpetuals_api_key = global_config_map.get("binance_perpetuals_api_key").value
+                binance_perpetuals_api_secret = global_config_map.get("binance_perpetuals_api_secret").value
+                market = BinancePerpetualMarket(
+                    api_key=binance_perpetuals_api_key,
+                    api_secret=binance_perpetuals_api_secret,
+                    order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                    user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
+                    trading_pairs=trading_pairs
                 )
 
             elif market_name == "radar_relay":
