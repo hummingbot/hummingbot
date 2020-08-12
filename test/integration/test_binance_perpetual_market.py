@@ -16,7 +16,7 @@ from hummingbot.core.event.events import (
     MarketEvent,
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
-    OrderCancelledEvent
+    OrderCancelledEvent, BuyOrderCompletedEvent, SellOrderCompletedEvent
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
@@ -105,7 +105,7 @@ class BinancePerpetualMarketUnitTest(unittest.TestCase):
         network_status: NetworkStatus = self.ev_loop.run_until_complete(self.market.check_network())
         self.assertEqual(NetworkStatus.CONNECTED, network_status)
 
-    # @unittest.skip("")
+    @unittest.skip("")
     def test_buy_and_sell_order_then_cancel_individually(self):
         trading_pair = "ETHUSDT"
         # Create Buy Order
@@ -155,7 +155,7 @@ class BinancePerpetualMarketUnitTest(unittest.TestCase):
         self.assertTrue(sell_order_id not in self.market.in_flight_orders)
         self.assertTrue(buy_order_id not in self.market.in_flight_orders)
 
-    # @unittest.skip("")
+    @unittest.skip("")
     def test_buy_and_sell_order_then_cancel_all(self):
         trading_pair = "ETHUSDT"
         # Create Buy Order
@@ -196,7 +196,7 @@ class BinancePerpetualMarketUnitTest(unittest.TestCase):
         self.assertTrue(sell_order_id not in self.market.in_flight_orders)
         self.assertTrue(buy_order_id not in self.market.in_flight_orders)
 
-    # @unittest.skip("")
+    @unittest.skip("")
     def test_buy_and_sell_order_then_cancel_account_orders(self):
         trading_pair = "ETHUSDT"
         # Create Buy Order
@@ -233,6 +233,51 @@ class BinancePerpetualMarketUnitTest(unittest.TestCase):
         self.assertEqual(0, len(self.market.in_flight_orders))
         self.assertTrue(sell_order_id not in self.market.in_flight_orders)
         self.assertTrue(buy_order_id not in self.market.in_flight_orders)
+
+    @unittest.skip("")
+    def test_order_fill_event(self):
+        trading_pair = "ETHUSDT"
+
+        amount: Decimal = Decimal(0.01)
+        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
+
+        # Initialize Pricing (Buy)
+        price: Decimal = self.market.get_price(trading_pair, True) * Decimal("1.01")
+        quantized_price: Decimal = self.market.quantize_order_price(trading_pair, price)
+
+        # Create Buy Order
+        buy_order_id = self.market.buy(
+            trading_pair=trading_pair,
+            amount=quantized_amount,
+            order_type=OrderType.LIMIT,
+            price=quantized_price
+        )
+        [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
+        self.assertEqual(buy_order_id, order_completed_event.order_id)
+        self.assertEqual(quantized_amount, order_completed_event.base_asset_amount)
+        self.assertEqual("ETH", order_completed_event.base_asset)
+        self.assertEqual("USDT", order_completed_event.quote_asset)
+        self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == buy_order_id
+                             for event in self.market_logger.event_log]))
+
+        # Initialize Pricing (Sell)
+        price = self.market.get_price(trading_pair, False) * Decimal("0.99")
+        quantized_price = self.market.quantize_order_price(trading_pair, price)
+
+        # Create Sell Order
+        sell_order_id = self.market.sell(
+            trading_pair=trading_pair,
+            amount=quantized_amount,
+            order_type=OrderType.LIMIT,
+            price=quantized_price
+        )
+        [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
+        self.assertEqual(sell_order_id, order_completed_event.order_id)
+        self.assertEqual(quantized_amount, order_completed_event.base_asset_amount)
+        self.assertEqual("ETH", order_completed_event.base_asset)
+        self.assertEqual("USDT", order_completed_event.quote_asset)
+        self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == sell_order_id
+                             for event in self.market_logger.event_log]))
 
 
 def main():

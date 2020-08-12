@@ -3,8 +3,8 @@ from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 
 cdef class BinancePerpetualMarket(MarketBase):
     cdef:
-        str _binance_api_key
-        str _binance_api_secret
+        str _api_key
+        str _api_secret
         object _user_stream_tracker
         object _ev_loop
         object _poll_notifier

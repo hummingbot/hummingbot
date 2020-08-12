@@ -132,6 +132,18 @@ global_config_map = {
                   required_if=using_exchange("binance"),
                   is_secure=True,
                   is_connect_key=True),
+    "binance_perpetuals_api_key":
+        ConfigVar(key="binance_perpetuals_api_key",
+                  prompt="Enter your Binance Perpetuals API key >>> ",
+                  required_if=using_exchange("binance_perpetuals"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "binance_perpetuals_api_secret":
+        ConfigVar(key="binance_perpetuals_api_secret",
+                  prompt="Enter your Binance Perpetuals API secret >>> ",
+                  required_if=using_exchange("binance"),
+                  is_secure=True,
+                  is_connect_key=True),
     "coinbase_pro_api_key":
         ConfigVar(key="coinbase_pro_api_key",
                   prompt="Enter your Coinbase API key >>> ",

@@ -64,8 +64,7 @@ class MethodType(Enum):
 
 bpm_logger = None
 
-TRADING_PAIR_SPLITTER = re.compile(
-    r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|USDS|TUSD|PAX|TRX|BUSD|NGN|RUB|TRY|EUR|IDRT|ZAR|UAH|GBP|BKRW|BIDR)$")
+TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|USDS|TUSD|PAX|TRX|BUSD|NGN|RUB|TRY|EUR|IDRT|ZAR|UAH|GBP|BKRW|BIDR)$")
 BROKER_ID = "x-XEKWYICX"
 
 cdef str get_client_order_id(str order_side, object trading_pair):
@@ -101,20 +100,20 @@ cdef class BinancePerpetualMarket(MarketBase):
         return bpm_logger
 
     def __init__(self,
-                 binance_api_key: str,
-                 binance_api_secret: str,
+                 api_key: str,
+                 api_secret: str,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
                  OrderBookTrackerDataSourceType.EXCHANGE_API,
                  user_stream_tracker_data_source_type: UserStreamTrackerDataSourceType =
                  UserStreamTrackerDataSourceType.EXCHANGE_API,
                  trading_pairs: Optional[List[str]] = None):
         super().__init__()
-        self._binance_api_key = binance_api_key
-        self._binance_api_secret = binance_api_secret
+        self._api_key = api_key
+        self._api_secret = api_secret
 
         self._user_stream_tracker = BinancePerpetualUserStreamTracker(
             data_source_type=user_stream_tracker_data_source_type,
-            api_key=self._binance_api_key)
+            api_key=self._api_key)
         self._order_book_tracker = BinancePerpetualOrderBookTracker(
             data_source_type=order_book_tracker_data_source_type,
             trading_pairs=trading_pairs)
@@ -133,6 +132,10 @@ cdef class BinancePerpetualMarket(MarketBase):
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._last_poll_timestamp = 0
         self._throttler = Throttler((10.0, 1.0))
+
+    @property
+    def name(self) -> str:
+        return "binance_perpetuals"
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -166,7 +169,7 @@ cdef class BinancePerpetualMarket(MarketBase):
 
     cdef c_stop(self, Clock clock):
         MarketBase.c_stop(self, clock)
-        self._async_scheduler.stop()
+        # self._async_scheduler.stop()
 
     async def start_network(self):
         print("WESLEY TESTING --- BINANCE NETWORK STARTED")
@@ -361,8 +364,18 @@ cdef class BinancePerpetualMarket(MarketBase):
                 path="/fapi/v1/order",
                 params=params,
                 method=MethodType.DELETE,
-                is_signed=True
+                is_signed=True,
+                return_err=True
             )
+            if response.get("code") == -2011 or "Unknown order sent" in response.get("msg", ""):
+                self.logger().debug(f"The order {client_order_id} does not exist on Binance Perpetuals. "
+                                    f"No cancellation needed.")
+                self.c_stop_tracking_order(client_order_id)
+                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                     OrderCancelledEvent(self._current_timestamp, client_order_id))
+                return {
+                    "origClientOrderId": client_order_id
+                }
         except Exception as e:
             self.logger().error(f"Could not cancel order {client_order_id} (on Binance Perp. {trading_pair})")
             raise e
@@ -513,12 +526,22 @@ cdef class BinancePerpetualMarket(MarketBase):
                                                              tracked_order.order_type
                                                          ))
                         self.c_stop_tracking_order(tracked_order.client_order_id)
-                # TODO: IMPLEMENT
                 elif event_type == "ACCOUNT_UPDATE":
-                    pass
-                # TODO: IMPLEMENT
+                    self.logger().info("Account updates pushed to client.")
+                    await self._update_balances()
                 elif event_type == "MARGIN_CALL":
-                    pass
+                    positions = event_message.get("p")
+                    total_maint_margin_required = 0
+                    total_pnl = 0
+                    negative_pnls_msg = ""
+                    for position in positions:
+                        total_maint_margin_required += position.get("mm", 0)
+                        if position.get("up", 0) < 1:
+                            negative_pnls_msg += f"{position.get('s')}: {position.get('up')}, "
+                    self.logger().warning(f"Margin Call: Your position risk is too high, and you are at risk of "
+                                          f"liquidation. Close your positions or add additional margin to your wallet.")
+                    self.logger().info(f"Margin Required: {total_maint_margin_required}. Total Unrealized PnL: "
+                                       f"{negative_pnls_msg}. Negative PnL assets: {negative_pnls_msg}.")
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -530,7 +553,7 @@ cdef class BinancePerpetualMarket(MarketBase):
     cdef object c_get_fee(self, str base_currency, str quote_currency, object order_type, object order_side,
                           object amount, object price):
         is_maker = order_type is OrderType.LIMIT
-        return estimate_fee("binance", is_maker)
+        return estimate_fee("binance_perpetuals", is_maker)
 
     cdef OrderBook c_get_order_book(self, str trading_pair):
         cdef:
@@ -626,6 +649,9 @@ cdef class BinancePerpetualMarket(MarketBase):
             set local_asset_names = set(self._account_balances.keys())
             set remote_asset_names = set()
             set asset_names_to_remove
+        print("WESLEY TESTING --- UPDATING BALANCES")
+        # TODO: Implement - Current Positions (and pnl)
+
         params = {"timestamp": f"{int(time.time()) * 1000}"}
         account_info = await self.request(path="/fapi/v2/account", is_signed=True, params=params)
         assets = account_info.get("assets")
@@ -647,6 +673,7 @@ cdef class BinancePerpetualMarket(MarketBase):
             int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
             int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
+            print("WESLEY TESTING --- UPDATING ORDER FILLS (FROM TRADES)")
             trading_pairs_to_order_map = defaultdict(lambda: {})
             for order in self._in_flight_orders.values():
                 trading_pairs_to_order_map[order.trading_pair][order.exchange_order_id] = order
@@ -702,6 +729,7 @@ cdef class BinancePerpetualMarket(MarketBase):
             int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
             int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
+            print("WESLEY TESTING --- UPDATING ORDER STATUS")
             tracked_orders = list(self._in_flight_orders)
             tasks = [self.request(path="/fapi/v1/order",
                                   params={
@@ -815,36 +843,43 @@ cdef class BinancePerpetualMarket(MarketBase):
         try:
             m = TRADING_PAIR_SPLITTER.match(trading_pair)
             return m.group(1), m.group(2)
-        # Exceptions are now logged as warnings in trading pair fetcher
         except Exception as e:
-            return None
+            raise e
 
     @staticmethod
     def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
         if BinancePerpetualMarket.split_trading_pair(exchange_trading_pair) is None:
             return None
-        # Binance does not split BASEQUOTE (BTCUSDT)
         base_asset, quote_asset = BinancePerpetualMarket.split_trading_pair(exchange_trading_pair)
         return f"{base_asset}-{quote_asset}"
 
+    @staticmethod
+    def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
+        return hb_trading_pair.replace("-", "")
+
     async def request(self, path: str, params: Dict[str, Any] = {}, method: MethodType = MethodType.GET,
-                      is_signed: bool = False, request_weight: int = 1):
+                      is_signed: bool = False, request_weight: int = 1, return_err: bool = False):
         async with self._throttler.weighted_task(request_weight):
             try:
                 # TODO: QUESTION --- SHOULD I ADD AN ASYNC TIMEOUT? (aync with timeout(API_CALL_TIMEOUT)
                 async with aiohttp.ClientSession() as client:
                     query = urlencode(sorted(params.items()))
                     if is_signed:
-                        secret = bytes(self._binance_api_secret.encode("utf-8"))
+                        secret = bytes(self._api_secret.encode("utf-8"))
                         signature = hmac.new(secret, query.encode("utf-8"), hashlib.sha256).hexdigest()
                         query += f"&signature={signature}"
                     async with client.request(
                             method=method.value,
                             url="https://fapi.binance.com" + path + "?" + query,
-                            headers={"X-MBX-APIKEY": self._binance_api_key}) as response:
+                            headers={"X-MBX-APIKEY": self._api_key}) as response:
                         if response.status != 200:
-                            print(f"WESLEY TESTING --- Request Error: {response}")
-                            raise IOError(f"Error fetching data from {path}. HTTP status is {response.status}.")
+                            error_response = await response.json()
+                            print(f"WESLEY TESTING --- Request Error: {error_response}")
+                            self.logger().error(f"WESLEY TESTING --- Request Error: {error_response}")
+                            if return_err:
+                                return error_response
+                            else:
+                                raise IOError(f"Error fetching data from {path}. HTTP status is {response.status}.")
                         return await response.json()
             except Exception as e:
                 self.logger().warning(f"Error fetching {path}")

@@ -16,6 +16,8 @@ def new_fee_config_var(key):
 fee_overrides_config_map = {
     "binance_maker_fee": new_fee_config_var("binance_maker_fee"),
     "binance_taker_fee": new_fee_config_var("binance_taker_fee"),
+    "binance_perpetuals_maker_fee": new_fee_config_var("binance_perpetuals_maker_fee"),
+    "binance_perpetuals_taker_fee": new_fee_config_var("binance_perpetuals_taker_fee"),
     "coinbase_pro_maker_fee": new_fee_config_var("coinbase_pro_maker_fee"),
     "coinbase_pro_taker_fee": new_fee_config_var("coinbase_pro_taker_fee"),
     "huobi_maker_fee": new_fee_config_var("huobi_maker_fee"),
