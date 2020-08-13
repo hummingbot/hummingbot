@@ -532,6 +532,8 @@ class HuobiMarketUnitTest(unittest.TestCase):
                 self.assertFalse(math.isnan(order_book.last_trade_price))
 
     def test_pair_convesion(self):
+        if API_MOCK_ENABLED:
+            return
         for pair in self.market.trading_rules:
             exchange_pair = self.convert_to_exchange_trading_pair(pair)
             self.assertTrue(exchange_pair in self.market.order_books)

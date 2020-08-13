@@ -652,7 +652,8 @@ class BinanceMarketUnitTest(unittest.TestCase):
             os.unlink(self.db_path)
 
     def test_pair_convesion(self):
-        await self.market._update_trading_rules()
+        if API_MOCK_ENABLED:
+            return
         for pair in self.market.trading_rules:
             exchange_pair = self.convert_to_exchange_trading_pair(pair)
             self.assertTrue(exchange_pair in self.market.order_books)
