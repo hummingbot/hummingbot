@@ -44,7 +44,7 @@ from decimal import Decimal
 import unittest
 import conf
 
-PAIR = "ETHUSDC"
+PAIR = "ETH-USDC"
 BASE = "ETH"
 QUOTE = "USDC"
 
@@ -412,6 +412,11 @@ class KrakenMarketUnitTest(unittest.TestCase):
 
             recorder.stop()
             unlink(self.db_path)
+
+    def test_pair_convesion(self):
+        for pair in self.market.trading_rules:
+            exchange_pair = self.convert_to_exchange_trading_pair(pair)
+            self.assertTrue(exchange_pair in self.market.order_books)
 
 
 def main():
