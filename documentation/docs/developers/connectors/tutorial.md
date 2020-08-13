@@ -248,7 +248,7 @@ The table below details the functions responsible for maintaining the `TradeRule
 
 Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | Description
 ---|---|---|---
-`_trading_rules_polling_loop` | None | None | A background process that periodically polls for trading rule changes. Since trading rules tend not to change as often as account balances and order statuses, this is done less often. THis function is responsible for calling `_update_trading_rules`
+`_trading_rules_polling_loop` | None | None | A background process that periodically polls for trading rule changes. Since trading rules tend not to change as often as account balances and order statuses, this is done less often. This function is responsible for calling `_update_trading_rules`
 `_update_trading_rules` | None | None | Gets the necessary trading rules definitions form the corresponding REST API endpoints. Calls `_format_trading_rules`; that parses and updates the `_trading_rules` variable in the `Market` class.
 `_format_trading_rules` | `List[Any]` | `List[TradingRule]` | Parses the raw JSON response into a list of [`TradingRule`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/trading_rule.pyx). <table><tbody><tr><td bgcolor="#ecf3ff">**Note**: This is important since exchanges might only accept certain precisions and impose a minimum trade size on the order.</td></tr></tbody></table>
 
