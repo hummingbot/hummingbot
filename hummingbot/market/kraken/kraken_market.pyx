@@ -1010,18 +1010,18 @@ cdef class KrakenMarket(MarketBase):
                                                     CANCEL_ORDER_URI,
                                                     data=data,
                                                     is_auth_required=True)
+
+            if isinstance(cancel_result, dict) and (cancel_result.get("count") == 1 or cancel_result.get("error") is not None):
+                self.logger().info(f"Successfully cancelled order {order_id}.")
+                self.c_stop_tracking_order(order_id)
+                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                     OrderCancelledEvent(self._current_timestamp, order_id))
+            return {
+                "origClientOrderId": order_id
+            }
         except Exception as e:
             self.logger().warning(f"Error cancelling order on Kraken",
                                   exc_info=True)
-
-        if isinstance(cancel_result, dict) and (cancel_result.get("count") == 1 or cancel_result.get("error") is not None):
-            self.logger().info(f"Successfully cancelled order {order_id}.")
-            self.c_stop_tracking_order(order_id)
-            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                 OrderCancelledEvent(self._current_timestamp, order_id))
-        return {
-            "origClientOrderId": order_id
-        }
 
     cdef c_cancel(self, str trading_pair, str order_id):
         safe_ensure_future(self.execute_cancel(trading_pair, order_id))
