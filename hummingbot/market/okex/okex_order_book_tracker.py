@@ -13,16 +13,12 @@ from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType
 )
-from hummingbot.core.data_type.order_book_tracker import (
-    OrderBookTracker,
-    OrderBookTrackerDataSourceType
-)
-from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.huobi.huobi_api_order_book_data_source import HuobiAPIOrderBookDataSource
+from hummingbot.market.okex.okex_api_order_book_data_source import OKExAPIOrderBookDataSource
 
 
-class HuobiOrderBookTracker(OrderBookTracker):
+class OKExBookTracker(OrderBookTracker):
     _hobt_logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -32,35 +28,21 @@ class HuobiOrderBookTracker(OrderBookTracker):
         return cls._hobt_logger
 
     def __init__(self,
-                 data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
                  trading_pairs: Optional[List[str]] = None):
-        super().__init__(data_source_type=data_source_type)
+        super().__init__(OKExAPIOrderBookDataSource(trading_pairs), trading_pairs)
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        self._data_source: Optional[OrderBookTrackerDataSource] = None
-        self._trading_pairs: Optional[List[str]] = trading_pairs
 
     @property
     def exchange_name(self) -> str:
-        return "huobi"
-
-    @property
-    def data_source(self) -> OrderBookTrackerDataSource:
-        if not self._data_source:
-            if self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = HuobiAPIOrderBookDataSource(trading_pairs=self._trading_pairs)
-            else:
-                raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
-        return self._data_source
-
-    @data_source.setter
-    def data_source(self, data_source):
-        self._data_source = data_source
+        return "okex"
 
     async def _order_book_diff_router(self):
         """
         Route the real-time order book diff messages to the correct order book.
+
+        Each trading pair has their own _saved_message_queues, this would subsequently be used by _track_single_book to apply the messages onto the respective order book.
         """
         last_message_timestamp: float = time.time()
         messages_queued: int = 0
@@ -107,6 +89,9 @@ class HuobiOrderBookTracker(OrderBookTracker):
                 await asyncio.sleep(5.0)
 
     async def _track_single_book(self, trading_pair: str):
+        """Update an order book with changes from the latest batch of received messages.
+        Constantly attempts to retrieve the next available message from _save_message_queues and applying the message onto the respective order book."""
+
         message_queue: asyncio.Queue = self._tracking_message_queues[trading_pair]
         order_book: OrderBook = self._order_books[trading_pair]
         last_message_timestamp: float = time.time()
@@ -139,3 +124,6 @@ class HuobiOrderBookTracker(OrderBookTracker):
                     app_warning_msg=f"Unexpected error tracking order book. Retrying after 5 seconds."
                 )
                 await asyncio.sleep(5.0)
+
+    # def start(self):
+    #     """Start all custom listeners and tasks in the OrderBookTracker component."""
