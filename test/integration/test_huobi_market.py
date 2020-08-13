@@ -101,13 +101,13 @@ class HuobiMarketUnitTest(unittest.TestCase):
         cls.market: HuobiMarket = HuobiMarket(
             API_KEY,
             API_SECRET,
-            trading_pairs=["ethusdt"]
+            trading_pairs=["ETH-USDT"]
         )
         # Need 2nd instance of market to prevent events mixing up across tests
         cls.market_2: HuobiMarket = HuobiMarket(
             API_KEY,
             API_SECRET,
-            trading_pairs=["ethusdt"]
+            trading_pairs=["ETH-USDT"]
         )
         cls.clock.add_iterator(cls.market)
         cls.clock.add_iterator(cls.market_2)
@@ -237,7 +237,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
     def test_limit_maker_rejections(self):
         if API_MOCK_ENABLED:
             return
-        trading_pair = "ethusdt"
+        trading_pair = "ETH-USDT"
 
         # Try to put a buy limit maker order that is going to match, this should triggers order failure event.
         price: Decimal = self.market.get_price(trading_pair, True) * Decimal('1.02')
@@ -262,8 +262,8 @@ class HuobiMarketUnitTest(unittest.TestCase):
     def test_limit_makers_unfilled(self):
         if API_MOCK_ENABLED:
             return
-            
-        trading_pair = "ethusdt"
+
+        trading_pair = "ETH-USDT"
 
         bid_price: Decimal = self.market.get_price(trading_pair, True) * Decimal("0.5")
         ask_price: Decimal = self.market.get_price(trading_pair, False) * 2
@@ -275,17 +275,17 @@ class HuobiMarketUnitTest(unittest.TestCase):
         quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price * Decimal("1.1"))
 
         order_id1, exch_order_id1 = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_bid_price,
-                                             10001, FixtureHuobi.ORDER_GET_LIMIT_BUY_UNFILLED)
+                                                     10001, FixtureHuobi.ORDER_GET_LIMIT_BUY_UNFILLED)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id1, order_created_event.order_id)
-        
+
         order_id2, exch_order_id2 = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_ask_price,
-                                             10002, FixtureHuobi.ORDER_GET_LIMIT_SELL_UNFILLED)
+                                                     10002, FixtureHuobi.ORDER_GET_LIMIT_SELL_UNFILLED)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id2, order_created_event.order_id)
-        
+
         self.run_parallel(asyncio.sleep(1))
         if API_MOCK_ENABLED:
             resp = FixtureHuobi.ORDERS_BATCH_CANCELLED.copy()
@@ -294,12 +294,12 @@ class HuobiMarketUnitTest(unittest.TestCase):
         [cancellation_results] = self.run_parallel(self.market_2.cancel_all(5))
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
-            
+
         # Reset the logs
         self.market_logger.clear()
 
     def test_limit_taker_buy(self):
-        trading_pair = "ethusdt"
+        trading_pair = "ETH-USDT"
         price: Decimal = self.market.get_price(trading_pair, True)
         amount: Decimal = Decimal("0.06")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
@@ -327,7 +327,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_limit_taker_sell(self):
-        trading_pair = "ethusdt"
+        trading_pair = "ETH-USDT"
         price: Decimal = self.market.get_price(trading_pair, False)
         amount: Decimal = Decimal("0.06")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
@@ -355,7 +355,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_cancel_order(self):
-        trading_pair = "ethusdt"
+        trading_pair = "ETH-USDT"
 
         current_bid_price: Decimal = self.market.get_price(trading_pair, True)
         amount: Decimal = Decimal("0.05")
@@ -374,7 +374,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
         self.assertEqual(order_cancelled_event.order_id, order_id)
 
     def test_cancel_all(self):
-        trading_pair = "ethusdt"
+        trading_pair = "ETH-USDT"
 
         bid_price: Decimal = self.market_2.get_price(trading_pair, True) * Decimal("0.5")
         ask_price: Decimal = self.market_2.get_price(trading_pair, False) * 2
@@ -401,7 +401,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
     def test_orders_saving_and_restoration(self):
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
-        trading_pair: str = "ethusdt"
+        trading_pair: str = "ETH-USDT"
         sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
         order_id: Optional[str] = None
         recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
@@ -447,7 +447,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
             self.market: HuobiMarket = HuobiMarket(
                 huobi_api_key=API_KEY,
                 huobi_secret_key=API_SECRET,
-                trading_pairs=["ethusdt", "btcusdt"]
+                trading_pairs=["ETH-USDT", "btcusdt"]
             )
             for event_tag in self.events:
                 self.market.add_listener(event_tag, self.market_logger)
@@ -481,7 +481,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
     def test_order_fill_record(self):
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
-        trading_pair: str = "ethusdt"
+        trading_pair: str = "ETH-USDT"
         sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
         order_id: Optional[str] = None
         recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
@@ -530,6 +530,11 @@ class HuobiMarketUnitTest(unittest.TestCase):
                 self.ev_loop.run_until_complete(asyncio.sleep(1))
                 print(order_book.last_trade_price)
                 self.assertFalse(math.isnan(order_book.last_trade_price))
+
+    def test_pair_convesion(self):
+        for pair in self.market.trading_rules:
+            exchange_pair = self.convert_to_exchange_trading_pair(pair)
+            self.assertTrue(exchange_pair in self.market.order_books)
 
 
 if __name__ == "__main__":

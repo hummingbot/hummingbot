@@ -78,7 +78,7 @@ class EterbaseMarketUnitTest(unittest.TestCase):
             conf.eterbase_api_key,
             conf.eterbase_secret_key,
             conf.eterbase_account,
-            trading_pairs=["ETHEUR"]
+            trading_pairs=["ETH-EUR"]
         )
         print("Initializing Eterbase market... this will take about a minute.")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
@@ -139,7 +139,7 @@ class EterbaseMarketUnitTest(unittest.TestCase):
         self.assertEqual(len(market_fee.flat_fees), 0)
 
     def test_limit_maker_rejections(self):
-        trading_pair = "ETHEUR"
+        trading_pair = "ETH-EUR"
 
         # Try to put a buy limit maker order that is going to match, this should triggers order failure event.
         price: Decimal = self.market.get_price(trading_pair, True) * Decimal('1.02')
@@ -162,7 +162,7 @@ class EterbaseMarketUnitTest(unittest.TestCase):
         self.assertEqual(order_id, order_failure_event.order_id)
 
     def test_limit_makers_unfilled(self):
-        trading_pair = "ETHEUR"
+        trading_pair = "ETH-EUR"
         bid_price: Decimal = self.market.get_price(trading_pair, True) * Decimal("0.5")
         ask_price: Decimal = self.market.get_price(trading_pair, False) * 2
         amount: Decimal = 10 / bid_price
@@ -181,7 +181,7 @@ class EterbaseMarketUnitTest(unittest.TestCase):
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id_2, order_created_event.order_id)
-        
+
         self.run_parallel(asyncio.sleep(1))
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
         for cr in cancellation_results:
@@ -190,7 +190,7 @@ class EterbaseMarketUnitTest(unittest.TestCase):
     # NOTE that orders of non-USD pairs (including USDC pairs) are LIMIT only
     def test_limit_taker_buy(self):
         self.assertGreater(self.market.get_balance("ETH"), Decimal("0.2"))
-        trading_pair = "ETHEUR"
+        trading_pair = "ETH-EUR"
         amount: Decimal = Decimal("0.02")
         quantize_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
@@ -241,7 +241,7 @@ class EterbaseMarketUnitTest(unittest.TestCase):
 
     # NOTE that orders of non-USD pairs (including USDC pairs) are LIMIT only
     def test_limit_taker_sell(self):
-        trading_pair = "ETHEUR"
+        trading_pair = "ETH-EUR"
         price: Decimal = self.market.get_price(trading_pair, False)
         amount: Decimal = Decimal("0.02")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
@@ -266,7 +266,7 @@ class EterbaseMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_cancel_order(self):
-        trading_pair = "ETHEUR"
+        trading_pair = "ETH-EUR"
 
         current_bid_price: Decimal = self.market.get_price(trading_pair, True)
         amount: Decimal = 10 / current_bid_price
@@ -283,7 +283,7 @@ class EterbaseMarketUnitTest(unittest.TestCase):
         self.assertEqual(order_cancelled_event.order_id, client_order_id)
 
     def test_cancel_all(self):
-        trading_pair = "ETHEUR"
+        trading_pair = "ETH-EUR"
         bid_price: Decimal = self.market.get_price(trading_pair, True) * Decimal("0.5")
         ask_price: Decimal = self.market.get_price(trading_pair, False) * 2
         amount: Decimal = 10 / bid_price
@@ -303,7 +303,7 @@ class EterbaseMarketUnitTest(unittest.TestCase):
     @unittest.skipUnless(any("test_list_orders" in arg for arg in sys.argv), "List order test requires manual action.")
     def test_list_orders(self):
         self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
-        trading_pair = "ETHEUR"
+        trading_pair = "ETH-EUR"
         amount: Decimal = Decimal("0.02")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
@@ -321,7 +321,7 @@ class EterbaseMarketUnitTest(unittest.TestCase):
     def test_orders_saving_and_restoration(self):
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
-        trading_pair: str = "ETHEUR"
+        trading_pair: str = "ETH-EUR"
         sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
         order_id: Optional[str] = None
         recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
@@ -365,7 +365,7 @@ class EterbaseMarketUnitTest(unittest.TestCase):
                 eterbase_api_key=conf.eterbase_api_key,
                 eterbase_secret_key=conf.eterbase_secret_key,
                 eterbase_account=conf.eterbase_account,
-                trading_pairs=["ETHUSDT", "ETHEUR"]
+                trading_pairs=["ETHUSDT", "ETH-EUR"]
             )
             for event_tag in self.events:
                 self.market.add_listener(event_tag, self.market_logger)
@@ -399,7 +399,7 @@ class EterbaseMarketUnitTest(unittest.TestCase):
     def test_order_fill_record(self):
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
-        trading_pair: str = "ETHEUR"
+        trading_pair: str = "ETH-EUR"
 
         sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
         order_id: Optional[str] = None
@@ -445,6 +445,11 @@ class EterbaseMarketUnitTest(unittest.TestCase):
 
             recorder.stop()
             os.unlink(self.db_path)
+
+    def test_pair_convesion(self):
+        for pair in self.market.trading_rules:
+            exchange_pair = self.convert_to_exchange_trading_pair(pair)
+            self.assertTrue(exchange_pair in self.market.order_books)
 
 
 if __name__ == "__main__":
