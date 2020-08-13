@@ -63,6 +63,9 @@ from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.core.utils.estimate_fee import estimate_fee
 
+from hummingbot.market.okex.constants import *
+
+
 hm_logger = None
 s_decimal_0 = Decimal(0)
 TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(usdt|husd|btc|eth|ht|trx)$")
@@ -110,8 +113,9 @@ cdef class HuobiMarket(MarketBase):
         return hm_logger
 
     def __init__(self,
-                 huobi_api_key: str,
-                 huobi_secret_key: str,
+                 OKEx_api_key: str,
+                 okex_secret_key: str,
+                 okex_passphrase: str,
                  poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
                  OrderBookTrackerDataSourceType.EXCHANGE_API,
@@ -123,7 +127,8 @@ cdef class HuobiMarket(MarketBase):
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._data_source_type = order_book_tracker_data_source_type
         self._ev_loop = asyncio.get_event_loop()
-        self._huobi_auth = HuobiAuth(api_key=huobi_api_key, secret_key=huobi_secret_key)
+        (self, api_key: str, secret_key: str, passphrase: str)
+        self._okex_auth = OKExAuth(api_key=OKEx_api_key, secret_key=okex_secret_key, passphrase=okex_passphrase)
         self._in_flight_orders = {}
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
@@ -272,12 +277,15 @@ cdef class HuobiMarket(MarketBase):
                            params: Optional[Dict[str, Any]] = None,
                            data=None,
                            is_auth_required: bool = False) -> Dict[str, Any]:
+        
         content_type = "application/json" if method == "post" else "application/x-www-form-urlencoded"
         headers = {"Content-Type": content_type}
-        url = HUOBI_ROOT_API + path_url
+        
+        url = urljoin(OKEX_BASE_URL, path_url)
+        
         client = await self._http_client()
         if is_auth_required:
-            params = self._huobi_auth.add_auth_to_params(method, path_url, params)
+            params = self._okex_auth.add_auth_to_params(method, path_url, params)
 
         # aiohttp TestClient requires path instead of url
         if isinstance(client, TestClient):
@@ -290,6 +298,7 @@ cdef class HuobiMarket(MarketBase):
                 timeout=100
             )
         else:
+            # real call
             response_coro = client.request(
                 method=method.upper(),
                 url=url,
@@ -601,22 +610,28 @@ cdef class HuobiMarket(MarketBase):
                           is_buy: bool,
                           order_type: OrderType,
                           price: Decimal) -> str:
-        path_url = "order/orders/place"
-        side = "buy" if is_buy else "sell"
-        order_type_str = "limit" if order_type is OrderType.LIMIT else "market"
+        
+        # order_type_str = "limit" if order_type is OrderType.LIMIT else "market"
+
         params = {
-            "account-id": self._account_id,
-            "amount": f"{amount:f}",
-            "client-order-id": order_id,
-            "symbol": trading_pair,
-            "type": f"{side}-{order_type_str}",
+            'client_oid': order_id,
+            'type': 'limit' if OrderType.LIMIT else 'market', # what happens with OrderType.LIMIT_MAKER?
+            side: "buy" if is_buy else "sell",
+            instrument_id: trading_pair,
+            order_type: 0, # TODO double check this
+            # order_type, from OKEx docs:
+            # Specify 0: Normal order (Unfilled and 0 imply normal limit order) 1: Post only 2: Fill or Kill 3: Immediate Or Cancel,
+            size: amount
+
         }
-        if order_type is OrderType.LIMIT:
+        
+        if order_type != OrderType.MARKET:
             params["price"] = f"{price:f}"
+
         exchange_order_id = await self._api_request(
-            "post",
-            path_url=path_url,
-            params=params,
+            "POST",
+            path_url=OKEX_PLACE_ORDER,
+            params={},
             data=params,
             is_auth_required=True
         )
@@ -629,6 +644,7 @@ cdef class HuobiMarket(MarketBase):
                           order_type: OrderType,
                           price: Optional[Decimal] = s_decimal_0):
         cdef:
+
             TradingRule trading_rule = self._trading_rules[trading_pair]
             object quote_amount
             object decimal_amount
