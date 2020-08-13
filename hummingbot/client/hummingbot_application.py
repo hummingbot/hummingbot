@@ -199,14 +199,15 @@ class HummingbotApplication(*commands):
 
     @staticmethod
     def _initialize_market_assets(market_name: str, trading_pairs: List[str]) -> List[Tuple[str, str]]:
-        market_class: MarketBase = MARKET_CLASSES.get(market_name, MarketBase)
-        market_trading_pairs: List[Tuple[str, str]] = [market_class.split_trading_pair(trading_pair) for trading_pair in trading_pairs]
+        market_trading_pairs: List[Tuple[str, str]] = [(trading_pair.split('-')) for trading_pair in trading_pairs]
         return market_trading_pairs
 
+    """
     @staticmethod
     def _convert_to_exchange_trading_pair(market_name: str, hb_trading_pair: List[str]) -> List[str]:
         market_class: MarketBase = MARKET_CLASSES.get(market_name, MarketBase)
         return [market_class.convert_to_exchange_trading_pair(trading_pair) for trading_pair in hb_trading_pair]
+    """
 
     def _initialize_wallet(self, token_trading_pairs: List[str]):
         if not using_wallet():
