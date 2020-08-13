@@ -393,7 +393,7 @@ cdef class HuobiMarket(MarketBase):
             trading_rules_list = self._format_trading_rules(exchange_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
-                self._trading_rules[trading_rule.trading_pair] = trading_rule
+                self._trading_rules[self.convert_from_exchange_trading_pair(trading_rule.trading_pair)] = trading_rule
 
     def _format_trading_rules(self, raw_trading_pair_info: List[Dict[str, Any]]) -> List[TradingRule]:
         cdef:
@@ -748,7 +748,7 @@ cdef class HuobiMarket(MarketBase):
             "account-id": self._account_id,
             "amount": f"{amount:f}",
             "client-order-id": order_id,
-            "symbol": trading_pair,
+            "symbol": self.convert_to_exchange_trading_pair(trading_pair),
             "type": f"{side}-{order_type_str}",
         }
         if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
@@ -976,6 +976,7 @@ cdef class HuobiMarket(MarketBase):
         cdef:
             dict order_books = self._order_book_tracker.order_books
 
+        trading_pair = self.convert_to_exchange_trading_pair(trading_pair)
         if trading_pair not in order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
         return order_books.get(trading_pair)

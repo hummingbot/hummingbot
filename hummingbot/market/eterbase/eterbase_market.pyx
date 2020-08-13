@@ -389,7 +389,7 @@ cdef class EterbaseMarket(MarketBase):
             trading_rules_list = self._format_trading_rules(product_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
-                self._trading_rules[trading_rule.trading_pair] = trading_rule
+                self._trading_rules[self.convert_from_exchange_trading_pair(trading_rule.trading_pair)] = trading_rule
 
     def _format_trading_rules(self, raw_trading_rules: List[Any]) -> List[EterbaseTradingRule]:
         """
@@ -1071,6 +1071,7 @@ cdef class EterbaseMarket(MarketBase):
         cdef:
             dict order_books = self._order_book_tracker.order_books
 
+        trading_pair = self.convert_to_exchange_trading_pair(trading_pair)
         if trading_pair not in order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
         return order_books[trading_pair]

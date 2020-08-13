@@ -562,7 +562,7 @@ cdef class KrakenMarket(MarketBase):
                         self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
                                              OrderFilledEvent(self._current_timestamp,
                                                               tracked_order.client_order_id,
-                                                              self.convert_to_exchange_trading_pair(trade.get("pair")),
+                                                              tracked_order.trading_pair,
                                                               tracked_order.trade_type,
                                                               tracked_order.order_type,
                                                               Decimal(trade.get("price")),
@@ -816,10 +816,8 @@ cdef class KrakenMarket(MarketBase):
                           order_type: OrderType,
                           is_buy: bool,
                           price: Optional[Decimal] = s_decimal_NaN):
-        if trading_pair[:3] == "BTC":
-            trading_pair = "XBT" + trading_pair[3:]
-        if trading_pair[-3:] == "BTC":
-            trading_pair = trading_pair[:-3] + "XBT"
+
+        trading_pair = self.convert_to_exchange_trading_pair(trading_pair)
         data = {
             "pair": trading_pair,
             "type": "buy" if is_buy else "sell",
@@ -1057,6 +1055,7 @@ cdef class KrakenMarket(MarketBase):
         cdef:
             dict order_books = self._order_book_tracker.order_books
 
+        trading_pair = self.convert_to_exchange_trading_pair(trading_pair)
         if trading_pair not in order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
         return order_books[trading_pair]
