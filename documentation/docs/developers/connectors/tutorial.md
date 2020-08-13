@@ -198,7 +198,7 @@ Variable(s)<div style="width:100px"/>  | Type                | Description
 `order_id`   | `str`               | A generated, client-side order ID that will be used to identify an order by the Hummingbot client.<br/> The `order_id` is generated in the `c_buy` function.
 `symbol`     | `str`               | The trading pair string representing the market on which the order should be placed. i.e. (ZRX-ETH) <br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: Some exchanges have the trading pair symbol in `Quote-Base` format. Hummingbot requires that all trading pairs to be in `Base-Quote` format.</td></tr></tbody></table>
 `amount`     | `Decimal`           | The total value, in base currency, to buy/sell.
-`order_type` | `OrderType`         | OrderType.LIMIT, OrderType.LIMIT_MAKER or OrderType.MARKET <br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: LIMIT_MAKER should be used as market maker and LIMIT as market taker(using price to cross the orderbook) for exchanges that support LIMIT_MAKER. Otherwise, the the usual MARKET OrderType should be used as market taker and LIMIT as market taker.
+`order_type` | `OrderType`         | OrderType.LIMIT, OrderType.LIMIT_MAKER or OrderType.MARKET <br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: LIMIT_MAKER should be used as market maker and LIMIT as market taker(using price to cross the orderbook) for exchanges that support LIMIT_MAKER. Otherwise, the the usual MARKET OrderType should be used as market taker and LIMIT as market taker.</td></tr></tbody></table>
 `price`      | `Optional[Decimal]` | If `order_type` is `LIMIT`, it represents the rate at which the `amount` base currency is being bought/sold at.<br/>If `order_type` is `LIMIT_MAKER`, it also represents the rate at which the `amount` base currency is being bought/sold at. However, this `OrderType` is expected to be a **post only** order(i.e should ideally be rejected by the exchange if it'll cross the market)<br/>If `order_type` is `MARKET`, this is **not** used(`price = s_decimal_0`). <br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: `s_decimal_0 = Decimal(0)` </td></tr></tbody></table>
 
 #### Cancelling Orders
@@ -499,7 +499,7 @@ default_cex_estimate = {
 This section will breakdown some of the ways to debug and test the code. You are not entirely required to use the options during your development process.
 
 !!! warning
-    As part of the QA process, for each tasks(Task 1 through 3) you are **required** to include the unit test cases for the code review process to begin. Refer to [Option 1: Unit Test Cases](#option-3-unit-test-cases) to build your unit tests.
+    As part of the QA process, for each tasks(Task 1 through 3) you are **required** to include the unit test cases for the code review process to begin. Refer to [Option 1: Unit Test Cases](/developers/connectors/tutorial/#option-1-unit-test-cases) to build your unit tests.
     
 ### Option 1. Unit Test Cases
 
