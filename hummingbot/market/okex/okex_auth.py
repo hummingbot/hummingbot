@@ -33,7 +33,8 @@ class OKExAuth:
     def get_timestamp() -> str:
         miliseconds = int(time.time() * 1000)
         utc = datetime.utcfromtimestamp(miliseconds // 1000)
-        return utc.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-6] + "{:03d}".format(int(miliseconds) % 1000) + 'Z' 
+        return utc.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-6] + "{:03d}".format(int(miliseconds) % 1000) + 'Z'
+
 
     def get_signature(self, timestamp, method, path_url, body) -> str:
         auth = timestamp + method + path_url
@@ -65,3 +66,16 @@ class OKExAuth:
         sorted_request = self.keysort(request)
         
         return sorted_request
+
+    def generate_ws_auth(self):
+        timestamp = str(time.time())
+
+        return {
+            "op": "login",
+            "args": [
+                        self.api_key, 
+                        self.passphrase, 
+                        timestamp, 
+                        self.get_signature(timestamp, "GET", "/users/self/verify", {})
+                    ]
+        }

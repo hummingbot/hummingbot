@@ -2,7 +2,7 @@
 
 import aiohttp
 import asyncio
-import zlib
+
 import json
 import logging
 import pandas as pd
@@ -24,16 +24,11 @@ from hummingbot.core.utils import async_ttl_cache
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.okex.okex_order_book import OKExOrderBook
 
-from urllib.parse import urljoin
+from hummingbot.market.okex.tools import inflate
 
 from dateutil.parser import parse as dataparse
 
-OKEX_BASE_URL = "https://okex.com/api/"
-
-OKEX_SYMBOLS_URL = urljoin(OKEX_BASE_URL, "spot/v3/instruments/ticker")
-OKEX_DEPTH_URL = urljoin(OKEX_BASE_URL, "spot/v3/instruments/{trading_pair}/book")
-
-OKCOIN_WS_URI = "wss://real.okex.com:8443/ws/v3"
+from hummingbot.market.okex.constants import *
 
 
 class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -208,7 +203,7 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                     async for raw_msg in self._inner_messages(ws):
                         # OKEx compresses their ws data
-                        decoded_msg: str = self.inflate(raw_msg).decode('utf-8')
+                        decoded_msg: str = inflate(raw_msg).decode('utf-8')
 
                         self.logger().debug("decode menssage:" + decoded_msg)
 
@@ -256,16 +251,6 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         finally:
             await ws.close()
 
-    @staticmethod
-    def inflate(data):
-        """decrypts the OKEx data.
-        Copied from OKEx SDK: https://github.com/okex/V3-Open-API-SDK/blob/d8becc67af047726c66d9a9b29d99e99c595c4f7/okex-python-sdk-api/websocket_example.py#L46"""
-        decompress = zlib.decompressobj(
-                -zlib.MAX_WBITS
-        )
-        inflated = decompress.decompress(data)
-        inflated += decompress.flush()
-        return inflated
 
 
     async def listen_for_order_book_diffs(self, ev_loop: Optional[asyncio.BaseEventLoop], output: asyncio.Queue):
@@ -285,7 +270,7 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                     async for raw_msg in self._inner_messages(ws):
                         # OKEx compresses their ws data
-                        decoded_msg: str = self.inflate(raw_msg).decode('utf-8')
+                        decoded_msg: str = inflate(raw_msg).decode('utf-8')
 
                         if '"event":"subscribe"' in decoded_msg:
                             self.logger().debug(f"Subscribed to channel, full message: {decoded_msg}")
