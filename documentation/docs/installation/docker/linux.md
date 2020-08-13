@@ -45,8 +45,8 @@ sudo usermod -a -G docker $USER
 exit
 ```
 
-!!! warning "Restart terminal"
-    The above commands will close your terminal window in order to enable the correct permissions for the `docker` command.  Open a new terminal window to proceed with [Step 2](#step-2-install-hummingbot).
+!!! warning "Please Restart terminal"
+    Close and restart your terminal window to enable the correct permissions for `docker` command before proceeding to [Step 2](#step-2-install-hummingbot).
 
 #### Step 2: Install Hummingbot
 
@@ -126,10 +126,11 @@ sudo usermod -a -G docker $USER
 
 # 6) Close terminal
 exit
-```
+```  
+  
+!!! warning "Please Restart terminal"
+    Close and restart your terminal window to enable the correct permissions for `docker` command before proceeding to [Step 2](#step-2-install-hummingbot_1).  
 
-!!! warning "Restart terminal"
-    The above commands will close your terminal window in order to enable the correct permissions for the `docker` command.  Open a new terminal window to proceed with [Step 2](#step-2-install-hummingbot_1).
 
 #### Step 2: Install Hummingbot
 
@@ -208,9 +209,10 @@ sudo usermod -a -G docker $USER
 # 6) Close terminal
 exit
 ```
+  
+!!! warning "Please Restart terminal"
+    Close and restart your terminal window to enable the correct permissions for `docker` command before proceeding to [Step 2](#step-2-install-hummingbot_2).  
 
-!!! warning "Restart terminal"
-    The above commands will close your terminal window in order to enable the correct permissions for the `docker` command.  Open a new terminal window to proceed with [Step 2](#step-2-install-hummingbot_2).
 
 #### Step 2: Install Hummingbot
 
