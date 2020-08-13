@@ -56,7 +56,7 @@ paper_trade_account_balance:
 
 Paper trade assets can be added in two ways:
 
-1. Run `balance paper [asset] [amount]`. See more information in [balance](./balance/#balance-paper-asset-amount) command.
+1. Run `balance paper [asset] [amount]`. See more information in [balance](/operation/commands/balance/#balance-paper-asset-amount) command.
 2. Edit `conf_global.yml` in the `/conf` or `hummingbot_conf` folder using a text editor. **Strictly follow the same format above**.
 
 !!! note
