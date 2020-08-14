@@ -54,7 +54,7 @@ Let's see how this configuration works in the scenario below:
 
 ![](/assets/img/hanging_order2.png)
 
-When the buy order was completely filled, it will not cancel the sell order. After 60 seconds, Hummingbot will create a new set of buy and sell orders. The `status` output will show all active orders while indicating which orders are hanging.
+When the sell order was completely filled, it will not cancel the buy order. After 60 seconds, Hummingbot will create a new set of buy and sell orders. The `status` output will show all active orders while indicating which orders are hanging.
 
 ![](/assets/img/hanging_order3.png)
 
