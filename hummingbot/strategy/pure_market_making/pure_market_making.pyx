@@ -122,7 +122,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._bid_order_optimization_depth = bid_order_optimization_depth
         self._add_transaction_costs_to_orders = add_transaction_costs_to_orders
         self._asset_price_delegate = asset_price_delegate
-        self._price_type = self.get_price_type(price_type_str=price_type)
+        self._price_type = self.get_price_type(price_type)
         self._take_if_crossed = take_if_crossed
         self._price_ceiling = price_ceiling
         self._price_floor = price_floor
@@ -330,7 +330,11 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         return self._market_info.trading_pair
 
     def get_price(self) -> float:
-        return self._market_info.get_price_by_type(price_type=self._price_type)
+        if self._asset_price_delegate is not None:
+            price = self._asset_price_delegate.get_price_by_type(price_type=self._price_type)
+        else:
+            price = self._market_info.get_price_by_type(price_type=self._price_type)
+        return price
 
     def get_last_price(self) -> float:
         return self._market_info.get_last_price()
