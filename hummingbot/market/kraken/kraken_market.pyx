@@ -14,6 +14,7 @@ from typing import (
     Optional,
     Tuple,
 )
+from hummingbot.core.utils.asyncio_throttle import Throttler
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -141,6 +142,7 @@ cdef class KrakenMarket(MarketBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
+        self._throttler = Throttler(rate_limit = (10.0, 1.0))
         self._last_pull_timestamp = 0
         self._shared_client = None
         self._asset_pairs = {}
@@ -748,55 +750,57 @@ cdef class KrakenMarket(MarketBase):
                            path_url: str,
                            params: Optional[Dict[str, Any]] = None,
                            data: Optional[Dict[str, Any]] = None,
-                           is_auth_required: bool = False) -> Dict[str, Any]:
-        url = KRAKEN_ROOT_API + path_url
+                           is_auth_required: bool = False,
+                           request_weight: int = 1) -> Dict[str, Any]:
+        async with self._throttler.weighted_task(request_weight=request_weight):
+            url = KRAKEN_ROOT_API + path_url
 
-        client = await self._http_client()
+            client = await self._http_client()
 
-        headers = {}
-        data_dict = data if data is not None else {}
+            headers = {}
+            data_dict = data if data is not None else {}
 
-        if is_auth_required:
-            auth_dict: Dict[str, Any] = self._kraken_auth.generate_auth_dict(path_url, data=data)
-            headers.update(auth_dict["headers"])
-            data_dict = auth_dict["postDict"]
+            if is_auth_required:
+                auth_dict: Dict[str, Any] = self._kraken_auth.generate_auth_dict(path_url, data=data)
+                headers.update(auth_dict["headers"])
+                data_dict = auth_dict["postDict"]
 
-        response_coro = client.request(
-            method=method.upper(),
-            url=url,
-            headers=headers,
-            params=params,
-            data=data_dict,
-            timeout=100
-        )
+            response_coro = client.request(
+                method=method.upper(),
+                url=url,
+                headers=headers,
+                params=params,
+                data=data_dict,
+                timeout=100
+            )
 
-        async with response_coro as response:
-            if response.status != 200:
-                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
-            try:
-                response_json = await response.json()
-            except Exception:
-                raise IOError(f"Error parsing data from {url}.")
+            async with response_coro as response:
+                if response.status != 200:
+                    raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
+                try:
+                    response_json = await response.json()
+                except Exception:
+                    raise IOError(f"Error parsing data from {url}.")
 
-            try:
-                err = response_json["error"]
-                if "EOrder:Unknown order" in err or "EOrder:Invalid order" in err:
-                    return {"error": err}
-                elif "EAPI:Invalid nonce" in err:
-                    self.logger().error(f"Invalid nonce error from {url}. " +
-                                        "Please ensure your Kraken API key nonce window is at least 10, " +
-                                        "and if needed reset your API key.")
+                try:
+                    err = response_json["error"]
+                    if "EOrder:Unknown order" in err or "EOrder:Invalid order" in err:
+                        return {"error": err}
+                    elif "EAPI:Invalid nonce" in err:
+                        self.logger().error(f"Invalid nonce error from {url}. " +
+                                            "Please ensure your Kraken API key nonce window is at least 10, " +
+                                            "and if needed reset your API key.")
+                        raise IOError({"error": response_json})
+                except IOError:
+                    raise
+                except Exception:
+                    pass
+
+                data = response_json.get("result")
+                if data is None:
+                    self.logger().error(f"Error received from {url}. Response is {response_json}.")
                     raise IOError({"error": response_json})
-            except IOError:
-                raise
-            except Exception:
-                pass
-
-            data = response_json.get("result")
-            if data is None:
-                self.logger().error(f"Error received from {url}. Response is {response_json}.")
-                raise IOError({"error": response_json})
-            return data
+                return data
 
     async def get_order(self, client_order_id: str) -> Dict[str, Any]:
         o = self._in_flight_orders.get(client_order_id)
