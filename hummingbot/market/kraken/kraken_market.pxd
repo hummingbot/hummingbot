@@ -28,6 +28,7 @@ cdef class KrakenMarket(MarketBase):
         object _shared_client
         dict _asset_pairs
         int32_t _last_userref
+        object _throttler
 
     cdef c_did_timeout_tx(self, str tracking_id)
     cdef c_start_tracking_order(self,
