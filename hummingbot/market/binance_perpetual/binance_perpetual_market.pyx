@@ -4,6 +4,8 @@ from enum import Enum
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
+from hummingbot.market.binance_perpetual.position import Position
+
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.estimate_fee import estimate_fee
 
@@ -44,7 +46,7 @@ from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
     OrderFilledEvent,
-    SellOrderCompletedEvent)
+    SellOrderCompletedEvent, PositionSide, PositionMode)
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.asyncio_throttle import Throttler
@@ -133,6 +135,9 @@ cdef class BinancePerpetualMarket(MarketBase):
         self._last_poll_timestamp = 0
         self._throttler = Throttler((10.0, 1.0))
 
+        # TODO: Add this to MarketBase (Perhaps create abstraction of MarketBase called DerivitivesMarketBase)
+        self._account_positions = {}
+
     @property
     def name(self) -> str:
         return "binance_perpetuals"
@@ -172,7 +177,6 @@ cdef class BinancePerpetualMarket(MarketBase):
         # self._async_scheduler.stop()
 
     async def start_network(self):
-        print("WESLEY TESTING --- BINANCE NETWORK STARTED")
         self._order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         self._status_polling_task = safe_ensure_future(self._status_polling_loop())
@@ -226,7 +230,6 @@ cdef class BinancePerpetualMarket(MarketBase):
                       "side": "BUY" if trade_type is TradeType.BUY else "SELL",
                       "type": order_type.name.upper(),
                       "quantity": f"{amount}",
-                      "timestamp": f"{int(time.time()) * 1000}",
                       "newClientOrderId": order_id
                       }
         if order_type != OrderType.MARKET:
@@ -240,6 +243,7 @@ cdef class BinancePerpetualMarket(MarketBase):
             order_result = await self.request(path="/fapi/v1/order",
                                               params=api_params,
                                               method=MethodType.POST,
+                                              add_timestamp = True,
                                               is_signed=True)
             event_tag = self.MARKET_BUY_ORDER_CREATED_EVENT_TAG if trade_type is TradeType.BUY \
                 else self.MARKET_SELL_ORDER_CREATED_EVENT_TAG
@@ -330,17 +334,16 @@ cdef class BinancePerpetualMarket(MarketBase):
     async def cancel_all_account_orders(self, str trading_pair):
         try:
             params = {
-                "timestamp": f"{int(time.time()) * 1000}",
                 "symbol": trading_pair
             }
             response = await self.request(
                 path="/fapi/v1/allOpenOrders",
                 params=params,
                 method=MethodType.DELETE,
+                add_timestamp=True,
                 is_signed=True
             )
             if response.get("code") == 200:
-                print("CANCELLING ALL ORDERS")
                 for order_id in list(self._in_flight_orders.keys()):
                     self.c_stop_tracking_order(order_id)
             else:
@@ -357,14 +360,14 @@ cdef class BinancePerpetualMarket(MarketBase):
         try:
             params = {
                 "origClientOrderId": client_order_id,
-                "symbol": trading_pair,
-                "timestamp": f"{int(time.time()) * 1000}"
+                "symbol": trading_pair
             }
             response = await self.request(
                 path="/fapi/v1/order",
                 params=params,
                 method=MethodType.DELETE,
                 is_signed=True,
+                add_timestamp = True,
                 return_err=True
             )
             if response.get("code") == -2011 or "Unknown order sent" in response.get("msg", ""):
@@ -385,6 +388,10 @@ cdef class BinancePerpetualMarket(MarketBase):
             self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                  OrderCancelledEvent(self._current_timestamp, client_order_id))
         return response
+
+    # TODO: Implement
+    async def close_position(self, trading_pair: str):
+        pass
 
     cdef object c_quantize_order_amount(self, str trading_pair, object amount, object price=Decimal(0)):
         cdef:
@@ -526,9 +533,11 @@ cdef class BinancePerpetualMarket(MarketBase):
                                                              tracked_order.order_type
                                                          ))
                         self.c_stop_tracking_order(tracked_order.client_order_id)
+                        await self._update_positions()
                 elif event_type == "ACCOUNT_UPDATE":
                     self.logger().info("Account updates pushed to client.")
                     await self._update_balances()
+                    await self._update_positions()
                 elif event_type == "MARGIN_CALL":
                     positions = event_message.get("p")
                     total_maint_margin_required = 0
@@ -566,7 +575,6 @@ cdef class BinancePerpetualMarket(MarketBase):
         cdef:
             int64_t last_tick = <int64_t> (self._last_timestamp / 60.0)
             int64_t current_tick = <int64_t> (self._current_timestamp / 60.0)
-        print("WESLEY TESTING --- UPDATING TRADE RULES")
         if current_tick > last_tick or len(self._trading_rules) < 1:
             exchange_info = await self.request(path="/fapi/v1/exchangeInfo", method=MethodType.GET, is_signed=False)
             trading_rules_list = self._format_trading_rules(exchange_info)
@@ -629,6 +637,7 @@ cdef class BinancePerpetualMarket(MarketBase):
                 await self._poll_notifier.wait()
                 await safe_gather(
                     self._update_balances(),
+                    self._update_positions(),
                     self._update_order_fills_from_trades(),
                     self._update_order_status
                 )
@@ -649,11 +658,7 @@ cdef class BinancePerpetualMarket(MarketBase):
             set local_asset_names = set(self._account_balances.keys())
             set remote_asset_names = set()
             set asset_names_to_remove
-        print("WESLEY TESTING --- UPDATING BALANCES")
-        # TODO: Implement - Current Positions (and pnl)
-
-        params = {"timestamp": f"{int(time.time()) * 1000}"}
-        account_info = await self.request(path="/fapi/v2/account", is_signed=True, params=params)
+        account_info = await self.request(path="/fapi/v2/account", is_signed=True, add_timestamp=True)
         assets = account_info.get("assets")
         for asset in assets:
             asset_name = asset.get("asset")
@@ -668,12 +673,37 @@ cdef class BinancePerpetualMarket(MarketBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
+    # TODO: Note --- Data Structure Assumes One-way Position Mode [not hedge position mode] (see Binance Futures Docs)
+    # Note --- Hedge Mode allows for Both Long and Short Positions on a trading pair
+    async def _update_positions(self):
+        cdef:
+            list positions
+            set local_position_names = set(self._account_positions.keys())
+            set remote_position_names = set()
+            set position_names_to_remove
+        positions = await self.request(path="/fapi/v2/positionRisk", add_timestamp=True, is_signed=True)
+        for position in positions:
+            trading_pair = position.get("symbol")
+            position_side = PositionSide[position.get("positionSide")]
+            unrealized_pnl = Decimal(position.get("unRealizedProfit"))
+            entry_price = Decimal(position.get("entryPrice"))
+            amount = Decimal(position.get("positionAmt"))
+            leverage = Decimal(position.get("leverage"))
+            if amount > 0:
+                self._account_positions[trading_pair] = Position(
+                    trading_pair=trading_pair,
+                    position_side=position_side,
+                    unrealized_pnl=unrealized_pnl,
+                    entry_price=entry_price,
+                    amount=amount,
+                    leverage=leverage
+                )
+
     async def _update_order_fills_from_trades(self):
         cdef:
             int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
             int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
-            print("WESLEY TESTING --- UPDATING ORDER FILLS (FROM TRADES)")
             trading_pairs_to_order_map = defaultdict(lambda: {})
             for order in self._in_flight_orders.values():
                 trading_pairs_to_order_map[order.trading_pair][order.exchange_order_id] = order
@@ -682,9 +712,9 @@ cdef class BinancePerpetualMarket(MarketBase):
                 self.request(
                     path="/fapi/v1/userTrades",
                     params={
-                        "timestamp": f"{int(time.time()) * 1000}",
                         "symbol": trading_pair
-                    }
+                    },
+                    add_timestamp=True
                 ) for trading_pair in trading_pairs]
             self.logger().debug(f"Polling for order fills of {len(tasks)} trading_pairs.")
             results = await safe_gather(*tasks, return_exceptions=True)
@@ -729,15 +759,14 @@ cdef class BinancePerpetualMarket(MarketBase):
             int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
             int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
-            print("WESLEY TESTING --- UPDATING ORDER STATUS")
             tracked_orders = list(self._in_flight_orders)
             tasks = [self.request(path="/fapi/v1/order",
                                   params={
                                       "symbol": order.trading_pair,
-                                      "origClientOrderId": order.client_order_id,
-                                      "timestamp": f"{int(time.time()) * 1000}"
+                                      "origClientOrderId": order.client_order_id
                                   },
                                   method=MethodType.GET,
+                                  add_timestamp=True,
                                   is_signed=True)
                      for order in tracked_orders]
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
@@ -829,13 +858,39 @@ cdef class BinancePerpetualMarket(MarketBase):
     #                                                   f"Check network connection.")
     #             raise
 
-    # TODO: IMPLEMENT WITH A 1X MARGIN INITIALLY (KEEPS ASSET MANAGEMENT EASIER)
-    async def set_margin(self, margin: int):
-        pass
+    async def set_margin(self, trading_pair: str, leverage: int = 1):
+        params = {
+            "symbol": trading_pair,
+            "leverage": leverage
+        }
+        return await self.request(
+            path="/fapi/v1/leverage",
+            params=params,
+            method=MethodType.POST,
+            add_timestamp=True,
+            is_signed=True
+        )
 
-    # TODO: IMPLEMENT (ADDITIONAL) --> Return order PnL
-    async def get_order_pnl(self, client_order_id: str):
-        pass
+    async def get_position_pnl(self, trading_pair: str):
+        await self._update_positions()
+        return self._account_positions.get(trading_pair)
+
+    async def get_funding_rate(self, trading_pair):
+        # TODO: Note --- the "premiumIndex" endpoint can get markPrice, indexPrice, and nextFundingTime as well
+        prem_index = await self.request("/fapi/v1/premiumIndex", params={"symbol": trading_pair})
+        return Decimal(prem_index.get("lastFundingRate"), "NaN")
+
+    async def set_hedge_mode(self, position_mode: PositionMode):
+        params = {
+            "dualSidePosition": position_mode.value
+        }
+        await self.request(
+            path="/fapi/v1/positionSide/dual",
+            params=params,
+            method=MethodType.POST,
+            add_timestamp=True,
+            is_signed=True
+        )
 
     # Helper Functions ---
     @staticmethod
@@ -858,11 +913,13 @@ cdef class BinancePerpetualMarket(MarketBase):
         return hb_trading_pair.replace("-", "")
 
     async def request(self, path: str, params: Dict[str, Any] = {}, method: MethodType = MethodType.GET,
-                      is_signed: bool = False, request_weight: int = 1, return_err: bool = False):
+                      add_timestamp: bool = False, is_signed: bool = False, request_weight: int = 1, return_err: bool = False):
         async with self._throttler.weighted_task(request_weight):
             try:
                 # TODO: QUESTION --- SHOULD I ADD AN ASYNC TIMEOUT? (aync with timeout(API_CALL_TIMEOUT)
                 async with aiohttp.ClientSession() as client:
+                    if add_timestamp:
+                        params["timestamp"] = f"{int(time.time()) * 1000}"
                     query = urlencode(sorted(params.items()))
                     if is_signed:
                         secret = bytes(self._api_secret.encode("utf-8"))
@@ -874,12 +931,11 @@ cdef class BinancePerpetualMarket(MarketBase):
                             headers={"X-MBX-APIKEY": self._api_key}) as response:
                         if response.status != 200:
                             error_response = await response.json()
-                            print(f"WESLEY TESTING --- Request Error: {error_response}")
-                            self.logger().error(f"WESLEY TESTING --- Request Error: {error_response}")
                             if return_err:
                                 return error_response
                             else:
-                                raise IOError(f"Error fetching data from {path}. HTTP status is {response.status}.")
+                                raise IOError(f"Error fetching data from {path}. HTTP status is {response.status}. "
+                                              f"Request Error: {error_response}")
                         return await response.json()
             except Exception as e:
                 self.logger().warning(f"Error fetching {path}")

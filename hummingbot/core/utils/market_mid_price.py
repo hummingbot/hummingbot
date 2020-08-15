@@ -49,14 +49,10 @@ def binance_mid_price(trading_pair: str) -> Optional[Decimal]:
 
 @cachetools.func.ttl_cache(ttl=10)
 def binance_perpetuals_mid_price(trading_pair: str) -> Optional[Decimal]:
-    resp = requests.get(url=BINANCE_PERPETUAL_PRICE_URL)
-    records = resp.json()
-    result = None
-    for record in records:
-        pair = BinancePerpetualMarket.convert_from_exchange_trading_pair(record.get("symbol"))
-        if trading_pair == pair and record.get("bidPrice") is not None and record.get("askPrice") is not None:
-            result = (Decimal(record["bidPrice"]) + Decimal(record["askPrice"])) / Decimal("2")
-            break
+    exchange_format_trading_pair = BinancePerpetualMarket.convert_to_exchange_trading_pair(trading_pair)
+    resp = requests.get(url=f"{BINANCE_PERPETUAL_PRICE_URL}?symbol={exchange_format_trading_pair}")
+    record = resp.json()
+    result = (Decimal(record["bidPrice"]) + Decimal(record["askPrice"])) / Decimal("2")
     return result
 
 
