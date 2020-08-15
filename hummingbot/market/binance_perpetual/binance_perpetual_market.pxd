@@ -23,6 +23,7 @@ cdef class BinancePerpetualMarket(MarketBase):
         object _async_scheduler
         object _set_server_time_offset_task
         object _throttler
+        object _account_positions
 
     cdef c_did_timout_tx(self, str tracking_id)
     cdef c_start_tracking_order(self,

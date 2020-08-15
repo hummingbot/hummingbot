@@ -20,7 +20,7 @@ cdef class BinancePerpetualOrderBook(OrderBook):
                                        metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
-        return OrderBookMessage(OrderBookMessageType.DIFF, {
+        return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": msg["trading_pair"],
             "update_id": msg["lastUpdateId"],
             "bids": msg["bids"],
@@ -33,7 +33,7 @@ cdef class BinancePerpetualOrderBook(OrderBook):
         data = msg["data"]
         if metadata:
             data.update(metadata)
-        return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
+        return OrderBookMessage(OrderBookMessageType.DIFF, {
             "trading_pair": data["s"],
             "update_id": data["u"],
             "bids": data["b"],

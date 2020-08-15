@@ -93,13 +93,14 @@ class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 active_markets: pd.DataFrame = await self.get_active_exchange_markets()
                 self._trading_pairs = active_markets.index.tolist()
-            except Exception:
+            except Exception as e:
                 self._trading_pairs = []
                 self.logger().network(
                     "Error getting active exchange information.",
                     exc_info=True,
                     app_warning_msg="Error getting active exchange information. Check network connection."
                 )
+                raise e
         return self._trading_pairs
 
     @staticmethod
@@ -131,8 +132,8 @@ class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
                     return_val[trading_pair] = OrderBookTrackerEntry(trading_pair, snapshot_timestamp, order_book)
                     self.logger().info(f"Initialized order book for {trading_pair}. ")
                     await asyncio.sleep(1)
-                except Exception:
-                    self.logger().error(f"Error getting snapshot for {trading_pair}. ", exc_info=True)
+                except Exception as e:
+                    self.logger().error(f"Error getting snapshot for {trading_pair}: {e}", exc_info=True)
                     await asyncio.sleep(5)
             return return_val
 

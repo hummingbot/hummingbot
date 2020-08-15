@@ -263,7 +263,6 @@ class HummingbotApplication(*commands):
                 )
 
             elif market_name == "binance_perpetuals":
-                print("WESLEY TESTING --- INITIALIZING MARKET (HUMMINGBOT APPLICATION)")
                 binance_perpetuals_api_key = global_config_map.get("binance_perpetuals_api_key").value
                 binance_perpetuals_api_secret = global_config_map.get("binance_perpetuals_api_secret").value
                 market = BinancePerpetualMarket(
