@@ -25,7 +25,14 @@ Liquidity mining sets forth an analytical framework for determining market maker
 
 ## Current campaign terms
 !!! note
-    Currently, only orders that have been outstanding for less than 30 minutes are eligible to earn rewards.  This imposed limit is due to errors created by longer-duration orders.  Work on removing this limit is in progress, read more [here](https://www.reddit.com/r/Hummingbot/comments/hz5xv3/tracking_rewards_for_orders_longer_than_30m/)
+    Orders that have been outstanding for more than 30 minutes may not be counted for rewards. Work on removing this limit is in progress, you can read more about it in our [Reddit post](https://www.reddit.com/r/Hummingbot/comments/hz5xv3/tracking_rewards_for_orders_longer_than_30m/).
+    
+    !!! tip
+        To ensure that orders do not stay outstanding for longer than 30 minutes, Hummingbot users should disable [order refresh tolerance](https://docs.hummingbot.io/strategies/advanced-mm/order-refresh-tolerance/#how-it-works).
+
+!!! note
+    Due to the recent surge in Ethereum gas price, Hummingbot will impose a $10.00 minimum on the weekly payout, starting with the next scheduled payout on August 21, 2020 (UTC). For miners who earned < $10 within one week, their rewards will be accrued and rolled over to the next period, read more [here](https://www.reddit.com/r/Hummingbot/comments/i9rh5g/announcement_a_10_minimum_to_liquidity_mining/).
+
 !!! warning "Terms subject to change"
     Please check this page or the [Miner's app](https://miners.hummingbot.io) for the most up-to-date terms.<br/>We will notify participants of changes, if any, on our [Discord](https://discord.hummingbot.io) and [reddit](https://www.reddit.com/r/Hummingbot/).
 
