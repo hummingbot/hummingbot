@@ -29,11 +29,6 @@ Liquidity mining sets forth an analytical framework for determining market maker
 !!! warning "Terms subject to change"
     Please check this page or the [Miner's app](https://miners.hummingbot.io) for the most up-to-date terms.<br/>We will notify participants of changes, if any, on our [Discord](https://discord.hummingbot.io) and [reddit](https://www.reddit.com/r/Hummingbot/).
 
-!!! note "Campaign updates for the week starting August 4, 2020 12.00am UTC"
-    SOL liquidity mining campaign will be paused. After we add other exchanges where SOL trades, we and Solana will revisit liquidity incentives for SOL.
-
-    You can read more about it on this [Reddit post](https://www.reddit.com/r/Hummingbot/comments/i32roh/sol_liquidity_mining_campaign_paused/).   
-
 !!! note "Campaign updates for the week starting August 10, 2020 12.00am UTC"
     NULS completed its campaign and will continue to evaluate future collaboration with Hummingbot.
     
