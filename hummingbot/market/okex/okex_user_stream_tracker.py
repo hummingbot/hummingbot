@@ -3,7 +3,8 @@
 import asyncio
 import logging
 from typing import (
-    Optional
+    Optional,
+    List
 )
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
@@ -30,12 +31,15 @@ class OKExUserStreamTracker(UserStreamTracker):
 
     def __init__(self,
                  data_source_type: UserStreamTrackerDataSourceType = UserStreamTrackerDataSourceType.EXCHANGE_API,
-                 okex_auth: Optional[OKExAuth] = None):
+                 okex_auth: Optional[OKExAuth] = None,
+                 trading_pairs: Optional[List[str]] = [],
+):
         super().__init__(data_source_type=data_source_type)
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[UserStreamTrackerDataSource] = None
         self._user_stream_tracking_task: Optional[asyncio.Task] = None
         self._okex_auth: OKExAuth = okex_auth
+        self._trading_pairs: List[str] = trading_pairs
 
     @property
     def data_source(self) -> UserStreamTrackerDataSource:

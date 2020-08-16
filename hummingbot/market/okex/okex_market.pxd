@@ -10,7 +10,7 @@ cdef class OKExMarket(MarketBase):
         object _async_scheduler
         object _data_source_type
         object _ev_loop
-        object _okex_auth
+        object _okex_auth # TODO
         dict _in_flight_orders
         double _last_poll_timestamp
         double _last_timestamp
@@ -19,7 +19,10 @@ cdef class OKExMarket(MarketBase):
         object _shared_client
         public object _status_polling_task
         dict _trading_rules
+        object _user_stream_tracker
         public object _trading_rules_polling_task
+        public object _user_stream_event_listener_task
+        public object _user_stream_tracker_task
         TransactionTracker _tx_tracker
 
     cdef c_did_timeout_tx(self, str tracking_id)
