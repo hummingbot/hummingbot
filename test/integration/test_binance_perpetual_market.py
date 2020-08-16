@@ -49,8 +49,8 @@ class BinancePerpetualMarketUnitTest(unittest.TestCase):
         cls._ev_loop = asyncio.get_event_loop()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: BinancePerpetualMarket = BinancePerpetualMarket(
-            binance_api_key=Keys.get_binance_futures_api_key(),
-            binance_api_secret=Keys.get_binance_futures_api_secret(),
+            api_key=Keys.get_binance_futures_api_key(),
+            api_secret=Keys.get_binance_futures_api_secret(),
             order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
             trading_pairs=["ETHUSDT"]
