@@ -19,7 +19,7 @@ from hummingbot.market.okex.okex_api_user_stream_data_source import OKExAPIUserS
 from hummingbot.market.okex.okex_auth import OKExAuth
 
 
-class BinanceUserStreamTracker(UserStreamTracker):
+class OKExUserStreamTracker(UserStreamTracker):
     _bust_logger: Optional[HummingbotLogger] = None
 
     @classmethod
