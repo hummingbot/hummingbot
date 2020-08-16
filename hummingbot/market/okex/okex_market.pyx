@@ -72,17 +72,17 @@ TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(usdt|husd|btc|eth|ht|trx)$")
 HUOBI_ROOT_API = "https://www.okex.com/api/"
 
 
-class HuobiAPIError(IOError):
+class OKExAPIError(IOError):
     def __init__(self, error_payload: Dict[str, Any]):
         super().__init__(str(error_payload))
         self.error_payload = error_payload
 
 
-cdef class HuobiMarketTransactionTracker(TransactionTracker):
+cdef class OKExMarketTransactionTracker(TransactionTracker):
     cdef:
-        HuobiMarket _owner
+        OKExMarket _owner
 
-    def __init__(self, owner: HuobiMarket):
+    def __init__(self, owner: OKExMarket):
         super().__init__()
         self._owner = owner
 
@@ -91,7 +91,7 @@ cdef class HuobiMarketTransactionTracker(TransactionTracker):
         self._owner.c_did_timeout_tx(tx_id)
 
 
-cdef class HuobiMarket(MarketBase):
+cdef class OKExMarket(MarketBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
@@ -127,7 +127,6 @@ cdef class HuobiMarket(MarketBase):
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._data_source_type = order_book_tracker_data_source_type
         self._ev_loop = asyncio.get_event_loop()
-        (self, api_key: str, secret_key: str, passphrase: str)
         self._okex_auth = OKExAuth(api_key=OKEx_api_key, secret_key=okex_secret_key, passphrase=okex_passphrase)
         self._in_flight_orders = {}
         self._last_poll_timestamp = 0
@@ -143,7 +142,7 @@ cdef class HuobiMarket(MarketBase):
         self._trading_required = trading_required
         self._trading_rules = {}
         self._trading_rules_polling_task = None
-        self._tx_tracker = HuobiMarketTransactionTracker(self)
+        self._tx_tracker = OKExMarketTransactionTracker(self)
 
     @staticmethod
     def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
@@ -156,10 +155,10 @@ cdef class HuobiMarket(MarketBase):
 
     @staticmethod
     def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
-        if HuobiMarket.split_trading_pair(exchange_trading_pair) is None:
+        if OKExMarket.split_trading_pair(exchange_trading_pair) is None:
             return None
         # Huobi uses lowercase (btcusdt)
-        base_asset, quote_asset = HuobiMarket.split_trading_pair(exchange_trading_pair)
+        base_asset, quote_asset = OKExMarket.split_trading_pair(exchange_trading_pair)
         return f"{base_asset.upper()}-{quote_asset.upper()}"
 
     @staticmethod
@@ -169,7 +168,7 @@ cdef class HuobiMarket(MarketBase):
 
     @property
     def name(self) -> str:
-        return "huobi"
+        return "okex"
 
     @property
     def order_book_tracker(self) -> HuobiOrderBookTracker:
@@ -319,7 +318,7 @@ cdef class HuobiMarket(MarketBase):
             data = parsed_response.get("data")
             if data is None:
                 self.logger().error(f"Error received from {url}. Response is {parsed_response}.")
-                raise HuobiAPIError({"error": parsed_response})
+                raise OKExAPIError({"error": parsed_response})
             return data
 
     async def _update_account_id(self) -> str:
@@ -451,7 +450,7 @@ cdef class HuobiMarket(MarketBase):
                 exchange_order_id = await tracked_order.get_exchange_order_id()
                 try:
                     order_update = await self.get_order_status(exchange_order_id)
-                except HuobiAPIError as e:
+                except OKExAPIError as e:
                     err_code = e.error_payload.get("error").get("err-code")
                     self.c_stop_tracking_order(tracked_order.client_order_id)
                     self.logger().info(f"The limit order {tracked_order.client_order_id} "
@@ -792,7 +791,7 @@ cdef class HuobiMarket(MarketBase):
             path_url = f"order/orders/{tracked_order.exchange_order_id}/submitcancel"
             response = await self._api_request("post", path_url=path_url, is_auth_required=True)
 
-        except HuobiAPIError as e:
+        except OKExAPIError as e:
             order_state = e.error_payload.get("error").get("order-state")
             if order_state == 7:
                 # order-state is canceled
