@@ -42,7 +42,7 @@ cdef class BittrexInFlightOrder(InFlightOrderBase):
 
     @property
     def order_type_description(self) -> str:
-        order_type = "market" if self.order_type is OrderType.MARKET else "limit"
+        order_type = "limit" if self.order_type is OrderType.LIMIT else "limit_maker"
         side = "buy" if self.trade_type is TradeType.BUY else "sell"
         return f"{order_type} {side}"
 
