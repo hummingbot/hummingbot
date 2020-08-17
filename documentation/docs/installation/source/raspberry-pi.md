@@ -4,7 +4,7 @@ Running Hummingbot on a Raspberry Pi has the same main benefit of running it on 
 
 ![](/assets/img/rpi-hummingbot.jpg)
 
-Read through our full blog post about [Deploying Hummingbot on a Raspberrry Pi](https://hummingbot.io/blog/2020-07-deploying-hummingbot-on-a-raspberry-pi/).
+Read through our full blog post about [Deploying Hummingbot on a Raspberry Pi](https://hummingbot.io/blog/2020-07-deploying-hummingbot-on-a-raspberry-pi/).
 
 The only way to currently install Hummingbot on a Raspberry Pi is by downloading the source files from GitHub and compiling and running from source. This adds a few more steps than downloading binaries or running from Docker, but below we have provided a step-by-step guide to walk you through the process.
 

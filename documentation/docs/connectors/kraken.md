@@ -36,8 +36,18 @@ Take note that for your API keys to work with Hummingbot, **set the Nonce Window
 !!! warning "API key permissions"
     We recommend using only **"trade"** enabled API keys; enabling **"withdraw", "transfer", or the equivalent** is unnecessary for current Hummingbot strategies.
 
-Shows nonce reminder when adding API keys to Kraken
+Shows nonce reminder when adding API keys to Kraken.
+
 ![](/assets/img/kraken_nonce.png)
+
+Also note that your account must have funds to avoid getting this error when trying to connect your Kraken API on Hummingbot.
+
+```
+Failed connections:                                                                                      |
+    kraken: {'error': {'error': []}}
+
+10:12:24 - kraken_market - Error received from https://api.kraken.com/0/private/Balance. Response is {'error': []}.
+```
 
 ### Asset Codes
 

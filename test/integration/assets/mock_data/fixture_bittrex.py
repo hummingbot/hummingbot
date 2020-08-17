@@ -1,5 +1,4 @@
 class FixtureBittrex:
-    # General Exchange Info
     PING = {"serverTime": 1582535502000}
 
     MARKETS = [
