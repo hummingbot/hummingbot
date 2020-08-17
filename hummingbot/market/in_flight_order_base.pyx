@@ -5,7 +5,6 @@ from typing import (
     Dict,
     Optional
 )
-import copy
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.market.market_base import MarketBase
 from hummingbot.core.event.events import (
@@ -117,19 +116,3 @@ cdef class InFlightOrderBase:
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
         raise NotImplementedError
-
-    # def __copy__(self):
-    #     new_one = type(self)(self.market_class,
-    #                                 self.client_order_id,
-    #                                 self.exchange_order_id,
-    #                                 self.trading_pair,
-    #                                 self.order_type,
-    #                                 self.trade_type,
-    #                                 self.price,
-    #                                 self.amount,
-    #                                 self.last_state)
-    #     self.executed_amount_base = self.executed_amount_base
-    #     self.executed_amount_quote = self.executed_amount_quote
-    #     self.fee_asset = self.fee_asset
-    #     self.fee_paid = self.fee_paid
-    #     return new_one

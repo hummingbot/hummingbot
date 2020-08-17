@@ -356,8 +356,6 @@ class LiquidMarketUnitTest(unittest.TestCase):
                              for event in self.market_logger.event_log]))
 
     def test_limit_maker_rejections(self):
-        if API_MOCK_ENABLED:
-            return
         trading_pair = "CEL-ETH"
 
         # Try to put a buy limit maker order that is going to match, this should triggers order failure event.
@@ -381,8 +379,6 @@ class LiquidMarketUnitTest(unittest.TestCase):
         self.assertEqual(order_id, order_failure_event.order_id)
 
     def test_limit_makers_unfilled(self):
-        if API_MOCK_ENABLED:
-            return
         trading_pair = "CEL-ETH"
         bid_price: Decimal = self.market.get_price(trading_pair, True)
         ask_price: Decimal = self.market.get_price(trading_pair, False)
