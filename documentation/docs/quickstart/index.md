@@ -10,13 +10,18 @@
 
 ## Overview
 
-This guide shows you how to install Hummingbot and start running a market making bot (paper trade) in approximately 10 minutes. You'll learn how to:
+There are two phases of this quickstart, Hummingbot Quickstart and Liquidity Mining Quickstart. See following flowchart:
 
-* Install the open source Hummingbot client (~3 minutes)
-* Configure a market making bot (~5 minutes)
-* Run the bot in paper trading mode (~2 minutes)
+![Liquidity Mining Quickstart Flowchart](/assets/img/LiquidityMiningQuickstartFlowchart.png)
 
-<b>Important:</b> Once you are satisfied that the bot is running properly and you want to proceed with liquidity mining (go live). Ensure your [Miner App](https://miners.hummingbot.io/) is setup with the exchange APIs.
+This quickstart guide shows you how to install Hummingbot and start running a market making bot (paper trade) in approximately 12 minutes. You'll learn how to:
+
+* Hummingbot Quickstart
+    * Install the open source Hummingbot client (~3 minutes)
+    * Configure a market making bot (~5 minutes)
+    * Run the bot in paper trading mode (~2 minutes)
+* Liquidity Mining Quickstart
+    * Participate in liquidity mining (~2 minutes)
 
 
 <!-- ### Inventory
@@ -43,6 +48,7 @@ If you are installing Hummingbot either locally or on a cloud server, here are t
 Since we'll be running the bot in *paper trading mode*, you don't need any crypto inventory. However, you will need an account with one of our [supported exchanges](/connectors) to create API keys.
 
 Two set of API keys is needed: 
+
 * Trade-enabled keys: needed for Hummingbot during the configration to trade your assets
 * Read-only keys: needed for (Miner app) (https://miners.hummingbot.io/) to setup Liquidity Mining, and track your rewards and bot performance
 

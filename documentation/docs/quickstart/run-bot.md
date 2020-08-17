@@ -77,6 +77,8 @@ When you restart Hummingbot, you can import your saved configuration file, which
 
 🎉🎉🎉 **Congratulations on successfully completing the Hummingbot Quickstart!**
 
+<b>Important:</b> Once you are satisfied that the bot is running properly and you want to proceed with liquidity mining (go live). Ensure you have sign up with [Miner App](https://miners.hummingbot.io/) and setup with the exchange APIs. For next step, go to [Participate](participate.md)
+
 To get the most out of Hummingbot, consult the following resources:
 
 * [Command Reference](/operation/commands/) for quick reference on useful commands

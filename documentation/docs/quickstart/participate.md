@@ -8,9 +8,10 @@
 
 ---
 
-If you have successfully configured a pure market making bot in step 3, and wants to proceed with liquidity mining, you need to sign up [Miner App]((https://miners.hummingbot.io/) and add the read-only exchange keys in order for the Miner App to check if if there are valid open orders that are eligible for rewards.
+If you have successfully configured a pure market making bot in step 3, and wants to proceed with liquidity mining, you need to sign up [Miner App](https://miners.hummingbot.io/) and add the read-only exchange keys in order for the Miner App to check if if there are valid open orders that are eligible for rewards.
 
 <b>Prerequiste:</b> Your Ethereum wallet address. The Hummingbot Miners app uses your Ethereum wallet address to:
+
 * Assign you a unique user ID. The Hummingbot miners app associates your configurations (e.g. email address, API configurations), as well as activity. This allows the miners app to display your user-specific information such as rewards earned and payout history.
 * Send you token payouts: mining rewards payouts will be sent to this address
 
@@ -39,7 +40,3 @@ To do so:
 
 🎉🎉🎉 **Congratulations on successfully completing the Liquidity Mining Quickstart!**
 
-To get the most out of Hummingbot, consult the following resources:
-
-* [Command Reference](/operation/commands/) for quick reference on useful commands
-* [Video Tutorials](https://hummingbot.io/videos/) for tips and tricks in running trading bots
