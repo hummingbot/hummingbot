@@ -34,11 +34,10 @@ The table below details the **required** functions in `OrderBookTrackerDataSourc
 
 Function<div style="width:200px"/> | Input Parameter(s) | Expected Output(s) | Description
 ---|---|---|---
-`get_active_exchange_markets` | None | `pandas.DataFrame` | Performs the necessary API request(s) to get all currently active trading pairs on the exchange and returns a `pandas.DataFrame` with each row representing one active trading pair.<br/><br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: If none of the API requests returns a traded `USDVolume` of a trading pair, you are required to calculate it and include it as a column in the `DataFrame`.<br/><br/>Also the the base and quote currency should be represented under the `baseAsset` and `quoteAsset` columns respectively in the `DataFrame`.<br/><br/> Refer to [Calling a Class method](#calling-a-class-method) for an example on how to test this particular function.</td></tr></tbody></table>
-`get_trading_pairs` | None | `List[str]` | Calls `get_active_exchange_market` to retrieve a list of active trading pairs.<br/><br/>Ensure that all trading pairs are in the right format.
+`get_last_traded_prices` | trading_pairs: List[str] | `Dict[str, float]` | Performs the necessary API request(s) to get last traded price for the given markets (trading_pairs) and return a dictionary of trading_pair and last traded price.
 `get_snapshot` | client: `aiohttp.ClientSession`, trading_pair: `str` | `Dict[str, any]` | Fetches order book snapshot for a particular trading pair from the exchange REST API. <table><tbody><tr><td bgcolor="#ecf3ff">**Note**: Certain exchanges do not add a timestamp/nonce to the snapshot response. In this case, to maintain a real-time order book would require generating a timestamp for every order book snapshot and delta messages received and applying them accordingly.<br/><br/>In [Bittrex](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/bittrex/bittrex_api_order_book_data_source.py), this is performed by invoking the `queryExchangeState` topic on the SignalR WebSocket client.</td></tr></tbody></table>
-`get_tracking_pairs` | None | `Dict[str, OrderBookTrackerEntry]` | Initializes order books and order book trackers for the list of trading pairs. 
-`listen_for_trades` | ev_loop: `asyncio.BaseEventLoop`, output: `asyncio.Queue` | None | Subscribes to the trade channel of the exchange. Adds incoming messages(of filled orders) to the `output` queue, to be processed by 
+`get_new_order_book` | trading_pair: `str` | `OrderBook` | Create a new order book instance and populate its `bids` and `asks` by applying the order_book snapshot to the order book, you might need to involve `ActiveOrderTracker` below. 
+`listen_for_trades` | ev_loop: `asyncio.BaseEventLoop`, output: `asyncio.Queue` | None | Subscribes to the trade channel of the exchange. Adds incoming messages(of filled orders) to the `output` queue, to be processed by `OrderBookTracker` (in `_emit_trade_event_loop`)
 `listen_for_order_book_diffs` | ev_loop: `asyncio.BaseEventLoop`, output: `asyncio.Queue` | None | Fetches or Subscribes to the order book snapshots for each trading pair. Additionally, parses the incoming message into a `OrderBookMessage` and appends it into the `output` Queue.
 `listen_for_order_book_snapshots` | ev_loop: `asyncio.BaseEventLoop`, output: `asyncio.Queue` | None | Fetches or Subscribes to the order book deltas(diffs) for each trading pair. Additionally, parses the incoming message into a `OrderBookMessage` and appends it into the `output` Queue.
 
@@ -72,11 +71,9 @@ The table below details the **required** functions to be implemented in `OrderBo
 
 Function<div style="width:200px"/> | Input Parameter(s) | Expected Output(s) | Description
 ---|---|---|---
-`data_source` | None | `OrderBookTrackerDataSource` | Retrieves the `OrderBookTrackerDataSource` object for this `OrderBookTracker`.
 `exchange_name` | None | `str` | Returns the exchange name.
-`_refresh_tracking_tasks` | None | None | Starts tracking for any new trading pairs, and stop tracking for any inactive trading pairs.<br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: Requires the `get_tracking_pairs()` function from data source to obtain the available pairs on the exchange. </td></tr></tbody></table>
-`_order_book_diff_router` | None | None | Route the real-time order book diff messages to the correct order book.<br/><br/>Each tracked trading pair has their own `_saved_message_queues`, this would subsequently be used by `_track_single_book` to apply the messages onto the respective order book.
-`_order_book_snapshot_router` | None | None | Route the real-time order book snapshot messages to the correct order book.<br/><br/>Each tracked trading pair has their own `_saved_message_queues`, this would subsequently be used by `_track_single_book` to apply the messages onto the respective order book.
+`_order_book_diff_router` | None | None | Route the real-time order book diff messages to the correct order book.<br/><br/>Each trading pair has their own `_saved_message_queues`, this would subsequently be used by `_track_single_book` to apply the messages onto the respective order book.
+`_order_book_snapshot_router` | None | None | Route the real-time order book snapshot messages to the correct order book.<br/><br/>Each trading pair has their own `_saved_message_queues`, this would subsequently be used by `_track_single_book` to apply the messages onto the respective order book.
 `_track_single_book` | None | None | Update an order book with changes from the latest batch of received messages.<br/>Constantly attempts to retrieve the next available message from `_save_message_queues` and applying the message onto the respective order book.<br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: Might require `convert_[snapshot/diff]_message_to_order_book_row` from the `ActiveOrderTracker` to convert the messages into `OrderBookRow` </td></tr></tbody></table>
 `start` | None | None | Start all custom listeners and tasks in the `OrderBookTracker` component. <table><tbody><tr><td bgcolor="#ecf3ff">**Note**: You may be required to call `start` in the base class by using `await super().start()`. This is **optional** as long as there is a task listening for trade messages and emitting the `TradeEvent` as seen in `c_apply_trade` in [`OrderBook`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/data_type/order_book.pyx) </td></tr></tbody></table>
 
@@ -157,7 +154,7 @@ The role of the `Market` class can be broken down into placing and tracking orde
 
 Placing and tracking of orders on the exchange normally requiring a form of authentication tied to every requests to ensure protected access/actions to the assets that users have on the respective exchanges. 
 
-As such, it is would only make sense to have a module dedicated to handling authentication.
+As such, it would only make sense to have a module dedicated to handling authentication.
 
 As briefly mentioned, the `Auth` class is responsible for creating the request parameters and/or data bodies necessary to authenticate an API request.
 
@@ -201,8 +198,8 @@ Variable(s)<div style="width:100px"/>  | Type                | Description
 `order_id`   | `str`               | A generated, client-side order ID that will be used to identify an order by the Hummingbot client.<br/> The `order_id` is generated in the `c_buy` function.
 `symbol`     | `str`               | The trading pair string representing the market on which the order should be placed. i.e. (ZRX-ETH) <br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: Some exchanges have the trading pair symbol in `Quote-Base` format. Hummingbot requires that all trading pairs to be in `Base-Quote` format.</td></tr></tbody></table>
 `amount`     | `Decimal`           | The total value, in base currency, to buy/sell.
-`order_type` | `OrderType`         | OrderType.LIMIT or OrderType.MARKET
-`price`      | `Optional[Decimal]` | If `order_type` is `LIMIT`, it represents the rate at which the `amount` base currency is being bought/sold at.<br/>If `order_type` is `MARKET`, this is **not** used(`price = s_decimal_0`). <br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: `s_decimal_0 = Decimal(0)` </td></tr></tbody></table>
+`order_type` | `OrderType`         | OrderType.LIMIT, OrderType.LIMIT_MAKER or OrderType.MARKET <br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: LIMIT_MAKER should be used as market maker and LIMIT as market taker(using price to cross the orderbook) for exchanges that support LIMIT_MAKER. Otherwise, the the usual MARKET OrderType should be used as market taker and LIMIT as market taker.</td></tr></tbody></table>
+`price`      | `Optional[Decimal]` | If `order_type` is `LIMIT`, it represents the rate at which the `amount` base currency is being bought/sold at.<br/>If `order_type` is `LIMIT_MAKER`, it also represents the rate at which the `amount` base currency is being bought/sold at. However, this `OrderType` is expected to be a **post only** order(i.e should ideally be rejected by the exchange if it'll cross the market)<br/>If `order_type` is `MARKET`, this is **not** used(`price = s_decimal_0`). <br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: `s_decimal_0 = Decimal(0)` </td></tr></tbody></table>
 
 #### Cancelling Orders
 
@@ -251,7 +248,7 @@ The table below details the functions responsible for maintaining the `TradeRule
 
 Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | Description
 ---|---|---|---
-`_trading_rules_polling_loop` | None | None | A background process that periodically polls for trading rule changes. Since trading rules tend not to change as often as account balances and order statuses, this is done less often. THis function is responsible for calling `_update_trading_rules`
+`_trading_rules_polling_loop` | None | None | A background process that periodically polls for trading rule changes. Since trading rules tend not to change as often as account balances and order statuses, this is done less often. This function is responsible for calling `_update_trading_rules`
 `_update_trading_rules` | None | None | Gets the necessary trading rules definitions form the corresponding REST API endpoints. Calls `_format_trading_rules`; that parses and updates the `_trading_rules` variable in the `Market` class.
 `_format_trading_rules` | `List[Any]` | `List[TradingRule]` | Parses the raw JSON response into a list of [`TradingRule`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/trading_rule.pyx). <table><tbody><tr><td bgcolor="#ecf3ff">**Note**: This is important since exchanges might only accept certain precisions and impose a minimum trade size on the order.</td></tr></tbody></table>
 
@@ -285,12 +282,14 @@ Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | D
 `status_dict` | `None` | `Dict[str, bool]` | Returns a dictionary of relevant status checks. This is necessary to tell the Hummingbot client if the market has been initialized.
 `ready` | `None` | `bool` | This function calls `status_dict` and returns a boolean value that indicates if the market has been initialized and is ready for trading. 
 `limit_orders` | `None` | `List[LimitOrder]` | Returns a list of active limit orders being tracked.
+`in_flight_orders` | `None` | `Dict[str, InFlightOrderBase]` | Returns a dictionary of all in flight orders. 
 `tracking_states` | `None` | `Dict[str, any]` | Returns a mapping of tracked client order IDs to the respective `InFlightOrder`. Used by the `MarketsRecorder` class to orchestrate market classes at a high level.
 `restore_tracking_states` | `None` | `None` | Updates InFlight order statuses from API results. This is used by the `MarketRecorder` class to orchestrate market classes at a higher level.
 `start_network` | `None` | `None` | An asynchronous wrapper function used by `NetworkBase` class to handle when a single market goes online.
 `stop_network` | `None` | `None` | An asynchronous wrapper function for `_stop_network`. Used by `NetworkBase` class to handle when a single market goes offline.
 `check_network` | `None` | `NetworkStatus` | `An asynchronous function used by `NetworkBase` class to check if the market is online/offline.
 `get_order` | `client_order_id:str`| `Dict[str, Any]` | Gets status update for a particular order via rest API.<br/><br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: You are required to retrieve the exchange order ID for the specified `client_order_id`. You can do this by calling the `get_exchange_order_id` function available in the `InFlightOrderBase`.</td></tr></tbody></table>
+`supported_order_types` | `None` | `List[OrderType]` | Returns a list of OrderType(s) supported by the exchange. Examples are: `OrderType.LIMIT`, `OrderType.LIMIT_MAKER` and `OrderType.MARKET`.
 `place_order` | `order_id:str`<br/>`symbol:str`<br/>`amount:Decimal`<br/>`is_buy:bool`<br/>`order_type:OrderType`<br/>`price:Decimal`| `Dict[str, Any]` | An asynchronous wrapper for placing orders through the REST API. Returns a JSON response from the API.
 `cancel_all` | `timeout_seconds:float`| `List[CancellationResult]` | An asynchronous function that cancels all active orders. Used by Hummingbot's top level "stop" and "exit" commands(cancelling outstanding orders on exit). Returns a `List` of [`CancellationResult`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/data_type/cancellation_result.py).<br/><br/>A `CancellationResult` is an object that indicates if an order has been successfully cancelled with a boolean variable.
 `_stop_network` | `None` | `None` | Synchronous function that handles when a single market goes offline
@@ -500,7 +499,7 @@ default_cex_estimate = {
 This section will breakdown some of the ways to debug and test the code. You are not entirely required to use the options during your development process.
 
 !!! warning
-    As part of the QA process, for each tasks(Task 1 through 3) you are **required** to include the unit test cases for the code review process to begin. Refer to [Option 1: Unit Test Cases](#option-3-unit-test-cases) to build your unit tests.
+    As part of the QA process, for each tasks(Task 1 through 3) you are **required** to include the unit test cases for the code review process to begin. Refer to [Option 1: Unit Test Cases](/developers/connectors/tutorial/#option-1-unit-test-cases) to build your unit tests.
     
 ### Option 1. Unit Test Cases
 
@@ -792,6 +791,8 @@ Function<div style="width:200px"/> | Description
 `test_get_fee` | Tests the `get_fee` function in the `Market` class. Ensures that calculation of fees are accurate.
 `test_limit_buy` | Utilizes the `place_order` function in the `Market` class and tests if the market connector is capable of placing a LIMIT buy order on the respective exchange. Asserts that a `BuyOrderCompletedEvent` and `OrderFilledEvent`(s) have been captured.<br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: Important to ensure that the amount specified in the order has been completely filled.</td></tr></tbody></table>
 `test_limit_sell` | Utilizes the `place_order` function in the `Market` class and tests if the market connector is capable of placing a LIMIT sell order on the respective exchange.
+`test_limit_maker_rejections` | Utilizes the `place_order` function in the `Market` class and tests that the exchage rejects LIMIT_MAKER orders when the prices of such orders cross the orderbook.
+`test_limit_makers_unfilled` | Utilizes the `place_order` function in the `Market` class to successfully place buy and sell LIMIT_MAKER orders and tests that they are unfilled after they've been placed in the orderbook.
 `test_market_buy` | Utilizes the `place_order` function in the `Market` class and tests if the market connector is capable of placing a MARKET buy order on the respective exchange.
 `test_market_sell` | Utilizes the `place_order` function in the `Market` class and tests if the market connector is capable of placing a MARKET sell order on the respective exchange.
 `test_cancel_order` | Utilizes the `cancel_order` function in the `Market` class and tests if the market connector is capable of cancelling an order. <table><tbody><tr><td bgcolor="#ecf3ff">**Note**: Ensures that the Hummingbot client is capable of resolving the `client_order_id` to obtain the `exchange_order_id` before posting the cancel order request. </td></tr></tbody></table>
@@ -865,7 +866,7 @@ This option, like in Option 2, is mainly used to test specific functions. This i
 i.e. Initializing a simple websocket connection to listen and output all captured messages to examine the user stream message when placing/cancelling an order. 
 This is helpful when determining the exact response fields to use.
 
-i.e. A simple function to craft the Authentication signature of a request. This together with [POSTMAN](https://www.getpostman.com/) can be used to check if the you are generating the appropriate authentication signature for the respective requests.
+i.e. A simple function to craft the Authentication signature of a request. This together with [POSTMAN](https://www.getpostman.com/) can be used to check if you are generating the appropriate authentication signature for the respective requests.
 
 #### API Request: POST Order
 
@@ -909,7 +910,7 @@ async def _api_request(http_method: str,
                               data=body) as response:
         data: Dict[str, any] = await response.json()
         if response.status not in [200,201]:
-            print(f"Error occured. HTTP Status {response.status}: {data}")
+            print(f"Error occurred. HTTP Status {response.status}: {data}")
         print(data)
 
 # POST order
@@ -934,5 +935,4 @@ loop.close()
 ## Examples / Templates
 
 Please refer to [Examples / Templates](/developers/connectors/#examples-templates) for some existing reference when implementing a connector.
-
 

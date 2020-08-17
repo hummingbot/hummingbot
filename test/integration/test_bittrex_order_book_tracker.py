@@ -13,9 +13,6 @@ import unittest
 
 from hummingbot.market.bittrex.bittrex_order_book_tracker import BittrexOrderBookTracker
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_tracker import (
-    OrderBookTrackerDataSourceType
-)
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 sys.path.insert(0, realpath(join(__file__, "../../../")))
@@ -26,7 +23,9 @@ class BittrexOrderBookTrackerUnitTest(unittest.TestCase):
     events: List[OrderBookEvent] = [
         OrderBookEvent.TradeEvent
     ]
-    trading_pairs: List[str] = [
+
+    # TODO: Update trading pair format to V3 WebSocket API
+    trading_pairs: List[str] = [  # Trading Pair in v1.1 format(Quote-Base)
         "LTC-BTC",
         "LTC-ETH"
     ]
@@ -34,8 +33,7 @@ class BittrexOrderBookTrackerUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        cls.order_book_tracker: BittrexOrderBookTracker = BittrexOrderBookTracker(
-            OrderBookTrackerDataSourceType.EXCHANGE_API, trading_pairs=cls.trading_pairs)
+        cls.order_book_tracker: BittrexOrderBookTracker = BittrexOrderBookTracker(trading_pairs=cls.trading_pairs)
         cls.order_book_tracker_task: asyncio.Task = safe_ensure_future(cls.order_book_tracker.start())
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
 
