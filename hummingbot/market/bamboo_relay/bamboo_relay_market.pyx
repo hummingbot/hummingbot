@@ -162,8 +162,7 @@ cdef class BambooRelayMarket(MarketBase):
             int chain_id
         super().__init__()
         self._trading_required = trading_required
-        self._order_book_tracker = BambooRelayOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
-                                                               trading_pairs=trading_pairs,
+        self._order_book_tracker = BambooRelayOrderBookTracker(trading_pairs=trading_pairs,
                                                                chain=wallet.chain)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
@@ -184,7 +183,6 @@ cdef class BambooRelayMarket(MarketBase):
         self._tx_tracker = BambooRelayTransactionTracker(self)
         self._w3 = Web3(Web3.HTTPProvider(ethereum_rpc_url))
         self._provider = Web3.HTTPProvider(ethereum_rpc_url)
-        self._withdraw_rules = {}
         self._trading_rules = {}
         self._pending_approval_tx_hashes = set()
         self._status_polling_task = None
@@ -327,6 +325,10 @@ cdef class BambooRelayMarket(MarketBase):
             }
         }
 
+    @property
+    def in_flight_orders(self) -> Dict[str, BambooRelayInFlightOrder]:
+        return {**self.in_flight_limit_orders, **self.in_flight_market_orders}
+
     def reset_state(self):
         self._in_flight_market_orders = {}
         self._in_flight_limit_orders = {}
@@ -442,6 +444,10 @@ cdef class BambooRelayMarket(MarketBase):
             list pair_split
             dict locked_balances = {}
 
+        # Retrieve account balance from wallet
+        self._account_balances = self.wallet.get_all_balances().copy()
+
+        # Calculate available balance
         if current_timestamp - self._last_update_available_balance_timestamp > 10.0:
 
             if len(self._in_flight_limit_orders) >= 0:
@@ -1393,8 +1399,8 @@ cdef class BambooRelayMarket(MarketBase):
             object q_amt = self.c_quantize_order_amount(trading_pair, amount)
             object amount_to_fill = q_amt
             TradingRule trading_rule = self._trading_rules[trading_pair]
-            str trade_type_desc = "buy" if trade_type is TradeType.BUY else "sell"
-            str type_str = "limit" if order_type is OrderType.LIMIT else "market"
+            str trade_type_desc = trade_type.name.lower()
+            str type_str = order_type.name.lower()
         try:
             if q_amt < trading_rule.min_order_size:
                 raise ValueError(f"{trade_type_desc.capitalize()} order amount {q_amt} is lower than the "
