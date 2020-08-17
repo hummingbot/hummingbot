@@ -227,15 +227,17 @@ Function<div style="width:150px"/> | Description
 `_update_balances`| Pulls the REST API for the latest account balances and updates `_account_balances` and `_account_available_balances`.
 `_update_order_status`| Pulls the REST API for the latest order statuses and updates the order statuses of locally tracked orders.
 
-!!! Note
-    If the exchange doesn't provide user balance updates in real-time (web socket), you will need to set
-    `self._real_time_balance_update = False` in the market constructor (init). Also, you will need to take `in_flight_orders` snapshot
-    during `_update_balances` as below:
+If the exchange doesn't provide user balance updates in real-time (web socket), you will need to set `self._real_time_balance_update = False` in the market constructor (init). 
+ 
+And, you will need to take `in_flight_orders` snapshot during `_update_balances` as below:
+    
     ```python
         self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
         self._in_flight_orders_snapshot_timestamp = self._current_timestamp
     ``` 
 
+This is so that the connector can use default current balance calculation (in `market_base`) for available balances.
+ 
 !!! tip
     Refer to [Order Lifecycle](/developers/connectors/order-lifecycle) for a more detailed description on how orders are being tracked in Hummingbot.
     
