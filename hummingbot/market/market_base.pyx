@@ -256,6 +256,13 @@ cdef class MarketBase(NetworkIterator):
         return min(available_balance, asset_limit)
 
     def apply_balance_update_since_snapshot(self, currency: str, available_balance: Decimal):
+        """
+        Applies available balance update as followings
+        :param currency: the token symbol
+        :param available_balance: the current available_balance, this is also the snap balance taken since last
+        _update_balances()
+        :returns the real available that accounts for changes in in flight orders and filled orders
+        """
         snapshot_bal = self.in_flight_asset_balances(self._in_flight_orders_snapshot).get(currency, s_decimal_0)
         in_flight_bal = self.in_flight_asset_balances(self.in_flight_orders).get(currency, s_decimal_0)
         orders_filled_bal = self.order_filled_balances(self._in_flight_orders_snapshot_timestamp).get(currency,
