@@ -47,7 +47,7 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     create_parser.add_argument("file_name", nargs="?", default=None, help="Name of the configuration file")
     create_parser.set_defaults(func=hummingbot.create)
 
-    import_parser = subparsers.add_parser("import", help="Import a existing bot by loading the configuration file")
+    import_parser = subparsers.add_parser("import", help="Import an existing bot by loading the configuration file")
     import_parser.add_argument("file_name", nargs="?", default=None, help="Name of the configuration file")
     import_parser.set_defaults(func=hummingbot.import_command)
 
