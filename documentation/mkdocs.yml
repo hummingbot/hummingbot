@@ -75,26 +75,26 @@ markdown_extensions:
 nav:
   - Getting Started: 
     - Overview: index.md
-    - How to use this site: howtousethissite.md
+    - How To Use This Site: howtousethissite.md
     - Current Campaign: current-campaign.md
-    - FAQs: faq/index.md
   - Strategies Quickstart:
     - Liquidity Mining Quickstart:
       - Overview: quickstart/index.md
       - Install: quickstart/install.md
       - Configure: quickstart/configure.md
       - Run: quickstart/run-bot.md
+      - Participate: quickstart/participate.md
     - Celo Arbitrage Quickstart:
         - Overview: strategies/celo-arb/index.md
         - Quickstart: strategies/celo-arb/quickstart.md
   - Miner App User Guide:
     - Overview: minerapp/index.md
-    - Markets: minerapp/markets.md
     - Dashboard: 
-      - Overview: minerapp/dashboard.md
-      - Rewards: minerapp/rewards.md
-      - Payouts: minerapp/payouts.md
-      - Performance: minerapp/performance.md
+      - Markets: minerapp/markets.md
+      - Dashboard: 
+        - Rewards: minerapp/rewards.md
+        - Payouts: minerapp/payouts.md
+        - Performance: minerapp/performance.md
     - Leaderboard: minerapp/leaderboard.md
     - Settings: minerapp/settings.md
     - Miner App Help Center: minerapp/minerapphelp.md  
@@ -179,9 +179,6 @@ nav:
       - Docker Autostart <sup>(BETA)</sup>: advanced/autostart.md
       - External Database <sup>(BETA)</sup>: advanced/db-config.md
       - Scripts: advanced/scripts.md
-    - Hummingbot Help:
-      - Hummingbot FAQs: faq/hummingbot.md
-      - Hummingbot How-to: faq/troubleshooting.md 
   - Developer Manual:
       - Intro: developers/index.md
       - Getting Started:
@@ -266,9 +263,16 @@ nav:
     - 0.2.0: release-notes/0.2.0.md
   - Support:
     - Support: support.md
-    - Community: 
-      - Overview: community/index.md  
-      - Contributions: community/contributions.md
-      - Events: community/events.md
-      - Contribution Guide: community/guide.md
+    - FAQs:
+      - Overview: faq/index.md 
+      - Market Making FAQs: faq/market-making.md
+      - Liquidity Mining FAQs: faq/liquidity-mining.md
+      - Hummingbot Help:
+         - Hummingbot FAQs: faq/hummingbot.md
+         - Hummingbot How-to: faq/troubleshooting.md 
+  - Community: 
+    - Overview: community/index.md  
+    - Contributions: community/contributions.md
+    - Contribution Guide: community/guide.md
+    - Events: community/events.md
 

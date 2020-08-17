@@ -4,8 +4,10 @@
 1. Install Hummingbot
 2. [Configure a market making bot](configure.md)
 3. [Run the bot in paper trading mode](run-bot.md)
+4. [Participate in Liquidity Mining](participate.md)
 
 ---
+
 
 ## How should I install Hummingbot?
 

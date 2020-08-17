@@ -8,11 +8,17 @@
     **Please review the [Liquidity Mining Policy](https://hummingbot.io/liquidity-mining-policy/) for the full disclaimer.**
 
 
+<b>Important:</b> If you are new to market making, read [Market Making FAQs](faq/market-making/) for details before you proceed.
+
 # What is Hummingbot?
 [Hummingbot](https://hummingbot.io) is open source software that helps you build and run high-frequency market making bots on any crypto exchange.
 
 Our business model is to administer Liquidity Mining programs, which allow token issuers and exchange source liquidity from anyone running Hummingbot. Hummingbot users who choose to participate in Liquidity Mining can earn token rewards for providing liquidity to certain trading pairs.
 
-- [How it works](https://www.notion.so/hummingbot/What-is-liquidity-mining-c2eb7d68e28b42278e5efead9a247507)
-- [Liquidity Mining FAQs](https://docs.hummingbot.io/faq/liquidity-mining/)
+![Figure 1: Liquidity mining flow](/assets/img/howliquidityworks.png)
+
+
+- [What is Liquidity Mining](https://www.notion.so/hummingbot/What-is-liquidity-mining-c2eb7d68e28b42278e5efead9a247507)
+- [Liquidity Mining FAQs](faq/liquidity-mining/)
 - [Liquidity Mining whitepaper](https://hummingbot.io/liquidity-mining.pdf)
+

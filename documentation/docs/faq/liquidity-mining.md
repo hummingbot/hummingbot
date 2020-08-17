@@ -20,22 +20,6 @@ Liquidity mining is similar to Bitcoin mining in that miners run open source sof
 
 In addition, a collective pool of participants are working together for a common goal, providing liquidity for a specific token and exchange.  In return, miners are paid out rewards according to transparent, algorithmically defined rules.
 
-### How do I interpret the numbers in Hummingbot Miners?
-
-![](../assets/img/miner-home.png)
-
-**Active Bots** is the total number of market making bots currently running/
-
-**Liquidity** is the total eligible open order volume across all Active Bots currently. 
-
-**Yield/Day** shows you how much you can earn per day currently. To calculate Yield/Day, divide the daily reward (**Reward/Day**) by Liquidity. 
-
-!!! note
-    The Yield/Day is solely based on liquidity rewards and does not take into account trades executed.
-
-!!! warning "Liquidity mining yields do not include profits or losses from trading"
-    The published Yield/Day metrics only include reward payments versus order volumes. They *do not* capture the individual miner's profit or loss on the underlying strategy or any transaction fees (if any) that generated the orders created.  As a result, *liquidity mining yields are not an indication of a miner's overall portfolio return*; miners should take into consideration overall economics, and not just mining return, when deciding on participating in liquidity mining campaigns.
-
 ### What strategies can a liquidity miner use?
 Liquidity mining rewards are determined based on limit orders created ("maker" orders).  Currently, the Hummingbot client has two strategies that create maker orders:
 
@@ -93,28 +77,7 @@ The Hummingbot Miners app uses your Ethereum wallet address to:
 1. **assign you a unique user ID**.  The Hummingbot miners app associates your configurations (e.g. email address, API configurations), as well as activity.  This allows the miners app to display your user-specific information such as rewards earned and payout history.
 2. **send you token payouts**: mining rewards payouts will be sent to this address
 -->
-### How to signup as a new user?
 
-1. Navigate to the [Sign up](https://miners.hummingbot.io/signup) page.
-2. Simply enter your email address and click **Agree to terms and conditions**, and click **Create Account**. You should see a popup window that instructs you to check your email.
-3. Once you confirm your email address. You should already be logged in to Hummingbot Miner. You can then proceed to complete the rest of the onboarding process, following the steps on the [Settings](https://miners.hummingbot.io/settings) page.
-
-!!! tip
-    You may edit the Ethereum address to receive payouts in a different wallet, or on Binance directly [How to get your ETH deposit address on Binance](https://academy.binance.com/tutorials/how-to-deposit#deposit).
-
-!!! note "Ethereum Wallet address not used for trading"
-    Since it is only used for the purposes mentioned above, you do not need deposit assets into or trade using this wallet.
-
-
-### How do I see how my rewards are calculated?
-
-![](../assets/img/miner-snapshot-view.png)
-
-The Snapshot view in Hummingbot Miner contains a breakdown of how the per-minute reward for a single market is allocated.
-
-To navigate to it, go the Markets page and click on a row in the Available Markets table to access details about that particular Market. Then, click on a row in the Snapshots table to see the reward breakdown for that snapshot.
-
-Alternatively, you can also reach it from the Activity page. Click on a row in the Rewards Earned table to see reward detail for each Market. Then, click on a specific Market row to see the Snapshot view.
 
 ### My bot is running but I'm not earning any rewards!
 

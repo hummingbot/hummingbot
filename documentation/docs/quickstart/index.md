@@ -1,15 +1,16 @@
-# Quickstart - Overview
+# Liquidity Mining Quickstart - Paper Trade
 
-0. Overview
+0. [Overview](index.md)
 1. [Install Hummingbot](install.md)
 2. [Configure a market making bot](configure.md)
 3. [Run the bot in paper trading mode](run-bot.md)
+4. [Participate in Liquidity Mining](participate.md)
 
 ---
 
 ## Overview
 
-This guide shows you how to install Hummingbot and start running a market making bot (initially in paper trade) in approximately 10 minutes. You'll learn how to:
+This guide shows you how to install Hummingbot and start running a market making bot (paper trade) in approximately 10 minutes. You'll learn how to:
 
 * Install the open source Hummingbot client (~3 minutes)
 * Configure a market making bot (~5 minutes)
@@ -17,9 +18,17 @@ This guide shows you how to install Hummingbot and start running a market making
 
 <b>Important:</b> Once you are satisfied that the bot is running properly and you want to proceed with liquidity mining (go live). Ensure your [Miner App](https://miners.hummingbot.io/) is setup with the exchange APIs.
 
+
+<!-- ### Inventory
+
+Hummingbot is trading software that uses your own crypto assets. You will need inventory available on each exchange where you want to run a bot.
+
+Remember that you need inventory of both the **base asset** (the asset that you are buying and selling) and the **quote asset** (the asset that you exchange for it). For example, if you are making a market in a `BTC/USDT` trading pair, you'll need some `BTC` and `USDT`. -->
+
+
 ## What you'll need
 
-Since we'll be running the bot in *paper trading mode*, you don't need any crypto inventory. However, you will need an account with one of our [supported exchanges](/connectors) to create API keys.
+Prepare the following items before you start.
 
 ### System Requirements
 
@@ -29,15 +38,15 @@ If you are installing Hummingbot either locally or on a cloud server, here are t
 * MacOS: macOS 10.12.6 (Sierra) or later
 * Windows: Windows 10 or later
 
-<!-- ### Inventory
+### API Keys for Hummingbot and Miner App
 
-Hummingbot is trading software that uses your own crypto assets. You will need inventory available on each exchange where you want to run a bot.
+Since we'll be running the bot in *paper trading mode*, you don't need any crypto inventory. However, you will need an account with one of our [supported exchanges](/connectors) to create API keys.
 
-Remember that you need inventory of both the **base asset** (the asset that you are buying and selling) and the **quote asset** (the asset that you exchange for it). For example, if you are making a market in a `BTC/USDT` trading pair, you'll need some `BTC` and `USDT`. -->
+Two set of API keys is needed: 
+* Trade-enabled keys: needed for Hummingbot during the configration to trade your assets
+* Read-only keys: needed for (Miner app) (https://miners.hummingbot.io/) to setup Liquidity Mining, and track your rewards and bot performance
 
-### API Keys
-
-In order to authorize Hummingbot to trade your assets, you will need to enter trade-enabled exchange API keys during the Hummingbot configuration process.  Separately, if you would like to participate in Liquidity mining, you will need to provide **read-only** API keys in the [Miner App](https://miners.hummingbot.io/)
+![Figure 1: Liquidity mining relationship](/assets/img/liquidityminingrelationship.jpg)
 
 For more information on how to get the API keys for each exchange, please see the individual exchange pages in [Connectors](/connectors).
 
