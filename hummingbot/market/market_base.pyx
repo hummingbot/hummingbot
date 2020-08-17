@@ -61,13 +61,8 @@ cdef class MarketBase(NetworkIterator):
         self._account_balances = {}  # Dict[asset_name:str, Decimal]
         self._account_available_balances = {}  # Dict[asset_name:str, Decimal]
         self._asset_limit = {}  # Dict[asset_name: str, Decimal]
-        self._order_book_tracker = None
-        # To indicate that user balances is updated in real time, either manually e.g. paper_market or back_test market
-        # or through close-to-real-time update over web socket.
         self._real_time_balance_update = True
-        # a snapshot taken on last _update_balances, this is only used when _real_time_balance_update is false
-        self._in_flight_orders_snapshot = {}
-        self._in_flight_orders_snapshot_timestamp = 0
+        self._order_book_tracker = None
 
     @staticmethod
     def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
