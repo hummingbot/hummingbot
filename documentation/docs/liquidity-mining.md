@@ -24,22 +24,21 @@ Liquidity mining sets forth an analytical framework for determining market maker
 - [Get help on Discord](https://discord.hummingbot.io): Join the **#liquidity-mining** channel for 24/7 support
 
 ## Current campaign terms
-!!! note
-    Currently, only orders that have been outstanding for less than 30 minutes are eligible to earn rewards.  This imposed limit is due to errors created by longer-duration orders.  Work on removing this limit is in progress, read more [here](https://www.reddit.com/r/Hummingbot/comments/hz5xv3/tracking_rewards_for_orders_longer_than_30m/)
-!!! warning "Terms subject to change"
-    Please check this page or the [Miner's app](https://miners.hummingbot.io) for the most up-to-date terms.<br/>We will notify participants of changes, if any, on our [Discord](https://discord.hummingbot.io) and [reddit](https://www.reddit.com/r/Hummingbot/).
 
-!!! note "Campaign updates for the week starting August 4, 2020 12.00am UTC"
-    SOL liquidity mining campaign will be paused. After we add other exchanges where SOL trades, we and Solana will revisit liquidity incentives for SOL.
+!!! warning "Important information regarding campaign terms"
+    <li>**Terms subject to change**. Please check this page or the [Miner's app](https://miners.hummingbot.io) for the most up-to-date terms.<br/>We will notify participants of changes, if any, on our [Discord](https://discord.hummingbot.io) and [reddit](https://www.reddit.com/r/Hummingbot/).
 
-    You can read more about it on this [Reddit post](https://www.reddit.com/r/Hummingbot/comments/i32roh/sol_liquidity_mining_campaign_paused/).   
+    <li>**Orders outstanding for more than 30 minutes not counted for rewards.** Work on removing this limit is in progress, you can read more about it in our [Reddit post](https://www.reddit.com/r/Hummingbot/comments/hz5xv3/tracking_rewards_for_orders_longer_than_30m/).
+    > <em>**Tip**: To ensure that orders do not stay outstanding for longer than 30 minutes, Hummingbot users should disable [order refresh tolerance](https://docs.hummingbot.io/strategies/advanced-mm/order-refresh-tolerance/#how-it-works).</em>
 
-!!! note "Campaign updates for the week starting August 10, 2020 12.00am UTC"
-    NULS completed its campaign and will continue to evaluate future collaboration with Hummingbot.
-    
-    You can read more about it in our [Reddit post](https://www.reddit.com/r/Hummingbot/comments/i7wh55/nuls_completes_its_liquidity_mining_campaign/).
+    <li>**Minimum reward payout amount**: due to the recent surge in Ethereum gas price, Hummingbot will impose a $10.00 minimum on the weekly payout, starting with the next scheduled payout on August 21, 2020 (UTC). For miners who earn < $10 within one week, their rewards will be accrued and rolled over to the next period, read more [here](https://www.reddit.com/r/Hummingbot/comments/i9rh5g/announcement_a_10_minimum_to_liquidity_mining/).
 
-**Current reward period: August 10, 2020 12.00am UTC to August 17, 2020 12.00am UTC**
+
+!!! note "Campaign updates for the week starting August 18, 2020 12.00am UTC"
+    **Native RLC rewards for iExec campaign**: we have rolled out [native token liquidity mining rewards](https://hummingbot.io/blog/2020-08-native-token-payments/)!  Starting this week, liquidity miners participating in RLC pairs will be earning RLC rewards.
+
+
+**Current reward period: August 18, 2020 12.00am UTC to August 25, 2020 12.00am UTC**
 
 <table>
   <thead>
@@ -101,21 +100,21 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 250</td>
+      <td><b><em>RLC 146</em></b></td>
     </tr>
     <tr>
       <td>RLC/USDT</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 250</td>
+      <td><b><em>RLC 146</em></b></td>
     </tr>
     <tr>
       <td>RLC/ETH</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 250</td>
+      <td><b><em>RLC 145.5</em></b></td>
     </tr>
     <tr>
       <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
