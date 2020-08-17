@@ -16,6 +16,9 @@ cdef class MarketBase(NetworkIterator):
         dict _asset_limit
         bint _trading_required
         object _order_book_tracker
+        bint _real_time_balance_update
+        dict _in_flight_orders_snapshot
+        double _in_flight_orders_snapshot_timestamp
 
     cdef str c_buy(self, str trading_pair, object amount, object order_type=*, object price=*, dict kwargs=*)
     cdef str c_sell(self, str trading_pair, object amount, object order_type=*, object price=*, dict kwargs=*)

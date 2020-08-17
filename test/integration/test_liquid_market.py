@@ -3,12 +3,12 @@ from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 import asyncio
-import conf
 import contextlib
 from decimal import Decimal
 import logging
 import os
 import time
+import conf
 from typing import (
     List,
     Optional
@@ -40,7 +40,7 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.market.liquid.liquid_market import LiquidMarket
+from hummingbot.market.liquid.liquid_market import LiquidMarket, Constants
 from hummingbot.market.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
@@ -54,9 +54,8 @@ from test.integration.humming_web_app import HummingWebApp
 from test.integration.assets.mock_data.fixture_liquid import FixtureLiquid
 from unittest import mock
 
-MAINNET_RPC_URL = "http://mainnet-rpc.mainnet:8545"
 logging.basicConfig(level=METRICS_LOG_LEVEL)
-API_MOCK_ENABLED = True #conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
+API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
 API_KEY = "XXX" if API_MOCK_ENABLED else conf.liquid_api_key
 API_SECRET = "YYY" if API_MOCK_ENABLED else conf.liquid_secret_key
 API_HOST = "api.liquid.com"
@@ -80,7 +79,6 @@ class LiquidMarketUnitTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        global MAINNET_RPC_URL
         cls.ev_loop = asyncio.get_event_loop()
 
         if API_MOCK_ENABLED:
@@ -100,9 +98,10 @@ class LiquidMarketUnitTest(unittest.TestCase):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: LiquidMarket = LiquidMarket(
             API_KEY, API_SECRET,
+            poll_interval=5,
             order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
-            trading_pairs=['CEL-ETH']
+            trading_pairs=['CEL-ETH'],
         )
         # cls.ev_loop.run_until_complete(cls.market._update_balances())
         print("Initializing Liquid market... this will take about a minute.")
@@ -206,12 +205,104 @@ class LiquidMarketUnitTest(unittest.TestCase):
             order_id = self.market.sell(trading_pair, amount, order_type, price)
         if API_MOCK_ENABLED:
             resp = get_resp.copy()
-            resp["models"][0]["client_order_id"] = order_id
+            resp["models"][-1]["client_order_id"] = order_id
             self.web_app.update_response("get", API_HOST, "/orders", resp)
         return order_id, exchange_id
 
+    async def cancel_all_open_orders(self):
+        listed_orders = await self.market.list_orders()
+        live_orders = [o for o in listed_orders.get("models", []) if o["status"] == "live"]
+        for order in live_orders:
+            path_url = Constants.CANCEL_ORDER_URI.format(exchange_order_id=str(order["id"]))
+            res = await self.market._api_request("put", path_url=path_url)
+            print(res)
+
+    def test_maintain_user_balances(self):
+        # self.ev_loop.run_until_complete(self.cancel_all_open_orders())
+        # return
+
+        trading_pair = "CEL-ETH"
+        base = trading_pair.split("-")[0]
+        quote = trading_pair.split("-")[1]
+        base_bal = self.market.get_available_balance(base)
+        starting_quote_bal = self.market.get_available_balance(quote)
+        print(f"{base} available: {base_bal}")
+        print(f"starting quote available: {starting_quote_bal}")
+
+        bid_price = self.market.get_price(trading_pair, False)
+        buy_price = bid_price * Decimal("0.9")
+        buy_price = self.market.quantize_order_price(trading_pair, buy_price)
+        amount = Decimal("1")
+        post_data = FixtureLiquid.ORDER_BUY.copy()
+        get_data = FixtureLiquid.ORDERS_UNFILLED.copy()
+        if API_MOCK_ENABLED:
+            resp = FixtureLiquid.CRYPTO_ACCOUNTS.copy()
+            resp[0]["reserved_balance"] = float((buy_price * amount))
+            self.web_app.update_response("get", API_HOST, "/crypto_accounts", resp)
+        order_id_1, exchange_id_1 = self.place_order(True, "CEL-ETH", amount, OrderType.LIMIT, buy_price, 10001,
+                                                     post_data, get_data)
+        [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
+        print(f"order_created_event: {order_created_event}")
+        self.assertEqual(order_id_1, order_created_event.order_id)
+
+        # ToDo: the test from here on pass fine in real API test mode, for the API mocked we first need to fix
+        # https://github.com/CoinAlpha/hummingbot/issues/2222
+        if API_MOCK_ENABLED:
+            return
+        base_bal = self.market.get_available_balance(base)
+        quote_bal = self.market.get_available_balance(quote)
+        expected_quote_bal = starting_quote_bal - (buy_price * amount)
+        self.assertAlmostEqual(quote_bal, expected_quote_bal, 5)
+        print(f"{base} available: {base_bal}")
+        print(f"{quote} available: {quote_bal}")
+
+        self.run_parallel(asyncio.sleep(5))
+        post_data = FixtureLiquid.ORDER_BUY.copy()
+        get_data = FixtureLiquid.ORDERS_UNFILLED.copy()
+        get_data["models"].append(get_data["models"][0].copy())
+        get_data["models"][0]["client_order_id"] = order_id_1
+        get_data["models"][1]["id"] = get_data["models"][0]["id"] + 1
+        if API_MOCK_ENABLED:
+            resp = FixtureLiquid.CRYPTO_ACCOUNTS.copy()
+            resp[0]["reserved_balance"] = float((2 * buy_price * amount))
+            self.web_app.update_response("get", API_HOST, "/crypto_accounts", resp)
+        order_id_2, exchange_id_2 = self.place_order(True, "CEL-ETH", amount, OrderType.LIMIT, buy_price, 10002,
+                                                     post_data, get_data)
+        [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
+        print(f"order_created_event: {order_created_event}")
+        self.assertEqual(order_id_2, order_created_event.order_id)
+
+        base_bal = self.market.get_available_balance(base)
+        quote_bal = self.market.get_available_balance(quote)
+        expected_quote_bal = starting_quote_bal - 2 * (buy_price * amount)
+        self.assertAlmostEqual(quote_bal, expected_quote_bal, 5)
+        print(f"{base} available: {base_bal}")
+        print(f"{quote} available: {quote_bal}")
+
+        if API_MOCK_ENABLED:
+            order_cancel_resp = FixtureLiquid.ORDER_CANCEL_ALL_1
+            self.web_app.update_response("put", API_HOST, f"/orders/{str(exchange_id_2)}/cancel",
+                                         order_cancel_resp)
+            resp = FixtureLiquid.CRYPTO_ACCOUNTS.copy()
+            resp[0]["reserved_balance"] = float((buy_price * amount))
+            self.web_app.update_response("get", API_HOST, "/crypto_accounts", resp)
+        self.market.cancel("CEL-ETH", order_id_2)
+        self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
+        quote_bal = self.market.get_available_balance(quote)
+        expected_quote_bal = starting_quote_bal - 1 * (buy_price * amount)
+        print(f"expected_quote_bal: {expected_quote_bal}")
+        print(f"quote_bal: {quote_bal}")
+        self.assertAlmostEqual(quote_bal, expected_quote_bal, 5)
+
+        if API_MOCK_ENABLED:
+            order_cancel_resp = FixtureLiquid.ORDER_CANCEL_ALL_1
+            self.web_app.update_response("put", API_HOST, f"/orders/{str(exchange_id_1)}/cancel",
+                                         order_cancel_resp)
+
+        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
+
     def test_limit_taker_buy_and_sell(self):
-        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.05"))
+        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.01"))
 
         current_price: Decimal = self.market.get_price("CEL-ETH", True)
         amount: Decimal = 1
@@ -241,6 +332,7 @@ class LiquidMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
         # Try to sell back the same amount of CEL to the exchange, and watch for completion event.
+        current_price: Decimal = self.market.get_price("CEL-ETH", False)
         amount = order_completed_event.base_asset_amount
         quantized_amount = order_completed_event.base_asset_amount
         order_id, _ = self.place_order(False, "CEL-ETH", amount, OrderType.LIMIT, current_price, 10002,
@@ -289,30 +381,32 @@ class LiquidMarketUnitTest(unittest.TestCase):
         self.assertEqual(order_id, order_failure_event.order_id)
 
     def test_limit_makers_unfilled(self):
-        #if API_MOCK_ENABLED:
-         #   return
+        if API_MOCK_ENABLED:
+            return
         trading_pair = "CEL-ETH"
         bid_price: Decimal = self.market.get_price(trading_pair, True)
         ask_price: Decimal = self.market.get_price(trading_pair, False)
         amount: Decimal = 1
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
-        
+
         # Intentionally setting invalid price to prevent getting filled
         quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price * Decimal("0.7"))
         quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price * Decimal("1.5"))
 
-        buy_order_id, buy_exchange_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_bid_price,
-                                              10001, FixtureLiquid.ORDER_BUY_CANCEL_ALL,
-                                              FixtureLiquid.ORDERS_GET_AFTER_BUY)
+        buy_order_id, buy_exchange_id = self.place_order(
+            True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_bid_price,
+            10001, FixtureLiquid.ORDER_BUY_CANCEL_ALL,
+            FixtureLiquid.ORDERS_GET_AFTER_BUY
+        )
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
-        order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(buy_order_id, order_created_event.order_id)
 
-        sell_order_id, sell_exchange_id = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
-                                               quantize_ask_price, 10002, FixtureLiquid.ORDER_SELL_CANCEL_ALL,
-                                               FixtureLiquid.ORDERS_GET_AFTER_SELL)
+        sell_order_id, sell_exchange_id = self.place_order(
+            False, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
+            quantize_ask_price, 10002, FixtureLiquid.ORDER_SELL_CANCEL_ALL,
+            FixtureLiquid.ORDERS_GET_AFTER_SELL
+        )
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
-        order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(sell_order_id, order_created_event.order_id)
 
         self.run_parallel(asyncio.sleep(1))
