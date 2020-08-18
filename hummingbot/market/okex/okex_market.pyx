@@ -123,7 +123,7 @@ cdef class OKExMarket(MarketBase):
                  trading_required: bool = True):
 
         super().__init__()
-        self._account_id = ""
+        # self._account_id = ""
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._data_source_type = order_book_tracker_data_source_type
         self._ev_loop = asyncio.get_event_loop()
@@ -147,14 +147,14 @@ cdef class OKExMarket(MarketBase):
         self._user_stream_tracker = OKExUserStreamTracker(okex_auth=self._okex_auth,
                                                            trading_pairs=trading_pairs)
 
-    @staticmethod
-    def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
-        try:
-            m = TRADING_PAIR_SPLITTER.match(trading_pair)
-            return m.group(1), m.group(2)
-        # Exceptions are now logged as warnings in trading pair fetcher
-        except Exception as e:
-            return None
+    # @staticmethod
+    # def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
+    #     try:
+    #         m = TRADING_PAIR_SPLITTER.match(trading_pair)
+    #         return m.group(1), m.group(2)
+    #     # Exceptions are now logged as warnings in trading pair fetcher
+    #     except Exception as e:
+    #         return None
 
     # OKEx uses format BTC-USDT
     @staticmethod
@@ -231,7 +231,7 @@ cdef class OKExMarket(MarketBase):
         self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
 
         if self._trading_required:
-            await self._update_account_id()
+            # await self._update_account_id() # Couldn't find this on OKEx Docs
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
 
     def _stop_network(self):
@@ -277,18 +277,18 @@ cdef class OKExMarket(MarketBase):
     async def _api_request(self,
                            method,
                            path_url,
-                           params: Optional[Dict[str, Any]] = None,
-                           data=None,
+                           params: Optional[Dict[str, Any]] = {},
+                           data={},
                            is_auth_required: bool = False) -> Dict[str, Any]:
         
-        content_type = "application/json" if method.lower() == "post" else "application/x-www-form-urlencoded"
+        content_type = "application/json" # if method.lower() == "post" else "application/x-www-form-urlencoded"
         headers = {"Content-Type": content_type}
         
         url = urljoin(OKEX_BASE_URL, path_url)
         
         client = await self._http_client()
         if is_auth_required:
-            params = self._okex_auth.add_auth_to_params(method, path_url, params)
+            headers.update(self._okex_auth.add_auth_to_params(method, '/' + path_url, params))
 
         # aiohttp TestClient requires path instead of url
         if isinstance(client, TestClient):
@@ -306,60 +306,51 @@ cdef class OKExMarket(MarketBase):
                 method=method.upper(),
                 url=url,
                 headers=headers,
-                params=params,
-                data=ujson.dumps(data),
+                params=params if params else None, # FIX THIS
+                data=params if data else None, # FIX THIS
                 timeout=100
             )
 
         async with response_coro as response:
+            print("lala" + await response.text())
             if response.status != 200:
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
             try:
                 parsed_response = await response.json()
+                print("parsed_response", parsed_response)
                 return parsed_response
             except Exception:
                 raise IOError(f"Error parsing data from {url}.")
 
-    async def _update_account_id(self) -> str:
-        accounts = await self._api_request("get", path_url="/account/accounts", is_auth_required=True)
-        try:
-            for account in accounts:
-                if account["state"] == "working" and account["type"] == "spot":
-                    self._account_id = str(account["id"])
-        except Exception as e:
-            raise ValueError(f"Unable to retrieve account id: {e}")
+    # Couldn't find this on OKEx Docs
+    # async def _update_account_id(self) -> str:
+    #     accounts = await self._api_request("get", path_url="/account/accounts", is_auth_required=True)
+    #     try:
+    #         for account in accounts:
+    #             if account["state"] == "working" and account["type"] == "spot":
+    #                 self._account_id = str(account["id"])
+    #     except Exception as e:
+    #         raise ValueError(f"Unable to retrieve account id: {e}")
 
     async def _update_balances(self):
         cdef:
-            str path_url = f"/account/accounts/{self._account_id}/balance"
-            dict data
+            str path_url = OKEX_BALANCE_URL
+            # list data
             list balances
             dict new_available_balances = {}
             dict new_balances = {}
             str asset_name
             object balance
 
-        data = await self._api_request("get", path_url=path_url, is_auth_required=True)
-        balances = data.get("list", [])
-        if len(balances) > 0:
-            for balance_entry in balances:
-                asset_name = balance_entry["currency"]
-                balance = Decimal(balance_entry["balance"])
-                if balance == s_decimal_0:
-                    continue
-                if asset_name not in new_available_balances:
-                    new_available_balances[asset_name] = s_decimal_0
-                if asset_name not in new_balances:
-                    new_balances[asset_name] = s_decimal_0
+        balances = await self._api_request("GET", path_url=path_url, is_auth_required=True)
 
-                new_balances[asset_name] += balance
-                if balance_entry["type"] == "trade":
-                    new_available_balances[asset_name] = balance
 
-            self._account_available_balances.clear()
-            self._account_available_balances = new_available_balances
-            self._account_balances.clear()
-            self._account_balances = new_balances
+        self._account_available_balances.clear()
+        self._account_balances.clear()
+        
+        for balance in balances:
+            self._account_balances['currency'] = Decimal(balance['balance'])
+            self._account_available_balances['currency'] = Decimal(balance['available'])
 
     cdef object c_get_fee(self,
                           str base_currency,
@@ -368,17 +359,11 @@ cdef class OKExMarket(MarketBase):
                           object order_side,
                           object amount,
                           object price):
-        # https://www.hbg.com/en-us/about/fee/
         """
-
-        if order_type is OrderType.LIMIT and fee_overrides_config_map["huobi_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["huobi_maker_fee"].value / Decimal("100"))
-        if order_type is OrderType.MARKET and fee_overrides_config_map["huobi_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["huobi_taker_fee"].value / Decimal("100"))
-        return TradeFee(percent=Decimal("0.002"))
         """
+        # https://www.okex.com/fees.html
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return estimate_fee("huobi", is_maker)
+        return estimate_fee("okex", is_maker)
 
     async def _update_trading_rules(self):
         cdef:
@@ -386,7 +371,7 @@ cdef class OKExMarket(MarketBase):
             int64_t last_tick = <int64_t>(self._last_timestamp / 60.0)
             int64_t current_tick = <int64_t>(self._current_timestamp / 60.0)
         if current_tick > last_tick or len(self._trading_rules) < 1:
-            exchange_info = await self._api_request("get", path_url="/common/symbols")
+            exchange_info = await self._api_request("GET", path_url=OKEX_INSTRUMENTS_URL)
             trading_rules_list = self._format_trading_rules(exchange_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
@@ -399,13 +384,14 @@ cdef class OKExMarket(MarketBase):
         for info in raw_trading_pair_info:
             try:
                 trading_rules.append(
-                    TradingRule(trading_pair=info["symbol"],
-                                min_order_size=Decimal(info["min-order-amt"]),
-                                max_order_size=Decimal(info["max-order-amt"]),
-                                min_price_increment=Decimal(f"1e-{info['price-precision']}"),
-                                min_base_amount_increment=Decimal(f"1e-{info['amount-precision']}"),
-                                min_quote_amount_increment=Decimal(f"1e-{info['value-precision']}"),
-                                min_notional_size=Decimal(info["min-order-value"]))
+                    TradingRule(trading_pair=info["instrument_id"],
+                                min_order_size=Decimal(info["min_size"]),
+                                # max_order_size=Decimal(info["max-order-amt"]), # It's 100,000 USDT, How to model that?
+                                min_price_increment=Decimal(info["tick_size"]),
+                                min_base_amount_increment=Decimal(info["size_increment"]),
+                                #min_quote_amount_increment=Decimal(info["1e-{info['value-precision']}"]),
+                                # min_notional_size=Decimal(info["min-order-value"])
+                                )
                 )
             except Exception:
                 self.logger().error(f"Error parsing the trading pair rule {info}. Skipping.", exc_info=True)
@@ -716,7 +702,7 @@ cdef class OKExMarket(MarketBase):
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {
-            "account_id_initialized": self._account_id != "" if self._trading_required else True,
+            # "account_id_initialized": self._account_id != "" if self._trading_required else True, # Couldn't find this on OKEx Docs
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0
