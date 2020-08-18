@@ -1,10 +1,8 @@
-import math
 from decimal import Decimal
 import logging
 import pandas as pd
 from typing import (
     List,
-    Tuple,
     Dict,
     Optional
 )
@@ -25,7 +23,6 @@ from hummingbot.market.market_base import (
 )
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
-from hummingbot.client.config.global_config_map import paper_trade_disabled
 from hummingbot.client.config.global_config_map import global_config_map
 
 from .data_types import (
@@ -330,9 +327,12 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     def get_price(self) -> float:
         if self._asset_price_delegate is not None:
-            price = self._asset_price_delegate.get_price_by_type(price_type=self._price_type)
+            price_provider = self._asset_price_delegate
         else:
-            price = self._market_info.get_price_by_type(price_type=self._price_type)
+            price_provider = self._market_info
+        price = price_provider.get_price_by_type(self._price_type)
+        if price.is_nan():
+            price = price_provider.get_price_by_type(PriceType.MidPrice)
         return price
 
     def get_last_price(self) -> float:
@@ -1088,5 +1088,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             return PriceType.BestBid
         elif price_type_str == "best_ask":
             return PriceType.BestAsk
-        elif price_type_str == "last_trade":
+        elif price_type_str == "last_price":
             return PriceType.LastTrade
+        else:
+            raise ValueError(f"Unrecognized price type string {price_type_str}.")
