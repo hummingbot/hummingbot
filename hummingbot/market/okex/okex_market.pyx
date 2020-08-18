@@ -217,6 +217,7 @@ cdef class OKExMarket(MarketBase):
         return await OKExAPIOrderBookDataSource.get_active_exchange_markets()
 
     cdef c_start(self, Clock clock, double timestamp):
+        print("started")
         self._tx_tracker.c_start(clock, timestamp)
         MarketBase.c_start(self, clock, timestamp)
 
@@ -225,6 +226,7 @@ cdef class OKExMarket(MarketBase):
         self._async_scheduler.stop()
 
     async def start_network(self):
+        print("NETWORK STARTED!")
         self._stop_network()
         self._order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
@@ -251,10 +253,15 @@ cdef class OKExMarket(MarketBase):
 
     async def check_network(self) -> NetworkStatus:
         try:
-            await self._api_request(method="get", path_url="/common/timestamp")
+            await self._api_request(method="get", path_url=OKEX_SERVER_TIME)
+            print("NOW CONNECTED")
         except asyncio.CancelledError:
             raise
         except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print("NOW NOT CONNECTED")
+            print(e)
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
 
@@ -262,8 +269,12 @@ cdef class OKExMarket(MarketBase):
         cdef:
             int64_t last_tick = <int64_t>(self._last_timestamp / self._poll_interval)
             int64_t current_tick = <int64_t>(timestamp / self._poll_interval)
+
+        print("I'm called")
         MarketBase.c_tick(self, timestamp)
+        print("I'm called2")
         self._tx_tracker.c_tick(timestamp)
+        print("I'm called3")
         if current_tick > last_tick:
             if not self._poll_notifier.is_set():
                 self._poll_notifier.set()
@@ -341,6 +352,8 @@ cdef class OKExMarket(MarketBase):
             dict new_balances = {}
             str asset_name
             object balance
+
+        raise ValueError("Called!")
 
         balances = await self._api_request("GET", path_url=path_url, is_auth_required=True)
 
