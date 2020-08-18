@@ -209,17 +209,17 @@ class PMMUnitTest(unittest.TestCase):
 
         buy_bid = bid_strategy.active_buys[0]
         buy_target = self.market_info.get_price_by_type(PriceType.BestBid) * Decimal("0.99")
-        self.assertEqual(buy_bid, buy_target)
+        self.assertEqual(buy_target, buy_bid.price)
         sell_bid = bid_strategy.active_sells[0]
         sell_target = self.market_info.get_price_by_type(PriceType.BestBid) * Decimal("1.01")
-        self.assertEqual(sell_bid, sell_target)
+        self.assertEqual(sell_target, sell_bid.price)
 
         buy_ask = ask_strategy.active_buys[0]
         buy_target = self.market_info.get_price_by_type(PriceType.BestAsk) * Decimal("0.99")
-        self.assertEqual(buy_ask, buy_target)
+        self.assertEqual(buy_target, buy_ask.price)
         sell_ask = ask_strategy.active_sells[0]
         sell_target = self.market_info.get_price_by_type(PriceType.BestAsk) * Decimal("1.01")
-        self.assertEqual(sell_bid, sell_target)
+        self.assertEqual(sell_target, sell_ask.price)
 
     def test_basic_multiple_levels(self):
         strategy = self.multi_levels_strategy
@@ -683,16 +683,12 @@ class PMMUnitTest(unittest.TestCase):
         strategy.asset_price_delegate = self.order_book_asset_del
         self.clock.add_iterator(strategy)
         self.clock.backtest_til(self.start_timestamp + 1)
-        self.simulate_maker_market_trade(True, 5.0, 101.1)
-        self.clock.backtest_til(self.start_timestamp + 2)
 
         bid = self.order_book_asset_del.get_price_by_type(PriceType.BestBid)
         ask = self.order_book_asset_del.get_price_by_type(PriceType.BestAsk)
         mid_price = self.order_book_asset_del.get_price_by_type(PriceType.MidPrice)
-        last_price = self.order_book_asset_del.get_price_by_type(PriceType.LastTrade)
 
         self.assertEqual((bid + ask) / 2, mid_price)
-        self.assertEqual(last_price, 101.1)
 
     def test_external_exchange_price_source(self):
         strategy = self.one_level_strategy
