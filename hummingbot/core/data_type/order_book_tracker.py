@@ -297,7 +297,7 @@ class OrderBookTracker(ABC):
                     price=float(trade_message.content["price"]),
                     amount=float(trade_message.content["amount"]),
                     type=TradeType.SELL if
-                    trade_message.content["trade_type"] == float(TradeType.SELL.value) else TradeType.SELL
+                    trade_message.content["trade_type"] == float(TradeType.SELL.value) else TradeType.BUY
                 ))
 
                 messages_accepted += 1
