@@ -51,6 +51,10 @@ coinbase_pro_passphrase = os.getenv("COINBASE_PRO_PASSPHRASE")
 huobi_api_key = os.getenv("HUOBI_API_KEY")
 huobi_secret_key = os.getenv("HUOBI_SECRET_KEY")
 
+# Exmarkets Tests
+exmarkets_api_key = os.getenv("EXMARKETS_API_KEY")
+exmarkets_secret_key = os.getenv("EXMARKETS_SECRET_KEY")
+
 # Dolomite Tests
 dolomite_test_web3_private_key = os.getenv("DOLOMITE_TEST_PK")
 dolomite_test_web3_address = os.getenv("DOLOMITE_TEST_ADDR")

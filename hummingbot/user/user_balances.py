@@ -2,6 +2,7 @@ from hummingbot.market.binance.binance_market import BinanceMarket
 from hummingbot.market.bittrex.bittrex_market import BittrexMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.huobi.huobi_market import HuobiMarket
+from hummingbot.market.exmarkets.exmarkets_market import ExmarketsMarket
 from hummingbot.market.kucoin.kucoin_market import KucoinMarket
 from hummingbot.market.liquid.liquid_market import LiquidMarket
 from hummingbot.market.kraken.kraken_market import KrakenMarket
@@ -31,6 +32,8 @@ class UserBalances:
             market = CoinbaseProMarket(api_details[0], api_details[1], api_details[2])
         elif exchange == "huobi":
             market = HuobiMarket(api_details[0], api_details[1])
+        elif exchange == "exmarkets":
+            market = ExmarketsMarket(api_details[0], api_details[1])
         elif exchange == "kucoin":
             market = KucoinMarket(api_details[0], api_details[2], api_details[1])
         elif exchange == "liquid":

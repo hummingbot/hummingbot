@@ -14,6 +14,7 @@ OPTIONS = {
     "binance",
     "coinbase_pro",
     "huobi",
+    "exmarkets",
     "liquid",
     "bittrex",
     "kucoin",

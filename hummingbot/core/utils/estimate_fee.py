@@ -8,6 +8,7 @@ default_cex_estimate = {
     "bittrex": [0.25, 0.25],
     "coinbase_pro": [0.5, 0.5],
     "huobi": [0.2, 0.2],
+    "exmarkets": [0.12, 0.12],
     "kraken": [0.16, 0.26],
     "kucoin": [0.1, 0.1],
     "liquid": [0.1, 0.1]}

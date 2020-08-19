@@ -18,6 +18,7 @@ RADAR_RELAY_ENDPOINT = "https://api.radarrelay.com/v3/markets"
 BAMBOO_RELAY_ENDPOINT = "https://rest.bamboorelay.com/main/0x/markets"
 COINBASE_PRO_ENDPOINT = "https://api.pro.coinbase.com/products/"
 HUOBI_ENDPOINT = "https://api.huobi.pro/v1/common/symbols"
+EXMARKETS_ENDPOINT = "https://exmarkets.com/api/v1/general/info"
 LIQUID_ENDPOINT = "https://api.liquid.com/products"
 BITTREX_ENDPOINT = "https://api.bittrex.com/v3/markets"
 KUCOIN_ENDPOINT = "https://api.kucoin.com/api/v1/symbols"
@@ -230,6 +231,22 @@ class TradingPairFetcher:
 
         return []
 
+    async def fetch_exmarkets_trading_pairs(self) -> List[str]:
+        try:
+            client: aiohttp.ClientSession = self.http_client()
+            async with client.get(EXMARKETS_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
+                if response.status == 200:
+                    all_trading_pairs: List[Dict[str, Any]] = (await response.json())['markets']
+                    return [item["name"]
+                            for item in all_trading_pairs
+                            if item["active"] is True]
+
+        except Exception:
+            # Do nothing if the request fails -- there will be no autocomplete for exmarkets trading pairs
+            pass
+
+        return []
+
     @staticmethod
     async def fetch_liquid_trading_pairs() -> List[str]:
         try:
@@ -364,7 +381,8 @@ class TradingPairFetcher:
                  self.fetch_bitcoin_com_trading_pairs(),
                  self.fetch_kraken_trading_pairs(),
                  self.fetch_radar_relay_trading_pairs(),
-                 self.fetch_eterbase_trading_pairs()]
+                 self.fetch_eterbase_trading_pairs(),
+                 self.fetch_exmarkets_trading_pairs()]
 
         # Radar Relay has not yet been migrated to a new version
         # Endpoint needs to be updated after migration
@@ -383,6 +401,7 @@ class TradingPairFetcher:
             "bitcoin_com": results[8],
             "kraken": results[9],
             "radar_relay": results[10],
-            "eterbase": results[11]
+            "eterbase": results[11],
+            "exmarkets": results[12]
         }
         self.ready = True

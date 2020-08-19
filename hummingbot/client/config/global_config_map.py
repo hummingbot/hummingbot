@@ -152,6 +152,18 @@ global_config_map = {
                   required_if=using_exchange("huobi"),
                   is_secure=True,
                   is_connect_key=True),
+    "exmarkets_api_key":
+        ConfigVar(key="exmarkets_api_key",
+                  prompt="Enter your Exmarkets API key >>> ",
+                  required_if=using_exchange("exmarkets"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "exmarkets_secret_key":
+        ConfigVar(key="exmarkets_secret_key",
+                  prompt="Enter your Exmarkets secret key >>> ",
+                  required_if=using_exchange("exmarkets"),
+                  is_secure=True,
+                  is_connect_key=True),
     "liquid_api_key":
         ConfigVar(key="liquid_api_key",
                   prompt="Enter your Liquid API key >>> ",
