@@ -72,11 +72,11 @@ cdef class InFlightOrderBase:
 
     @property
     def base_asset(self) -> str:
-        return self.market_class.split_trading_pair(self.trading_pair)[0]
+        return self.trading_pair.split("-")[0]
 
     @property
     def quote_asset(self) -> str:
-        return self.market_class.split_trading_pair(self.trading_pair)[1]
+        return self.trading_pair.split("-")[1]
 
     def update_exchange_order_id(self, exchange_id: str):
         self.exchange_order_id = exchange_id

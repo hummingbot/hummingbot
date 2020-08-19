@@ -346,7 +346,7 @@ cdef class HuobiMarket(MarketBase):
         balances = data.get("list", [])
         if len(balances) > 0:
             for balance_entry in balances:
-                asset_name = balance_entry["currency"]
+                asset_name = balance_entry["currency"].upper()
                 balance = Decimal(balance_entry["balance"])
                 if balance == s_decimal_0:
                     continue
@@ -610,7 +610,7 @@ cdef class HuobiMarket(MarketBase):
 
                 data = stream_message["data"]
                 if channel == HUOBI_ACCOUNT_UPDATE_TOPIC:
-                    asset_name = data["currency"]
+                    asset_name = data["currency"].upper()
                     balance = data["balance"]
                     available_balance = data["available"]
 

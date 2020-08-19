@@ -748,7 +748,7 @@ cdef class EterbaseMarket(MarketBase):
 
         data = {
             "accountId": self._eterbase_account,
-            "marketId": tp_map_mkrtid[trading_pair],
+            "marketId": tp_map_mkrtid[self.convert_to_exchange_trading_pair(trading_pair)],
             "side": side_order,
             "type": type_order,
             "refId": order_id
