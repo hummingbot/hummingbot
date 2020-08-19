@@ -18,7 +18,8 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
     OrderBookTradeEvent,
-    TradeType, PriceType
+    TradeType,
+    PriceType,
 )
 from hummingbot.strategy.pure_market_making.pure_market_making import PureMarketMakingStrategy
 from hummingbot.strategy.pure_market_making.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
