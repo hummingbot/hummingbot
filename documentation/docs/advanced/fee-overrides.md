@@ -38,8 +38,6 @@ kucoin_maker_fee:
 kucoin_taker_fee:
 kraken_maker_fee:
 kraken_taker_fee:
-kraken_maker_fee:
-kraken_taker_fee:
 eterbase_maker_fee:
 eterbase_taker_fee:
 dolomite_maker_fee_amount:
