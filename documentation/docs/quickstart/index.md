@@ -10,17 +10,18 @@
 
 ## Overview
 
-There are two phases of this quickstart, Hummingbot Quickstart and Liquidity Mining Quickstart. See following flowchart:
+There are three phases of this quickstart, Hummingbot installation, Market Making bot configuration, and Qu Hummingbot Miner setup. See following flowchart:
 
 ![Liquidity Mining Quickstart Flowchart](/assets/img/LiquidityMiningQuickstartFlowchart.png)
 
 This quickstart guide shows you how to install Hummingbot and start running a market making bot (paper trade) in approximately 12 minutes. You'll learn how to:
 
-* Hummingbot Quickstart
+* Hummingbot Installation
     * Install the open source Hummingbot client (~3 minutes)
+* Market Making Bot Configuration
     * Configure a market making bot (~5 minutes)
     * Run the bot in paper trading mode (~2 minutes)
-* Liquidity Mining Quickstart
+* Hummingbot Miner app setup
     * Participate in liquidity mining (~2 minutes)
 
 

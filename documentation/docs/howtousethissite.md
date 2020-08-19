@@ -8,6 +8,7 @@ This documentation site is organized into the following tabs:
 * Developer Manual
 * Release Notes
 * Support
+* Community
 
 Refer to the following sections for more details.
 

@@ -14,12 +14,29 @@
 !!! warning "Liquidity mining yields do not include profits or losses from trading"
     The published Yield/Day metrics only include reward payments versus order volumes. They *do not* capture the individual miner's profit or loss on the underlying strategy or any transaction fees (if any) that generated the orders created.  As a result, *liquidity mining yields are not an indication of a miner's overall portfolio return*; miners should take into consideration overall economics, and not just mining return, when deciding on participating in liquidity mining campaigns.
 
-## Checking campaign details
+## Checking campaign details and rewards per snapshot
 
-1. Scroll down to the Avaliabe Markets Section.
-2. Select and click on the market row. e.g RLCUSDT. The campaign details are displayed.
+1. Click <b>Markets</b>
+2. Scroll down to **Available Markets** section.
+3. Select and click on the desired market pair. The campaign details are displayed.
+4. Scroll down to the **Snapshots** section.
+5. Select a timestamp row. The snapshot is displayed. 
 
-## Check snapshot
+**Tip**: You can check previous snapshot
+
+![](../assets/img/market-pair-snapshot.png)
+
+The snapshot section is divided into three areas:
+
+* Liquidity — displays the total/ask/bid volume for all miners and your miner
+* Spread — displayes the mid/ask/bid price for all miners and your miner
+* Rewards earned — displays the rewards earn by all miners and your miner
+
+**Note** The column "yourself" displays the statistics only when your miner is running and statisfy the campaign requirements. 
+
+
+
+
 
 
 
