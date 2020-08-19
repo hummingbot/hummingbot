@@ -4,7 +4,7 @@ Below are the available commands in the current Hummingbot release.
 |---------|----------|
 | [connect](./connect) | List available exchanges and add API keys to them |
 | [create](./create) | Create a new bot |
-| [import](./import) | Import a existing bot by loading the configuration file |
+| [import](./import) | Import an existing bot by loading the configuration file |
 | [help](./help) | List available commands |
 | [balance](./balance) | Display your asset balances across all connected exchanges |
 | [config](./config) | Display the current bot's configuration |
