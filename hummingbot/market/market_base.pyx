@@ -31,6 +31,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 from .deposit_info import DepositInfo
 from hummingbot.core.event.events import OrderFilledEvent
+from hummingbot.core.utils.estimate_fee import estimate_fee
 
 NaN = float("nan")
 s_decimal_NaN = Decimal("nan")
@@ -72,20 +73,23 @@ cdef class MarketBase(NetworkIterator):
         except Exception:
             return None
 
-    @staticmethod
-    def in_flight_asset_balances(in_flight_orders: Dict[str, InFlightOrderBase]) -> Dict[str, Decimal]:
+    def in_flight_asset_balances(self, in_flight_orders: Dict[str, InFlightOrderBase]) -> Dict[str, Decimal]:
         """
         Calculates the individual asset balances used in in_flight_orders
         For BUY order, this is the quote asset balance locked in the order
         For SELL order, this is the base asset balance locked in the order
         """
         asset_balances = {}
+        if in_flight_orders is None:
+            return asset_balances
         for order in [o for o in in_flight_orders.values() if not (o.is_done or o.is_failure or o.is_cancelled)]:
             if order.trade_type is TradeType.BUY:
                 order_value = Decimal(order.amount * order.price)
                 outstanding_value = order_value - order.executed_amount_quote
                 if order.quote_asset not in asset_balances:
                     asset_balances[order.quote_asset] = s_decimal_0
+                fee = estimate_fee(self.name, True)
+                outstanding_value *= (Decimal(1) + fee.percent)
                 asset_balances[order.quote_asset] += outstanding_value
             else:
                 outstanding_value = order.amount - order.executed_amount_base
