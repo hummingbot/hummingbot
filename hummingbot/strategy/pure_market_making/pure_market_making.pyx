@@ -1004,7 +1004,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     cdef c_cancel_orders_below_min_spread(self):
         cdef:
             list active_orders = self.market_info_to_active_orders.get(self._market_info, [])
-            object price = self.get_price()  # TODO: check if this was previously a bug or intended
+            object price = self.get_price()
         active_orders = [order for order in active_orders
                          if order.client_order_id not in self._hanging_order_ids]
         for order in active_orders:
