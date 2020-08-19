@@ -622,6 +622,7 @@ cdef class BinanceMarket(MarketBase):
 
                     if execution_type == "TRADE":
                         order_filled_event = OrderFilledEvent.order_filled_event_from_binance_execution_report(event_message)
+                        order_filled_event = order_filled_event._replace(trading_pair=self.convert_from_exchange_trading_pair(order_filled_event.trading_pair))
                         order_filled_event = order_filled_event._replace(trade_fee=self.c_get_fee(
                             tracked_order.base_asset,
                             tracked_order.quote_asset,

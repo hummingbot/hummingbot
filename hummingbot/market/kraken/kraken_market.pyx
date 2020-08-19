@@ -314,7 +314,7 @@ cdef class KrakenMarket(MarketBase):
                         locked[quote] += vol_locked * Decimal(details.get("price"))
 
         for asset_name, balance in balances.items():
-            cleaned_name = self.convert_from_exchange_symbol(asset_name)
+            cleaned_name = self.convert_from_exchange_symbol(asset_name).upper()
             total_balance = Decimal(balance)
             free_balance = total_balance - Decimal(locked[cleaned_name])
             self._account_available_balances[cleaned_name] = free_balance
@@ -361,7 +361,7 @@ cdef class KrakenMarket(MarketBase):
             trading_rules_list = self._format_trading_rules(asset_pairs)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
-                self._trading_rules[trading_rule.trading_pair] = trading_rule
+                self._trading_rules[self.convert_from_exchange_trading_pair(trading_rule.trading_pair)] = trading_rule
 
     def _format_trading_rules(self, asset_pairs_dict: Dict[str, Any]) -> List[TradingRule]:
         """
