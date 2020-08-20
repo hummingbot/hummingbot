@@ -38,7 +38,7 @@ Enter the command `help` to see a list of commands:
 |---------|----------|
 | `connect` | List available exchanges and add API keys to them |
 | `create` | Create a new bot |
-| `import` | Import a existing bot by loading the configuration file |
+| `import` | Import an existing bot by loading the configuration file |
 | `help` | List available commands |
 | `balance` | Display your asset balances across all connected exchanges |
 | `config` | Display the current bot's configuration |
