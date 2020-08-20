@@ -2,7 +2,6 @@
 
 import asyncio
 import cytoolz
-from hexbytes import HexBytes
 import logging
 import math
 from typing import (
@@ -30,7 +29,7 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from .base_watcher import BaseWatcher
-from .new_blocks_watcher import NewBlocksWatcher
+from .websocket_watcher import WSNewBlocksWatcher
 from .contract_event_logs import ContractEventLogger
 
 weth_sai_symbols: Set[str] = {"WETH", "SAI"}
@@ -54,7 +53,7 @@ class ERC20EventsWatcher(BaseWatcher):
 
     def __init__(self,
                  w3: Web3,
-                 blocks_watcher: NewBlocksWatcher,
+                 blocks_watcher: WSNewBlocksWatcher,
                  contract_addresses: List[str],
                  contract_abi: List[any],
                  watch_addresses: Iterable[str]):
@@ -62,7 +61,7 @@ class ERC20EventsWatcher(BaseWatcher):
             raise ValueError("Each entry in contract_addresses must have a corresponding entry in contract_abi.")
 
         super().__init__(w3)
-        self._blocks_watcher: NewBlocksWatcher = blocks_watcher
+        self._blocks_watcher: WSNewBlocksWatcher = blocks_watcher
         self._addresses_to_contracts: Dict[str, Contract] = {
             address: w3.eth.contract(address=address, abi=abi)
             for address, abi in zip(contract_addresses, contract_abi)
@@ -113,7 +112,6 @@ class ERC20EventsWatcher(BaseWatcher):
         while True:
             try:
                 new_blocks: List[AttributeDict] = await self._new_blocks_queue.get()
-                block_hashes: List[HexBytes] = [block["hash"] for block in new_blocks]
 
                 transfer_tasks = []
                 approval_tasks = []
@@ -121,11 +119,11 @@ class ERC20EventsWatcher(BaseWatcher):
                     contract_event_logger: ContractEventLogger = self._contract_event_loggers[address]
                     transfer_tasks.append(
                         contract_event_logger.get_new_entries_from_logs(TRANSFER_EVENT_NAME,
-                                                                        block_hashes)
+                                                                        new_blocks)
                     )
                     approval_tasks.append(
                         contract_event_logger.get_new_entries_from_logs(APPROVAL_EVENT_NAME,
-                                                                        block_hashes)
+                                                                        new_blocks)
                     )
 
                 raw_transfer_entries = await safe_gather(*transfer_tasks)
@@ -142,9 +140,9 @@ class ERC20EventsWatcher(BaseWatcher):
             except asyncio.TimeoutError:
                 continue
             except Exception:
-                self.logger().network(f"Error fetching new events from ERC20 contracts.", exc_info=True,
-                                      app_warning_msg=f"Error fetching new events from ERC20 contracts. "
-                                                      f"Check wallet network connection")
+                self.logger().network("Error fetching new events from ERC20 contracts.", exc_info=True,
+                                      app_warning_msg="Error fetching new events from ERC20 contracts. "
+                                                      "Check wallet network connection")
 
     async def _handle_event_data(self, event_data: AttributeDict):
         event_type: str = event_data["event"]

@@ -16,11 +16,12 @@ from typing import (
 from decimal import Decimal
 from libc.stdint cimport int64_t
 from web3 import Web3
+from web3.exceptions import TransactionNotFound
 from zero_ex.order_utils import (
     generate_order_hash_hex,
-    jsdict_order_to_struct,
     Order as ZeroExOrder
 )
+from zero_ex.contract_wrappers.order_conversions import jsdict_to_order
 
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -56,15 +57,17 @@ from hummingbot.market.radar_relay.radar_relay_in_flight_order cimport RadarRela
 from hummingbot.market.radar_relay.radar_relay_order_book_tracker import RadarRelayOrderBookTracker
 from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
-from hummingbot.wallet.ethereum.zero_ex.zero_ex_custom_utils import fix_signature
-from hummingbot.wallet.ethereum.zero_ex.zero_ex_exchange import ZeroExExchange
+from hummingbot.wallet.ethereum.zero_ex.zero_ex_custom_utils_v3 import fix_signature
+from hummingbot.wallet.ethereum.zero_ex.zero_ex_exchange_v3 import ZeroExExchange
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.core.utils.estimate_fee import estimate_fee
 
 rrm_logger = None
 s_decimal_0 = Decimal(0)
 
 ZERO_EX_MAINNET_ERC20_PROXY = "0x95E6F48254609A6ee006F7D493c8e5fB97094ceF"
-ZERO_EX_MAINNET_EXCHANGE_ADDRESS = "0x080bf510FCbF18b91105470639e9561022937712"
-RADAR_RELAY_REST_ENDPOINT = "https://api.radarrelay.com/v2"
+ZERO_EX_MAINNET_EXCHANGE_ADDRESS = "0x61935CbDd02287B511119DDb11Aeb42F1593b7Ef"
+RADAR_RELAY_REST_ENDPOINT = "https://api.radarrelay.com/v3"
 
 
 cdef class RadarRelayTransactionTracker(TransactionTracker):
@@ -81,10 +84,8 @@ cdef class RadarRelayTransactionTracker(TransactionTracker):
 
 
 cdef class RadarRelayMarket(MarketBase):
-    MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset.value
     MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
@@ -116,8 +117,7 @@ cdef class RadarRelayMarket(MarketBase):
                  trading_required: bool = True):
         super().__init__()
         self._trading_required = trading_required
-        self._order_book_tracker = RadarRelayOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
-                                                              trading_pairs=trading_pairs)
+        self._order_book_tracker = RadarRelayOrderBookTracker(trading_pairs=trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
@@ -132,11 +132,9 @@ cdef class RadarRelayMarket(MarketBase):
         self._tx_tracker = RadarRelayTransactionTracker(self)
         self._w3 = Web3(Web3.HTTPProvider(ethereum_rpc_url))
         self._provider = Web3.HTTPProvider(ethereum_rpc_url)
-        self._withdraw_rules = {}
         self._trading_rules = {}
         self._pending_approval_tx_hashes = set()
         self._status_polling_task = None
-        self._order_tracker_task = None
         self._approval_tx_polling_task = None
         self._wallet = wallet
         self._wallet_spender_address = wallet_spender_address
@@ -216,6 +214,10 @@ cdef class RadarRelayMarket(MarketBase):
             }
         }
 
+    @property
+    def in_flight_orders(self) -> Dict[str, RadarRelayInFlightOrder]:
+        return {**self._in_flight_limit_orders, **self._in_flight_market_orders}
+
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         self._in_flight_market_orders.update({
             key: RadarRelayInFlightOrder.from_json(value)
@@ -236,7 +238,6 @@ cdef class RadarRelayMarket(MarketBase):
                 await self._poll_notifier.wait()
 
                 self._update_balances()
-                self._update_available_balances()
                 await safe_gather(
                     self._update_trading_rules(),
                     self._update_limit_order_status(),
@@ -259,6 +260,7 @@ cdef class RadarRelayMarket(MarketBase):
                           object trade_type,
                           object amount,
                           object price):
+        """
         cdef:
             int gas_estimate = 130000  # approximate gas used for 0x market orders
             double transaction_cost_eth
@@ -269,6 +271,9 @@ cdef class RadarRelayMarket(MarketBase):
         # only fee for takers is gas cost of transaction
         transaction_cost_eth = self._wallet.gas_price * gas_estimate / 1e18
         return TradeFee(percent=Decimal(0.0), flat_fees=[("ETH", transaction_cost_eth)])
+        """
+        is_maker = order_type is OrderType.LIMIT
+        return estimate_fee("radar_relay", is_maker)
 
     def _update_balances(self):
         self._account_balances = self.wallet.get_all_balances().copy()
@@ -277,6 +282,10 @@ cdef class RadarRelayMarket(MarketBase):
         cdef:
             double current_timestamp = self._current_timestamp
 
+        # Retrieve account balance from wallet.
+        self._account_balances = self.wallet.get_all_balances().copy()
+
+        # Calculate available balance
         if current_timestamp - self._last_update_available_balance_timestamp > 10.0:
 
             if len(self._in_flight_limit_orders) >= 0:
@@ -284,7 +293,19 @@ cdef class RadarRelayMarket(MarketBase):
                 total_balances = self._account_balances
 
                 for order in self._in_flight_limit_orders.values():
-                    locked_balances[order.trading_pair] = locked_balances.get(order.trading_pair, s_decimal_0) + order.amount
+                    # Orders that are done, cancelled or expired don't deduct from the available balance
+                    if (not order.is_cancelled and
+                            not order.is_expired and
+                            not order.is_failure and
+                            not order.is_done):
+                        pair_split = order.trading_pair.split("-")
+                        if order.trade_type is TradeType.BUY:
+                            currency = pair_split[1]
+                            amount = Decimal(order.amount * order.price)
+                        else:
+                            currency = pair_split[0]
+                            amount = Decimal(order.amount)
+                        locked_balances[currency] = locked_balances.get(currency, s_decimal_0) + amount
 
                 for currency, balance in total_balances.items():
                     self._account_available_balances[currency] = \
@@ -557,9 +578,11 @@ cdef class RadarRelayMarket(MarketBase):
             try:
                 if len(self._pending_approval_tx_hashes) > 0:
                     for tx_hash in list(self._pending_approval_tx_hashes):
-                        receipt = self._w3.eth.getTransactionReceipt(tx_hash)
-                        if receipt is not None:
+                        try:
+                            receipt = self._w3.eth.getTransactionReceipt(tx_hash)
                             self._pending_approval_tx_hashes.remove(tx_hash)
+                        except TransactionNotFound:
+                            pass
             except Exception:
                 self.logger().network(
                     "Unexpected error while fetching approval transactions.",
@@ -574,13 +597,20 @@ cdef class RadarRelayMarket(MarketBase):
                            http_method: str,
                            url: str,
                            data: Optional[Dict[str, Any]] = None,
-                           headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+                           headers: Optional[Dict[str, str]] = None,
+                           json: int = 0) -> Dict[str, Any]:
         async with aiohttp.ClientSession() as client:
-            async with client.request(http_method,
-                                      url=url,
-                                      timeout=self.API_CALL_TIMEOUT,
-                                      data=data,
-                                      headers=headers) as response:
+            async with (
+                    client.request(http_method,
+                                   url=url,
+                                   timeout=self.API_CALL_TIMEOUT,
+                                   data=data,
+                                   headers=headers) if json==0 else
+                    client.request(http_method,
+                                   url=url,
+                                   timeout=self.API_CALL_TIMEOUT,
+                                   json=data,
+                                   headers=headers)) as response:
                 try:
                     if response.status == 201:
                         return response
@@ -631,9 +661,10 @@ cdef class RadarRelayMarket(MarketBase):
         return await self._api_request(http_method="post", url=url, data=data)
 
     def get_order_hash_hex(self, unsigned_order: Dict[str, Any]) -> str:
-        order_struct = jsdict_order_to_struct(unsigned_order)
+        order_struct = jsdict_to_order(unsigned_order)
         order_hash_hex = generate_order_hash_hex(order=order_struct,
-                                                 exchange_address=ZERO_EX_MAINNET_EXCHANGE_ADDRESS.lower())
+                                                 exchange_address=ZERO_EX_MAINNET_EXCHANGE_ADDRESS.lower(),
+                                                 chain_id=1)
         return order_hash_hex
 
     def get_zero_ex_signature(self, order_hash_hex: str) -> str:
@@ -659,12 +690,16 @@ cdef class RadarRelayMarket(MarketBase):
         for order in signed_market_orders:
             signatures.append(order["signature"])
             del order["signature"]
-            orders.append(jsdict_order_to_struct(order))
+            order["makerAddress"] = Web3.toChecksumAddress(order["makerAddress"])
+            order["senderAddress"] = Web3.toChecksumAddress(order["senderAddress"])
+            order["exchangeAddress"] = Web3.toChecksumAddress(order["exchangeAddress"])
+            order["feeRecipientAddress"] = Web3.toChecksumAddress(order["feeRecipientAddress"])
+            orders.append(jsdict_to_order(order))
         tx_hash = ""
         if trade_type is TradeType.BUY:
-            tx_hash = self._exchange.market_buy_orders(orders, amt_with_decimals, signatures)
+            tx_hash, protocol_fee = self._exchange.market_buy_orders(orders, amt_with_decimals, signatures)
         elif trade_type is TradeType.SELL:
-            tx_hash = self._exchange.market_sell_orders(orders, amt_with_decimals, signatures)
+            tx_hash, protocol_fee = self._exchange.market_sell_orders(orders, amt_with_decimals, signatures)
         else:
             raise ValueError("Invalid trade_type. Aborting.")
         return average_price, tx_hash
@@ -681,16 +716,16 @@ cdef class RadarRelayMarket(MarketBase):
                                                                        amount=f"{amount:f}",
                                                                        price=f"{price:f}",
                                                                        expires=expires)
-        unsigned_limit_order["makerAddress"] = self._wallet.address.lower()
+        unsigned_limit_order["makerAddress"] = self._wallet.address
         order_hash_hex = self.get_order_hash_hex(unsigned_limit_order)
         signed_limit_order = copy.deepcopy(unsigned_limit_order)
         signature = self.get_zero_ex_signature(order_hash_hex)
         signed_limit_order["signature"] = signature
-        await self._api_request(http_method="post", url=url, data=signed_limit_order)
+        await self._api_request(http_method="post", url=url, data=signed_limit_order, headers={"Content-Type": "application/json"}, json=1)
         self._latest_salt = int(unsigned_limit_order["salt"])
         order_hash = self._w3.toHex(hexstr=order_hash_hex)
         del unsigned_limit_order["signature"]
-        zero_ex_order = jsdict_order_to_struct(unsigned_limit_order)
+        zero_ex_order = jsdict_to_order(unsigned_limit_order)
         return order_hash, zero_ex_order
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
@@ -734,7 +769,7 @@ cdef class RadarRelayMarket(MarketBase):
             object q_price
             object q_amt = self.c_quantize_order_amount(trading_pair, amount)
             TradingRule trading_rule = self._trading_rules[trading_pair]
-            str trade_type_desc = "buy" if trade_type is TradeType.BUY else "sell"
+            str trade_type_desc = trade_type.name.lower()
         try:
             if q_amt < trading_rule.min_order_size:
                 raise ValueError(f"{trade_type_desc.capitalize()} order amount {q_amt} is lower than the "
@@ -819,7 +854,7 @@ cdef class RadarRelayMarket(MarketBase):
                    object price=s_decimal_NaN,
                    dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
         expires = kwargs.get("expiration_ts", None)
         if expires is not None:
@@ -840,7 +875,7 @@ cdef class RadarRelayMarket(MarketBase):
                     object price=s_decimal_NaN,
                     dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
+            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
             str order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
         expires = kwargs.get("expiration_ts", None)
         if expires is not None:
@@ -868,7 +903,11 @@ cdef class RadarRelayMarket(MarketBase):
         return self.c_get_price(trading_pair, is_buy)
 
     def get_tx_hash_receipt(self, tx_hash: str) -> Dict[str, Any]:
-        return self._w3.eth.getTransactionReceipt(tx_hash)
+        try:
+            tx_hash_receipt = self._w3.eth.getTransactionReceipt(tx_hash)
+            return tx_hash_receipt
+        except TransactionNotFound:
+            return None
 
     async def list_account_orders(self) -> List[Dict[str, Any]]:
         url = f"{RADAR_RELAY_REST_ENDPOINT}/accounts/{self._wallet.address}/orders"
@@ -890,10 +929,8 @@ cdef class RadarRelayMarket(MarketBase):
         return order_books[trading_pair]
 
     async def start_network(self):
-        if self._order_tracker_task is not None:
-            self._stop_network()
-
-        self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
+        self._stop_network()
+        self._order_book_tracker.start()
         self._status_polling_task = safe_ensure_future(self._status_polling_loop())
         if self._trading_required:
             tx_hashes = await self.wallet.current_backend.check_and_fix_approval_amounts(
@@ -903,15 +940,14 @@ cdef class RadarRelayMarket(MarketBase):
             self._approval_tx_polling_task = safe_ensure_future(self._approval_tx_polling_loop())
 
     def _stop_network(self):
-        if self._order_tracker_task is not None:
-            self._order_tracker_task.cancel()
+        self._order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
         if self._pending_approval_tx_hashes is not None:
             self._pending_approval_tx_hashes.clear()
         if self._approval_tx_polling_task is not None:
             self._approval_tx_polling_task.cancel()
-        self._order_tracker_task = self._status_polling_task = self._approval_tx_polling_task = None
+        self._status_polling_task = self._approval_tx_polling_task = None
 
     async def stop_network(self):
         self._stop_network()

@@ -1,14 +1,9 @@
 import json
 import logging
-from decimal import Decimal
-
-# Custom log level
-from enum import Enum
 
 from hummingbot.logger import (
     HummingbotLogger,
     log_encoder,
-    REPORT_EVENT_QUEUE
 )
 
 EVENT_LOG_LEVEL = 15
@@ -43,24 +38,4 @@ class StructLogger(HummingbotLogger):
             else:
                 kwargs["extra"] = extra
 
-            if "timestamp" in dict_msg:
-                dict_msg["ts"] = dict_msg["timestamp"]
-                del dict_msg["timestamp"]
-
-            REPORT_EVENT_QUEUE.put_nowait(dict_msg)
             self._log(EVENT_LOG_LEVEL, "", args, **kwargs)
-
-    def metric_log(self, dict_msg, *args, **kwargs):
-        if self.isEnabledFor(METRICS_LOG_LEVEL):
-            if not isinstance(dict_msg, dict):
-                self._log(logging.ERROR, "metric_log message must be of type dict.", extra={"do_not_send": True})
-                return
-            extra = {
-                "dict_msg": dict_msg,
-                "message_type": "metric"
-            }
-            if "extra" in kwargs:
-                kwargs["extra"].update(extra)
-            else:
-                kwargs["extra"] = extra
-            self._log(METRICS_LOG_LEVEL, "", args, **kwargs)

@@ -38,9 +38,9 @@ def main():
     system_type: str = platform.system()
 
     try:
-        check_call([join(project_dir(), "compile")], shell=True)
+        check_call([join(project_dir(), "compile")], shell=True, cwd=project_dir())
         if system_type == "Windows":
-            check_call([join(project_dir(), "compile")], shell=True)
+            check_call([join(project_dir(), "compile")], shell=True, cwd=project_dir())
     except Exception:
         print("Error: compile failed.", file=sys.stderr)
         sys.exit(1)
@@ -53,7 +53,7 @@ def main():
         if system_type == "Windows":
             path_cmd = "where pyinstaller"
         pyinstaller_path: str = check_output(path_cmd, shell=True).decode("utf8").strip()
-        check_call([pyinstaller_path, "-y", spec_file_path])
+        check_call([pyinstaller_path, "-y", spec_file_path], cwd=project_dir())
     finally:
         shutil.move(join(project_dir(), "bin", "bot"), join(project_dir(), "bin", "hummingbot.py"))
 
@@ -70,7 +70,7 @@ def main():
         if nsis_compiler is None:
             print("Error: NSIS compiler not found.", file=sys.stderr)
             sys.exit(1)
-        check_call([nsis_compiler, join(project_dir(), "pyinstaller/windows_installer.nsi")])
+        check_call([nsis_compiler, join(project_dir(), "pyinstaller/windows_installer.nsi")], cwd=project_dir())
 
     logging.info("Done!")
 

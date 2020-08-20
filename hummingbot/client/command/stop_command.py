@@ -1,9 +1,5 @@
 import platform
-
-from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.core.utils.async_utils import safe_ensure_future
-
-
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -17,12 +13,16 @@ class StopCommand:
 
     async def stop_loop(self,  # type: HummingbotApplication
                         skip_order_cancellation: bool = False):
+        self.logger().info("stop command initiated.")
         self._notify("\nWinding down...")
 
         # Restore App Nap on macOS.
         if platform.system() == "Darwin":
             import appnope
             appnope.nap()
+
+        if self._script_iterator is not None:
+            self._script_iterator.stop(self.clock)
 
         if self._trading_required and not skip_order_cancellation:
             # Remove the strategy from clock before cancelling orders, to
@@ -35,13 +35,8 @@ class StopCommand:
                 # Only erase markets when cancellation has been successful
                 self.markets = {}
 
-        if self.reporting_module:
-            self.reporting_module.stop()
-
         if self.strategy_task is not None and not self.strategy_task.cancelled():
             self.strategy_task.cancel()
-
-        ExchangeRateConversion.get_instance().stop()
 
         if self.markets_recorder is not None:
             self.markets_recorder.stop()

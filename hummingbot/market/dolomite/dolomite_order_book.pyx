@@ -1,22 +1,19 @@
 #!/usr/bin/env python
 
 from aiokafka import ConsumerRecord
-from decimal import Decimal
 import logging
 from sqlalchemy.engine import RowProxy
-
 from typing import (
     Dict,
     List,
     Optional,
 )
-
 import ujson
 
 from hummingbot.logger import HummingbotLogger
+from hummingbot.market.dolomite.dolomite_order_book_message import DolomiteOrderBookMessage
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import (
-    DolomiteOrderBookMessage,
     OrderBookMessage,
     OrderBookMessageType
 )
@@ -37,40 +34,32 @@ cdef class DolomiteOrderBook(OrderBook):
                                        msg: Dict[str, any],
                                        timestamp: float,
                                        metadata: Optional[Dict] = None) -> DolomiteOrderBookMessage:
-    
         if metadata:
             msg.update(metadata)
         return DolomiteOrderBookMessage(OrderBookMessageType.SNAPSHOT, msg, timestamp)
-            
 
     @classmethod
     def diff_message_from_exchange(cls,
                                    msg: Dict[str, any],
                                    timestamp: Optional[float] = None,
                                    metadata: Optional[Dict] = None) -> OrderBookMessage:
-        
         if metadata:
             msg.update(metadata)
         return DolomiteOrderBookMessage(OrderBookMessageType.DIFF, msg, timestamp)
-    
-
 
     @classmethod
     def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
         msg = record.json if type(record.json)==dict else ujson.loads(record.json)
-        return DolomiteOrderBookMessage(OrderBookMessageType.SNAPSHOT, msg,
-                                    timestamp=record.timestamp * 1e-3)
+        return DolomiteOrderBookMessage(OrderBookMessageType.SNAPSHOT, msg, timestamp=record.timestamp * 1e-3)
 
     @classmethod
     def diff_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
         return DolomiteOrderBookMessage(OrderBookMessageType.DIFF, record.json)
 
-    
     @classmethod
     def snapshot_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:
         msg = ujson.loads(record.value.decode())
-        return DolomiteOrderBookMessage(OrderBookMessageType.SNAPSHOT, msg,
-                                    timestamp=record.timestamp * 1e-3)
+        return DolomiteOrderBookMessage(OrderBookMessageType.SNAPSHOT, msg, timestamp=record.timestamp * 1e-3)
 
     @classmethod
     def diff_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:
@@ -88,4 +77,3 @@ cdef class DolomiteOrderBook(OrderBook):
     @classmethod
     def restore_from_snapshot_and_diffs(self, snapshot: OrderBookMessage, diffs: List[OrderBookMessage]):
         raise NotImplementedError("Dolomite order book needs to retain individual order data.")
-        

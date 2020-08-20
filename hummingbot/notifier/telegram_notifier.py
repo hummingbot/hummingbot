@@ -35,10 +35,10 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 DISABLED_COMMANDS = {
-    "bounty --restore-id",  # disabled because it requires additional logic in the ui
-    "bounty --register",    # disabled because it requires additional logic in the ui
-    "config",               # disabled because it requires additional logic in the ui
-    "export_private_key",   # disabled for security
+    "connect",             # disabled because telegram can't display secondary prompt
+    "create",              # disabled because telegram can't display secondary prompt
+    "import",              # disabled because telegram can't display secondary prompt
+    "export",              # disabled for security
 }
 
 # Telegram does not allow sending messages longer than 4096 characters
@@ -170,19 +170,19 @@ class TelegramNotifier(NotifierBase):
         bot = bot or self._updater.bot
 
         # command options that show up on user's screen
-        approved_commands = [c for c in self._hb.parser.commands if c not in DISABLED_COMMANDS]
+        approved_commands = ["start", "stop", "status", "history", "config"]
         keyboard = self._divide_chunks(approved_commands)
-        reply_markup = ReplyKeyboardMarkup(keyboard)
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
         # wrapping text in ``` to prevent formatting issues
-        formatted_msg = f'```\n{msg}\n```'
+        formatted_msg = f'\n{msg}\n'
 
         try:
             try:
                 await self._async_call_scheduler.call_async(lambda: bot.send_message(
                     self._chat_id,
                     text=formatted_msg,
-                    parse_mode=ParseMode.MARKDOWN,
+                    parse_mode=ParseMode.HTML,
                     reply_markup=reply_markup
                 ))
             except NetworkError as network_err:

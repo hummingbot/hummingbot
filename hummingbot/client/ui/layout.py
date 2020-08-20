@@ -27,46 +27,58 @@ from hummingbot.client.settings import (
 
 
 HEADER = """
-                                                   *,.
-                                                 *,,,*
-                                                ,,,,,,,               *
-                                              ,,,,,,,,            ,,,,
-                                             *,,,,,,,,(        .,,,,,,
-                                           /,,,,,,,,,,     .*,,,,,,,,
-                                          .,,,,,,,,,,,.  ,,,,,,,,,,,*
-                                         ,,,,,,,,,,,,,,,,,,,,,,,,,,,
-                               //      ,,,,,,,,,,,,,,,,,,,,,,,,,,,,#*%
-                           .,,,,,,,,. *,,,,,,,,,,,,,,,,,,,,,,,,,,,%%%%%%&@
-                         ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,%%%%%%%&
-                       ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,%%%%%%%&
-                     /*,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,(((((%%&
-                  **.         #,,,,,,,,,,,,,,,,,,,,,,,,,,,,,((((((((((#.
-               **               *,,,,,,,,,,,,,,,,,,,,,,,,**/(((((((((((((*
-                                  ,,,,,,,,,,,,,,,,,,,,*********((((((((((((
-                                    ,,,,,,,,,,,,,,,**************((((((((@
-                                    (,,,,,,,,,,,,,,,***************(#
-                                     *,,,,,,,,,,,,,,,,**************/
-                                       ,,,,,,,,,,,,,,,***************/
-                                         ,,,,,,,,,,,,,,****************
-                                           .,,,,,,,,,,,,**************/
-                                                ,,,,,,,,*******,
-                                               *,,,,,,,,********
-                                               ,,,,,,,,,/******/
-                                              ,,,,,,,,,@  /****/
-                                             ,,,,,,,,
-                                             , */
+                                                *,.
+                                                *,,,*
+                                            ,,,,,,,               *
+                                            ,,,,,,,,            ,,,,
+                                            *,,,,,,,,(        .,,,,,,
+                                        /,,,,,,,,,,     .*,,,,,,,,
+                                        .,,,,,,,,,,,.  ,,,,,,,,,,,*
+                                        ,,,,,,,,,,,,,,,,,,,,,,,,,,,
+                            //      ,,,,,,,,,,,,,,,,,,,,,,,,,,,,#*%
+                        .,,,,,,,,. *,,,,,,,,,,,,,,,,,,,,,,,,,,,%%%%%%&@
+                        ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,%%%%%%%&
+                    ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,%%%%%%%&
+                    /*,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,(((((%%&
+                **.         #,,,,,,,,,,,,,,,,,,,,,,,,,,,,,((((((((((#.
+            **               *,,,,,,,,,,,,,,,,,,,,,,,,**/(((((((((((((*
+                                ,,,,,,,,,,,,,,,,,,,,*********((((((((((((
+                                ,,,,,,,,,,,,,,,**************((((((((@
+                                (,,,,,,,,,,,,,,,***************(#
+                                    *,,,,,,,,,,,,,,,,**************/
+                                    ,,,,,,,,,,,,,,,***************/
+                                        ,,,,,,,,,,,,,,****************
+                                        .,,,,,,,,,,,,**************/
+                                            ,,,,,,,,*******,
+                                            *,,,,,,,,********
+                                            ,,,,,,,,,/******/
+                                            ,,,,,,,,,@  /****/
+                                            ,,,,,,,,
+                                            , */
 
 
-    ██╗  ██╗██╗   ██╗███╗   ███╗███╗   ███╗██╗███╗   ██╗ ██████╗ ██████╗  ██████╗ ████████╗
-    ██║  ██║██║   ██║████╗ ████║████╗ ████║██║████╗  ██║██╔════╝ ██╔══██╗██╔═══██╗╚══██╔══╝
-    ███████║██║   ██║██╔████╔██║██╔████╔██║██║██╔██╗ ██║██║  ███╗██████╔╝██║   ██║   ██║
-    ██╔══██║██║   ██║██║╚██╔╝██║██║╚██╔╝██║██║██║╚██╗██║██║   ██║██╔══██╗██║   ██║   ██║
-    ██║  ██║╚██████╔╝██║ ╚═╝ ██║██║ ╚═╝ ██║██║██║ ╚████║╚██████╔╝██████╔╝╚██████╔╝   ██║
-    ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═════╝  ╚═════╝    ╚═╝
+██╗  ██╗██╗   ██╗███╗   ███╗███╗   ███╗██╗███╗   ██╗ ██████╗ ██████╗  ██████╗ ████████╗
+██║  ██║██║   ██║████╗ ████║████╗ ████║██║████╗  ██║██╔════╝ ██╔══██╗██╔═══██╗╚══██╔══╝
+███████║██║   ██║██╔████╔██║██╔████╔██║██║██╔██╗ ██║██║  ███╗██████╔╝██║   ██║   ██║
+██╔══██║██║   ██║██║╚██╔╝██║██║╚██╔╝██║██║██║╚██╗██║██║   ██║██╔══██╗██║   ██║   ██║
+██║  ██║╚██████╔╝██║ ╚═╝ ██║██║ ╚═╝ ██║██║██║ ╚████║╚██████╔╝██████╔╝╚██████╔╝   ██║
+╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═════╝  ╚═════╝    ╚═╝
 
-================================================================================================
-Press CTRL + C to quit at any time.
-Enter "help" for a list of commands.
+=======================================================================================
+Welcome to Hummingbot, an open source software client that helps you build and run
+high-frequency trading (HFT) bots.
+
+Helpful Links:
+- Get 24/7 support: https://discord.hummingbot.io
+- Learn how to use Hummingbot: https://docs.hummingbot.io
+- Earn liquidity rewards: https://miner.hummingbot.io
+
+Useful Commands:
+- connect     List available exchanges and add API keys to them
+- create      Create a new bot
+- import      Import an existing bot by loading the configuration file
+- help        List available commands
+
 """
 
 with open(realpath(join(dirname(__file__), '../../VERSION'))) as version_file:
@@ -122,15 +134,6 @@ def get_version():
     return [("class:title", f"Version: {version}")]
 
 
-def get_bounty_status():
-    from hummingbot.client.liquidity_bounty.liquidity_bounty_config_map import liquidity_bounty_config_map
-    enabled = liquidity_bounty_config_map["liquidity_bounty_enabled"].value is True and \
-        liquidity_bounty_config_map["liquidity_bounty_client_id"].value is not None
-    bounty_status = "ON" if enabled else "OFF"
-    style = "class:primary" if enabled else "class:warning"
-    return [(style, f"bounty_status: {bounty_status}")]
-
-
 def get_paper_trade_status():
     from hummingbot.client.config.global_config_map import global_config_map
     enabled = global_config_map["paper_trade_enabled"].value is True
@@ -155,7 +158,6 @@ def generate_layout(input_field: TextArea,
     root_container = HSplit([
         VSplit([
             Window(FormattedTextControl(get_version), style="class:title"),
-            Window(FormattedTextControl(get_bounty_status), style="class:title"),
             Window(FormattedTextControl(get_paper_trade_status), style="class:title"),
             Window(FormattedTextControl(get_title_bar_right_text), align=WindowAlign.RIGHT, style="class:title"),
         ], height=1),

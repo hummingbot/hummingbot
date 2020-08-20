@@ -9,16 +9,18 @@ from hummingbot.core.data_type.order_book_query_result cimport(
 
 cdef class MarketBase(NetworkIterator):
     cdef:
-        EventReporter event_reporter
-        EventLogger event_logger
+        EventReporter _event_reporter
+        EventLogger _event_logger
         dict _account_available_balances
         dict _account_balances
+        dict _asset_limit
         bint _trading_required
         object _order_book_tracker
 
     cdef str c_buy(self, str trading_pair, object amount, object order_type=*, object price=*, dict kwargs=*)
     cdef str c_sell(self, str trading_pair, object amount, object order_type=*, object price=*, dict kwargs=*)
     cdef c_cancel(self, str trading_pair, str client_order_id)
+    cdef c_stop_tracking_order(self, str order_id)
     cdef object c_get_balance(self, str currency)
     cdef object c_get_available_balance(self, str currency)
     cdef str c_withdraw(self, str address, str currency, object amount)

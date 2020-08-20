@@ -1,0 +1,1 @@
+hummingbot ALL=(ALL:ALL) NOPASSWD: /bin/chmod, /bin/chown

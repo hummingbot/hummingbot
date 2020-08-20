@@ -1,0 +1,27 @@
+########################################
+###   Fee overrides configurations   ###
+########################################
+
+# For more detailed information: https://docs.hummingbot.io
+template_version: 2
+
+# Exchange trading fees, the values are in percentage value, e.g. 0.1 for 0.1%.
+# If the value is left blank, the default value (from corresponding market connector) will be used.
+
+binance_maker_fee:
+binance_taker_fee:
+
+coinbase_pro_maker_fee:
+coinbase_pro_taker_fee:
+
+huobi_maker_fee:
+huobi_taker_fee:
+
+liquid_maker_fee:
+liquid_taker_fee:
+
+bittrex_maker_fee:
+bittrex_taker_fee:
+
+kucoin_maker_fee:
+kucoin_taker_fee:

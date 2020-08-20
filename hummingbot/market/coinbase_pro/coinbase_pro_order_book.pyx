@@ -13,10 +13,10 @@ import pandas as pd
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import (
-    CoinbaseProOrderBookMessage,
     OrderBookMessage,
     OrderBookMessageType
 )
+from hummingbot.market.coinbase_pro.coinbase_pro_order_book_message import CoinbaseProOrderBookMessage
 
 _cbpob_logger = None
 

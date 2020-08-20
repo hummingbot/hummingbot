@@ -20,5 +20,6 @@ cdef class Web3Wallet(WalletBase):
         EventListener _eth_wrapped_forwarder
         EventListener _eth_unwrapped_forwarder
         EventListener _transaction_failure_forwarder
+        EventListener _zeroex_fill_forwarder
 
     cdef c_receive_forwarded_event(self, int64_t event_tag, object args)

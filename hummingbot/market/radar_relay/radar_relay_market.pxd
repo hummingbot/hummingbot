@@ -29,7 +29,6 @@ cdef class RadarRelayMarket(MarketBase):
         public object _status_polling_task
         public object _user_stream_event_listener_task
         public object _approval_tx_polling_task
-        public object _order_tracker_task
         int64_t _latest_salt
 
     cdef c_start_tracking_limit_order(self,
@@ -51,4 +50,3 @@ cdef class RadarRelayMarket(MarketBase):
                                        str tx_hash)
     cdef c_expire_order(self, str order_id)
     cdef c_check_and_remove_expired_orders(self)
-    cdef c_stop_tracking_order(self, str order_id)

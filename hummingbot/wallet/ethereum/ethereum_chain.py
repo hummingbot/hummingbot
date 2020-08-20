@@ -9,3 +9,4 @@ class EthereumChain(Enum):
     KOVAN = 42
     SOKOL = 77
     DOLOMITE_TEST = 1001
+    ZEROEX_TEST = 1337

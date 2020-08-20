@@ -31,4 +31,3 @@ Here are the steps to reproduce the issue (see attachments in the section below)
 *WARNING: Do NOT publish any exchange API keys or your wallet's private key. Whoever has access to them may steal your assets!*
 
 **Optional: your discord username:**
-**Optional: your ETH address:** (If you want to participate in the bug bounty)

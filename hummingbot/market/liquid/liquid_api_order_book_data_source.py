@@ -12,9 +12,9 @@ from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.order_book_tracker_entry import LiquidOrderBookTrackerEntry
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.liquid.liquid_order_book import LiquidOrderBook
+from hummingbot.market.liquid.liquid_order_book_tracker_entry import LiquidOrderBookTrackerEntry
 from hummingbot.market.liquid.constants import Constants
 
 
@@ -28,13 +28,23 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._laobds_logger = logging.getLogger(__name__)
         return cls._laobds_logger
 
-    def __init__(self, trading_pairs: Optional[List[str]] = None):
-        super().__init__()
+    def __init__(self, trading_pairs: List[str]):
+        super().__init__(trading_pairs)
 
-        self._trading_pairs: Optional[List[str]] = trading_pairs
         self._order_book_create_function = lambda: OrderBook()
-
         self.trading_pair_id_conversion_dict: Dict[str, int] = {}
+
+    @classmethod
+    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
+        results = dict()
+        async with aiohttp.ClientSession() as client:
+            resp = await client.get(Constants.GET_EXCHANGE_MARKETS_URL)
+            resp_json = await resp.json()
+            for record in resp_json:
+                trading_pair = f"{record['base_currency']}-{record['quoted_currency']}"
+                if trading_pair in trading_pairs:
+                    results[trading_pair] = float(record["last_traded_price"])
+        return results
 
     @staticmethod
     def reformat_trading_pairs(products):
@@ -69,8 +79,8 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         # Build the data frame
         all_markets_df: pd.DataFrame = pd.DataFrame.from_records(data=market_data, index='trading_pair')
 
-        btc_price: float = float(all_markets_df.loc['BTC-USDC'].last_traded_price)
-        eth_price: float = float(all_markets_df.loc['ETH-USDC'].last_traded_price)
+        btc_price: float = float(all_markets_df.loc['BTC-USD'].last_traded_price)
+        eth_price: float = float(all_markets_df.loc['ETH-USD'].last_traded_price)
         usd_volume: float = [
             (
                 volume * quote_price if trading_pair.endswith(("USD", "USDC")) else
@@ -87,6 +97,9 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         all_markets_df.loc[:, 'USDVolume'] = usd_volume
         all_markets_df.loc[:, 'volume'] = all_markets_df.volume_24h
+        all_markets_df.rename(
+            {"base_currency": "baseAsset", "quoted_currency": "quoteAsset"}, axis="columns", inplace=True
+        )
 
         return all_markets_df.sort_values("USDVolume", ascending=False)
 
@@ -201,6 +214,21 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 'trading_pair': trading_pair
             }
 
+    async def get_new_order_book(self, trading_pair: str) -> OrderBook:
+        await self.get_trading_pairs()
+        async with aiohttp.ClientSession() as client:
+            snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, 1)
+            snapshot_timestamp: float = time.time()
+            snapshot_msg: OrderBookMessage = LiquidOrderBook.snapshot_message_from_exchange(
+                snapshot,
+                snapshot_timestamp,
+                metadata={"trading_pair": trading_pair}
+            )
+
+            order_book: OrderBook = self.order_book_create_function()
+            order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
+            return order_book
+
     async def get_tracking_pairs(self) -> Dict[str, LiquidOrderBookTrackerEntry]:
         """
         Create tracking pairs by using trading pairs (trading_pairs) fetched from
@@ -230,8 +258,8 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                     retval[trading_pair] = LiquidOrderBookTrackerEntry(trading_pair, snapshot_timestamp, order_book)
 
-                    self.logger().info(f"Initialized order book for {trading_pair}."
-                                       f"{index*1}/{number_of_pairs} completed")
+                    self.logger().info(f"Initialized order book for {trading_pair}. "
+                                       f"{index+1}/{number_of_pairs} completed")
                     # Each 1000 limit snapshot costs ?? requests and Liquid rate limit is ?? requests per second.
                     await asyncio.sleep(1.0)  # Might need to be changed
                 except Exception:

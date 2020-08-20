@@ -4,8 +4,12 @@ from typing import (
     Dict,
     List,
     Tuple,
+    Optional,
     Iterator)
 
+from hummingbot.client.config.global_config_map import (
+    global_config_map,
+)
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.order_book_query_result import (
     OrderBookQueryResult,
@@ -24,8 +28,9 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkIterator
 from hummingbot.core.data_type.order_book import OrderBook
-
+from hummingbot.market.in_flight_order_base import InFlightOrderBase
 from .deposit_info import DepositInfo
+from hummingbot.core.event.events import OrderFilledEvent
 
 NaN = float("nan")
 s_decimal_NaN = Decimal("nan")
@@ -47,25 +52,74 @@ cdef class MarketBase(NetworkIterator):
 
     def __init__(self):
         super().__init__()
-        self.event_reporter = EventReporter(event_source=self.name)
-        self.event_logger = EventLogger(event_source=self.name)
+        self._event_reporter = EventReporter(event_source=self.name)
+        self._event_logger = EventLogger(event_source=self.name)
         for event_tag in self.MARKET_EVENTS:
-            self.c_add_listener(event_tag.value, self.event_reporter)
-            self.c_add_listener(event_tag.value, self.event_logger)
+            self.c_add_listener(event_tag.value, self._event_reporter)
+            self.c_add_listener(event_tag.value, self._event_logger)
 
         self._account_balances = {}  # Dict[asset_name:str, Decimal]
         self._account_available_balances = {}  # Dict[asset_name:str, Decimal]
+        self._asset_limit = {}  # Dict[asset_name: str, Decimal]
         self._order_book_tracker = None
 
     @staticmethod
-    def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
+    def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
         try:
             return tuple(trading_pair.split('-'))
+        # Exceptions are logged as warnings in Trading pair fetcher class
         except Exception:
-            raise ValueError(f"Error parsing trading_pair {trading_pair}")
+            return None
 
     @staticmethod
-    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
+    def in_flight_asset_balances(in_flight_orders: Dict[str, InFlightOrderBase]) -> Dict[str, Decimal]:
+        """
+        Calculates the individual asset balances used in in_flight_orders
+        For BUY order, this is the quote asset balance locked in the order
+        For SELL order, this is the base asset balance locked in the order
+        """
+        asset_balances = {}
+        for order in [o for o in in_flight_orders.values() if not (o.is_done or o.is_failure or o.is_cancelled)]:
+            if order.trade_type is TradeType.BUY:
+                order_value = Decimal(order.amount * order.price)
+                outstanding_value = order_value - order.executed_amount_quote
+                if order.quote_asset not in asset_balances:
+                    asset_balances[order.quote_asset] = s_decimal_0
+                asset_balances[order.quote_asset] += outstanding_value
+            else:
+                outstanding_value = order.amount - order.executed_amount_base
+                if order.base_asset not in asset_balances:
+                    asset_balances[order.base_asset] = s_decimal_0
+                asset_balances[order.base_asset] += outstanding_value
+        return asset_balances
+
+    def order_filled_balances(self):
+        """
+        Calculates the individual asset balances as a result of order being filled
+        For BUY filled order, the quote balance goes down while the base balance goes up, and for SELL order, it's the
+        opposite. This does not account for fee.
+        """
+        order_filled_events = list(filter(lambda e: isinstance(e, OrderFilledEvent), self.event_logs))
+        balances = {}
+        for event in order_filled_events:
+            hb_trading_pair = self.convert_from_exchange_trading_pair(event.trading_pair)
+            base, quote = hb_trading_pair.split("-")[0], hb_trading_pair.split("-")[1]
+            if event.trade_type is TradeType.BUY:
+                quote_value = Decimal("-1") * event.price * event.amount
+                base_value = event.amount
+            else:
+                quote_value = event.price * event.amount
+                base_value = Decimal("-1") * event.amount
+            if base not in balances:
+                balances[base] = s_decimal_0
+            if quote not in balances:
+                balances[quote] = s_decimal_0
+            balances[base] += base_value
+            balances[quote] += quote_value
+        return balances
+
+    @staticmethod
+    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
         return exchange_trading_pair
 
     @staticmethod
@@ -86,7 +140,7 @@ cdef class MarketBase(NetworkIterator):
 
     @property
     def event_logs(self) -> List[any]:
-        return self.event_logger.event_log
+        return self._event_logger.event_log
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -98,6 +152,10 @@ cdef class MarketBase(NetworkIterator):
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
+        raise NotImplementedError
+
+    @property
+    def in_flight_orders(self) -> Dict[str, InFlightOrderBase]:
         raise NotImplementedError
 
     @property
@@ -114,6 +172,14 @@ cdef class MarketBase(NetworkIterator):
         :param saved_states: Previously saved tracking states from `tracking_states` property.
         """
         pass
+
+    def get_exchange_limit_config(self, market: str) -> Dict[str, object]:
+        """
+        Retrieves the Balance Limits for the specified market.
+        """
+        all_ex_limit = global_config_map["balance_asset_limit"].value
+        exchange_limits = all_ex_limit.get(market, {})
+        return exchange_limits if exchange_limits is not None else {}
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         """
@@ -139,6 +205,9 @@ cdef class MarketBase(NetworkIterator):
     cdef c_cancel(self, str trading_pair, str client_order_id):
         raise NotImplementedError
 
+    cdef c_stop_tracking_order(self, str order_id):
+        raise NotImplementedError
+
     cdef object c_get_fee(self,
                           str base_currency,
                           str quote_currency,
@@ -161,12 +230,34 @@ cdef class MarketBase(NetworkIterator):
         """
         return self._account_balances.get(currency, s_decimal_0)
 
+    def available_balance_limit_applied(self, currency: str, limit: Decimal) -> Decimal:
+        """
+        Apply budget limit on an available balance, the limit is calculated as followings:
+        - Minus balance used in outstanding orders (in flight orders), if the budget is 1 ETH and the bot has already
+          used 0.5 ETH to put a maker buy order, the budget is now 0.5
+        - Plus balance accredited from filled orders (since the bot started), if the budget is 1 ETH and the bot has
+          bought LINK (for 0.5 ETH), the ETH budget is now 0.5. However if later on the bot has sold LINK (for 0.5 ETH)
+          the budget is now 1 ETH
+        """
+        in_flight_balance = self.in_flight_asset_balances(self.in_flight_orders).get(currency, s_decimal_0)
+        limit -= in_flight_balance
+        filled_balance = self.order_filled_balances().get(currency, s_decimal_0)
+        limit += filled_balance
+        asset_limit = max(limit, s_decimal_0)
+        available_balance = self._account_available_balances.get(currency, s_decimal_0)
+        return min(available_balance, asset_limit)
+
     cdef object c_get_available_balance(self, str currency):
         """
+        If there is a budget limit set on the balance
         :returns: Balance available for trading for a specific asset
-        (balances used to place open orders are not available for trading)
         """
-        return self._account_available_balances.get(currency, s_decimal_0)
+        exchange_limits = self.get_exchange_limit_config(self.name)
+        if currency in exchange_limits:
+            asset_limit = Decimal(str(exchange_limits[currency]))
+            return self.available_balance_limit_applied(currency, asset_limit)
+        else:
+            return self._account_available_balances.get(currency, s_decimal_0)
 
     cdef str c_withdraw(self, str address, str currency, object amount):
         raise NotImplementedError
@@ -352,5 +443,23 @@ cdef class MarketBase(NetworkIterator):
     def quantize_order_amount(self, trading_pair: str, amount: Decimal) -> Decimal:
         return self.c_quantize_order_amount(trading_pair, amount)
 
+    def supported_order_types(self):
+        return [OrderType.LIMIT, OrderType.MARKET]
+
+    def get_maker_order_type(self):
+        if OrderType.LIMIT_MAKER in self.supported_order_types():
+            return OrderType.LIMIT_MAKER
+        elif OrderType.LIMIT in self.supported_order_types():
+            return OrderType.LIMIT
+        else:
+            raise Exception("There is no maker order type supported by this exchange.")
+
+    def get_taker_order_type(self):
+        if OrderType.MARKET in self.supported_order_types():
+            return OrderType.MARKET
+        elif OrderType.LIMIT in self.supported_order_types():
+            return OrderType.LIMIT
+        else:
+            raise Exception("There is no taker order type supported by this exchange.")
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>

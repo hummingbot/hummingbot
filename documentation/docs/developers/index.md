@@ -2,13 +2,14 @@
 
 This section is for developers looking to contribute to Hummingbot or extend its capabilities:
 
+* [Getting started](/developers/gettingstarted): Get started developing for Hummingbot
 * [Strategies](/developers/strategies): Create and customize your own strategies
 * [Connectors](/developers/connectors): Develop new exchange connectors
 * [Debug console](/developers/debug): Inspect and modify Hummingbot state while it's running
 
 ## Contributing to Hummingbot
 
-Hummingbot is an open source project intended to provide a base layer infrastructure for users to customize and develope their own strategies, features, and add on new exchange connectors.
+Hummingbot is an open source project intended to provide a base layer infrastructure for users to customize and develop their own strategies, features, and add on new exchange connectors.
 
 We welcome code contributions.
 

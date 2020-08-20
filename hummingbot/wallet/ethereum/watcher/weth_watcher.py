@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import asyncio
-from hexbytes import HexBytes
 from decimal import Decimal
 import logging
 from typing import (
@@ -25,7 +24,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.event.event_forwarder import EventForwarder
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from .base_watcher import BaseWatcher
-from .new_blocks_watcher import NewBlocksWatcher
+from .websocket_watcher import WSNewBlocksWatcher
 from .contract_event_logs import ContractEventLogger
 
 DEPOSIT_EVENT_NAME = "Deposit"
@@ -44,10 +43,10 @@ class WethWatcher(BaseWatcher):
     def __init__(self,
                  w3: Web3,
                  weth_token: ERC20Token,
-                 blocks_watcher: NewBlocksWatcher,
+                 blocks_watcher: WSNewBlocksWatcher,
                  watch_addresses: Iterable[str]):
         super().__init__(w3)
-        self._blocks_watcher: NewBlocksWatcher = blocks_watcher
+        self._blocks_watcher: WSNewBlocksWatcher = blocks_watcher
         self._watch_addresses: Set[str] = set(watch_addresses)
         self._asset_decimals: Dict[str, int] = {}
         self._weth_token = weth_token
@@ -76,16 +75,15 @@ class WethWatcher(BaseWatcher):
         while True:
             try:
                 new_blocks: List[AttributeDict] = await self._new_blocks_queue.get()
-                block_hashes: List[HexBytes] = [block["hash"] for block in new_blocks]
 
                 deposit_entries = await self._contract_event_logger.get_new_entries_from_logs(
                     DEPOSIT_EVENT_NAME,
-                    block_hashes
+                    new_blocks
                 )
 
                 withdrawal_entries = await self._contract_event_logger.get_new_entries_from_logs(
                     WITHDRAWAL_EVENT_NAME,
-                    block_hashes
+                    new_blocks
                 )
                 for deposit_entry in deposit_entries:
                     await self._handle_event_data(deposit_entry)
@@ -97,9 +95,9 @@ class WethWatcher(BaseWatcher):
             except asyncio.TimeoutError:
                 continue
             except Exception:
-                self.logger().network(f"Unknown error trying to fetch new events from WETH contract.", exc_info=True,
-                                      app_warning_msg=f"Unknown error trying to fetch new events from WETH contract. "
-                                                      f"Check wallet network connection")
+                self.logger().network("Unknown error trying to fetch new events from WETH contract.", exc_info=True,
+                                      app_warning_msg="Unknown error trying to fetch new events from WETH contract. "
+                                                      "Check wallet network connection")
 
     async def _handle_event_data(self, event_data: AttributeDict):
         event_type: str = event_data["event"]

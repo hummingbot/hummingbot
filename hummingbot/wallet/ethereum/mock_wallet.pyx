@@ -8,6 +8,7 @@ from typing import (
 )
 from web3 import Web3
 from web3.datastructures import AttributeDict
+from web3.exceptions import BlockNotFound
 
 from hummingbot.wallet.ethereum.erc20_token import ERC20Token
 from hummingbot.wallet.wallet_base cimport WalletBase
@@ -43,7 +44,7 @@ cdef class MockWallet(WalletBase):
         super().__init__()
         self._w3 = Web3(Web3.HTTPProvider(w3_url))
         self._account = Account.privateKeyToAccount(private_key)
-        self._local_nonce = self._w3.eth.getTransactionCount(self.address, block_identifier="pending")
+        self._local_nonce = self.get_remote_nonce()
         self._erc20_contracts = {}
         self._chain_id = chain_id
         for address, abi_json in contract_abi.items():
@@ -65,7 +66,7 @@ cdef class MockWallet(WalletBase):
 
     @property
     def nonce(self) -> int:
-        remote_nonce = self._w3.eth.getTransactionCount(self.address, block_identifier="pending")
+        remote_nonce = self.get_remote_nonce()
         retval = max(remote_nonce, self._local_nonce)
         self._local_nonce = retval
         return retval
@@ -82,6 +83,13 @@ cdef class MockWallet(WalletBase):
         for asset_name in self._erc20_contracts.keys():
             retval[asset_name] = self.c_get_balance(asset_name)
         return retval
+
+    def get_remote_nonce(self):
+        try:
+            remote_nonce = self._w3.eth.getTransactionCount(self.address, block_identifier="pending")
+            return remote_nonce
+        except BlockNotFound:
+            return None
 
     cdef object c_get_balance(self, str asset_name):
         if asset_name == "ETH":

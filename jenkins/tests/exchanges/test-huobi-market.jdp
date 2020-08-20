@@ -25,7 +25,7 @@ node {
       }
 
       stage("Run tests") {
-        sh "${envPath}/nosetests -v test/integration/test_huobi_market_mock.py"
+        sh "${envPath}/nosetests -v test/integration/test_huobi_market.py"
       }
 
     } catch (c) {

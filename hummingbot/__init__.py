@@ -111,6 +111,7 @@ def chdir_to_data_directory():
     app_data_dir: str = appdirs.user_data_dir("Hummingbot", "hummingbot.io")
     os.makedirs(os.path.join(app_data_dir, "logs"), 0o711, exist_ok=True)
     os.makedirs(os.path.join(app_data_dir, "conf"), 0o711, exist_ok=True)
+    os.makedirs(os.path.join(app_data_dir, "scripts"), 0o711, exist_ok=True)
     os.chdir(app_data_dir)
     set_prefix_path(app_data_dir)
 
@@ -119,10 +120,9 @@ def add_remote_logger_handler(loggers):
     from hummingbot.logger.reporting_proxy_handler import ReportingProxyHandler
     root_logger = logging.getLogger()
     try:
-        remote_logger = ReportingProxyHandler(level="DEBUG",
+        remote_logger = ReportingProxyHandler(level="ERROR",
                                               proxy_url="https://api.coinalpha.com/reporting-proxy",
-                                              capacity=5
-                                              )
+                                              capacity=5)
         root_logger.addHandler(remote_logger)
         for logger_name in loggers:
             logger = logging.getLogger(logger_name)

@@ -84,7 +84,6 @@ class NetworkBase:
 
     async def _check_network_loop(self):
         while True:
-            new_status = self._network_status
             last_status = self._network_status
             has_unexpected_error = False
 

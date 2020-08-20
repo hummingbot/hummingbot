@@ -1,0 +1,8 @@
+/conf
+/data
+/logs
+/build
+/dist
+/.git
+/.github
+.DS_Store

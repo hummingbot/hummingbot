@@ -47,6 +47,7 @@ ShowUnInstDetails show
 Section "MainSection" SEC01
   SetOutPath "$INSTDIR"
   File /a /r "..\dist\bot\*.*"
+  ExecWait "$INSTDIR\redist\VC_redist.x64.exe /passive /norestart"
   CreateDirectory "$SMPROGRAMS\Hummingbot"
   CreateShortCut "$SMPROGRAMS\Hummingbot\Hummingbot.lnk" "$INSTDIR\bot.exe" "" "" 0 SW_SHOWMAXIMIZED
   CreateShortCut "$DESKTOP\Hummingbot.lnk" "$INSTDIR\bot.exe" "" "" 0 SW_SHOWMAXIMIZED

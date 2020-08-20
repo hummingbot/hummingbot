@@ -58,7 +58,8 @@ if "SPEC" in globals():
 
     hidden_imports: List[str] = list(enumerate_modules(os.path.join(project_path(), "hummingbot")))
     hidden_imports.extend([
-        "aiokafka"
+        "aiokafka",
+        "pkg_resources.py2_warn",
     ])
 
     import _strptime
@@ -68,11 +69,13 @@ if "SPEC" in globals():
         r"(.+\.json|(?:\/|\\)VERSION|templates(?:\/|\\).+\.yml)$"
     ))
     datas.extend([(_strptime.__file__, ".")])
+    datas.extend([(os.path.join(project_path(), "bin/path_util.py"), ".")])
 
     binaries: List[Tuple[str, str]] = []
     if system_type == "Windows":
        import coincurve
        binaries.extend([(os.path.realpath(os.path.join(coincurve.__file__, "../libsecp256k1.dll")), "coincurve")])
+       datas.extend([(os.path.realpath(os.path.join(project_path(), "redist/VC_redist.x64.exe")), "redist")])
 
 
     a = Analysis([os.path.join(project_path(), "bin/bot")],

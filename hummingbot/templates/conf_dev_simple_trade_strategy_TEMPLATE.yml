@@ -2,7 +2,8 @@
 ###       Simple Trade strategy config               ###
 ########################################################
 
-template_version: 1
+template_version: 2
+strategy: null
 
 # The following configuations are only required for the
 # simple trade strategy

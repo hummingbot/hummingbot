@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import math
-import time
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
@@ -19,12 +18,12 @@ from typing import (
 import unittest
 
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
 from hummingbot.market.kucoin.kucoin_order_book_tracker import KucoinOrderBookTracker
+from hummingbot.market.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
 
 
 class KucoinOrderBookTrackerUnitTest(unittest.TestCase):
@@ -40,8 +39,7 @@ class KucoinOrderBookTrackerUnitTest(unittest.TestCase):
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.order_book_tracker: KucoinOrderBookTracker = KucoinOrderBookTracker(
-            data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-            symbols=cls.trading_pairs
+            trading_pairs=cls.trading_pairs
         )
         cls.order_book_tracker_task: asyncio.Task = safe_ensure_future(cls.order_book_tracker.start())
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
@@ -61,8 +59,8 @@ class KucoinOrderBookTrackerUnitTest(unittest.TestCase):
             if timeout and timer > timeout:
                 raise Exception("Time out running parallel async task in tests.")
             timer += 1
-            now = time.time()
-            next_iteration = now // 1.0 + 1
+            # now = time.time()
+            # next_iteration = now // 1.0 + 1
             await asyncio.sleep(1.0)
         return future.result()
 
@@ -83,7 +81,7 @@ class KucoinOrderBookTrackerUnitTest(unittest.TestCase):
         self.run_parallel(self.event_logger.wait_for(OrderBookTradeEvent))
         for ob_trade_event in self.event_logger.event_log:
             self.assertTrue(type(ob_trade_event) == OrderBookTradeEvent)
-            self.assertTrue(ob_trade_event.symbol in self.trading_pairs)
+            self.assertTrue(ob_trade_event.trading_pair in self.trading_pairs)
             self.assertTrue(type(ob_trade_event.timestamp) in [float, int])
             self.assertTrue(type(ob_trade_event.amount) == float)
             self.assertTrue(type(ob_trade_event.price) == float)
@@ -108,6 +106,17 @@ class KucoinOrderBookTrackerUnitTest(unittest.TestCase):
                                 xrpusdt_book.get_price(True))
         self.assertLessEqual(xrpusdt_book.get_price_for_volume(False, 10000).result_price,
                              xrpusdt_book.get_price(False))
+        for order_book in self.order_book_tracker.order_books.values():
+            print(order_book.last_trade_price)
+            self.assertFalse(math.isnan(order_book.last_trade_price))
+
+    def test_api_get_last_traded_prices(self):
+        prices = self.ev_loop.run_until_complete(
+            KucoinAPIOrderBookDataSource.get_last_traded_prices(["BTC-USDT", "LTC-USDT"]))
+        for key, value in prices.items():
+            print(f"{key} last_trade_price: {value}")
+        self.assertGreater(prices["BTC-USDT"], 1000)
+        self.assertLess(prices["LTC-USDT"], 1000)
 
 
 def main():

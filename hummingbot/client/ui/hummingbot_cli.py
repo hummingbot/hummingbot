@@ -6,7 +6,6 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.application import Application
 from prompt_toolkit.clipboard.pyperclip import PyperclipClipboard
 from prompt_toolkit.document import Document
-from prompt_toolkit.eventloop import use_asyncio_event_loop
 from prompt_toolkit.layout.processors import BeforeInput, PasswordProcessor
 from prompt_toolkit.completion import Completer
 
@@ -18,6 +17,17 @@ from hummingbot.client.ui.layout import (
     generate_layout,
 )
 from hummingbot.client.ui.style import load_style
+import logging
+
+
+# Monkey patching here as _handle_exception gets the UI hanged into Press ENTER screen mode
+def _handle_exception_patch(self, loop, context):
+    if "exception" in context:
+        logging.getLogger(__name__).error(f"Unhandled error in prompt_toolkit: {context.get('exception')}",
+                                          exc_info=True)
+
+
+Application._handle_exception = _handle_exception_patch
 
 
 class HummingbotCLI:
@@ -25,12 +35,13 @@ class HummingbotCLI:
                  input_handler: Callable,
                  bindings: KeyBindings,
                  completer: Completer):
-        use_asyncio_event_loop()
         self.search_field = create_search_field()
         self.input_field = create_input_field(completer=completer)
         self.output_field = create_output_field()
         self.log_field = create_log_field(self.search_field)
         self.layout = generate_layout(self.input_field, self.output_field, self.log_field, self.search_field)
+        # add self.to_stop_config to know if cancel is triggered
+        self.to_stop_config: bool = False
 
         self.bindings = bindings
         self.input_handler = input_handler
@@ -45,7 +56,7 @@ class HummingbotCLI:
         self.hide_input = False
 
     async def run(self):
-        await self.app.run_async().to_asyncio_future()
+        await self.app.run_async()
 
     def accept(self, buff):
         self.pending_input = self.input_field.text.strip()
@@ -104,5 +115,3 @@ class HummingbotCLI:
 
     def exit(self):
         self.app.exit()
-
-

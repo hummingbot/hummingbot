@@ -43,13 +43,12 @@ def save_wallet(acct: Account, password: str) -> Account:
     return acct
 
 
-def unlock_wallet(public_key: str, password: str) -> Account:
+def unlock_wallet(public_key: str, password: str) -> str:
     file_path: str = "%s%s%s%s" % (get_key_file_path(), KEYFILE_PREFIX, public_key, KEYFILE_POSTFIX)
     with open(file_path, 'r') as f:
         encrypted = f.read()
     private_key: str = Account.decrypt(encrypted, password)
-    acct: Account = Account.privateKeyToAccount(private_key)
-    return acct
+    return private_key
 
 
 def list_wallets() -> List[str]:
@@ -58,4 +57,3 @@ def list_wallets() -> List[str]:
         if isfile(join(get_key_file_path(), f)) and f.startswith(KEYFILE_PREFIX) and f.endswith(KEYFILE_POSTFIX):
             wallets.append(f[len(KEYFILE_PREFIX):-len(KEYFILE_POSTFIX)])
     return wallets
-

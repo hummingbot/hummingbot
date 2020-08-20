@@ -2,7 +2,7 @@ import asyncio
 from collections import OrderedDict
 from decimal import Decimal
 from eth_account import Account
-from eth_account.local import LocalAccount
+from eth_account.signers.local import LocalAccount
 from eth_account.messages import defunct_hash_message
 from hexbytes import HexBytes
 import logging
@@ -22,6 +22,10 @@ from web3.contract import (
     ContractFunction
 )
 from web3.datastructures import AttributeDict
+from web3.exceptions import (
+    BlockNotFound,
+    TransactionNotFound
+)
 
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
@@ -35,7 +39,9 @@ from hummingbot.core.event.events import (
     IncomingEthWatcherEvent,
     WalletWrappedEthEvent,
     WalletUnwrappedEthEvent,
-    NewBlocksWatcherEvent
+    NewBlocksWatcherEvent,
+    ZeroExEvent,
+    ZeroExFillEvent
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.pubsub import PubSub
@@ -44,14 +50,16 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.wallet.ethereum.watcher import (
-    NewBlocksWatcher,
     AccountBalanceWatcher,
     ERC20EventsWatcher,
     IncomingEthWatcher,
     WethWatcher,
+    ZeroExFillWatcher,
 )
+from hummingbot.wallet.ethereum.watcher.websocket_watcher import WSNewBlocksWatcher
 from hummingbot.wallet.ethereum.erc20_token import ERC20Token
 from hummingbot.logger import HummingbotLogger
+from hummingbot.client.config.global_config_map import global_config_map
 
 s_decimal_0 = Decimal(0)
 
@@ -102,16 +110,20 @@ class Web3WalletBackend(PubSub):
         self._unwrapped_eth_event_forwarder: EventForwarder = EventForwarder(
             self._eth_unwrapped_event_listener
         )
+        self._zeroex_fill_event_forwarder: EventForwarder = EventForwarder(
+            self._zeroex_fill_event_listener
+        )
 
         # Blockchain data
         self._local_nonce: int = -1
 
         # Watchers
-        self._new_blocks_watcher: Optional[NewBlocksWatcher] = None
+        self._new_blocks_watcher: Optional[WSNewBlocksWatcher] = None
         self._account_balance_watcher: Optional[AccountBalanceWatcher] = None
         self._erc20_events_watcher: Optional[ERC20EventsWatcher] = None
         self._incoming_eth_watcher: Optional[IncomingEthWatcher] = None
         self._weth_watcher: Optional[WethWatcher] = None
+        self._zeroex_fill_watcher: Optional[ZeroExFillWatcher] = None
 
         # Tasks and transactions
         self._check_network_task: Optional[asyncio.Task] = None
@@ -119,7 +131,7 @@ class Web3WalletBackend(PubSub):
         self._outgoing_transactions_queue: asyncio.Queue = asyncio.Queue()
         self._outgoing_transactions_task: Optional[asyncio.Task] = None
         self._check_transaction_receipts_task: Optional[asyncio.Task] = None
-        self._pending_tx_dict: Dict[str, int] = {}
+        self._pending_tx_dict: Dict[str, any] = {}
         self._gas_price: int = self.DEFAULT_GAS_PRICE
         self._last_timestamp_received_blocks: float = 0.0
         self._event_forwarder: EventForwarder = EventForwarder(self._did_receive_new_blocks)
@@ -149,7 +161,7 @@ class Web3WalletBackend(PubSub):
 
         :return: Gas price in wei
         """
-        remote_nonce: int = self._w3.eth.getTransactionCount(self.address, block_identifier="pending")
+        remote_nonce: int = self.get_remote_nonce()
         retval: int = max(remote_nonce, self._local_nonce)
         self._local_nonce = retval
         return retval
@@ -173,6 +185,10 @@ class Web3WalletBackend(PubSub):
     @property
     def account(self) -> LocalAccount:
         return self._account
+
+    @property
+    def zeroex_fill_watcher(self) -> ZeroExFillWatcher:
+        return self._zeroex_fill_watcher
 
     def start(self):
         if self.started:
@@ -199,77 +215,86 @@ class Web3WalletBackend(PubSub):
                 token.get_symbol()
                 for token in self._erc20_token_list
             ]
+
+            token_symbols: List[str] = await safe_gather(*fetch_symbols_tasks)
             fetch_decimals_tasks: List[Coroutine] = [
                 token.get_decimals()
                 for token in self._erc20_token_list
             ]
-            token_symbols: List[str] = await safe_gather(*fetch_symbols_tasks)
             token_decimals: List[int] = await safe_gather(*fetch_decimals_tasks)
             for token, symbol, decimals in zip(self._erc20_token_list, token_symbols, token_decimals):
                 self._erc20_tokens[symbol] = token
                 self._asset_decimals[symbol] = decimals
             self._weth_token = self._erc20_tokens.get("WETH")
 
-            # Fetch blockchain data.
-            self._local_nonce = await async_scheduler.call_async(
-                lambda: self._w3.eth.getTransactionCount(self.address, block_identifier="pending")
-            )
+        # Fetch blockchain data.
+        self._local_nonce = await async_scheduler.call_async(
+            lambda: self.get_remote_nonce()
+        )
 
-            # Create event watchers.
-            self._new_blocks_watcher = NewBlocksWatcher(self._w3)
-            self._new_blocks_watcher.add_listener(NewBlocksWatcherEvent.NewBlocks, self._event_forwarder)
-            self._account_balance_watcher = AccountBalanceWatcher(
+        # Create event watchers.
+        websocket_url: str = global_config_map["ethereum_rpc_ws_url"].value
+        self._new_blocks_watcher = WSNewBlocksWatcher(self._w3, websocket_url)
+        self._account_balance_watcher = AccountBalanceWatcher(
+            self._w3,
+            self._new_blocks_watcher,
+            self._account.address,
+            [erc20_token.address for erc20_token in self._erc20_tokens.values()],
+            [token.abi for token in self._erc20_tokens.values()]
+        )
+        self._erc20_events_watcher = ERC20EventsWatcher(
+            self._w3,
+            self._new_blocks_watcher,
+            [token.address for token in self._erc20_tokens.values()],
+            [token.abi for token in self._erc20_tokens.values()],
+            [self._account.address]
+        )
+        self._incoming_eth_watcher = IncomingEthWatcher(
+            self._w3,
+            self._new_blocks_watcher,
+            [self._account.address]
+        )
+        if self._weth_token is not None:
+            self._weth_watcher = WethWatcher(
                 self._w3,
+                self._weth_token,
                 self._new_blocks_watcher,
-                self._account.address,
-                [erc20_token.address for erc20_token in self._erc20_tokens.values()],
-                [token.abi for token in self._erc20_tokens.values()]
-            )
-            self._erc20_events_watcher = ERC20EventsWatcher(
-                self._w3,
-                self._new_blocks_watcher,
-                [token.address for token in self._erc20_tokens.values()],
-                [token.abi for token in self._erc20_tokens.values()],
                 [self._account.address]
             )
-            self._incoming_eth_watcher = IncomingEthWatcher(
-                self._w3,
-                self._new_blocks_watcher,
-                [self._account.address]
-            )
-            if self._weth_token is not None:
-                self._weth_watcher = WethWatcher(
-                    self._w3,
-                    self._weth_token,
-                    self._new_blocks_watcher,
-                    [self._account.address]
-                )
+        self._zeroex_fill_watcher = ZeroExFillWatcher(
+            self._w3,
+            self._new_blocks_watcher
+        )
 
-            # Connect the event forwarders.
-            self._erc20_events_watcher.add_listener(ERC20WatcherEvent.ReceivedToken,
-                                                    self._received_asset_event_forwarder)
-            self._erc20_events_watcher.add_listener(ERC20WatcherEvent.ApprovedToken,
-                                                    self._approved_token_event_forwarder)
-            self._incoming_eth_watcher.add_listener(IncomingEthWatcherEvent.ReceivedEther,
-                                                    self._received_asset_event_forwarder)
+        # Connect the event forwarders.
+        self._new_blocks_watcher.add_listener(NewBlocksWatcherEvent.NewBlocks,
+                                              self._event_forwarder)
+        self._erc20_events_watcher.add_listener(ERC20WatcherEvent.ReceivedToken,
+                                                self._received_asset_event_forwarder)
+        self._erc20_events_watcher.add_listener(ERC20WatcherEvent.ApprovedToken,
+                                                self._approved_token_event_forwarder)
+        self._incoming_eth_watcher.add_listener(IncomingEthWatcherEvent.ReceivedEther,
+                                                self._received_asset_event_forwarder)
+        self._zeroex_fill_watcher.add_listener(ZeroExEvent.Fill,
+                                               self._zeroex_fill_event_forwarder)
 
-            if self._weth_watcher is not None:
-                self._weth_watcher.add_listener(WalletEvent.WrappedEth,
-                                                self._wrapped_eth_event_forwarder)
-                self._weth_watcher.add_listener(WalletEvent.UnwrappedEth,
-                                                self._unwrapped_eth_event_forwarder)
+        if self._weth_watcher is not None:
+            self._weth_watcher.add_listener(WalletEvent.WrappedEth,
+                                            self._wrapped_eth_event_forwarder)
+            self._weth_watcher.add_listener(WalletEvent.UnwrappedEth,
+                                            self._unwrapped_eth_event_forwarder)
 
-            # Start the transaction processing tasks.
-            self._outgoing_transactions_task = safe_ensure_future(self.outgoing_eth_transactions_loop())
-            self._check_transaction_receipts_task = safe_ensure_future(self.check_transaction_receipts_loop())
+        # Start the transaction processing tasks.
+        self._outgoing_transactions_task = safe_ensure_future(self.outgoing_eth_transactions_loop())
+        self._check_transaction_receipts_task = safe_ensure_future(self.check_transaction_receipts_loop())
 
-            # Start the event watchers.
-            await self._new_blocks_watcher.start_network()
-            await self._account_balance_watcher.start_network()
-            await self._erc20_events_watcher.start_network()
-            await self._incoming_eth_watcher.start_network()
-            if self._weth_watcher is not None:
-                await self._weth_watcher.start_network()
+        # Start the event watchers.
+        await self._new_blocks_watcher.start_network()
+        await self._account_balance_watcher.start_network()
+        await self._erc20_events_watcher.start_network()
+        await self._incoming_eth_watcher.start_network()
+        if self._weth_watcher is not None:
+            await self._weth_watcher.start_network()
 
     async def stop_network(self):
         # Disconnect the event forwarders.
@@ -299,6 +324,8 @@ class Web3WalletBackend(PubSub):
             await self._incoming_eth_watcher.stop_network()
         if self._weth_watcher is not None:
             await self._weth_watcher.stop_network()
+        if self._zeroex_fill_watcher is not None:
+            await self._zeroex_fill_watcher.stop_network()
 
         # Stop the transaction processing tasks.
         if self._outgoing_transactions_task is not None:
@@ -310,7 +337,7 @@ class Web3WalletBackend(PubSub):
 
     async def check_network(self) -> NetworkStatus:
         # Assume connected if received new blocks in last 2 minutes
-        if time.time() - self._last_timestamp_received_blocks > 60 * 2:
+        if time.time() - self._last_timestamp_received_blocks < 60 * 2:
             return NetworkStatus.CONNECTED
 
         try:
@@ -330,9 +357,9 @@ class Web3WalletBackend(PubSub):
             except asyncio.TimeoutError:
                 new_status = NetworkStatus.NOT_CONNECTED
             except Exception:
-                self.logger().network(f"Unexpected error while checking for network status.", exc_info=True,
-                                      app_warning_msg=f"Unexpected error while checking for network status. "
-                                                      f"Check wallet network connection")
+                self.logger().network("Unexpected error while checking for network status.", exc_info=True,
+                                      app_warning_msg="Unexpected error while checking for network status. "
+                                                      "Check wallet network connection")
                 new_status = NetworkStatus.NOT_CONNECTED
 
             self._network_status = new_status
@@ -351,17 +378,32 @@ class Web3WalletBackend(PubSub):
                 raise
             except Exception:
                 self.logger().network(
-                    f"Unknown error occurred while checking for transaction receipts.", exc_info=True,
-                    app_warning_msg=f"Unknown error occurred while checking for transaction receipts. "
-                                    f"Check wallet network connection")
+                    "Unknown error occurred while checking for transaction receipts.", exc_info=True,
+                    app_warning_msg="Unknown error occurred while checking for transaction receipts. "
+                                    "Check wallet network connection")
                 await asyncio.sleep(5.0)
+
+    async def _check_transaction_receipt(self, tx_hash: str, timestamp: int):
+        """
+        Look for transaction receipt, only raise not found error if they are missing for longer than two minutes.
+        """
+        async_scheduler: AsyncCallScheduler = AsyncCallScheduler.shared_instance()
+        try:
+            return await async_scheduler.call_async(self._w3.eth.getTransactionReceipt, tx_hash)
+        except TransactionNotFound as e:
+            now: float = time.time()
+            if now - timestamp > 120:
+                stop_tx_hash = e.args[0].split(" ")[3]
+                self._stop_tx_tracking(stop_tx_hash)
+                self.logger().info(f"Stopped tracking transaction with hash: {stop_tx_hash}.")
+            return None
 
     async def check_transaction_receipts(self):
         """
         Look for failed transactions, and emit transaction fail event if any are found.
         """
         async_scheduler: AsyncCallScheduler = AsyncCallScheduler.shared_instance()
-        tasks = [async_scheduler.call_async(self._w3.eth.getTransactionReceipt, tx_hash)
+        tasks = [self._check_transaction_receipt(tx_hash, self._pending_tx_dict[tx_hash]['timestamp'])
                  for tx_hash in self._pending_tx_dict.keys()]
         transaction_receipts: List[AttributeDict] = [tr for tr in await safe_gather(*tasks)
                                                      if (tr is not None and tr.get("blockHash") is not None)]
@@ -376,7 +418,7 @@ class Web3WalletBackend(PubSub):
         for receipt in transaction_receipts:
             # Emit gas used event.
             tx_hash: str = receipt.transactionHash.hex()
-            gas_price_wei: int = self._pending_tx_dict[tx_hash]
+            gas_price_wei: int = self._pending_tx_dict[tx_hash]['gas_price']
             gas_used: int = receipt.gasUsed
             gas_eth_amount_raw: int = gas_price_wei * gas_used
 
@@ -417,7 +459,10 @@ class Web3WalletBackend(PubSub):
                 self._local_nonce -= 1
 
     def _start_tx_tracking(self, tx_hash: str, gas_price: int):
-        self._pending_tx_dict[tx_hash] = gas_price
+        self._pending_tx_dict[tx_hash] = {
+            'gas_price': gas_price,
+            'timestamp': time.time()
+        }
 
     def _stop_tx_tracking(self, tx_hash: str):
         if tx_hash in self._pending_tx_dict:
@@ -485,7 +530,7 @@ class Web3WalletBackend(PubSub):
             try:
                 estimate_gas = self._w3.eth.estimateGas(transaction)
             except ValueError:
-                self.logger().error(f"Failed to estimate gas. Using default of 1000000.")
+                self.logger().error("Failed to estimate gas. Using default of 1000000.")
             transaction["gas"] = estimate_gas
         signed_transaction: AttributeDict = self._account.signTransaction(transaction)
         tx_hash: str = signed_transaction.hash.hex()
@@ -554,7 +599,7 @@ class Web3WalletBackend(PubSub):
 
     @staticmethod
     def to_raw_static(nominal_amount: Decimal) -> int:
-        return int(nominal_amount * Decimal(f"1e18"))
+        return int(nominal_amount * Decimal("1e18"))
 
     def _received_asset_event_listener(self, received_asset_event: WalletReceivedAssetEvent):
         self.logger().info(f"Received {received_asset_event.amount_received} {received_asset_event.asset_name} at "
@@ -569,6 +614,11 @@ class Web3WalletBackend(PubSub):
 
     def _eth_unwrapped_event_listener(self, unwrapped_eth_event: WalletUnwrappedEthEvent):
         self.trigger_event(WalletEvent.UnwrappedEth, unwrapped_eth_event)
+
+    def _zeroex_fill_event_listener(self, zeroex_fill_event: ZeroExFillEvent):
+        self.logger().info(f"ZeroEx order {zeroex_fill_event.order_hash} was filled at "
+                           f"transaction {zeroex_fill_event.tx_hash}.")
+        self.trigger_event(ZeroExEvent.Fill, zeroex_fill_event)
 
     async def check_and_fix_approval_amounts(self, spender: str) -> List[str]:
         """
@@ -630,3 +680,10 @@ class Web3WalletBackend(PubSub):
         async_scheduler: AsyncCallScheduler = AsyncCallScheduler.shared_instance()
         new_gas_price: int = await async_scheduler.call_async(getattr, self._w3.eth, "gasPrice")
         self._gas_price = new_gas_price
+
+    def get_remote_nonce(self):
+        try:
+            remote_nonce = self._w3.eth.getTransactionCount(self.address, block_identifier="pending")
+            return remote_nonce
+        except BlockNotFound:
+            return None

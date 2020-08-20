@@ -2,22 +2,22 @@
 
 ## About Coinbase Pro
 
-Coinbase Pro is a highly popular, global cryptocurrency exchange designed for professional traders based out of San Francisco, California. It has a reputation for being secure and trustworthy, and accounts on the exchange backed by FDIC insurance.
+Based in San Francisco, CA, Coinbase Pro is a widely-used, global cryptocurrency exchange designed for professional traders. It has a reputation for being secure and trustworthy, is [regulated in all the jurisdictions in which it operates](https://www.coinbase.com/legal/insurance), and maintains some [insurance on assets and deposits](https://www.coinbase.com/legal/insurance).
 
 ## Using the Connector
 
 Because Coinbase Pro is a centralized exchange, you will need to generate and provide your API key in order to trade using Hummingbot.
 
-| Prompt |
-|-----|
-| `Enter your Coinbase API key >>>`
-| `Enter your Coinbase secret key >>>`
-| `Enter your Coinbase passphrase >>>`
-
-!!! tip "Copying and pasting into Hummingbot"
-    See [this page](https://docs.hummingbot.io/support/how-to/#how-do-i-copy-and-paste-in-docker-toolbox-windows) for more instructions in our Get Help section.
+```
+Enter your Coinbase API key >>>
+Enter your Coinbase secret key >>>
+Enter your Coinbase passphrase >>>
+```
 
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
+
+!!! tip "Copying and pasting into Hummingbot"
+    See [this page](/faq/troubleshooting/#paste-items-from-clipboard-in-putty) for more instructions in our Support section.
 
 ### Creating Coinbase Pro API Keys
 
@@ -56,10 +56,33 @@ The API Key, Secret, and Passphrase are required for using Hummingbot.
 
 ## Miscellaneous Info
 
+### Trading Pair Limitations
+
+Coinbase Pro has trading pair limitations on certain regions. Some countries have access to crypto/fiat trading pairs while other countries can only access crypto/crypto trading pairs.
+
+Running Hummingbot with this connector on a pair that your country has no access to will result to this error:
+
+```
+OSError: Error fetching data from https://api.pro.coinbase.com/orders.
+HTTP status is 400. {'message': 'Trading pair not available'}
+```
+
+For more information, read through their article below.
+
+* [Locations and trading pairs](https://help.coinbase.com/en/pro/trading-and-funding/cryptocurrency-trading-pairs/locations-and-trading-pairs)
+
 ### Minimum Order Sizes
 
-Pairs on Coinbase Pro generally require a minimum order size equivalent to between $5 and $10. The specific details for different base pairs can be found [here](https://www.coinbase.com/legal/trading_rules).
+All Market Orders, Limit Orders, and Stop Orders placed on Coinbase Markets are subject to the minimum order size requirements listed in their [Market Information](https://pro.coinbase.com/markets) page.
+
+![coinbase6](/assets/img/coinbase6.png)
 
 ### Transaction Fees
 
-Coinbase Pro charges 0.15% in maker fees and 0.25% in taker fees for most users. However, users who trade in high volumes can trade at discounted rates. See their [official fee structure](https://pro.coinbase.com/fees) for more details.
+Coinbase Pro charges 0.50% fees for both maker and taker orders. However, users who trade in high volumes can trade at discounted rates.
+
+Read through their article below related to trading fees and discounts.
+
+* [What are the fees on Coinbase Pro?](https://help.coinbase.com/en/pro/trading-and-funding/trading-rules-and-fees/fees.html)
+
+Users can override the default fees by editing [`conf_fee_overrides.yml`](/advanced/fee-overrides/).

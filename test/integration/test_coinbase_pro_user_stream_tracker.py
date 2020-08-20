@@ -20,10 +20,10 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
+from hummingbot.market.coinbase_pro.coinbase_pro_order_book_message import CoinbaseProOrderBookMessage
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket, CoinbaseProAuth
 from hummingbot.market.coinbase_pro.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
 from hummingbot.market.market_base import OrderType
-from hummingbot.core.data_type.order_book_message import CoinbaseProOrderBookMessage
 
 
 class CoinbaseProUserStreamTrackerUnitTest(unittest.TestCase):

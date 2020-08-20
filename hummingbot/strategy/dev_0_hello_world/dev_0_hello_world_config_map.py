@@ -1,6 +1,6 @@
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
-    is_exchange,
+    validate_exchange,
 )
 from hummingbot.client.settings import (
     required_exchanges,
@@ -20,10 +20,14 @@ def str2bool(value: str):
 
 
 dev_0_hello_world_config_map = {
+    "strategy":
+        ConfigVar(key="strategy",
+                  prompt="",
+                  default="dev_0_hello_world"),
     "market":
         ConfigVar(key="market",
                   prompt="Enter the name of the exchange >>> ",
-                  validator=is_exchange,
+                  validator=validate_exchange,
                   on_validated=lambda value: required_exchanges.append(value)),
     "asset_trading_pair":
         ConfigVar(key="asset_trading_pair",

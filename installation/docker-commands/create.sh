@@ -44,7 +44,9 @@ echo
 echo "Your files will be saved to:"
 echo "=> instance folder:    $PWD/$FOLDER"
 echo "=> config files:       ├── $PWD/$FOLDER/hummingbot_conf"
-echo "=> log files:          └── $PWD/$FOLDER/hummingbot_logs"
+echo "=> log files:          ├── $PWD/$FOLDER/hummingbot_logs"
+echo "=> data file:          ├── $PWD/$FOLDER/hummingbot_data"
+echo "=> scripts files:      └── $PWD/$FOLDER/hummingbot_scripts"
 echo
 pause Press [Enter] to continue
 #
@@ -55,10 +57,16 @@ pause Press [Enter] to continue
 # 1) Create folder for your new instance
 mkdir $FOLDER
 # 2) Create folders for log and config files
-mkdir $FOLDER/hummingbot_conf && mkdir $FOLDER/hummingbot_logs
+mkdir $FOLDER/hummingbot_conf
+mkdir $FOLDER/hummingbot_logs
+mkdir $FOLDER/hummingbot_data
+mkdir $FOLDER/hummingbot_scripts
 # 3) Launch a new instance of hummingbot
-docker run -it \
+docker run -it --log-opt max-size=10m --log-opt max-file=5 \
 --name $INSTANCE_NAME \
+--network host \
 --mount "type=bind,source=$(pwd)/$FOLDER/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/$FOLDER/hummingbot_logs,destination=/logs/" \
+--mount "type=bind,source=$(pwd)/$FOLDER/hummingbot_data,destination=/data/" \
+--mount "type=bind,source=$(pwd)/$FOLDER/hummingbot_scripts,destination=/scripts/" \
 coinalpha/hummingbot:$TAG

@@ -1,5 +1,5 @@
 from collections import defaultdict
-
+from libc.stdint cimport int64_t
 import aiohttp
 from aiokafka import (
     AIOKafkaConsumer,
@@ -25,7 +25,9 @@ from typing import (
     Coroutine,
     Tuple,
 )
+
 import conf
+from hummingbot.core.utils.asyncio_throttle import Throttler
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -37,7 +39,6 @@ from hummingbot.market.binance.binance_api_order_book_data_source import Binance
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.events import (
     MarketEvent,
-    MarketWithdrawAssetEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
     OrderFilledEvent,
@@ -52,8 +53,8 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.market.market_base import (
     MarketBase,
-    NaN,
-    s_decimal_NaN)
+    s_decimal_NaN,
+)
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.order_book cimport OrderBook
@@ -61,15 +62,27 @@ from hummingbot.market.binance.binance_order_book_tracker import BinanceOrderBoo
 from hummingbot.market.binance.binance_user_stream_tracker import BinanceUserStreamTracker
 from hummingbot.market.binance.binance_time import BinanceTime
 from hummingbot.market.binance.binance_in_flight_order import BinanceInFlightOrder
-from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.market.trading_rule cimport TradingRule
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
+from hummingbot.core.utils.estimate_fee import estimate_fee
 
 s_logger = None
 s_decimal_0 = Decimal(0)
-TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|USDS|TUSD|PAX|TRX|BUSD|NGN)$")
+TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|USDS|TUSD|PAX|TRX|BUSD|NGN|RUB|TRY|EUR|IDRT|ZAR|UAH|GBP|BKRW|BIDR)$")
+BROKER_ID = "x-XEKWYICX"
+
+
+cdef str get_client_order_id(str order_side, object trading_pair):
+    cdef:
+        int64_t nonce = <int64_t> get_tracking_nonce()
+        object symbols = trading_pair.split("-")
+        str base = symbols[0].upper()
+        str quote = symbols[1].upper()
+    return f"{BROKER_ID}-{order_side.upper()[0]}{base[0]}{base[-1]}{quote[0]}{quote[-1]}{nonce}"
 
 
 cdef class BinanceMarketTransactionTracker(TransactionTracker):
@@ -85,49 +98,10 @@ cdef class BinanceMarketTransactionTracker(TransactionTracker):
         self._owner.c_did_timeout_tx(tx_id)
 
 
-cdef class InFlightDeposit:
-    cdef:
-        public str tracking_id
-        public int64_t timestamp_ms
-        public str tx_hash
-        public str from_address
-        public str to_address
-        public bint has_tx_receipt
-
-    def __init__(self, tracking_id: str, timestamp_ms: int, tx_hash: str, from_address: str, to_address: str):
-        self.tracking_id = tracking_id
-        self.timestamp_ms = timestamp_ms
-        self.tx_hash = tx_hash
-        self.from_address = from_address
-        self.to_address = to_address
-        self.has_tx_receipt = False
-
-    def __repr__(self) -> str:
-        return f"InFlightDeposit(tracking_id='{self.tracking_id}', timestamp_ms={self.timestamp_ms}, " \
-               f"tx_hash='{self.tx_hash}', has_tx_receipt={self.has_tx_receipt})"
-
-
-cdef class WithdrawRule:
-    cdef:
-        public str asset_name
-        public object min_withdraw_amount
-        public object withdraw_fee
-
-    def __init__(self, asset_name: str, min_withdraw_amount: float, withdraw_fee: float):
-        self.asset_name = asset_name
-        self.min_withdraw_amount = min_withdraw_amount
-        self.withdraw_fee = withdraw_fee
-
-    def __repr__(self) -> str:
-        return f"WithdrawRule(asset_name='{self.asset_name}', min_withdraw_amount={self.min_withdraw_amount}, " \
-               f"withdraw_fee={self.withdraw_fee})"
-
-
 cdef class BinanceMarket(MarketBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset.value
     MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
@@ -135,8 +109,10 @@ cdef class BinanceMarket(MarketBase):
     MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
 
-    DEPOSIT_TIMEOUT = 1800.0
     API_CALL_TIMEOUT = 10.0
+    SHORT_POLL_INTERVAL = 5.0
+    UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
+    LONG_POLL_INTERVAL = 120.0
     BINANCE_TRADE_TOPIC_NAME = "binance-trade.serialized"
     BINANCE_USER_STREAM_TOPIC_NAME = "binance-user-stream.serialized"
 
@@ -152,7 +128,6 @@ cdef class BinanceMarket(MarketBase):
     def __init__(self,
                  binance_api_key: str,
                  binance_api_secret: str,
-                 poll_interval: float = 5.0,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
                  OrderBookTrackerDataSourceType.EXCHANGE_API,
                  user_stream_tracker_data_source_type: UserStreamTrackerDataSourceType =
@@ -163,41 +138,40 @@ cdef class BinanceMarket(MarketBase):
         self.monkey_patch_binance_time()
         super().__init__()
         self._trading_required = trading_required
-        self._order_book_tracker = BinanceOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
-                                                           trading_pairs=trading_pairs)
+        self._order_book_tracker = BinanceOrderBookTracker(trading_pairs=trading_pairs)
         self._binance_client = BinanceClient(binance_api_key, binance_api_secret)
         self._user_stream_tracker = BinanceUserStreamTracker(
             data_source_type=user_stream_tracker_data_source_type, binance_client=self._binance_client)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
-        self._poll_interval = poll_interval
         self._in_flight_orders = {}  # Dict[client_order_id:str, BinanceInFlightOrder]
         self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
         self._tx_tracker = BinanceMarketTransactionTracker(self)
-        self._withdraw_rules = {}  # Dict[trading_pair:str, WithdrawRule]
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
         self._trade_fees = {}  # Dict[trading_pair:str, (maker_fee_percent:Decimal, taken_fee_percent:Decimal)]
         self._last_update_trade_fees_timestamp = 0
         self._data_source_type = order_book_tracker_data_source_type
         self._status_polling_task = None
-        self._user_stream_tracker_task = None
         self._user_stream_event_listener_task = None
-        self._order_tracker_task = None
         self._trading_rules_polling_task = None
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
-        self._last_pull_timestamp = 0
+        self._last_poll_timestamp = 0
+        self._throttler = Throttler((10.0, 1.0))
 
     @staticmethod
-    def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
+    def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
         try:
             m = TRADING_PAIR_SPLITTER.match(trading_pair)
             return m.group(1), m.group(2)
+        # Exceptions are now logged as warnings in trading pair fetcher
         except Exception as e:
-            raise ValueError(f"Error parsing trading_pair {trading_pair}: {str(e)}")
+            return None
 
     @staticmethod
-    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
+    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
+        if BinanceMarket.split_trading_pair(exchange_trading_pair) is None:
+            return None
         # Binance does not split BASEQUOTE (BTCUSDT)
         base_asset, quote_asset = BinanceMarket.split_trading_pair(exchange_trading_pair)
         return f"{base_asset}-{quote_asset}"
@@ -220,10 +194,6 @@ cdef class BinanceMarket(MarketBase):
         return self._binance_client
 
     @property
-    def withdraw_rules(self) -> Dict[str, WithdrawRule]:
-        return self._withdraw_rules
-
-    @property
     def trading_rules(self) -> Dict[str, TradingRule]:
         return self._trading_rules
 
@@ -244,6 +214,14 @@ cdef class BinanceMarket(MarketBase):
             key: value.to_json()
             for key, value in self._in_flight_orders.items()
         }
+
+    @property
+    def order_book_tracker(self) -> BinanceOrderBookTracker:
+        return self._order_book_tracker
+
+    @property
+    def user_stream_tracker(self) -> BinanceUserStreamTracker:
+        return self._user_stream_tracker
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         self._in_flight_orders.update({
@@ -271,18 +249,30 @@ cdef class BinanceMarket(MarketBase):
             func,
             *args,
             app_warning_msg: str = "Binance API call failed. Check API key and network connection.",
+            request_weight: int = 1,
             **kwargs) -> Dict[str, any]:
-        return await self._async_scheduler.call_async(partial(func, *args, **kwargs),
-                                                      timeout_seconds=self.API_CALL_TIMEOUT,
-                                                      app_warning_msg=app_warning_msg)
+        async with self._throttler.weighted_task(request_weight=request_weight):
+            try:
+                return await self._async_scheduler.call_async(partial(func, *args, **kwargs),
+                                                              timeout_seconds=self.API_CALL_TIMEOUT,
+                                                              app_warning_msg=app_warning_msg)
+            except Exception as ex:
+                if "Timestamp for this request" in str(ex):
+                    self.logger().warning("Got Binance timestamp error. "
+                                          "Going to force update Binance server time offset...")
+                    binance_time = BinanceTime.get_instance()
+                    binance_time.clear_time_offset_ms_samples()
+                    await binance_time.schedule_update_server_time_offset()
+                raise ex
 
-    async def query_url(self, url) -> any:
-        async with aiohttp.ClientSession() as client:
-            async with client.get(url, timeout=self.API_CALL_TIMEOUT) as response:
-                if response.status != 200:
-                    raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
-                data = await response.json()
-                return data
+    async def query_url(self, url, request_weight: int = 1) -> any:
+        async with self._throttler.weighted_task(request_weight=request_weight):
+            async with aiohttp.ClientSession() as client:
+                async with client.get(url, timeout=self.API_CALL_TIMEOUT) as response:
+                    if response.status != 200:
+                        raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
+                    data = await response.json()
+                    return data
 
     async def _update_balances(self):
         cdef:
@@ -333,39 +323,29 @@ cdef class BinanceMarket(MarketBase):
                           object order_side,
                           object amount,
                           object price):
+        """
         cdef:
             object maker_trade_fee = Decimal("0.001")
             object taker_trade_fee = Decimal("0.001")
             str trading_pair = base_currency + quote_currency
+
+        if order_type.is_limit_type() and fee_overrides_config_map["binance_maker_fee"].value is not None:
+            return TradeFee(percent=fee_overrides_config_map["binance_maker_fee"].value / Decimal("100"))
+        if order_type is OrderType.MARKET and fee_overrides_config_map["binance_taker_fee"].value is not None:
+            return TradeFee(percent=fee_overrides_config_map["binance_taker_fee"].value / Decimal("100"))
 
         if trading_pair not in self._trade_fees:
             # https://www.binance.com/en/fee/schedule
             self.logger().warning(f"Unable to find trade fee for {trading_pair}. Using default 0.1% maker/taker fee.")
         else:
             maker_trade_fee, taker_trade_fee = self._trade_fees.get(trading_pair)
-        return TradeFee(percent=maker_trade_fee if order_type is OrderType.LIMIT else taker_trade_fee)
-
-    async def _update_withdraw_rules(self):
-        cdef:
-            # The poll interval for withdraw rules is 60 seconds.
-            int64_t last_tick = <int64_t>(self._last_timestamp / 60.0)
-            int64_t current_tick = <int64_t>(self._current_timestamp / 60.0)
-        if current_tick > last_tick or len(self._withdraw_rules) < 1:
-            asset_rules = await self.query_url("https://www.binance.com/assetWithdraw/getAllAsset.html")
-            for asset_rule in asset_rules:
-                asset_name = asset_rule["assetCode"]
-                min_withdraw_amount = Decimal(asset_rule["minProductWithdraw"])
-                withdraw_fee = Decimal(asset_rule["transactionFee"])
-                if asset_name not in self._withdraw_rules:
-                    self._withdraw_rules[asset_name] = WithdrawRule(asset_name, min_withdraw_amount, withdraw_fee)
-                else:
-                    existing_rule = self._withdraw_rules[asset_name]
-                    existing_rule.min_withdraw_amount = min_withdraw_amount
-                    existing_rule.withdraw_fee = withdraw_fee
+        return TradeFee(percent=maker_trade_fee if order_type.is_limit_type() else taker_trade_fee)
+        """
+        is_maker = order_type is OrderType.LIMIT_MAKER
+        return estimate_fee("binance", is_maker)
 
     async def _update_trading_rules(self):
         cdef:
-            # The poll interval for withdraw rules is 60 seconds.
             int64_t last_tick = <int64_t>(self._last_timestamp / 60.0)
             int64_t current_tick = <int64_t>(self._current_timestamp / 60.0)
         if current_tick > last_tick or len(self._trading_rules) < 1:
@@ -434,9 +414,9 @@ cdef class BinanceMarket(MarketBase):
             # in case Binance's user stream events are not working.
             # This is separated from _update_order_status which only updates the order status without producing filled
             # events, since Binance's get order endpoint does not return trade IDs.
-            # The poll interval for order status is 10 seconds.
-            int64_t last_tick = <int64_t>(self._last_pull_timestamp / 10.0)
-            int64_t current_tick = <int64_t>(self._current_timestamp / 10.0)
+            # The minimum poll interval for order status is 10 seconds.
+            int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
+            int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             trading_pairs_to_order_map = defaultdict(lambda: {})
@@ -446,6 +426,7 @@ cdef class BinanceMarket(MarketBase):
             trading_pairs = list(trading_pairs_to_order_map.keys())
             tasks = [self.query_api(self._binance_client.get_my_trades, symbol=trading_pair)
                      for trading_pair in trading_pairs]
+            self.logger().debug("Polling for order fills of %d trading pairs.", len(tasks))
             results = await safe_gather(*tasks, return_exceptions=True)
             for trades, trading_pair in zip(results, trading_pairs):
                 order_map = trading_pairs_to_order_map[trading_pair]
@@ -459,7 +440,7 @@ cdef class BinanceMarket(MarketBase):
                     order_id = str(trade["orderId"])
                     if order_id in order_map:
                         tracked_order = order_map[order_id]
-                        order_type = OrderType.LIMIT if trade["isMaker"] else OrderType.MARKET
+                        order_type = tracked_order.order_type
                         applied_trade = order_map[order_id].update_with_trade_update(trade)
                         if applied_trade:
                             self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
@@ -485,15 +466,16 @@ cdef class BinanceMarket(MarketBase):
         cdef:
             # This is intended to be a backup measure to close straggler orders, in case Binance's user stream events
             # are not working.
-            # The poll interval for order status is 10 seconds.
-            int64_t last_tick = <int64_t>(self._last_pull_timestamp / 10.0)
-            int64_t current_tick = <int64_t>(self._current_timestamp / 10.0)
+            # The minimum poll interval for order status is 10 seconds.
+            int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
+            int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
             tasks = [self.query_api(self._binance_client.get_order,
                                     symbol=o.trading_pair, origClientOrderId=o.client_order_id)
                      for o in tracked_orders]
+            self.logger().debug("Polling for order status updates of %d orders.", len(tasks))
             results = await safe_gather(*tasks, return_exceptions=True)
             for order_update, tracked_order in zip(results, tracked_orders):
                 client_order_id = tracked_order.client_order_id
@@ -524,7 +506,7 @@ cdef class BinanceMarket(MarketBase):
 
                 # Update order execution status
                 tracked_order.last_state = order_update["status"]
-                order_type = OrderType.LIMIT if order_update["type"] == "LIMIT" else OrderType.MARKET
+                order_type = BinanceMarket.to_hb_order_type(order_update["type"])
                 executed_amount_base = Decimal(order_update["executedQty"])
                 executed_amount_quote = Decimal(order_update["cummulativeQuoteQty"])
 
@@ -643,7 +625,7 @@ cdef class BinanceMarket(MarketBase):
                         order_filled_event = order_filled_event._replace(trade_fee=self.c_get_fee(
                             tracked_order.base_asset,
                             tracked_order.quote_asset,
-                            OrderType.LIMIT if event_message["o"] == "LIMIT" else OrderType.MARKET,
+                            BinanceMarket.to_hb_order_type(event_message["o"]),
                             TradeType.BUY if event_message["S"] == "BUY" else TradeType.SELL,
                             Decimal(event_message["l"]),
                             Decimal(event_message["L"])
@@ -735,7 +717,7 @@ cdef class BinanceMarket(MarketBase):
                     self._update_order_fills_from_trades(),
                     self._update_order_status(),
                 )
-                self._last_pull_timestamp = self._current_timestamp
+                self._last_poll_timestamp = self._current_timestamp
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -748,7 +730,6 @@ cdef class BinanceMarket(MarketBase):
         while True:
             try:
                 await safe_gather(
-                    self._update_withdraw_rules(),
                     self._update_trading_rules(),
                     self._update_trade_fees()
                 )
@@ -766,7 +747,6 @@ cdef class BinanceMarket(MarketBase):
         return {
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "withdraw_rules_initialized": len(self._withdraw_rules) > 0,
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "trade_fees_initialized": len(self._trade_fees) > 0
         }
@@ -782,54 +762,6 @@ cdef class BinanceMarket(MarketBase):
         result = await self.query_api(self._binance_client.get_server_time)
         return result["serverTime"]
 
-    async def get_deposit_info(self, asset: str) -> DepositInfo:
-        cdef:
-            dict deposit_reply
-            str err_msg
-            str deposit_address
-
-        deposit_reply = await self.query_api(self._binance_client.get_deposit_address, asset=asset)
-        if deposit_reply.get("success") is not True:
-            err_msg = deposit_reply.get("msg") or str(deposit_reply)
-            self.logger().network(f"Could not get deposit address for {asset}: {err_msg}",
-                                  app_warning_msg=f"Could not get deposit address for {asset}: {err_msg}.")
-
-        deposit_address = deposit_reply["address"]
-        del deposit_reply["address"]
-        return DepositInfo(deposit_address, **deposit_reply)
-
-    async def execute_withdraw(self, tracking_id: str, to_address: str, currency: str, amount: Decimal):
-        decimal_amount = str(f"{amount:.12g}")
-        try:
-            withdraw_result = await self.query_api(self._binance_client.withdraw,
-                                                   asset=currency, address=to_address, amount=decimal_amount)
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.logger().network(
-                f"Error sending withdraw request to Binance for {currency}.",
-                exc_info=True,
-                app_warning_msg=f"Could not send {currency} withdrawal request to Binance. "
-                                f"Check network connection."
-            )
-            self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                                 MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
-            return
-
-        # Since the Binance API client already does some checking for us, if no exception has been raised... the
-        # withdraw result here should be valid.
-        withdraw_fee = self._withdraw_rules[currency].withdraw_fee if currency in self._withdraw_rules else s_decimal_0
-        self.c_trigger_event(self.MARKET_WITHDRAW_ASSET_EVENT_TAG,
-                             MarketWithdrawAssetEvent(self._current_timestamp, tracking_id, to_address, currency,
-                                                      amount, withdraw_fee))
-
-    cdef str c_withdraw(self, str address, str currency, object amount):
-        cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
-            str tracking_id = str(f"withdraw://{currency}/{tracking_nonce}")
-        safe_ensure_future(self.execute_withdraw(tracking_id, address, currency, amount))
-        return tracking_id
-
     cdef c_start(self, Clock clock, double timestamp):
         self._tx_tracker.c_start(clock, timestamp)
         MarketBase.c_start(self, clock, timestamp)
@@ -839,9 +771,7 @@ cdef class BinanceMarket(MarketBase):
         self._async_scheduler.stop()
 
     async def start_network(self):
-        if self._order_tracker_task is not None:
-            self._stop_network()
-        self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
+        self._order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
@@ -849,8 +779,7 @@ cdef class BinanceMarket(MarketBase):
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
 
     def _stop_network(self):
-        if self._order_tracker_task is not None:
-            self._order_tracker_task.cancel()
+        self._order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
         if self._user_stream_tracker_task is not None:
@@ -859,7 +788,7 @@ cdef class BinanceMarket(MarketBase):
             self._user_stream_event_listener_task.cancel()
         if self._trading_rules_polling_task is not None:
             self._trading_rules_polling_task.cancel()
-        self._order_tracker_task = self._status_polling_task = self._user_stream_tracker_task = \
+        self._status_polling_task = self._user_stream_tracker_task = \
             self._user_stream_event_listener_task = None
 
     async def stop_network(self):
@@ -876,8 +805,12 @@ cdef class BinanceMarket(MarketBase):
 
     cdef c_tick(self, double timestamp):
         cdef:
-            int64_t last_tick = <int64_t>(self._last_timestamp / self._poll_interval)
-            int64_t current_tick = <int64_t>(timestamp / self._poll_interval)
+            double now = time.time()
+            double poll_interval = (self.SHORT_POLL_INTERVAL
+                                    if now - self.user_stream_tracker.last_recv_time > 60.0
+                                    else self.LONG_POLL_INTERVAL)
+            int64_t last_tick = <int64_t>(self._last_timestamp / poll_interval)
+            int64_t current_tick = <int64_t>(timestamp / poll_interval)
         MarketBase.c_tick(self, timestamp)
         self._tx_tracker.c_tick(timestamp)
         if current_tick > last_tick:
@@ -891,99 +824,29 @@ cdef class BinanceMarket(MarketBase):
                           amount: Decimal,
                           order_type: OrderType,
                           price: Optional[Decimal] = s_decimal_NaN):
-        cdef:
-            TradingRule trading_rule = self._trading_rules[trading_pair]
-            object m = TRADING_PAIR_SPLITTER.match(trading_pair)
-            str base_currency = m.group(1)
-            str quote_currency = m.group(2)
-            object buy_fee = self.c_get_fee(base_currency, quote_currency, order_type, TradeType.BUY, amount, price)
-            double adjusted_amount
+        return await self.create_order(TradeType.BUY, order_id, trading_pair, amount, order_type, price)
 
-        decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
-        decimal_price = (self.c_quantize_order_price(trading_pair, price)
-                         if order_type is OrderType.LIMIT
-                         else s_decimal_0)
-        if decimal_amount < trading_rule.min_order_size:
-            raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
-                             f"{trading_rule.min_order_size}.")
-
-        try:
-            order_result = None
-            order_decimal_amount = f"{decimal_amount:f}"
-            if order_type is OrderType.LIMIT:
-                order_decimal_price = f"{decimal_price:f}"
-                self.c_start_tracking_order(
-                    order_id,
-                    "",
-                    trading_pair,
-                    TradeType.BUY,
-                    decimal_price,
-                    decimal_amount,
-                    order_type
-                )
-                order_result = await self.query_api(self._binance_client.order_limit_buy,
-                                                    symbol=trading_pair,
-                                                    quantity=order_decimal_amount,
-                                                    price=order_decimal_price,
-                                                    newClientOrderId=order_id)
-            elif order_type is OrderType.MARKET:
-                self.c_start_tracking_order(
-                    order_id,
-                    "",
-                    trading_pair,
-                    TradeType.BUY,
-                    Decimal("NaN"),
-                    decimal_amount,
-                    order_type
-                )
-                order_result = await self.query_api(self._binance_client.order_market_buy,
-                                                    symbol=trading_pair,
-                                                    quantity=order_decimal_amount,
-                                                    newClientOrderId=order_id)
-            else:
-                raise ValueError(f"Invalid OrderType {order_type}. Aborting.")
-
-            exchange_order_id = str(order_result["orderId"])
-            tracked_order = self._in_flight_orders.get(order_id)
-            if tracked_order is not None:
-                self.logger().info(f"Created {order_type} buy order {order_id} for "
-                                   f"{decimal_amount} {trading_pair}.")
-                tracked_order.exchange_order_id = exchange_order_id
-            self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
-                                 BuyOrderCreatedEvent(
-                                     self._current_timestamp,
-                                     order_type,
-                                     trading_pair,
-                                     decimal_amount,
-                                     decimal_price,
-                                     order_id
-                                 ))
-
-        except asyncio.CancelledError:
-            raise
-
-        except Exception as e:
-            self.c_stop_tracking_order(order_id)
-            order_type_str = 'MARKET' if order_type == OrderType.MARKET else 'LIMIT'
-            self.logger().network(
-                f"Error submitting buy {order_type_str} order to Binance for "
-                f"{decimal_amount} {trading_pair} "
-                f"{decimal_price if order_type is OrderType.LIMIT else ''}.",
-                exc_info=True,
-                app_warning_msg=f"Failed to submit buy order to Binance. Check API key and network connection."
-            )
-            self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                                 MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
-
-    cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.MARKET, object price=s_decimal_NaN,
+    cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.LIMIT, object price=s_decimal_NaN,
                    dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
-            str order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
+            str t_pair = BinanceMarket.convert_from_exchange_trading_pair(trading_pair)
+            str order_id = get_client_order_id("buy", t_pair)
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
         return order_id
 
-    async def execute_sell(self,
+    @staticmethod
+    def binance_order_type(order_type: OrderType) -> str:
+        return order_type.name.upper()
+
+    @staticmethod
+    def to_hb_order_type(binance_type: str) -> OrderType:
+        return OrderType[binance_type]
+
+    def supported_order_types(self):
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+
+    async def create_order(self,
+                           trade_type: TradeType,
                            order_id: str,
                            trading_pair: str,
                            amount: Decimal,
@@ -991,87 +854,80 @@ cdef class BinanceMarket(MarketBase):
                            price: Optional[Decimal] = Decimal("NaN")):
         cdef:
             TradingRule trading_rule = self._trading_rules[trading_pair]
-
-        decimal_amount = self.quantize_order_amount(trading_pair, amount)
-        decimal_price = (self.c_quantize_order_price(trading_pair, price)
-                         if order_type is OrderType.LIMIT
-                         else s_decimal_0)
-        if decimal_amount < trading_rule.min_order_size:
-            raise ValueError(f"Sell order amount {decimal_amount} is lower than the minimum order size "
+        amount = self.c_quantize_order_amount(trading_pair, amount)
+        price = self.c_quantize_order_price(trading_pair, price)
+        if amount < trading_rule.min_order_size:
+            raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
-
+        order_result = None
+        amount_str = f"{amount:f}"
+        price_str = f"{price:f}"
+        type_str = BinanceMarket.binance_order_type(order_type)
+        side_str = BinanceClient.SIDE_BUY if trade_type is TradeType.BUY else BinanceClient.SIDE_SELL
+        api_params = {"symbol": trading_pair,
+                      "side": side_str,
+                      "quantity": amount_str,
+                      "type": type_str,
+                      "newClientOrderId": order_id,
+                      "price": price_str}
+        if order_type == OrderType.LIMIT:
+            api_params["timeInForce"] = BinanceClient.TIME_IN_FORCE_GTC
+        self.c_start_tracking_order(order_id,
+                                    "",
+                                    trading_pair,
+                                    trade_type,
+                                    price,
+                                    amount,
+                                    order_type
+                                    )
         try:
-            order_result = None
-            order_decimal_amount = f"{decimal_amount:f}"
-            if order_type is OrderType.LIMIT:
-                order_decimal_price = f"{decimal_price:f}"
-                self.c_start_tracking_order(
-                    order_id,
-                    "",
-                    trading_pair,
-                    TradeType.SELL,
-                    decimal_price,
-                    decimal_amount,
-                    order_type
-                )
-                order_result = await self.query_api(self._binance_client.order_limit_sell,
-                                                    symbol=trading_pair,
-                                                    quantity=order_decimal_amount,
-                                                    price=order_decimal_price,
-                                                    newClientOrderId=order_id)
-            elif order_type is OrderType.MARKET:
-                self.c_start_tracking_order(
-                    order_id,
-                    "",
-                    trading_pair,
-                    TradeType.SELL,
-                    Decimal("NaN"),
-                    decimal_amount,
-                    order_type
-                )
-                order_result = await self.query_api(self._binance_client.order_market_sell,
-                                                    symbol=trading_pair,
-                                                    quantity=order_decimal_amount,
-                                                    newClientOrderId=order_id)
-            else:
-                raise ValueError(f"Invalid OrderType {order_type}. Aborting.")
-
+            order_result = await self.query_api(self._binance_client.create_order, **api_params)
             exchange_order_id = str(order_result["orderId"])
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
-                self.logger().info(f"Created {order_type} sell order {order_id} for "
-                                   f"{decimal_amount} {trading_pair}.")
+                self.logger().info(f"Created {type_str} {side_str} order {order_id} for "
+                                   f"{amount} {trading_pair}.")
                 tracked_order.exchange_order_id = exchange_order_id
 
-            self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
-                                 SellOrderCreatedEvent(
+            event_tag = self.MARKET_BUY_ORDER_CREATED_EVENT_TAG if trade_type is TradeType.BUY \
+                else self.MARKET_SELL_ORDER_CREATED_EVENT_TAG
+            event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
+            self.c_trigger_event(event_tag,
+                                 event_class(
                                      self._current_timestamp,
                                      order_type,
                                      trading_pair,
-                                     decimal_amount,
-                                     decimal_price,
+                                     amount,
+                                     price,
                                      order_id
                                  ))
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception as e:
             self.c_stop_tracking_order(order_id)
-            order_type_str = 'MARKET' if order_type is OrderType.MARKET else 'LIMIT'
             self.logger().network(
-                f"Error submitting sell {order_type_str} order to Binance for "
-                f"{decimal_amount} {trading_pair} "
-                f"{decimal_price if order_type is OrderType.LIMIT else ''}.",
+                f"Error submitting {side_str} {type_str} order to Binance for "
+                f"{amount} {trading_pair} "
+                f"{price}.",
                 exc_info=True,
-                app_warning_msg=f"Failed to submit sell order to Binance. Check API key and network connection."
+                app_warning_msg=str(e)
             )
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
-    cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.MARKET, object price=s_decimal_NaN,
+    async def execute_sell(self,
+                           order_id: str,
+                           trading_pair: str,
+                           amount: Decimal,
+                           order_type: OrderType,
+                           price: Optional[Decimal] = Decimal("NaN")):
+        return await self.create_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price)
+
+    cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.LIMIT, object price=s_decimal_NaN,
                     dict kwargs={}):
         cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
-            str order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
+            str t_pair = BinanceMarket.convert_from_exchange_trading_pair(trading_pair)
+            str order_id = get_client_order_id("sell", t_pair)
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id
 
@@ -1091,6 +947,8 @@ cdef class BinanceMarket(MarketBase):
                     # Required by cancel_all() below.
                     "origClientOrderId": order_id
                 }
+            else:
+                raise e
 
         if isinstance(cancel_result, dict) and cancel_result.get("status") == "CANCELED":
             self.logger().info(f"Successfully cancelled order {order_id}.")

@@ -3,11 +3,11 @@
 from libc.stdint cimport int64_t
 from libcpp.set cimport set
 from libcpp.vector cimport vector
-cimport numpy as np
 from hummingbot.core.data_type.OrderBookEntry cimport OrderBookEntry
 from hummingbot.core.pubsub cimport PubSub
-
 from .order_book_query_result cimport OrderBookQueryResult
+cimport numpy as np
+
 
 cdef class OrderBook(PubSub):
     cdef set[OrderBookEntry] _bid_book
@@ -16,6 +16,10 @@ cdef class OrderBook(PubSub):
     cdef int64_t _last_diff_uid
     cdef double _best_bid
     cdef double _best_ask
+    cdef double _last_trade_price
+    cdef double _last_applied_trade
+    cdef double _last_trade_price_rest_updated
+    cdef bint _dex
 
     cdef c_apply_diffs(self, vector[OrderBookEntry] bids, vector[OrderBookEntry] asks, int64_t update_id)
     cdef c_apply_snapshot(self, vector[OrderBookEntry] bids, vector[OrderBookEntry] asks, int64_t update_id)
