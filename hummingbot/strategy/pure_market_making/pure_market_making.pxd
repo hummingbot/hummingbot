@@ -30,6 +30,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         object _bid_order_optimization_depth
         bint _add_transaction_costs_to_orders
         object _asset_price_delegate
+        object _price_type
         bint _take_if_crossed
         object _price_ceiling
         object _price_floor

@@ -2,7 +2,7 @@
 ###       Pure market making strategy config         ###
 ########################################################
 
-template_version: 17
+template_version: 18
 strategy: null
 
 # Exchange and token parameters.
@@ -90,6 +90,9 @@ add_transaction_costs: null
 
 # The price source (current_market/external_market/custom_api).
 price_source: null
+
+# The price type (mid_price/last_price).
+price_type: null
 
 # An external exchange name (for external exchange pricing source).
 price_source_exchange: null
