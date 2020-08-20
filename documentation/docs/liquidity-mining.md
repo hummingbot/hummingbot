@@ -34,28 +34,147 @@ Like any trading strategy, market making includes risk. One of the primary risks
 
 While the open source Hummingbot client includes features that help users better manage inventory risk and other risks, users are solely responsible for bearing these risks when using the software.
 
-!!! note
-    The published liquidity mining returns illustrate the return from liquidity rewards proportional to the value of the inventory committed to maintain orders. These figures do not take into account trading-related profits and losses.  The return figures may also fluctuate based on relative changes in the value of the base tokens, quote tokens, and the tokens used for the liquidity mining payments.
+## Current campaign terms
 
-## How do you measure liquidity?
-We believe that **slippage** is the optimal metric to quantify liquidity, as opposed to filled order volume, a measure widely used by the market. Slippage refers to the difference between the observed mid-market price and the actual executed price for a trade of a given size.  Calculating slippage factors in order book depth and prices at different depths, which better captures the friction and efficiency of actually trading that asset.  Deep, liquid order books have low slippage, while thin, illiquid order books have high slippage.
+!!! warning "Important information regarding campaign terms"
+    <li>**Terms subject to change**. Please check this page or the [Miner's app](https://miners.hummingbot.io) for the most up-to-date terms.<br/>We will notify participants of changes, if any, on our [Discord](https://discord.hummingbot.io) and [reddit](https://www.reddit.com/r/Hummingbot/).
 
-**We believe slippage is a more robust indicator of liquidity than trading volume**. As an ex-ante metric, slippage measures information used by traders before they trade to decide whether to execute the trade and in which venue to execute it. In contrast, volume is an ex-post metric and can be easily manipulated.
+    <li>**Orders outstanding for more than 30 minutes not counted for rewards.** Work on removing this limit is in progress, you can read more about it in our [Reddit post](https://www.reddit.com/r/Hummingbot/comments/hz5xv3/tracking_rewards_for_orders_longer_than_30m/).
+    > <em>**Tip**: To ensure that orders do not stay outstanding for longer than 30 minutes, Hummingbot users should disable [order refresh tolerance](https://docs.hummingbot.io/strategies/advanced-mm/order-refresh-tolerance/#how-it-works).</em>
 
-## How are liquidity mining rewards calculated?
-In order to make economic sense for a market maker, the market maker’s compensation must correlate with increased levels of risk. There are three main parameters that we use in liquidity mining to determine market maker compensation: (1) **time**: placing orders in the order book consistently over time, (2) **spreads**, and (3) **order sizes**.
-
-In liquidity mining, market makers accumulate more rewards by consistently placing orders over time and earn higher rewards by placing orders with tighter spreads and with larger sizes. The real-time reward information will be displayed in the real-time Hummingbot Miner dashboard.
-
-![](../assets/img/mining-rewards-diagram.jpg)
-
-For more details on the calculation, please read [Demystifying Liquidity Mining Rewards](https://hummingbot.io/blog/2019-12-liquidity-mining-rewards/).
+    <li>**Minimum reward payout amount**: due to the recent surge in Ethereum gas price, Hummingbot will impose a $10.00 minimum on the weekly payout, starting with the next scheduled payout on August 21, 2020 (UTC). For miners who earn < $10 within one week, their rewards will be accrued and rolled over to the next period, read more [here](https://www.reddit.com/r/Hummingbot/comments/i9rh5g/announcement_a_10_minimum_to_liquidity_mining/).
 
 
-!!! warning "Liquidity mining return is a historic metric and not a guarantee of future return."
-    The liquidity mining return displayed on the Hummingbot Miner app is calculated from the most recently collected order book information data.  The actual return may vary depending on the actual orders submitted in the specific snapshot in which orders were placed.
-
-For more details on the calculation, please read [Demystifying Liquidity Mining Rewards](https://hummingbot.io/blog/2019-12-liquidity-mining-rewards/).
+!!! note "Campaign updates for the week starting August 18, 2020 12.00am UTC"
+    **Native RLC rewards for iExec campaign**: we have rolled out [native token liquidity mining rewards](https://hummingbot.io/blog/2020-08-native-token-payments/)!  Starting this week, liquidity miners participating in RLC pairs will be earning RLC rewards.
 
 
+**Current reward period: August 18, 2020 12.00am UTC to August 25, 2020 12.00am UTC**
+
+<table>
+  <thead>
+    <th>Token Issuer</th>
+    <th>Trading pair</th>
+    <th>Exchange</th>
+    <th>Maximum spread</th>
+    <th>Spread factor *</th>
+    <th>Weekly rewards</th>
+  </thead>
+  <tbody>
+      <tr>
+      <td rowspan="3"><a href="#coti">COTI</a><br></td>
+      <td>COTI/BTC</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>8</td>
+      <td>USDC 250</td>
+    </tr>
+    <tr>
+      <td>COTI/USDT</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>8</td>
+      <td>USDC 250</td>
+    </tr>
+    <tr>
+      <td>COTI/BNB</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>8</td>
+      <td>USDC 250</td>
+    </tr>        
+    <tr>
+      <td rowspan="3"><a href="#mainframe">Mainframe</a><br></td>
+      <td>MFT/USDT</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>8</td>
+      <td>USDC 200</td>
+    </tr>
+    <tr>
+      <td>MFT/ETH</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>8</td>
+      <td>USDC 275</td>
+    </tr>
+    <tr>
+      <td>MFT/BNB</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>8</td>
+      <td>USDC 275</td>
+    </tr>
+    <tr>
+      <td rowspan="3"><a href="#iexec">iExec</a><br></td>
+      <td>RLC/BTC</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>8</td>
+      <td><b><em>RLC 146</em></b></td>
+    </tr>
+    <tr>
+      <td>RLC/USDT</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>8</td>
+      <td><b><em>RLC 146</em></b></td>
+    </tr>
+    <tr>
+      <td>RLC/ETH</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>8</td>
+      <td><b><em>RLC 145.5</em></b></td>
+    </tr>
+    <tr>
+      <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
+      <td>XZC/BTC</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>8</td>
+      <td>USDC 375</td>
+    </tr>
+    <tr>
+      <td>XZC/USDT</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>8</td>
+      <td>USDC 375</td>
+    </tr>
+  </tbody>
+</table>
+
+
+\* Spread density function constant is one of the factors that determines the relative weighting of orders by spread, i.e., the amount of additional rewards for orders with tighter spreads vs those with wider spreads. Refer to this [spreadsheet](https://docs.google.com/spreadsheets/d/1mUZsQoiqlMs5HjcL6AXSKIx1oaULsmuQStJaCc2wggQ/edit?ts=5f1e89bd#gid=18167917) for the spread weights and for a visual of the graph that shows the curve.
+
+
+## Upcoming changes to campaign terms
+
+No upcoming changes.
+
+## Token Issuers
+
+### COTI
+[COTI](https://coti.io/) is a fully encompassing “finance on the blockchain” ecosystem that is designed specifically to meet the challenges of traditional finance (fees, latency, global inclusion and risk) by introducing a new type of DAG based base protocol and infrastructure that is scalable, fast, private, inclusive, low cost and is optimized for real time payments. The ecosystem includes a [DAG based Blockchain](https://www.youtube.com/watch?v=kSdRxqHDKe8), a [Proof of Trust Consensus Algorithm](https://coti.io/files/COTI-technical-whitepaper.pdf), a [multiDAG](https://medium.com/cotinetwork%27/coti-is-launching-multidag-a-protocol-to-issue-tokens-on-a-dag-infrastructure-5c6282e5c3d1) a [Global Trust System](https://medium.com/cotinetwork/introducing-cotis-global-trust-system-gts-an-advanced-layer-of-trust-for-any-blockchain-7e44587b8bda), a [Universal Payment Solution](https://medium.com/cotinetwork/coti-universal-payment-system-ups-8614e149ee76), a [Payment Gateway](https://medium.com/cotinetwork/announcing-the-first-release-of-the-coti-payment-gateway-4a9f3e515b86), as well as consumer (COTI Pay) and merchant (COTI Pay Business) applications.
+
+[Whitepaper](https://coti.io/files/COTI-technical-whitepaper.pdf) | [Twitter](https://twitter.com/COTInetwork) | [Telegram](https://t.me/COTInetwork) | [Discord](https://discord.me/coti) | [Github](https://github.com/coti-io) | [CoinMarketCap](https://coinmarketcap.com/currencies/coti/markets/) | [CoinGecko](https://www.coingecko.com/en/coins/coti)
+
+### iExec
+
+[iExec (RLC)](https://iex.ec/) claims to have developed the first decentralized marketplace for cloud computing resources. Blockchain technology is used to organize a market network where users can monetize their computing power, applications, and datasets. By providing on-demand access to cloud computing resources, iExec is reportedly able to support compute-intensive applications in fields such as AI, big data, healthcare, rendering, or FinTech. iExec's RLC token has been listed on Binance, Bittrex, etc.
+
+[Whitepaper](https://iex.ec/wp-content/uploads/pdf/iExec-WPv3.0-English.pdf) | [Twitter](https://twitter.com/iEx_ec) | [Telegram](https://goo.gl/fH3EHT) | [Github](https://github.com/iExecBlockchainComputing) | [Explorer](https://etherscan.io/token/0x607F4C5BB672230e8672085532f7e901544a7375) | [CoinMarketCap](https://coinmarketcap.com/currencies/rlc/markets/) | [CoinGecko](https://www.coingecko.com/en/coins/iexec-rlc)
+
+### Mainframe
+
+The [Mainframe (MFT)](https://mainframe.com/) Lending Protocol allows anyone to borrow against their crypto. Mainframe uses a bond-like instrument, representing an on-chain obligation that settles on a specific future date. Buying and selling the tokenized debt enables fixed-rate lending and borrowing — something much needed in decentralized finance today.
+
+[Blog](https://blog.mainframe.com) | [Twitter](https://twitter.com/Mainframe_HQ) | [Discord](https://discord.gg/mhtSRz6) | [Github](https://github.com/MainframeHQ) | [CoinMarketCap](https://coinmarketcap.com/currencies/mainframe/) | [CoinGecko](https://www.coingecko.com/en/coins/mainframe)
+
+### Zcoin
+
+[ZCoin (XZC)](https://zcoin.io/) is an open-source privacy-focused cryptocurrency token that launched in Sep 2016. Zcoin originally pioneered the use of Zerocoin to enable privacy but has since transitioned to a scheme called Sigma which is based on a paper by Jens Groth and Markulf Kohlweiss that reportedly allows greater scalability and removes the need for trusted setup in Zerocoin. With Zcoin’s Sigma feature, only the sender and receiver would be able to ascertain the exchange of funds in a given transaction, as no transaction histories are linked to the actual coins. Zcoin is also the creator of the Lelantus privacy protocol which improves Sigma's privacy and functionality. Its ZC token has been listed on Binance, Huobi Global, Bittrex, etc. 
+
+[Whitepaper](https://zcoin.io/tech/) | [Twitter](https://twitter.com/zcoinofficial) | [Telegram](https://t.me/zcoinproject) | [Github](https://github.com/zcoinofficial) | [Explorer](https://chainz.cryptoid.info/xzc/) | [CoinMarketCap](https://coinmarketcap.com/currencies/zcoin) | [CoinGecko](https://www.coingecko.com/en/coins/zcoin)
 

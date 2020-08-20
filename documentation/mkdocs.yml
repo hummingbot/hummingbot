@@ -75,7 +75,7 @@ markdown_extensions:
 nav:
   - Guides:
     - Getting Started: index.md
-    - Current Campaign: current-campaign.md
+    - Liquidity Mining: liquidity-mining.md
     - How To Use This Site: howtousethissite.md
     - Terminology: faq/terminology.md
     - Liquidity Mining Guide:
