@@ -1,7 +1,7 @@
 from urllib.parse import urljoin
 
 
-OKEX_BASE_URL = "https://okex.com/"
+OKEX_BASE_URL = "https://www.okex.com/"
 
 
 OKEX_SYMBOLS_URL = urljoin(OKEX_BASE_URL, "api/spot/v3/instruments/ticker")

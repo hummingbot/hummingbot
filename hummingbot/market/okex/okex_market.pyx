@@ -291,14 +291,18 @@ cdef class OKExMarket(MarketBase):
                            data={},
                            is_auth_required: bool = False) -> Dict[str, Any]:
         
+        print("data at the beginign", data)
         content_type = "application/json" # if method.lower() == "post" else "application/x-www-form-urlencoded"
         headers = {"Content-Type": content_type}
         
         url = urljoin(OKEX_BASE_URL, path_url)
         
         client = await self._http_client()
+        text_data = ujson.dumps(data)
+
         if is_auth_required:
-            headers.update(self._okex_auth.add_auth_to_params(method, '/' + path_url, params))
+            headers.update(self._okex_auth.add_auth_to_params(method, '/' + path_url, text_data))
+
 
         # aiohttp TestClient requires path instead of url
         if isinstance(client, TestClient):
@@ -308,18 +312,24 @@ cdef class OKExMarket(MarketBase):
                 path=f"{path_url}",
                 headers=headers,
                 params=params,
-                data=ujson.dumps(data),
+                data=text_data,
                 timeout=100
             )
         else:
             print("this is not a test")
             # real call
+            # import requests
+            # print(headers)
+            # response = requests.post(url, data=text_data, headers=headers)
+            # print("request response", response.status_code)
+            # print("request response", response.text)
+            # print(data)
             response_coro = client.request(
                 method=method.upper(),
                 url=url,
                 headers=headers,
                 params=params if params else None, # FIX THIS
-                data=params if data else None, # FIX THIS
+                data=text_data, # FIX THIS
                 timeout=100
             )
 
@@ -740,12 +750,12 @@ cdef class OKExMarket(MarketBase):
         params = {
             'client_oid': order_id,
             'type': 'limit' if OrderType.LIMIT else 'market', # what happens with OrderType.LIMIT_MAKER?
-            side: "buy" if is_buy else "sell",
-            instrument_id: trading_pair,
-            order_type: 0, # TODO double check this
+            'side': "buy" if is_buy else "sell",
+            'instrument_id': trading_pair,
+            'order_type': 0, # TODO double check this
             # order_type, from OKEx docs:
             # Specify 0: Normal order (Unfilled and 0 imply normal limit order) 1: Post only 2: Fill or Kill 3: Immediate Or Cancel,
-            size: amount
+            'size': amount
 
         }
         
