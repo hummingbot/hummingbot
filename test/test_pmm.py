@@ -3,7 +3,7 @@
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
-from typing import List
+from typing import List, Optional
 from decimal import Decimal
 import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
@@ -121,8 +121,12 @@ class PMMUnitTest(unittest.TestCase):
         self.ext_market.add_data(self.ext_data)
         self.order_book_asset_del = OrderBookAssetPriceDelegate(self.ext_market, self.trading_pair)
 
-    def simulate_maker_market_trade(self, is_buy: bool, quantity: Decimal, price: Decimal):
-        order_book = self.market.get_order_book(self.trading_pair)
+    def simulate_maker_market_trade(
+            self, is_buy: bool, quantity: Decimal, price: Decimal, market: Optional[BacktestMarket] = None,
+    ):
+        if market is None:
+            market = self.market
+        order_book = market.get_order_book(self.trading_pair)
         trade_event = OrderBookTradeEvent(
             self.trading_pair,
             self.clock.current_timestamp,
@@ -685,11 +689,17 @@ class PMMUnitTest(unittest.TestCase):
         self.clock.add_iterator(strategy)
         self.clock.backtest_til(self.start_timestamp + 1)
 
+        self.simulate_maker_market_trade(
+            is_buy=True, quantity=Decimal("1"), price=Decimal("123"), market=self.ext_market,
+        )
+
         bid = self.order_book_asset_del.get_price_by_type(PriceType.BestBid)
         ask = self.order_book_asset_del.get_price_by_type(PriceType.BestAsk)
         mid_price = self.order_book_asset_del.get_price_by_type(PriceType.MidPrice)
+        last_trade = self.order_book_asset_del.get_price_by_type(PriceType.LastTrade)
 
         self.assertEqual((bid + ask) / 2, mid_price)
+        self.assertEqual(last_trade, Decimal("123"))
 
     def test_external_exchange_price_source(self):
         strategy = self.one_level_strategy
