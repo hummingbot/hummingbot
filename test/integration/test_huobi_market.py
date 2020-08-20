@@ -94,7 +94,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
             mock_account_id = FixtureHuobi.GET_ACCOUNTS["data"][0]["id"]
             cls.web_app.update_response("get", API_BASE_URL, "/v1/account/accounts", FixtureHuobi.GET_ACCOUNTS)
             cls.web_app.update_response("get", API_BASE_URL, f"/v1/account/accounts/{mock_account_id}/balance",
-                                        FixtureHuobi.GET_BALANCES)
+                                        FixtureHuobi.BALANCES)
             cls._t_nonce_patcher = unittest.mock.patch("hummingbot.market.huobi.huobi_market.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
@@ -247,7 +247,6 @@ class HuobiMarketUnitTest(unittest.TestCase):
         order_id = self.market.buy(trading_pair, amount, OrderType.LIMIT_MAKER, price)
         [order_failure_event] = self.run_parallel(self.market_logger.wait_for(MarketOrderFailureEvent))
         self.assertEqual(order_id, order_failure_event.order_id)
-
         self.market_logger.clear()
 
         # Try to put a sell limit maker order that is going to match, this should triggers order failure event.
@@ -275,13 +274,13 @@ class HuobiMarketUnitTest(unittest.TestCase):
         quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price * Decimal("1.1"))
 
         order_id1, exch_order_id1 = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_bid_price,
-                                             10001, FixtureHuobi.ORDER_GET_LIMIT_BUY_UNFILLED)
+                                             10001, FixtureHuobi.OPEN_BUY_LIMIT_ORDER)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id1, order_created_event.order_id)
         
         order_id2, exch_order_id2 = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_ask_price,
-                                             10002, FixtureHuobi.ORDER_GET_LIMIT_SELL_UNFILLED)
+                                             10002, FixtureHuobi.OPEN_SELL_LIMIT_ORDER)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id2, order_created_event.order_id)
@@ -305,7 +304,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT, price, 10001,
-                                       FixtureHuobi.ORDER_GET_MARKET_BUY)
+                                       FixtureHuobi.BUY_MARKET_ORDER)
         [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         buy_order_completed_event: BuyOrderCompletedEvent = buy_order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -333,7 +332,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         order_id, _ = self.place_order(False, trading_pair, amount, OrderType.LIMIT, price, 10001,
-                                       FixtureHuobi.ORDER_GET_MARKET_SELL)
+                                       FixtureHuobi.SELL_MARKET_ORDER)
         [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         sell_order_completed_event: SellOrderCompletedEvent = sell_order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -365,10 +364,10 @@ class HuobiMarketUnitTest(unittest.TestCase):
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
-                                                   quantize_bid_price, 10001, FixtureHuobi.ORDER_GET_LIMIT_BUY_UNFILLED)
+                                                   quantize_bid_price, 10001, FixtureHuobi.OPEN_BUY_LIMIT_ORDER)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
 
-        self.cancel_order(trading_pair, order_id, exch_order_id, FixtureHuobi.ORDER_GET_CANCELED)
+        self.cancel_order(trading_pair, order_id, exch_order_id, FixtureHuobi.CANCEL_ORDER)
         [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
         order_cancelled_event: OrderCancelledEvent = order_cancelled_event
         self.assertEqual(order_cancelled_event.order_id, order_id)
@@ -386,9 +385,9 @@ class HuobiMarketUnitTest(unittest.TestCase):
         quantize_ask_price: Decimal = self.market_2.quantize_order_price(trading_pair, ask_price * Decimal("1.1"))
 
         _, exch_order_id1 = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_bid_price,
-                                             1001, FixtureHuobi.ORDER_GET_LIMIT_BUY_UNFILLED, self.market_2)
+                                             1001, FixtureHuobi.OPEN_BUY_LIMIT_ORDER, self.market_2)
         _, exch_order_id2 = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_ask_price,
-                                             1002, FixtureHuobi.ORDER_GET_LIMIT_SELL_UNFILLED, self.market_2)
+                                             1002, FixtureHuobi.OPEN_SELL_LIMIT_ORDER, self.market_2)
         self.run_parallel(asyncio.sleep(1))
         if API_MOCK_ENABLED:
             resp = FixtureHuobi.ORDERS_BATCH_CANCELLED.copy()
@@ -420,7 +419,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
 
             order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
                                                        quantize_bid_price, 10001,
-                                                       FixtureHuobi.ORDER_GET_LIMIT_BUY_UNFILLED)
+                                                       FixtureHuobi.OPEN_BUY_LIMIT_ORDER)
             [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
             order_created_event: BuyOrderCreatedEvent = order_created_event
             self.assertEqual(order_id, order_created_event.order_id)
@@ -463,7 +462,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
             self.assertEqual(1, len(self.market.tracking_states))
 
             # Cancel the order and verify that the change is saved.
-            self.cancel_order(trading_pair, order_id, exch_order_id, FixtureHuobi.ORDER_GET_CANCELED)
+            self.cancel_order(trading_pair, order_id, exch_order_id, FixtureHuobi.CANCEL_ORDER)
             self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
             order_id = None
             self.assertEqual(0, len(self.market.limit_orders))
@@ -492,7 +491,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
             price: Decimal = self.market.get_price(trading_pair, True)
             amount: Decimal = Decimal("0.06")
             order_id, _ = self.place_order(True, trading_pair, amount, OrderType.LIMIT, price, 10001,
-                                           FixtureHuobi.ORDER_GET_MARKET_BUY)
+                                           FixtureHuobi.BUY_MARKET_ORDER)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
             # Reset the logs
@@ -502,7 +501,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
             price: Decimal = self.market.get_price(trading_pair, False)
             amount = buy_order_completed_event.base_asset_amount
             order_id, _ = self.place_order(False, trading_pair, amount, OrderType.LIMIT, price, 10002,
-                                           FixtureHuobi.ORDER_GET_MARKET_SELL)
+                                           FixtureHuobi.SELL_MARKET_ORDER)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 
             # Query the persisted trade logs

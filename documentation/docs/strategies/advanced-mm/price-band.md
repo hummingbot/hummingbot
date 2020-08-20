@@ -36,9 +36,9 @@ Assets:
    Current %              49.7%   50.3%                                 
                                                                         
 Orders:                                                                 
-   Level  Type   Price Spread Amount (Orig)  Amount (Adj)       Age Hang
-       1  sell 9933.62  1.93%         0.003         0.003  00:00:00   no
-       1   buy 9544.06  2.07%         0.003         0.003  00:00:00   no
+   Level  Type   Price Spread Amount (Orig)  Amount (Adj)       Age
+       1  sell 9933.62  1.93%         0.003         0.003  00:00:00
+       1   buy 9544.06  2.07%         0.003         0.003  00:00:00
 ```
 
 Since the mid price went above `price_ceiling` of 9750, the bot only created a sell order.
@@ -56,8 +56,8 @@ Assets:
    Current %              49.7%   50.3%                                 
                                                                         
 Orders:                                                                 
-   Level  Type   Price Spread Amount (Orig)  Amount (Adj)       Age Hang
-       1  sell  9953.8  2.04%         0.003         0.003  00:00:25   no
+   Level  Type   Price Spread Amount (Orig)  Amount (Adj)       Age
+       1  sell  9953.8  2.04%         0.003         0.003  00:00:25
 ```
 
 And when the mid price went down below the `price_floor` of 9730, Hummingbot created a buy order only.
@@ -75,8 +75,8 @@ Assets:
    Current %              49.7%   50.3%                                
                                                                        
 Orders:                                                                
-   Level Type   Price Spread Amount (Orig)  Amount (Adj)       Age Hang
-       1  buy 9533.89  1.99%         0.003         0.003  00:00:01   no
+   Level Type   Price Spread Amount (Orig)  Amount (Adj)       Age
+       1  buy 9533.89  1.99%         0.003         0.003  00:00:01
 ```
 
 
