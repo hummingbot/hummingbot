@@ -2,7 +2,7 @@ import base64
 from datetime import datetime
 import hashlib
 import hmac
-import json
+import ujson
 import time
 from typing import (
     Any,
@@ -25,9 +25,11 @@ class OKExAuth:
     def keysort(dictionary: Dict[str, str]) -> Dict[str, str]:
         return OrderedDict(sorted(dictionary.items(), key=lambda t: t[0]))
 
-    @staticmethod
-    def json(data):
-        return json.dumps(data, separators=(',', ':'))
+    # @staticmethod
+    # def json(data):
+    #     return ujson.dumps(data, 
+    #     separators=(',', ':')
+    #     )
 
     @staticmethod
     def get_timestamp() -> str:
@@ -36,19 +38,24 @@ class OKExAuth:
         return utc.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-6] + "{:03d}".format(int(miliseconds) % 1000) + 'Z'
 
 
-    def get_signature(self, timestamp, method, path_url, body) -> str:
+    def get_signature(self, timestamp, method, path_url, body:str) -> str:
         auth = timestamp + method + path_url
         if body:
-            auth += self.json(body)
-        signature =  base64.b64encode(hmac.new(self.secret_key.encode(), auth.encode(), hashlib.sha256).digest())
-        return signature.decode()
+            auth += body
+
+        print("auth is", auth)
+        _hash = hmac.new(self.secret_key.encode(), auth.encode(), hashlib.sha256).digest()
+        print("has is hash", _hash)
+        signature =  base64.b64encode(_hash).decode()
+        print("signature is", signature)
+        return signature
 
     def add_auth_to_params(self,
                            method: str,
                            path_url: str,
                            args: Dict[str, Any]={}) -> Dict[str, Any]:
 
-        print(method, path_url, args)
+        #print(method, path_url, args)
 
         uppercase_method = method.upper()
 
@@ -61,6 +68,7 @@ class OKExAuth:
             "OK-ACCESS-PASSPHRASE": self.passphrase,
         }
 
+        #print(request)
         # TODO check if this goes
         # if args is not None:
         #     request.update(args)
