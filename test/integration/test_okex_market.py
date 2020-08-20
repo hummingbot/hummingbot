@@ -54,11 +54,20 @@ from test.integration.assets.mock_data.fixture_okex import FixtureOKEx
 from unittest import mock
 
 API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
+# API_MOCK_ENABLED = False
+
+from hummingbot.market.okex.constants import *
+
 API_KEY = "API_PASSPHRASE_MOCK" if API_MOCK_ENABLED else conf.okex_api_key
 API_SECRET = "API_SECRET_MOCK" if API_MOCK_ENABLED else conf.okex_secret_key
 API_PASSPHRASE = "API_PASSPHRASE_MOCK" if API_MOCK_ENABLED else conf.okex_passphrase
-API_BASE_URL = "api.huobi.pro"
+
+API_BASE_URL = OKEX_BASE_URL.replace("https://", "").replace("/", "")
+
 EXCHANGE_ORDER_ID = 20001
+
+
+
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
@@ -85,17 +94,31 @@ class OKExMarketUnitTest(unittest.TestCase):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         if API_MOCK_ENABLED:
             cls.web_app = HummingWebApp.get_instance()
-            cls.web_app.add_host_to_mock(API_BASE_URL, ["/v1/common/timestamp", "/v1/common/symbols",
-                                                        "/market/tickers", "/market/depth"])
+            cls.web_app.add_host_to_mock(API_BASE_URL, [ 
+                                                        #OKEX_BALANCE_URL,
+                                                        # "/market/tickers", "/market/depth"
+                                                        ]
+                                                        )
             cls.web_app.start()
             cls.ev_loop.run_until_complete(cls.web_app.wait_til_started())
             cls._patcher = mock.patch("aiohttp.client.URL")
             cls._url_mock = cls._patcher.start()
             cls._url_mock.side_effect = cls.web_app.reroute_local
-            mock_account_id = FixtureOKEx.GET_ACCOUNTS["data"][0]["id"]
-            cls.web_app.update_response("get", API_BASE_URL, "/v1/account/accounts", FixtureOKEx.GET_ACCOUNTS)
-            cls.web_app.update_response("get", API_BASE_URL, f"/v1/account/accounts/{mock_account_id}/balance",
-                                        FixtureOKEx.GET_BALANCES)
+            # mock_account_id = FixtureOKEx.GET_ACCOUNTS["data"][0]["id"]
+            
+            # warning: second parameter starts with /
+            cls.web_app.update_response("get", API_BASE_URL, '/' + OKEX_SERVER_TIME, FixtureOKEx.TIMESTAMP)
+            
+            cls.web_app.update_response("get", API_BASE_URL, '/' + OKEX_INSTRUMENTS_URL, FixtureOKEx.OKEX_INSTRUMENTS_URL)
+            cls.web_app.update_response("get", API_BASE_URL, '/api/spot/v3/instruments/ticker', FixtureOKEx.INSTRUMENT_TICKER)
+
+            cls.web_app.update_response("get", API_BASE_URL, '/api/spot/v3/instruments/ETH-USDT/book', FixtureOKEx.OKEX_ORDER_BOOK)
+
+            cls.web_app.update_response("get", API_BASE_URL, '/' + OKEX_BALANCE_URL, FixtureOKEx.OKEX_BALANCE_URL)
+            
+            # cls.web_app.update_response("get", OKEX_BASE_URL, f"/v1/account/accounts/{mock_account_id}/balance",
+            #                             FixtureOKEx.GET_BALANCES)
+
             cls._t_nonce_patcher = unittest.mock.patch("hummingbot.market.okex.okex_market.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
@@ -103,14 +126,14 @@ class OKExMarketUnitTest(unittest.TestCase):
             API_KEY,
             API_SECRET,
             API_PASSPHRASE,
-            trading_pairs=["ethusdt"]
+            trading_pairs=["ETH-USDT"]
         )
         # Need 2nd instance of market to prevent events mixing up across tests
         cls.market_2: OKExMarket = OKExMarket(
             API_KEY,
             API_SECRET,
             API_PASSPHRASE,
-            trading_pairs=["ethusdt"]
+            trading_pairs=["ETH-USDT"]
         )
         cls.clock.add_iterator(cls.market)
         cls.clock.add_iterator(cls.market_2)
@@ -242,7 +265,7 @@ class OKExMarketUnitTest(unittest.TestCase):
     def test_limit_maker_rejections(self):
         if API_MOCK_ENABLED:
             return
-        trading_pair = "ethusdt"
+        trading_pair = "ETH-USDT"
 
         # Try to put a buy limit maker order that is going to match, this should triggers order failure event.
         price: Decimal = self.market.get_price(trading_pair, True) * Decimal('1.02')
@@ -268,7 +291,7 @@ class OKExMarketUnitTest(unittest.TestCase):
         if API_MOCK_ENABLED:
             return
             
-        trading_pair = "ethusdt"
+        trading_pair = "ETH-USDT"
 
         bid_price: Decimal = self.market.get_price(trading_pair, True) * Decimal("0.5")
         ask_price: Decimal = self.market.get_price(trading_pair, False) * 2
@@ -304,7 +327,7 @@ class OKExMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_limit_taker_buy(self):
-        trading_pair = "ethusdt"
+        trading_pair = "ETH-USDT"
         price: Decimal = self.market.get_price(trading_pair, True)
         amount: Decimal = Decimal("0.06")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
@@ -332,7 +355,7 @@ class OKExMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_limit_taker_sell(self):
-        trading_pair = "ethusdt"
+        trading_pair = "ETH-USDT"
         price: Decimal = self.market.get_price(trading_pair, False)
         amount: Decimal = Decimal("0.06")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
@@ -360,7 +383,7 @@ class OKExMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_cancel_order(self):
-        trading_pair = "ethusdt"
+        trading_pair = "ETH-USDT"
 
         current_bid_price: Decimal = self.market.get_price(trading_pair, True)
         amount: Decimal = Decimal("0.05")
@@ -379,7 +402,7 @@ class OKExMarketUnitTest(unittest.TestCase):
         self.assertEqual(order_cancelled_event.order_id, order_id)
 
     def test_cancel_all(self):
-        trading_pair = "ethusdt"
+        trading_pair = "ETH-USDT"
 
         bid_price: Decimal = self.market_2.get_price(trading_pair, True) * Decimal("0.5")
         ask_price: Decimal = self.market_2.get_price(trading_pair, False) * 2
@@ -406,7 +429,7 @@ class OKExMarketUnitTest(unittest.TestCase):
     def test_orders_saving_and_restoration(self):
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
-        trading_pair: str = "ethusdt"
+        trading_pair: str = "ETH-USDT"
         sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
         order_id: Optional[str] = None
         recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
@@ -452,7 +475,7 @@ class OKExMarketUnitTest(unittest.TestCase):
             self.market: OKExMarket = OKExMarket(
                 okex_api_key=API_KEY,
                 okex_secret_key=API_SECRET,
-                trading_pairs=["ethusdt", "btcusdt"]
+                trading_pairs=["ETH-USDT", "BTC-USDT"]
             )
             for event_tag in self.events:
                 self.market.add_listener(event_tag, self.market_logger)
@@ -486,7 +509,7 @@ class OKExMarketUnitTest(unittest.TestCase):
     def test_order_fill_record(self):
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
-        trading_pair: str = "ethusdt"
+        trading_pair: str = "ETH-USDT"
         sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
         order_id: Optional[str] = None
         recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)

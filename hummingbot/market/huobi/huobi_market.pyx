@@ -314,6 +314,7 @@ cdef class HuobiMarket(MarketBase):
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
             try:
                 parsed_response = await response.json()
+                print("response:", str(parsed_response))
             except Exception:
                 raise IOError(f"Error parsing data from {url}.")
 

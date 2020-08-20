@@ -71,7 +71,6 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     raise IOError(f"Error fetching active OKEx markets. HTTP status is {products_response.status}.")
 
                 data = await products_response.json()
-
                 all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data)
                 
                 all_markets.rename({"quote_volume_24h": "volume", "last": "price"},
@@ -90,17 +89,21 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         async with aiohttp.ClientSession() as client:
             snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
             
+            print('this is timestamp', snapshot['timestamp'])
             snapshot_msg: OrderBookMessage = OKExOrderBook.snapshot_message_from_exchange(
                                 snapshot,
                                 trading_pair,
-                                timestamp=__class__.iso_to_timestamp(snapshot['timestamp']) ,
+                                # timestamp=__class__.iso_to_timestamp(snapshot['timestamp']),
+                                timestamp=snapshot['timestamp'],
                                 metadata={"trading_pair": trading_pair})
             order_book: OrderBook = self.order_book_create_function()
             order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
             return order_book
 
 
-    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+    # Move this to OrderBookTrackerDataSource or this needs a whole refactor?
+    @classmethod
+    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]: 
         async with aiohttp.ClientSession() as client:
             async with client.get(OKEX_SYMBOLS_URL) as products_response:
                 
@@ -116,7 +119,7 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 
                 for trading_pair in trading_pairs:
                     out[trading_pair] = float(all_markets['last'][trading_pair])
-                
+
                 return out
 
     async def get_trading_pairs(self) -> List[str]:
@@ -139,16 +142,16 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         # when type is set to "step0", the default value of "depth" is 150
         
         # get trading_pair in OKEx format:
-        markets = await  OKExAPIOrderBookDataSource.get_active_exchange_markets()
-        translated_trading_pair = markets.loc[markets['reformated_instrument'] == trading_pair]['product_id'].values[0]
+        # markets = await  OKExAPIOrderBookDataSource.get_active_exchange_markets()
+        #translated_trading_pair = markets.loc[markets['instrument_id'] == trading_pair]['product_id'].values[0]
         #print(translated_trading_pair['product_id'].values[0])
 
-        print("translated trading pair is " + str(translated_trading_pair))
+        # print("translated trading pair is " + str(translated_trading_pair))
 
         
         params = {} # default {'size':?, 'depth':?}
-        print("url is: "  + OKEX_DEPTH_URL.format(trading_pair=translated_trading_pair))
-        async with client.get(OKEX_DEPTH_URL.format(trading_pair=translated_trading_pair), params=params) as response:
+        print("url is: "  + OKEX_DEPTH_URL.format(trading_pair=trading_pair))
+        async with client.get(OKEX_DEPTH_URL.format(trading_pair=trading_pair), params=params) as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
                 raise IOError(f"Error fetching OKEX market snapshot for {trading_pair}. "
@@ -300,7 +303,7 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             snapshot_msg: OrderBookMessage = OKExOrderBook.snapshot_message_from_exchange(
                                 snapshot,
                                 trading_pair,
-                                timestamp=__class__.iso_to_timestamp(snapshot['timestamp']) ,
+                                timestamp=snapshot['timestamp'],
                                 metadata={"trading_pair": trading_pair}
                             )
                             output.put_nowait(snapshot_msg)

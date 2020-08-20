@@ -4,12 +4,12 @@ from urllib.parse import urljoin
 OKEX_BASE_URL = "https://okex.com/"
 
 
-OKEX_SYMBOLS_URL = urljoin(OKEX_BASE_URL, "spot/v3/instruments/ticker")
-OKEX_DEPTH_URL = urljoin(OKEX_BASE_URL, "spot/v3/instruments/{trading_pair}/book")
+OKEX_SYMBOLS_URL = urljoin(OKEX_BASE_URL, "api/spot/v3/instruments/ticker")
+OKEX_DEPTH_URL = urljoin(OKEX_BASE_URL, "api/spot/v3/instruments/{trading_pair}/book")
 
 # Doesn't include base URL as the tail is required to generate the signature
 
-OKEX_SERVER_TIME = '/api/general/v3/time'
+OKEX_SERVER_TIME = 'api/general/v3/time'
 
 # Auth required
 
