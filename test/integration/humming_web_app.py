@@ -93,14 +93,22 @@ class HummingWebApp:
 
     # reroute a url if it is one of the hosts we handle.
     @staticmethod
-    def reroute_local(url):
+    def reroute_local(url, encoded=None):
+        #print(url)
         a_url = URL(url)
+        print("HummingWebApp._hosts_to_mock, a_url.host", HummingWebApp._hosts_to_mock, a_url.host)
+        print("a_url.path", a_url.path)
+        # print(not any(x in a_url.path for x in HummingWebApp._hosts_to_mock[a_url.host]))
+
         if a_url.host in HummingWebApp._hosts_to_mock and not any(x in a_url.path for x in
                                                                   HummingWebApp._hosts_to_mock[a_url.host]):
+            print("rerouted")
             host_path = f"/{a_url.host}{a_url.path}"
             query = a_url.query
             a_url = a_url.with_scheme("http").with_host(HummingWebApp.host).with_port(HummingWebApp._port)\
                 .with_path(host_path).with_query(query)
+        else:
+            print("not rerouted")
         return a_url
 
     orig_session_request = requests.Session.request

@@ -70,7 +70,6 @@ from hummingbot.market.okex.constants import *
 hm_logger = None
 s_decimal_0 = Decimal(0)
 TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(usdt|husd|btc|eth|ht|trx)$")
-# HUOBI_ROOT_API = "https://www.okex.com/api/"
 
 
 class OKExAPIError(IOError):
@@ -303,6 +302,7 @@ cdef class OKExMarket(MarketBase):
 
         # aiohttp TestClient requires path instead of url
         if isinstance(client, TestClient):
+            print("this is a test")
             response_coro = client.request(
                 method=method.upper(),
                 path=f"{path_url}",
@@ -312,6 +312,7 @@ cdef class OKExMarket(MarketBase):
                 timeout=100
             )
         else:
+            print("this is not a test")
             # real call
             response_coro = client.request(
                 method=method.upper(),
@@ -352,8 +353,6 @@ cdef class OKExMarket(MarketBase):
             dict new_balances = {}
             str asset_name
             object balance
-
-        raise ValueError("Called!")
 
         balances = await self._api_request("GET", path_url=path_url, is_auth_required=True)
 
@@ -569,7 +568,7 @@ cdef class OKExMarket(MarketBase):
             except Exception:
                 self.logger().network("Unexpected error while fetching account updates.",
                                       exc_info=True,
-                                      app_warning_msg="Could not fetch account updates from Huobi. "
+                                      app_warning_msg="Could not fetch account updates from OKEx. "
                                                       "Check API key and network connection.")
                 await asyncio.sleep(0.5)
 
@@ -583,7 +582,7 @@ cdef class OKExMarket(MarketBase):
             except Exception:
                 self.logger().network("Unexpected error while fetching trading rules.",
                                       exc_info=True,
-                                      app_warning_msg="Could not fetch new trading rules from Huobi. "
+                                      app_warning_msg="Could not fetch new trading rules from OkEx. "
                                                       "Check network connection.")
                 await asyncio.sleep(0.5)
     async def _iter_user_stream_queue(self) -> AsyncIterable[Dict[str, Any]]:
