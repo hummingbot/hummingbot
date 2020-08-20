@@ -97,7 +97,7 @@ nav:
         - Performance: minerapp/performance.md
       - Leaderboard: minerapp/leaderboard.md
       - Settings: minerapp/settings.md
-      - Miner App Help Center: minerapp/minerapphelp.md  
+      - System Status: minerapp/hummingbotstatus.md
     - Hummingbot Client Manual:  
         - Installation:
           - Overview: installation/index.md
@@ -264,11 +264,8 @@ nav:
   - Support:
     - Support: support.md
     - FAQs:
-      - Overview: faq/index.md 
-      - Liquidity Mining FAQs: faq/liquidity-mining.md
-      - Hummingbot Help:
-         - Hummingbot FAQs: faq/hummingbot.md
-         - Hummingbot How-to: faq/troubleshooting.md 
+      - Hummingbot FAQs: faq/hummingbot.md
+      - Hummingbot Troubleshooting: faq/troubleshooting.md 
   - Contribute to Hummingbot: 
     - Overview: community/index.md  
     - Contributions: community/contributions.md

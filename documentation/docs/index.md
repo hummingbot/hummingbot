@@ -17,7 +17,7 @@ Our business model is to administer Liquidity Mining programs, which allow token
 
 ![Figure 1: Liquidity mining flow](/assets/img/howliquidityworks.png)
 
-For more information on Liquidity Mining, go to the following links for more details:
+Recommended information to read up:
 
 - [What is Liquidity Mining](https://www.notion.so/hummingbot/What-is-liquidity-mining-c2eb7d68e28b42278e5efead9a247507)
 - [Liquidity Mining FAQs](https://www.notion.so/hummingbot/Help-Center-aa042efc10a5494aa745576722c7924b)

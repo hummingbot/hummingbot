@@ -12,5 +12,7 @@ To check performance:
 2. Select the duration from the drop-down list.
 3. Click **Calculate**. The chart, trade summary and P&L table will displayed the statistics.
 
-* For information on how the performance is calculated, click [Performance](https://www.notion.so/hummingbot/How-is-performance-calculated-494368982cb0418eaebf8960f175bb22)
-* For frequently asked questions about the performance, click [Help Center](https://www.notion.so/hummingbot/Help-Center-aa042efc10a5494aa745576722c7924b)
+For more infomation:
+
+* On how the performance is calculated, click [Performance](https://www.notion.so/hummingbot/How-is-performance-calculated-494368982cb0418eaebf8960f175bb22)
+* On frequently asked questions about the performance, click [Help Center](https://www.notion.so/hummingbot/Help-Center-aa042efc10a5494aa745576722c7924b)

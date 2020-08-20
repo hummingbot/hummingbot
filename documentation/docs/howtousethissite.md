@@ -2,22 +2,19 @@
 
 This documentation site is organized into the following tabs:
 
-* Strategies Quickstart
-* Miner App Guide
-* Hummingbot Manual
-* Developer Manual
-* Release Notes
+* Guides
+* Manuals
 * Support
-* Community
+* Contribute to Community
 
 Refer to the following sections for more details.
 
 ## For first-time users
-* [Strategies Quickstart](/quickstart): Install Hummingbot and use different strategies to jumpstart your Hummingbot
-* [Miner App Guide](/liquidity-mining): The **official Liquidity Mining app** where you can see real-time rates of return and track your payouts
+* [Guides](/quickstart): Install Hummingbot and use different strategies to jumpstart your Hummingbot
+* [Hummingbot Miner Guide](/minerapp): The **official Liquidity Mining app** where you can see real-time rates of return and track your payouts
 
 ## For experienced users
-* [Hummingbot Manual](/installation): See how to install Hummingbot in various environments, and all the related parameters for each strategies
+* [Hummingbot Client Manual](/installation): See how to install Hummingbot in various environments, and all the related parameters for each strategies
 
 ## For developers
 

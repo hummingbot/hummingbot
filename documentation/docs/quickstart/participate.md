@@ -25,8 +25,8 @@ To do so:
 4. Check your e-mail and click **Log in to Hummingbot Miner**. <b>Note:</b> 
     - If your Ethereum wallet is connected, it will automatically register to the account you just created.This Ethereum wallet is where your rewards are sent every week during payout.
     - Check the Ethereum address by going to the **Settings** page.
-    - You can do more in the **Settings** page like changing Ethereum addressm adding your API keys, display name (optional), and subscribed/unsubscribe to e-mails. For more details, see [Settings](/minerapp/settings.md)
-5. In the **Settings** page, add your read-only API keys. 
+    - You can do more in the **Settings** page like changing Ethereum address, adding your API keys, display name (optional), and subscribed/unsubscribe to e-mails. For more details, see [Settings](/minerapp/settings.md)
+5. In the **Settings** page, click **DETAILS** in the **Connect exchange** row.
 6. Click **Connect binance**
 7. Enter your READ-ONLY keys.
 8. Click **Connect** .It will show the status when you have successfully added your Binance API keys
