@@ -10,11 +10,12 @@ This documentation site is organized into the following tabs:
 Refer to the following sections for more details.
 
 ## For first-time users
-* [Guides](/quickstart): Install Hummingbot and use different strategies to jumpstart your Hummingbot
-* [Hummingbot Miner Guide](/minerapp): The **official Liquidity Mining app** where you can see real-time rates of return and track your payouts
+* [Guides](/quickstart): Install Hummingbot and use different strategies to jumpstart your Hummingbot, and other useful guides to enhance your Hummingbot management and strategies.
+
 
 ## For experienced users
-* [Hummingbot Client Manual](/installation): See how to install Hummingbot in various environments, and all the related parameters for each strategies
+* [Hummingbot Miner Guide](/minerapp): The **official Liquidity Mining app** where you can see real-time rates of return and track your payouts
+* [Hummingbot Manual](/installation): See how to install Hummingbot in various environments, and all the related parameters for each strategies
 
 ## For developers
 

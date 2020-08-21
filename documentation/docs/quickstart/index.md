@@ -10,7 +10,7 @@
 
 ## Overview
 
-There are three phases of this quickstart, Hummingbot installation, Market Making bot configuration, and Qu Hummingbot Miner setup. See following flowchart:
+There are two phases of this quickstart, Hummingbot installation and Market Making bot configuration. The Hummingbot Miner is optional unless you want to participate in liquidity mining. See following flowchart:
 
 ![Liquidity Mining Quickstart Flowchart](/assets/img/LiquidityMiningQuickstartFlowchart.png)
 

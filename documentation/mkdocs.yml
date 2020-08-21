@@ -73,21 +73,33 @@ markdown_extensions:
 
 # Navigation
 nav:
-  - Guides:
-    - Getting Started: index.md
-    - Liquidity Mining: liquidity-mining.md
+  - Getting Started:
+    - Overview: index.md
     - How To Use This Site: howtousethissite.md
-    - Terminology: faq/terminology.md
-    - Liquidity Mining Guide:
+    - Liquidity Mining: liquidity-mining.md
+    - FAQs:
+      - Overview: faq/index.md
+      - Liqudity Mining FAQs: faq/liquidity-mining.md
+      - Market Making FAQs: faq/market-making.md
+      - Hummingbot FAQs: faq/hummingbot.md
+  - Guides:
+    - Overview: quickstart/overview.md
+    - Hummingbot Quickstart:
       - Overview: quickstart/index.md
       - Install: quickstart/install.md
       - Configure: quickstart/configure.md
       - Run: quickstart/run-bot.md
-      - Participate: quickstart/participate.md
-    - Celo Arbitrage Guide:
+    - Liquidity Mining Quickstart: quickstart/participate.md  
+    - Celo Arbitrage Quickstart:
         - Overview: strategies/celo-arb/index.md
         - Quickstart: strategies/celo-arb/quickstart.md
+    - Frequently Used Guides:  
+      - Telegram Integration: advanced/telegram.md 
+      - Hummingbot Commands: /operation/commands/
+      - Docker Commands: operation/docker-commands.md
+      - Scripts: advanced/scripts.md
   - Manuals:
+    - Overview: minerapp/overview.md
     - Hummingbot Miner Manual:
       - Overview: minerapp/index.md 
       - Markets: minerapp/markets.md
@@ -98,7 +110,7 @@ nav:
       - Leaderboard: minerapp/leaderboard.md
       - Settings: minerapp/settings.md
       - System Status: minerapp/hummingbotstatus.md
-    - Hummingbot Client Manual:  
+    - Hummingbot Manual:  
         - Installation:
           - Overview: installation/index.md
           - Download:
@@ -179,6 +191,50 @@ nav:
           - Docker Autostart <sup>(BETA)</sup>: advanced/autostart.md
           - External Database <sup>(BETA)</sup>: advanced/db-config.md
           - Scripts: advanced/scripts.md
+        - Release Notes:
+          - About Releases: release-notes/index.md
+          - 0.30.0: release-notes/0.30.0.md
+          - 0.29.0: release-notes/0.29.0.md
+          - 0.28.1: release-notes/0.28.1.md
+          - 0.28.0: release-notes/0.28.0.md
+          - 0.27.0: release-notes/0.27.0.md
+          - 0.26.1: release-notes/0.26.1.md
+          - 0.26.0: release-notes/0.26.0.md
+          - 0.25.0: release-notes/0.25.0.md
+          - 0.24.1: release-notes/0.24.1.md
+          - 0.24.0: release-notes/0.24.0.md
+          - 0.23.0: release-notes/0.23.0.md
+          - 0.22.0: release-notes/0.22.0.md
+          - 0.21.0: release-notes/0.21.0.md
+          - 0.20.0: release-notes/0.20.0.md
+          - 0.19.1: release-notes/0.19.1.md
+          - 0.19.0: release-notes/0.19.0.md
+          - 0.18.1: release-notes/0.18.1.md
+          - 0.18.0: release-notes/0.18.0.md
+          - 0.17.1: release-notes/0.17.1.md
+          - 0.17.0: release-notes/0.17.0.md
+          - 0.16.0: release-notes/0.16.0.md
+          - 0.15.0: release-notes/0.15.0.md
+          - 0.14.0: release-notes/0.14.0.md
+          - 0.13.0: release-notes/0.13.0.md
+          - 0.12.1: release-notes/0.12.1.md
+          - 0.12.0: release-notes/0.12.0.md
+          - 0.11.1: release-notes/0.11.1.md
+          - 0.11.0: release-notes/0.11.0.md
+          - 0.10.1: release-notes/0.10.1.md
+          - 0.10.0: release-notes/0.10.0.md
+          - 0.9.1: release-notes/0.9.1.md
+          - 0.9.0: release-notes/0.9.0.md
+          - 0.8.1: release-notes/0.8.1.md
+          - 0.8.0: release-notes/0.8.0.md
+          - 0.7.0: release-notes/0.7.0.md
+          - 0.6.0: release-notes/0.6.0.md
+          - 0.5.1: release-notes/0.5.1.md
+          - 0.5.0: release-notes/0.5.0.md
+          - 0.4.0: release-notes/0.4.0.md
+          - 0.3.1 (beta): release-notes/0.3.1.md
+          - 0.3.0: release-notes/0.3.0.md
+          - 0.2.0: release-notes/0.2.0.md   
     - Developer Manual:
           - Intro: developers/index.md
           - Getting Started:
@@ -216,56 +272,10 @@ nav:
             - Perform Trade: developers/tutorial/perform-trade.md
             - Simple Trade: developers/tutorial/simple-trade.md
           - Debug Console: developers/debug.md
-          - Configuration: developers/config.md
-    - Release Notes:
-      - About Releases: release-notes/index.md
-      - 0.30.0: release-notes/0.30.0.md
-      - 0.29.0: release-notes/0.29.0.md
-      - 0.28.1: release-notes/0.28.1.md
-      - 0.28.0: release-notes/0.28.0.md
-      - 0.27.0: release-notes/0.27.0.md
-      - 0.26.1: release-notes/0.26.1.md
-      - 0.26.0: release-notes/0.26.0.md
-      - 0.25.0: release-notes/0.25.0.md
-      - 0.24.1: release-notes/0.24.1.md
-      - 0.24.0: release-notes/0.24.0.md
-      - 0.23.0: release-notes/0.23.0.md
-      - 0.22.0: release-notes/0.22.0.md
-      - 0.21.0: release-notes/0.21.0.md
-      - 0.20.0: release-notes/0.20.0.md
-      - 0.19.1: release-notes/0.19.1.md
-      - 0.19.0: release-notes/0.19.0.md
-      - 0.18.1: release-notes/0.18.1.md
-      - 0.18.0: release-notes/0.18.0.md
-      - 0.17.1: release-notes/0.17.1.md
-      - 0.17.0: release-notes/0.17.0.md
-      - 0.16.0: release-notes/0.16.0.md
-      - 0.15.0: release-notes/0.15.0.md
-      - 0.14.0: release-notes/0.14.0.md
-      - 0.13.0: release-notes/0.13.0.md
-      - 0.12.1: release-notes/0.12.1.md
-      - 0.12.0: release-notes/0.12.0.md
-      - 0.11.1: release-notes/0.11.1.md
-      - 0.11.0: release-notes/0.11.0.md
-      - 0.10.1: release-notes/0.10.1.md
-      - 0.10.0: release-notes/0.10.0.md
-      - 0.9.1: release-notes/0.9.1.md
-      - 0.9.0: release-notes/0.9.0.md
-      - 0.8.1: release-notes/0.8.1.md
-      - 0.8.0: release-notes/0.8.0.md
-      - 0.7.0: release-notes/0.7.0.md
-      - 0.6.0: release-notes/0.6.0.md
-      - 0.5.1: release-notes/0.5.1.md
-      - 0.5.0: release-notes/0.5.0.md
-      - 0.4.0: release-notes/0.4.0.md
-      - 0.3.1 (beta): release-notes/0.3.1.md
-      - 0.3.0: release-notes/0.3.0.md
-      - 0.2.0: release-notes/0.2.0.md                  
+          - Configuration: developers/config.md                 
   - Support:
     - Support: support.md
-    - FAQs:
-      - Hummingbot FAQs: faq/hummingbot.md
-      - Hummingbot Troubleshooting: faq/troubleshooting.md 
+    - Hummingbot Troubleshooting: faq/troubleshooting.md 
   - Contribute to Hummingbot: 
     - Overview: community/index.md  
     - Contributions: community/contributions.md
