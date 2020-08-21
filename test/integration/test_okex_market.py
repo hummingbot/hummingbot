@@ -116,6 +116,8 @@ class OKExMarketUnitTest(unittest.TestCase):
 
             cls.web_app.update_response("get", API_BASE_URL, '/' + OKEX_BALANCE_URL, FixtureOKEx.OKEX_BALANCE_URL)
             
+            # cls.web_app.update_response("POST", API_BASE_URL, '/' + OKEX_PLACE_ORDER, FixtureOKEx.ORDER_PLACE)
+            
             # cls.web_app.update_response("get", OKEX_BASE_URL, f"/v1/account/accounts/{mock_account_id}/balance",
             #                             FixtureOKEx.GET_BALANCES)
 
@@ -227,15 +229,15 @@ class OKExMarketUnitTest(unittest.TestCase):
         global EXCHANGE_ORDER_ID
         order_id, exch_order_id = None, None
         if API_MOCK_ENABLED:
-            exch_order_id = f"HUOBI_{EXCHANGE_ORDER_ID}"
+            exch_order_id = f"OKEX_{EXCHANGE_ORDER_ID}"
             EXCHANGE_ORDER_ID += 1
             self._t_nonce_mock.return_value = nonce
             resp = FixtureOKEx.ORDER_PLACE.copy()
-            resp["data"] = exch_order_id
+            # resp["data"] = exch_order_id
+            resp = exch_order_id
             side = 'buy' if is_buy else 'sell'
             order_id = f"{side}-{trading_pair}-{nonce}"
-            self.web_app.update_response("post", API_BASE_URL, "/v1/order/orders/place", resp,
-                                         params={"client-order-id": order_id})
+            self.web_app.update_response("post", API_BASE_URL, "/" + OKEX_PLACE_ORDER, resp)
         market = self.market if market_connector is None else market_connector
         if is_buy:
             order_id = market.buy(trading_pair, amount, order_type, price)
@@ -243,9 +245,10 @@ class OKExMarketUnitTest(unittest.TestCase):
             order_id = market.sell(trading_pair, amount, order_type, price)
         if API_MOCK_ENABLED:
             resp = get_resp.copy()
-            resp["data"]["id"] = exch_order_id
-            resp["data"]["client-order-id"] = order_id
-            self.web_app.update_response("get", API_BASE_URL, f"/v1/order/orders/{exch_order_id}", resp)
+            # resp is the response passed by parameter
+            resp["id"] = exch_order_id
+            resp["client_oid"] = order_id
+            self.web_app.update_response("get", API_BASE_URL, '/' + OKEX_ORDER_DETAILS_URL.format(exchange_order_id=exch_order_id), resp)
         return order_id, exch_order_id
 
     def cancel_order(self, trading_pair, order_id, exchange_order_id, get_resp):
@@ -416,12 +419,13 @@ class OKExMarketUnitTest(unittest.TestCase):
         _, exch_order_id1 = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_bid_price,
                                              1001, FixtureOKEx.ORDER_GET_LIMIT_BUY_UNFILLED, self.market_2)
         _, exch_order_id2 = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_ask_price,
-                                             1002, FixtureOKEx.ORDER_GET_LIMIT_SELL_UNFILLED, self.market_2)
+                                             1002, FixtureOKEx.ORDER_GET_LIMIT_BUY_FILLED, self.market_2)
         self.run_parallel(asyncio.sleep(1))
         if API_MOCK_ENABLED:
             resp = FixtureOKEx.ORDERS_BATCH_CANCELLED.copy()
-            resp["data"]["success"] = [exch_order_id1, exch_order_id2]
-            self.web_app.update_response("post", API_BASE_URL, "/v1/order/orders/batchcancel", resp)
+            resp["ETH-USDT"] = [exch_order_id1, exch_order_id2]
+            self.web_app.update_response("post", API_BASE_URL, '/' + OKEX_BATCH_ORDER_CANCELL, resp)
+
         [cancellation_results] = self.run_parallel(self.market_2.cancel_all(5))
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
