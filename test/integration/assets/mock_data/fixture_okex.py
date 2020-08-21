@@ -158,6 +158,84 @@ class FixtureOKEx:
         }
     ]
 
+    ORDER_PLACE = {
+        #"client_oid":"oktspot79",
+        "error_message":"",
+        "error_code":"0",
+        "order_id":"2510789768709120",
+        "result":True
+    }
+
+    ORDER_GET_LIMIT_BUY_UNFILLED = {
+        "client_oid":"oktspot70",
+        "created_at":"2019-03-15T02:52:56.000Z",
+        "filled_notional":"3.8886",
+        "filled_size":"0.001",
+        "funds":"",
+        "instrument_id":"ETH-USDT",
+        "notional":"",
+        "order_id":"2482659399697407",
+        "order_type":"0",
+        "price":"3927.3",
+        "price_avg":"3927.3",
+        "product_id":"ETH-USDT",
+        "side":"buy",
+        "size":"0.001",
+        # status is soon to be deprecated
+        # "status":"filled",
+        "fee_currency":"BTC",
+        "fee":"-0.01",
+        "rebate_currency":"open",
+        "rebate":"0.05",
+        "state":"1", # partially filled
+        "timestamp":"2019-03-15T02:52:56.000Z",
+        "type":"limit"
+    }
+
+    ORDER_GET_LIMIT_BUY_FILLED = {
+        "client_oid":"oktspot70",
+        "created_at":"2019-03-15T02:52:56.000Z",
+        "filled_notional":"3.8886",
+        "filled_size":"0.001",
+        "funds":"",
+        "instrument_id":"ETH-USDT",
+        "notional":"",
+        "order_id":"2482659399697408",
+        "order_type":"0",
+        "price":"3927.3",
+        "price_avg":"3927.3",
+        "product_id":"ETH-USDT",
+        "side":"buy",
+        "size":"0.001",
+        # status is soon to be deprecated
+        # "status":"",
+        "fee_currency":"BTC",
+        "fee":"-0.01",
+        "rebate_currency":"open",
+        "rebate":"0.05",
+        "state":"2", # filled
+        "timestamp":"2019-03-15T02:52:56.000Z",
+        "type":"limit"
+    }
+
+    ORDERS_BATCH_CANCELLED = {
+        "ETH-USDT":[
+            {
+            "result":True,
+            "error_message":"",
+            "error_code":"0",
+            "client_oid":"",
+            "order_id": "2482659399697407"
+            },
+        {
+            "result":True,
+            "error_message":"",
+            "error_code":"0",
+            "client_oid":"",
+            "order_id": "2482659399697408"
+            }
+        ]
+    }
 
     # LIMIT_MAKER_ERROR = {'status': 'error', 'err-code': 'order-invalid-price', 'err-msg': 'invalid price', 'data': None}
 
