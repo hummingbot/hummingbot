@@ -6,6 +6,8 @@ from hummingbot.market.binance.binance_market import BinanceMarket
 from hummingbot.market.kraken.kraken_market import KrakenMarket
 
 
+from hummingbot.market.okex.constants import OKEX_PRICE_URL
+
 BINANCE_PRICE_URL = "https://api.binance.com/api/v3/ticker/bookTicker"
 KUCOIN_PRICE_URL = "https://api.kucoin.com/api/v1/market/allTickers"
 LIQUID_PRICE_URL = "https://api.liquid.com/products"
@@ -28,7 +30,7 @@ def get_mid_price(exchange: str, trading_pair: str) -> Optional[Decimal]:
     elif exchange == "coinbase_pro":
         return coinbase_pro_mid_price(trading_pair)
     elif exchange == "okex":
-        return bittrex_mid_price(trading_pair)
+        return okex_mid_price(trading_pair)
     else:
         return binance_mid_price(trading_pair)
 
@@ -106,6 +108,9 @@ def coinbase_pro_mid_price(trading_pair: str) -> Optional[Decimal]:
         return result
 
 @cachetools.func.ttl_cache(ttl=10)
-def bittrex_mid_price(trading_pair: str) -> Optional[Decimal]:
+def okex_mid_price(trading_pair: str) -> Optional[Decimal]:
     # TODO
-    raise NotImplemented
+    resp = requests.get(url=COINBASE_PRO_PRICE_URL.format(trading_pair=trading_pair))
+    record = resp.json()
+    if 'best_ask' in record and 'best_bid' in record:
+        return (Decimal(record["best_ask"]) + Decimal(record["best_bid"])) / Decimal("2")
