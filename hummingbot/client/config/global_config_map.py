@@ -384,4 +384,17 @@ global_config_map = {
                   required_if=lambda: False,
                   type_str="json",
                   default={exchange: None for exchange in EXCHANGES}),
+    "okex_api_key": ConfigVar(key="okex_api_key",
+                             prompt="Enter your OKEx API key >>> ",
+                             required_if=using_exchange("okex"),
+                             is_secure=True),
+    "okex_secret_key": ConfigVar(key="new_market_secret_key",
+                                    prompt="Enter your OKEx secret key >>> ",
+                                    required_if=using_exchange("okex"),
+                                    is_secure=True),
+    "okex_passphrase": ConfigVar(key="okex_passphrase",
+                                    prompt="Enter your OKEx passphrase key >>> ",
+                                    required_if=using_exchange("okex"),
+                                    is_secure=True),
+
 }

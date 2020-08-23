@@ -25,6 +25,7 @@ from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
 from hummingbot.market.kraken.kraken_market import KrakenMarket
+from hummingbot.market.okex.okex_market import OKExMarket
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
@@ -355,6 +356,17 @@ class HummingbotApplication(*commands):
                                       order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                       trading_pairs=trading_pairs,
                                       trading_required=self._trading_required)
+            elif market_name == "okex":
+                okex_api_key = global_config_map.get("kraken_api_key").value
+                okex_secret_key = global_config_map.get("kraken_secret_key").value
+                okex_phasphras = global_config_map.get("kraken_secret_key").value
+                market = OKExMarket(okex_api_key=okex_api_key,
+                                      okex_secret_key=okex_secret_key,
+                                      okex_phasphras = okex_phasphras,
+                                      order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                                      trading_pairs=trading_pairs,
+                                      trading_required=self._trading_required)
+
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")
 

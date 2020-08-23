@@ -113,7 +113,7 @@ cdef class OKExMarket(MarketBase):
         return hm_logger
 
     def __init__(self,
-                 OKEx_api_key: str,
+                 okex_api_key: str,
                  okex_secret_key: str,
                  okex_passphrase: str,
                  poll_interval: float = 5.0,

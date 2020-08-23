@@ -27,6 +27,8 @@ def get_mid_price(exchange: str, trading_pair: str) -> Optional[Decimal]:
         return kraken_mid_price(trading_pair)
     elif exchange == "coinbase_pro":
         return coinbase_pro_mid_price(trading_pair)
+    elif exchange == "okex":
+        return bittrex_mid_price(trading_pair)
     else:
         return binance_mid_price(trading_pair)
 
@@ -102,3 +104,8 @@ def coinbase_pro_mid_price(trading_pair: str) -> Optional[Decimal]:
     if "bid" in record and "ask" in record:
         result = (Decimal(record["bid"]) + Decimal(record["ask"])) / Decimal("2")
         return result
+
+@cachetools.func.ttl_cache(ttl=10)
+def bittrex_mid_price(trading_pair: str) -> Optional[Decimal]:
+    # TODO
+    raise NotImplemented

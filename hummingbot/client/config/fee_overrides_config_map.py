@@ -35,5 +35,7 @@ fee_overrides_config_map = {
     "bamboo_relay_maker_fee_amount": new_fee_config_var("bamboo_relay_maker_fee_amount"),
     "bamboo_relay_taker_fee_amount": new_fee_config_var("bamboo_relay_taker_fee_amount"),
     "radar_relay_maker_fee_amount": new_fee_config_var("radar_relay_maker_fee_amount"),
-    "radar_relay_taker_fee_amount": new_fee_config_var("radar_relay_taker_fee_amount")
+    "radar_relay_taker_fee_amount": new_fee_config_var("radar_relay_taker_fee_amount"),
+    "okex_maker_fee": new_fee_config_var("bittrex_maker_fee"),
+    "okex_taker_fee": new_fee_config_var("bittrex_maker_fee")
 }
