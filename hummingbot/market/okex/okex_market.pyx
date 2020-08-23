@@ -52,7 +52,7 @@ from hummingbot.core.utils.async_utils import (
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.okex.okex_api_order_book_data_source import OKExAPIOrderBookDataSource
 from hummingbot.market.okex.okex_auth import OKExAuth
-from hummingbot.market.huobi.huobi_in_flight_order import HuobiInFlightOrder # TODO
+from hummingbot.market.okex.okex_in_flight_order import OKExInFlightOrder
 from hummingbot.market.okex.okex_order_book_tracker import OKExOrderBookTracker
 from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.market.market_base import (
@@ -69,7 +69,7 @@ from hummingbot.market.okex.constants import *
 
 hm_logger = None
 s_decimal_0 = Decimal(0)
-TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(usdt|husd|btc|eth|ht|trx)$")
+TRADING_PAIR_SPLITTER = "-"
 
 
 class OKExAPIError(IOError):
@@ -148,12 +148,8 @@ cdef class OKExMarket(MarketBase):
 
     # @staticmethod
     # def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
-    #     try:
-    #         m = TRADING_PAIR_SPLITTER.match(trading_pair)
-    #         return m.group(1), m.group(2)
-    #     # Exceptions are now logged as warnings in trading pair fetcher
-    #     except Exception as e:
-    #         return None
+    #     print("trading_pair is", trading_pair)
+    #     return trading_pair.split(TRADING_PAIR_SPLITTER)
 
     # OKEx uses format BTC-USDT
     @staticmethod
@@ -181,7 +177,7 @@ cdef class OKExMarket(MarketBase):
         return self._trading_rules
 
     @property
-    def in_flight_orders(self) -> Dict[str, HuobiInFlightOrder]:
+    def in_flight_orders(self) -> Dict[str, OKExInFlightOrder]:
         return self._in_flight_orders
 
     @property
@@ -200,7 +196,7 @@ cdef class OKExMarket(MarketBase):
 
     def restore_tracking_states(self, saved_states: Dict[str, Any]):
         self._in_flight_orders.update({
-            key: HuobiInFlightOrder.from_json(value)
+            key: OKExInFlightOrder.from_json(value)
             for key, value in saved_states.items()
         })
 
@@ -414,6 +410,7 @@ cdef class OKExMarket(MarketBase):
                                 min_base_amount_increment=Decimal(info["size_increment"]),
                                 #min_quote_amount_increment=Decimal(info["1e-{info['value-precision']}"]),
                                 # min_notional_size=Decimal(info["min-order-value"])
+                                min_notional_size=s_decimal_0 # Couldn't find a value for this in the docs
                                 )
                 )
             except Exception:
@@ -486,14 +483,14 @@ cdef class OKExMarket(MarketBase):
                 )
                 continue
 
-            order_state = order_update
+            # order_state = order_update
             # possible order states are "submitted", "partial-filled", "filled", "canceled"
 
             # if order_state not in ["submitted", "filled", "canceled"]:
             #     self.logger().debug(f"Unrecognized order update response - {order_update}")
 
             # Calculate the newly executed amount for this update.
-            tracked_order.last_state = order_state
+            tracked_order.last_state = order_update["state"]
             new_confirmed_amount = Decimal(order_update["filled_notional"])  # TODO filled_notional or filled_size?
             execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
 
@@ -501,7 +498,7 @@ cdef class OKExMarket(MarketBase):
                 tracked_order.executed_amount_base = new_confirmed_amount
                 tracked_order.executed_amount_quote = Decimal(order_update["filled_size"]) # TODO filled_notional or filled_size?
 
-                tracked_order.fee_paid = Decimal(order_update["field-fees"])
+                tracked_order.fee_paid = Decimal(order_update["fee"])
                 execute_price = tracked_order.executed_amount_quote / new_confirmed_amount
 
                 order_filled_event = OrderFilledEvent(
@@ -520,6 +517,7 @@ cdef class OKExMarket(MarketBase):
                         execute_price,
                         execute_amount_diff,
                     ),
+                    # TODO check this for OKEx
                     # Unique exchange trade ID not available in client order status
                     # But can use validate an order using exchange order ID:
                     # https://huobiapi.github.io/docs/spot/v1/en/#query-order-by-order-id
@@ -932,26 +930,26 @@ cdef class OKExMarket(MarketBase):
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is None:
                 raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
-            path_url = f"/order/orders/{tracked_order.exchange_order_id}/submitcancel"
+            
+            path_url = '/' + OKEX_ORDER_CANCEL.format(exchange_order_id=order_id)
             response = await self._api_request("post", path_url=path_url, is_auth_required=True)
 
+            if not response['result']:
+                raise OKExAPIError("Order could not be canceled")
+
         except OKExAPIError as e:
-            order_state = e.error_payload.get("error").get("order-state")
-            if order_state == 7:
-                # order-state is canceled
-                self.c_stop_tracking_order(tracked_order.client_order_id)
-                self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled according"
-                                   f" to order status API. order_state - {order_state}")
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                     OrderCancelledEvent(self._current_timestamp,
-                                                         tracked_order.client_order_id))
-            else:
-                self.logger().network(
-                    f"Failed to cancel order {order_id}: {str(e)}",
-                    exc_info=True,
-                    app_warning_msg=f"Failed to cancel the order {order_id} on Huobi. "
-                                    f"Check API key and network connection."
-                )
+            self.logger().network(
+                f"Failed to cancel order {order_id}: {str(e)}",
+                exc_info=True,
+                app_warning_msg=f"Failed to cancel the order {order_id} on OKEx. "
+                                f"Check API key and network connection."
+            )
+            self.logger().network(
+                f"Failed to cancel order {order_id}: {str(e)}",
+                exc_info=True,
+                app_warning_msg=f"Failed to cancel the order {order_id} on Huobi. "
+                                f"Check API key and network connection."
+            )
 
         except Exception as e:
             self.logger().network(
@@ -1033,7 +1031,7 @@ cdef class OKExMarket(MarketBase):
                                 object trade_type,
                                 object price,
                                 object amount):
-        self._in_flight_orders[client_order_id] = HuobiInFlightOrder(
+        self._in_flight_orders[client_order_id] = OKExInFlightOrder(
             client_order_id=client_order_id,
             exchange_order_id=exchange_order_id,
             trading_pair=trading_pair,
@@ -1072,11 +1070,17 @@ cdef class OKExMarket(MarketBase):
         if quantized_amount > trading_rule.max_order_size:
             return trading_rule.max_order_size
 
+        print("price", price)
+        print("current_price", current_price)
+        print("quantized_amount", quantized_amount)
         if price == s_decimal_0:
             notional_size = current_price * quantized_amount
         else:
             notional_size = price * quantized_amount
         # Add 1% as a safety factor in case the prices changed while making the order.
+        print("notional_size", notional_size)
+        print("trading_rule.min_notional_size", trading_rule.min_notional_size)
+        
         if notional_size < trading_rule.min_notional_size * Decimal("1.01"):
             return s_decimal_0
 

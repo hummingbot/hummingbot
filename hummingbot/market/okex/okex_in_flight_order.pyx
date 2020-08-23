@@ -9,11 +9,11 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.market.huobi.huobi_market import HuobiMarket
+from hummingbot.market.okex.okex_market import OKExMarket
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 
 
-cdef class HuobiInFlightOrder(InFlightOrderBase):
+cdef class OKExFlightOrder(InFlightOrderBase):
     def __init__(self,
                  client_order_id: str,
                  exchange_order_id: str,
@@ -23,8 +23,9 @@ cdef class HuobiInFlightOrder(InFlightOrderBase):
                  price: Decimal,
                  amount: Decimal,
                  initial_state: str = "submitted"):
+
         super().__init__(
-            HuobiMarket,
+            OKExMarket,
             client_order_id,
             exchange_order_id,
             trading_pair,
@@ -54,7 +55,7 @@ cdef class HuobiInFlightOrder(InFlightOrderBase):
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
         cdef:
-            HuobiInFlightOrder retval = HuobiInFlightOrder(
+            OKExFlightOrder retval = OKExFlightOrder(
                 client_order_id=data["client_order_id"],
                 exchange_order_id=data["exchange_order_id"],
                 trading_pair=data["trading_pair"],

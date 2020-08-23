@@ -237,6 +237,40 @@ class FixtureOKEx:
         ]
     }
 
+    ORDER_CANCEL = {
+        "result":True,
+        "client_oid":"a123",
+        "order_id": "2510832677225473",
+        "error_message":"",
+        "error_code":"0"
+    }
+
+    ORDER_GET_CANCELED = {
+        "client_oid":"oktspot70",
+        "created_at":"2019-03-15T02:52:56.000Z",
+        "filled_notional":"3.8886",
+        "filled_size":"0.001",
+        "funds":"",
+        "instrument_id":"ETH-USDT",
+        "notional":"",
+        "order_id":"2482659399697407",
+        "order_type":"0",
+        "price":"3927.3",
+        "price_avg":"3927.3",
+        "product_id":"ETH-USDT",
+        "side":"buy",
+        "size":"0.001",
+        # status is soon to be deprecated
+        # "status":"filled",
+        "fee_currency":"BTC",
+        "fee":"-0.01",
+        "rebate_currency":"open",
+        "rebate":"0.05",
+        "state":"-1", # cancelled
+        "timestamp":"2019-03-15T02:52:56.000Z",
+        "type":"limit"
+    }
+
     # LIMIT_MAKER_ERROR = {'status': 'error', 'err-code': 'order-invalid-price', 'err-msg': 'invalid price', 'data': None}
 
     # GET_ACCOUNTS = {"status": "ok", "data": [{"id": 11899168, "type": "spot", "subtype": "", "state": "working"}]}
