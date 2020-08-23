@@ -53,14 +53,14 @@ from test.integration.humming_web_app import HummingWebApp
 from test.integration.assets.mock_data.fixture_okex import FixtureOKEx
 from unittest import mock
 
-API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
-# API_MOCK_ENABLED = False
+MOCK_API_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
+# MOCK_API_ENABLED = False
 
 from hummingbot.market.okex.constants import *
 
-API_KEY = "API_PASSPHRASE_MOCK" if API_MOCK_ENABLED else conf.okex_api_key
-API_SECRET = "API_SECRET_MOCK" if API_MOCK_ENABLED else conf.okex_secret_key
-API_PASSPHRASE = "API_PASSPHRASE_MOCK" if API_MOCK_ENABLED else conf.okex_passphrase
+API_KEY = "API_PASSPHRASE_MOCK" if MOCK_API_ENABLED else conf.okex_api_key
+API_SECRET = "API_SECRET_MOCK" if MOCK_API_ENABLED else conf.okex_secret_key
+API_PASSPHRASE = "API_PASSPHRASE_MOCK" if MOCK_API_ENABLED else conf.okex_passphrase
 
 API_BASE_URL = OKEX_BASE_URL.replace("https://", "").replace("/", "")
 
@@ -92,7 +92,7 @@ class OKExMarketUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        if API_MOCK_ENABLED:
+        if MOCK_API_ENABLED:
             cls.web_app = HummingWebApp.get_instance()
             cls.web_app.add_host_to_mock(API_BASE_URL, [ 
                                                         #OKEX_BALANCE_URL,
@@ -146,7 +146,7 @@ class OKExMarketUnitTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.stack.close()
-        if API_MOCK_ENABLED:
+        if MOCK_API_ENABLED:
             cls.web_app.stop()
             cls._patcher.stop()
             cls._t_nonce_patcher.stop()
@@ -228,7 +228,7 @@ class OKExMarketUnitTest(unittest.TestCase):
     def place_order(self, is_buy, trading_pair, amount, order_type, price, nonce, get_resp, market_connector=None):
         global EXCHANGE_ORDER_ID
         order_id, exch_order_id = None, None
-        if API_MOCK_ENABLED:
+        if MOCK_API_ENABLED:
             exch_order_id = f"OKEX_{EXCHANGE_ORDER_ID}"
             EXCHANGE_ORDER_ID += 1
             self._t_nonce_mock.return_value = nonce
@@ -243,7 +243,7 @@ class OKExMarketUnitTest(unittest.TestCase):
             order_id = market.buy(trading_pair, amount, order_type, price)
         else:
             order_id = market.sell(trading_pair, amount, order_type, price)
-        if API_MOCK_ENABLED:
+        if MOCK_API_ENABLED:
             resp = get_resp.copy()
             # resp is the response passed by parameter
             resp["id"] = exch_order_id
@@ -253,20 +253,20 @@ class OKExMarketUnitTest(unittest.TestCase):
 
     def cancel_order(self, trading_pair, order_id, exchange_order_id, get_resp):
         global EXCHANGE_ORDER_ID
-        if API_MOCK_ENABLED:
-            resp = FixtureOKEx.ORDER_PLACE.copy()
-            resp["data"] = exchange_order_id
-            self.web_app.update_response("post", API_BASE_URL, f"/v1/order/orders/{exchange_order_id}/submitcancel",
+        if MOCK_API_ENABLED:
+            resp = FixtureOKEx.ORDER_CANCEL.copy()
+            resp["order_id"] = exchange_order_id
+            self.web_app.update_response("post", API_BASE_URL, '/' + OKEX_ORDER_CANCEL.format(exchange_order_id=order_id),
                                          resp)
         self.market.cancel(trading_pair, order_id)
-        if API_MOCK_ENABLED:
+        if MOCK_API_ENABLED:
             resp = get_resp.copy()
-            resp["data"]["id"] = exchange_order_id
-            resp["data"]["client-order-id"] = order_id
-            self.web_app.update_response("get", API_BASE_URL, f"/v1/order/orders/{exchange_order_id}", resp)
+            resp["order_id"] = exchange_order_id
+            resp["client_oid"] = order_id
+            self.web_app.update_response("get", API_BASE_URL, '/' + OKEX_ORDER_DETAILS_URL.format(exchange_order_id=exchange_order_id), resp)
 
     def test_limit_maker_rejections(self):
-        if API_MOCK_ENABLED:
+        if MOCK_API_ENABLED:
             return
         trading_pair = "ETH-USDT"
 
@@ -291,7 +291,7 @@ class OKExMarketUnitTest(unittest.TestCase):
         self.assertEqual(order_id, order_failure_event.order_id)
 
     def test_limit_makers_unfilled(self):
-        if API_MOCK_ENABLED:
+        if MOCK_API_ENABLED:
             return
             
         trading_pair = "ETH-USDT"
@@ -318,7 +318,7 @@ class OKExMarketUnitTest(unittest.TestCase):
         self.assertEqual(order_id2, order_created_event.order_id)
         
         self.run_parallel(asyncio.sleep(1))
-        if API_MOCK_ENABLED:
+        if MOCK_API_ENABLED:
             resp = FixtureOKEx.ORDERS_BATCH_CANCELLED.copy()
             resp["data"]["success"] = [exch_order_id1, exch_order_id2]
             self.web_app.update_response("post", API_BASE_URL, "/v1/order/orders/batchcancel", resp)
@@ -421,7 +421,7 @@ class OKExMarketUnitTest(unittest.TestCase):
         _, exch_order_id2 = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_ask_price,
                                              1002, FixtureOKEx.ORDER_GET_LIMIT_BUY_FILLED, self.market_2)
         self.run_parallel(asyncio.sleep(1))
-        if API_MOCK_ENABLED:
+        if MOCK_API_ENABLED:
             resp = FixtureOKEx.ORDERS_BATCH_CANCELLED.copy()
             resp["ETH-USDT"] = [exch_order_id1, exch_order_id2]
             self.web_app.update_response("post", API_BASE_URL, '/' + OKEX_BATCH_ORDER_CANCELL, resp)

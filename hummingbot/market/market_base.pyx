@@ -65,6 +65,7 @@ cdef class MarketBase(NetworkIterator):
 
     @staticmethod
     def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
+        print("YO SPLIT")
         try:
             return tuple(trading_pair.split('-'))
         # Exceptions are logged as warnings in Trading pair fetcher class
@@ -296,6 +297,8 @@ cdef class MarketBase(NetworkIterator):
         try:
             top_price = Decimal(order_book.c_get_price(is_buy))
         except EnvironmentError as e:
+            import traceback
+            traceback.print_exc()
             self.logger().warning(f"{'Ask' if is_buy else 'Buy'} orderbook for {trading_pair} is empty.")
             return s_decimal_NaN
 

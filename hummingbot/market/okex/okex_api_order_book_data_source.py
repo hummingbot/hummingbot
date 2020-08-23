@@ -97,6 +97,8 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 timestamp=snapshot['timestamp'],
                                 metadata={"trading_pair": trading_pair})
             order_book: OrderBook = self.order_book_create_function()
+            print("bids are", snapshot_msg.bids)
+            print("asks are", snapshot_msg.asks)
             order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
             return order_book
 
@@ -150,7 +152,6 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         
         params = {} # default {'size':?, 'depth':?}
-        print("url is: "  + OKEX_DEPTH_URL.format(trading_pair=trading_pair))
         async with client.get(OKEX_DEPTH_URL.format(trading_pair=trading_pair), params=params) as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
