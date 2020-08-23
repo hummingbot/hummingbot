@@ -49,6 +49,7 @@ Enter the command `help` to see a list of commands:
 | `exit` | Exit and cancel all outstanding orders |
 | `paper_trade` | Toggle paper trading mode |
 | `export` | Export your bot's trades or private keys |
+| `order_book` | Display the current top bid and ask on the order book |
 
 ## Enter API keys
 
