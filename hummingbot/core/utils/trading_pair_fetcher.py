@@ -302,6 +302,24 @@ class TradingPairFetcher:
             # Do nothing if the request fails -- there will be no autocomplete for kraken trading pairs
         return []
 
+    @staticmethod
+    async def fetch_okex_trading_pairs() -> List[str]:
+        # Returns a List of str, representing each active trading pair on the exchange.
+        # TODO
+        raise NotImplemented
+        # async with aiohttp.ClientSession() as client:
+        #         async with client.get(NEW_MARKET_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
+        #             if response.status == 200:
+        #                 try:
+        #                     all_trading_pairs: List[Dict[str, any]] = await response.json()
+        #                     return [item["symbol"]
+        #                             for item in all_trading_pairs
+        #                             if item["status"] == "ONLINE"]  # Only returns active trading pairs
+        #                 except Exception:
+        #                     pass
+        #                     # Do nothing if the request fails -- there will be no autocomplete available
+        #             return []
+
     async def fetch_dolomite_trading_pairs(self) -> List[str]:
         try:
             from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
@@ -338,7 +356,9 @@ class TradingPairFetcher:
                  self.fetch_kucoin_trading_pairs(),
                  self.fetch_kraken_trading_pairs(),
                  self.fetch_radar_relay_trading_pairs(),
-                 self.fetch_eterbase_trading_pairs()]
+                 self.fetch_eterbase_trading_pairs(),
+                 self.fetch_okex_trading_pairs() # TOOD
+                 ]
 
         # Radar Relay has not yet been migrated to a new version
         # Endpoint needs to be updated after migration
@@ -357,5 +377,6 @@ class TradingPairFetcher:
             "kraken": results[8],
             "radar_relay": results[9],
             "eterbase": results[10],
+            "okex": results[11]
         }
         self.ready = True
