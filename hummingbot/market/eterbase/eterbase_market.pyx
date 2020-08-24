@@ -9,6 +9,7 @@ import pandas as pd
 import time
 import re
 from itertools import zip_longest
+import copy
 from typing import (
     Any,
     Dict,
@@ -145,7 +146,8 @@ cdef class EterbaseMarket(MarketBase):
         self._shared_client = None
         self._maker_fee = None
         self._taker_fee = None
-        self._order_not_found_records: Dict[str, Int]= {}
+        self._order_not_found_records: Dict[str, Int] = {}
+        self._real_time_balance_update = False
 
     @property
     def name(self) -> str:
@@ -252,7 +254,7 @@ cdef class EterbaseMarket(MarketBase):
         """
         if self._order_tracker_task is not None:
             self._stop_network()
-        self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
+        self._order_book_tracker.start()
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
@@ -374,6 +376,9 @@ cdef class EterbaseMarket(MarketBase):
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
+
+        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
+        self._in_flight_orders_snapshot_timestamp = self._current_timestamp
 
     async def _update_trading_rules(self):
         """
