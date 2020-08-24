@@ -42,6 +42,7 @@ def start(self):
         bid_order_optimization_depth = c_map.get("bid_order_optimization_depth").value
         add_transaction_costs_to_orders = c_map.get("add_transaction_costs").value
         price_source = c_map.get("price_source").value
+        price_type = c_map.get("price_type").value
         price_source_exchange = c_map.get("price_source_exchange").value
         price_source_market = c_map.get("price_source_market").value
         price_source_custom_api = c_map.get("price_source_custom_api").value
@@ -88,6 +89,7 @@ def start(self):
             add_transaction_costs_to_orders=add_transaction_costs_to_orders,
             logging_options=strategy_logging_options,
             asset_price_delegate=asset_price_delegate,
+            price_type=price_type,
             take_if_crossed=take_if_crossed,
             price_ceiling=price_ceiling,
             price_floor=price_floor,
