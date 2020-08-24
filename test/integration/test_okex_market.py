@@ -196,17 +196,19 @@ class OKExMarketUnitTest(unittest.TestCase):
     def run_parallel(self, *tasks):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
+    # @unittest.skip("skiping for now")
     def test_get_fee(self):
-        limit_fee: TradeFee = self.market.get_fee("eth", "usdt", OrderType.LIMIT_MAKER, TradeType.BUY, 1, 10)
+        limit_fee: TradeFee = self.market.get_fee("ETH", "USDT", OrderType.LIMIT_MAKER, TradeType.BUY, 1, 10)
         self.assertGreater(limit_fee.percent, 0)
         self.assertEqual(len(limit_fee.flat_fees), 0)
-        market_fee: TradeFee = self.market.get_fee("eth", "usdt", OrderType.LIMIT, TradeType.BUY, 1)
+        market_fee: TradeFee = self.market.get_fee("ETH", "USDT", OrderType.LIMIT, TradeType.BUY, 1)
         self.assertGreater(market_fee.percent, 0)
         self.assertEqual(len(market_fee.flat_fees), 0)
-        sell_trade_fee: TradeFee = self.market.get_fee("eth", "usdt", OrderType.LIMIT_MAKER, TradeType.SELL, 1, 10)
+        sell_trade_fee: TradeFee = self.market.get_fee("ETH", "USDT", OrderType.LIMIT_MAKER, TradeType.SELL, 1, 10)
         self.assertGreater(sell_trade_fee.percent, 0)
         self.assertEqual(len(sell_trade_fee.flat_fees), 0)
 
+    # @unittest.skip("skiping for now")
     def test_fee_overrides_config(self):
         fee_overrides_config_map["okex_taker_fee"].value = None
         taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
@@ -265,6 +267,7 @@ class OKExMarketUnitTest(unittest.TestCase):
             resp["client_oid"] = order_id
             self.web_app.update_response("get", API_BASE_URL, '/' + OKEX_ORDER_DETAILS_URL.format(exchange_order_id=exchange_order_id), resp)
 
+    # @unittest.skip("skiping for now")
     def test_limit_maker_rejections(self):
         if MOCK_API_ENABLED:
             return
@@ -290,6 +293,7 @@ class OKExMarketUnitTest(unittest.TestCase):
         [order_failure_event] = self.run_parallel(self.market_logger.wait_for(MarketOrderFailureEvent))
         self.assertEqual(order_id, order_failure_event.order_id)
 
+    # @unittest.skip("skiping for now")
     def test_limit_makers_unfilled(self):
         if MOCK_API_ENABLED:
             return
@@ -329,6 +333,7 @@ class OKExMarketUnitTest(unittest.TestCase):
         # Reset the logs
         self.market_logger.clear()
 
+    # @unittest.skip("skiping for now")
     def test_limit_taker_buy(self):
         trading_pair = "ETH-USDT"
         price: Decimal = self.market.get_price(trading_pair, True)
@@ -337,7 +342,9 @@ class OKExMarketUnitTest(unittest.TestCase):
 
         order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT, price, 10001,
                                        FixtureOKEx.ORDER_GET_MARKET_BUY)
+        print("I made it 1")
         [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
+        print("I made it 2")
         buy_order_completed_event: BuyOrderCompletedEvent = buy_order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
                                                 if isinstance(t, OrderFilledEvent)]
@@ -347,8 +354,8 @@ class OKExMarketUnitTest(unittest.TestCase):
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
         self.assertEqual(order_id, buy_order_completed_event.order_id)
         self.assertAlmostEqual(quantized_amount, buy_order_completed_event.base_asset_amount, places=4)
-        self.assertEqual("eth", buy_order_completed_event.base_asset)
-        self.assertEqual("usdt", buy_order_completed_event.quote_asset)
+        self.assertEqual("ETH", buy_order_completed_event.base_asset)
+        self.assertEqual("USDT", buy_order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, buy_order_completed_event.base_asset_amount, places=4)
         self.assertAlmostEqual(quote_amount_traded, buy_order_completed_event.quote_asset_amount, places=4)
         self.assertGreater(buy_order_completed_event.fee_amount, Decimal(0))
@@ -357,6 +364,7 @@ class OKExMarketUnitTest(unittest.TestCase):
         # Reset the logs
         self.market_logger.clear()
 
+    # @unittest.skip("skiping for now")
     def test_limit_taker_sell(self):
         trading_pair = "ETH-USDT"
         price: Decimal = self.market.get_price(trading_pair, False)
@@ -365,7 +373,9 @@ class OKExMarketUnitTest(unittest.TestCase):
 
         order_id, _ = self.place_order(False, trading_pair, amount, OrderType.LIMIT, price, 10001,
                                        FixtureOKEx.ORDER_GET_MARKET_SELL)
+        print("reach here")
         [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
+        print("reach here2")
         sell_order_completed_event: SellOrderCompletedEvent = sell_order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
                                                 if isinstance(t, OrderFilledEvent)]
@@ -375,8 +385,8 @@ class OKExMarketUnitTest(unittest.TestCase):
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
         self.assertEqual(order_id, sell_order_completed_event.order_id)
         self.assertAlmostEqual(quantized_amount, sell_order_completed_event.base_asset_amount)
-        self.assertEqual("eth", sell_order_completed_event.base_asset)
-        self.assertEqual("usdt", sell_order_completed_event.quote_asset)
+        self.assertEqual("ETH", sell_order_completed_event.base_asset)
+        self.assertEqual("USDT", sell_order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, sell_order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, sell_order_completed_event.quote_asset_amount)
         self.assertGreater(sell_order_completed_event.fee_amount, Decimal(0))
@@ -385,6 +395,7 @@ class OKExMarketUnitTest(unittest.TestCase):
         # Reset the logs
         self.market_logger.clear()
 
+    # @unittest.skip("skiping for now")
     def test_cancel_order(self):
         trading_pair = "ETH-USDT"
 
@@ -407,7 +418,7 @@ class OKExMarketUnitTest(unittest.TestCase):
         order_cancelled_event: OrderCancelledEvent = order_cancelled_event
         self.assertEqual(order_cancelled_event.order_id, order_id)
 
-    @unittest.skip("skiping for now")
+    # @unittest.skip("skiping for now")
     def test_cancel_all(self):
         trading_pair = "ETH-USDT"
 
@@ -434,6 +445,7 @@ class OKExMarketUnitTest(unittest.TestCase):
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
 
+    # @unittest.skip("skiping for now")
     def test_orders_saving_and_restoration(self):
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
@@ -457,7 +469,9 @@ class OKExMarketUnitTest(unittest.TestCase):
             order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
                                                        quantize_bid_price, 10001,
                                                        FixtureOKEx.ORDER_GET_LIMIT_BUY_UNFILLED)
+            print("Make it here")
             [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
+            print("Make it here2")
             order_created_event: BuyOrderCreatedEvent = order_created_event
             self.assertEqual(order_id, order_created_event.order_id)
 
