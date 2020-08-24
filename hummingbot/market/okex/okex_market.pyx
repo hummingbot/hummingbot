@@ -126,7 +126,7 @@ cdef class OKExMarket(MarketBase):
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._data_source_type = order_book_tracker_data_source_type
         self._ev_loop = asyncio.get_event_loop()
-        self._okex_auth = OKExAuth(api_key=OKEx_api_key, secret_key=okex_secret_key, passphrase=okex_passphrase)
+        self._okex_auth = OKExAuth(api_key=okex_api_key, secret_key=okex_secret_key, passphrase=okex_passphrase)
         self._in_flight_orders = {}
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
@@ -490,6 +490,7 @@ cdef class OKExMarket(MarketBase):
             #     self.logger().debug(f"Unrecognized order update response - {order_update}")
 
             # Calculate the newly executed amount for this update.
+            print("last_state is", order_update["state"])
             tracked_order.last_state = order_update["state"]
             new_confirmed_amount = Decimal(order_update["filled_notional"])  # TODO filled_notional or filled_size?
             execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
@@ -529,6 +530,9 @@ cdef class OKExMarket(MarketBase):
 
             if tracked_order.is_open:
                 continue
+            
+            print("tracked_order.is_open", tracked_order.is_open)
+            print("tracked_order.is_done", tracked_order.is_done)
 
             if tracked_order.is_done:
                 if not tracked_order.is_cancelled:  # Handles "filled" order
@@ -1007,7 +1011,7 @@ cdef class OKExMarket(MarketBase):
                 self.logger().network(
                     f"Failed to cancel all orders: {cancel_order_ids}",
                     exc_info=True,
-                    app_warning_msg=f"Failed to cancel all orders on Huobi. Check API key and network connection."
+                    app_warning_msg=f"Failed to cancel all orders on OKEx. Check API key and network connection."
                 )
             return cancellation_results
 

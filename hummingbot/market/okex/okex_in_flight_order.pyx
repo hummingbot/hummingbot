@@ -13,7 +13,7 @@ from hummingbot.market.okex.okex_market import OKExMarket
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 
 
-cdef class OKExFlightOrder(InFlightOrderBase):
+cdef class OKExInFlightOrder(InFlightOrderBase):
     def __init__(self,
                  client_order_id: str,
                  exchange_order_id: str,
@@ -38,24 +38,24 @@ cdef class OKExFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"filled", "canceled", "partial-canceled"}
+        return self.last_state in {"2", "-1"}
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state in {"partial-canceled", "canceled"}
+        return self.last_state in {"-1"}
 
     @property
     def is_failure(self) -> bool:
-        return self.last_state in {"canceled"}
+        return self.last_state in {"-1"}
 
     @property
     def is_open(self) -> bool:
-        return self.last_state in {"submitted", "partial-filled"}
+        return self.last_state in {"0", "1"}
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
         cdef:
-            OKExFlightOrder retval = OKExFlightOrder(
+            OKExInFlightOrder retval = OKExInFlightOrder(
                 client_order_id=data["client_order_id"],
                 exchange_order_id=data["exchange_order_id"],
                 trading_pair=data["trading_pair"],
