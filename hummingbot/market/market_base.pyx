@@ -31,6 +31,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 from .deposit_info import DepositInfo
 from hummingbot.core.event.events import OrderFilledEvent
+from hummingbot.core.utils.estimate_fee import estimate_fee
 
 NaN = float("nan")
 s_decimal_NaN = Decimal("nan")
@@ -61,6 +62,7 @@ cdef class MarketBase(NetworkIterator):
         self._account_balances = {}  # Dict[asset_name:str, Decimal]
         self._account_available_balances = {}  # Dict[asset_name:str, Decimal]
         self._asset_limit = {}  # Dict[asset_name: str, Decimal]
+        self._real_time_balance_update = True
         self._order_book_tracker = None
 
     @staticmethod
@@ -71,20 +73,23 @@ cdef class MarketBase(NetworkIterator):
         except Exception:
             return None
 
-    @staticmethod
-    def in_flight_asset_balances(in_flight_orders: Dict[str, InFlightOrderBase]) -> Dict[str, Decimal]:
+    def in_flight_asset_balances(self, in_flight_orders: Dict[str, InFlightOrderBase]) -> Dict[str, Decimal]:
         """
         Calculates the individual asset balances used in in_flight_orders
         For BUY order, this is the quote asset balance locked in the order
         For SELL order, this is the base asset balance locked in the order
         """
         asset_balances = {}
+        if in_flight_orders is None:
+            return asset_balances
         for order in [o for o in in_flight_orders.values() if not (o.is_done or o.is_failure or o.is_cancelled)]:
             if order.trade_type is TradeType.BUY:
                 order_value = Decimal(order.amount * order.price)
                 outstanding_value = order_value - order.executed_amount_quote
                 if order.quote_asset not in asset_balances:
                     asset_balances[order.quote_asset] = s_decimal_0
+                fee = estimate_fee(self.name, True)
+                outstanding_value *= (Decimal(1) + fee.percent)
                 asset_balances[order.quote_asset] += outstanding_value
             else:
                 outstanding_value = order.amount - order.executed_amount_base
@@ -93,13 +98,14 @@ cdef class MarketBase(NetworkIterator):
                 asset_balances[order.base_asset] += outstanding_value
         return asset_balances
 
-    def order_filled_balances(self):
+    def order_filled_balances(self, starting_timestamp = 0):
         """
         Calculates the individual asset balances as a result of order being filled
         For BUY filled order, the quote balance goes down while the base balance goes up, and for SELL order, it's the
         opposite. This does not account for fee.
         """
         order_filled_events = list(filter(lambda e: isinstance(e, OrderFilledEvent), self.event_logs))
+        order_filled_events = [o for o in order_filled_events if o.timestamp > starting_timestamp]
         balances = {}
         for event in order_filled_events:
             hb_trading_pair = self.convert_from_exchange_trading_pair(event.trading_pair)
@@ -178,6 +184,8 @@ cdef class MarketBase(NetworkIterator):
         Retrieves the Balance Limits for the specified market.
         """
         all_ex_limit = global_config_map["balance_asset_limit"].value
+        if all_ex_limit is None:
+            return {}
         exchange_limits = all_ex_limit.get(market, {})
         return exchange_limits if exchange_limits is not None else {}
 
@@ -230,7 +238,7 @@ cdef class MarketBase(NetworkIterator):
         """
         return self._account_balances.get(currency, s_decimal_0)
 
-    def available_balance_limit_applied(self, currency: str, limit: Decimal) -> Decimal:
+    def apply_balance_limit(self, currency: str, available_balance: Decimal, limit: Decimal) -> Decimal:
         """
         Apply budget limit on an available balance, the limit is calculated as followings:
         - Minus balance used in outstanding orders (in flight orders), if the budget is 1 ETH and the bot has already
@@ -244,20 +252,36 @@ cdef class MarketBase(NetworkIterator):
         filled_balance = self.order_filled_balances().get(currency, s_decimal_0)
         limit += filled_balance
         asset_limit = max(limit, s_decimal_0)
-        available_balance = self._account_available_balances.get(currency, s_decimal_0)
         return min(available_balance, asset_limit)
+
+    def apply_balance_update_since_snapshot(self, currency: str, available_balance: Decimal):
+        """
+        Applies available balance update as followings
+        :param currency: the token symbol
+        :param available_balance: the current available_balance, this is also the snap balance taken since last
+        _update_balances()
+        :returns the real available that accounts for changes in in flight orders and filled orders
+        """
+        snapshot_bal = self.in_flight_asset_balances(self._in_flight_orders_snapshot).get(currency, s_decimal_0)
+        in_flight_bal = self.in_flight_asset_balances(self.in_flight_orders).get(currency, s_decimal_0)
+        orders_filled_bal = self.order_filled_balances(self._in_flight_orders_snapshot_timestamp).get(currency,
+                                                                                                      s_decimal_0)
+        actual_available = available_balance + snapshot_bal - in_flight_bal + orders_filled_bal
+        return actual_available
 
     cdef object c_get_available_balance(self, str currency):
         """
         If there is a budget limit set on the balance
         :returns: Balance available for trading for a specific asset
         """
+        available_balance = self._account_available_balances.get(currency, s_decimal_0)
+        if not self._real_time_balance_update:
+            available_balance = self.apply_balance_update_since_snapshot(currency, available_balance)
         exchange_limits = self.get_exchange_limit_config(self.name)
         if currency in exchange_limits:
             asset_limit = Decimal(str(exchange_limits[currency]))
-            return self.available_balance_limit_applied(currency, asset_limit)
-        else:
-            return self._account_available_balances.get(currency, s_decimal_0)
+            available_balance = self.apply_balance_limit(currency, available_balance, asset_limit)
+        return available_balance
 
     cdef str c_withdraw(self, str address, str currency, object amount):
         raise NotImplementedError
