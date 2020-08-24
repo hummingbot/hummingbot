@@ -14,6 +14,7 @@ from typing import (
     Optional,
     Tuple,
 )
+import copy
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -145,6 +146,7 @@ cdef class KrakenMarket(MarketBase):
         self._shared_client = None
         self._asset_pairs = {}
         self._last_userref = 0
+        self._real_time_balance_update = False
 
     @property
     def name(self) -> str:
@@ -325,6 +327,9 @@ cdef class KrakenMarket(MarketBase):
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
+
+        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
+        self._in_flight_orders_snapshot_timestamp = self._current_timestamp
 
     cdef object c_get_fee(self,
                           str base_currency,
