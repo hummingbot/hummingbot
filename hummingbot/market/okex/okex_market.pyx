@@ -492,12 +492,12 @@ cdef class OKExMarket(MarketBase):
             # Calculate the newly executed amount for this update.
             print("last_state is", order_update["state"])
             tracked_order.last_state = order_update["state"]
-            new_confirmed_amount = Decimal(order_update["filled_notional"])  # TODO filled_notional or filled_size?
+            new_confirmed_amount = Decimal(order_update["filled_size"])  # TODO filled_notional or filled_size?
             execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
 
             if execute_amount_diff > s_decimal_0:
                 tracked_order.executed_amount_base = new_confirmed_amount
-                tracked_order.executed_amount_quote = Decimal(order_update["filled_size"]) # TODO filled_notional or filled_size?
+                tracked_order.executed_amount_quote = Decimal(order_update["filled_notional"]) # TODO filled_notional or filled_size?
 
                 tracked_order.fee_paid = Decimal(order_update["fee"])
                 execute_price = tracked_order.executed_amount_quote / new_confirmed_amount
@@ -528,11 +528,14 @@ cdef class OKExMarket(MarketBase):
                                     f"order {tracked_order.client_order_id}.")
                 self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
+            print("tracked_order.is_open", tracked_order.is_open)
+            print("tracked_order.is_done", tracked_order.is_done)
+            print("tracked_order.last_state", tracked_order.last_state)
+            
+
             if tracked_order.is_open:
                 continue
             
-            print("tracked_order.is_open", tracked_order.is_open)
-            print("tracked_order.is_done", tracked_order.is_done)
 
             if tracked_order.is_done:
                 if not tracked_order.is_cancelled:  # Handles "filled" order

@@ -261,7 +261,7 @@ class FixtureOKEx:
         "side":"buy",
         "size":"0.001",
         # status is soon to be deprecated
-        # "status":"filled",
+        # "status":
         "fee_currency":"BTC",
         "fee":"-0.01",
         "rebate_currency":"open",
@@ -269,6 +269,67 @@ class FixtureOKEx:
         "state":"-1", # cancelled
         "timestamp":"2019-03-15T02:52:56.000Z",
         "type":"limit"
+    }
+
+    # ORDER_GET_MARKET_BUY = {"status": "ok", "data": {"id": 69094699396, "symbol": "ethusdt", "account-id": 11899168,
+    #                                                  "client-order-id": "buy-ethusdt-1581563124007518",
+    #                                                  "amount": "5.460000000000000000", "price": "0.0",
+    #                                                  "created-at": 1581563124085, "type": "buy-market",
+    #                                                  "field-amount": "0.060015396458814472",
+    #                                                  "field-cash-amount": "5.459999999999999816",
+    #                                                  "field-fees": "0.000040030792917629", "finished-at": 1581563124185,
+    #                                                  "source": "spot-api", "state": "filled", "canceled-at": 0}}
+
+    ORDER_GET_MARKET_BUY = {
+        "client_oid":"oktspot12",
+        "created_at":"2019-03-15T02:52:56.000Z",
+        "filled_notional":"5.459999999999999816",
+        "filled_size":"0.060015396458814472",
+        "funds":"",
+        "instrument_id":"ETH-USDT",
+        "notional":"",
+        "order_id":"2482659399697407",
+        "order_type":"0",
+        "price":"3927.3",
+        "price_avg":"3927.3",
+        "product_id":"ETH-USDT",
+        "side":"buy",
+        "size":"5.460000000000000000",
+        # status is soon to be deprecated
+        # "status":
+        "fee_currency":"USDT",
+        "fee":"000040030792917629",
+        "rebate_currency":"open",
+        "rebate":"0.05",
+        "state":"2", # partially filled
+        "timestamp":"2019-03-15T02:52:56.000Z",
+        "type":"market"
+    }
+
+    ORDER_GET_MARKET_SELL = {
+        "client_oid":"oktspot12",
+        "created_at":"2019-03-15T02:52:56.000Z",
+        "filled_notional":"5.459999999999999816",
+        "filled_size":"0.060000000000000000",
+        "funds":"",
+        "instrument_id":"ETH-USDT",
+        "notional":"",
+        "order_id":"2482659399697407",
+        "order_type":"0",
+        "price":"3927.3",
+        "price_avg":"3927.3",
+        "product_id":"ETH-USDT",
+        "side":"sell",
+        "size":"5.460000000000000000",
+        # status is soon to be deprecated
+        # "status":
+        "fee_currency":"ETH",
+        "fee":"000040030792917629",
+        "rebate_currency":"open",
+        "rebate":"0.05",
+        "state":"2", # fully filled
+        "timestamp":"2019-03-15T02:52:56.000Z",
+        "type":"market"
     }
 
     # LIMIT_MAKER_ERROR = {'status': 'error', 'err-code': 'order-invalid-price', 'err-msg': 'invalid price', 'data': None}
