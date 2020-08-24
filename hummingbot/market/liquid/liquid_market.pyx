@@ -752,15 +752,15 @@ cdef class LiquidMarket(MarketBase):
         """
         async for event_message in self._iter_user_event_queue():
             try:
-                content = json.loads(event_message.content.get('data', {}))
-                event_type = content.get("status")
+                content = json.loads(event_message.get('data', {}))
+                event_status = content["status"]
 
                 # Order id retreived from exhcnage, that initially sent by client
-                exchange_order_id = content.get('id')
+                exchange_order_id = content["client_order_id"]
                 tracked_order = None
 
                 for order in self._in_flight_orders.values():
-                    if order.exchange_order_id == exchange_order_id:
+                    if order.client_order_id == exchange_order_id:
                         tracked_order = order
                         break
 
@@ -768,12 +768,12 @@ cdef class LiquidMarket(MarketBase):
                     continue
 
                 order_type_description = tracked_order.order_type_description
-                execute_price = Decimal(content.get("average_price", 0.0))
-                execute_amount_diff = s_decimal_0
+                execute_price = Decimal(content["price"])
+                execute_amount_diff = Decimal(content["filled_quantity"])
 
                 if execute_amount_diff > s_decimal_0:
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
-                                       f"{order_type_description} order {tracked_order.client_order_id}")
+                                       f"{order_type_description} order {tracked_order.client_order_id} according to Liquid user stream.")
                     self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
                                          OrderFilledEvent(
                                              self._current_timestamp,
@@ -794,7 +794,9 @@ cdef class LiquidMarket(MarketBase):
                                              exchange_trade_id=tracked_order.exchange_order_id
                                          ))
 
-                if content.get("status") == "filled":
+                if event_status == "filled":
+                    tracked_order.executed_amount_base = Decimal(content["filled_quantity"])
+                    tracked_order.executed_amount_quote = Decimal(content["filled_quantity"]) * Decimal(content["price"])
                     if tracked_order.trade_type == TradeType.BUY:
                         self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
                                            f"according to Liquid user stream.")
