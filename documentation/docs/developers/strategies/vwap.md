@@ -20,7 +20,7 @@ The flow chart below details the flow of processing orders.
 
 ![Figure 1: Processing orders](/assets/img/VWAP2.svg)
 
-Only one order is placed in a clock tick, so a state machine is needed to emit multiple orders over different clock ticks.
+At most one order can be placed in each clock tick, so a state machine is needed to emit multiple orders over different clock ticks.
 
 The state variables for TWAP:
 
