@@ -35,7 +35,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
 
 
 !!! note "Campaign updates for the week starting August 25, 2020 12.00am UTC"
-    **Native RLC rewards for iExec campaign**: we have rolled out [native token liquidity mining rewards](https://hummingbot.io/blog/2020-08-native-token-payments/)!  Since August 18, liquidity miners participating in RLC pairs will be earning RLC rewards.
+    **Native RLC rewards for iExec campaign**: we have rolled out [native token liquidity mining rewards](https://hummingbot.io/blog/2020-08-native-token-payments/)!  Since August 18, liquidity miners participating in RLC pairs have earned or will be earning RLC rewards.
 
     **Liquidiy mining reward increases for RLC market**: total reward **RLC 540/week**, you can read more about it on this [reddit post](https://www.reddit.com/r/Hummingbot/comments/ifswoj/update_to_rlc_liquidity_mining_rewards_rlc_540week/).
 
