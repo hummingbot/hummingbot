@@ -14,6 +14,7 @@ from typing import (
     AsyncIterable,
 )
 from libc.stdint cimport int64_t
+import copy
 
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -129,6 +130,7 @@ cdef class CoinbaseProMarket(MarketBase):
         self._shared_client = None
         self._maker_fee_percentage = Decimal(self.MAKER_FEE_PERCENTAGE_DEFAULT)
         self._taker_fee_percentage = Decimal(self.TAKER_FEE_PERCENTAGE_DEFAULT)
+        self._real_time_balance_update = False
 
     @property
     def name(self) -> str:
@@ -394,6 +396,8 @@ cdef class CoinbaseProMarket(MarketBase):
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
+        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
+        self._in_flight_orders_snapshot_timestamp = self._current_timestamp
 
     async def _update_trading_rules(self):
         """
