@@ -1,4 +1,4 @@
-# Quickstart - Run the bot in paper trading mode
+# Quickstart - Participate in Liquidity Mining
 
 0. [Overview](index.md)
 1. [Install Hummingbot](install.md)
@@ -8,7 +8,7 @@
 
 ---
 
-If you have successfully configured a pure market making bot in step 3, and wants to proceed with liquidity mining, you need to sign up [Miner App](https://miners.hummingbot.io/) and add the read-only exchange keys in order for the Miner App to check if if there are valid open orders that are eligible for rewards.
+If you have successfully configured a pure market making bot in step 4, and wants to proceed with liquidity mining, you need to sign up [Miner App](https://miners.hummingbot.io/) and add the read-only exchange keys in order for the Miner App to check if if there are valid open orders that are eligible for rewards.
 
 <b>Prerequiste:</b> Your Ethereum wallet address. The Hummingbot Miners app uses your Ethereum wallet address to:
 

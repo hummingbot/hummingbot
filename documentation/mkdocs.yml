@@ -93,7 +93,8 @@ nav:
     - Celo Arbitrage Quickstart:
         - Overview: strategies/celo-arb/index.md
         - Quickstart: strategies/celo-arb/quickstart.md
-    - Frequently Used Guides:  
+    - Frequently Used Guides:
+      - Market Making Tips: quickstart/hummingbot-market-making-tips.md  
       - Telegram Integration: advanced/telegram.md 
       - Hummingbot Commands: /operation/commands/
       - Docker Commands: operation/docker-commands.md

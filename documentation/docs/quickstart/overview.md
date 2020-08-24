@@ -8,10 +8,11 @@ This guide is organized into different sections:
 * Liquidity Mining Quickstart: How to participate in liquidity mining
 * Celo Arbitrage Quickstart: How to use abitrage strategy for Celo
 * Frequently Used Guides:
-    * [Telegram Integration:](/docs/advanced/telegram.md) How to monitor and control your bots using Telegram
-    * [Hummingbot Commands:](/operation/commands/docker-commands.md) for quick reference on useful Hummingbot commands
-    * [Docker Commands:](/operation/commands/) for quick reference on useful docker commands   
-    * [Scripts:](/docs/advanced/scripts) Develop your own trading strategy or use existing templates to start trading.
+    * Market Making Tips: Tips on using various Hummingbot parameters for market making
+    * Telegram Integration: How to monitor and control your bots using Telegram
+    * Hummingbot Commands: For quick reference on useful Hummingbot commands
+    * Docker CommandsFor quick reference on useful docker commands   
+    * Scripts: Develop your own trading strategy or use existing templates to start trading
 
 
 
