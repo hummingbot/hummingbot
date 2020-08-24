@@ -18,7 +18,7 @@ OKEX_SERVER_TIME = 'api/general/v3/time'
 
 OKEX_PLACE_ORDER = "api/spot/v3/orders"
 OKEX_ORDER_DETAILS_URL = 'api/spot/orders/{exchange_order_id}'
-OKEX_ORDER_CANCEL = '/api/margin/v3/cancel_orders/{exchange_order_id}'
+OKEX_ORDER_CANCEL = 'api/spot/v3/cancel_orders/{exchange_order_id}'
 OKEX_BATCH_ORDER_CANCELL = 'api/spot/v3/cancel_batch_orders'
 OKEX_BALANCE_URL = "api/spot/v3/accounts"
 OKEX_INSTRUMENTS_URL = "api/spot/v3/instruments"

@@ -6,7 +6,7 @@ from hummingbot.market.kucoin.kucoin_market import KucoinMarket
 from hummingbot.market.liquid.liquid_market import LiquidMarket
 from hummingbot.market.kraken.kraken_market import KrakenMarket
 from hummingbot.market.eterbase.eterbase_market import EterbaseMarket
-from hummingbot.market.okex.okex_market import OKexMarket
+from hummingbot.market.okex.okex_market import OKExMarket
 from hummingbot.core.utils.market_mid_price import get_mid_price
 from hummingbot.client.settings import EXCHANGES, DEXES
 from hummingbot.client.config.security import Security
@@ -41,7 +41,7 @@ class UserBalances:
         elif exchange == "eterbase":
             market = EterbaseMarket(api_details[0], api_details[1], api_details[2])
         elif exchange == "okex":
-            market = OKexMarket(api_details[0], api_details[1], api_details[2])
+            market = OKExMarket(api_details[0], api_details[1], api_details[2])
 
         return market
 
