@@ -34,8 +34,10 @@ Liquidity mining sets forth an analytical framework for determining market maker
     <li>**Minimum reward payout amount**: due to the recent surge in Ethereum gas price, Hummingbot will impose a $10.00 minimum on the weekly payout, starting with the next scheduled payout on August 21, 2020 (UTC). For miners who earn < $10 within one week, their rewards will be accrued and rolled over to the next period, read more [here](https://www.reddit.com/r/Hummingbot/comments/i9rh5g/announcement_a_10_minimum_to_liquidity_mining/).
 
 
-!!! note "Campaign updates for the week starting August 18, 2020 12.00am UTC"
+!!! note "Campaign updates for the week starting August 25, 2020 12.00am UTC"
     **Native RLC rewards for iExec campaign**: we have rolled out [native token liquidity mining rewards](https://hummingbot.io/blog/2020-08-native-token-payments/)!  Starting this week, liquidity miners participating in RLC pairs will be earning RLC rewards.
+
+    **Liquidiy mining reward increases for RLC market**: total reward **RLC 540/week**, you can read more about it on this [reddit post](https://www.reddit.com/r/Hummingbot/comments/ifswoj/update_to_rlc_liquidity_mining_rewards_rlc_540week/).
 
 
 **Current reward period: August 18, 2020 12.00am UTC to August 25, 2020 12.00am UTC**
@@ -100,21 +102,21 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td><b><em>RLC 146</em></b></td>
+      <td><b><em>RLC 180</em></b></td>
     </tr>
     <tr>
       <td>RLC/USDT</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td><b><em>RLC 146</em></b></td>
+      <td><b><em>RLC 180</em></b></td>
     </tr>
     <tr>
       <td>RLC/ETH</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td><b><em>RLC 145.5</em></b></td>
+      <td><b><em>RLC 180</em></b></td>
     </tr>
     <tr>
       <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
@@ -140,42 +142,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
 
 ## Upcoming changes to campaign terms
 
-Liquidiy mining reward increases for **RLC** market starting August 25, 2020 00:00 UTC. Total reward **RLC 540/week**, you can read more about it on this [reddit post](https://www.reddit.com/r/Hummingbot/comments/ifswoj/update_to_rlc_liquidity_mining_rewards_rlc_540week/).
-
-<table>
-  <thead>
-    <th>Token Issuer</th>
-    <th>Trading pair</th>
-    <th>Exchange</th>
-    <th>Maximum spread</th>
-    <th>Current weekly rewards</th>
-    <th>New weekly rewards</th>
-  </thead>
-  <tbody>
-    <tr>
-      <td rowspan="3"><a href="#iexec">iExec</a><br></td>
-      <td>RLC/BTC</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>RLC 146</td>
-      <td><b><em>RLC 180</em></b></td>
-    </tr>
-    <tr>
-      <td>RLC/USDT</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>RLC 146</td>
-      <td><b><em>RLC 180</em></b></td>
-    </tr>
-    <tr>
-      <td>RLC/ETH</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>RLC 145.5</td>
-      <td><b><em>RLC 180</em></b></td>
-    </tr>
-   </tbody> 
-</table>
+No upcoming changes.
 
 ## Token Issuers
 
