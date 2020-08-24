@@ -34,13 +34,13 @@ Liquidity mining sets forth an analytical framework for determining market maker
     <li>**Minimum reward payout amount**: due to the recent surge in Ethereum gas price, Hummingbot will impose a $10.00 minimum on the weekly payout, starting with the next scheduled payout on August 21, 2020 (UTC). For miners who earn < $10 within one week, their rewards will be accrued and rolled over to the next period, read more [here](https://www.reddit.com/r/Hummingbot/comments/i9rh5g/announcement_a_10_minimum_to_liquidity_mining/).
 
 
-!!! note "Campaign updates for the week starting August 25, 2020 12.00am UTC"
+!!! note "Campaign updates for the week since August 18, 2020 12.00am UTC"
     **Native RLC rewards for iExec campaign**: we have rolled out [native token liquidity mining rewards](https://hummingbot.io/blog/2020-08-native-token-payments/)!  Starting this week, liquidity miners participating in RLC pairs will be earning RLC rewards.
 
     **Liquidiy mining reward increases for RLC market**: total reward **RLC 540/week**, you can read more about it on this [reddit post](https://www.reddit.com/r/Hummingbot/comments/ifswoj/update_to_rlc_liquidity_mining_rewards_rlc_540week/).
 
 
-**Current reward period: August 18, 2020 12.00am UTC to August 25, 2020 12.00am UTC**
+**Current reward period: August 25, 2020 12.00am UTC to September 1, 2020 12.00am UTC**
 
 <table>
   <thead>
