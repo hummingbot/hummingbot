@@ -1,4 +1,4 @@
-# Hummingbot market making tips
+# Hummingbot Market Making Tips
 
 - Experiment with different combinations of order spread and size.
 - Use [paper trading](https://docs.hummingbot.io/operation/paper-trade/) to experiment with various strategy configurations before risking real capital.
@@ -12,7 +12,7 @@
 
 - Increase the `filled_order_delay` parameter to 60 seconds or more. This prevents your bot from buying or selling a lot when the market is steeply trending in one direction.
 
-# General market making tips
+# General Market Making Tips
 
 - Picking which market to trade on is important. For example, ETH/BTC is a very active pair dominated by sophisticated professional market makers. Consider picking markets with less competition, either on smaller exchanges or less active pairs.
 - The opportunity for market makers can be calculated as spread * volume. you can use sites like [CoinGecko](https://www.coingecko.com/en) like get these metrics for all pairs in the market.
