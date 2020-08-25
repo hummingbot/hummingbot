@@ -47,7 +47,7 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     create_parser.add_argument("file_name", nargs="?", default=None, help="Name of the configuration file")
     create_parser.set_defaults(func=hummingbot.create)
 
-    import_parser = subparsers.add_parser("import", help="Import a existing bot by loading the configuration file")
+    import_parser = subparsers.add_parser("import", help="Import an existing bot by loading the configuration file")
     import_parser.add_argument("file_name", nargs="?", default=None, help="Name of the configuration file")
     import_parser.set_defaults(func=hummingbot.import_command)
 
@@ -55,7 +55,10 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     help_parser.add_argument("command", nargs="?", default="all", help="Enter ")
     help_parser.set_defaults(func=hummingbot.help)
 
-    balance_parser = subparsers.add_parser("balance", help="Display your asset balances across all connected exchanges")
+    balance_parser = subparsers.add_parser("balance", help=f"Display your asset balances across all connected exchanges")
+    balance_parser.add_argument("option", nargs="?", choices=["limit", "paper"], default=None,
+                                help="Option for balance configuration")
+    balance_parser.add_argument("args", nargs="*")
     balance_parser.set_defaults(func=hummingbot.balance)
 
     config_parser = subparsers.add_parser("config", help="Display the current bot's configuration")
@@ -87,5 +90,11 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     export_parser = subparsers.add_parser("export", help="Export secure information")
     export_parser.add_argument("option", nargs="?", choices=("keys", "trades"), help="Export choices.")
     export_parser.set_defaults(func=hummingbot.export)
+
+    order_book_parser = subparsers.add_parser("order_book", help="Display current order book.")
+    order_book_parser.add_argument("--lines", type=int, default=5, dest="lines", help="Number of lines to display")
+    order_book_parser.add_argument("--exchange", type=str, dest="exchange", help="The exchange of the market")
+    order_book_parser.add_argument("--market", type=str, dest="market", help="The market (trading pair) of the order book")
+    order_book_parser.set_defaults(func=hummingbot.order_book)
 
     return parser

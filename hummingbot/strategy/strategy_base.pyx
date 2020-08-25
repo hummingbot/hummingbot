@@ -356,6 +356,7 @@ cdef class StrategyBase(TimeIterator):
 
     cdef c_did_complete_sell_order_tracker(self, object order_completed_event):
         self.c_did_complete_buy_order_tracker(order_completed_event)
+
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
 

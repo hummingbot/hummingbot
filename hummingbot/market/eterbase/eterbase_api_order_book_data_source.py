@@ -21,12 +21,8 @@ from hummingbot.market.eterbase.eterbase_order_book import EterbaseOrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_tracker_entry import (
-    OrderBookTrackerEntry
-)
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.market.eterbase.eterbase_active_order_tracker import EterbaseActiveOrderTracker
-from hummingbot.market.eterbase.eterbase_order_book_tracker_entry import EterbaseOrderBookTrackerEntry
 import hummingbot.market.eterbase.eterbase_constants as constants
 
 MAX_RETRIES = 20
@@ -47,10 +43,20 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._eaobds_logger = logging.getLogger(__name__)
         return cls._eaobds_logger
 
-    def __init__(self, trading_pairs: Optional[List[str]] = None):
-        super().__init__()
-        self._trading_pairs: Optional[List[str]] = trading_pairs
+    def __init__(self, trading_pairs: List[str]):
+        super().__init__(trading_pairs)
         self._tp_map_mrktid: Dict[str, str] = None
+
+    @classmethod
+    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
+        results = dict()
+        async with aiohttp.ClientSession() as client:
+            resp = await client.get(f"{constants.REST_URL}/tickers")
+            resp_json = await resp.json()
+            for trading_pair in trading_pairs:
+                resp_record = [o for o in resp_json if o["symbol"] == trading_pair][0]
+                results[trading_pair] = float(resp_record["price"])
+        return results
 
     @classmethod
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
@@ -140,26 +146,6 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 )
         return self._tp_map_mrktid
 
-    async def get_trading_pairs(self) -> List[str]:
-        """
-        Get a list of active trading pairs
-        (if the market class already specifies a list of trading pairs,
-        returns that list instead of all active trading pairs)
-        :returns: A list of trading pairs defined by the market class, or all active trading pairs from the rest API
-        """
-        if not self._trading_pairs:
-            try:
-                active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                self._trading_pairs = active_markets['symbol'].tolist()
-            except Exception:
-                self._trading_pairs = []
-                self.logger().network(
-                    "Error getting active exchange information.",
-                    exc_info=True,
-                    app_warning_msg="Error getting active exchange information. Check network connection."
-                )
-        return self._trading_pairs
-
     @staticmethod
     async def get_map_market_id() -> Dict[str, str]:
         """
@@ -193,54 +179,21 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
             data: Dict[str, Any] = await response.json()
             return data
 
-    async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
-        """
-        *required
-        Initializes order books and order book trackers for the list of trading pairs
-        returned by `self.get_trading_pairs`
-        :returns: A dictionary of order book trackers for each trading pair
-        """
-        # Get the currently active markets
+    async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         async with aiohttp.ClientSession() as client:
-            trading_pairs: List[str] = await self.get_trading_pairs()
             td_map_id: Dict[str, str] = await self.get_map_marketid()
-
-            retval: Dict[str, OrderBookTrackerEntry] = {}
-
-            number_of_pairs: int = len(trading_pairs)
-            index = 0
-            for trading_pair in trading_pairs:
-                try:
-                    index = index + 1
-                    snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
-                    snapshot_timestamp: float = time.time()
-                    snapshot_msg: OrderBookMessage = EterbaseOrderBook.snapshot_message_from_exchange(
-                        snapshot,
-                        snapshot_timestamp,
-                        metadata = {"trading_pair": trading_pair, "market_id": td_map_id[trading_pair]}
-                    )
-                    order_book: OrderBook = self.order_book_create_function()
-                    active_order_tracker: EterbaseActiveOrderTracker = EterbaseActiveOrderTracker()
-                    bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
-                    order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
-
-                    retval[trading_pair] = EterbaseOrderBookTrackerEntry(
-                        trading_pair,
-                        snapshot_timestamp,
-                        order_book,
-                        active_order_tracker
-                    )
-                    self.logger().info(f"Initialized order book for {trading_pair}. "
-                                       f"{index}/{number_of_pairs} completed.")
-                except IOError:
-                    self.logger().network(
-                        f"Error getting snapshot for {trading_pair}.",
-                        exc_info=True,
-                        app_warning_msg=f"Error getting snapshot for {trading_pair}. Check network connection."
-                    )
-                except Exception:
-                    self.logger().error(f"Error initializing order book for {trading_pair}. ", exc_info = True)
-            return retval
+            snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
+            snapshot_timestamp: float = time.time()
+            snapshot_msg: OrderBookMessage = EterbaseOrderBook.snapshot_message_from_exchange(
+                snapshot,
+                snapshot_timestamp,
+                metadata={"trading_pair": trading_pair, "market_id": td_map_id[trading_pair]}
+            )
+            order_book: OrderBook = self.order_book_create_function()
+            active_order_tracker: EterbaseActiveOrderTracker = EterbaseActiveOrderTracker()
+            bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
+            order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
+            return order_book
 
     async def _inner_messages(self,
                               ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
@@ -281,7 +234,7 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         while True:
             try:
-                trading_pairs = await self.get_trading_pairs()
+                trading_pairs = self._trading_pairs
                 tp_map_mrktid = await self.get_map_marketid()
                 marketsDict = dict(zip(tp_map_mrktid.values(), tp_map_mrktid.keys()))
                 marketIds = []
@@ -334,7 +287,7 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         while True:
             try:
-                trading_pairs: List[str] = await self.get_trading_pairs()
+                trading_pairs: List[str] = self._trading_pairs
                 async with aiohttp.ClientSession() as client:
                     for trading_pair in trading_pairs:
                         try:

@@ -9,9 +9,9 @@ ETERBASE is the first regulation-compliant European cryptocurrency exchange, off
 Eterbase is a centralized exchange, you will need to generate and provide your API key in order to trade using Hummingbot.
 
 ```
-Enter your Eterbase Account >>>
 Enter your Eterbase API key >>>
 Enter your Eterbase secret key >>>
+Enter your Eterbase Account >>>
 ```
 
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
