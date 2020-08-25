@@ -15,7 +15,6 @@ cdef class ExchangeBase(ConnectorBase):
     cdef str c_sell(self, str trading_pair, object amount, object order_type=*, object price=*, dict kwargs=*)
     cdef c_cancel(self, str trading_pair, str client_order_id)
     cdef c_stop_tracking_order(self, str order_id)
-    cdef str c_withdraw(self, str address, str currency, object amount)
     cdef OrderBook c_get_order_book(self, str trading_pair)
     cdef object c_get_price(self, str trading_pair, bint is_buy)
     cdef ClientOrderBookQueryResult c_get_quote_volume_for_base_amount(self, str trading_pair, bint is_buy, object base_amount)
