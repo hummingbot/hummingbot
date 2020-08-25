@@ -39,6 +39,7 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.market.huobi.huobi_market import HuobiMarket
+from hummingbot.market.huobi.huobi_utils import convert_to_exchange_trading_pair
 from hummingbot.market.market_base import OrderType
 from hummingbot.market.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
@@ -534,7 +535,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
         if API_MOCK_ENABLED:
             return
         for pair in self.market.trading_rules:
-            exchange_pair = self.convert_to_exchange_trading_pair(pair)
+            exchange_pair = convert_to_exchange_trading_pair(pair)
             self.assertTrue(exchange_pair in self.market.order_books)
 
 

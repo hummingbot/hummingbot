@@ -40,6 +40,7 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.market.eterbase.eterbase_market import EterbaseMarket
+from hummingbot.market.eterbase.eterbase_utils import convert_to_exchange_trading_pair
 from hummingbot.market.market_base import OrderType
 from hummingbot.market.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
@@ -448,7 +449,7 @@ class EterbaseMarketUnitTest(unittest.TestCase):
 
     def test_pair_convesion(self):
         for pair in self.market.trading_rules:
-            exchange_pair = self.convert_to_exchange_trading_pair(pair)
+            exchange_pair = convert_to_exchange_trading_pair(pair)
             self.assertTrue(exchange_pair in self.market.order_books)
 
 

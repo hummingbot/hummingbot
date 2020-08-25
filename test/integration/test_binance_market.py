@@ -47,6 +47,7 @@ from hummingbot.market.binance.binance_market import (
     BinanceTime,
     binance_client_module
 )
+from hummingbot.market.binance.binance_utils import convert_to_exchange_trading_pair
 from hummingbot.market.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
@@ -655,7 +656,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
         if API_MOCK_ENABLED:
             return
         for pair in self.market.trading_rules:
-            exchange_pair = self.convert_to_exchange_trading_pair(pair)
+            exchange_pair = convert_to_exchange_trading_pair(pair)
             self.assertTrue(exchange_pair in self.market.order_books)
 
 
