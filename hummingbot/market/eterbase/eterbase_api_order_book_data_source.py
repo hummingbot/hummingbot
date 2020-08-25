@@ -24,6 +24,9 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.market.eterbase.eterbase_active_order_tracker import EterbaseActiveOrderTracker
 import hummingbot.market.eterbase.eterbase_constants as constants
+from hummingbot.market.eterbase.eterbase_utils import (
+    convert_to_exchange_trading_pair,
+    convert_from_exchange_trading_pair)
 
 MAX_RETRIES = 20
 NaN = float("nan")
@@ -54,7 +57,7 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
             resp = await client.get(f"{constants.REST_URL}/tickers")
             resp_json = await resp.json()
             for trading_pair in trading_pairs:
-                resp_record = [o for o in resp_json if o["symbol"] == trading_pair][0]
+                resp_record = [o for o in resp_json if o["symbol"] == convert_to_exchange_trading_pair(trading_pair)][0]
                 results[trading_pair] = float(resp_record["price"])
         return results
 
@@ -71,6 +74,8 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 if products_response.status != 200:
                     raise IOError(f"Error fetching active Eterbase markets. HTTP status is {products_response.status}.")
                 data = await products_response.json()
+                for pair in data:
+                    pair["symbol"] = convert_from_exchange_trading_pair(pair["symbol"])
                 all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data, index="id")
                 all_markets.rename({"base": "baseAsset", "quote": "quoteAsset"},
                                    axis="columns", inplace=True)
@@ -158,7 +163,7 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     raise IOError(f"Error fetching active Eterbase markets. HTTP status is {products_response.status}.")
                 data = await products_response.json()
                 for dt in data:
-                    tp_map_mid[dt['symbol']] = dt['id']
+                    tp_map_mid[convert_from_exchange_trading_pair(dt['symbol'])] = dt['id']
         return tp_map_mid
 
     @staticmethod

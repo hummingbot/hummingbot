@@ -14,7 +14,6 @@ from decimal import Decimal
 from functools import partial
 import logging
 import pandas as pd
-import re
 import time
 from typing import (
     Any,
@@ -62,6 +61,9 @@ from hummingbot.market.binance.binance_order_book_tracker import BinanceOrderBoo
 from hummingbot.market.binance.binance_user_stream_tracker import BinanceUserStreamTracker
 from hummingbot.market.binance.binance_time import BinanceTime
 from hummingbot.market.binance.binance_in_flight_order import BinanceInFlightOrder
+from hummingbot.market.binance.binance_utils import (
+    convert_from_exchange_trading_pair,
+    convert_to_exchange_trading_pair)
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
@@ -72,7 +74,6 @@ from hummingbot.core.utils.estimate_fee import estimate_fee
 
 s_logger = None
 s_decimal_0 = Decimal(0)
-TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|USDS|TUSD|PAX|TRX|BUSD|NGN|RUB|TRY|EUR|IDRT|ZAR|UAH|GBP|BKRW|BIDR)$")
 BROKER_ID = "x-XEKWYICX"
 
 
@@ -158,28 +159,6 @@ cdef class BinanceMarket(MarketBase):
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._last_poll_timestamp = 0
         self._throttler = Throttler((10.0, 1.0))
-
-    @staticmethod
-    def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
-        try:
-            m = TRADING_PAIR_SPLITTER.match(trading_pair)
-            return m.group(1), m.group(2)
-        # Exceptions are now logged as warnings in trading pair fetcher
-        except Exception as e:
-            return None
-
-    @staticmethod
-    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
-        if BinanceMarket.split_trading_pair(exchange_trading_pair) is None:
-            return None
-        # Binance does not split BASEQUOTE (BTCUSDT)
-        base_asset, quote_asset = BinanceMarket.split_trading_pair(exchange_trading_pair)
-        return f"{base_asset}-{quote_asset}"
-
-    @staticmethod
-    def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-        # Binance does not split BASEQUOTE (BTCUSDT)
-        return hb_trading_pair.replace("-", "")
 
     @property
     def name(self) -> str:
@@ -353,7 +332,7 @@ cdef class BinanceMarket(MarketBase):
             trading_rules_list = self._format_trading_rules(exchange_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
-                self._trading_rules[self.convert_from_exchange_trading_pair(trading_rule.trading_pair)] = trading_rule
+                self._trading_rules[convert_from_exchange_trading_pair(trading_rule.trading_pair)] = trading_rule
 
     def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
@@ -424,7 +403,7 @@ cdef class BinanceMarket(MarketBase):
                 trading_pairs_to_order_map[o.trading_pair][o.exchange_order_id] = o
 
             trading_pairs = list(trading_pairs_to_order_map.keys())
-            tasks = [self.query_api(self._binance_client.get_my_trades, symbol=self.convert_to_exchange_trading_pair(trading_pair))
+            tasks = [self.query_api(self._binance_client.get_my_trades, symbol=convert_to_exchange_trading_pair(trading_pair))
                      for trading_pair in trading_pairs]
             self.logger().debug("Polling for order fills of %d trading pairs.", len(tasks))
             results = await safe_gather(*tasks, return_exceptions=True)
@@ -473,7 +452,7 @@ cdef class BinanceMarket(MarketBase):
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
             tasks = [self.query_api(self._binance_client.get_order,
-                                    symbol=self.convert_to_exchange_trading_pair(o.trading_pair), origClientOrderId=o.client_order_id)
+                                    symbol=convert_to_exchange_trading_pair(o.trading_pair), origClientOrderId=o.client_order_id)
                      for o in tracked_orders]
             self.logger().debug("Polling for order status updates of %d orders.", len(tasks))
             results = await safe_gather(*tasks, return_exceptions=True)
@@ -622,7 +601,7 @@ cdef class BinanceMarket(MarketBase):
 
                     if execution_type == "TRADE":
                         order_filled_event = OrderFilledEvent.order_filled_event_from_binance_execution_report(event_message)
-                        order_filled_event = order_filled_event._replace(trading_pair=self.convert_from_exchange_trading_pair(order_filled_event.trading_pair))
+                        order_filled_event = order_filled_event._replace(trading_pair=convert_from_exchange_trading_pair(order_filled_event.trading_pair))
                         order_filled_event = order_filled_event._replace(trade_fee=self.c_get_fee(
                             tracked_order.base_asset,
                             tracked_order.quote_asset,
@@ -864,7 +843,7 @@ cdef class BinanceMarket(MarketBase):
         price_str = f"{price:f}"
         type_str = BinanceMarket.binance_order_type(order_type)
         side_str = BinanceClient.SIDE_BUY if trade_type is TradeType.BUY else BinanceClient.SIDE_SELL
-        api_params = {"symbol": self.convert_to_exchange_trading_pair(trading_pair),
+        api_params = {"symbol": convert_to_exchange_trading_pair(trading_pair),
                       "side": side_str,
                       "quantity": amount_str,
                       "type": type_str,
@@ -933,7 +912,7 @@ cdef class BinanceMarket(MarketBase):
     async def execute_cancel(self, trading_pair: str, order_id: str):
         try:
             cancel_result = await self.query_api(self._binance_client.cancel_order,
-                                                 symbol=self.convert_to_exchange_trading_pair(trading_pair),
+                                                 symbol=convert_to_exchange_trading_pair(trading_pair),
                                                  origClientOrderId=order_id)
         except BinanceAPIException as e:
             if "Unknown order sent" in e.message or e.code == 2011:
@@ -989,8 +968,6 @@ cdef class BinanceMarket(MarketBase):
     cdef OrderBook c_get_order_book(self, str trading_pair):
         cdef:
             dict order_books = self._order_book_tracker.order_books
-
-        trading_pair = self.convert_to_exchange_trading_pair(trading_pair)
 
         if trading_pair not in order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")

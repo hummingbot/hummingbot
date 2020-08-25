@@ -50,20 +50,6 @@ from hummingbot.client.config.security import Security
 
 s_logger = None
 
-MARKET_CLASSES = {
-    "bamboo_relay": BambooRelayMarket,
-    "binance": BinanceMarket,
-    "coinbase_pro": CoinbaseProMarket,
-    "huobi": HuobiMarket,
-    "liquid": LiquidMarket,
-    "radar_relay": RadarRelayMarket,
-    "dolomite": DolomiteMarket,
-    "bittrex": BittrexMarket,
-    "kucoin": KucoinMarket,
-    "eterbase": EterbaseMarket,
-    "kraken": KrakenMarket
-}
-
 
 class HummingbotApplication(*commands):
     KILL_TIMEOUT = 10.0
@@ -202,13 +188,6 @@ class HummingbotApplication(*commands):
         market_trading_pairs: List[Tuple[str, str]] = [(trading_pair.split('-')) for trading_pair in trading_pairs]
         return market_trading_pairs
 
-    """
-    @staticmethod
-    def _convert_to_exchange_trading_pair(market_name: str, hb_trading_pair: List[str]) -> List[str]:
-        market_class: MarketBase = MARKET_CLASSES.get(market_name, MarketBase)
-        return [market_class.convert_to_exchange_trading_pair(trading_pair) for trading_pair in hb_trading_pair]
-    """
-
     def _initialize_wallet(self, token_trading_pairs: List[str]):
         if not using_wallet():
             return
@@ -234,10 +213,8 @@ class HummingbotApplication(*commands):
         for market_name, trading_pairs in market_names:
             if market_name not in market_trading_pairs_map:
                 market_trading_pairs_map[market_name] = []
-            market_class: MarketBase = MARKET_CLASSES.get(market_name, MarketBase)
-            for trading_pair in trading_pairs:
-                exchange_trading_pair: str = market_class.convert_to_exchange_trading_pair(trading_pair)
-                market_trading_pairs_map[market_name].append(exchange_trading_pair)
+            for hb_trading_pair in trading_pairs:
+                market_trading_pairs_map[market_name].append(hb_trading_pair)
 
         for market_name, trading_pairs in market_trading_pairs_map.items():
             if global_config_map.get("paper_trade_enabled").value:
