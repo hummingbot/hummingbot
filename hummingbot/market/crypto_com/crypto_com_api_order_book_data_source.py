@@ -33,10 +33,22 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pairs: Optional[List[str]] = None):
-        super().__init__()
-        self._trading_pairs: Optional[List[str]] = trading_pairs
+    def __init__(self, trading_pairs: List[str] = None):
+        super().__init__(trading_pairs)
+        self._trading_pairs: List[str] = trading_pairs
         self._snapshot_msg: Dict[str, any] = {}
+
+    @classmethod
+    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
+        result = {}
+        async with aiohttp.ClientSession() as client:
+            resp = await client.get(f"{constants.REST_URL}/public/get-ticker")
+            resp_json = await resp.json()
+            for t_pair in trading_pairs:
+                last_trade = [o["a"] for o in resp_json["result"]["data"] if o["i"] == t_pair]
+                if last_trade and last_trade[0] is not None:
+                    result[t_pair] = last_trade[0]
+        return result
 
     @classmethod
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
@@ -110,44 +122,40 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             return all_markets.sort_values("USDVolume", ascending=False)
 
-    async def get_trading_pairs(self) -> List[str]:
-        """
-        Return list of trading pairs
-        """
-        if not self._trading_pairs:
-            try:
-                active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                self._trading_pairs = active_markets.index.tolist()
-            except Exception:
-                self._trading_pairs = []
-                self.logger().network(
-                    "Error getting active exchange information.",
-                    exc_info=True,
-                    app_warning_msg="Error getting active exchange information. Check network connection.",
-                )
-
-        return self._trading_pairs
-
     @staticmethod
-    async def get_orderbook(trading_pair: str) -> Dict[str, any]:
+    async def get_order_book_data(trading_pair: str) -> Dict[str, any]:
         """
         Get whole orderbook
         """
-        client = aiohttp.ClientSession()
-        orderbook_response = await client.get(
-            f"{constants.REST_URL}/public/get-book?depth=150&instrument_name={trading_pair}"
-        )
-
-        if orderbook_response.status != 200:
-            raise IOError(
-                f"Error fetching OrderBook for {trading_pair} at {constants.EXCHANGE_NAME}. " f"HTTP status is {orderbook_response.status}."
+        async with aiohttp.ClientSession() as client:
+            orderbook_response = await client.get(
+                f"{constants.REST_URL}/public/get-book?depth=150&instrument_name={trading_pair}"
             )
 
-        orderbook_data: List[Dict[str, Any]] = await safe_gather(orderbook_response.json())
-        orderbook_data = orderbook_data[0]["result"]["data"][0]
+            if orderbook_response.status != 200:
+                raise IOError(
+                    f"Error fetching OrderBook for {trading_pair} at {constants.EXCHANGE_NAME}. "
+                    f"HTTP status is {orderbook_response.status}."
+                )
 
-        await client.close()
+            orderbook_data: List[Dict[str, Any]] = await safe_gather(orderbook_response.json())
+            orderbook_data = orderbook_data[0]["result"]["data"][0]
+
         return orderbook_data
+
+    async def get_new_order_book(self, trading_pair: str) -> OrderBook:
+        snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair)
+        snapshot_timestamp: float = time.time()
+        snapshot_msg: OrderBookMessage = CryptoComOrderBook.snapshot_message_from_exchange(
+            snapshot,
+            snapshot_timestamp,
+            metadata={"trading_pair": trading_pair}
+        )
+        order_book = self.order_book_create_function()
+        active_order_tracker: CryptoComActiveOrderTracker = CryptoComActiveOrderTracker()
+        bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
+        order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
+        return order_book
 
     async def get_tracking_pairs(self) -> Dict[str, CryptoComOrderBookTrackerEntry]:
         trading_pairs: List[str] = await self.get_trading_pairs()
@@ -156,7 +164,7 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
         number_of_pairs: int = len(trading_pairs)
         for index, trading_pair in enumerate(trading_pairs):
             try:
-                snapshot: Dict[str, any] = await self.get_orderbook(trading_pair)
+                snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair)
                 snapshot_timestamp: int = ms_timestamp_to_s(snapshot["t"])
                 snapshot_msg: OrderBookMessage = CryptoComOrderBook.snapshot_message_from_exchange(
                     snapshot,
@@ -197,11 +205,9 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 ws = CryptoComWebsocket()
                 await ws.connect()
 
-                trading_pairs: List[str] = await self.get_trading_pairs()
-
                 await ws.subscribe(list(map(
                     lambda pair: f"trade.{pair}",
-                    trading_pairs
+                    self._trading_pairs
                 )))
 
                 async for response in ws.onMessage():
@@ -235,11 +241,9 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 ws = CryptoComWebsocket()
                 await ws.connect()
 
-                trading_pairs: List[str] = await self.get_trading_pairs()
-
                 await ws.subscribe(list(map(
                     lambda pair: f"book.{pair}.150",
-                    trading_pairs
+                    self._trading_pairs
                 )))
 
                 async for response in ws.onMessage():
@@ -274,11 +278,9 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         while True:
             try:
-                trading_pairs: List[str] = await self.get_trading_pairs()
-
-                for trading_pair in trading_pairs:
+                for trading_pair in self._trading_pairs:
                     try:
-                        snapshot: Dict[str, any] = await self.get_orderbook(trading_pair)
+                        snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair)
                         snapshot_timestamp: int = ms_timestamp_to_s(snapshot["t"])
                         snapshot_msg: OrderBookMessage = CryptoComOrderBook.snapshot_message_from_exchange(
                             snapshot,
