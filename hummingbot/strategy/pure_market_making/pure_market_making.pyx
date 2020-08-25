@@ -515,6 +515,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         return pd.DataFrame(data=data, columns=columns)
 
     def format_status(self) -> str:
+        if not self._all_markets_ready:
+            return "Market connectors are not ready."
         cdef:
             list lines = []
             list warning_lines = []
