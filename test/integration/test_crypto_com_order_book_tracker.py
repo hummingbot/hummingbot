@@ -11,10 +11,8 @@ from typing import Dict, Optional, List
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent, TradeType
 from hummingbot.market.crypto_com.crypto_com_order_book_tracker import CryptoComOrderBookTracker
+from hummingbot.market.crypto_com.crypto_com_api_order_book_data_source import CryptoComAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_tracker import (
-    OrderBookTrackerDataSourceType
-)
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 sys.path.insert(0, realpath(join(__file__, "../../../")))
@@ -33,8 +31,7 @@ class CryptoComOrderBookTrackerUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        cls.order_book_tracker: CryptoComOrderBookTracker = CryptoComOrderBookTracker(
-            OrderBookTrackerDataSourceType.EXCHANGE_API, trading_pairs=cls.trading_pairs)
+        cls.order_book_tracker: CryptoComOrderBookTracker = CryptoComOrderBookTracker(cls.trading_pairs)
         cls.order_book_tracker_task: asyncio.Task = safe_ensure_future(cls.order_book_tracker.start())
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
 
@@ -95,6 +92,14 @@ class CryptoComOrderBookTrackerUnitTest(unittest.TestCase):
                                 eth_usdt.get_price(True))
         self.assertLessEqual(eth_usdt.get_price_for_volume(False, 10).result_price,
                              eth_usdt.get_price(False))
+
+    def test_api_get_last_traded_prices(self):
+        prices = self.ev_loop.run_until_complete(
+            CryptoComAPIOrderBookDataSource.get_last_traded_prices(["BTC_USDT", "LTC_BTC"]))
+        for key, value in prices.items():
+            print(f"{key} last_trade_price: {value}")
+        self.assertGreater(prices["BTC_USDT"], 1000)
+        self.assertLess(prices["LTC_BTC"], 1)
 
 
 def main():
