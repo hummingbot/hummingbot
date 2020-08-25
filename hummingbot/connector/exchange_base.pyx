@@ -21,7 +21,6 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.connector.connector_base import ConnectorBase
 
 NaN = float("nan")
@@ -29,17 +28,9 @@ s_decimal_NaN = Decimal("nan")
 s_decimal_0 = Decimal(0)
 
 cdef class ExchangeBase(ConnectorBase):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, fee_estimates: Dict[bool, Decimal], balance_limits: Dict[str, Decimal]):
+        super().__init__(fee_estimates, balance_limits)
         self._order_book_tracker = None
-
-    @staticmethod
-    def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
-        try:
-            return tuple(trading_pair.split('-'))
-        # Exceptions are logged as warnings in Trading pair fetcher class
-        except Exception:
-            return None
 
     @staticmethod
     def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
@@ -67,9 +58,6 @@ cdef class ExchangeBase(ConnectorBase):
         """
         raise NotImplementedError
 
-    async def get_deposit_info(self, asset: str) -> DepositInfo:
-        raise NotImplementedError
-
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         raise NotImplementedError
 
@@ -95,9 +83,6 @@ cdef class ExchangeBase(ConnectorBase):
                           object amount,
                           object price):
         return self.get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
-
-    cdef str c_withdraw(self, str address, str currency, object amount):
-        raise NotImplementedError
 
     cdef OrderBook c_get_order_book(self, str trading_pair):
         return self.get_order_book(trading_pair)
@@ -222,9 +207,6 @@ cdef class ExchangeBase(ConnectorBase):
 
     def cancel(self, trading_pair: str, client_order_id: str):
         raise NotImplementedError
-
-    def withdraw(self, address: str, currency: str, amount: Decimal) -> str:
-        return self.c_withdraw(address, currency, amount)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         raise NotImplementedError
