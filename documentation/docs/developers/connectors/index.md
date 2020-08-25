@@ -4,16 +4,6 @@
 
 Exchange connectors are modules that allow Hummingbot to connect to an exchange.  Connecting to an exchange requires constant retrieval of live exchange/order book data as well as handling interactions with the exchange.
 
-Each exchange connector is comprised of the following components:
-
-Component | Function
----|---
-**(1) Trade execution** | Sending buy/sell/cancel instructions to the exchange.
-**(2) Conforming order book data** | Formatting an exchange's order book data into the standard format used by Hummingbot.
-**(3) Order book tracking** | State management: tracking exchange's real-time order book data.
-**(4) Active order tracking** | State management: tracking orders placed by the bot on the exchange.
-**(5) User stream tracker** | Tracking data specific to the user of the bot.
-
 ## Examples / templates
 
 There are [existing connectors](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market) (each folder contained here is a different exchange connector) that can serve as a template for creating a new exchange connector.
@@ -23,25 +13,6 @@ Building a new exchange connector requires conforming to the template code to th
 - Centralized exchange: [Binance](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/binance), [Coinbase Pro](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/coinbase_pro), [Huobi](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/huobi), [Bittrex](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/bittrex)
 - Ethereum DEX (0x open order book): [Radar Relay](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/radar_relay)
 - Ethereum DEX (0x open order book w/coordinator support): [Bamboo Relay](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/bamboo_relay)
-
-## Placing and tracking orders
-
-`Market` classes place orders via `execute_buy` and `execute_sell` commands, which require the following arguments:
-
-- The order ID
-- The market symbol
-- The amount of the order
-- The type (limit or market)
-- The price, if limit order
-
-The `execute_buy` and `execute_sell` methods verify that the trades would be legal given the trading rules pulled from the exchange and calculate applicable trading fees. They then must do the following:
-
-- Quantize the order amount to ensure that the precision is as required by the exchange
-- Create a `params` dictionary with the necessary parameters for the desired order
-- Pass the `params` to an `Auth` object to generate the signature and place the order
-- Pass the resulting order ID and status along with the details of the order to an `InFlightOrder`
-
-`InFlightOrders` are stored within a list in the `Market` class, and are Hummingbot’s internal records of orders it has placed that remain open on the market. When such orders are either filled or canceled, they are removed from the list and the relevant event completion flag is passed to the strategy module.
 
 ## Exchange connector requirements
 1. A complete set of exchange connector files as listed [above](#exchange-connector-files).
