@@ -11,10 +11,8 @@ from typing import (
     Optional
 )
 
-from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.market.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
@@ -30,25 +28,12 @@ class LiquidOrderBookTracker(OrderBookTracker):
             cls._lobt_logger = logging.getLogger(__name__)
         return cls._lobt_logger
 
-    def __init__(self,
-                 data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
-                 trading_pairs: Optional[List[str]] = None):
-        super().__init__(data_source_type=data_source_type)
+    def __init__(self, trading_pairs: List[str]):
+        super().__init__(LiquidAPIOrderBookDataSource(trading_pairs), trading_pairs)
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        self._data_source: Optional[OrderBookTrackerDataSource] = None
         self._saved_message_queues: Dict[str, Deque[OrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
-        self._trading_pairs: Optional[List[str]] = trading_pairs
-
-    @property
-    def data_source(self) -> (OrderBookTrackerDataSource):
-        if not self._data_source:
-            if self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = LiquidAPIOrderBookDataSource(trading_pairs=self._trading_pairs)
-            else:
-                raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
-        return self._data_source
 
     @property
     def exchange_name(self) -> (str):

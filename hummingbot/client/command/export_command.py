@@ -90,11 +90,15 @@ class ExportCommand:
 
     def _get_trades_from_session(self,  # type: HummingbotApplication
                                  start_timestamp: int,
-                                 number_of_rows: Optional[int] = None) -> List[TradeFill]:
+                                 number_of_rows: Optional[int] = None,
+                                 config_file_path: str = None) -> List[TradeFill]:
         session: Session = self.trade_fill_db.get_shared_session()
+        filters = [TradeFill.timestamp >= start_timestamp]
+        if config_file_path is not None:
+            filters.append(TradeFill.config_file_path.like(f"%{config_file_path}%"))
         query: Query = (session
                         .query(TradeFill)
-                        .filter(TradeFill.timestamp >= start_timestamp)
+                        .filter(*filters)
                         .order_by(TradeFill.timestamp.desc()))
         if number_of_rows is None:
             result: List[TradeFill] = query.all() or []

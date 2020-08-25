@@ -5,7 +5,6 @@ from typing import (
     Dict,
     Optional
 )
-
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.market.market_base import MarketBase
 from hummingbot.core.event.events import (
