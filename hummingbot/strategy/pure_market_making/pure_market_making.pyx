@@ -606,6 +606,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             MarketBase market = self._market_info.market
             list buys = []
             list sells = []
+        # It is necessary to point buy and sell levels to order_levels in order to make the configurable on the fly
+        self.buy_levels = self._order_levels
+        self.sell_levels = self._order_levels
         for level in range(0, self._buy_levels):
             price = self.c_get_mid_price() * (Decimal("1") - self._bid_spread - (level * self._order_level_spread))
             price = market.c_quantize_order_price(self.trading_pair, price)
