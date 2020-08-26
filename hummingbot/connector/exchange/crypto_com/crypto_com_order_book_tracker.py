@@ -2,7 +2,7 @@
 import asyncio
 import bisect
 import logging
-import hummingbot.market.crypto_com.crypto_com_constants as constants
+import hummingbot.connector.exchange.crypto_com.crypto_com_constants as constants
 import time
 
 from collections import defaultdict, deque
@@ -11,10 +11,10 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.market.crypto_com.crypto_com_order_book_message import CryptoComOrderBookMessage
-from hummingbot.market.crypto_com.crypto_com_active_order_tracker import CryptoComActiveOrderTracker
-from hummingbot.market.crypto_com.crypto_com_api_order_book_data_source import CryptoComAPIOrderBookDataSource
-from hummingbot.market.crypto_com.crypto_com_order_book import CryptoComOrderBook
+from hummingbot.connector.exchange.crypto_com.crypto_com_order_book_message import CryptoComOrderBookMessage
+from hummingbot.connector.exchange.crypto_com.crypto_com_active_order_tracker import CryptoComActiveOrderTracker
+from hummingbot.connector.exchange.crypto_com.crypto_com_api_order_book_data_source import CryptoComAPIOrderBookDataSource
+from hummingbot.connector.exchange.crypto_com.crypto_com_order_book import CryptoComOrderBook
 
 
 class CryptoComOrderBookTracker(OrderBookTracker):

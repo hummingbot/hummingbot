@@ -8,10 +8,10 @@ from typing import Optional, List, AsyncIterable, Any
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from hummingbot.market.crypto_com.crypto_com_auth import CryptoComAuth
-from hummingbot.market.crypto_com.crypto_com_order_book import CryptoComOrderBook
-from hummingbot.market.crypto_com.crypto_com_websocket import CryptoComWebsocket
-from hummingbot.market.crypto_com.crypto_com_utils import ms_timestamp_to_s
+from hummingbot.connector.exchange.crypto_com.crypto_com_auth import CryptoComAuth
+from hummingbot.connector.exchange.crypto_com.crypto_com_order_book import CryptoComOrderBook
+from hummingbot.connector.exchange.crypto_com.crypto_com_websocket import CryptoComWebsocket
+from hummingbot.connector.exchange.crypto_com.crypto_com_utils import ms_timestamp_to_s
 
 
 class CryptoComAPIUserStreamDataSource(UserStreamTrackerDataSource):

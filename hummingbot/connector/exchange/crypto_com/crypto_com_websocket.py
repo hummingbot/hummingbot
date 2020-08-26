@@ -4,14 +4,14 @@ import copy
 import logging
 import websockets
 import ujson
-import hummingbot.market.crypto_com.crypto_com_constants as constants
+import hummingbot.connector.exchange.crypto_com.crypto_com_constants as constants
 
 
 from typing import Optional, AsyncIterable, Any, List
 from websockets.exceptions import ConnectionClosed
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.crypto_com.crypto_com_auth import CryptoComAuth
-from hummingbot.market.crypto_com.crypto_com_utils import RequestId, get_ms_timestamp
+from hummingbot.connector.exchange.crypto_com.crypto_com_auth import CryptoComAuth
+from hummingbot.connector.exchange.crypto_com.crypto_com_utils import RequestId, get_ms_timestamp
 
 # reusable websocket class
 

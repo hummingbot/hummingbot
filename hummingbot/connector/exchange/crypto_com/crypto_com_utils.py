@@ -33,13 +33,22 @@ def ms_timestamp_to_s(ms: int) -> int:
 
 
 # Request ID class
-class RequestId():
+class RequestId:
     """
     Generate request ids
     """
     _request_id: int = 0
 
-    def generate_request_id(self) -> int:
-        self._request_id += 1
-        # return self._request_id
+    @classmethod
+    def generate_request_id(cls) -> int:
+        cls._request_id += 1
+        # return cls._request_id
         return math.floor(random.random() * 1e18)
+
+
+def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
+    return exchange_trading_pair.replace("_", "-")
+
+
+def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
+    return hb_trading_pair.replace("-", "_")

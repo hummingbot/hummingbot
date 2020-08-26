@@ -1,21 +1,20 @@
 #!/usr/bin/env python
+from os.path import join, realpath
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 import math
 import time
-import sys
 import asyncio
 import logging
 import unittest
 
-from os.path import join, realpath
+
 from typing import Dict, Optional, List
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent, TradeType
-from hummingbot.market.crypto_com.crypto_com_order_book_tracker import CryptoComOrderBookTracker
-from hummingbot.market.crypto_com.crypto_com_api_order_book_data_source import CryptoComAPIOrderBookDataSource
+from hummingbot.connector.exchange.crypto_com.crypto_com_order_book_tracker import CryptoComOrderBookTracker
+from hummingbot.connector.exchange.crypto_com.crypto_com_api_order_book_data_source import CryptoComAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.utils.async_utils import safe_ensure_future
-
-sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 
 class CryptoComOrderBookTrackerUnitTest(unittest.TestCase):

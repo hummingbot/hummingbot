@@ -3,8 +3,8 @@ import unittest
 from typing import List
 
 import conf
-from hummingbot.market.crypto_com.crypto_com_auth import CryptoComAuth
-from hummingbot.market.crypto_com.crypto_com_websocket import CryptoComWebsocket
+from hummingbot.connector.exchange.crypto_com.crypto_com_auth import CryptoComAuth
+from hummingbot.connector.exchange.crypto_com.crypto_com_websocket import CryptoComWebsocket
 
 
 class TestAuth(unittest.TestCase):
