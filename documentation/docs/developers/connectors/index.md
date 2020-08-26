@@ -96,6 +96,7 @@ We encourage and welcome contributions from the community, subject to the guidel
 1. Once the PR is submitted, our developers will review your code and likely request changes. Please expect the review process to take 2-3 weeks before the PR is merged.
 1. After the requirements above are fulfilled, we will merge the PR to `development` branch, which will be merged into `master` in the next release.
 1. In the future, we may separate community-contributed connectors and strategies from the core Hummingbot codebase, so that users can choose to install exchange connectors that they are using. However, we will not do that right now.
+<table><tbody><tr><td bgcolor="#ecf3ff">**General Note on Trading Pair Conversion**: </br> HummingBot's standard pair format is: `Base_Asset`-`Quote_Asset`. Therefore, a new connector that doesn't follow that convention of naming pairs would require both `convert_to_exchange_trading_pair` and `convert_from_exchange_trading_pair` methods to be implemented in the connector's market.pyx file. In addition, such connectors have to convert trading pairs in the `execute_buy` and `execute_sell` methods using the `convert_to_exchange_trading_pair` before placing order and also ensure that the dictionary keys for `self._trading_rules` are in HummingBot's pair format using `convert_from_exchange_trading_pair`. </td></tr></tbody></table>
 
 ### Expectations for the Hummingbot team
 1. Make available a dedicated channel on discord (https://discord.hummingbot.io) during the initial development process.

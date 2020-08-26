@@ -15,7 +15,7 @@ def start(self):
     min_profitability = celo_arb_config_map.get("min_profitability").value / Decimal("100")
     celo_slippage_buffer = celo_arb_config_map.get("celo_slippage_buffer").value / Decimal("100")
     try:
-        secondary_trading_pair: str = self._convert_to_exchange_trading_pair(secondary_exchange, [secondary_market])[0]
+        secondary_trading_pair: str = secondary_market
         secondary_assets: Tuple[str, str] = self._initialize_market_assets(secondary_exchange,
                                                                            [secondary_trading_pair])[0]
     except ValueError as e:
