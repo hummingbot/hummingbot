@@ -70,7 +70,6 @@ For more details on the calculation, please read [Demystifying Liquidity Mining 
 !!! warning "Liquidity mining return is a historic metric and not a guarantee of future return."
     The liquidity mining return displayed on the Hummingbot Miner app is calculated from the most recently collected order book information data.  The actual return may vary depending on the actual orders submitted in the specific snapshot in which orders were placed.
 
-For more details on the calculation, please read [Demystifying Liquidity Mining Rewards](https://hummingbot.io/blog/2019-12-liquidity-mining-rewards/).
 
 ### How are the reward allocated for each order book snapshot?
 In each weekly epoch, the lump-sum weekly reward is distributed equally across each minute within that epoch.  For each minute, a random snapshot is taken from within that minute to be used for calculating reward allocations.
