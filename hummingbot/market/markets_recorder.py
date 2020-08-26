@@ -169,7 +169,7 @@ class MarketsRecorder:
             return
 
         session: Session = self.session
-        base_asset, quote_asset = market.split_trading_pair(evt.trading_pair)
+        base_asset, quote_asset = evt.trading_pair.split("-")
         timestamp: int = self.db_timestamp
         event_type: MarketEvent = self.market_event_tag_map[event_tag]
         order_record: Order = Order(id=evt.order_id,
@@ -202,7 +202,7 @@ class MarketsRecorder:
             return
 
         session: Session = self.session
-        base_asset, quote_asset = market.split_trading_pair(evt.trading_pair)
+        base_asset, quote_asset = evt.trading_pair.split("-")
         timestamp: int = self.db_timestamp
         event_type: MarketEvent = self.market_event_tag_map[event_tag]
         order_id: str = evt.order_id
