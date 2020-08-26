@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import logging
-import hummingbot.market.crypto_com.crypto_com_constants as constants
+import hummingbot.connector.exchange.crypto_com.crypto_com_constants as constants
 
 from sqlalchemy.engine import RowProxy
 from typing import (
@@ -13,7 +13,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage, OrderBookMessageType
 )
-from hummingbot.market.crypto_com.crypto_com_order_book_message import CryptoComOrderBookMessage
+from hummingbot.connector.exchange.crypto_com.crypto_com_order_book_message import CryptoComOrderBookMessage
 
 _logger = None
 

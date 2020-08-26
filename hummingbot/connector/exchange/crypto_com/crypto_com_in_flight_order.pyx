@@ -9,7 +9,7 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.market.crypto_com.crypto_com_market import CryptoComMarket
+from hummingbot.connector.exchange.crypto_com import CryptoComMarket
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 
 
