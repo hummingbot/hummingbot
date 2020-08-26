@@ -21,7 +21,7 @@ def start(self):
             order_price = dev_2_perform_trade_config_map.get("order_price").value
 
         try:
-            trading_pair: str = self._convert_to_exchange_trading_pair(market, [raw_market_trading_pair])[0]
+            trading_pair: str = raw_market_trading_pair
             assets: Tuple[str, str] = self._initialize_market_assets(market, [trading_pair])[0]
         except ValueError as e:
             self._notify(str(e))
