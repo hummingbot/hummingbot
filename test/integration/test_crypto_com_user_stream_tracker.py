@@ -19,11 +19,13 @@ sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 class CryptoComUserStreamTrackerUnitTest(unittest.TestCase):
     user_stream_tracker: Optional[CryptoComUserStreamTracker] = None
+    api_key = conf.crypto_com_api_key
+    api_secret = conf.crypto_com_secret_key
 
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        cls.crypto_com_auth = CryptoComAuth(conf.crypto_com_api_key, conf.crypto_com_secret_key)
+        cls.crypto_com_auth = CryptoComAuth(cls.api_key, cls.api_secret)
         cls.trading_pairs = ["BTC_USDT"]
         cls.user_stream_tracker: CryptoComUserStreamTracker = CryptoComUserStreamTracker(
             crypto_com_auth=cls.crypto_com_auth, trading_pairs=cls.trading_pairs)
