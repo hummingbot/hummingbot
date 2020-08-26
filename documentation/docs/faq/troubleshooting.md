@@ -232,18 +232,6 @@ If Hummingbot is installed on MacOS, simply delete the `conf_global.yml` found i
 !!! Note
     If telegram is enabled make sure to backup your telegram token and chat id when deleting `conf_global.yml`.
 
-### How do I adjust paper trade asset balances?
-
-1. Stop the bot first if its running since parameter is part of the global settings
-2. Type in `config paper_trade_account_balance`
-3. Enter the token symbol and amount with the same format given on the input window. </br>
-    ![cli_add_balance](/assets/img/cli_add_balance.gif)</br>
-4. Press Enter to add and save the new token symbol.
-
-!!! note
-    1. Adding a new token balance should be done upon starting your bot (before importing or creating strategy) to avoid error.
-    2. Default paper_trade tokens and amounts will be removed upon adding a new token pair. Don't forget to add all the tokens you need.
-
 ## Operation
 
 ### Why is my bot not placing orders?
@@ -262,36 +250,6 @@ The art of market making is identifying the optimal combination of strategy para
 1. You can create a feature request through this [link](https://github.com/CoinAlpha/hummingbot/issues).
 2. Select the green button **new issue**.
 3. Choose **feature request** then fill it accordingly.
-
-### No orders generated in paper trading mode
-
-Errors will appear if any of the tokens in `maker_market_symbol` and/or `taker_market_symbol` has no balance in the paper trade account.
-
-```
-hummingbot.strategy.pure_market_making.pure_market_making_v2 - ERROR - Unknown error while generating order proposals.
-Traceback (most recent call last):
-  File "pure_market_making_v2.pyx", line 284, in hummingbot.strategy.pure_market_making.pure_market_making_v2.PureMarketMakingStrategyV2.c_tick
-  File "pure_market_making_v2.pyx", line 384, in hummingbot.strategy.pure_market_making.pure_market_making_v2.PureMarketMakingStrategyV2.c_get_orders_proposal_for_market_info
-  File "inventory_skew_multiple_size_sizing_delegate.pyx", line 58, in hummingbot.strategy.pure_market_making.inventory_skew_multiple_size_sizing_delegate.InventorySkewMultipleSizeSizingDelegate.c_get_order_size_proposal
-  File "paper_trade_market.pyx", line 806, in hummingbot.market.paper_trade.paper_trade_market.PaperTradeMarket.c_get_available_balance
-KeyError: 'ZRX'
-
-hummingbot.core.clock - ERROR - Unexpected error running clock tick.
-Traceback (most recent call last):
-  File "clock.pyx", line 119, in hummingbot.core.clock.Clock.run_til
-  File "pure_market_making_v2.pyx", line 292, in hummingbot.strategy.pure_market_making.pure_market_making_v2.PureMarketMakingStrategyV2.c_tick
-  File "pass_through_filter_delegate.pyx", line 22, in hummingbot.strategy.pure_market_making.pass_through_filter_delegate.PassThroughFilterDelegate.c_filter_orders_proposal
-AttributeError: 'NoneType' object has no attribute 'actions'
-```
-
-In this case, ZRX is not yet added to the list. See [this page](https://docs.hummingbot.io/operation/commands/paper-trade/#account-balance) on how to add balances.
-
-### Unable to convert token
-
-**Sample log error message**<br/>
-`ValueError: Unable to convert XYZ to BTC. Aborting.`
-
-Hummingbot uses external price feeds to convert one token to another, but certain symbols may be unavailable in the price feeds. Users can add them manually via the [Exchange Rate](/advanced/exchange-rates/) utility.
 
 ### [Binance] Timestamp for this request is outside of the recvWindow
 
@@ -391,15 +349,4 @@ You can change the timezone on a Windows computer by doing the following:
 
 Alternatively, you can also follow these steps in Windows Support article: [How to set your time and time zone](https://support.microsoft.com/en-ph/help/4026213/windows-how-to-set-your-time-and-time-zone)
 
-### How to Connect Metamask using Brave browser
-
-Normally, Brave browser should ask which crypto wallet to use when connecting to the miners app. However, this sometimes does not appear on the browser.
-
-Here are the steps to set your Brave browser to always use Metamask when connecting your crypto wallet with Hummingbots miners app. 
-1. Click the "three horizontal line" icon on the top right of the Brave Browser
-2. Select **Settings**
-3. Click on **Extensions**
-4. Click the dropdown for **Web3 provider for using Dapps** and select **Metamask** 
-
-![](/assets/img/brave_with_metamask.gif)
 

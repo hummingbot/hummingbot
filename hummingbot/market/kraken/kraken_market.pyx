@@ -14,6 +14,7 @@ from typing import (
     Optional,
     Tuple,
 )
+import copy
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -24,6 +25,12 @@ from hummingbot.core.utils.async_utils import (
 from hummingbot.market.kraken.kraken_api_order_book_data_source import KrakenAPIOrderBookDataSource
 from hummingbot.market.kraken.kraken_auth import KrakenAuth
 import hummingbot.market.kraken.kraken_constants as constants
+from hummingbot.market.kraken.kraken_utils import (
+    convert_from_exchange_symbol,
+    convert_from_exchange_trading_pair,
+    convert_to_exchange_symbol,
+    convert_to_exchange_trading_pair,
+    split_to_base_quote)
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.events import (
     MarketEvent,
@@ -145,6 +152,7 @@ cdef class KrakenMarket(MarketBase):
         self._shared_client = None
         self._asset_pairs = {}
         self._last_userref = 0
+        self._real_time_balance_update = False
 
     @property
     def name(self) -> str:
@@ -186,82 +194,6 @@ cdef class KrakenMarket(MarketBase):
             in_flight_orders[key] = KrakenInFlightOrder.from_json(value)
             self._last_userref = max(int(value["userref"]), self._last_userref)
         self._in_flight_orders.update(in_flight_orders)
-
-    @staticmethod
-    def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
-        return tuple(KrakenMarket.convert_from_exchange_trading_pair(trading_pair).split("-"))
-
-    @staticmethod
-    def clean_symbol(symbol: str) -> str:
-        if len(symbol) == 4 and symbol[0] == "X" or symbol[0] == "Z":
-            symbol = symbol[1:]
-        if symbol == "XBT":
-            symbol = "BTC"
-        return symbol
-
-    @staticmethod
-    def convert_from_exchange_symbol(symbol: str) -> str:
-        if (len(symbol) == 4 or len(symbol) == 6) and (symbol[0] == "X" or symbol[0] == "Z"):
-            symbol = symbol[1:]
-        if symbol == "XBT":
-            symbol = "BTC"
-        return symbol
-
-    @staticmethod
-    def convert_to_exchange_symbol(symbol: str) -> str:
-        if symbol == "BTC":
-            symbol = "XBT"
-        return symbol
-
-    @staticmethod
-    def split_to_base_quote(exchange_trading_pair: str) -> (Optional[str], Optional[str]):
-        base, quote = None, None
-        for quote_asset in constants.QUOTES:
-            if quote_asset == exchange_trading_pair[-len(quote_asset):]:
-                if len(exchange_trading_pair[:-len(quote_asset)]) > 2 or exchange_trading_pair[:-len(quote_asset)] == "SC":
-                    base, quote = exchange_trading_pair[:-len(quote_asset)], exchange_trading_pair[-len(quote_asset):]
-                    break
-        if not base:
-            quote_asset_d = [quote + ".d" for quote in constants.QUOTES]
-            for quote_asset in quote_asset_d:
-                if quote_asset == exchange_trading_pair[-len(quote_asset):]:
-                    base, quote = exchange_trading_pair[:-len(quote_asset)], exchange_trading_pair[-len(quote_asset):]
-                    break
-        return base, quote
-
-    @staticmethod
-    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
-        base, quote = "", ""
-        if "-" in exchange_trading_pair:
-            return exchange_trading_pair
-        if "/" in exchange_trading_pair:
-            base, quote = exchange_trading_pair.split("/")
-        else:
-            base, quote = KrakenMarket.split_to_base_quote(exchange_trading_pair)
-        if not base or not quote:
-            return None
-        base = KrakenMarket.convert_from_exchange_symbol(base)
-        quote = KrakenMarket.convert_from_exchange_symbol(quote)
-        return f"{base}-{quote}"
-
-    @staticmethod
-    def convert_to_exchange_trading_pair(hb_trading_pair: str, delimiter: str = "") -> str:
-        """
-        Note: The result of this method can safely be used to submit/make queries.
-        Result shouldn't be used to parse responses as Kraken add special formating to most pairs.
-        """
-
-        if "-" in hb_trading_pair:
-            base, quote = hb_trading_pair.split("-")
-        elif "/" in hb_trading_pair:
-            base, quote = hb_trading_pair.split("/")
-        else:
-            return hb_trading_pair
-        base = KrakenMarket.convert_to_exchange_symbol(base)
-        quote = KrakenMarket.convert_to_exchange_symbol(quote)
-
-        exchange_trading_pair = f"{base}{delimiter}{quote}"
-        return exchange_trading_pair
 
     async def asset_pairs(self) -> Dict[str, Any]:
         if not self._asset_pairs:
@@ -314,7 +246,7 @@ cdef class KrakenMarket(MarketBase):
                         locked[quote] += vol_locked * Decimal(details.get("price"))
 
         for asset_name, balance in balances.items():
-            cleaned_name = self.convert_from_exchange_symbol(asset_name)
+            cleaned_name = convert_from_exchange_symbol(asset_name).upper()
             total_balance = Decimal(balance)
             free_balance = total_balance - Decimal(locked[cleaned_name])
             self._account_available_balances[cleaned_name] = free_balance
@@ -325,6 +257,9 @@ cdef class KrakenMarket(MarketBase):
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
+
+        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
+        self._in_flight_orders_snapshot_timestamp = self._current_timestamp
 
     cdef object c_get_fee(self,
                           str base_currency,
@@ -361,7 +296,7 @@ cdef class KrakenMarket(MarketBase):
             trading_rules_list = self._format_trading_rules(asset_pairs)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
-                self._trading_rules[trading_rule.trading_pair] = trading_rule
+                self._trading_rules[convert_from_exchange_trading_pair(trading_rule.trading_pair)] = trading_rule
 
     def _format_trading_rules(self, asset_pairs_dict: Dict[str, Any]) -> List[TradingRule]:
         """
@@ -392,8 +327,8 @@ cdef class KrakenMarket(MarketBase):
             list retval = []
         for trading_pair, rule in asset_pairs_dict.items():
             try:
-                base, quote = KrakenMarket.split_to_base_quote(trading_pair)
-                base = KrakenMarket.convert_from_exchange_symbol(base)
+                base, quote = split_to_base_quote(trading_pair)
+                base = convert_from_exchange_symbol(base)
                 min_order_size = Decimal(constants.BASE_ORDER_MIN.get(base, 0))
                 min_price_increment = Decimal(f"1e-{rule.get('pair_decimals')}")
                 min_base_amount_increment = Decimal(f"1e-{rule.get('lot_decimals')}")
@@ -562,7 +497,7 @@ cdef class KrakenMarket(MarketBase):
                         self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
                                              OrderFilledEvent(self._current_timestamp,
                                                               tracked_order.client_order_id,
-                                                              self.convert_to_exchange_trading_pair(trade.get("pair")),
+                                                              tracked_order.trading_pair,
                                                               tracked_order.trade_type,
                                                               tracked_order.order_type,
                                                               Decimal(trade.get("price")),
@@ -816,10 +751,8 @@ cdef class KrakenMarket(MarketBase):
                           order_type: OrderType,
                           is_buy: bool,
                           price: Optional[Decimal] = s_decimal_NaN):
-        if trading_pair[:3] == "BTC":
-            trading_pair = "XBT" + trading_pair[3:]
-        if trading_pair[-3:] == "BTC":
-            trading_pair = trading_pair[:-3] + "XBT"
+
+        trading_pair = convert_to_exchange_trading_pair(trading_pair)
         data = {
             "pair": trading_pair,
             "type": "buy" if is_buy else "sell",
@@ -1010,18 +943,18 @@ cdef class KrakenMarket(MarketBase):
                                                     CANCEL_ORDER_URI,
                                                     data=data,
                                                     is_auth_required=True)
+
+            if isinstance(cancel_result, dict) and (cancel_result.get("count") == 1 or cancel_result.get("error") is not None):
+                self.logger().info(f"Successfully cancelled order {order_id}.")
+                self.c_stop_tracking_order(order_id)
+                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                     OrderCancelledEvent(self._current_timestamp, order_id))
+            return {
+                "origClientOrderId": order_id
+            }
         except Exception as e:
             self.logger().warning(f"Error cancelling order on Kraken",
                                   exc_info=True)
-
-        if isinstance(cancel_result, dict) and (cancel_result.get("count") == 1 or cancel_result.get("error") is not None):
-            self.logger().info(f"Successfully cancelled order {order_id}.")
-            self.c_stop_tracking_order(order_id)
-            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                 OrderCancelledEvent(self._current_timestamp, order_id))
-        return {
-            "origClientOrderId": order_id
-        }
 
     cdef c_cancel(self, str trading_pair, str order_id):
         safe_ensure_future(self.execute_cancel(trading_pair, order_id))
