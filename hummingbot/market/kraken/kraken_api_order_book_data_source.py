@@ -23,6 +23,9 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.kraken.kraken_order_book import KrakenOrderBook
 import hummingbot.market.kraken.kraken_constants as constants
+from hummingbot.market.kraken.kraken_utils import (
+    convert_from_exchange_trading_pair,
+    convert_to_exchange_trading_pair)
 
 
 SNAPSHOT_REST_URL = "https://api.kraken.com/0/public/Depth"
@@ -57,7 +60,7 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @classmethod
     async def get_last_traded_price(cls, trading_pair: str) -> float:
         async with aiohttp.ClientSession() as client:
-            resp = await client.get(f"{TICKER_URL}?pair={trading_pair}")
+            resp = await client.get(f"{TICKER_URL}?pair={convert_to_exchange_trading_pair(trading_pair)}")
             resp_json = await resp.json()
             record = list(resp_json["result"].values())[0]
             return float(record["c"][0])
@@ -65,7 +68,8 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, limit: int = 1000) -> Dict[str, Any]:
         original_trading_pair: str = trading_pair
-        params: Dict[str, str] = {"count": str(limit), "pair": trading_pair} if limit != 0 else {"pair": trading_pair}
+        params: Dict[str, str] = {"count": str(limit), "pair": convert_to_exchange_trading_pair(trading_pair)} if limit != 0 \
+            else {"pair": convert_to_exchange_trading_pair(trading_pair)}
         async with client.get(SNAPSHOT_REST_URL, params=params) as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
@@ -133,7 +137,7 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     await ws.send(ws_message)
                     async for raw_msg in self._inner_messages(ws):
                         msg: List[Any] = ujson.loads(raw_msg)
-                        trades: List[Dict[str, Any]] = [{"pair": msg[-1], "trade": trade} for trade in msg[1]]
+                        trades: List[Dict[str, Any]] = [{"pair": convert_from_exchange_trading_pair(msg[-1]), "trade": trade} for trade in msg[1]]
                         for trade in trades:
                             trade_msg: OrderBookMessage = KrakenOrderBook.trade_message_from_exchange(trade)
                             output.put_nowait(trade_msg)
@@ -154,7 +158,7 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
 
-                        msg_dict = {"trading_pair": msg[-1],
+                        msg_dict = {"trading_pair": convert_from_exchange_trading_pair(msg[-1]),
                                     "asks": msg[1].get("a", []) or msg[1].get("as", []) or [],
                                     "bids": msg[1].get("b", []) or msg[1].get("bs", []) or []}
                         msg_dict["update_id"] = max([*map(lambda x: float(x[2]), msg_dict["bids"] + msg_dict["asks"])],
@@ -208,7 +212,7 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
         # all_markets: pd.DataFrame = await self.get_active_exchange_markets()
         trading_pairs: List[str] = []
         for tp in self._trading_pairs:
-            base, quote = self.split_to_base_quote(tp)
+            base, quote = self.split_to_base_quote(convert_to_exchange_trading_pair(tp))
             trading_pairs.append(f"{base}/{quote}")
 
         ws_message_dict: Dict[str, Any] = {"event": "subscribe",
