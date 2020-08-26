@@ -547,7 +547,7 @@ class FixtureLiquid:
     CRYPTO_ACCOUNTS = [
         {
             "id": 4668,
-            "balance": 4.99,
+            "balance": 5,
             "reserved_balance": 0.0,
             "currency": "ETH",
             "currency_symbol": "",
@@ -718,3 +718,16 @@ class FixtureLiquid:
                                  "target": "spot", "order_fee": 0.0, "source_action": "manual",
                                  "unwound_trade_id": None, "trade_id": None,
                                  "client_order_id": "buy-CEL-ETH-1579592561189772"}
+
+    ORDERS_UNFILLED = {'models': [{'id': 3074231238, 'order_type': 'limit', 'quantity': '1.0', 'disc_quantity': '0.0',
+                                   'iceberg_total_quantity': '0.0', 'side': 'buy', 'filled_quantity': '0.0',
+                                   'price': '0.000851', 'created_at': 1597391883, 'updated_at': 1597391883,
+                                   'status': 'live', 'leverage_level': 1, 'source_exchange': 0, 'product_id': 500,
+                                   'margin_type': None, 'take_profit': None, 'stop_loss': None, 'trading_type': 'spot',
+                                   'product_code': 'CASH', 'funding_currency': 'ETH', 'crypto_account_id': None,
+                                   'currency_pair_code': 'CELETH', 'average_price': '0.0', 'target': 'spot',
+                                   'order_fee': '0.0', 'source_action': 'manual', 'unwound_trade_id': None,
+                                   'trade_id': None, 'client_order_id': 'buy-CEL-ETH-1597391882834204',
+                                   'settings': None, 'trailing_stop_type': None, 'trailing_stop_value': None,
+                                   'executions': [], 'stop_triggered_time': None}
+                                  ], 'total_pages': 10000, 'current_page': 1}
