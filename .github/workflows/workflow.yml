@@ -1,0 +1,28 @@
+name: Build hummingbot
+
+on:
+  pull_request:
+    branches: [ master, development ]
+
+jobs:
+  build_hummingbot:
+  name: HB Linux
+  runs-on: "ubuntu-latest"
+  steps:
+    - name: Install Miniconda
+      shell: bash
+      run: |
+        MINICONDA_FILENAME=Miniconda3-latest-Linux-x86_64.sh
+        curl -o $MINICONDA_FILENAME "https://repo.continuum.io/miniconda/$MINICONDA_FILENAME"
+        bash ${MINICONDA_FILENAME} -b -f -p $HOME/miniconda3
+    - name: Install Hummingbot
+      shell: bash -l {0}
+      run: |
+        ./install
+        conda activate hummingbot
+    - name: Compile Hummingbot
+      shell: bash
+      run: ./compile
+    - name: Ru stable tests
+      shell: bash
+      run: nosetests -d -v test/test*.py
