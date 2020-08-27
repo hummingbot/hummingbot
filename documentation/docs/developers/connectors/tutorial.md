@@ -25,7 +25,7 @@ By the end of this guide, you should:
 
 Implementing a new connector can generally be split into 3 major tasks:
 
-- **Task 1:** [Data Source & Order Book Tracker](#task-1-data-source-order-book-tracker)
+- **Task 1:** [Data Source & Order Book Tracker](../task1)
 - **Task 2:** [User Stream Tracker](#task-2-user-stream-tracker)
 - **Task 3:** [Market Connector](#task-3-market-connector)
 
@@ -125,4 +125,3 @@ While market connector authors are free to extend or modify from `InFlightOrderB
 * `to_json(): Dict[str, any]`
 
     Convert the in-flight order data structure to a dictionary that can be serialized into JSON format.
-
