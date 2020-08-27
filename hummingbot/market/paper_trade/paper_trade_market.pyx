@@ -204,7 +204,7 @@ cdef class PaperTradeMarket(MarketBase):
         for trading_pair_str, order_book in self._order_book_tracker.order_books.items():
             assert type(order_book) is CompositeOrderBook
             base_asset, quote_asset = self.split_trading_pair(trading_pair_str)
-            self._trading_pairs[trading_pair_str] = TradingPair(trading_pair_str, base_asset, quote_asset)
+            self._trading_pairs[self._target_market.convert_from_exchange_trading_pair(trading_pair_str)] = TradingPair(trading_pair_str, base_asset, quote_asset)
             (<CompositeOrderBook>order_book).c_add_listener(
                 self.ORDER_BOOK_TRADE_EVENT_TAG,
                 self._order_book_trade_listener
@@ -908,6 +908,7 @@ cdef class PaperTradeMarket(MarketBase):
     cdef OrderBook c_get_order_book(self, str trading_pair):
         if trading_pair not in self._trading_pairs:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
+        trading_pair = self._target_market.convert_to_exchange_trading_pair(trading_pair)
         return self._order_book_tracker.order_books[trading_pair]
 
     cdef object c_get_order_price_quantum(self, str trading_pair, object price):
