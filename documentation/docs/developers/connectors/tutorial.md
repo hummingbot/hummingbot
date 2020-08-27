@@ -196,7 +196,7 @@ Considering that placing of orders normally involves a `POST` request to a parti
 Variable(s)<div style="width:100px"/>  | Type                | Description
 -------------|---------------------|-------------
 `order_id`   | `str`               | A generated, client-side order ID that will be used to identify an order by the Hummingbot client.<br/> The `order_id` is generated in the `c_buy` function.
-`symbol`     | `str`               | The trading pair string representing the market on which the order should be placed. i.e. (ZRX-ETH) <br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: Some exchanges have the trading pair symbol in `Quote-Base` format. Hummingbot requires that all trading pairs to be in `Base-Quote` format.</td></tr></tbody></table>
+`symbol`     | `str`               | The trading pair string representing the market on which the order should be placed. i.e. (ZRX-ETH) <br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: Some exchanges have the trading pair symbol in `Quote-Base` format. Hummingbot requires that all trading pairs to be in `Base-Quote` format. In addition, pairs should be converted to the exchange's pair format before placing orders using `convert_to_exchange_trading_pair` if the exchange doesn't support Hummingbot's pair format.</td></tr></tbody></table>
 `amount`     | `Decimal`           | The total value, in base currency, to buy/sell.
 `order_type` | `OrderType`         | OrderType.LIMIT, OrderType.LIMIT_MAKER or OrderType.MARKET <br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: LIMIT_MAKER should be used as market maker and LIMIT as market taker(using price to cross the orderbook) for exchanges that support LIMIT_MAKER. Otherwise, the the usual MARKET OrderType should be used as market taker and LIMIT as market taker.</td></tr></tbody></table>
 `price`      | `Optional[Decimal]` | If `order_type` is `LIMIT`, it represents the rate at which the `amount` base currency is being bought/sold at.<br/>If `order_type` is `LIMIT_MAKER`, it also represents the rate at which the `amount` base currency is being bought/sold at. However, this `OrderType` is expected to be a **post only** order(i.e should ideally be rejected by the exchange if it'll cross the market)<br/>If `order_type` is `MARKET`, this is **not** used(`price = s_decimal_0`). <br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: `s_decimal_0 = Decimal(0)` </td></tr></tbody></table>
@@ -227,7 +227,17 @@ Function<div style="width:150px"/> | Description
 `_update_balances`| Pulls the REST API for the latest account balances and updates `_account_balances` and `_account_available_balances`.
 `_update_order_status`| Pulls the REST API for the latest order statuses and updates the order statuses of locally tracked orders.
 
+If the exchange doesn't provide user balance updates in real-time (web socket), you will need to set `self._real_time_balance_update = False` in the market constructor (init). 
+ 
+And, you will need to take `in_flight_orders` snapshot during `_update_balances` as below:
 
+```python
+    self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
+    self._in_flight_orders_snapshot_timestamp = self._current_timestamp
+``` 
+
+This is so that the connector can use default current balance calculation (in `market_base`) for available balances.
+ 
 !!! tip
     Refer to [Order Lifecycle](/developers/connectors/order-lifecycle) for a more detailed description on how orders are being tracked in Hummingbot.
     
@@ -249,7 +259,7 @@ The table below details the functions responsible for maintaining the `TradeRule
 Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | Description
 ---|---|---|---
 `_trading_rules_polling_loop` | None | None | A background process that periodically polls for trading rule changes. Since trading rules tend not to change as often as account balances and order statuses, this is done less often. This function is responsible for calling `_update_trading_rules`
-`_update_trading_rules` | None | None | Gets the necessary trading rules definitions form the corresponding REST API endpoints. Calls `_format_trading_rules`; that parses and updates the `_trading_rules` variable in the `Market` class.
+`_update_trading_rules` | None | None | Gets the necessary trading rules definitions form the corresponding REST API endpoints. Calls `_format_trading_rules`; that parses and updates the `_trading_rules` variable in the `Market` class. Note that the dictionary key for `_trading_rules` must be in Hummingbot's pair format(i.e `Base Asset` - `Quote Asset`). The method `convert_from_exchange_trading_pair` should ideally be used to covert the the pairs if the exchange's pairs are not thesame as Hummingbot's pair.
 `_format_trading_rules` | `List[Any]` | `List[TradingRule]` | Parses the raw JSON response into a list of [`TradingRule`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/trading_rule.pyx). <table><tbody><tr><td bgcolor="#ecf3ff">**Note**: This is important since exchanges might only accept certain precisions and impose a minimum trade size on the order.</td></tr></tbody></table>
 
 #### Order Price/Size Quantum & Quantize Order Amount

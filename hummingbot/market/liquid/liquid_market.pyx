@@ -8,6 +8,7 @@ import math
 import pandas as pd
 import sys
 import time
+import copy
 from typing import (
     Any,
     Dict,
@@ -127,6 +128,8 @@ cdef class LiquidMarket(MarketBase):
         self._product_dict = {}
         self._trading_rules_polling_task = None
         self._shared_client = None
+
+        self._real_time_balance_update = False
 
     @property
     def name(self) -> str:
@@ -418,6 +421,9 @@ cdef class LiquidMarket(MarketBase):
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
+
+        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
+        self._in_flight_orders_snapshot_timestamp = self._current_timestamp
 
     async def _update_trading_rules(self):
         """
