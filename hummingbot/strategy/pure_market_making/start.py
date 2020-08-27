@@ -48,7 +48,7 @@ def start(self):
         price_source_custom = c_map.get("price_source_custom").value
         order_refresh_tolerance_pct = c_map.get("order_refresh_tolerance_pct").value / Decimal('100')
 
-        trading_pair: str = self._convert_to_exchange_trading_pair(exchange, [raw_trading_pair])[0]
+        trading_pair: str = raw_trading_pair
         maker_assets: Tuple[str, str] = self._initialize_market_assets(exchange, [trading_pair])[0]
         market_names: List[Tuple[str, List[str]]] = [(exchange, [trading_pair])]
         self._initialize_wallet(token_trading_pairs=list(set(maker_assets)))
@@ -59,8 +59,7 @@ def start(self):
         asset_price_delegate = None
         if price_source_enabled:
             if price_source_type == "exchange":
-                asset_trading_pair: str = self._convert_to_exchange_trading_pair(
-                    price_source_exchange, [price_source_market])[0]
+                asset_trading_pair: str = price_source_market
                 ext_market = create_paper_trade_market(price_source_exchange, [asset_trading_pair])
                 self.markets[price_source_exchange]: MarketBase = ext_market
                 asset_price_delegate = OrderBookAssetPriceDelegate(ext_market, asset_trading_pair)
