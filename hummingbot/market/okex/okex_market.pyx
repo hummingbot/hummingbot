@@ -620,113 +620,116 @@ cdef class OKExMarket(MarketBase):
     async def _user_stream_event_listener(self):
         async for stream_message in self._iter_user_stream_queue():
             try:
-                channel = stream_message.get("ch", None)
-                if channel not in HUOBI_SUBSCRIBE_TOPICS:
+                channel = stream_message.get("table", None)
+                
+                if channel not in OK_COIN_WS_CHANNELS:
                     continue
 
-                data = stream_message["data"]
-                if channel == HUOBI_ACCOUNT_UPDATE_TOPIC:
-                    asset_name = data["currency"]
-                    balance = data["balance"]
-                    available_balance = data["available"]
 
-                    self._account_balances.update({asset_name: Decimal(balance)})
-                    self._account_available_balances.update({asset_name: Decimal(available_balance)})
-                    continue
+                # stream_message["data"] is a list
+                for data in stream_message["data"]:
+                    if channel == WS_CHANNEL_SPOT_ACCOUNT:
+                        asset_name = data["currency"]
+                        balance = data["balance"]
+                        available_balance = data["available"]
 
-                elif channel == HUOBI_ORDER_UPDATE_TOPIC:
-                    order_id = data["orderId"]
-                    client_order_id = data["clientOrderId"]
-                    trading_pair = data["symbol"]
-                    order_status = data["orderStatus"]
-
-                    if order_status not in ["submitted", "partial-filled", "filled", "partially-canceled", "canceled", "canceling"]:
-                        self.logger().debug(f"Unrecognized order update response - {stream_message}")
-
-                    tracked_order = self._in_flight_orders.get(client_order_id, None)
-
-                    if tracked_order is None:
+                        self._account_balances.update({asset_name: Decimal(balance)})
+                        self._account_available_balances.update({asset_name: Decimal(available_balance)})
                         continue
 
-                    execute_amount_diff = s_decimal_0
-                    execute_price = Decimal(data["tradePrice"])
-                    remaining_amount = Decimal(data["remainAmt"])
-                    order_type = data["type"]
+                    elif channel == HUOBI_ORDER_UPDATE_TOPIC:
+                        order_id = data["order_id"]
+                        client_order_id = data["client_oid"]
+                        trading_pair = data["instrument_id"]
+                        order_status = data["state"]
 
-                    new_confirmed_amount = Decimal(tracked_order.amount - remaining_amount)
+                        if order_status not in ("-2","-1","0","1","2","3","4"):
+                            self.logger().debug(f"Unrecognized order update response - {stream_message}")
 
-                    execute_amount_diff = Decimal(new_confirmed_amount - tracked_order.executed_amount_base)
-                    tracked_order.executed_amount_base = new_confirmed_amount
-                    tracked_order.executed_amount_quote += Decimal(execute_amount_diff * execute_price)
+                        tracked_order = self._in_flight_orders.get(client_order_id, None)
 
-                    if execute_amount_diff > s_decimal_0:
-                        self.logger().info(f"Filed {execute_amount_diff} out of {tracked_order.amount} of order "
-                                           f"{order_type.upper()}-{client_order_id}")
-                        self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
-                                             OrderFilledEvent(
-                                                 self._current_timestamp,
-                                                 tracked_order.client_order_id,
-                                                 tracked_order.trading_pair,
-                                                 tracked_order.trade_type,
-                                                 tracked_order.order_type,
-                                                 execute_price,
-                                                 execute_amount_diff,
-                                                 self.c_get_fee(
-                                                     tracked_order.base_asset,
-                                                     tracked_order.quote_asset,
-                                                     tracked_order.order_type,
-                                                     tracked_order.trade_type,
-                                                     execute_price,
-                                                     execute_amount_diff,
-                                                 ),
-                                                 exchange_trade_id=order_id
-                                             ))
+                        if tracked_order is None:
+                            continue
 
-                    if order_status == "filled":
-                        tracked_order.last_state = order_status
-                        if tracked_order.trade_type is TradeType.BUY:
-                            self.logger().info(f"The LIMIT_BUY order {tracked_order.client_order_id} has completed "
-                                               f"according to order delta websocket API.")
-                            self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
-                                                 BuyOrderCompletedEvent(
-                                                     self._current_timestamp,
-                                                     tracked_order.client_order_id,
-                                                     tracked_order.base_asset,
-                                                     tracked_order.quote_asset,
-                                                     tracked_order.fee_asset or tracked_order.quote_asset,
-                                                     tracked_order.executed_amount_base,
-                                                     tracked_order.executed_amount_quote,
-                                                     tracked_order.fee_paid,
-                                                     tracked_order.order_type
-                                                 ))
-                        elif tracked_order.trade_type is TradeType.SELL:
-                            self.logger().info(f"The LIMIT_SELL order {tracked_order.client_order_id} has completed "
-                                               f"according to order delta websocket API.")
-                            self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
-                                                 SellOrderCompletedEvent(
-                                                     self._current_timestamp,
-                                                     tracked_order.client_order_id,
-                                                     tracked_order.base_asset,
-                                                     tracked_order.quote_asset,
-                                                     tracked_order.fee_asset or tracked_order.quote_asset,
-                                                     tracked_order.executed_amount_base,
-                                                     tracked_order.executed_amount_quote,
-                                                     tracked_order.fee_paid,
-                                                     tracked_order.order_type
-                                                 ))
-                        self.c_stop_tracking_order(tracked_order.client_order_id)
+                        execute_amount_diff = s_decimal_0
+                        execute_price = Decimal(data["price"])
+                        remaining_amount = Decimal(data["filled_size"])
+                        order_type = data["type"]
+
+                        new_confirmed_amount = Decimal(tracked_order.amount - remaining_amount)
+
+                        execute_amount_diff = Decimal(new_confirmed_amount - tracked_order.executed_amount_base)
+                        tracked_order.executed_amount_base = new_confirmed_amount
+                        tracked_order.executed_amount_quote += Decimal(execute_amount_diff * execute_price)
+
+                        if execute_amount_diff > s_decimal_0:
+                            self.logger().info(f"Filed {execute_amount_diff} out of {tracked_order.amount} of order "
+                                            f"{order_type.upper()}-{client_order_id}")
+                            self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
+                                                OrderFilledEvent(
+                                                    self._current_timestamp,
+                                                    tracked_order.client_order_id,
+                                                    tracked_order.trading_pair,
+                                                    tracked_order.trade_type,
+                                                    tracked_order.order_type,
+                                                    execute_price,
+                                                    execute_amount_diff,
+                                                    self.c_get_fee(
+                                                        tracked_order.base_asset,
+                                                        tracked_order.quote_asset,
+                                                        tracked_order.order_type,
+                                                        tracked_order.trade_type,
+                                                        execute_price,
+                                                        execute_amount_diff,
+                                                    ),
+                                                    exchange_trade_id=order_id
+                                                ))
+
+                        if order_status == "1":
+                            tracked_order.last_state = order_status
+                            if tracked_order.trade_type is TradeType.BUY:
+                                self.logger().info(f"The LIMIT_BUY order {tracked_order.client_order_id} has completed "
+                                                f"according to order delta websocket API.")
+                                self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
+                                                    BuyOrderCompletedEvent(
+                                                        self._current_timestamp,
+                                                        tracked_order.client_order_id,
+                                                        tracked_order.base_asset,
+                                                        tracked_order.quote_asset,
+                                                        tracked_order.fee_asset or tracked_order.quote_asset,
+                                                        tracked_order.executed_amount_base,
+                                                        tracked_order.executed_amount_quote,
+                                                        tracked_order.fee_paid,
+                                                        tracked_order.order_type
+                                                    ))
+                            elif tracked_order.trade_type is TradeType.SELL:
+                                self.logger().info(f"The LIMIT_SELL order {tracked_order.client_order_id} has completed "
+                                                f"according to order delta websocket API.")
+                                self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
+                                                    SellOrderCompletedEvent(
+                                                        self._current_timestamp,
+                                                        tracked_order.client_order_id,
+                                                        tracked_order.base_asset,
+                                                        tracked_order.quote_asset,
+                                                        tracked_order.fee_asset or tracked_order.quote_asset,
+                                                        tracked_order.executed_amount_base,
+                                                        tracked_order.executed_amount_quote,
+                                                        tracked_order.fee_paid,
+                                                        tracked_order.order_type
+                                                    ))
+                            self.c_stop_tracking_order(tracked_order.client_order_id)
+                            continue
+
+                        if order_status == "-1":
+                            tracked_order.last_state = order_status
+                            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                                OrderCancelledEvent(self._current_timestamp,
+                                                                    tracked_order.client_order_id))
+                            self.c_stop_tracking_order(tracked_order.client_order_id)
+
+                    else:
+                        # Ignore all other user stream message types
                         continue
-
-                    if order_status == "canceled":
-                        tracked_order.last_state = order_status
-                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                             OrderCancelledEvent(self._current_timestamp,
-                                                                 tracked_order.client_order_id))
-                        self.c_stop_tracking_order(tracked_order.client_order_id)
-
-                else:
-                    # Ignore all other user stream message types
-                    continue
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -839,12 +842,12 @@ cdef class OKExMarket(MarketBase):
             order_type_str = order_type.name.lower()
 
             self.logger().network(
-                f"Error submitting buy {order_type_str} order to Huobi for "
+                f"Error submitting buy {order_type_str} order to OKEx for "
                 f"{decimal_amount} {trading_pair} "
                 f"{decimal_price if order_type is OrderType.LIMIT else ''}.",
                 f"{decimal_price}.",
                 exc_info=True,
-                app_warning_msg=f"Failed to submit buy order to Huobi. Check API key and network connection."
+                app_warning_msg=f"Failed to submit buy order to OKEx. Check API key and network connection."
             )
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
@@ -911,12 +914,12 @@ cdef class OKExMarket(MarketBase):
             self.c_stop_tracking_order(order_id)
             order_type_str = order_type.name.lower()
             self.logger().network(
-                f"Error submitting sell {order_type_str} order to Huobi for "
+                f"Error submitting sell {order_type_str} order to OKEx for "
                 f"{decimal_amount} {trading_pair} "
                 f"{decimal_price if order_type is OrderType.LIMIT else ''}.",
                 f"{decimal_price}.",
                 exc_info=True,
-                app_warning_msg=f"Failed to submit sell order to Huobi. Check API key and network connection."
+                app_warning_msg=f"Failed to submit sell order to OKEx. Check API key and network connection."
             )
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
@@ -954,7 +957,7 @@ cdef class OKExMarket(MarketBase):
             self.logger().network(
                 f"Failed to cancel order {order_id}: {str(e)}",
                 exc_info=True,
-                app_warning_msg=f"Failed to cancel the order {order_id} on Huobi. "
+                app_warning_msg=f"Failed to cancel the order {order_id} on OKEx. "
                                 f"Check API key and network connection."
             )
 
@@ -962,7 +965,7 @@ cdef class OKExMarket(MarketBase):
             self.logger().network(
                 f"Failed to cancel order {order_id}: {str(e)}",
                 exc_info=True,
-                app_warning_msg=f"Failed to cancel the order {order_id} on Huobi. "
+                app_warning_msg=f"Failed to cancel the order {order_id} on OKEx. "
                                 f"Check API key and network connection."
             )
 
