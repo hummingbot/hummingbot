@@ -204,7 +204,7 @@ cdef class PaperTradeMarket(MarketBase):
         for trading_pair_str, order_book in self._order_book_tracker.order_books.items():
             assert type(order_book) is CompositeOrderBook
             base_asset, quote_asset = self.split_trading_pair(trading_pair_str)
-            self._trading_pairs[trading_pair_str] = TradingPair(trading_pair_str, base_asset, quote_asset)
+            self._trading_pairs[self._target_market.convert_from_exchange_trading_pair(trading_pair_str)] = TradingPair(trading_pair_str, base_asset, quote_asset)
             (<CompositeOrderBook>order_book).c_add_listener(
                 self.ORDER_BOOK_TRADE_EVENT_TAG,
                 self._order_book_trade_listener
@@ -908,6 +908,7 @@ cdef class PaperTradeMarket(MarketBase):
     cdef OrderBook c_get_order_book(self, str trading_pair):
         if trading_pair not in self._trading_pairs:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
+        trading_pair = self._target_market.convert_to_exchange_trading_pair(trading_pair)
         return self._order_book_tracker.order_books[trading_pair]
 
     cdef object c_get_order_price_quantum(self, str trading_pair, object price):
@@ -957,14 +958,8 @@ cdef class PaperTradeMarket(MarketBase):
         order_size_quantum = self.c_get_order_size_quantum(trading_pair, amount)
         return (amount // order_size_quantum) * order_size_quantum
 
-    cdef str c_withdraw(self, str address, str currency, object amount):
-        pass
-
     def get_all_balances(self) -> Dict[str, Decimal]:
         return self._account_balances.copy()
-
-    async def get_deposit_info(self, asset: str):
-        pass
 
     # <editor-fold desc="Python wrapper for cdef functions">
     def match_trade_to_limit_orders(self, event_object: OrderBookTradeEvent):

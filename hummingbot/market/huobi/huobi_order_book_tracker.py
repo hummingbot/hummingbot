@@ -13,11 +13,7 @@ from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType
 )
-from hummingbot.core.data_type.order_book_tracker import (
-    OrderBookTracker,
-    OrderBookTrackerDataSourceType
-)
-from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.huobi.huobi_api_order_book_data_source import HuobiAPIOrderBookDataSource
 
@@ -32,31 +28,15 @@ class HuobiOrderBookTracker(OrderBookTracker):
         return cls._hobt_logger
 
     def __init__(self,
-                 data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
                  trading_pairs: Optional[List[str]] = None):
-        super().__init__(data_source_type=data_source_type)
+        super().__init__(HuobiAPIOrderBookDataSource(trading_pairs), trading_pairs)
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        self._data_source: Optional[OrderBookTrackerDataSource] = None
-        self._trading_pairs: Optional[List[str]] = trading_pairs
 
     @property
     def exchange_name(self) -> str:
         return "huobi"
-
-    @property
-    def data_source(self) -> OrderBookTrackerDataSource:
-        if not self._data_source:
-            if self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = HuobiAPIOrderBookDataSource(trading_pairs=self._trading_pairs)
-            else:
-                raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
-        return self._data_source
-
-    @data_source.setter
-    def data_source(self, data_source):
-        self._data_source = data_source
 
     async def _order_book_diff_router(self):
         """

@@ -23,7 +23,6 @@ LIQUID_ENDPOINT = "https://api.liquid.com/products"
 BITTREX_ENDPOINT = "https://api.bittrex.com/v3/markets"
 KUCOIN_ENDPOINT = "https://api.kucoin.com/api/v1/symbols"
 DOLOMITE_ENDPOINT = "https://exchange-api.dolomite.io/v1/markets"
-BITCOIN_COM_ENDPOINT = "https://api.exchange.bitcoin.com/api/2/public/symbol"
 ETERBASE_ENDPOINT = "https://api.eterbase.exchange/api/markets"
 KRAKEN_ENDPOINT = "https://api.kraken.com/0/public/AssetPairs"
 
@@ -62,7 +61,7 @@ class TradingPairFetcher:
 
     async def fetch_binance_trading_pairs(self) -> List[str]:
         try:
-            from hummingbot.market.binance.binance_market import BinanceMarket
+            from hummingbot.market.binance.binance_utils import convert_from_exchange_trading_pair
             client: aiohttp.ClientSession = self.http_client()
             async with client.get(BINANCE_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                 if response.status == 200:
@@ -71,7 +70,7 @@ class TradingPairFetcher:
                     trading_pair_list: List[str] = []
                     for raw_trading_pair in raw_trading_pairs:
                         converted_trading_pair: Optional[str] = \
-                            BinanceMarket.convert_from_exchange_trading_pair(raw_trading_pair)
+                            convert_from_exchange_trading_pair(raw_trading_pair)
                         if converted_trading_pair is not None:
                             trading_pair_list.append(converted_trading_pair)
                         else:
@@ -106,7 +105,6 @@ class TradingPairFetcher:
 
     async def fetch_radar_relay_trading_pairs(self) -> List[str]:
         try:
-            from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
             trading_pairs = set()
             page_count = 1
             client: aiohttp.ClientSession = self.http_client()
@@ -123,12 +121,7 @@ class TradingPairFetcher:
                         page_count += 1
                         trading_pair_list: List[str] = []
                         for raw_trading_pair in trading_pairs:
-                            converted_trading_pair: Optional[str] = \
-                                RadarRelayMarket.convert_from_exchange_trading_pair(raw_trading_pair)
-                            if converted_trading_pair is not None:
-                                trading_pair_list.append(converted_trading_pair)
-                            else:
-                                self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
+                            trading_pair_list.append(raw_trading_pair)
                         return trading_pair_list
                     else:
                         break
@@ -140,8 +133,6 @@ class TradingPairFetcher:
 
     async def fetch_bamboo_relay_trading_pairs(self) -> List[str]:
         try:
-            from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
-
             trading_pairs = set()
             page_count = 1
             client: aiohttp.ClientSession = self.http_client()
@@ -159,12 +150,7 @@ class TradingPairFetcher:
                         page_count += 1
                         trading_pair_list: List[str] = []
                         for raw_trading_pair in trading_pairs:
-                            converted_trading_pair: Optional[str] = \
-                                BambooRelayMarket.convert_from_exchange_trading_pair(raw_trading_pair)
-                            if converted_trading_pair is not None:
-                                trading_pair_list.append(converted_trading_pair)
-                            else:
-                                self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
+                            trading_pair_list.append(raw_trading_pair)
                         return trading_pair_list
                     else:
                         break
@@ -177,8 +163,6 @@ class TradingPairFetcher:
 
     async def fetch_coinbase_pro_trading_pairs(self) -> List[str]:
         try:
-            from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
-
             client: aiohttp.ClientSession = self.http_client()
             async with client.get(COINBASE_PRO_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                 if response.status == 200:
@@ -186,12 +170,7 @@ class TradingPairFetcher:
                     raw_trading_pairs: List[str] = list(map(lambda details: details.get('id'), markets))
                     trading_pair_list: List[str] = []
                     for raw_trading_pair in raw_trading_pairs:
-                        converted_trading_pair: Optional[str] = \
-                            CoinbaseProMarket.convert_from_exchange_trading_pair(raw_trading_pair)
-                        if converted_trading_pair is not None:
-                            trading_pair_list.append(converted_trading_pair)
-                        else:
-                            self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
+                        trading_pair_list.append(raw_trading_pair)
                     return trading_pair_list
 
         except Exception:
@@ -202,7 +181,7 @@ class TradingPairFetcher:
 
     async def fetch_eterbase_trading_pairs(self) -> List[str]:
         try:
-            from hummingbot.market.eterbase.eterbase_market import EterbaseMarket
+            from hummingbot.market.eterbase.eterbase_utils import convert_from_exchange_trading_pair
 
             client: aiohttp.ClientSession() = self.http_client()
             async with client.get(ETERBASE_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
@@ -212,7 +191,7 @@ class TradingPairFetcher:
                     trading_pair_list: List[str] = []
                     for raw_trading_pair in raw_trading_pairs:
                         converted_trading_pair: Optional[str] = \
-                            EterbaseMarket.convert_from_exchange_trading_pair(raw_trading_pair)
+                            convert_from_exchange_trading_pair(raw_trading_pair)
                         if converted_trading_pair is not None:
                             trading_pair_list.append(converted_trading_pair)
                         else:
@@ -225,7 +204,7 @@ class TradingPairFetcher:
 
     async def fetch_huobi_trading_pairs(self) -> List[str]:
         try:
-            from hummingbot.market.huobi.huobi_market import HuobiMarket
+            from hummingbot.market.huobi.huobi_utils import convert_from_exchange_trading_pair
 
             client: aiohttp.ClientSession = self.http_client()
             async with client.get(HUOBI_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
@@ -238,7 +217,7 @@ class TradingPairFetcher:
                     trading_pair_list: List[str] = []
                     for raw_trading_pair in valid_trading_pairs:
                         converted_trading_pair: Optional[str] = \
-                            HuobiMarket.convert_from_exchange_trading_pair(raw_trading_pair)
+                            convert_from_exchange_trading_pair(raw_trading_pair)
                         if converted_trading_pair is not None:
                             trading_pair_list.append(converted_trading_pair)
                         else:
@@ -307,7 +286,7 @@ class TradingPairFetcher:
             async with aiohttp.ClientSession() as client:
                 async with client.get(KRAKEN_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                     if response.status == 200:
-                        from hummingbot.market.kraken.kraken_market import KrakenMarket
+                        from hummingbot.market.kraken.kraken_utils import convert_from_exchange_trading_pair
                         data: Dict[str, Any] = await response.json()
                         raw_pairs = data.get("result", [])
                         converted_pairs: List[str] = []
@@ -315,7 +294,7 @@ class TradingPairFetcher:
                             if "." not in pair:
                                 try:
                                     wsname = details["wsname"]  # pair in format BASE/QUOTE
-                                    converted_pairs.append(KrakenMarket.convert_from_exchange_trading_pair(wsname))
+                                    converted_pairs.append(convert_from_exchange_trading_pair(wsname))
                                 except IOError:
                                     pass
                         return [item for item in converted_pairs]
@@ -349,30 +328,6 @@ class TradingPairFetcher:
 
         return []
 
-    async def fetch_bitcoin_com_trading_pairs(self) -> List[str]:
-        try:
-            from hummingbot.market.bitcoin_com.bitcoin_com_market import BitcoinComMarket
-
-            client: aiohttp.ClientSession = TradingPairFetcher.http_client()
-            async with client.get(BITCOIN_COM_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
-                if response.status == 200:
-                    raw_trading_pairs: List[Dict[str, Any]] = await response.json()
-                    trading_pairs: List[str] = list([item["id"] for item in raw_trading_pairs])
-                    trading_pair_list: List[str] = []
-                    for raw_trading_pair in trading_pairs:
-                        converted_trading_pair: Optional[str] = \
-                            BitcoinComMarket.convert_from_exchange_trading_pair(raw_trading_pair)
-                        if converted_trading_pair is not None:
-                            trading_pair_list.append(converted_trading_pair)
-                        else:
-                            self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
-                    return trading_pair_list
-        except Exception:
-            # Do nothing if the request fails -- there will be no autocomplete available
-            pass
-
-        return []
-
     async def fetch_all(self):
         tasks = [self.fetch_binance_trading_pairs(),
                  self.fetch_bamboo_relay_trading_pairs(),
@@ -382,7 +337,6 @@ class TradingPairFetcher:
                  self.fetch_liquid_trading_pairs(),
                  self.fetch_bittrex_trading_pairs(),
                  self.fetch_kucoin_trading_pairs(),
-                 self.fetch_bitcoin_com_trading_pairs(),
                  self.fetch_kraken_trading_pairs(),
                  self.fetch_radar_relay_trading_pairs(),
                  self.fetch_eterbase_trading_pairs(),
@@ -402,10 +356,9 @@ class TradingPairFetcher:
             "liquid": results[5],
             "bittrex": results[6],
             "kucoin": results[7],
-            "bitcoin_com": results[8],
-            "kraken": results[9],
-            "radar_relay": results[10],
-            "eterbase": results[11],
-            "binance_perpetuals": results[12]
+            "kraken": results[8],
+            "radar_relay": results[9],
+            "eterbase": results[10],
+            "binance_perpetuals": results[11]
         }
         self.ready = True
