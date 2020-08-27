@@ -1,4 +1,4 @@
-name: Hummingbot
+name: ci
 
 on:
   pull_request:
@@ -6,7 +6,7 @@ on:
 
 jobs:
   build_hummingbot:
-    name: Build + stable tests
+    name: build + stable tests
     runs-on: "ubuntu-latest"
 
     steps:
