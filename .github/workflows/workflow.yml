@@ -1,4 +1,4 @@
-name: Build and run stable tests
+name: Hummingbot
 
 on:
   pull_request:
@@ -6,7 +6,7 @@ on:
 
 jobs:
   build_hummingbot:
-    name: HB Linux
+    name: Build + stable tests
     runs-on: "ubuntu-latest"
 
     steps:
