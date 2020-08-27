@@ -69,7 +69,6 @@ class TestOKExAPIOrderBookDataSource(unittest.TestCase):
         ev_loop = asyncio.get_event_loop()
         # TODO this is currently executing the call, how to mock this?
         restult = ev_loop.run_until_complete(OKExAPIOrderBookDataSource.get_active_exchange_markets())
-        print(restult)
     
     def test_get_snapshot(self):
         ev_loop = asyncio.get_event_loop()

@@ -80,15 +80,12 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         async with aiohttp.ClientSession() as client:
             snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
             
-            print('this is timestamp', snapshot['timestamp'])
             snapshot_msg: OrderBookMessage = OKExOrderBook.snapshot_message_from_exchange(
                                 snapshot,
                                 trading_pair,
                                 timestamp=snapshot['timestamp'],
                                 metadata={"trading_pair": trading_pair})
             order_book: OrderBook = self.order_book_create_function()
-            print("bids are", snapshot_msg.bids)
-            print("asks are", snapshot_msg.asks)
             order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
             return order_book
 
