@@ -84,7 +84,6 @@ cdef class NetworkIterator(TimeIterator):
 
     async def _check_network_loop(self):
         while True:
-            print("LOOOOOOP1")
             new_status = self._network_status
             last_status = self._network_status
             has_unexpected_error = False
