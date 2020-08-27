@@ -72,3 +72,7 @@ Doing this ignores the first 5,000 units of orders on each side in the orderbook
 | **order_optimization_enabled** | `Do you want to enable best bid ask jumping? (Yes/No)` | Allows your bid and ask order prices to be adjusted based on the current top bid and ask prices in the market. |
 | **ask_order_optimization_depth** | `How deep do you want to go into the order book for calculating the top ask, ignoring dust orders on the top (expressed in base asset amount)?` | The depth in base asset amount to be used for finding top bid ask. |
 | **bid_order_optimization_depth** | `How deep do you want to go into the order book for calculating the top bid, ignoring dust orders on the top (expressed in base asset amount)?` | The depth in base asset amount to be used for finding top bid. |
+
+!!! Note "Important information"
+    **order optimization and minimum spread**
+    <li> Setting a very high optimization depth with your current minimum spread pushes your spread far away from mid price. For eg. order optimization set to 10.000 unit depth and minimum spread set to 1%. Where order optimization pushes orders far from mid price/skip the first 10.000 orders, and depending on the market that can push the orders i.e. to 3% from the mid price, this will most probably cancel the orders in the next tick/second.
