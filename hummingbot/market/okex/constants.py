@@ -27,6 +27,15 @@ OKEX_INSTRUMENTS_URL = "api/spot/v3/instruments"
 # WS
 OKCOIN_WS_URI = "wss://real.okex.com:8443/ws/v3"
 
+WS_CHANNEL_SPOT_ACCOUNT = "spot/account"
+WS_CHANNEL_SPOT_ORDER = "spot/order"
+
+OK_COIN_WS_CHANNELS = {
+    WS_CHANNEL_SPOT_ACCOUNT,
+    WS_CHANNEL_SPOT_ORDER
+}
+
+
 # OKEx statuses
 
 ORDER_STATUSES = {
