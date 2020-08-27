@@ -3,6 +3,8 @@ import time
 import random
 from typing import Dict, List
 
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+
 
 # deeply merge two dictionaries
 def merge_dicts(source: Dict, destination: Dict) -> Dict:
@@ -52,3 +54,8 @@ def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
 
 def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
     return hb_trading_pair.replace("-", "_")
+
+
+def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
+    side = "buy" if is_buy else "sell"
+    return f"{side}-{trading_pair}-{get_tracking_nonce()}"
