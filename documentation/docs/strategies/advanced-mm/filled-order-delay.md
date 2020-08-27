@@ -120,3 +120,8 @@ Notice the timestamps. Since the refresh time is longer than the filled order de
 | Parameter | Prompt | Definition |
 |-----------|--------|------------|
 | **filled_order_delay** | `How long do you want to wait before placing the next order if your order gets filled (in seconds)?` | How long to wait before placing the next set of orders in case at least one of your orders gets filled. |
+
+!!! Note "Important information"
+    **`filled_order_delay` and `order_refresh_time`**
+    <li> Order refresh time longer than the filled order delay, unfilled order will remain active until it's time to create orders.
+    <li> Filled order delay longer than the order refresh time, unfilled order will be cancelled from the time it was created.
