@@ -74,13 +74,6 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 all_markets.rename({"quote_volume_24h": "volume", "last": "price"},
                                    axis="columns", inplace=True)
 
-
-                # base_quote = all_markets["product_id"].str.split("-", n=1, expand=True)
-                # all_markets["baseAsset"] = base_quote[0]
-                # all_markets["quoteAsset"] = base_quote[1]
-                # # Adding a collum in the format Hummingbot used "BTCLTC"
-                # all_markets["reformated_instrument"] = base_quote[0] + base_quote[1]
-
                 return all_markets
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
@@ -91,7 +84,6 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
             snapshot_msg: OrderBookMessage = OKExOrderBook.snapshot_message_from_exchange(
                                 snapshot,
                                 trading_pair,
-                                # timestamp=__class__.iso_to_timestamp(snapshot['timestamp']),
                                 timestamp=snapshot['timestamp'],
                                 metadata={"trading_pair": trading_pair})
             order_book: OrderBook = self.order_book_create_function()
@@ -139,16 +131,6 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
         """Fetches order book snapshot for a particular trading pair from the exchange REST API."""
-        # when type is set to "step0", the default value of "depth" is 150
-        
-        # get trading_pair in OKEx format:
-        # markets = await  OKExAPIOrderBookDataSource.get_active_exchange_markets()
-        #translated_trading_pair = markets.loc[markets['instrument_id'] == trading_pair]['product_id'].values[0]
-        #print(translated_trading_pair['product_id'].values[0])
-
-        # print("translated trading pair is " + str(translated_trading_pair))
-
-        
         params = {} # default {'size':?, 'depth':?}
         async with client.get(OKEX_DEPTH_URL.format(trading_pair=trading_pair), params=params) as response:
             response: aiohttp.ClientResponse = response
@@ -157,28 +139,6 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                               f"HTTP status is {response.status}.")
             api_data = await response.read()
             data: Dict[str, Any] = json.loads(api_data)
-            # format is, is this correct?
-            # {
-            #     "asks": [[
-                    # "9341.1",
-                    # "0.1400433",
-                    # "1"
-                    # ],
-                    # [
-                    # "9341.2",
-                    # "0.356",
-                    # "2"
-                    # ],
-                    # [
-                    # "9341.4",
-                    # "0.02",
-                    # "1"
-                    # ]],
-            #     "bids": [...], # left incomplete, same as ask
-            #     "timestamp": "2020-07-22T16:46:03.223Z"
-            # }
-
-            # convert str date to timestamp
             data['timestamp'] = __class__.iso_to_timestamp(data['timestamp'])
             
             return data

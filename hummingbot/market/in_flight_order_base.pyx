@@ -71,8 +71,6 @@ cdef class InFlightOrderBase:
 
     @property
     def base_asset(self) -> str:
-        print("self.trading_pair", self.trading_pair)
-        print("self.market_class.split_trading_pair(self.trading_pair)", self.market_class.split_trading_pair(self.trading_pair))
         return self.market_class.split_trading_pair(self.trading_pair)[0]
 
     @property

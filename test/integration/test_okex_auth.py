@@ -17,10 +17,6 @@ class TestAuth(unittest.TestCase):
         okex_secret_key = "OKEX_SECRET_KEY_mock"
         okex_passphrase = "OKEX_PASSPHRASE_mock"
 
-        # assert okex_api_key
-        # assert okex_secret_key
-        # assert okex_passphrase
-
         self.auth = OKExAuth(okex_api_key, okex_secret_key, okex_passphrase)
 
     @mock.patch('time.time', mock.MagicMock(return_value=1595342544.567561))
@@ -31,12 +27,3 @@ class TestAuth(unittest.TestCase):
         self.assertEqual(headers["OK-ACCESS-SIGN"],  "UBDp0uGttC14Zwcu54+b/Vazs8AmqC/86JaNALefkQM=")
         self.assertEqual(headers["OK-ACCESS-TIMESTAMP"], '2020-07-21T14:42:24.567Z')
         self.assertEqual(headers["OK-ACCESS-PASSPHRASE"],  "OKEX_PASSPHRASE_mock")
-
-    # async def con_auth(self):
-    #     # async with websockets.connect(BITFINEX_WS_AUTH_URI) as ws:
-    #     #     ws: websockets.WebSocketClientProtocol = ws
-    #     #     payload = self.auth.generate_auth_payload()
-    #     #     await ws.send(json.dumps(payload))
-    #     #     msg = await asyncio.wait_for(ws.recv(), timeout=30)  # response
-    #     #     return msg
-    #     pass

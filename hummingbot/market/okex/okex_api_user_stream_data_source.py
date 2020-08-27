@@ -93,7 +93,6 @@ class OKExAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
             message = raw_msg.json()
 
-            print(f"MSG: {message}")
             yield message
 
     # TODO needs testing, paper mode is not connecting for some reason

@@ -101,13 +101,9 @@ cdef class NetworkIterator(TimeIterator):
                 new_status = NetworkStatus.NOT_CONNECTED
                 has_unexpected_error = True
 
-            print("LOOOOOOP2")
             self._network_status = new_status
-            print('new_status', new_status)
-            print('last_status', last_status)
             if new_status != last_status:
                 if new_status is NetworkStatus.CONNECTED:
-                    print("LOOOOOOP3")
                     self.logger().info(f"Network status has changed to {new_status}. Starting networking...")
                     await self.start_network()
                 else:

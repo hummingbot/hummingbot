@@ -249,14 +249,9 @@ cdef class OKExMarket(MarketBase):
     async def check_network(self) -> NetworkStatus:
         try:
             await self._api_request(method="get", path_url=OKEX_SERVER_TIME)
-            print("NOW CONNECTED")
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            import traceback
-            traceback.print_exc()
-            print("NOW NOT CONNECTED")
-            print(e)
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
 
@@ -265,11 +260,8 @@ cdef class OKExMarket(MarketBase):
             int64_t last_tick = <int64_t>(self._last_timestamp / self._poll_interval)
             int64_t current_tick = <int64_t>(timestamp / self._poll_interval)
 
-        print("I'm called")
         MarketBase.c_tick(self, timestamp)
-        print("I'm called2")
         self._tx_tracker.c_tick(timestamp)
-        print("I'm called3")
         if current_tick > last_tick:
             if not self._poll_notifier.is_set():
                 self._poll_notifier.set()
@@ -287,7 +279,6 @@ cdef class OKExMarket(MarketBase):
                            data={},
                            is_auth_required: bool = False) -> Dict[str, Any]:
         
-        print("data at the beginign", data)
         content_type = "application/json" # if method.lower() == "post" else "application/x-www-form-urlencoded"
         headers = {"Content-Type": content_type}
         
@@ -302,7 +293,6 @@ cdef class OKExMarket(MarketBase):
 
         # aiohttp TestClient requires path instead of url
         if isinstance(client, TestClient):
-            print("this is a test")
             response_coro = client.request(
                 method=method.upper(),
                 path=f"{path_url}",
@@ -312,14 +302,6 @@ cdef class OKExMarket(MarketBase):
                 timeout=100
             )
         else:
-            print("this is not a test")
-            # real call
-            # import requests
-            # print(headers)
-            # response = requests.post(url, data=text_data, headers=headers)
-            # print("request response", response.status_code)
-            # print("request response", response.text)
-            # print(data)
             response_coro = client.request(
                 method=method.upper(),
                 url=url,
@@ -330,12 +312,10 @@ cdef class OKExMarket(MarketBase):
             )
 
         async with response_coro as response:
-            print("lala" + await response.text())
             if response.status != 200:
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
             try:
                 parsed_response = await response.json()
-                print("parsed_response", parsed_response)
                 return parsed_response
             except Exception:
                 raise IOError(f"Error parsing data from {url}.")
@@ -526,12 +506,7 @@ cdef class OKExMarket(MarketBase):
                 )
                 self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                     f"order {tracked_order.client_order_id}.")
-                self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
-
-            print("tracked_order.is_open", tracked_order.is_open)
-            print("tracked_order.is_done", tracked_order.is_done)
-            print("tracked_order.last_state", tracked_order.last_state)
-            
+                self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)            
 
             if tracked_order.is_open:
                 continue
@@ -622,13 +597,12 @@ cdef class OKExMarket(MarketBase):
             try:
                 channel = stream_message.get("table", None)
                 
-                if channel not in OK_COIN_WS_CHANNELS:
+                if channel not in OKEX_WS_CHANNELS:
                     continue
-
 
                 # stream_message["data"] is a list
                 for data in stream_message["data"]:
-                    if channel == WS_CHANNEL_SPOT_ACCOUNT:
+                    if channel == OKEX_WS_CHANNEL_SPOT_ACCOUNT:
                         asset_name = data["currency"]
                         balance = data["balance"]
                         available_balance = data["available"]
@@ -637,7 +611,7 @@ cdef class OKExMarket(MarketBase):
                         self._account_available_balances.update({asset_name: Decimal(available_balance)})
                         continue
 
-                    elif channel == HUOBI_ORDER_UPDATE_TOPIC:
+                    elif channel == OKEX_WS_CHANNEL_SPOT_ORDER:
                         order_id = data["order_id"]
                         client_order_id = data["client_oid"]
                         trading_pair = data["instrument_id"]
@@ -1080,16 +1054,11 @@ cdef class OKExMarket(MarketBase):
         if quantized_amount > trading_rule.max_order_size:
             return trading_rule.max_order_size
 
-        print("price", price)
-        print("current_price", current_price)
-        print("quantized_amount", quantized_amount)
         if price == s_decimal_0:
             notional_size = current_price * quantized_amount
         else:
             notional_size = price * quantized_amount
         # Add 1% as a safety factor in case the prices changed while making the order.
-        print("notional_size", notional_size)
-        print("trading_rule.min_notional_size", trading_rule.min_notional_size)
         
         if notional_size < trading_rule.min_notional_size * Decimal("1.01"):
             return s_decimal_0

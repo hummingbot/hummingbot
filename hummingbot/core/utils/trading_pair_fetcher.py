@@ -360,7 +360,7 @@ class TradingPairFetcher:
                  self.fetch_kraken_trading_pairs(),
                  self.fetch_radar_relay_trading_pairs(),
                  self.fetch_eterbase_trading_pairs(),
-                 self.fetch_okex_trading_pairs() # TOOD
+                 self.fetch_okex_trading_pairs()
                  ]
 
         # Radar Relay has not yet been migrated to a new version
