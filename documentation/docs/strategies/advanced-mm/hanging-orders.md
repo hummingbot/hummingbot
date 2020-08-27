@@ -114,3 +114,7 @@ Orders:
 |-----------|--------|------------|
 | **hanging_orders_enabled** | `Do you want to enable hanging orders? (Yes/No)` | When enabled, the orders on the side opposite to the filled orders remains active. |
 | **hanging_orders_cancel_pct** | `At what spread percentage (from mid price) will hanging orders be canceled?` | Cancels the hanging orders when their spread goes above this value. |
+
+!!! Note "Important information"
+    **`hanging_orders_enabled` and `order_refresh_tolerance_pct`**
+    <li> Order Refresh Tolerance orders will be canceled every order refresh time excluding Hanging Orders.
