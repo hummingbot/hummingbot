@@ -65,16 +65,12 @@ class TestOKExAPIOrderBookDataSource(unittest.TestCase):
         self.mocked_trading_pairs = ["BTCUSDT", "ETHUSDT"]
         self.order_book_data_source = OKExAPIOrderBookDataSource(self.mocked_trading_pairs)
 
-    @unittest.skip("skipping, REMOVE ME")
     def test_example_market(self):
         ev_loop = asyncio.get_event_loop()
         # TODO this is currently executing the call, how to mock this?
         restult = ev_loop.run_until_complete(OKExAPIOrderBookDataSource.get_active_exchange_markets())
         print(restult)
-
-        #assert False
     
-    @unittest.skip("skipping, REMOVE ME")
     def test_get_snapshot(self):
         ev_loop = asyncio.get_event_loop()
         # TODO this is currently executing the call, how to mock this?
@@ -86,7 +82,6 @@ class TestOKExAPIOrderBookDataSource(unittest.TestCase):
             snapshot: Dict[str, Any] = await self.order_book_data_source.get_snapshot(client, 'BTCUSDT')
             return snapshot
 
-    @unittest.skip("skipping, REMOVE ME")
     def test_get_tracking_pairs(self):
         
         tracking_pairs = asyncio.get_event_loop().run_until_complete(self.order_book_data_source.get_tracking_pairs())
@@ -122,13 +117,11 @@ class TestOKExAPIOrderBookDataSource(unittest.TestCase):
         
         self.assertFalse(q.empty())
 
-    @unittest.skip("skipping, REMOVE ME")
     def test_listen_for_trades(self):
         # WARNING: this test will fail if there are no trades in 10s in the BTC-USDT pair
         q = asyncio.Queue()
         asyncio.get_event_loop().run_until_complete(self.listen_for_trades())
         
-    @unittest.skip("skipping, REMOVE ME")
     async def listen_for_order_book_diffs(self):
         q = asyncio.Queue()
         
@@ -144,7 +137,6 @@ class TestOKExAPIOrderBookDataSource(unittest.TestCase):
         
         self.assertFalse(q.empty())
 
-    @unittest.skip("skipping, REMOVE ME")
     def test_listen_for_order_book_diffs(self):
         q = asyncio.Queue()
         asyncio.get_event_loop().run_until_complete(self.listen_for_order_book_diffs())
