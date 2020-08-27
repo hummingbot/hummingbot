@@ -1,13 +1,10 @@
 # Windows Source Installation
 
-!!! info "Recommended for Developers Only"
-    We recommend that windows users use the following method:
+Installing from source is only recommended for developers who want to access and modify the software code. We recommend that Windows users either:
 
-    - Follow the guide on [Hummingbot Windows Binary version](/installation/download/windows/) using `setup.exe` installer binary.
+- Follow the guide on [Hummingbot Windows Binary version](/installation/download/windows/) using `setup.exe` installer binary.
 
-    - Follow the guide on [Hummingbot Windows Docker version](/installation/docker/windows). Note that it is recommended to use the Docker Toolbox over native Docker in most cases.
-
-    Installing from source is only recommended for developers who want to access and modify the software code. 
+- Follow the guide on [Hummingbot Windows Docker version](/installation/docker/windows). Note that it is recommended to use the Docker Toolbox over native Docker in most cases.
 
 
 ## Installing Hummingbot on Windows System
@@ -19,7 +16,7 @@
 4. Install [Visual Studio Code](https://code.visualstudio.com/download), [Visual Studio BuildTools 2019, Core Features, C++](https://visualstudio.microsoft.com/thank-you-downloading-visual-studio/?sku=BuildTools&rel=16) and [C++ redistributable 2019](https://aka.ms/vs/16/release/VC_redist.x64.exe).
 
 !!! note
-    - During installation make sure to add Anaconda or Miniconda to your PATH environmental variable by clicking the tick box as shown below.
+    - During installation make sure to add Anaconda or Miniconda to your PATH environmental variable by clicking the tick box as shown below, or you can add them [manually](https://www.geeksforgeeks.org/how-to-setup-anaconda-path-to-environment-variable/).
     ![anaconda-path](/assets/img/anaconda-path.png)
     - Some prerequisites are large applications and may need to restart your computer.
 
