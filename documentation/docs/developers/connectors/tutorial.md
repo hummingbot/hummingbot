@@ -26,7 +26,7 @@ By the end of this guide, you should:
 Implementing a new connector can generally be split into 3 major tasks:
 
 - **Task 1:** [Data Source & Order Book Tracker](../task1)
-- **Task 2:** [User Stream Tracker](#task-2-user-stream-tracker)
+- **Task 2:** [User Stream Tracker](../task2)
 - **Task 3:** [Market Connector](../task3)
 
 ## Tasks and UML Diagram
