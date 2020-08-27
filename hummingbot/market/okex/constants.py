@@ -8,11 +8,12 @@ OKEX_BASE_URL = "https://www.okex.com/"
 
 OKEX_SYMBOLS_URL = urljoin(OKEX_BASE_URL, "api/spot/v3/instruments/ticker")
 OKEX_DEPTH_URL = urljoin(OKEX_BASE_URL, "api/spot/v3/instruments/{trading_pair}/book")
-OKEX_PRICE_URL = '/api/spot/v3/instruments/{trading_pair}/ticker'
+OKEX_PRICE_URL = urljoin(OKEX_BASE_URL, '/api/spot/v3/instruments/{trading_pair}/ticker')
 
 # Doesn't include base URL as the tail is required to generate the signature
 
 OKEX_SERVER_TIME = 'api/general/v3/time'
+OKEX_INSTRUMENTS_URL = "api/spot/v3/instruments"
 
 # Auth required
 
@@ -21,7 +22,6 @@ OKEX_ORDER_DETAILS_URL = 'api/spot/orders/{exchange_order_id}'
 OKEX_ORDER_CANCEL = 'api/spot/v3/cancel_orders/{exchange_order_id}'
 OKEX_BATCH_ORDER_CANCELL = 'api/spot/v3/cancel_batch_orders'
 OKEX_BALANCE_URL = "api/spot/v3/accounts"
-OKEX_INSTRUMENTS_URL = "api/spot/v3/instruments"
 
 
 # WS

@@ -62,8 +62,6 @@ class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Returned data frame should have trading pair as index and include usd volume, baseAsset and quoteAsset
         """
         async with aiohttp.ClientSession() as client:
-        
-            # TODO mock this in a test
             async with client.get(OKEX_SYMBOLS_URL) as products_response:
                 
                 products_response: aiohttp.ClientResponse = products_response
