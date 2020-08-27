@@ -37,7 +37,6 @@ EXCHANGES = {
     "dolomite",
     "bittrex",
     "kucoin",
-    "bitcoin_com",
     "eterbase",
     "kraken"
 }
@@ -54,7 +53,6 @@ EXAMPLE_PAIRS = {
     "bamboo_relay": "ZRX-WETH",
     "binance": "ZRX-ETH",
     "binance_perpetuals": "BTC-USDT",
-    "bitcoin_com": "ETH-BCH",
     "bittrex": "ZRX-ETH",
     "kucoin": "ETH-USDT",
     "coinbase_pro": "ETH-USDC",
@@ -70,7 +68,6 @@ EXAMPLE_ASSETS = {
     "bamboo_relay": "ZRX",
     "binance": "ZRX",
     "binance_perpetuals": "USDT",
-    "bitcoin_com": "BCH",
     "bittrex": "ZRX",
     "kucoin": "ETH",
     "coinbase_pro": "ETH",

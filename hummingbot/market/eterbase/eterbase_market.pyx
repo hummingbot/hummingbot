@@ -9,6 +9,7 @@ import pandas as pd
 import time
 import re
 from itertools import zip_longest
+import copy
 from typing import (
     Any,
     Dict,
@@ -35,7 +36,6 @@ from hummingbot.core.event.events import (
     OrderCancelledEvent,
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
-    MarketWithdrawAssetEvent,
     MarketTransactionFailureEvent,
     MarketOrderFailureEvent
 )
@@ -49,11 +49,13 @@ from hummingbot.market.eterbase.eterbase_auth import EterbaseAuth
 from hummingbot.market.eterbase.eterbase_order_book_tracker import EterbaseOrderBookTracker
 from hummingbot.market.eterbase.eterbase_user_stream_tracker import EterbaseUserStreamTracker
 from hummingbot.market.eterbase.eterbase_api_order_book_data_source import EterbaseAPIOrderBookDataSource
-from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.market.market_base import (
     MarketBase,
     OrderType,
 )
+from hummingbot.market.eterbase.eterbase_utils import (
+    convert_from_exchange_trading_pair,
+    convert_to_exchange_trading_pair)
 from hummingbot.market.eterbase.eterbase_trading_rule cimport EterbaseTradingRule
 from hummingbot.market.eterbase.eterbase_in_flight_order import EterbaseInFlightOrder
 from hummingbot.market.eterbase.eterbase_in_flight_order cimport EterbaseInFlightOrder
@@ -67,8 +69,6 @@ from hummingbot.market.eterbase.eterbase_utils import api_request
 s_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_nan = Decimal("nan")
-
-trading_pairs_split = None
 
 
 def start_background_loop(loop: asyncio.AbstractEventLoop) -> None:
@@ -89,37 +89,9 @@ cdef class EterbaseMarketTransactionTracker(TransactionTracker):
         self._owner.c_did_timeout_tx(tx_id)
 
 
-cdef class InFlightDeposit:
-    cdef:
-        public str tracking_id
-        public int64_t timestamp_ms
-        public str tx_hash
-        public str from_address
-        public str to_address
-        public object amount
-        public str currency
-        public bint has_tx_receipt
-
-    def __init__(self, tracking_id: str, tx_hash: str, from_address: str, to_address: str, amount: Decimal, currency: str):
-        self.tracking_id = tracking_id
-        self.timestamp_ms = int(time.time() * 1000)
-        self.tx_hash = tx_hash
-        self.from_address = from_address
-        self.to_address = to_address
-        self.amount = amount
-        self.currency = currency
-        self.has_tx_receipt = False
-
-    def __repr__(self) -> str:
-        return f"InFlightDeposit(tracking_id='{self.tracking_id}', timestamp_ms={self.timestamp_ms}, " \
-               f"tx_hash='{self.tx_hash}', has_tx_receipt={self.has_tx_receipt})"
-
-
 cdef class EterbaseMarket(MarketBase):
-    MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset.value
     MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
@@ -127,12 +99,9 @@ cdef class EterbaseMarket(MarketBase):
     MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
 
-    DEPOSIT_TIMEOUT = 1800.0
     UPDATE_ORDERS_INTERVAL = 10.0
 
     ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
-
-    trading_pairs_split = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -155,8 +124,7 @@ cdef class EterbaseMarket(MarketBase):
         self._eterbase_account = eterbase_account
         self._eterbase_auth = EterbaseAuth(eterbase_api_key,
                                            eterbase_secret_key)
-        self._order_book_tracker = EterbaseOrderBookTracker(data_source_type = order_book_tracker_data_source_type,
-                                                            trading_pairs = trading_pairs)
+        self._order_book_tracker = EterbaseOrderBookTracker(trading_pairs = trading_pairs)
         self._user_stream_tracker = EterbaseUserStreamTracker(eterbase_auth = self._eterbase_auth,
                                                               eterbase_account = self._eterbase_account,
                                                               trading_pairs = trading_pairs)
@@ -177,7 +145,8 @@ cdef class EterbaseMarket(MarketBase):
         self._shared_client = None
         self._maker_fee = None
         self._taker_fee = None
-        self._order_not_found_records: Dict[str, Int]= {}
+        self._order_not_found_records: Dict[str, Int] = {}
+        self._real_time_balance_update = False
 
     @property
     def name(self) -> str:
@@ -246,6 +215,10 @@ cdef class EterbaseMarket(MarketBase):
             for key, value in self._in_flight_orders.items()
         }
 
+    @property
+    def in_flight_orders(self) -> Dict[str, EterbaseInFlightOrder]:
+        return self._in_flight_orders
+
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         """
         *required
@@ -280,7 +253,7 @@ cdef class EterbaseMarket(MarketBase):
         """
         if self._order_tracker_task is not None:
             self._stop_network()
-        self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
+        self._order_book_tracker.start()
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
@@ -374,7 +347,7 @@ cdef class EterbaseMarket(MarketBase):
             self._maker_fee = maker_fee
             self._taker_fee = taker_fee
 
-        return TradeFee(percent=self._maker_fee if order_type is OrderType.LIMIT else self._taker_fee)
+        return TradeFee(percent=self._maker_fee if order_type is OrderType.LIMIT_MAKER else self._taker_fee)
 
     async def _update_balances(self):
         """
@@ -403,6 +376,9 @@ cdef class EterbaseMarket(MarketBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
+        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
+        self._in_flight_orders_snapshot_timestamp = self._current_timestamp
+
     async def _update_trading_rules(self):
         """
         Pulls the API for trading rules (min / max order size, etc)
@@ -417,7 +393,7 @@ cdef class EterbaseMarket(MarketBase):
             trading_rules_list = self._format_trading_rules(product_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
-                self._trading_rules[trading_rule.trading_pair] = trading_rule
+                self._trading_rules[convert_from_exchange_trading_pair(trading_rule.trading_pair)] = trading_rule
 
     def _format_trading_rules(self, raw_trading_rules: List[Any]) -> List[EterbaseTradingRule]:
         """
@@ -537,16 +513,11 @@ cdef class EterbaseMarket(MarketBase):
             # Cost only for MARKET order BUY
             execute_amount_diff = s_decimal_0
             new_confirmed_amount = s_decimal_0
-            if (tracked_order.order_type == OrderType.MARKET) and (tracked_order.trade_type == TradeType.BUY):
-                new_confirmed_amount = Decimal(order_update["cost"]) - Decimal(order_update["remainingCost"])
-                execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
-            else:
-                new_confirmed_amount = Decimal(order_update["qty"]) - Decimal(order_update["remainingQty"])
-                execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
+            new_confirmed_amount = Decimal(order_update["qty"]) - Decimal(order_update["remainingQty"])
+            execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
 
             client_order_id = tracked_order.client_order_id
             order_type_description = tracked_order.order_type_description
-            order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
             # Emit event if executed amount is greater than 0.
             if (execute_amount_diff > s_decimal_0):
                 # Find execute price
@@ -559,13 +530,13 @@ cdef class EterbaseMarket(MarketBase):
                                 tracked_order.client_order_id,
                                 tracked_order.trading_pair,
                                 tracked_order.trade_type,
-                                order_type,
+                                tracked_order.order_type,
                                 execute_price,
                                 execute_amount_diff,
                                 self.c_get_fee(
                                     tracked_order.base_asset,
                                     tracked_order.quote_asset,
-                                    order_type,
+                                    tracked_order.order_type,
                                     tracked_order.trade_type,
                                     execute_price,
                                     execute_amount_diff,
@@ -574,12 +545,8 @@ cdef class EterbaseMarket(MarketBase):
                                 # Using order_id here for easier data validation
                                 exchange_trade_id = exchange_order_id,
                             )
-                            if (tracked_order.order_type == OrderType.MARKET) and (tracked_order.trade_type == TradeType.BUY):
-                                self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.cost} costs of the "
-                                                   f"{order_type_description} order {client_order_id}.")
-                            else:
-                                self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
-                                                   f"{order_type_description} order {client_order_id}.")
+                            self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
+                                               f"{order_type_description} order {client_order_id}.")
 
                             self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
@@ -615,7 +582,7 @@ cdef class EterbaseMarket(MarketBase):
                                                                     tracked_order.executed_amount_base,
                                                                     tracked_order.executed_amount_quote,
                                                                     tracked_order.fee_paid,
-                                                                    order_type))
+                                                                    tracked_order.order_type))
                     else:
                         self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
                                            f"according to order status API.")
@@ -629,7 +596,7 @@ cdef class EterbaseMarket(MarketBase):
                                                                      tracked_order.executed_amount_base,
                                                                      tracked_order.executed_amount_quote,
                                                                      tracked_order.fee_paid,
-                                                                     order_type))
+                                                                     tracked_order.order_type))
                 else:
                     self.logger().info(f"The market order {tracked_order.client_order_id} has failed/been cancelled "
                                        f"according to order status API.")
@@ -759,6 +726,9 @@ cdef class EterbaseMarket(MarketBase):
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(5.0)
 
+    def supported_order_types(self):
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+
     async def place_order(self, order_id: str, trading_pair: str, amount: Decimal, is_buy: bool, order_type: OrderType,
                           price: Decimal, cost: Optional[Decimal]):
         """
@@ -768,10 +738,8 @@ cdef class EterbaseMarket(MarketBase):
         tp_map_mkrtid: Dict[str, str] = await EterbaseAPIOrderBookDataSource.get_map_market_id()
         path_url = "/orders"
 
-        if order_type is OrderType.LIMIT:
+        if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
             type_order = 2
-        elif order_type is OrderType.MARKET:
-            type_order = 1
         else:
             self.logger().error(f"Unsuported Order type value - {order_type}.", exc_info=True)
 
@@ -790,14 +758,11 @@ cdef class EterbaseMarket(MarketBase):
             "refId": order_id
         }
 
-        if order_type is OrderType.LIMIT:
+        if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
             data["limitPrice"] = str(price)
             data["qty"] = str(amount)
-        elif order_type is OrderType.MARKET:
-            if is_buy:
-                data["cost"] = str(cost)
-            else:
-                data["qty"] = str(amount)
+            if order_type is OrderType.LIMIT_MAKER:
+                data["postOnly"] = True
         else:
             self.logger().error(f"Unsuported OrderType - {order_type}.", exc_info=True)
 
@@ -818,21 +783,10 @@ cdef class EterbaseMarket(MarketBase):
         cdef:
             EterbaseTradingRule trading_rule = self._trading_rules[trading_pair]
         decimal_amount = self.quantize_order_amount(trading_pair, amount)
-        if (order_type == OrderType.MARKET) and (price != price):
-            price = self.get_price(trading_pair, True)
         decimal_price = self.quantize_order_price(trading_pair, price)
         decimal_cost = s_decimal_0
         # For Order Market type is needed cost
-        if (order_type == OrderType.MARKET):
-            decimal_cost = self.c_quantize_cost(trading_pair, amount, price)
-            decimal_cost = self.c_round_to_sig_digits(decimal_cost, trading_rule.max_cost_significant_digits, 8)
-            if decimal_cost < trading_rule.min_order_value:
-                raise ValueError(f"Buy order cost {decimal_cost} is lower than the minimum order cost "
-                                 f"{trading_rule.min_order_value}.")
-            if decimal_cost > trading_rule.max_order_value:
-                raise ValueError(f"Buy order cost {decimal_cost} is higer than the maximum order cost "
-                                 f"{trading_rule.max_order_value}.")
-        elif (order_type == OrderType.LIMIT):
+        if (order_type == OrderType.LIMIT or order_type == OrderType.LIMIT_MAKER):
             # convert price according significant digits
             decimal_price = self.c_round_to_sig_digits(decimal_price, trading_rule.max_price_significant_digits)
             if decimal_amount < trading_rule.min_order_size:
@@ -864,7 +818,7 @@ cdef class EterbaseMarket(MarketBase):
             raise
         except Exception:
             self.c_stop_tracking_order(order_id)
-            order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Eterbase for "
                 f"{decimal_amount} {trading_pair} {price}.",
@@ -875,7 +829,7 @@ cdef class EterbaseMarket(MarketBase):
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
-    cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.MARKET, object price=s_decimal_0,
+    cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.LIMIT, object price=s_decimal_0,
                    dict kwargs={}):
         """
         *required
@@ -899,8 +853,6 @@ cdef class EterbaseMarket(MarketBase):
         """
         cdef:
             EterbaseTradingRule trading_rule = self._trading_rules[trading_pair]
-        if price.is_nan() and order_type==OrderType.MARKET:
-            price = s_decimal_0
         decimal_amount = self.quantize_order_amount(trading_pair, amount)
         decimal_price = self.quantize_order_price(trading_pair, price)
         decimal_cost = s_decimal_0
@@ -932,7 +884,7 @@ cdef class EterbaseMarket(MarketBase):
             raise
         except Exception as e:
             self.c_stop_tracking_order(order_id)
-            order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting sell {order_type_str} order to Eterbase for "
                 f"{decimal_amount} {trading_pair} {price}.",
@@ -943,7 +895,7 @@ cdef class EterbaseMarket(MarketBase):
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
-    cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.MARKET, object price=s_decimal_0,
+    cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.LIMIT, object price=s_decimal_0,
                     dict kwargs={}):
         """
         *required
@@ -1115,68 +1067,6 @@ cdef class EterbaseMarket(MarketBase):
             results.append(r)
 
         return results
-
-    async def list_eterbase_accounts(self) -> Dict[str, str]:
-        """
-        Gets a list of the user's eterbase accounts via rest API
-        :returns: json response
-        """
-        path_url = "/accounts/"+self._eterbase_account
-        eterbase_accounts = await api_request("get", path_url=path_url, auth=self._eterbase_auth)
-        ids = [a["id"] for a in eterbase_accounts]
-        currencies = [a["currency"] for a in eterbase_accounts]
-        return dict(zip(currencies, ids))
-
-    async def get_deposit_info(self, asset: str) -> DepositInfo:
-        """
-        Calls `self.get_deposit_address` and format the response into a DepositInfo instance
-        :returns: a DepositInfo instance
-        """
-        return DepositInfo(await self.get_deposit_address(asset))
-
-    async def execute_withdraw(self, str tracking_id, str to_address, str currency, object amount):
-        """
-        Function that makes API request to withdraw funds
-        """
-        path_url = "/accounts/" + self._eterbase_account + "/withdrawals"
-        data = {
-            "amount": float(amount),
-            "assetId": currency,
-            "crypto_address": to_address
-        }
-        try:
-            withdraw_result = await api_request("post", path_url=path_url, data=data, auth=self._eterbase_auth)
-            self.logger().info(f"Successfully withdrew {amount} of {currency}. {withdraw_result}")
-            # Withdrawing of digital assets from Eterbase is currently free
-            withdraw_fee = s_decimal_0
-            # Currently, we assume when eterbase accepts the API request, the withdraw is valid
-            # In the future, if the confirmation of the withdrawal becomes more essential,
-            # we can perform status check by using self.get_transfers()
-            self.c_trigger_event(self.MARKET_WITHDRAW_ASSET_EVENT_TAG,
-                                 MarketWithdrawAssetEvent(self._current_timestamp, tracking_id, to_address, currency,
-                                                          amount, withdraw_fee))
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            self.logger().network(
-                f"Error sending withdraw request to Eterbase for {currency}.",
-                exc_info=True,
-                app_warning_msg=f"Failed to issue withdrawal request for {currency} from Eterbase. "
-                                f"Check API key and network connection."
-            )
-            self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                                 MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
-
-    cdef str c_withdraw(self, str to_address, str currency, object amount):
-        """
-        *required
-        Synchronous wrapper that schedules a withdrawal.
-        """
-        cdef:
-            int64_t tracking_nonce = <int64_t>(time.time() * 1e6)
-            str tracking_id = str(f"withdraw://{currency}/{tracking_nonce}")
-        safe_ensure_future(self.execute_withdraw(tracking_id, to_address, currency, amount))
-        return tracking_id
 
     cdef OrderBook c_get_order_book(self, str trading_pair):
         """
@@ -1356,42 +1246,4 @@ cdef class EterbaseMarket(MarketBase):
 
         return quantized_price
 
-    @staticmethod
-    def prepare_trading_pairs_split(markets: List):
-        global trading_pairs_split
-        if trading_pairs_split is None:
-            trading_pairs_split = dict()
-        for market in markets:
-            trad_pair = market.get("symbol")
-            if trad_pair not in trading_pairs_split:
-                base = market.get("base")
-                quote = market.get("quote")
-                trading_pairs_split[trad_pair]={"base": base, "quote": quote}
 
-    @staticmethod
-    def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
-        global trading_pairs_split
-        if (trading_pairs_split is None):
-            loop = asyncio.new_event_loop()
-            t = Thread(target=start_background_loop, args=(loop, ), daemon=True)
-            t.start()
-            future = asyncio.run_coroutine_threadsafe(api_request("get", path_url="/markets", loop=loop), loop)
-            markets = future.result(constants.API_TIMEOUT_SEC)
-            loop.stop()
-            EterbaseMarket.prepare_trading_pairs_split(markets)
-        try:
-            market = trading_pairs_split[trading_pair]
-            base_asset= market['base']
-            quote_asset= market['quote']
-            return base_asset, quote_asset
-        except Exception:
-            raise ValueError(f"Error parsing trading_pair {trading_pair}", exc_info=True)
-
-    @staticmethod
-    def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-        return hb_trading_pair.replace("-", "")
-
-    @staticmethod
-    def convert_from_exchange_trading_pair(trading_pair: str) -> str:
-        base, quote = EterbaseMarket.split_trading_pair(trading_pair)
-        return f"{base}-{quote}"

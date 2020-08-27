@@ -142,8 +142,10 @@ class ConnectCommand:
             private_key = await self.app.prompt(prompt="Enter your wallet private key >>> ", is_password=True)
             public_address = Security.add_private_key(private_key)
             global_config_map["ethereum_wallet"].value = public_address
-            await self.prompt_a_config(global_config_map["ethereum_rpc_url"])
-            await self.prompt_a_config(global_config_map["ethereum_rpc_ws_url"])
+            if global_config_map["ethereum_rpc_url"].value is None:
+                await self.prompt_a_config(global_config_map["ethereum_rpc_url"])
+            if global_config_map["ethereum_rpc_ws_url"].value is None:
+                await self.prompt_a_config(global_config_map["ethereum_rpc_ws_url"])
             if self.app.to_stop_config:
                 self.app.to_stop_config = False
                 return

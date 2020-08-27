@@ -38,7 +38,7 @@ Enter the command `help` to see a list of commands:
 |---------|----------|
 | `connect` | List available exchanges and add API keys to them |
 | `create` | Create a new bot |
-| `import` | Import a existing bot by loading the configuration file |
+| `import` | Import an existing bot by loading the configuration file |
 | `help` | List available commands |
 | `balance` | Display your asset balances across all connected exchanges |
 | `config` | Display the current bot's configuration |
@@ -49,6 +49,7 @@ Enter the command `help` to see a list of commands:
 | `exit` | Exit and cancel all outstanding orders |
 | `paper_trade` | Toggle paper trading mode |
 | `export` | Export your bot's trades or private keys |
+| `order_book` | Display the current top bid and ask on the order book |
 
 ## Enter API keys
 
@@ -118,10 +119,7 @@ Later, you can access and configure the advanced parameters of this strategy. A 
 
 The ping pong feature helps users in managing inventory risk by alternating buy and sell orders after a fill.
 
-```
-Would you like to use the ping pong feature and alternate between
-buy and sell orders after fills? (Yes/No) >>>
-```
+![](/assets/img/quickstart_pingpong.png)
 
 For more information, you may read through [Ping Pong](/strategies/advanced-mm/ping-pong) in the Advanced Market Making section.
 
@@ -130,7 +128,7 @@ For more information, you may read through [Ping Pong](/strategies/advanced-mm/p
 
 Enter the name you want for your configuration file to complete the process.
 
-![](/assets/img/quickstart_complete_save.png)
+![](/assets/img/quickstart_start.png)
 
 Proceed to the next section: [Run Your First Trading Bot](run-bot.md)
 

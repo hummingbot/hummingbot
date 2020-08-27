@@ -1,7 +1,9 @@
 class FixtureHuobi:
+    LIMIT_MAKER_ERROR = {'status': 'error', 'err-code': 'order-invalid-price', 'err-msg': 'invalid price', 'data': None}
+
     GET_ACCOUNTS = {"status": "ok", "data": [{"id": 11899168, "type": "spot", "subtype": "", "state": "working"}]}
 
-    GET_BALANCES = {"status": "ok", "data": {"id": 11899168, "type": "spot", "state": "working",
+    BALANCES = {"status": "ok", "data": {"id": 11899168, "type": "spot", "state": "working",
                                              "list": [{"currency": "lun", "type": "trade", "balance": "0"},
                                                       {"currency": "husd", "type": "trade", "balance": "0.0146"},
                                                       {"currency": "eth", "type": "trade", "balance": "0.226546"}
@@ -9,7 +11,7 @@ class FixtureHuobi:
 
     ORDER_PLACE = {"status": "ok", "data": "69092298194"}
 
-    ORDER_GET_LIMIT_BUY_FILLED = {"status": "ok",
+    FILLED_BUY_LIMIT_ORDER = {"status": "ok",
                                   "data": {"id": 69092298194, "symbol": "ethusdt", "account-id": 11899168,
                                            "client-order-id": "buy-ethusdt-1581561936007620",
                                            "amount": "0.060000000000000000", "price": "286.850000000000000000",
@@ -19,7 +21,7 @@ class FixtureHuobi:
                                            "field-fees": "0.000040000000000000", "finished-at": 1581561936222,
                                            "source": "spot-api", "state": "filled", "canceled-at": 0}}
 
-    ORDER_GET_LIMIT_SELL_FILLED = {"status": "ok",
+    FILLED_SELL_LIMIT_ORDER = {"status": "ok",
                                    "data": {"id": 69094165877, "symbol": "ethusdt", "account-id": 11899168,
                                             "client-order-id": "sell-ethusdt-1581562860006536",
                                             "amount": "0.060000000000000000",
@@ -29,7 +31,7 @@ class FixtureHuobi:
                                             "field-fees": "0.010910800000000000", "finished-at": 1581562860240,
                                             "source": "spot-api", "state": "filled", "canceled-at": 0}}
 
-    ORDER_GET_MARKET_BUY = {"status": "ok", "data": {"id": 69094699396, "symbol": "ethusdt", "account-id": 11899168,
+    BUY_MARKET_ORDER = {"status": "ok", "data": {"id": 69094699396, "symbol": "ethusdt", "account-id": 11899168,
                                                      "client-order-id": "buy-ethusdt-1581563124007518",
                                                      "amount": "5.460000000000000000", "price": "0.0",
                                                      "created-at": 1581563124085, "type": "buy-market",
@@ -38,7 +40,7 @@ class FixtureHuobi:
                                                      "field-fees": "0.000040030792917629", "finished-at": 1581563124185,
                                                      "source": "spot-api", "state": "filled", "canceled-at": 0}}
 
-    ORDER_GET_MARKET_SELL = {"status": "ok", "data": {"id": 69095353390, "symbol": "ethusdt", "account-id": 11899168,
+    SELL_MARKET_ORDER = {"status": "ok", "data": {"id": 69095353390, "symbol": "ethusdt", "account-id": 11899168,
                                                       "client-order-id": "sell-ethusdt-1581563456004786",
                                                       "amount": "0.060000000000000000", "price": "0.0",
                                                       "created-at": 1581563456081, "type": "sell-market",
@@ -48,7 +50,7 @@ class FixtureHuobi:
                                                       "finished-at": 1581563456183, "source": "spot-api",
                                                       "state": "filled", "canceled-at": 0}}
 
-    ORDER_GET_LIMIT_BUY_UNFILLED = {"status": "ok",
+    OPEN_BUY_LIMIT_ORDER = {"status": "ok",
                                     "data": {"id": 69095996284, "symbol": "ethusdt", "account-id": 11899168,
                                              "client-order-id": "buy-ethusdt-1581563740035369",
                                              "amount": "0.060000000000000000", "price": "244.640000000000000000",
@@ -56,7 +58,7 @@ class FixtureHuobi:
                                              "field-cash-amount": "0.0", "field-fees": "0.0", "finished-at": 0,
                                              "source": "spot-api", "state": "submitted", "canceled-at": 0}}
 
-    ORDER_GET_LIMIT_SELL_UNFILLED = {"status": "ok",
+    OPEN_SELL_LIMIT_ORDER = {"status": "ok",
                                      "data": {"id": 69095996284, "symbol": "ethusdt", "account-id": 11899168,
                                               "client-order-id": "buy-ethusdt-1581563740035369",
                                               "amount": "0.060000000000000000", "price": "244.640000000000000000",
@@ -64,7 +66,7 @@ class FixtureHuobi:
                                               "field-cash-amount": "0.0", "field-fees": "0.0", "finished-at": 0,
                                               "source": "spot-api", "state": "submitted", "canceled-at": 0}}
 
-    ORDER_GET_CANCELED = {"status": "ok", "data": {"id": 69095996284, "symbol": "ethusdt", "account-id": 11899168,
+    CANCEL_ORDER = {"status": "ok", "data": {"id": 69095996284, "symbol": "ethusdt", "account-id": 11899168,
                                                    "client-order-id": "buy-ethusdt-1581563740035369",
                                                    "amount": "0.060000000000000000", "price": "244.640000000000000000",
                                                    "created-at": 1581563742607, "type": "buy-limit",
