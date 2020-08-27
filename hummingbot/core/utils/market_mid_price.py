@@ -109,8 +109,7 @@ def coinbase_pro_mid_price(trading_pair: str) -> Optional[Decimal]:
 
 @cachetools.func.ttl_cache(ttl=10)
 def okex_mid_price(trading_pair: str) -> Optional[Decimal]:
-    # TODO
-    resp = requests.get(url=COINBASE_PRO_PRICE_URL.format(trading_pair=trading_pair))
+    resp = requests.get(url=OKEX_PRICE_URL.format(trading_pair=trading_pair))
     record = resp.json()
     if 'best_ask' in record and 'best_bid' in record:
         return (Decimal(record["best_ask"]) + Decimal(record["best_bid"])) / Decimal("2")

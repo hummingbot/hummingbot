@@ -27,6 +27,8 @@ KRAKEN_ENDPOINT = "https://api.kraken.com/0/public/AssetPairs"
 
 API_CALL_TIMEOUT = 5
 
+from hummingbot.market.okex.constants import OKEX_SYMBOLS_URL
+
 
 class TradingPairFetcher:
     _sf_shared_instance: "TradingPairFetcher" = None
@@ -305,20 +307,21 @@ class TradingPairFetcher:
     @staticmethod
     async def fetch_okex_trading_pairs() -> List[str]:
         # Returns a List of str, representing each active trading pair on the exchange.
-        # TODO
-        raise NotImplemented
-        # async with aiohttp.ClientSession() as client:
-        #         async with client.get(NEW_MARKET_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
-        #             if response.status == 200:
-        #                 try:
-        #                     all_trading_pairs: List[Dict[str, any]] = await response.json()
-        #                     return [item["symbol"]
-        #                             for item in all_trading_pairs
-        #                             if item["status"] == "ONLINE"]  # Only returns active trading pairs
-        #                 except Exception:
-        #                     pass
-        #                     # Do nothing if the request fails -- there will be no autocomplete available
-        #             return []
+        async with aiohttp.ClientSession() as client:
+            async with client.get(OKEX_SYMBOLS_URL) as products_response:
+                
+                products_response: aiohttp.ClientResponse = products_response
+                if products_response.status != 200:
+                    raise IOError(f"Error fetching active OKEx markets. HTTP status is {products_response.status}.")
+
+                data = await products_response.json()
+
+                trading_pairs = []
+                for item in data:
+                    # I couldn't find where to check if it's online in OKEx API doc
+                    trading_pairs.append(item['instrument_id'])
+
+        return trading_pairs
 
     async def fetch_dolomite_trading_pairs(self) -> List[str]:
         try:
