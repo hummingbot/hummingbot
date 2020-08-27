@@ -31,7 +31,7 @@ As such, it would only make sense to have a module dedicated to handling authent
 As briefly mentioned, the `Auth` class is responsible for creating the request parameters and/or data bodies necessary to authenticate an API request.
 
 !!! note
-    Mainly used in the `Market` class, but may be required in the `UserStreamTrackerDataSource` to authenticate subscribing to a WebSocket connection in [`listen_for_user_stream`](#userstreamtrackerdatasource).
+    Mainly used in the `Market` class, but may be required in the `UserStreamTrackerDataSource` to authenticate subscribing to a WebSocket connection in [`listen_for_user_stream`](../task2/#userstreamtrackerdatasource).
 
 Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s)(s) | Description
 ---|---|---|---
@@ -189,5 +189,4 @@ Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | D
 `c_get_order_book` | `str symbol` | `OrderBook` | Returns the `OrderBook` for a specific trading pair(symbol).
 `c_start_tracking_order` | `str client_order_id`,<br/>`str symbol`,<br/>`object order_type`,<br/>`object trade_type`,<br/>`object price`,<br/>`object amount` | `None` | Adds a new order to the `_in_flight_orders` class variable. This essentially begins tracking the order on the Hummingbot client. 
 `c_stop_tracking_order` | `str order_id` | `None` | Deletes an order from `_in_flight_orders` class variable. This essentially stops the Hummingbot client from tracking an order.
-
 
