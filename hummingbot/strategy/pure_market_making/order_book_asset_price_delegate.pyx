@@ -25,4 +25,4 @@ cdef class OrderBookAssetPriceDelegate(AssetPriceDelegate):
         elif price_type is PriceType.MidPrice:
             return self._market.get_mid_price(self._trading_pair)
         elif price_type is PriceType.LastTrade:
-            return self._market.get_order_book(self._trading_pair).last_trade_price
+            return Decimal(self._market.get_order_book(self._trading_pair).last_trade_price)
