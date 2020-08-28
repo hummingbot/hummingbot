@@ -826,12 +826,12 @@ cdef class LiquidMarket(MarketBase):
                                                                      tracked_order.fee_paid,
                                                                      tracked_order.order_type))
                     self.c_stop_tracking_order(tracked_order.client_order_id)
-                else:  # status == "cancelled":
-                    execute_amount_diff = 0
+                elif event_status == "cancelled":  # status == "cancelled":
                     tracked_order.last_state = "cancelled"
+                    self.logger().info(f"The market order {tracked_order.client_order_id} has failed/been cancelled "
+                                       f"according to Liquid user stream.")
                     self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                          OrderCancelledEvent(self._current_timestamp, tracked_order.client_order_id))
-                    execute_amount_diff = 0
                     self.c_stop_tracking_order(tracked_order.client_order_id)
 
             except asyncio.CancelledError:
