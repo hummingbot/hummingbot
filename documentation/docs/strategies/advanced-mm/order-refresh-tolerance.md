@@ -103,3 +103,12 @@ The default for this parameter is a tolerance of 0%. Thus, at each refresh cycle
 | Parameter | Prompt | Definition |
 |-----------|--------|------------|
 | **order_refresh_tolerance_pct** | `Enter the percent change in price needed to refresh orders at each cycle` | The spread (from mid price) to defer order refresh process to the next cycle. |
+
+!!! warning "Important notes"
+    <li> `order_refresh_tolerance_pct` and `minimum_spread`: When using order refresh tolerance and minimum spread at the same time, note that sometimes the market tends to move a lot so there's a chance that the minimum_spread parameter will always get triggered.
+
+    <li>`order_refresh_tolerance_pct` and `hanging_orders_enabled`: Order Refresh Tolerance orders will be canceled every order refresh time excluding Hanging Orders.
+
+    <li> `order_refresh_tolerance_pct` and `price_ceiling` + `price_floor`: Using Price Band and Order Refresh Tolerance, if the mid price dips below price_floor or goes above price_ceiling, it will cancel your existing order regardless of order refresh tolerance.
+
+    <li> low liquid market: To completely disable this feature set `config order_refresh_tolerance_pct -1`. So in a low liquid market, orders do not stay outstanding for a long time.
