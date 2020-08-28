@@ -96,3 +96,6 @@ If `price_source` is enabled then the mid price reference point will be the exte
 |-----------|--------|------------|
 | **price_ceiling** | `Enter the price point above which only sell orders will be placed` | Place only sell orders when mid price goes above this price. |
 | **price_floor** | `Enter the price below which only buy orders will be placed` | Place only buy orders when mid price falls below this price. |
+
+!!! warning "Price Band with `order_refresh_tolerance_pct`"
+    <li> Using Price Band and Order Refresh Tolerance, if the mid price dips below price_floor or goes above price_ceiling, it will cancel your existing order regardless of order refresh tolerance.
