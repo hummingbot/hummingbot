@@ -17,7 +17,7 @@ xcode-select --install
 
 Hummingbot requires Python 3 and other Python libraries. To manage these dependencies, Hummingbot uses Anaconda, an open source environment and package manager for Python that is the current industry standard for data scientists and data engineers.
 
-To install Anaconda, go to [the Anaconda site](https://www.anaconda.com/distribution/) and download the **Python 3.7 installer** for your operating system. Both the graphical installer and the command line installer will work. Run the installer, and it will guide you through the installation process.
+To install Anaconda, go to [the Anaconda site](https://www.anaconda.com/distribution/) and download the **Python 3.7 installer** for your operating system. Both the [graphical installer](https://docs.anaconda.com/anaconda/install/mac-os/#macos-graphical-install) and the [command line installer](https://docs.anaconda.com/anaconda/install/mac-os/#using-the-command-line-install) will work. Run the installer, and it will guide you through the installation process.
 
 Afterwards, open a Terminal window and try the `conda` command. If the command is valid, then Anaconda has been successfully installed, even if the graphical installer says that it failed.
 

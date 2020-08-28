@@ -34,25 +34,33 @@ There are a few plugin interfaces that the pure market making strategy depends o
 
 ## Built-in Plugins
 
-If you configure the pure market making strategy with multiple orders **disabled**, then Hummingbot will be using [`ConstantSpreadPricingDelegate`](https://github.com/CoinAlpha/hummingbot/blob/development/hummingbot/strategy/pure_market_making/constant_spread_pricing_delegate.pyx) and [`ConstantSizeSizingDelegate`](https://github.com/CoinAlpha/hummingbot/blob/development/hummingbot/strategy/pure_market_making/constant_size_sizing_delegate.pyx) for the pricing and sizing plugins.
+If you configure the pure market making strategy with the `order_levels` parameter set to 1, then Hummingbot will use [`ConstantSpreadPricingDelegate`](https://github.com/CoinAlpha/hummingbot/blob/development/hummingbot/strategy/pure_market_making/constant_spread_pricing_delegate.pyx) and [`ConstantSizeSizingDelegate`](https://github.com/CoinAlpha/hummingbot/blob/development/hummingbot/strategy/pure_market_making/constant_size_sizing_delegate.pyx) for the pricing and sizing plugins.
+
+Alternatively, setting `order_levels` greater than 1 places multiple levels of orders of each side of the order book. In this case, Hummingbot will use [`ConstantMultipleSpreadPricingDelegate`](https://github.com/CoinAlpha/hummingbot/blob/development/hummingbot/strategy/pure_market_making/constant_multiple_spread_pricing_delegate.pyx) and [`StaggeredMultipleSizeSizingDelegate`](https://github.com/CoinAlpha/hummingbot/blob/development/hummingbot/strategy/pure_market_making/staggered_multiple_size_sizing_delegate.pyx) for the pricing and sizing plugins instead.
 
 ### ConstantSpreadPricingDelegate
-
-If you look into the logic of the [`ConstantSpreadPricingDelegate`](https://github.com/CoinAlpha/hummingbot/blob/development/hummingbot/strategy/pure_market_making/constant_spread_pricing_delegate.pyx), it's extremely simple - it'll always propose a bid and an ask order at a pre-configured spread from the current mid-price. It doesn't do any checks about whether you have existing orders, or have enough balance to create the orders - but that's fine.
+The logic of [`ConstantSpreadPricingDelegate`](https://github.com/CoinAlpha/hummingbot/blob/development/hummingbot/strategy/pure_market_making/constant_spread_pricing_delegate.pyx) is simple. It will always propose a bid and an ask order at a pre-configured spread from the current mid-price.
+```cython
+object bid_price = mid_price * (Decimal(1) - self.bid_spread)
+object ask_price = mid_price * (Decimal(1) + self.ask_spread)
+```
+ 
+It doesn't do any checks about whether you have existing orders, or have enough balance to create the orders, but that's fine because the sizing delegate is responsible for that.
 
 ### ConstantSizeSizingDelegate
 
-The logic inside [`ConstantSizeSizingDelegate`](https://github.com/CoinAlpha/hummingbot/blob/development/hummingbot/strategy/pure_market_making/constant_size_sizing_delegate.pyx) looks a bit more involved, because it's checking whether there're existing limit orders that are still active, and also whether there's enough balance in the exchange to create new orders. But beyond the checks, it's really just proposing constant order size proposals.
+The logic inside [`ConstantSizeSizingDelegate`](https://github.com/CoinAlpha/hummingbot/blob/development/hummingbot/strategy/pure_market_making/constant_size_sizing_delegate.pyx) is more involved, because it's checking whether there're existing limit orders that are still active, and also whether there's enough balance in the exchange to create new orders.
 
-If all the checks are green (i.e. no active limit orders, and enough balance to make new orders), then it will make an order size proposal with the pre-configured size on both the bid and ask sides. Otherwise, it'll propose 0 order sizes.
+In addition, this delegate is responsible for "quantizing" the orders, which means conforming them to the tick size and minimum order size required by this particular exchange's trading rules. Note that if a proposed order size is lower than minimum order size, the order size will be reduced to 0.
 
-If you configure the pure market making strategy with multiple orders **enabled**, then Hummingbot will be using [`ConstantMultipleSpreadPricingDelegate`](https://github.com/CoinAlpha/hummingbot/blob/development/hummingbot/strategy/pure_market_making/constant_multiple_spread_pricing_delegate.pyx) and [`StaggeredMultipleSizeSizingDelegate`](https://github.com/CoinAlpha/hummingbot/blob/development/hummingbot/strategy/pure_market_making/staggered_multiple_size_sizing_delegate.pyx) for the pricing and sizing plugins instead.
+If all the checks are green (i.e. no active limit orders, and enough balance to make new orders) and after it has quantized the orders, the delegate will make constant order size proposals with the pre-configured size on both the bid and ask sides. Otherwise, it'll propose 0 order sizes.
+
 
 ## Refreshing Orders
 
-For each limit order that was emitted by the pure market making strategy, an expiry timestamp would be generated for that order and the order will be tracked by the strategy. The time until expiry for new orders is configured via the **cancel_order_wait_time** option in [Configuration Parameters](#configuration-parameters).
+For each limit order that was emitted by the pure market making strategy, an expiry timestamp would be generated for that order and the order will be tracked by the strategy. The time until expiry for new orders is configured via the **order_refresh_time** parameter (See [parameters](/strategies/pure-market-making/#basic-configuration-parameters-and-walkthrough) in main documentation).
 
-Once an order's expiration time has passed, the pure market making strategy will create a cancel order proposal for that order.
+After an order's expiration time is reached, the pure market making strategy will create a cancel order proposal for that order.
 
 ## Executing Order Proposals
 

@@ -31,7 +31,7 @@ sudo apt-get update
 sudo apt-get install -y build-essential
 
 # 3) Install Miniconda3
-curl https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -o Miniconda3-latest-Linux-x86_64.sh
+wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
 sh Miniconda3-latest-Linux-x86_64.sh
 
 # 4) Log out and log back into shell to register "conda" command

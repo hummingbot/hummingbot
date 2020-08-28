@@ -72,7 +72,9 @@ The minimum order size is the value next to `minimum_order_quantity`. For exampl
 
 ### Transaction Fees
 
-Generally, Liquid charges 0.10% on both maker and taker while a user can get 50% discount on trading fees if paid in QASH. QASH is an ERC20 token designed to be used services on the Quione and Liquid platform. Effecive April 1 2019, high-volume traders can also get rebates on trading fees.
+In this [blog post](https://blog.liquid.com/liquid-progressive-fee-update), Liquid announced their [new fee structure](https://www.liquid.com/fees/) that offers 0 trading fees on maker orders if a user's 30-day trading volume is less than $10,000 and 0.30% on taker. All users can get a 50% discount on trading fees if paid in QASH.
+
+QASH is an ERC20 token designed to be used services on the Quione and Liquid platform. Effective April 1 2019, high-volume traders can also get rebates on trading fees.
 
 Read through their articles below related to trading fees, and rebates.
 

@@ -13,7 +13,7 @@ Resource | Requirement
 
 ## For new users
 
-For new users, we recommending installing Hummingbot on a desktop or laptop computer in order to test it out.
+For new users, we recommend installing Hummingbot on a desktop or laptop computer in order to test it out.
 
 Windows and macOS users can download the installer, while Linux users can install Hummingbot via Docker.
 

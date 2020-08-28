@@ -11,7 +11,7 @@ All outstanding orders cancelled.
 
 ## exit -f
 
-Force exit and cancell all outstanding orders.
+Force exit and cancel all outstanding orders.
 
 ```
 >>>  exit -f

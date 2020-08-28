@@ -38,7 +38,7 @@ Enter the command `help` to see a list of commands:
 |---------|----------|
 | `connect` | List available exchanges and add API keys to them |
 | `create` | Create a new bot |
-| `import` | Import a existing bot by loading the configuration file |
+| `import` | Import an existing bot by loading the configuration file |
 | `help` | List available commands |
 | `balance` | Display your asset balances across all connected exchanges |
 | `config` | Display the current bot's configuration |
@@ -49,6 +49,7 @@ Enter the command `help` to see a list of commands:
 | `exit` | Exit and cancel all outstanding orders |
 | `paper_trade` | Toggle paper trading mode |
 | `export` | Export your bot's trades or private keys |
+| `order_book` | Display the current top bid and ask on the order book |
 
 ## Enter API keys
 
@@ -114,20 +115,20 @@ A bot's strategy parameters control how it behaves. During this step, you will d
 Later, you can access and configure the advanced parameters of this strategy. A more detailed explanation of each prompt for basic pure market making strategy are explained [here](/strategies/pure-market-making/#configuration-walkthrough) and advanced market making [here](/strategies/advanced-mm/#advanced-configuration-parameters).
 
 
-## Adjust inventory ratio
+## Alternate buy and sell orders
 
-If paper trade mode is not enabled, you will be asked whether you want to keep your current inventory ratio. The inventory skew feature lets you set and maintain a target inventory split between the base and quote assets.
+The ping pong feature helps users in managing inventory risk by alternating buy and sell orders after a fill.
 
-![](/assets/img/quickstart_inventory_skew.png)
+![](/assets/img/quickstart_pingpong.png)
 
-For more information, you may read through [Inventory Skew](/strategies/advanced-mm/inventory-skew) in the Advanced Market Making section.
+For more information, you may read through [Ping Pong](/strategies/advanced-mm/ping-pong) in the Advanced Market Making section.
 
 
 ## Save configuration
 
 Enter the name you want for your configuration file to complete the process.
 
-![](/assets/img/quickstart_complete_save.png)
+![](/assets/img/quickstart_start.png)
 
 Proceed to the next section: [Run Your First Trading Bot](run-bot.md)
 

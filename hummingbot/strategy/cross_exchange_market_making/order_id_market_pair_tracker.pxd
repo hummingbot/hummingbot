@@ -7,6 +7,7 @@ cdef class OrderIDMarketPairTracker(TimeIterator):
         float _expiry_timeout
 
     cdef object c_get_market_pair_from_order_id(self, str order_id)
-    cdef c_start_tracking_order_id(self, str order_id, object market_pair)
+    cdef object c_get_exchange_from_order_id(self, str order_id)
+    cdef c_start_tracking_order_id(self, str order_id, object exchange, object market_pair)
     cdef c_stop_tracking_order_id(self, str order_id)
     cdef c_check_and_expire_tracking_items(self)

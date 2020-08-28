@@ -7,16 +7,19 @@
 
 ---
 
-If you have successfully configure a pure market making bot in step 3, you should see the following message in the left top pane of Hummingbot:
-```
-Config process complete. Enter "start" to start market making.
-```
+If you have successfully configured a pure market making bot in step 3, you should see the following message in the left pane of Hummingbot:
+
+![](/assets/img/quickstart_start.png)
 
 ## Start bot
 
 Make sure that Paper Trading mode is on. The top bar in the Hummingbot client should say `paper_trade: ON`.
 
+![](/assets/img/quickstart_paper_on.png)
+
 Now that you have successfully configured a trading bot, you can start market making by running the `start` command.
+
+![](/assets/img/quickstart_starting.png)
 
 ## Run bot
 After some preliminary checks, the bot will fetch the current state of the order book and start placing orders.
@@ -45,7 +48,7 @@ If you don't see any active orders, check that you have correctly entered API ke
 
 ## See past trades and performance
 
-Enter the comamnd `history`.
+Enter the command `history`.
 
 This command shows you:
 
@@ -59,16 +62,15 @@ For more information on how Hummingbot calculates performance, refer to [Perform
 
 Enter `stop` to stop the bot, or `exit` to stop and also exit Hummingbot.
 
+![](/assets/img/quickstart_stop.png)
+
 Both `stop` and `exit` automatically cancels all outstanding orders and notifies you if it believes that there are potentially uncancelled orders.
 
-When you restart Hummingbot, you can import your saved configuration file, which was automatically named `conf_pure_market_making_strategy_0.yml`:
-```
-Import previous configs or create a new config file? (import/create) >>>
-import
+![](/assets/img/quickstart_exit.png)
 
-Enter path to your strategy file (e.g. "conf_pure_market_making_stategy_0.yml")
-conf_pure_market_making_stategy_0.yml
-```
+When you restart Hummingbot, you can import your saved configuration file, which was automatically named `conf_pure_mm_1.yml`:
+
+![](/assets/img/quickstart_import.png)
 
 ---
 

@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import asyncio
-from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 from typing import TYPE_CHECKING
@@ -27,7 +26,6 @@ class ExitCommand:
                 return
             # Freeze screen 1 second for better UI
             await asyncio.sleep(1)
-        ExchangeRateConversion.get_instance().stop()
 
         self._notify("Winding down notifiers...")
         for notifier in self.notifiers:

@@ -360,7 +360,11 @@ class ZeroExCoordinator:
         order_hash_hex = get_transaction_hash_hex(transaction)
 
         signature = self._wallet.current_backend.sign_hash(hexstr=order_hash_hex)
-        fixed_signature = fix_signature(self._provider, signerAddress, order_hash_hex, signature)
+        fixed_signature = fix_signature(self._provider,
+                                        signerAddress, 
+                                        order_hash_hex, 
+                                        signature,
+                                        chainId)
 
         transaction['signature'] = fixed_signature
 
@@ -388,7 +392,7 @@ class ZeroExCoordinator:
                         body = None
                     else:
                         body = json
-                        error = None
+                        error = "Error signalled but empty response returned"
                 except Exception as ex:
                     isError = True
                     isValidationError = False
@@ -421,8 +425,12 @@ class ZeroExCoordinator:
                                       timeout=timeout,
                                       json=data,
                                       headers={'Content-Type': 'application/json; charset=utf-8'}) as response:
-                await response.json()
-                return response
+                try:
+                    await response.json()
+                    return response
+                except aiohttp.ContentTypeError as ex:
+                    error = await response.text()
+                    raise ValueError(error)
 
     async def _submit_coordinator_transaction(
         self,
@@ -436,7 +444,7 @@ class ZeroExCoordinator:
             transaction["salt"],
             transaction["expirationTimeSeconds"],
             transaction["gasPrice"],
-            transaction["signerAddress"],
+            Web3.toChecksumAddress(transaction["signerAddress"]),
             self._w3.toBytes(hexstr=transaction["data"])
         )
         transactionSignature: bytes = self._w3.toBytes(hexstr=transactionSignature)

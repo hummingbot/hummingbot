@@ -8,6 +8,7 @@ from typing import (
     Optional,
     Callable,
 )
+from os.path import dirname
 from hummingbot.core.clock import (
     Clock,
     ClockMode
@@ -18,14 +19,15 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.settings import (
     STRATEGIES,
+    SCRIPTS_PATH
 )
-from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
 from hummingbot.core.utils.kill_switch import KillSwitch
 from typing import TYPE_CHECKING
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.script.script_iterator import ScriptIterator
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -83,8 +85,6 @@ class StartCommand:
 
     async def start_market_making(self,  # type: HummingbotApplication
                                   strategy_name: str):
-        await ExchangeRateConversion.get_instance().ready_notifier.wait()
-
         start_strategy: Callable = get_strategy_starter_file(strategy_name)
         if strategy_name in STRATEGIES:
             start_strategy(self)
@@ -106,10 +106,23 @@ class StartCommand:
                         await market.cancel_all(5.0)
             if self.strategy:
                 self.clock.add_iterator(self.strategy)
+            if global_config_map["script_enabled"].value:
+                script_file = global_config_map["script_file_path"].value
+                folder = dirname(script_file)
+                if folder == "":
+                    script_file = SCRIPTS_PATH + script_file
+                if self.strategy_name != "pure_market_making":
+                    self._notify("Error: script feature is only available for pure_market_making strategy (for now).")
+                else:
+                    self._script_iterator = ScriptIterator(script_file, list(self.markets.values()),
+                                                           self.strategy, 0.1)
+                    self.clock.add_iterator(self._script_iterator)
+                    self._notify(f"Script ({script_file}) started.")
+
             self.strategy_task: asyncio.Task = safe_ensure_future(self._run_clock(), loop=self.ev_loop)
             self._notify(f"\n'{strategy_name}' strategy started.\n"
                          f"Run `status` command to query the progress.")
-
+            self.logger().info("start command initiated.")
             if not self.starting_balances:
                 self.starting_balances = await self.wait_till_ready(self.balance_snapshot)
 

@@ -36,7 +36,6 @@ cdef class PaperTradeMarket(MarketBase):
         object _order_book_trade_listener
         object _market_order_filled_listener
         LimitOrderExpirationSet _limit_order_expiration_set
-        object _order_tracker_task
         object _target_market
 
     cdef c_execute_buy(self, str order_id, str trading_pair, object amount)

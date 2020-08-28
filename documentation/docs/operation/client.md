@@ -45,6 +45,7 @@ The CLI is divided into three panes:
 | `Double CTRL + C` <img width="50"> | Exit <img width="100"> | Press `CTRL + C` twice to exit the bot.
 | `CTRL + S` | Status | Show bot status
 | `CTRL + F` | Search / <br/> Hide Search | Toggle search in log pane.
+| `CTRL + X` | Exit Config | Exit from the current configuration question.
 | `CTRL + A` | Select All | * Select all text
 | `CTRL + Z` | Undo | * Undo action
 | `Single CTRL + C` | Copy | * Copy text

@@ -8,7 +8,6 @@ from hummingbot.client.settings import (
     required_exchanges,
     EXAMPLE_PAIRS,
 )
-from hummingbot.data_feed.exchange_price_manager import ExchangePriceManager
 from decimal import Decimal
 from typing import Optional
 
@@ -39,9 +38,6 @@ def secondary_trading_pair_prompt():
 
 def secondary_market_on_validated(value: str):
     required_exchanges.append(value)
-    primary_exchange = arbitrage_config_map["primary_market"].value
-    ExchangePriceManager.set_exchanges_to_feed([primary_exchange, value])
-    ExchangePriceManager.start()
 
 
 arbitrage_config_map = {
@@ -75,7 +71,23 @@ arbitrage_config_map = {
         key="min_profitability",
         prompt="What is the minimum profitability for you to make a trade? (Enter 1 to indicate 1%) >>> ",
         prompt_on_new=True,
-        default=0.3,
+        default=Decimal("0.3"),
+        validator=lambda v: validate_decimal(v, Decimal(-100), Decimal("100"), inclusive=True),
+        type_str="decimal"),
+    "secondary_to_primary_base_conversion_rate": ConfigVar(
+        key="secondary_to_primary_base_conversion_rate",
+        prompt="Enter conversion rate for secondary base asset value to primary base asset value, e.g. "
+               "if primary base asset is USD, secondary is DAI and 1 USD is worth 1.25 DAI, "
+               "the conversion rate is 0.8 (1 / 1.25) >>> ",
+        default=Decimal("1"),
+        validator=lambda v: validate_decimal(v, Decimal(0), Decimal("100"), inclusive=False),
+        type_str="decimal"),
+    "secondary_to_primary_quote_conversion_rate": ConfigVar(
+        key="secondary_to_primary_quote_conversion_rate",
+        prompt="Enter conversion rate for secondary quote asset value to primary quote asset value, e.g. "
+               "if primary quote asset is USD, secondary is DAI and 1 USD is worth 1.25 DAI, "
+               "the conversion rate is 0.8 (1 / 1.25) >>> ",
+        default=Decimal("1"),
         validator=lambda v: validate_decimal(v, Decimal(0), Decimal("100"), inclusive=False),
         type_str="decimal"),
 }

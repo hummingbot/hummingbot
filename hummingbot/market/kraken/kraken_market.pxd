@@ -11,11 +11,9 @@ cdef class KrakenMarket(MarketBase):
         double _last_timestamp
         double _poll_interval
         double _last_pull_timestamp
-        dict _in_flight_deposits
         dict _in_flight_orders
         dict _order_not_found_records
         TransactionTracker _tx_tracker
-        dict _withdraw_rules
         dict _trading_rules
         dict _trade_fees
         double _last_update_trade_fees_timestamp
@@ -28,10 +26,9 @@ cdef class KrakenMarket(MarketBase):
         object _set_server_time_offset_task
         public object _kraken_auth
         object _shared_client
-        dict _trading_pair_base_quote_map
         dict _asset_pairs
         int32_t _last_userref
-        dict _wsname_dict
+        object _throttler
 
     cdef c_did_timeout_tx(self, str tracking_id)
     cdef c_start_tracking_order(self,

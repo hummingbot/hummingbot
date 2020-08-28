@@ -29,6 +29,6 @@ When you're starting Hummingbot for the first time, it will ask for permission t
 
 ## Application Data Files
 
-The application data files (e.g. logs and config files) are located differently for binary packaged installed Hummingbot vs. source compiled Hummingbot.
+The application data files (e.g. logs and config files) are located differently for binary package installed Hummingbot vs. source compiled Hummingbot.
 
 For the macOS .dmg distribution, the application data files are located in `~/Library/Application\ Support/Hummingbot`

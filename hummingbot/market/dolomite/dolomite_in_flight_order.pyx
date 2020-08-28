@@ -41,7 +41,7 @@ cdef class DolomiteInFlightOrder(InFlightOrderBase):
 
     @property
     def description(self):
-        _type = "limit" if self.order_type == OrderType.LIMIT else "market"
+        _type = "limit" if self.order_type == OrderType.LIMIT else "limit_maker"
         _side = "buy" if self.trade_type == TradeType.BUY else "sell"
         return f"{_type} {_side}"
 
@@ -65,10 +65,10 @@ cdef class DolomiteInFlightOrder(InFlightOrderBase):
 
     @classmethod
     def from_dolomite_order(cls, dolomite_order: Dict[str, Any], client_order_id: str, market: MarketBase) -> DolomiteInFlightOrder:
-        order_type = (OrderType.MARKET, OrderType.LIMIT)[dolomite_order["order_type"] == "LIMIT"]
+        order_type = (OrderType.LIMIT, OrderType.LIMIT_MAKER)[dolomite_order["order_type"] == "LIMIT_MAKER"]
         order_side = (TradeType.SELL, TradeType.BUY)[dolomite_order["order_side"] == "BUY"]
 
-        price = (order_type == OrderType.MARKET
+        price = (order_type == OrderType.LIMIT
                  and unpad(dolomite_order["market_order_effective_price"])
                  or Decimal(dolomite_order["exchange_rate"]))
 
@@ -94,7 +94,7 @@ cdef class DolomiteInFlightOrder(InFlightOrderBase):
 
         fill_events = []
 
-        if self.order_type is OrderType.LIMIT and len(fills) > 0:
+        if self.order_type is OrderType.LIMIT_MAKER and len(fills) > 0:
             for fill in fills:
                 if fill["dolomite_order_fill_id"] not in self.tracked_fill_ids:
                     primary_fill_amount = unpad(fill["primary_amount"])
@@ -116,7 +116,7 @@ cdef class DolomiteInFlightOrder(InFlightOrderBase):
                     fill_events.append(filled_event)
                     self.tracked_fill_ids.append(fill["dolomite_order_fill_id"])
 
-        elif self.order_type is OrderType.MARKET and len(fills) > 0:
+        elif self.order_type is OrderType.LIMIT and len(fills) > 0:
             order_fee_token = ticker_for(dolomite_order["base_taker_gas_fee_amount"])
             fee_token_burn_rate = Decimal(exchange_info.fee_burn_rates_table[order_fee_token])
 

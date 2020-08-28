@@ -68,10 +68,6 @@ kucoin_api_key = os.getenv("KUCOIN_API_KEY")
 kucoin_secret_key = os.getenv("KUCOIN_SECRET_KEY")
 kucoin_passphrase = os.getenv("KUCOIN_PASSPHRASE")
 
-# Bitcoin_com Tests
-bitcoin_com_api_key = os.getenv("BITCOIN_COM_API_KEY")
-bitcoin_com_secret_key = os.getenv("BITCOIN_COM_SECRET_KEY")
-
 test_web3_provider_list = [os.getenv("WEB3_PROVIDER")]
 
 # Liquid Tests
@@ -81,6 +77,15 @@ liquid_secret_key = os.getenv("LIQUID_SECRET_KEY")
 # Kraken Tests
 kraken_api_key = os.getenv("KRAKEN_API_KEY")
 kraken_secret_key = os.getenv("KRAKEN_SECRET_KEY")
+
+# Eterbase Test
+eterbase_api_key = os.getenv("ETERBASE_API_KEY")
+eterbase_secret_key = os.getenv("ETERBASE_SECRET_KEY")
+eterbase_account = os.getenv("ETERBASE_ACCOUNT")
+
+# CryptoCom Test
+crypto_com_api_key = os.getenv("CRYPTO_COM_API_KEY")
+crypto_com_secret_key = os.getenv("CRYPTO_COM_SECRET_KEY")
 
 # Wallet Tests
 test_erc20_token_address = os.getenv("TEST_ERC20_TOKEN_ADDRESS")

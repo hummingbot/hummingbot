@@ -18,12 +18,12 @@ from hummingbot.market.kucoin.kucoin_market import KucoinMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.liquid.liquid_market import LiquidMarket
+from hummingbot.market.eterbase.eterbase_market import EterbaseMarket
 from hummingbot.market.market_base import MarketBase
 from hummingbot.market.paper_trade import create_paper_trade_market
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
-from hummingbot.market.bitcoin_com.bitcoin_com_market import BitcoinComMarket
 from hummingbot.market.kraken.kraken_market import KrakenMarket
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
@@ -49,20 +49,6 @@ from hummingbot.client.config.security import Security
 
 
 s_logger = None
-
-MARKET_CLASSES = {
-    "bamboo_relay": BambooRelayMarket,
-    "binance": BinanceMarket,
-    "coinbase_pro": CoinbaseProMarket,
-    "huobi": HuobiMarket,
-    "liquid": LiquidMarket,
-    "radar_relay": RadarRelayMarket,
-    "dolomite": DolomiteMarket,
-    "bittrex": BittrexMarket,
-    "kucoin": KucoinMarket,
-    "bitcoin_com": BitcoinComMarket,
-    "kraken": KrakenMarket,
-}
 
 
 class HummingbotApplication(*commands):
@@ -117,6 +103,7 @@ class HummingbotApplication(*commands):
 
         self.trade_fill_db: SQLConnectionManager = SQLConnectionManager.get_trade_fills_instance()
         self.markets_recorder: Optional[MarketsRecorder] = None
+        self._script_iterator = None
 
     @property
     def strategy_config_map(self):
@@ -130,6 +117,10 @@ class HummingbotApplication(*commands):
             notifier.add_msg_to_queue(msg)
 
     def _handle_command(self, raw_command: str):
+        # unset to_stop_config flag it triggered before loading any command
+        if self.app.to_stop_config:
+            self.app.to_stop_config = False
+
         raw_command = raw_command.lower().strip()
         try:
             if self.placeholder_mode:
@@ -145,7 +136,8 @@ class HummingbotApplication(*commands):
         except InvalidCommandError as e:
             self._notify("Invalid command: %s" % (str(e),))
         except ArgumentParserError as e:
-            self._notify(str(e))
+            if not self.be_silly(raw_command):
+                self._notify(str(e))
         except NotImplementedError:
             self._notify("Command not yet implemented. This feature is currently under development.")
         except Exception as e:
@@ -174,7 +166,7 @@ class HummingbotApplication(*commands):
                         '\n'.join(uncancelled_order_ids)
                     ))
         except Exception:
-            self.logger().error(f"Error canceling outstanding orders.", exc_info=True)
+            self.logger().error("Error canceling outstanding orders.", exc_info=True)
             success = False
 
         if success:
@@ -193,14 +185,8 @@ class HummingbotApplication(*commands):
 
     @staticmethod
     def _initialize_market_assets(market_name: str, trading_pairs: List[str]) -> List[Tuple[str, str]]:
-        market_class: MarketBase = MARKET_CLASSES.get(market_name, MarketBase)
-        market_trading_pairs: List[Tuple[str, str]] = [market_class.split_trading_pair(trading_pair) for trading_pair in trading_pairs]
+        market_trading_pairs: List[Tuple[str, str]] = [(trading_pair.split('-')) for trading_pair in trading_pairs]
         return market_trading_pairs
-
-    @staticmethod
-    def _convert_to_exchange_trading_pair(market_name: str, hb_trading_pair: List[str]) -> List[str]:
-        market_class: MarketBase = MARKET_CLASSES.get(market_name, MarketBase)
-        return [market_class.convert_to_exchange_trading_pair(trading_pair) for trading_pair in hb_trading_pair]
 
     def _initialize_wallet(self, token_trading_pairs: List[str]):
         if not using_wallet():
@@ -227,10 +213,8 @@ class HummingbotApplication(*commands):
         for market_name, trading_pairs in market_names:
             if market_name not in market_trading_pairs_map:
                 market_trading_pairs_map[market_name] = []
-            market_class: MarketBase = MARKET_CLASSES.get(market_name, MarketBase)
-            for trading_pair in trading_pairs:
-                exchange_trading_pair: str = market_class.convert_to_exchange_trading_pair(trading_pair)
-                market_trading_pairs_map[market_name].append(exchange_trading_pair)
+            for hb_trading_pair in trading_pairs:
+                market_trading_pairs_map[market_name].append(hb_trading_pair)
 
         for market_name, trading_pairs in market_trading_pairs_map.items():
             if global_config_map.get("paper_trade_enabled").value:
@@ -239,7 +223,7 @@ class HummingbotApplication(*commands):
                 except Exception:
                     raise
                 paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
-                for asset, balance in paper_trade_account_balance:
+                for asset, balance in paper_trade_account_balance.items():
                     market.set_balance(asset, balance)
 
             elif market_name == "binance":
@@ -332,14 +316,15 @@ class HummingbotApplication(*commands):
                                       order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                       trading_pairs=trading_pairs,
                                       trading_required=self._trading_required)
-            elif market_name == "bitcoin_com":
-                bitcoin_com_api_key = global_config_map.get("bitcoin_com_api_key").value
-                bitcoin_com_secret_key = global_config_map.get("bitcoin_com_secret_key").value
-                market = BitcoinComMarket(bitcoin_com_api_key,
-                                          bitcoin_com_secret_key,
-                                          order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                                          trading_pairs=trading_pairs,
-                                          trading_required=self._trading_required)
+            elif market_name == "eterbase":
+                eterbase_api_key = global_config_map.get("eterbase_api_key").value
+                eterbase_secret_key = global_config_map.get("eterbase_secret_key").value
+                eterbase_account = global_config_map.get("eterbase_account").value
+                market = EterbaseMarket(eterbase_api_key,
+                                        eterbase_secret_key,
+                                        trading_pairs=trading_pairs,
+                                        trading_required=self._trading_required,
+                                        eterbase_account=eterbase_account)
             elif market_name == "kraken":
                 kraken_api_key = global_config_map.get("kraken_api_key").value
                 kraken_secret_key = global_config_map.get("kraken_secret_key").value

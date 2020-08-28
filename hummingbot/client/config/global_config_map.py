@@ -1,12 +1,14 @@
 import random
-from typing import Callable
+from typing import Callable, Optional
 from decimal import Decimal
+import os.path
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.settings import (
     required_exchanges,
     DEXES,
     DEFAULT_KEY_FILE_PATH,
     DEFAULT_LOG_FILE_PATH,
+    SCRIPTS_PATH, EXCHANGES
 )
 from hummingbot.client.config.config_validators import (
     validate_bool,
@@ -36,10 +38,13 @@ def using_bamboo_coordinator_mode() -> bool:
     return global_config_map.get("bamboo_relay_use_coordinator").value
 
 
-MIN_QUOTE_ORDER_AMOUNTS = [["BTC", 0.0011],
-                           ["ETH", 0.05],
-                           ["USD", 11],
-                           ["BNB", 0.5]]
+def validate_script_file_path(file_path: str) -> Optional[bool]:
+    path, name = os.path.split(file_path)
+    if path == "":
+        file_path = os.path.join(SCRIPTS_PATH, file_path)
+    if not os.path.isfile(file_path):
+        return f"{file_path} file does not exist."
+
 
 # Main global config store
 global_config_map = {
@@ -102,14 +107,7 @@ global_config_map = {
                          "e.g. [[\"ETH\", 10.0], [\"USDC\", 100]]) >>> ",
                   required_if=lambda: False,
                   type_str="json",
-                  default=[["USDT", 3000],
-                           ["ONE", 1000],
-                           ["BTC", 1],
-                           ["ETH", 10],
-                           ["WETH", 10],
-                           ["USDC", 3000],
-                           ["TUSD", 3000],
-                           ["PAX", 3000]]),
+                  ),
     "binance_api_key":
         ConfigVar(key="binance_api_key",
                   prompt="Enter your Binance API key >>> ",
@@ -208,16 +206,22 @@ global_config_map = {
                   required_if=using_exchange("kucoin"),
                   is_secure=True,
                   is_connect_key=True),
-    "bitcoin_com_api_key":
-        ConfigVar(key="bitcoin_com_api_key",
-                  prompt="Enter your bitcoin_com API key >>> ",
-                  required_if=using_exchange("bitcoin_com"),
+    "eterbase_api_key":
+        ConfigVar(key="eterbase_api_key",
+                  prompt="Enter your Eterbase API key >>> ",
+                  required_if=using_exchange("eterbase"),
                   is_secure=True,
                   is_connect_key=True),
-    "bitcoin_com_secret_key":
-        ConfigVar(key="bitcoin_com_secret_key",
-                  prompt="Enter your bitcoin_com secret key >>> ",
-                  required_if=using_exchange("bitcoin_com"),
+    "eterbase_secret_key":
+        ConfigVar(key="eterbase_secret_key",
+                  prompt="Enter your Eterbase secret key >>> ",
+                  required_if=using_exchange("eterbase"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "eterbase_account":
+        ConfigVar(key="eterbase_account",
+                  prompt="Enter your Eterbase account >>> ",
+                  required_if=using_exchange("eterbase"),
                   is_secure=True,
                   is_connect_key=True),
     "kraken_api_key":
@@ -232,6 +236,19 @@ global_config_map = {
                   required_if=using_exchange("kraken"),
                   is_secure=True,
                   is_connect_key=True),
+    "celo_address":
+        ConfigVar(key="celo_address",
+                  prompt="Enter your Celo account address >>> ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  is_connect_key=True),
+    "celo_password":
+        ConfigVar(key="celo_password",
+                  prompt="Enter your Celo account password >>> ",
+                  type_str="str",
+                  required_if=lambda: global_config_map["celo_address"].value is not None,
+                  is_secure=True,
+                  is_connect_key=True),
     "ethereum_wallet":
         ConfigVar(key="ethereum_wallet",
                   prompt="Enter your wallet private key >>> ",
@@ -241,8 +258,11 @@ global_config_map = {
     "ethereum_rpc_url":
         ConfigVar(key="ethereum_rpc_url",
                   prompt="Which Ethereum node would you like your client to connect to? >>> ",
-                  required_if=lambda: global_config_map["ethereum_wallet"].value is not None,
-                  is_connect_key=True),
+                  required_if=lambda: global_config_map["ethereum_wallet"].value is not None),
+    "ethereum_rpc_ws_url":
+        ConfigVar(key="ethereum_rpc_ws_url",
+                  prompt="Enter the Websocket Address of your Ethereum Node >>> ",
+                  required_if=lambda: global_config_map["ethereum_rpc_url"].value is not None),
     "ethereum_chain_name":
         ConfigVar(key="ethereum_chain_name",
                   prompt="What is your preferred ethereum chain name? >>> ",
@@ -262,23 +282,6 @@ global_config_map = {
                   required_if=lambda: False,
                   type_str="bool",
                   default=False),
-    "exchange_rate_conversion":
-        ConfigVar(key="exchange_rate_conversion",
-                  prompt="Enter your custom exchange rate conversion settings (Input must be valid json) >>> ",
-                  required_if=lambda: False,
-                  type_str="json",
-                  default=[["USD", 1.0, "manual"],
-                           ["DAI", 1.0, "coin_gecko_api"],
-                           ["USDT", 1.0, "coin_gecko_api"],
-                           ["USDC", 1.0, "coin_gecko_api"],
-                           ["TUSD", 1.0, "coin_gecko_api"]]),
-    "exchange_rate_fetcher":
-        ConfigVar(key="exchange_rate_fetcher",
-                  prompt="Enter your custom exchange rate fetcher settings >>> ",
-                  required_if=lambda: False,
-                  type_str="list",
-                  default=[["ETH", "coin_gecko_api"],
-                           ["DAI", "coin_gecko_api"]]),
     "kill_switch_enabled":
         ConfigVar(key="kill_switch_enabled",
                   prompt="Would you like to enable the kill switch? (Yes/No) >>> ",
@@ -308,11 +311,6 @@ global_config_map = {
         ConfigVar(key="telegram_chat_id",
                   prompt="What is your telegram chat id? >>> ",
                   required_if=lambda: False),
-    "exchange_rate_default_data_feed":
-        ConfigVar(key="exchange_rate_default_data_feed",
-                  prompt="What is your default exchange rate data feed name? >>> ",
-                  required_if=lambda: False,
-                  default="coin_gecko_api"),
     "send_error_logs":
         ConfigVar(key="send_error_logs",
                   prompt="Would you like to send error logs to hummingbot? (Yes/No) >>> ",
@@ -323,7 +321,7 @@ global_config_map = {
                   prompt=None,
                   required_if=lambda: False,
                   type_str="json",
-                  default=MIN_QUOTE_ORDER_AMOUNTS),
+                  ),
     # Database options
     "db_engine":
         ConfigVar(key="db_engine",
@@ -335,30 +333,55 @@ global_config_map = {
         ConfigVar(key="db_host",
                   prompt="Please enter your DB host address >>> ",
                   type_str="str",
-                  required_if=lambda: global_config_map.get("db_engine").value is not "sqlite",
+                  required_if=lambda: global_config_map.get("db_engine").value != "sqlite",
                   default="127.0.0.1"),
     "db_port":
         ConfigVar(key="db_port",
                   prompt="Please enter your DB port >>> ",
                   type_str="str",
-                  required_if=lambda: global_config_map.get("db_engine").value is not "sqlite",
+                  required_if=lambda: global_config_map.get("db_engine").value != "sqlite",
                   default="3306"),
     "db_username":
         ConfigVar(key="db_username",
                   prompt="Please enter your DB username >>> ",
                   type_str="str",
-                  required_if=lambda: global_config_map.get("db_engine").value is not "sqlite",
+                  required_if=lambda: global_config_map.get("db_engine").value != "sqlite",
                   default="username"),
     "db_password":
         ConfigVar(key="db_password",
                   prompt="Please enter your DB password >>> ",
                   type_str="str",
-                  required_if=lambda: global_config_map.get("db_engine").value is not "sqlite",
+                  required_if=lambda: global_config_map.get("db_engine").value != "sqlite",
                   default="password"),
     "db_name":
         ConfigVar(key="db_name",
                   prompt="Please enter your the name of your DB >>> ",
                   type_str="str",
-                  required_if=lambda: global_config_map.get("db_engine").value is not "sqlite",
+                  required_if=lambda: global_config_map.get("db_engine").value != "sqlite",
                   default="dbname"),
+    "0x_active_cancels":
+        ConfigVar(key="0x_active_cancels",
+                  prompt="Enable active order cancellations for 0x exchanges (warning: this costs gas)?  >>> ",
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool),
+    "script_enabled":
+        ConfigVar(key="script_enabled",
+                  prompt="Would you like to enable script feature? (Yes/No) >>> ",
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool),
+    "script_file_path":
+        ConfigVar(key="script_file_path",
+                  prompt='Enter path to your script file >>> ',
+                  type_str="str",
+                  required_if=lambda: global_config_map["script_enabled"].value,
+                  validator=validate_script_file_path),
+    "balance_asset_limit":
+        ConfigVar(key="balance_asset_limit",
+                  prompt="Use the `balance limit` command"
+                         "e.g. balance limit [EXCHANGE] [ASSET] [AMOUNT]",
+                  required_if=lambda: False,
+                  type_str="json",
+                  default={exchange: None for exchange in EXCHANGES}),
 }

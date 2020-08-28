@@ -14,6 +14,7 @@ from typing import (
     AsyncIterable,
 )
 from libc.stdint cimport int64_t
+import copy
 
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -31,7 +32,6 @@ from hummingbot.core.event.events import (
     OrderCancelledEvent,
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
-    MarketWithdrawAssetEvent,
     MarketTransactionFailureEvent,
     MarketOrderFailureEvent
 )
@@ -45,7 +45,6 @@ from hummingbot.market.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
 from hummingbot.market.coinbase_pro.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
 from hummingbot.market.coinbase_pro.coinbase_pro_api_order_book_data_source import CoinbaseProAPIOrderBookDataSource
-from hummingbot.market.deposit_info import DepositInfo
 from hummingbot.market.market_base import (
     MarketBase,
     OrderType,
@@ -55,6 +54,7 @@ from hummingbot.market.coinbase_pro.coinbase_pro_in_flight_order import Coinbase
 from hummingbot.market.coinbase_pro.coinbase_pro_in_flight_order cimport CoinbaseProInFlightOrder
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
+from hummingbot.core.utils.estimate_fee import estimate_fee
 
 s_logger = None
 s_decimal_0 = Decimal("0.0")
@@ -73,37 +73,9 @@ cdef class CoinbaseProMarketTransactionTracker(TransactionTracker):
         self._owner.c_did_timeout_tx(tx_id)
 
 
-cdef class InFlightDeposit:
-    cdef:
-        public str tracking_id
-        public int64_t timestamp_ms
-        public str tx_hash
-        public str from_address
-        public str to_address
-        public object amount
-        public str currency
-        public bint has_tx_receipt
-
-    def __init__(self, tracking_id: str, tx_hash: str, from_address: str, to_address: str, amount: Decimal, currency: str):
-        self.tracking_id = tracking_id
-        self.timestamp_ms = int(time.time() * 1000)
-        self.tx_hash = tx_hash
-        self.from_address = from_address
-        self.to_address = to_address
-        self.amount = amount
-        self.currency = currency
-        self.has_tx_receipt = False
-
-    def __repr__(self) -> str:
-        return f"InFlightDeposit(tracking_id='{self.tracking_id}', timestamp_ms={self.timestamp_ms}, " \
-               f"tx_hash='{self.tx_hash}', has_tx_receipt={self.has_tx_receipt})"
-
-
 cdef class CoinbaseProMarket(MarketBase):
-    MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset.value
     MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
     MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
@@ -111,7 +83,6 @@ cdef class CoinbaseProMarket(MarketBase):
     MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
 
-    DEPOSIT_TIMEOUT = 1800.0
     API_CALL_TIMEOUT = 10.0
     UPDATE_ORDERS_INTERVAL = 10.0
     UPDATE_FEE_PERCENTAGE_INTERVAL = 60.0
@@ -139,8 +110,7 @@ cdef class CoinbaseProMarket(MarketBase):
         super().__init__()
         self._trading_required = trading_required
         self._coinbase_auth = CoinbaseProAuth(coinbase_pro_api_key, coinbase_pro_secret_key, coinbase_pro_passphrase)
-        self._order_book_tracker = CoinbaseProOrderBookTracker(data_source_type=order_book_tracker_data_source_type,
-                                                               trading_pairs=trading_pairs)
+        self._order_book_tracker = CoinbaseProOrderBookTracker(trading_pairs=trading_pairs)
         self._user_stream_tracker = CoinbaseProUserStreamTracker(coinbase_pro_auth=self._coinbase_auth,
                                                                  trading_pairs=trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
@@ -160,6 +130,7 @@ cdef class CoinbaseProMarket(MarketBase):
         self._shared_client = None
         self._maker_fee_percentage = Decimal(self.MAKER_FEE_PERCENTAGE_DEFAULT)
         self._taker_fee_percentage = Decimal(self.TAKER_FEE_PERCENTAGE_DEFAULT)
+        self._real_time_balance_update = False
 
     @property
     def name(self) -> str:
@@ -229,6 +200,10 @@ cdef class CoinbaseProMarket(MarketBase):
             key: value.to_json()
             for key, value in self._in_flight_orders.items()
         }
+
+    @property
+    def in_flight_orders(self) -> Dict[str, CoinbaseProInFlightOrder]:
+        return self._in_flight_orders
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         """
@@ -365,6 +340,7 @@ cdef class CoinbaseProMarket(MarketBase):
         """
         # There is no API for checking user's fee tier
         # Fee info from https://pro.coinbase.com/fees
+        """
         cdef:
             object maker_fee = self._maker_fee_percentage
             object taker_fee = self._taker_fee_percentage
@@ -373,6 +349,9 @@ cdef class CoinbaseProMarket(MarketBase):
         if order_type is OrderType.MARKET and fee_overrides_config_map["coinbase_pro_taker_fee"].value is not None:
             return TradeFee(percent=fee_overrides_config_map["coinbase_pro_taker_fee"].value / Decimal("100"))
         return TradeFee(percent=maker_fee if order_type is OrderType.LIMIT else taker_fee)
+        """
+        is_maker = order_type is OrderType.LIMIT_MAKER
+        return estimate_fee("coinbase_pro", is_maker)
 
     async def _update_fee_percentage(self):
         """
@@ -417,6 +396,8 @@ cdef class CoinbaseProMarket(MarketBase):
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
+        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
+        self._in_flight_orders_snapshot_timestamp = self._current_timestamp
 
     async def _update_trading_rules(self):
         """
@@ -504,7 +485,7 @@ cdef class CoinbaseProMarket(MarketBase):
                 else Decimal(order_update["executed_value"]) / new_confirmed_amount
 
             order_type_description = tracked_order.order_type_description
-            order_type = OrderType.MARKET if tracked_order.order_type == OrderType.MARKET else OrderType.LIMIT
+            order_type = tracked_order.order_type
             # Emit event if executed amount is greater than 0.
             if execute_amount_diff > s_decimal_0:
                 order_filled_event = OrderFilledEvent(
@@ -707,6 +688,9 @@ cdef class CoinbaseProMarket(MarketBase):
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(5.0)
 
+    def supported_order_types(self):
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+
     async def place_order(self, order_id: str, trading_pair: str, amount: Decimal, is_buy: bool, order_type: OrderType,
                           price: Decimal):
         """
@@ -718,10 +702,13 @@ cdef class CoinbaseProMarket(MarketBase):
             "size": f"{amount:f}",
             "product_id": trading_pair,
             "side": "buy" if is_buy else "sell",
-            "type": "limit" if order_type is OrderType.LIMIT else "market",
+            "type": "limit",
         }
         if order_type is OrderType.LIMIT:
             data["price"] = f"{price:f}"
+        elif order_type is OrderType.LIMIT_MAKER:
+            data["price"] = f"{price:f}"
+            data["post_only"] = True
         order_result = await self._api_request("post", path_url=path_url, data=data)
         return order_result
 
@@ -765,7 +752,7 @@ cdef class CoinbaseProMarket(MarketBase):
             raise
         except Exception:
             self.c_stop_tracking_order(order_id)
-            order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Coinbase Pro for "
                 f"{decimal_amount} {trading_pair} {price}.",
@@ -776,7 +763,7 @@ cdef class CoinbaseProMarket(MarketBase):
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
 
-    cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.MARKET, object price=s_decimal_0,
+    cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.LIMIT, object price=s_decimal_0,
                    dict kwargs={}):
         """
         *required
@@ -829,7 +816,7 @@ cdef class CoinbaseProMarket(MarketBase):
             raise
         except Exception:
             self.c_stop_tracking_order(order_id)
-            order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
+            order_type_str = order_type.name.lower()
             self.logger().network(
                 f"Error submitting sell {order_type_str} order to Coinbase Pro for "
                 f"{decimal_amount} {trading_pair} {price}.",
@@ -843,7 +830,7 @@ cdef class CoinbaseProMarket(MarketBase):
     cdef str c_sell(self,
                     str trading_pair,
                     object amount,
-                    object order_type=OrderType.MARKET,
+                    object order_type=OrderType.LIMIT,
                     object price=s_decimal_0,
                     dict kwargs={}):
         """
@@ -1016,70 +1003,6 @@ cdef class CoinbaseProMarket(MarketBase):
         ids = [a["id"] for a in coinbase_accounts]
         currencies = [a["currency"] for a in coinbase_accounts]
         return dict(zip(currencies, ids))
-
-    async def get_deposit_address(self, asset: str) -> str:
-        """
-        Gets a list of the user's crypto address for a particular asset,
-        so that the bot can deposit funds into coinbase pro
-        :returns: json response
-        """
-        coinbase_account_id_dict = await self.list_coinbase_accounts()
-        account_id = coinbase_account_id_dict.get(asset)
-        path_url = f"/coinbase-accounts/{account_id}/addresses"
-        deposit_result = await self._api_request("post", path_url=path_url)
-        return deposit_result.get("address")
-
-    async def get_deposit_info(self, asset: str) -> DepositInfo:
-        """
-        Calls `self.get_deposit_address` and format the response into a DepositInfo instance
-        :returns: a DepositInfo instance
-        """
-        return DepositInfo(await self.get_deposit_address(asset))
-
-    async def execute_withdraw(self, str tracking_id, str to_address, str currency, object amount):
-        """
-        Function that makes API request to withdraw funds
-        """
-        path_url = "/withdrawals/crypto"
-        data = {
-            "amount": float(amount),
-            "currency": currency,
-            "crypto_address": to_address,
-            "no_destination_tag": True,
-        }
-        try:
-            withdraw_result = await self._api_request("post", path_url=path_url, data=data)
-            self.logger().info(f"Successfully withdrew {amount} of {currency}. {withdraw_result}")
-            # Withdrawing of digital assets from Coinbase Pro is currently free
-            withdraw_fee = s_decimal_0
-            # Currently, we assume when coinbase accepts the API request, the withdraw is valid
-            # In the future, if the confirmation of the withdrawal becomes more essential,
-            # we can perform status check by using self.get_transfers()
-            self.c_trigger_event(self.MARKET_WITHDRAW_ASSET_EVENT_TAG,
-                                 MarketWithdrawAssetEvent(self._current_timestamp, tracking_id, to_address, currency,
-                                                          amount, withdraw_fee))
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            self.logger().network(
-                f"Error sending withdraw request to Coinbase Pro for {currency}.",
-                exc_info=True,
-                app_warning_msg=f"Failed to issue withdrawal request for {currency} from Coinbase Pro. "
-                                f"Check API key and network connection."
-            )
-            self.c_trigger_event(self.MARKET_TRANSACTION_FAILURE_EVENT_TAG,
-                                 MarketTransactionFailureEvent(self._current_timestamp, tracking_id))
-
-    cdef str c_withdraw(self, str to_address, str currency, object amount):
-        """
-        *required
-        Synchronous wrapper that schedules a withdrawal.
-        """
-        cdef:
-            int64_t tracking_nonce = <int64_t> get_tracking_nonce()
-            str tracking_id = str(f"withdraw://{currency}/{tracking_nonce}")
-        safe_ensure_future(self.execute_withdraw(tracking_id, to_address, currency, amount))
-        return tracking_id
 
     cdef OrderBook c_get_order_book(self, str trading_pair):
         """
