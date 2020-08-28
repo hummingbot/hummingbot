@@ -45,8 +45,8 @@ sudo usermod -a -G docker $USER
 exit
 ```
 
-!!! warning "Restart terminal"
-    The above commands will close your terminal window in order to enable the correct permissions for the `docker` command.  Open a new terminal window to proceed with [Step 2](#step-2-install-hummingbot).
+!!! warning "Please Restart terminal"
+    Close and restart your terminal window to enable the correct permissions for `docker` command before proceeding to [Step 2](#step-2-install-hummingbot).
 
 #### Step 2: Install Hummingbot
 
@@ -73,13 +73,16 @@ mkdir hummingbot_files
 mkdir hummingbot_files/hummingbot_conf
 mkdir hummingbot_files/hummingbot_logs
 mkdir hummingbot_files/hummingbot_data
+mkdir hummingbot_files/hummingbot_scripts
 
 # 3) Launch a new instance of hummingbot
 docker run -it \
+--network host \
 --name hummingbot-instance \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_data,destination=/data/" \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_scripts,destination=/scripts/" \
 coinalpha/hummingbot:latest
 ```
 
@@ -123,10 +126,11 @@ sudo usermod -a -G docker $USER
 
 # 6) Close terminal
 exit
-```
+```  
+  
+!!! warning "Please Restart terminal"
+    Close and restart your terminal window to enable the correct permissions for `docker` command before proceeding to [Step 2](#step-2-install-hummingbot_1).  
 
-!!! warning "Restart terminal"
-    The above commands will close your terminal window in order to enable the correct permissions for the `docker` command.  Open a new terminal window to proceed with [Step 2](#step-2-install-hummingbot_1).
 
 #### Step 2: Install Hummingbot
 
@@ -153,13 +157,16 @@ mkdir hummingbot_files
 mkdir hummingbot_files/hummingbot_conf
 mkdir hummingbot_files/hummingbot_logs
 mkdir hummingbot_files/hummingbot_data
+mkdir hummingbot_files/hummingbot_scripts
 
 # 3) Launch a new instance of hummingbot
 docker run -it \
+--network host \
 --name hummingbot-instance \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_data,destination=/data/" \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_scripts,destination=/scripts/" \
 coinalpha/hummingbot:latest
 ```
 
@@ -202,9 +209,10 @@ sudo usermod -a -G docker $USER
 # 6) Close terminal
 exit
 ```
+  
+!!! warning "Please Restart terminal"
+    Close and restart your terminal window to enable the correct permissions for `docker` command before proceeding to [Step 2](#step-2-install-hummingbot_2).  
 
-!!! warning "Restart terminal"
-    The above commands will close your terminal window in order to enable the correct permissions for the `docker` command.  Open a new terminal window to proceed with [Step 2](#step-2-install-hummingbot_2).
 
 #### Step 2: Install Hummingbot
 
@@ -231,16 +239,27 @@ mkdir hummingbot_files
 mkdir hummingbot_files/hummingbot_conf
 mkdir hummingbot_files/hummingbot_logs
 mkdir hummingbot_files/hummingbot_data
+mkdir hummingbot_files/hummingbot_scripts
 
 # 3) Launch a new instance of hummingbot
 docker run -it \
+--network host \
 --name hummingbot-instance \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_data,destination=/data/" \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_scripts,destination=/scripts/" \
 coinalpha/hummingbot:latest
 ```
 
+## Running Hummingbot in the background
+
+Press keys `Ctrl+P` then `Ctrl+Q` in sequence to detach from Docker i.e. return to command line. This exits out of Hummingbot without shutting down the container instance.
+
+## Starting Hummingbot running in the background
+
+Use the start script by running the command `./start.sh` to attach to a Hummingbot instance running in the background.
+    
 ## Install a previous Hummingbot version
 
 A previous version can be installed when creating a Hummingbot instance.

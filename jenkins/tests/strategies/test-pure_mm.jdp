@@ -3,9 +3,9 @@ def path = '/root/miniconda'
 def envPath = "${path}/envs/hummingbot"
 
 // test parameters
-def strategy = 'pure_market_making_v2'
+def strategy = 'pure_market_making'
 def testName = "${strategy} strategy test"
-def testFile = "test_${strategy}.py"
+
 
 pipeline {
   agent any
@@ -85,7 +85,7 @@ pipeline {
     stage('Run strategy test') {
       steps {
         echo "Run ${testName}"
-        sh "${envPath}/bin/nosetests -d -v test/${testFile}"
+        sh "${envPath}/bin/nosetests -d -v -m test/test_pmm*"
       }
       post {
         success {

@@ -10,7 +10,6 @@ import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
 from typing import List
 import unittest
-from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import (
     QuantizationParams
@@ -37,15 +36,6 @@ class ArbitrageUnitTest(unittest.TestCase):
     end_timestamp: float = end.timestamp()
     market_1_trading_pairs: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
     market_2_trading_pairs: List[str] = ["coinalpha/eth", "COINALPHA", "ETH"]
-
-    @classmethod
-    def setUpClass(cls):
-        ExchangeRateConversion.set_global_exchange_rate_config({
-            "conversion_required": {
-                "WETH": {"default": 1.0, "source": "None"},
-                "ETH": {"default": 0.95, "source": "None"}
-            }
-        })
 
     def setUp(self):
         self.maxDiff = None
@@ -86,7 +76,8 @@ class ArbitrageUnitTest(unittest.TestCase):
         self.strategy: ArbitrageStrategy = ArbitrageStrategy(
             [self.market_pair],
             min_profitability=Decimal("0.03"),
-            logging_options=self.logging_options
+            logging_options=self.logging_options,
+            secondary_to_primary_quote_conversion_rate=Decimal("0.95")
         )
 
         self.clock.add_iterator(self.market_1)
@@ -117,25 +108,24 @@ class ArbitrageUnitTest(unittest.TestCase):
         self.market_1.set_balance("COINALPHA", 5)
         self.market_2.set_balance("COINALPHA", 5)
         self.clock.backtest_til(self.start_timestamp + 1)
-        market_orders = self.strategy.tracked_taker_orders
-        market_1_market_order = [order for market, order in self.strategy.tracked_taker_orders
-                                 if market == self.market_1][0]
-        market_2_market_order = [order for market, order in self.strategy.tracked_taker_orders
-                                 if market == self.market_2][0]
+        taker_orders = self.strategy.tracked_limit_orders + self.strategy.tracked_market_orders
+        market_1_taker_order = [order for market, order in taker_orders
+                                if market == self.market_1][0]
+        market_2_taker_order = [order for market, order in taker_orders
+                                if market == self.market_2][0]
 
-        self.assertTrue(len(market_orders) == 2)
-        self.assertEqual(Decimal("5"), market_1_market_order.amount)
-        self.assertEqual(self.start_timestamp + 1, market_1_market_order.timestamp)
-        self.assertEqual(Decimal("5"), market_2_market_order.amount)
-        self.assertEqual(self.start_timestamp + 1, market_2_market_order.timestamp)
+        self.assertTrue(len(taker_orders) == 2)
+        # since backet test orders are Marker OrderType, we'll check for *_taker_order.amount
+        self.assertEqual(Decimal("5"), market_1_taker_order.amount)
+        self.assertEqual(Decimal("5"), market_2_taker_order.amount)
 
     def test_arbitrage_not_profitable(self):
         self.market_2_data.order_book.apply_diffs(
             [OrderBookRow(1.05, 1.0, 2)],
             [], 2)
         self.clock.backtest_til(self.start_timestamp + 1)
-        market_orders = self.strategy.tracked_taker_orders
-        self.assertTrue(len(market_orders) == 0)
+        taker_orders = self.strategy.tracked_limit_orders + self.strategy.tracked_market_orders
+        self.assertTrue(len(taker_orders) == 0)
 
     def test_find_best_profitable_amount(self):
         self.market_2_data.order_book.apply_diffs(
@@ -148,8 +138,8 @@ class ArbitrageUnitTest(unittest.TestCase):
         0           1.039801               1.045               1.005        1.1      1.005         10.0
         1           1.029557               1.045               1.015        1.1      1.015         20.0
         """
-        amount, profitability = self.strategy.find_best_profitable_amount(self.market_trading_pair_tuple_1,
-                                                                          self.market_trading_pair_tuple_2)
+        amount, profitability, bid_price, ask_price = self.strategy.find_best_profitable_amount(self.market_trading_pair_tuple_1,
+                                                                                                self.market_trading_pair_tuple_2)
         self.assertEqual(Decimal(30.0), amount)
         self.assertAlmostEqual(Decimal(1.0329489291598024), profitability)
 
@@ -157,7 +147,8 @@ class ArbitrageUnitTest(unittest.TestCase):
         self.strategy: ArbitrageStrategy = ArbitrageStrategy(
             [self.market_pair],
             min_profitability=Decimal("0.04"),
-            logging_options=self.logging_options
+            logging_options=self.logging_options,
+            secondary_to_primary_quote_conversion_rate=Decimal("0.95")
         )
         self.market_1_data.order_book.apply_diffs(
             [],
@@ -169,8 +160,35 @@ class ArbitrageUnitTest(unittest.TestCase):
             [],
             2
         )
-        amount, profitability = self.strategy.find_best_profitable_amount(self.market_trading_pair_tuple_1,
-                                                                          self.market_trading_pair_tuple_2)
+        """" market_1_data
+            price  amount  update_id
+        0   0.995      10          1
+        1   0.985      20          1
+        2   0.975      30          1
+        3   0.965      40          1
+        4   0.955      50          1
+            price  amount  update_id
+        0       1      30          2
+        1   1.005      10          1
+        2   1.015      20          1
+        3   1.025      30          1
+        4   1.035      40          1
+        market_2_data
+             price  amount  update_id
+        0      1.1      30          2 = 1.045
+        1     1.08      30          2 = 1.026
+        2   0.9975       5          1
+        3   0.9925      10          1
+        4   0.9875      15          1
+            price  amount  update_id
+        0  1.1025     105          1
+        1  1.1075     110          1
+        2  1.1125     115          1
+        3  1.1175     120          1
+        4  1.1225     125          1
+        """
+        amount, profitability, bid_price, ask_price = self.strategy.find_best_profitable_amount(self.market_trading_pair_tuple_1,
+                                                                                                self.market_trading_pair_tuple_2)
         self.assertEqual(Decimal(30.0), amount)
         self.assertAlmostEqual(Decimal(1.045), profitability)
 
@@ -178,7 +196,8 @@ class ArbitrageUnitTest(unittest.TestCase):
         self.strategy: ArbitrageStrategy = ArbitrageStrategy(
             [self.market_pair],
             min_profitability=Decimal("0.02"),
-            logging_options=self.logging_options
+            logging_options=self.logging_options,
+            secondary_to_primary_quote_conversion_rate=Decimal("0.95")
         )
         self.market_1_data.order_book.apply_diffs(
             [],
@@ -190,8 +209,8 @@ class ArbitrageUnitTest(unittest.TestCase):
             [],
             2
         )
-        amount, profitability = self.strategy.find_best_profitable_amount(self.market_trading_pair_tuple_1,
-                                                                          self.market_trading_pair_tuple_2)
+        amount, profitability, bid_price, ask_price = self.strategy.find_best_profitable_amount(self.market_trading_pair_tuple_1,
+                                                                                                self.market_trading_pair_tuple_2)
         self.assertEqual(Decimal(60.0), amount)
         self.assertAlmostEqual(Decimal(1.0294946147473074), profitability)
 
@@ -203,15 +222,15 @@ class ArbitrageUnitTest(unittest.TestCase):
         )
         self.market_1.set_balance("COINALPHA", 40)
         self.market_2.set_balance("COINALPHA", 20)
-        amount, profitability = self.strategy.find_best_profitable_amount(self.market_trading_pair_tuple_1,
-                                                                          self.market_trading_pair_tuple_2)
+        amount, profitability, bid_price, ask_price = self.strategy.find_best_profitable_amount(self.market_trading_pair_tuple_1,
+                                                                                                self.market_trading_pair_tuple_2)
 
         self.assertEqual(20.0, amount)
         self.assertAlmostEqual(Decimal(1.0329489291598024), profitability)
 
         self.market_2.set_balance("COINALPHA", 0)
-        amount, profitability = self.strategy.find_best_profitable_amount(self.market_trading_pair_tuple_1,
-                                                                          self.market_trading_pair_tuple_2)
+        amount, profitability, bid_price, ask_price = self.strategy.find_best_profitable_amount(self.market_trading_pair_tuple_1,
+                                                                                                self.market_trading_pair_tuple_2)
 
         self.assertEqual(Decimal("0"), amount)
         self.assertAlmostEqual(Decimal(1.0398009950248757), profitability)
@@ -237,7 +256,9 @@ class ArbitrageUnitTest(unittest.TestCase):
         """
         profitable_orders = ArbitrageStrategy.find_profitable_arbitrage_orders(Decimal("0"),
                                                                                self.market_trading_pair_tuple_1,
-                                                                               self.market_trading_pair_tuple_2)
+                                                                               self.market_trading_pair_tuple_2,
+                                                                               Decimal("1"),
+                                                                               Decimal("0.95"))
         self.assertEqual(profitable_orders, [
             (Decimal("1.045"), Decimal("1.005"), Decimal("1.1"), Decimal("1.005"), Decimal("10.0")),
             (Decimal("1.045"), Decimal("1.015"), Decimal("1.1"), Decimal("1.015"), Decimal("20.0"))
@@ -264,7 +285,9 @@ class ArbitrageUnitTest(unittest.TestCase):
         )
         profitable_orders = ArbitrageStrategy.find_profitable_arbitrage_orders(Decimal("0"),
                                                                                self.market_trading_pair_tuple_1,
-                                                                               self.market_trading_pair_tuple_2)
+                                                                               self.market_trading_pair_tuple_2,
+                                                                               Decimal("1"),
+                                                                               Decimal("0.95"))
         self.assertEqual(profitable_orders, [
             (Decimal("1.045"), Decimal("0.9"), Decimal("1.1"), Decimal("0.9"), Decimal("5.0")),
             (Decimal("1.045"), Decimal("0.95"), Decimal("1.1"), Decimal("0.95"), Decimal("15.0")),

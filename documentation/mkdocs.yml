@@ -101,6 +101,7 @@ nav:
         - Linux: installation/source/linux.md
         - macOS: installation/source/macOS.md
         - Windows: installation/source/windows.md
+        - Raspberry Pi: installation/source/raspberry-pi.md
       - Cloud Server Guide: installation/cloud.md
       - Updating Hummingbot: installation/updating.md
     - Operation:
@@ -121,6 +122,7 @@ nav:
         - exit: operation/commands/exit.md
         - paper_trade: operation/commands/paper-trade.md
         - export: operation/commands/export.md
+        - order_book: operation/commands/order_book.md
       - Keyboard Shortcuts: operation/keyboard-shortcuts.md
       - Docker Commands: operation/docker-commands.md
     - Strategies:
@@ -128,39 +130,47 @@ nav:
       - Pure Market Making: strategies/pure-market-making.md
       - Advanced Market Making:
         - Overview: strategies/advanced-mm/index.md
-        - Multiple Orders: strategies/advanced-mm/multiple-orders.md
+        - Order Levels: strategies/advanced-mm/order-levels.md
         - Inventory Skew: strategies/advanced-mm/inventory-skew.md
         - Filled Order Delay: strategies/advanced-mm/filled-order-delay.md
         - Hanging Orders: strategies/advanced-mm/hanging-orders.md
+        - Minimum Spread: strategies/advanced-mm/minimum-spread.md
+        - Order Refresh Tolerance: strategies/advanced-mm/order-refresh-tolerance.md
+        - Price Band: strategies/advanced-mm/price-band.md
+        - Ping Pong: strategies/advanced-mm/ping-pong.md
         - Order Optimization: strategies/advanced-mm/order-optimization.md
         - Adding Transaction Costs: strategies/advanced-mm/add-transaction-costs.md
         - External Price Source: strategies/advanced-mm/price-source.md
       - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
       - Arbitrage: strategies/arbitrage.md
+      - Celo Arbitrage:
+        - Overview: strategies/celo-arb/index.md
+        - Quickstart: strategies/celo-arb/quickstart.md
     - Connectors:
       - Overview: connectors/index.md
       - Binance: connectors/binance.md
-      - Coinbase Pro: connectors/coinbase.md
-      - Huobi Global: connectors/huobi.md
       - Bittrex Global: connectors/bittrex.md
-      - Liquid: connectors/liquid.md
+      - Coinbase Pro: connectors/coinbase.md
+      - Eterbase: connectors/eterbase.md
+      - Huobi Global: connectors/huobi.md
       - KuCoin: connectors/kucoin.md
       - Kraken: connectors/kraken.md
+      - Liquid: connectors/liquid.md
       - Radar Relay: connectors/radar-relay.md
       - Community Connectors:
         - Bamboo Relay: connectors/bamboo-relay.md
         - Dolomite: connectors/dolomite.md
     - Advanced:
       - Multiple Bots: advanced/running-multiple-bots.md
-      - Trading Strategy Autostart: advanced/autostart.md
       - Kill Switch: advanced/kill-switch.md
       - Fee Overrides: advanced/fee-overrides.md
       - Logs and Logging: advanced/logging.md
-      - Exchange Rates: advanced/exchange-rates.md
-      - Telegram: advanced/telegram.md
       - Ethereum Wallet: advanced/wallet.md
       - Ethereum Node: advanced/node.md
-      - Advanced Database Configuration <sup>(BETA)</sup>: advanced/db-config.md
+      - Telegram: advanced/telegram.md
+      - Autostart <sup>(BETA)</sup>: advanced/autostart.md
+      - External Database <sup>(BETA)</sup>: advanced/db-config.md
+      - Scripts: advanced/scripts.md
     - Community:
       - Overview: community/index.md  
       - Contributions: community/contributions.md
@@ -195,8 +205,12 @@ nav:
       - Connectors:
         - Intro: developers/connectors/index.md
         - Architecture: developers/connectors/architecture.md
-        - Order Lifecycle: developers/connectors/order-lifecycle.md
-        - Building Connectors: developers/connectors/tutorial.md
+        - Building Connectors: 
+          - Overview: developers/connectors/tutorial.md
+          - Task 1 - Data Source & Order Book Tracker: developers/connectors/task1.md
+          - Task 2 - User Stream Tracker : developers/connectors/task2.md
+          - Task 3 - Market Connector: developers/connectors/task3.md
+          - Task 4 - Hummingbot Client: developers/connectors/task4.md
         - Miscellaneous: developers/connectors/miscellaneous.md
       - Tutorial (WIP):
         - Intro: developers/tutorial/index.md
@@ -206,6 +220,12 @@ nav:
       - Configuration: developers/config.md
   - Release Notes:
     - About Releases: release-notes/index.md
+    - 0.30.0: release-notes/0.30.0.md
+    - 0.29.0: release-notes/0.29.0.md
+    - 0.28.1: release-notes/0.28.1.md
+    - 0.28.0: release-notes/0.28.0.md
+    - 0.27.0: release-notes/0.27.0.md
+    - 0.26.1: release-notes/0.26.1.md
     - 0.26.0: release-notes/0.26.0.md
     - 0.25.0: release-notes/0.25.0.md
     - 0.24.1: release-notes/0.24.1.md

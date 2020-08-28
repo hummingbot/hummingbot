@@ -5,11 +5,9 @@ from os.path import (
 from typing import List
 
 from hummingbot import get_strategy_list
-from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 
 # Global variables
 required_exchanges: List[str] = []
-trading_pair_fetcher = TradingPairFetcher.get_instance()
 
 # Global static values
 KEYFILE_PREFIX = "key_file_"
@@ -26,6 +24,7 @@ TEMPLATE_PATH = realpath(join(__file__, "../../templates/"))
 CONF_FILE_PATH = "conf/"
 CONF_PREFIX = "conf_"
 CONF_POSTFIX = "_strategy"
+SCRIPTS_PATH = "scripts/"
 
 EXCHANGES = {
     "bamboo_relay",
@@ -37,7 +36,7 @@ EXCHANGES = {
     "dolomite",
     "bittrex",
     "kucoin",
-    "bitcoin_com",
+    "eterbase",
     "kraken"
 }
 
@@ -52,7 +51,6 @@ STRATEGIES: List[str] = get_strategy_list()
 EXAMPLE_PAIRS = {
     "bamboo_relay": "ZRX-WETH",
     "binance": "ZRX-ETH",
-    "bitcoin_com": "ETH-BCH",
     "bittrex": "ZRX-ETH",
     "kucoin": "ETH-USDT",
     "coinbase_pro": "ETH-USDC",
@@ -60,13 +58,13 @@ EXAMPLE_PAIRS = {
     "huobi": "ETH-USDT",
     "liquid": "ETH-USD",
     "radar_relay": "ZRX-WETH",
-    "kraken": "XETH-USDC"
+    "eterbase": "ETH-EUR",
+    "kraken": "ETH-USDC"
 }
 
 EXAMPLE_ASSETS = {
     "bamboo_relay": "ZRX",
     "binance": "ZRX",
-    "bitcoin_com": "BCH",
     "bittrex": "ZRX",
     "kucoin": "ETH",
     "coinbase_pro": "ETH",
@@ -74,6 +72,7 @@ EXAMPLE_ASSETS = {
     "huobi": "eth",
     "liquid": "ETH",
     "radar_relay": "ZRX",
+    "eterbase": "ETH",
     "kraken": "XETH"
 }
 

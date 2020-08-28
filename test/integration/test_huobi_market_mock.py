@@ -64,10 +64,8 @@ MOCK_HUOBI_SECRET_KEY = "11111111-aaaaaaaa-22222222-bbbbb"
 
 class HuobiMarketUnitTest(AioHTTPTestCase):
     events: List[MarketEvent] = [
-        MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
-        MarketEvent.WithdrawAsset,
         MarketEvent.OrderFilled,
         MarketEvent.OrderCancelled,
         MarketEvent.TransactionFailure,
@@ -164,88 +162,25 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
 
     def test_get_fee(self):
         self.customSetUp()
-        limit_fee: TradeFee = self.market.get_fee("eth", "usdt", OrderType.LIMIT, TradeType.BUY, 1, 10)
+        limit_fee: TradeFee = self.market.get_fee("eth", "usdt", OrderType.LIMIT_MAKER, TradeType.BUY, 1, 10)
         self.assertGreater(limit_fee.percent, 0)
         self.assertEqual(len(limit_fee.flat_fees), 0)
-        market_fee: TradeFee = self.market.get_fee("eth", "usdt", OrderType.MARKET, TradeType.BUY, 1)
+        market_fee: TradeFee = self.market.get_fee("eth", "usdt", OrderType.LIMIT, TradeType.BUY, 1)
         self.assertGreater(market_fee.percent, 0)
         self.assertEqual(len(market_fee.flat_fees), 0)
-        sell_trade_fee: TradeFee = self.market.get_fee("eth", "usdt", OrderType.LIMIT, TradeType.SELL, 1, 10)
+        sell_trade_fee: TradeFee = self.market.get_fee("eth", "usdt", OrderType.LIMIT_MAKER, TradeType.SELL, 1, 10)
         self.assertGreater(sell_trade_fee.percent, 0)
         self.assertEqual(len(sell_trade_fee.flat_fees), 0)
-
-    def test_limit_buy(self):
-        self.customSetUp()
-        self.mock_api.order_id = self.mock_api.MOCK_HUOBI_LIMIT_BUY_ORDER_ID
-        trading_pair = "ethusdt"
-        amount: Decimal = Decimal(0.02)
-        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
-        current_bid_price: Decimal = self.market.get_price(trading_pair, True)
-        bid_price: Decimal = current_bid_price + Decimal(0.05) * current_bid_price
-        quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
-
-        order_id = self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
-
-        [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
-        order_completed_event: BuyOrderCompletedEvent = order_completed_event
-        trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
-                                                if isinstance(t, OrderFilledEvent)]
-        base_amount_traded: Decimal = Decimal(sum(t.amount for t in trade_events))
-        quote_amount_traded: Decimal = Decimal(sum(t.amount * t.price for t in trade_events))
-
-        self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
-        self.assertEqual(order_id, order_completed_event.order_id)
-        self.assertAlmostEqual(quantized_amount, order_completed_event.base_asset_amount)
-        self.assertEqual("eth", order_completed_event.base_asset)
-        self.assertEqual("usdt", order_completed_event.quote_asset)
-        self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
-        self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
-        self.assertGreater(order_completed_event.fee_amount, Decimal(0))
-        self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
-                             for event in self.market_logger.event_log]))
-        # Reset the logs
-        self.market_logger.clear()
-
-    def test_limit_sell(self):
-        self.customSetUp()
-        self.mock_api.order_id = self.mock_api.MOCK_HUOBI_LIMIT_SELL_ORDER_ID
-        trading_pair = "ethusdt"
-        amount: Decimal = Decimal(0.02)
-        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
-
-        current_ask_price: Decimal = self.market.get_price(trading_pair, False)
-        ask_price: Decimal = current_ask_price - Decimal(0.05) * current_ask_price
-        quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price)
-
-        order_id = self.market.sell(trading_pair, amount, OrderType.LIMIT, quantize_ask_price)
-        [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
-        order_completed_event: SellOrderCompletedEvent = order_completed_event
-        trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
-                                                if isinstance(t, OrderFilledEvent)]
-        base_amount_traded = sum(t.amount for t in trade_events)
-        quote_amount_traded = sum(t.amount * t.price for t in trade_events)
-
-        self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
-        self.assertEqual(order_id, order_completed_event.order_id)
-        self.assertAlmostEqual(quantized_amount, order_completed_event.base_asset_amount)
-        self.assertEqual("eth", order_completed_event.base_asset)
-        self.assertEqual("usdt", order_completed_event.quote_asset)
-        self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
-        self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
-        self.assertGreater(order_completed_event.fee_amount, Decimal(0))
-        self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == order_id
-                             for event in self.market_logger.event_log]))
-        # Reset the logs
-        self.market_logger.clear()
 
     def test_market_buy(self):
         self.customSetUp()
         self.mock_api.order_id = self.mock_api.MOCK_HUOBI_MARKET_BUY_ORDER_ID
         trading_pair = "ethusdt"
+        price: Decimal = self.market.get_price(trading_pair, True)
         amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        order_id = self.market.buy(trading_pair, quantized_amount, OrderType.MARKET, 0)
+        order_id = self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, price)
         [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         buy_order_completed_event: BuyOrderCompletedEvent = buy_order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -253,7 +188,7 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
         base_amount_traded: Decimal = Decimal(sum(t.amount for t in trade_events))
         quote_amount_traded: Decimal = Decimal(sum(t.amount * t.price for t in trade_events))
 
-        self.assertTrue([evt.order_type == OrderType.MARKET for evt in trade_events])
+        self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
         self.assertEqual(order_id, buy_order_completed_event.order_id)
         self.assertAlmostEqual(quantized_amount, buy_order_completed_event.base_asset_amount, places=4)
         self.assertEqual("eth", buy_order_completed_event.base_asset)
@@ -270,10 +205,11 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
         self.customSetUp()
         self.mock_api.order_id = self.mock_api.MOCK_HUOBI_MARKET_SELL_ORDER_ID
         trading_pair = "ethusdt"
+        price: Decimal = self.market.get_price(trading_pair, False)
         amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        order_id = self.market.sell(trading_pair, amount, OrderType.MARKET, 0)
+        order_id = self.market.sell(trading_pair, amount, OrderType.LIMIT, price)
         [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         sell_order_completed_event: SellOrderCompletedEvent = sell_order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -281,7 +217,7 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
         base_amount_traded = Decimal(sum(t.amount for t in trade_events))
         quote_amount_traded = Decimal(sum(t.amount * t.price for t in trade_events))
 
-        self.assertTrue([evt.order_type == OrderType.MARKET for evt in trade_events])
+        self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
         self.assertEqual(order_id, sell_order_completed_event.order_id)
         self.assertAlmostEqual(quantized_amount, sell_order_completed_event.base_asset_amount)
         self.assertEqual("eth", sell_order_completed_event.base_asset)
@@ -306,7 +242,7 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
         quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        client_order_id = self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
+        client_order_id = self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_bid_price)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         self.market.cancel(trading_pair, client_order_id)
         self.mock_api.order_response_dict[self.mock_api.MOCK_HUOBI_LIMIT_CANCEL_ORDER_ID]["data"]["state"] = "canceled"
@@ -331,9 +267,9 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
         quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price * Decimal(0.7))
         quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price * Decimal(1.5))
         self.mock_api.order_id = self.mock_api.MOCK_HUOBI_LIMIT_BUY_ORDER_ID
-        self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
+        self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_bid_price)
         self.mock_api.order_id = self.mock_api.MOCK_HUOBI_LIMIT_SELL_ORDER_ID
-        self.market.sell(trading_pair, quantized_amount, OrderType.LIMIT, quantize_ask_price)
+        self.market.sell(trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_ask_price)
         self.run_parallel(asyncio.sleep(1))
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
         for cr in cancellation_results:
@@ -361,7 +297,7 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
             quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
             self.mock_api.order_id = self.mock_api.MOCK_HUOBI_LIMIT_OPEN_ORDER_ID
-            order_id = self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT, quantize_bid_price)
+            order_id = self.market.buy(trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_bid_price)
             [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
             order_created_event: BuyOrderCreatedEvent = order_created_event
             self.assertEqual(order_id, order_created_event.order_id)

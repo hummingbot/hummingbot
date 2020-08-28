@@ -5,7 +5,8 @@ from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.kucoin.kucoin_market import KucoinMarket
 from hummingbot.market.liquid.liquid_market import LiquidMarket
 from hummingbot.market.kraken.kraken_market import KrakenMarket
-from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
+from hummingbot.market.eterbase.eterbase_market import EterbaseMarket
+from hummingbot.core.utils.market_mid_price import get_mid_price
 from hummingbot.client.settings import EXCHANGES, DEXES
 from hummingbot.client.config.security import Security
 from hummingbot.core.utils.async_utils import safe_gather
@@ -36,6 +37,9 @@ class UserBalances:
             market = LiquidMarket(api_details[0], api_details[1])
         elif exchange == "kraken":
             market = KrakenMarket(api_details[0], api_details[1])
+        elif exchange == "eterbase":
+            market = EterbaseMarket(api_details[0], api_details[1], api_details[2])
+
         return market
 
     # return error message if the _update_balances fails
@@ -102,7 +106,7 @@ class UserBalances:
 
     async def all_balances_all_exchanges(self) -> Dict[str, Dict[str, Decimal]]:
         await self.update_exchanges()
-        return {k: v.get_all_balances() for k, v in self._markets.items()}
+        return {k: v.get_all_balances() for k, v in sorted(self._markets.items(), key=lambda x: x[0])}
 
     async def balances(self, exchange, *symbols) -> Dict[str, Decimal]:
         if await self.update_exchange_balance(exchange) is None:
@@ -128,6 +132,8 @@ class UserBalances:
             return "Ethereum wallet is required."
         if global_config_map.get("ethereum_rpc_url").value is None:
             return "ethereum_rpc_url is required."
+        if global_config_map.get("ethereum_rpc_ws_url").value is None:
+            return "ethereum_rpc_ws_url is required."
         if global_config_map.get("ethereum_wallet").value not in Security.private_keys():
             return "Ethereum private key file does not exist or corrupts."
         try:
@@ -137,13 +143,13 @@ class UserBalances:
         return None
 
     @staticmethod
-    def base_amount_ratio(trading_pair, balances) -> Optional[Decimal]:
+    def base_amount_ratio(exchange, trading_pair, balances) -> Optional[Decimal]:
         try:
             base, quote = trading_pair.split("-")
             base_amount = balances.get(base, 0)
             quote_amount = balances.get(quote, 0)
-            rate = ExchangeRateConversion.get_instance().convert_token_value_decimal(1, quote, base)
-            total_value = base_amount + (quote_amount * rate)
+            price = get_mid_price(exchange, trading_pair)
+            total_value = base_amount + (quote_amount / price)
             return None if total_value <= 0 else base_amount / total_value
         except Exception:
             return None

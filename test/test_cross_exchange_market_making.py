@@ -1,12 +1,10 @@
 #!/usr/bin/env python
 
-import asyncio
 from os.path import join, realpath
 import sys
 import pandas as pd
 from typing import List
 import unittest
-from hummingbot.core.utils.exchange_rate_conversion import ExchangeRateConversion
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import (
     AssetType,
@@ -55,37 +53,6 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
     end_timestamp: float = end.timestamp()
     maker_trading_pairs: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
     taker_trading_pairs: List[str] = ["coinalpha/eth", "COINALPHA", "ETH"]
-
-    @classmethod
-    def setUpClass(cls):
-        # XXX(martin_kou): ExchangeRatioConversion is a fucking mess now. Need to manually reset it.
-        # See: https://app.clubhouse.io/coinalpha/story/8346/clean-up-exchangerateconversion
-        if ExchangeRateConversion._erc_shared_instance is not None:
-            ExchangeRateConversion._erc_shared_instance.stop()
-            ExchangeRateConversion._erc_shared_instance = None
-
-        ExchangeRateConversion._exchange_rate = {}
-        ExchangeRateConversion._all_data_feed_exchange_rate = {}
-        ExchangeRateConversion._ready_notifier = asyncio.Event()
-
-        ExchangeRateConversion.set_global_exchange_rate_config(
-            {
-                "global_config": {
-                    "WETH": {"default": 1.0, "source": "None"},
-                    "ETH": {"default": 1.0, "source": "None"},
-                    "QETH": {"default": 0.95, "source": "None"},
-                    "DAI": {"default": 1.0, "source": "None"},
-                },
-                "conversion_required": {
-                    "WETH": {"default": 1.0, "source": "None"},
-                    "QETH": {"default": 0.95, "source": "None"},
-                },
-            }
-        )
-        ExchangeRateConversion.set_data_feeds([])
-        ExchangeRateConversion.get_instance().start()
-
-        asyncio.get_event_loop().run_until_complete(ExchangeRateConversion.get_instance().wait_till_ready())
 
     def setUp(self):
         self.clock: Clock = Clock(ClockMode.BACKTEST, 1.0, self.start_timestamp, self.end_timestamp)
@@ -486,8 +453,10 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.maker_data.set_balanced_order_book(1.05, 0.55, 1.55, 0.01, 10)
         self.maker_market.add_data(self.maker_data)
         self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
-            [self.market_pair], Decimal("0.01"), order_size_portfolio_ratio_limit=Decimal("0.3"),
-            logging_options=self.logging_options
+            [self.market_pair], Decimal("0.01"),
+            order_size_portfolio_ratio_limit=Decimal("0.3"),
+            logging_options=self.logging_options,
+            taker_to_maker_base_conversion_rate=Decimal("0.95")
         )
         self.clock.add_iterator(self.strategy)
         self.clock.backtest_til(self.start_timestamp + 5)

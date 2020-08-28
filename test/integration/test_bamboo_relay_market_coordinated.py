@@ -60,7 +60,6 @@ s_decimal_0 = Decimal(0)
 
 class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
     market_events: List[MarketEvent] = [
-        MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
         MarketEvent.BuyOrderCreated,
@@ -68,7 +67,6 @@ class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
         MarketEvent.OrderCancelled,
         MarketEvent.OrderExpired,
         MarketEvent.OrderFilled,
-        MarketEvent.WithdrawAsset
     ]
 
     wallet_events: List[WalletEvent] = [
@@ -172,16 +170,15 @@ class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
                                                             Decimal(20),
                                                             Decimal(0.01))
         self.assertEqual(maker_buy_trade_fee.percent, 0)
-        self.assertEqual(len(maker_buy_trade_fee.flat_fees), 0)
+        self.assertEqual(len(maker_buy_trade_fee.flat_fees), 1)
         taker_buy_trade_fee: TradeFee = self.market.get_fee(conf.test_bamboo_relay_base_token_symbol,
                                                             conf.test_bamboo_relay_quote_token_symbol,
                                                             OrderType.MARKET,
                                                             TradeType.BUY,
                                                             Decimal(20))
         self.assertEqual(taker_buy_trade_fee.percent, 0)
-        self.assertEqual(len(taker_buy_trade_fee.flat_fees), 2)
+        self.assertEqual(len(taker_buy_trade_fee.flat_fees), 1)
         self.assertEqual(taker_buy_trade_fee.flat_fees[0][0], "ETH")
-        self.assertEqual(taker_buy_trade_fee.flat_fees[1][0], "ETH")
 
     def test_get_wallet_balances(self):
         balances = self.market.get_all_balances()
@@ -243,8 +240,9 @@ class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
         self.assertEqual(self.base_token_asset + "-" + self.quote_token_asset, sell_order_opened_event.trading_pair)
         self.assertEqual(OrderType.LIMIT, sell_order_opened_event.type)
 
-        [cancellation_results, order_cancelled_event] = self.run_parallel(self.market.cancel_all(60 * 3), 
-                                                                          self.market_logger.wait_for(OrderCancelledEvent))
+        [cancellation_results, order_cancelled_event] = self.run_parallel(self.market.cancel_all(60 * 3),
+                                                                          self.market_logger.wait_for(
+                                                                              OrderCancelledEvent))
         self.assertEqual(cancellation_results[0], CancellationResult(buy_order_id, True))
         self.assertEqual(cancellation_results[1], CancellationResult(sell_order_id, True))
 
@@ -259,12 +257,11 @@ class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
         current_price: Decimal = self.market.get_price(trading_pair, True)
         amount = Decimal("0.003")
         expires = int(time.time() + 60)  # expires in 1 min
-        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
-        buy_order_id = self.market.buy(trading_pair=trading_pair,
-                                       amount=amount,
-                                       order_type=OrderType.LIMIT,
-                                       price=current_price - Decimal("0.2") * current_price,
-                                       expiration_ts=expires)
+        self.market.buy(trading_pair=trading_pair,
+                        amount=amount,
+                        order_type=OrderType.LIMIT,
+                        price=current_price - Decimal("0.2") * current_price,
+                        expiration_ts=expires)
         [buy_order_opened_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
 
         self.assertEqual(self.base_token_asset + "-" + self.quote_token_asset, buy_order_opened_event.trading_pair)
@@ -296,13 +293,15 @@ class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
     def test_batch_market_buy(self):
         trading_pair: str = self.base_token_asset + "-" + self.quote_token_asset
         amount = Decimal("0.002")
-        current_price: Decimal = self.market.get_price(trading_pair, True)
+        current_buy_price: Decimal = self.market.get_price(trading_pair, True)
+        current_sell_price: Decimal = self.market.get_price(trading_pair, False)
+        current_price: Decimal = current_sell_price - (current_sell_price - current_buy_price) / 2
         expires = int(time.time() + 60 * 3)
-        sell_order_id = self.market.sell(trading_pair=trading_pair,
-                                         amount=amount,
-                                         order_type=OrderType.LIMIT,
-                                         price=current_price - Decimal("0.2") * current_price,
-                                         expiration_ts=expires)
+        self.market.sell(trading_pair=trading_pair,
+                         amount=amount,
+                         order_type=OrderType.LIMIT,
+                         price=current_price,
+                         expiration_ts=expires)
         self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
 
         amount = Decimal("0.004")
@@ -345,13 +344,15 @@ class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
     def test_batch_market_sell(self):
         trading_pair: str = self.base_token_asset + "-" + self.quote_token_asset
         amount = Decimal("0.002")
-        current_price: Decimal = self.market.get_price(trading_pair, False)
+        current_buy_price: Decimal = self.market.get_price(trading_pair, True)
+        current_sell_price: Decimal = self.market.get_price(trading_pair, False)
+        current_price: Decimal = current_buy_price + (current_sell_price - current_buy_price) / 2
         expires = int(time.time() + 60 * 3)
-        buy_order_id = self.market.buy(trading_pair=trading_pair,
-                                       amount=amount,
-                                       order_type=OrderType.LIMIT,
-                                       price=current_price + Decimal("0.2") * current_price,
-                                       expiration_ts=expires)
+        self.market.buy(trading_pair=trading_pair,
+                        amount=amount,
+                        order_type=OrderType.LIMIT,
+                        price=current_price,
+                        expiration_ts=expires)
         self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
 
         amount = Decimal("0.005")

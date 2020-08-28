@@ -5,7 +5,6 @@ from typing import (
     Dict,
     Optional
 )
-
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.market.market_base import MarketBase
 from hummingbot.core.event.events import (
@@ -48,7 +47,7 @@ cdef class InFlightOrderBase:
                f"client_order_id='{self.client_order_id}', " \
                f"exchange_order_id='{self.exchange_order_id}', " \
                f"trading_pair='{self.trading_pair}', " \
-               f"order_type='{self.order_type}', " \
+               f"order_type={self.order_type}, " \
                f"trade_type={self.trade_type}, " \
                f"price={self.price}, " \
                f"amount={self.amount}, " \
@@ -72,11 +71,11 @@ cdef class InFlightOrderBase:
 
     @property
     def base_asset(self) -> str:
-        return self.market_class.split_trading_pair(self.trading_pair)[0]
+        return self.trading_pair.split("-")[0]
 
     @property
     def quote_asset(self) -> str:
-        return self.market_class.split_trading_pair(self.trading_pair)[1]
+        return self.trading_pair.split("-")[1]
 
     def update_exchange_order_id(self, exchange_id: str):
         self.exchange_order_id = exchange_id

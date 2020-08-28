@@ -1,7 +1,7 @@
 # Liquidity Mining FAQs
 
 !!! info "Important Disclaimer"
-    <small><ul><li>The content of this Site does not constitute investment, financial, legal, or tax advice, nor does any of the information contained on this Site constitute a recommendation, solicitation, or offer to buy or sell any digital assets, securities, options, or other financial instruments or other assets, or to provide any investment advice or service.<li>There is no guarantee of profit for participating in liquidity mining.<li>Participation is subject to eligiblity requirements.</ul></small>
+    <small><ul><li>The content of this Site does not constitute investment, financial, legal, or tax advice, nor does any of the information contained on this Site constitute a recommendation, solicitation, or offer to buy or sell any digital assets, securities, options, or other financial instruments or other assets, or to provide any investment advice or service.<li>There is no guarantee of profit for participating in liquidity mining.<li>Participation is subject to eligibility requirements.</ul></small>
     **Please review the [Liquidity Mining Policy](https://hummingbot.io/liquidity-mining-policy/) for the full disclaimer.**
 
 ### What is liquidity mining?
@@ -16,7 +16,7 @@ You earn rewards by running a market making bot that maintains orders on exchang
 For more information, please read [the whitepaper](https://hummingbot.io/liquidity-mining.pdf).
 
 ### Why is it called "liquidity mining"?
-Liquidity mining is similar to Bitcoin mining in that miners run open source software on their own computers and use ther own scarce resources (inventory of crypto assets).
+Liquidity mining is similar to Bitcoin mining in that miners run open source software on their own computers and use their own scarce resources (inventory of crypto assets).
 
 In addition, a collective pool of participants are working together for a common goal, providing liquidity for a specific token and exchange.  In return, miners are paid out rewards according to transparent, algorithmically defined rules.
 
@@ -70,7 +70,6 @@ For more details on the calculation, please read [Demystifying Liquidity Mining 
 !!! warning "Liquidity mining return is a historic metric and not a guarantee of future return."
     The liquidity mining return displayed on the Hummingbot Miner app is calculated from the most recently collected order book information data.  The actual return may vary depending on the actual orders submitted in the specific snapshot in which orders were placed.
 
-For more details on the calculation, please read [Demystifying Liquidity Mining Rewards](https://hummingbot.io/blog/2019-12-liquidity-mining-rewards/).
 
 ### How are the reward allocated for each order book snapshot?
 In each weekly epoch, the lump-sum weekly reward is distributed equally across each minute within that epoch.  For each minute, a random snapshot is taken from within that minute to be used for calculating reward allocations.
@@ -85,15 +84,26 @@ In order to accurately measure liquidity and allocate rewards, miners need to pr
 
 In addition, we run proprietary algorithms in order to attempt any prohibited actions such as wash trading and spoofing. While exploitative practices can be difficult to identify given the adversarial nature of the market, we believe that the combination of our focus on compliance, granular data feeds, and machine learning-based algorithms may deter and detect bad actors.
 
+<!--
 ### Why do I need an Ethereum wallet to sign up?
 
 The Hummingbot Miners app uses your Ethereum wallet address to:
 
 1. **assign you a unique user ID**.  The Hummingbot miners app associates your configurations (e.g. email address, API configurations), as well as activity.  This allows the miners app to display your user-specific information such as rewards earned and payout history.
 2. **send you token payouts**: mining rewards payouts will be sent to this address
+-->
+### How to signup as a new user?
 
-!!! note "Wallet not used for trading"
+1. Navigate to the [Sign up](https://miners.hummingbot.io/signup) page.
+2. Simply enter your email address and click **Agree to terms and conditions**, and click **Create Account**. You should see a popup window that instructs you to check your email.
+3. Once you confirm your email address. You should already be logged in to Hummingbot Miner. You can then proceed to complete the rest of the onboarding process, following the steps on the [Settings](https://miners.hummingbot.io/settings) page.
+
+!!! tip
+    You may edit the Ethereum address to receive payouts in a different wallet, or on Binance directly [How to get your ETH deposit address on Binance](https://academy.binance.com/tutorials/how-to-deposit#deposit).
+
+!!! note "Ethereum Wallet address not used for trading"
     Since it is only used for the purposes mentioned above, you do not need deposit assets into or trade using this wallet.
+
 
 ### How do I see how my rewards are calculated?
 
@@ -113,7 +123,7 @@ Alternatively, you can also reach it from the Activity page. Click on a row in t
 Check the following if:
 
 1. You are not running Hummingbot in paper trading mode, which doesn't place real orders.
-2. Your bot is actually placing orders on the exchange. You should be able to see them in the exchange website. Make sure you're running token pair on our [active campaigns](https://docs.hummingbot.io/liquidity-mining/#active-programs).
+2. Your bot is actually placing orders on the exchange. You should be able to see them in the exchange website. Make sure you're running token pair on our [active campaigns](https://docs.hummingbot.io/liquidity-mining/#current-campaign-terms).
 3. If you are running Hummingbot locally on Mac or Windows computer, your machine didn't go to sleep or lost internet connection which prevents Hummingbot from maintaining orders.
 
 If these 3 reasons are not the cause, you can email a CSV export of your Binance order history for a particular market to accounts@hummingbot.io. Make sure to used or include the email address registered for liquidity mining.
@@ -144,6 +154,6 @@ In return for administering liquidity mining programs, collecting the data neces
 Yes, you can run different instances of Hummingbot or your own software in order to earn rewards in multiple markets simultaneously.
 
 ### Do I need to use the Hummingbot client to participate in liquidity mining?
-No; if you already have your own trading bots and strategies, you can still participate in liquidity mining by registering at [Hummingbot Miner](https://miner.hummingbot.io) and adding your exchange read-only API key.
+No; if you already have your own trading bots and strategies, you can still participate in liquidity mining by registering at [Hummingbot Miner](https://miners.hummingbot.io) and adding your exchange read-only API key.
 
 For the general pool of users who don't have their own trading bots, we created Hummingbot as a way to provide them access to quant/algo strategies and the ability to market make.

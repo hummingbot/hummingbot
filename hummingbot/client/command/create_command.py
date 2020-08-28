@@ -1,6 +1,5 @@
 import os
 import shutil
-from decimal import Decimal
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -16,8 +15,7 @@ from hummingbot.client.config.config_helpers import (
 from hummingbot.client.settings import CONF_FILE_PATH, required_exchanges
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
-from hummingbot.client.config.config_validators import validate_strategy, validate_bool
-from hummingbot.user.user_balances import UserBalances
+from hummingbot.client.config.config_validators import validate_strategy
 from hummingbot.client.ui.completer import load_completer
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -41,10 +39,14 @@ class CreateCommand:
         self.placeholder_mode = True
         self.app.hide_input = True
         required_exchanges.clear()
+
         strategy_config = ConfigVar(key="strategy",
                                     prompt="What is your market making strategy? >>> ",
                                     validator=validate_strategy)
         await self.prompt_a_config(strategy_config)
+        if self.app.to_stop_config:
+            self.app.to_stop_config = False
+            return
         strategy = strategy_config.value
         config_map = get_strategy_config_map(strategy)
         self._notify(f"Please see https://docs.hummingbot.io/strategies/{strategy.replace('_', '-')}/ "
@@ -57,13 +59,25 @@ class CreateCommand:
                 config.value = None
         for config in config_map.values():
             if config.prompt_on_new:
-                await self.prompt_a_config(config)
+                if not self.app.to_stop_config:
+                    await self.prompt_a_config(config)
+                else:
+                    self.app.to_stop_config = False
+                    return
             else:
                 config.value = config.default
-        if strategy == "pure_market_making" and not global_config_map.get("paper_trade_enabled").value:
-            await self.asset_ratio_maintenance_prompt(config_map)
+
+        # catch a last key binding to stop config, if any
+        if self.app.to_stop_config:
+            self.app.to_stop_config = False
+            return
+
         if file_name is None:
             file_name = await self.prompt_new_file_name(strategy)
+            if self.app.to_stop_config:
+                self.app.to_stop_config = False
+                self.app.set_text("")
+                return
         self.app.change_prompt(prompt=">>> ")
         strategy_path = os.path.join(CONF_FILE_PATH, file_name)
         template = get_strategy_template_path(strategy)
@@ -88,6 +102,9 @@ class CreateCommand:
             if assign_default:
                 self.app.set_text(parse_config_default_to_text(config))
             input_value = await self.app.prompt(prompt=config.prompt, is_password=config.is_secure)
+
+        if self.app.to_stop_config:
+            return
         err_msg = config.validate(input_value)
         if err_msg is not None:
             self._notify(err_msg)
@@ -103,7 +120,7 @@ class CreateCommand:
         input = format_config_file_name(input)
         file_path = os.path.join(CONF_FILE_PATH, input)
         if input is None or input == "":
-            self._notify(f"Value is required.")
+            self._notify("Value is required.")
             return await self.prompt_new_file_name(strategy)
         elif os.path.exists(file_path):
             self._notify(f"{input} file already exists, please enter a new name.")
@@ -117,33 +134,3 @@ class CreateCommand:
         Security.update_config_map(global_config_map)
         if self.strategy_config_map is not None:
             Security.update_config_map(self.strategy_config_map)
-
-    async def asset_ratio_maintenance_prompt(self,  # type: HummingbotApplication
-                                             config_map):
-        exchange = config_map['exchange'].value
-        market = config_map["market"].value
-        base, quote = market.split("-")
-        balances = await UserBalances.instance().balances(exchange, base, quote)
-        if balances is None:
-            return
-        base_ratio = UserBalances.base_amount_ratio(market, balances)
-        if base_ratio is None:
-            return
-        base_ratio = round(base_ratio, 3)
-        quote_ratio = 1 - base_ratio
-        base, quote = config_map["market"].value.split("-")
-        cvar = ConfigVar(key="temp_config",
-                         prompt=f"On {exchange}, you have {balances.get(base, 0):.4f} {base} and "
-                                f"{balances.get(quote, 0):.4f} {quote}. By market value, "
-                                f"your current inventory split is {base_ratio:.1%} {base} "
-                                f"and {quote_ratio:.1%} {quote}."
-                                f" Would you like to keep this ratio? (Yes/No) >>> ",
-                         required_if=lambda: True,
-                         type_str="bool",
-                         validator=validate_bool)
-        await self.prompt_a_config(cvar)
-        if cvar.value:
-            config_map['inventory_target_base_pct'].value = round(base_ratio * Decimal('100'), 1)
-        else:
-            await self.prompt_a_config(config_map["inventory_target_base_pct"])
-        config_map['inventory_skew_enabled'].value = True

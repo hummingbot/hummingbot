@@ -16,11 +16,23 @@ Because Bamboo Relay is a decentralized exchange, you will need an independent c
 
 The Bamboo Relay connector supports two modes of operation, [open order book](https://0x.org/wiki#Open-Orderbook) and [coordinated order book](https://github.com/0xProject/0x-protocol-specification/blob/master/v2/coordinator-specification.md).
 
+By default the open order book mode is on for maximum order visibility and network syndication.
+
+### Open Order Book
+
 Open order book mode allows for off-chain orders to be submitted and any taker to fill these orders on-chain.
 Orders may only be cancelled by submitting a transaction and paying gas network costs.
 
+Open orders are syndicated through the [0x Mesh Network](https://0x-org.gitbook.io/mesh/) as well as directly submitted to the [0x API](https://0x.org/docs/api).
+
+### Coordinated order book 
+
 The coordinated order book mode extends the open order book mode by adding the ability to soft-cancel orders and a selective delay on order fills, while preserving network and contract fillable liquidity.
 This is achieved by the use of a coordinator server component and coordinator smart contracts.
+
+At this time coordinated orders are not supported through the [0x Mesh Network](https://0x-org.gitbook.io/mesh/) or [0x API](https://0x.org/docs/api).
+
+To enable coordinator mode set the `bamboo_relay_use_coordinator` parameter to `true` in `conf_global.yml` in the `/conf` directory.
 
 ## Pre-emptive Cancels
 
@@ -63,13 +75,13 @@ websockets.exceptions.InvalidStatusCode: Status code not 101: 502
 
 ### Minimum Order Sizes
 
-The minimum acceptable order size is 0.00000001 normalized units of price, amount or total, whichever of these is the lowest.
+The minimum acceptable order size is 0.004 WETH for pairs traded against WETH, this is to prevent transactional costs being higher than the nominal order amount.
 
 ### Transaction Fees
 
 Currently Bamboo Relay does not charge trading or withdrawal fees. This is set to change February 1st, 2020 with the introduction of relayer fees. See the [fee schedule](https://bamboorelay.com/fees) for the latest information.
 
-0x Protocol V3 levies an additional protocol fee for each order filled, this is calaculated as 150,000 * gasPrice per order.
+0x Protocol V3 levies an additional protocol fee for each order filled, this is calculated as 150,000 * gasPrice per order.
 This is in addition to the standard Ethereum transaction fees.
 
 ## Contact

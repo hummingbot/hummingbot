@@ -4,13 +4,30 @@ We recognize that running a trading bot for the first time is a big step for man
 
 ## Needed support info
 
-Before you reporting bugs or issues, please collect these three items which helps our support team triage your issue promptly.
+Before reporting bugs or issues, please collect these three items which helps our support team triage your issue promptly.
 
 1. **Screenshot**: In the Hummingbot client, run the `status` command and take a screenshot that includes the full terminal/bash window. Make sure to include both the left pane and the right log pane of Hummingbot.
 
-2. **Strategy config file**: This is the file with the parameters associated with your strategy. It does not contain API keys, wallet private keys, or other confidential data. It is located in the `conf/` (Windows and macOS) or `hummingbot_conf/` (Docker) folder. For example, if you have configured a pure market making strategy for the first time, the file's default name is `conf_pure_market_making_0.yml`.
+2. **Strategy config file**: This is the file with the parameters associated with your strategy. It does not contain API keys, wallet private keys, or other confidential data. It is located in the `conf/` (Windows and macOS) or `hummingbot_conf/` (Docker) folder. For example, if you have configured a pure market making strategy for the first time, the file's default name is `conf_pure_mm_1.yml`.
 
-3. **Log file**: This is the file that contains a detailed log output and error stack trace. It is located in the `logs/` (Windows and macOS) or `hummingbot_logs/` (Docker) folder. If you are sending logs related to your most recent Hummingbot session, sort the folder for the most recently updated file. It should have a name similar to `logs_conf_pure_market_making_0.log`.
+3. **Log file**: This is the file that contains a detailed log output and error stack trace. It is located in the `logs/` (Windows and macOS) or `hummingbot_logs/` (Docker) folder. If you are sending logs related to your most recent Hummingbot session, sort the folder for the most recently updated file. It should have a name similar to `logs_conf_pure_mm_1.log`.
+
+## Locating your configs
+- Installed from source: `hummingbot/conf`
+- Installed via Docker: `hummingbot_files/hummingbot_conf`
+    - `hummingbot_files` is the default name of the parent directory. This can be different depending on the setup 
+    when the instance was created.
+- Installed via Binary (Windows): `%localappdata%\hummingbot.io\Hummingbot\conf`
+- Installed via Binary (MacOS): `~/Library/Application\ Support/Hummingbot/Conf`
+
+## Locating your logs
+- Installed from source: `hummingbot/logs`
+- Installed via Docker: `hummingbot_files/hummingbot_logs`
+    - `hummingbot_files` is the default name of the parent directory. This can be different depending on the setup 
+    when the instance was created.
+- Installed via Binary (Windows): `%localappdata%\hummingbot.io\Hummingbot\logs`
+- Installed via Binary (MacOS): `~/Library/Application\ Support/Hummingbot/Logs`
+
 
 ## Ways to get support
 

@@ -1,6 +1,6 @@
 # Inventory Skew
 
-**Updated as of `v0.25.0`**
+**Updated as of `v0.29.0`**
 
 This feature lets you set and maintain a target inventory split between the base and quote assets. It prevents your overall inventory level from changing too much and may result in more stable performance in volatile markets.
 
@@ -58,12 +58,42 @@ Since the current inventory range of each asset is within the target range (8.7%
 
 By decreasing the range multiplier to 0.5, the target range tightens (29.4% to 70.6%). Since the current inventory percentage (25.0% and 75%) falls off the range, only buy orders are placed until the inventory split is within range.
 
+### Inventory Skew with Balance Limit
+
+Starting with version **0.30.0**, a [limit](https://docs.hummingbot.io/operation/commands/balance/#balance-limit-exchange-asset-amount) can be applied to the total balance to allocate how much the bot can access in an exchange or wallet. With inventory skew, Hummingbot will maintain a target balance with respect to the allowable asset.
+
+```json
+- inventory_skew_enabled: True
+- inventory_target_base_pct: 50
+- inventory_range_multiplier: 1.0
+```
+
+**Without balance limit**
+
+The image below shows our total balance is around $200. To maintain a 50-50 ratio based on `inventory_target_base_pct`, the target shows a value of around $100 for the base and quote asset.
+
+![](/assets/img/skew_without_limit.png)
+
+**With balance limit**
+
+```
+binance:
+      Asset       Amount        Limit
+       USDC     105.6335      50.0000
+       USDT     105.7188      50.0000
+```
+
+Let’s say we put a $50 limit on both USDC and USDT which makes our total usable assets to $100. Notice that the target amount is now at $50 for both sides which means, inventory skew works with respect to the total balance limit.
+
+![](/assets/img/skew_with_limit.png)
+
+
 ## Relevant Parameters
 
 | Parameter | Prompt | Definition |
 |-----------|--------|------------|
 | **inventory_skew_enabled** | `Would you like to enable inventory skew? (Yes/No)` | Allows the user to set and maintain a target inventory split between base and quote assets. |
-| **inventory_target_base_pct** | `What is your target base asset percentage?` | Target amount held of the base asset, expressed as a percentage of the total base and quote asset value. |
+| **inventory_target_base_pct** | `On [exchange], you have [base_asset_balance] and [quote_asset_balance]. By market value, your current inventory split is [base_%_ratio] and [quote_%_ratio]. Would you like to keep this ratio?` | Target amount held of the base asset, expressed as a percentage of the total base and quote asset value. |
 | **inventory_range_multiplier** | `What is your tolerable range of inventory around the target, expressed in multiples of your total order size?` | This expands the range of tolerable inventory level around your target base percent, as a multiple of your total order size. Larger values expand this range. |
 
 ## Order Size Calculation Math

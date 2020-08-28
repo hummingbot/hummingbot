@@ -53,6 +53,7 @@ from hummingbot.market.dolomite.dolomite_util import (
     DolomiteExchangeRates,
     DolomiteExchangeInfo
 )
+from hummingbot.core.utils.estimate_fee import estimate_fee
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -209,6 +210,10 @@ cdef class DolomiteMarket(MarketBase):
                 retval.append(dolomite_flight_order.to_limit_order())
         return retval
 
+    @property
+    def in_flight_orders(self) -> Dict[str, DolomiteInFlightOrder]:
+        return self._in_flight_orders
+
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         return await DolomiteAPIOrderBookDataSource.get_active_exchange_markets()
 
@@ -281,8 +286,8 @@ cdef class DolomiteMarket(MarketBase):
             unsigned_order = {
                 "owner_address": self._wallet.address,
                 "market": f"{primary_token.contract_address}-{secondary_token.contract_address}",
-                "order_type": "LIMIT" if order_type == OrderType.LIMIT else "MARKET",
-                "order_side": "BUY" if order_side == TradeType.BUY else "SELL",
+                "order_type": order_type.name,
+                "order_side": order_side.name,
                 "primary_padded_amount": primary_token.pad(primary_amount),
                 "secondary_padded_amount": secondary_token.pad(secondary_amount),
                 "fee_token_address": fee_token.contract_address,
@@ -341,8 +346,8 @@ cdef class DolomiteMarket(MarketBase):
                 self.c_trigger_event(SELL_ORDER_CREATED_EVENT, sell_event)
 
         except Exception as e:
-            order_type_str = "MARKET" if order_type == OrderType.MARKET else "LIMIT"
-            order_side_str = "buy" if order_side == TradeType.BUY else "sell"
+            order_type_str = order_type.name.lower()
+            order_side_str = order_side.name.lower()
 
             self.logger().warn(f"Error submitting {order_side_str} {order_type_str} order to Dolomite for "
                                f"{primary_amount} {primary_token.ticker} at {price} {secondary_token.ticker}.")
@@ -471,6 +476,7 @@ cdef class DolomiteMarket(MarketBase):
                           object order_side,
                           object amount,
                           object price):
+        """
         cdef:
             tuple order_fill_and_fee_result = self.calculate_order_fill_and_fee(
                 trading_pair=f"{base_currency}-{quote_currency}",
@@ -479,6 +485,9 @@ cdef class DolomiteMarket(MarketBase):
                 amount=Decimal(amount),
                 price=(None if price is None else Decimal(price)))
         return order_fill_and_fee_result[0]
+        """
+        is_maker = order_type is OrderType.LIMIT
+        return estimate_fee("dolomite", is_maker)
 
     cdef object c_get_price(self, str trading_pair, bint is_buy):
         cdef OrderBook order_book = self.c_get_order_book(trading_pair)

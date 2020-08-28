@@ -13,12 +13,16 @@ class StopCommand:
 
     async def stop_loop(self,  # type: HummingbotApplication
                         skip_order_cancellation: bool = False):
+        self.logger().info("stop command initiated.")
         self._notify("\nWinding down...")
 
         # Restore App Nap on macOS.
         if platform.system() == "Darwin":
             import appnope
             appnope.nap()
+
+        if self._script_iterator is not None:
+            self._script_iterator.stop(self.clock)
 
         if self._trading_required and not skip_order_cancellation:
             # Remove the strategy from clock before cancelling orders, to

@@ -53,7 +53,7 @@ cdef class LiquidInFlightOrder(InFlightOrderBase):
         """
         :return: Order description string . One of ["limit buy" / "limit sell" / "market buy" / "market sell"]
         """
-        order_type = "market" if self.order_type is OrderType.MARKET else "limit"
+        order_type = "limit_maker" if self.order_type is OrderType.LIMIT_MAKER else "limit"
         side = "buy" if self.trade_type == TradeType.BUY else "sell"
         return f"{order_type} {side}"
 

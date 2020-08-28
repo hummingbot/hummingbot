@@ -26,13 +26,15 @@ Currently, Hummingbot has two community-contributed connectors. We welcome other
 | [Bamboo Relay](https://bamboorelay.com/) | [Arctek](https://github.com/Arctek) | 0.7.0 | Active | 
 | [Dolomite](https://dolomite.io/) | [zrubenst](https://github.com/zrubenst) | 0.18.0 | Active | 
 
-## Fixed and enhancements
+## Fixes and enhancements
 
 Some community members work on fixing bugs or creating new features. These efforts significantly improve our user experience and help the Hummingbot core team move faster. 
 
 | Issue | Contributor | Description | Pull request | 
 | --- | --- |:---|:---:|
-| [#517](https://github.com/CoinAlpha/hummingbot/issues/517) | [fengkie](https://github.com/fengkiej) | Allow for Fewer than Total Quantity of Multiple Orders per Side | [PR #1613](https://github.com/CoinAlpha/hummingbot/pull/1613) | 
+| [#517](https://github.com/CoinAlpha/hummingbot/issues/517) | [fengkie](https://github.com/fengkiej) | Allow for fewer than total quantity of multiple orders per side | [PR #1613](https://github.com/CoinAlpha/hummingbot/pull/1613) |
+| [#1596](https://github.com/CoinAlpha/hummingbot/issues/1596) | [fengkie](https://github.com/fengkiej) | Support external databases | [PR #1597](https://github.com/CoinAlpha/hummingbot/pull/1597) |
+| [#1713](https://github.com/CoinAlpha/hummingbot/issues/1713) | [petrioptrv](https://github.com/petioptrv) | New PMM parameter: Price Band | [PR #1736](https://github.com/CoinAlpha/hummingbot/pull/1736) |
 
 ## Other contributions
 
