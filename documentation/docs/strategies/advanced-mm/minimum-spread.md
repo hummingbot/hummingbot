@@ -60,3 +60,6 @@ In the next order refresh new buy and sell orders with 0.5% spreads will be crea
 | Parameter | Prompt | Definition |
 |-----------|--------|------------|
 | **minimum_spread** | `At what minimum spread should the bot automatically cancel orders?` | If the spread of any active order fall below this param value, it will be automatically cancelled. |
+
+!!! warning "Bid and ask spread with `minimum_spread`"
+    <li> Setting a higher value than your bid and ask spread will result in no order being created. For eg. bid and spread is at 0.5% then minimum spread is 2%.
