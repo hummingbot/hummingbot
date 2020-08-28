@@ -1,0 +1,43 @@
+name: ci
+
+on:
+  pull_request:
+    branches: [ master, development ]
+
+jobs:
+  build_hummingbot:
+    name: build + stable tests
+    runs-on: "ubuntu-latest"
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.x
+
+      - name: Install Miniconda and nose
+        shell: bash
+        run: |
+          MINICONDA_FILENAME=Miniconda3-latest-Linux-x86_64.sh
+          curl -o $MINICONDA_FILENAME "https://repo.continuum.io/miniconda/$MINICONDA_FILENAME"
+          bash ${MINICONDA_FILENAME} -b -f -p $HOME/miniconda3
+          source /usr/share/miniconda/etc/profile.d/conda.sh
+          conda install -c anaconda nose
+
+      - name: Install Hummingbot
+        shell: bash -l {0}
+        run: |
+          source /usr/share/miniconda/etc/profile.d/conda.sh
+          ./install
+      - name: Compile Hummingbot
+        shell: bash
+        run: |
+          source /usr/share/miniconda/etc/profile.d/conda.sh
+          conda activate hummingbot
+          ./compile
+      - name: Run stable tests
+        shell: bash
+        run: |
+          source /usr/share/miniconda/etc/profile.d/conda.sh
+          conda activate hummingbot
+          nosetests -d -v test/test*.py
