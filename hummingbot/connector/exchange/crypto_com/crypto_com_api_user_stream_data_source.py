@@ -3,15 +3,11 @@
 import time
 import asyncio
 import logging
-
 from typing import Optional, List, AsyncIterable, Any
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from hummingbot.connector.exchange.crypto_com.crypto_com_auth import CryptoComAuth
-from hummingbot.connector.exchange.crypto_com.crypto_com_order_book import CryptoComOrderBook
-from hummingbot.connector.exchange.crypto_com.crypto_com_websocket import CryptoComWebsocket
-from hummingbot.connector.exchange.crypto_com.crypto_com_utils import ms_timestamp_to_s
+from .crypto_com_auth import CryptoComAuth
+from .crypto_com_websocket import CryptoComWebsocket
 
 
 class CryptoComAPIUserStreamDataSource(UserStreamTrackerDataSource):
@@ -38,16 +34,7 @@ class CryptoComAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def last_recv_time(self) -> float:
         return self._last_recv_time
 
-    @property
-    def order_book_class(self):
-        """
-        *required
-        Get relevant order book class to access class specific methods
-        :returns: OrderBook class
-        """
-        return CryptoComOrderBook
-
-    async def _listen_to_active_orders(self) -> AsyncIterable[Any]:
+    async def _listen_to_orders_trades_balances(self) -> AsyncIterable[Any]:
         """
         Subscribe to active orders via web socket
         """
@@ -55,15 +42,11 @@ class CryptoComAPIUserStreamDataSource(UserStreamTrackerDataSource):
         try:
             ws = CryptoComWebsocket(self._crypto_com_auth)
             await ws.connect()
-            await ws.subscribe(["user.order"])
-
-            async for msg in ws.onMessage():
-                print("msg", msg)
+            await ws.subscribe(["user.order", "user.trade", "user.balance"])
+            async for msg in ws.on_message():
                 self._last_recv_time = time.time()
-
                 if (msg.get("result") is None):
                     continue
-
                 yield msg
         except Exception as e:
             raise e
@@ -81,16 +64,8 @@ class CryptoComAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         while True:
             try:
-                async for msg in self._listen_to_active_orders():
-                    orders = msg["result"]["data"]
-
-                    for order in orders:
-                        timestamp: int = ms_timestamp_to_s(order["update_time"])
-                        order_book_message: OrderBookMessage = self.order_book_class.diff_message_from_exchange(
-                            order,
-                            timestamp
-                        )
-                        output.put_nowait(order_book_message)
+                async for msg in self._listen_to_orders_trades_balances():
+                    output.put_nowait(msg)
             except asyncio.CancelledError:
                 raise
             except Exception:

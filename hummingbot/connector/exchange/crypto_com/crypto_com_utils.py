@@ -4,6 +4,7 @@ import random
 from typing import Dict, List
 
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from . import crypto_com_constants as Constants
 
 
 # deeply merge two dictionaries
@@ -59,3 +60,7 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
 def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
     side = "buy" if is_buy else "sell"
     return f"{side}-{trading_pair}-{get_tracking_nonce()}"
+
+
+def get_api_reason(code: str) -> str:
+    return Constants.API_REASONS.get(int(code), code)

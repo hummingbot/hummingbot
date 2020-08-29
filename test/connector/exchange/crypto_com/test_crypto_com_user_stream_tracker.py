@@ -22,7 +22,7 @@ class CryptoComUserStreamTrackerUnitTest(unittest.TestCase):
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.crypto_com_auth = CryptoComAuth(cls.api_key, cls.api_secret)
-        cls.trading_pairs = ["BTC_USDT"]
+        cls.trading_pairs = ["BTC-USDT"]
         cls.user_stream_tracker: CryptoComUserStreamTracker = CryptoComUserStreamTracker(
             crypto_com_auth=cls.crypto_com_auth, trading_pairs=cls.trading_pairs)
         cls.user_stream_tracker_task: asyncio.Task = safe_ensure_future(cls.user_stream_tracker.start())

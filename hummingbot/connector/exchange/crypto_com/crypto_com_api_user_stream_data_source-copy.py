@@ -59,7 +59,7 @@ class CryptoComAPIUserStreamDataSource(UserStreamTrackerDataSource):
             await ws.subscribe(["user.order"])
             print("_listen_to_active_orders")
 
-            async for msg in ws.onMessage():
+            async for msg in ws.on_message():
                 self._last_recv_time = time.time()
 
                 if (msg.get("result") is None):
