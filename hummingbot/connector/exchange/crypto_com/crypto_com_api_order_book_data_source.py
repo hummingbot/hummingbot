@@ -12,10 +12,11 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.crypto_com.crypto_com_active_order_tracker import CryptoComActiveOrderTracker
-from hummingbot.connector.exchange.crypto_com.crypto_com_order_book import CryptoComOrderBook
-from hummingbot.connector.exchange.crypto_com.crypto_com_websocket import CryptoComWebsocket
-from hummingbot.connector.exchange.crypto_com.crypto_com_utils import ms_timestamp_to_s
+from . import crypto_com_utils
+from .crypto_com_active_order_tracker import CryptoComActiveOrderTracker
+from .crypto_com_order_book import CryptoComOrderBook
+from .crypto_com_websocket import CryptoComWebsocket
+from .crypto_com_utils import ms_timestamp_to_s
 
 
 class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -43,7 +44,8 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
             resp = await client.get(f"{constants.REST_URL}/public/get-ticker")
             resp_json = await resp.json()
             for t_pair in trading_pairs:
-                last_trade = [o["a"] for o in resp_json["result"]["data"] if o["i"] == t_pair]
+                last_trade = [o["a"] for o in resp_json["result"]["data"] if o["i"] ==
+                              crypto_com_utils.convert_to_exchange_trading_pair(t_pair)]
                 if last_trade and last_trade[0] is not None:
                     result[t_pair] = last_trade[0]
         return result
@@ -55,7 +57,8 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         async with aiohttp.ClientSession() as client:
             orderbook_response = await client.get(
-                f"{constants.REST_URL}/public/get-book?depth=150&instrument_name={trading_pair}"
+                f"{constants.REST_URL}/public/get-book?depth=150&instrument_name="
+                f"{crypto_com_utils.convert_to_exchange_trading_pair(trading_pair)}"
             )
 
             if orderbook_response.status != 200:
@@ -93,11 +96,11 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await ws.connect()
 
                 await ws.subscribe(list(map(
-                    lambda pair: f"trade.{pair}",
+                    lambda pair: f"trade.{crypto_com_utils.convert_to_exchange_trading_pair(pair)}",
                     self._trading_pairs
                 )))
 
-                async for response in ws.onMessage():
+                async for response in ws.on_message():
                     if response.get("result") is None:
                         continue
 
@@ -107,7 +110,7 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         trade_msg: OrderBookMessage = CryptoComOrderBook.trade_message_from_exchange(
                             trade,
                             trade_timestamp,
-                            metadata={"trading_pair": trade["i"]}
+                            metadata={"trading_pair": crypto_com_utils.convert_from_exchange_trading_pair(trade["i"])}
                         )
                         output.put_nowait(trade_msg)
 
@@ -129,11 +132,11 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await ws.connect()
 
                 await ws.subscribe(list(map(
-                    lambda pair: f"book.{pair}.150",
+                    lambda pair: f"book.{crypto_com_utils.convert_to_exchange_trading_pair(pair)}.150",
                     self._trading_pairs
                 )))
 
-                async for response in ws.onMessage():
+                async for response in ws.on_message():
                     if response.get("result") is None:
                         continue
 
@@ -142,7 +145,8 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     orderbook_msg: OrderBookMessage = CryptoComOrderBook.diff_message_from_exchange(
                         diff,
                         diff_timestamp,
-                        metadata={"trading_pair": response["result"]["instrument_name"]}
+                        metadata={"trading_pair": crypto_com_utils.convert_from_exchange_trading_pair(
+                            response["result"]["instrument_name"])}
                     )
                     output.put_nowait(orderbook_msg)
 

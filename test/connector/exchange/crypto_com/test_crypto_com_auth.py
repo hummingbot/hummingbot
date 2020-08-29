@@ -20,7 +20,7 @@ class TestAuth(unittest.TestCase):
         await self.ws.connect()
         await self.ws.subscribe(["user.balance"])
 
-        async for response in self.ws.onMessage():
+        async for response in self.ws.on_message():
             if (response.get("method") == "subscribe"):
                 return response
 

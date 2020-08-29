@@ -4,6 +4,7 @@ from typing import (
     List,
     Optional,
     Any,
+    AsyncIterable,
 )
 from decimal import Decimal
 import asyncio
@@ -146,7 +147,6 @@ class CryptoComExchange(ExchangeBase):
         self._order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
-            await self._update_account_id()
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
@@ -271,11 +271,13 @@ class CryptoComExchange(ExchangeBase):
 
         try:
             parsed_response = json.loads(await response.text())
-        except Exception:
-            raise IOError(f"Error parsing data from {url}.")
+        except Exception as e:
+            raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
         if response.status != 200:
             raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. "
                           f"Message: {parsed_response}")
+        print(f"REQUEST: {method} {path_url} {params}")
+        print(f"RESPONSE: {parsed_response}")
         return parsed_response
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):
@@ -294,26 +296,26 @@ class CryptoComExchange(ExchangeBase):
     def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
             price: Decimal = s_decimal_NaN, **kwargs) -> str:
         order_id: str = crypto_com_utils.get_new_client_order_id(True, trading_pair)
-        safe_ensure_future(self.create_order(TradeType.BUY, order_id, trading_pair, amount, order_type, price))
+        safe_ensure_future(self._create_order(TradeType.BUY, order_id, trading_pair, amount, order_type, price))
         return order_id
 
     def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
              price: Decimal = s_decimal_NaN, **kwargs) -> str:
         order_id: str = crypto_com_utils.get_new_client_order_id(False, trading_pair)
-        safe_ensure_future(self.create_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price))
+        safe_ensure_future(self._create_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price))
         return order_id
 
     def cancel(self, trading_pair: str, order_id: str):
-        safe_ensure_future(self.execute_cancel(trading_pair, order_id))
+        safe_ensure_future(self._execute_cancel(trading_pair, order_id))
         return order_id
 
-    async def create_order(self,
-                           trade_type: TradeType,
-                           order_id: str,
-                           trading_pair: str,
-                           amount: Decimal,
-                           order_type: OrderType,
-                           price: Decimal):
+    async def _create_order(self,
+                            trade_type: TradeType,
+                            order_id: str,
+                            trading_pair: str,
+                            amount: Decimal,
+                            order_type: OrderType,
+                            price: Decimal):
         if not order_type.is_limit_type():
             raise Exception(f"Unsupported order type: {order_type}")
         trading_rule = self._trading_rules[trading_pair]
@@ -396,12 +398,18 @@ class CryptoComExchange(ExchangeBase):
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
 
-    async def execute_cancel(self, trading_pair: str, order_id: str):
+    async def _execute_cancel(self, trading_pair: str, order_id: str):
         try:
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is None:
                 raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
-            await self._api_request("post", "private/cancel-order", {"order_id": tracked_order.exchange_order_id}, True)
+            await self._api_request(
+                "post",
+                "private/cancel-order",
+                {"instrument_name": crypto_com_utils.convert_to_exchange_trading_pair(trading_pair),
+                 "order_id": tracked_order.exchange_order_id},
+                True
+            )
         except Exception as e:
             self.logger().network(
                 f"Failed to cancel order {order_id}: {str(e)}",
@@ -417,7 +425,6 @@ class CryptoComExchange(ExchangeBase):
                 await self._poll_notifier.wait()
                 await safe_gather(
                     self._update_balances(),
-                    self._update_order_fills_from_trades(),
                     self._update_order_status(),
                 )
                 self._last_poll_timestamp = self.current_timestamp
@@ -448,8 +455,8 @@ class CryptoComExchange(ExchangeBase):
         # This is intended to be a backup measure to close straggler orders, in case CrytoCom's user stream events
         # are not working.
         # The minimum poll interval for order status is 10 seconds.
-        last_tick = 0  # self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
-        current_tick = 1  # self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
+        last_tick = self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
+        current_tick = self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
@@ -459,78 +466,83 @@ class CryptoComExchange(ExchangeBase):
             ]
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
             update_results = await safe_gather(*tasks, return_exceptions=True)
-            for update_result, tracked_order in zip(update_results, tracked_orders):
-                client_order_id = tracked_order.client_order_id
-
-                # If the order has already been cancelled or has failed do nothing
-                if client_order_id not in self._in_flight_orders:
+            for update_result in update_results:
+                if isinstance(update_result, Exception):
+                    raise update_result
+                if "result" not in update_result:
                     continue
-                trade_list = update_result["result"]["trade_list"]
-                order_info = update_result["result"]["order_info"]
-                # Update order execution status
-                tracked_order.last_state = order_info["status"]
-                executed_amount_base = Decimal(order_info["cumulative_quantity"])
-                executed_amount_quote = Decimal(order_info["cumulative_value"])
+                for trade_msg in update_result["result"]["trade_list"]:
+                    self._process_trade_message(trade_msg)
+                self._process_order_message(update_result["result"]["order_info"])
 
-                if tracked_order.is_done:
-                    if not tracked_order.is_failure and not tracked_order.is_cancelled:
-                        self.logger().info(f"The market {tracked_order.trade_type.name} order "
-                                           f"{tracked_order.client_order_id} has completed "
-                                           f"according to order status API.")
-                        total_fee = sum(Decimal(str(t["fee"])) for t in trade_list)
-                        event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY \
-                            else MarketEvent.SellOrderCompleted
-                        event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY \
-                            else SellOrderCompletedEvent
-                        self.trigger_event(event_tag,
-                                           event_class(self.current_timestamp,
-                                                       client_order_id,
-                                                       tracked_order.base_asset,
-                                                       tracked_order.quote_asset,
-                                                       (tracked_order.fee_asset
-                                                        or tracked_order.base_asset),
-                                                       executed_amount_base,
-                                                       executed_amount_quote,
-                                                       total_fee,
-                                                       tracked_order.order_type))
-                    else:
-                        # check if its a cancelled order
-                        # if its a cancelled order, issue cancel and stop tracking order
-                        if tracked_order.is_cancelled:
-                            self.logger().info(f"Successfully cancelled order {client_order_id}.")
-                            self.trigger_event(MarketEvent.OrderCancelled,
-                                               OrderCancelledEvent(
-                                                   self.current_timestamp,
-                                                   client_order_id))
-                        else:
-                            self.logger().info(f"The market order {client_order_id} has failed according to "
-                                               f"order status API. Reason: {order_info['reason']}")
-                            self.trigger_event(MarketEvent.OrderFailure,
-                                               MarketOrderFailureEvent(
-                                                   self.current_timestamp,
-                                                   client_order_id,
-                                                   tracked_order.order_type
-                                               ))
-                    self.stop_tracking_order(client_order_id)
-                else:
-                    for trade in trade_list:
-                        if tracked_order.update_with_trade_update(trade):
-                            self.trigger_event(
-                                MarketEvent.OrderFilled,
-                                OrderFilledEvent(
-                                    self.current_timestamp,
-                                    tracked_order.client_order_id,
-                                    tracked_order.trading_pair,
-                                    tracked_order.trade_type,
-                                    tracked_order.order_type,
-                                    Decimal(trade["traded_price"]),
-                                    Decimal(trade["traded_quantity"]),
-                                    TradeFee(0.0, [trade["fee_currency"], Decimal(str(trade["fee"]))]),
-                                    exchange_trade_id=trade["order_id"]
-                                )
-                            )
+    def _process_order_message(self, order_msg: Dict[str, Any]):
+        client_order_id = order_msg["client_oid"]
+        if client_order_id not in self._in_flight_orders:
+            return
+        tracked_order = self._in_flight_orders[client_order_id]
+        # Update order execution status
+        tracked_order.last_state = order_msg["status"]
+        if tracked_order.is_cancelled:
+            self.logger().info(f"Successfully cancelled order {client_order_id}.")
+            self.trigger_event(MarketEvent.OrderCancelled,
+                               OrderCancelledEvent(
+                                   self.current_timestamp,
+                                   client_order_id))
+            self.stop_tracking_order(client_order_id)
+        elif tracked_order.is_failure:
+            self.logger().info(f"The market order {client_order_id} has failed according to order status API. "
+                               f"Reason: {crypto_com_utils.get_api_reason(order_msg['reason'])}")
+            self.trigger_event(MarketEvent.OrderFailure,
+                               MarketOrderFailureEvent(
+                                   self.current_timestamp,
+                                   client_order_id,
+                                   tracked_order.order_type
+                               ))
+            self.stop_tracking_order(client_order_id)
 
-    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+    def _process_trade_message(self, trade_msg: Dict[str, Any]):
+        if not any(trade_msg["order_id"] == o.exchange_order_id for o in self._in_flight_orders.values()):
+            return
+        tracked_order = [o for o in self._in_flight_orders.values() if trade_msg["order_id"] == o.exchange_order_id][0]
+        updated = tracked_order.update_with_trade_update(trade_msg)
+        if not updated:
+            return
+        self.trigger_event(
+            MarketEvent.OrderFilled,
+            OrderFilledEvent(
+                self.current_timestamp,
+                tracked_order.client_order_id,
+                tracked_order.trading_pair,
+                tracked_order.trade_type,
+                tracked_order.order_type,
+                Decimal(str(trade_msg["traded_price"])),
+                Decimal(str(trade_msg["traded_quantity"])),
+                TradeFee(0.0, [trade_msg["fee_currency"], Decimal(str(trade_msg["fee"]))]),
+                exchange_trade_id=trade_msg["order_id"]
+            )
+        )
+        if tracked_order.executed_amount_base == tracked_order.amount:
+            tracked_order.last_state = "FILLED"
+            self.logger().info(f"The {tracked_order.trade_type.name} order "
+                               f"{tracked_order.client_order_id} has completed "
+                               f"according to order status API.")
+            event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY \
+                else MarketEvent.SellOrderCompleted
+            event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY \
+                else SellOrderCompletedEvent
+            self.trigger_event(event_tag,
+                               event_class(self.current_timestamp,
+                                           tracked_order.client_order_id,
+                                           tracked_order.base_asset,
+                                           tracked_order.quote_asset,
+                                           tracked_order.fee_asset,
+                                           tracked_order.executed_amount_base,
+                                           tracked_order.executed_amount_quote,
+                                           tracked_order.fee_paid,
+                                           tracked_order.order_type))
+            self.stop_tracking_order(tracked_order.client_order_id)
+
+    async def cancel_all(self, timeout_seconds: float):
         """
         *required
         Async function that cancels all active orders.
@@ -538,7 +550,9 @@ class CryptoComExchange(ExchangeBase):
         :returns: List of CancellationResult which indicates whether each order is successfully cancelled.
         """
         incomplete_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
-        tasks = [self.execute_cancel(o.trading_pair, o.client_order_id) for o in incomplete_orders]
+        tasks = [self._execute_cancel(o.trading_pair, o.client_order_id) for o in incomplete_orders]
+        await safe_gather(*tasks, return_exceptions=True)
+        return
         order_id_set = set([o.client_order_id for o in incomplete_orders])
         successful_cancellations = []
 
@@ -567,7 +581,7 @@ class CryptoComExchange(ExchangeBase):
     def tick(self, timestamp: float):
         now = time.time()
         poll_interval = (self.SHORT_POLL_INTERVAL
-                         if now - self.user_stream_tracker.last_recv_time > 60.0
+                         if now - self._user_stream_tracker.last_recv_time > 60.0
                          else self.LONG_POLL_INTERVAL)
         last_tick = self._last_timestamp / poll_interval
         current_tick = timestamp / poll_interval
@@ -585,3 +599,39 @@ class CryptoComExchange(ExchangeBase):
                 price: Decimal = s_decimal_NaN) -> TradeFee:
         is_maker = order_type is OrderType.LIMIT_MAKER
         return TradeFee(percent=self.estimate_fee(is_maker))
+
+    async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
+        while True:
+            try:
+                yield await self._user_stream_tracker.user_stream.get()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().network(
+                    "Unknown error. Retrying after 1 seconds.",
+                    exc_info=True,
+                    app_warning_msg="Could not fetch user events from CryptoCom. Check API key and network connection."
+                )
+                await asyncio.sleep(1.0)
+
+    async def _user_stream_event_listener(self):
+        async for event_message in self._iter_user_event_queue():
+            try:
+                channel = event_message["result"]["channel"]
+                if "user.trade" in channel:
+                    for trade_msg in event_message["result"]["data"]:
+                        self._process_trade_message(trade_msg)
+                elif "user.order" in channel:
+                    for order_msg in event_message["result"]["data"]:
+                        self._process_order_message(order_msg)
+                elif channel == "user.balance":
+                    balances = event_message["result"]["data"]
+                    for balance_entry in balances:
+                        asset_name = balance_entry["currency"]
+                        self._account_balances[asset_name] = Decimal(str(balance_entry["balance"]))
+                        self._account_available_balances[asset_name] = Decimal(str(balance_entry["available"]))
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
+                await asyncio.sleep(5.0)

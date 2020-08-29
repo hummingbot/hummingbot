@@ -63,14 +63,12 @@ class CryptoComWebsocket(RequestId):
                 try:
                     raw_msg_str: str = await asyncio.wait_for(self._client.recv(), timeout=self.MESSAGE_TIMEOUT)
                     raw_msg = ujson.loads(raw_msg_str)
-
+                    print(f"WEB_SOCKET: {raw_msg_str}")
+                    # if "user." in raw_msg_str:
+                    #     print(f"WEB_SOCKET: {raw_msg}")
                     yield raw_msg
                 except asyncio.TimeoutError:
-                    try:
-                        pong_waiter = await self._client.ping()
-                        await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
-                    except asyncio.TimeoutError:
-                        raise
+                    await asyncio.wait_for(self._client.ping(), timeout=self.PING_TIMEOUT)
         except asyncio.TimeoutError:
             self.logger().warning("WebSocket ping timed out. Going to reconnect...")
             return
@@ -123,6 +121,6 @@ class CryptoComWebsocket(RequestId):
         })
 
     # listen to messages by method
-    async def onMessage(self) -> AsyncIterable[Any]:
+    async def on_message(self) -> AsyncIterable[Any]:
         async for msg in self._messages():
             yield msg
