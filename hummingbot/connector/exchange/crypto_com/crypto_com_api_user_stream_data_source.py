@@ -44,10 +44,11 @@ class CryptoComAPIUserStreamDataSource(UserStreamTrackerDataSource):
             await ws.connect()
             await ws.subscribe(["user.order", "user.trade", "user.balance"])
             async for msg in ws.on_message():
+                print(f"WS_SOCKET: {msg}")
+                yield msg
                 self._last_recv_time = time.time()
                 if (msg.get("result") is None):
                     continue
-                yield msg
         except Exception as e:
             raise e
         finally:
