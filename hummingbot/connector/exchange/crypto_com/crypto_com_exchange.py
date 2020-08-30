@@ -8,7 +8,6 @@ from typing import (
 )
 from decimal import Decimal
 import asyncio
-from async_timeout import timeout
 import json
 import aiohttp
 import math
@@ -21,7 +20,6 @@ from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.market.trading_rule import TradingRule
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.event.events import (
     MarketEvent,
     BuyOrderCompletedEvent,
@@ -105,7 +103,9 @@ class CryptoComExchange(ExchangeBase):
         return {
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "trading_rule_initialized": len(self._trading_rules) > 0
+            "trading_rule_initialized": len(self._trading_rules) > 0,
+            "user_stream_initialized":
+                self._user_stream_tracker.data_source.last_recv_time > 0 if self._trading_required else True,
         }
 
     @property
@@ -552,31 +552,6 @@ class CryptoComExchange(ExchangeBase):
         incomplete_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
         tasks = [self._execute_cancel(o.trading_pair, o.client_order_id) for o in incomplete_orders]
         await safe_gather(*tasks, return_exceptions=True)
-        return
-        order_id_set = set([o.client_order_id for o in incomplete_orders])
-        successful_cancellations = []
-
-        try:
-            async with timeout(timeout_seconds):
-                results = await safe_gather(*tasks, return_exceptions=True)
-                for client_order_id in results:
-                    if type(client_order_id) is str:
-                        order_id_set.remove(client_order_id)
-                        successful_cancellations.append(CancellationResult(client_order_id, True))
-                    else:
-                        self.logger().warning(
-                            f"Failed to cancel order with error: "
-                            f"{repr(client_order_id)}"
-                        )
-        except Exception as e:
-            self.logger().network(
-                f"Unexpected error cancelling orders. Error: {str(e)}",
-                exc_info=True,
-                app_warning_msg=f"Failed to cancel order. Check API key and network connection."
-            )
-
-        failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
-        return successful_cancellations + failed_cancellations
 
     def tick(self, timestamp: float):
         now = time.time()
@@ -617,6 +592,8 @@ class CryptoComExchange(ExchangeBase):
     async def _user_stream_event_listener(self):
         async for event_message in self._iter_user_event_queue():
             try:
+                if "result" not in event_message or "channel" not in event_message["result"]:
+                    continue
                 channel = event_message["result"]["channel"]
                 if "user.trade" in channel:
                     for trade_msg in event_message["result"]["data"]:

@@ -61,6 +61,10 @@ UNFILLED_ORDER = {
     }
 }
 
+WS_INITIATED = {'id': 317343764453238848, 'method': 'public/auth', 'code': 0}
+WS_SUBSCRIBE = {'id': 802984382214439040, 'method': 'subscribe', 'code': 0}
+WS_HEARTBEAT = {'id': 1598755526207, 'method': 'public/heartbeat'}
+
 WS_ORDER_FILLED = {
     'id': -1, 'method': 'subscribe', 'code': 0,
     'result': {
@@ -101,3 +105,23 @@ WS_TRADE = {
              'traded_quantity': 0.0001,
              'fee_currency': 'BTC',
              'order_id': '1'}]}}
+
+WS_BALANCE = {
+    'id': -1, 'method': 'subscribe', 'code': 0,
+    'result': {
+        'subscription': 'user.balance', 'channel': 'user.balance',
+        'data': [{'balance': 47, 'available': 46,
+                  'order': 1, 'stake': 0,
+                  'currency': 'USDT'}]}}
+
+WS_ORDER_CANCELLED = {
+    'id': -1, 'method': 'subscribe', 'code': 0,
+    'result': {
+        'instrument_name': 'BTC_USDT', 'subscription': 'user.order.BTC_USDT',
+        'channel': 'user.order', 'data': [
+            {'status': 'CANCELED', 'side': 'BUY', 'price': 13918.12, 'quantity': 0.0001,
+             'order_id': '1', 'client_oid': 'buy-BTC-USDT-1598757896008300',
+             'create_time': 1598757896312, 'update_time': 1598757896312, 'type': 'LIMIT',
+             'instrument_name': 'BTC_USDT', 'avg_price': 0.0, 'cumulative_quantity': 0.0,
+             'cumulative_value': 0.0, 'fee_currency': 'BTC', 'exec_inst': 'POST_ONLY',
+             'time_in_force': 'GOOD_TILL_CANCEL'}]}}
