@@ -21,7 +21,7 @@ jobs:
           CACHE_NUMBER: 0
         with:
           path: README.md # placeholder file
-          key: ${{ runner.os }}-build-${{ env.CACHE_NUMBER }}-${{ hashFiles('hummingbot/*', 'build/*', '**/*.py', '**/*.py*', '**/*.pxd') }}
+          key: ${{ runner.os }}-build-${{ env.CACHE_NUMBER }}-${{ hashFiles('hummingbot/*', '**/*.py', '**/*.py*', '**/*.pxd') }}
       
       # Remove envs directory if exists to prevent bin/tar restore errors
       - name: Remove envs directory
@@ -33,7 +33,7 @@ jobs:
         uses: actions/cache@v2
         env:
           # Increase this value to manually reset cache if setup/environment-linux.yml has not changed
-          CONDA_CACHE_NUMBER: 2
+          CONDA_CACHE_NUMBER: 0
         with:
           path: |
             /home/runner/conda_pkgs_dir/
