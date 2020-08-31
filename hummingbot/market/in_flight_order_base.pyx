@@ -6,6 +6,7 @@ from typing import (
     Optional
 )
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.market.market_base import MarketBase
 from hummingbot.core.event.events import (
     OrderType,
     TradeType
@@ -16,6 +17,7 @@ s_decimal_0 = Decimal(0)
 
 cdef class InFlightOrderBase:
     def __init__(self,
+                 market_class: MarketBase,
                  client_order_id: str,
                  exchange_order_id: Optional[str],
                  trading_pair: str,
@@ -24,6 +26,8 @@ cdef class InFlightOrderBase:
                  price: Decimal,
                  amount: Decimal,
                  initial_state: str):
+
+        self.market_class = market_class
         self.client_order_id = client_order_id
         self.exchange_order_id = exchange_order_id
         self.trading_pair = trading_pair
