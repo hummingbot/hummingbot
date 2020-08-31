@@ -65,6 +65,35 @@ Doing this ignores the first 5,000 units of orders on each side in the orderbook
 ![jump_orders_4](/assets/img/jump_orders6.png)
 
 
+Setting a very high optimization depth with your current minimum spread pushes your spread far away from mid price.
+
+```
+- bid_spread: 1.1%
+- ask_spread: 1.1%
+- minimum_spread: 1
+- order_optimization_enabled: True
+- ask_order_optimization_depth: 500
+- bid_order_optimization_depth: 500
+```
+
+With the scenerio above, optimization depth set to 500 base asset amount. It will push the spread far away from mid price then depending on the market and because the optimization depth is set very high the orders spread will push very far from the mid price then orders will cancelled on the next tick.
+
+```
+21:52:03 - binance_market - Created LIMIT_MAKER BUY order x-XEKWYICX-BEHBC1598881921169224 for 0.03000000 ETHBTC.
+21:52:03 - binance_market - Created LIMIT_MAKER SELL order x-XEKWYICX-SEHBC1598881921170200 for 0.03000000 ETHBTC.
+21:52:04 - binance_market - Successfully cancelled order x-XEKWYICX-BEHBC1598881921169224.
+21:52:04 - binance_market - Successfully cancelled order x-XEKWYICX-SEHBC1598881921170200.
+21:52:05 - pure_market_making - (ETHBTC) Creating 1 bid orders at (Size, Price): ['0.03 ETH, 0.037045 BTC']
+21:52:05 - pure_market_making - (ETHBTC) Creating 1 ask orders at (Size, Price): ['0.03 ETH, 0.037085 BTC']
+21:52:05 - binance_market - Created LIMIT_MAKER BUY order x-XEKWYICX-BEHBC1598881925061519 for 0.03000000 ETHBTC.
+21:52:06 - pure_market_making - (ETHBTC) Cancelling the limit order x-XEKWYICX-BEHBC1598881925061519. [clock=2020-08-31 13:52:06+00:00]
+21:52:06 - pure_market_making - (ETHBTC) Cancelling the limit order x-XEKWYICX-SEHBC1598881925062492. [clock=2020-08-31 13:52:06+00:00]
+21:52:06 - binance_market - Created LIMIT_MAKER SELL order x-XEKWYICX-SEHBC1598881925062492 for 0.03000000 ETHBTC.
+21:52:06 - binance_market - Successfully cancelled order x-XEKWYICX-BEHBC1598881925061519.
+21:52:07 - binance_market - Successfully cancelled order x-XEKWYICX-SEHBC1598881925062492.
+```
+
+
 ## Relevant Parameters
 
 | Parameter | Prompt | Definition |
@@ -72,6 +101,3 @@ Doing this ignores the first 5,000 units of orders on each side in the orderbook
 | **order_optimization_enabled** | `Do you want to enable best bid ask jumping? (Yes/No)` | Allows your bid and ask order prices to be adjusted based on the current top bid and ask prices in the market. |
 | **ask_order_optimization_depth** | `How deep do you want to go into the order book for calculating the top ask, ignoring dust orders on the top (expressed in base asset amount)?` | The depth in base asset amount to be used for finding top bid ask. |
 | **bid_order_optimization_depth** | `How deep do you want to go into the order book for calculating the top bid, ignoring dust orders on the top (expressed in base asset amount)?` | The depth in base asset amount to be used for finding top bid. |
-
-!!! warning "High values for Order optimization with minimum spread"
-    <li> Setting a very high optimization depth with your current minimum spread pushes your spread far away from mid price. For eg. order optimization set to 10.000 unit depth and minimum spread set to 1%. Where order optimization pushes orders far from mid price/skip the first 10.000 orders, and depending on the market that can push the orders i.e. to 3% from the mid price, this will most probably cancel the orders in the next tick(second).
