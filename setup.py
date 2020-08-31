@@ -41,7 +41,7 @@ def main():
         "hummingbot.market.huobi",
         "hummingbot.market.radar_relay",
         "hummingbot.market.kraken",
-        "hummingbot.market.crypto_com",
+        "hummingbot.connector.exchange.crypto_com",
         "hummingbot.market.kucoin",
         "hummingbot.script",
         "hummingbot.strategy",
