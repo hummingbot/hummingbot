@@ -16,6 +16,7 @@ from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType
 )
+from . import binance_utils
 
 _bob_logger = None
 
@@ -50,7 +51,7 @@ cdef class BinanceOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "trading_pair": msg["s"],
+            "trading_pair": binance_utils.convert_from_exchange_trading_pair(msg["s"]),
             "update_id": msg["u"],
             "bids": msg["b"],
             "asks": msg["a"]
@@ -74,7 +75,7 @@ cdef class BinanceOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "trading_pair": msg["s"],
+            "trading_pair": binance_utils.convert_from_exchange_trading_pair(msg["s"]),
             "update_id": msg["u"],
             "bids": msg["b"],
             "asks": msg["a"]
@@ -98,7 +99,7 @@ cdef class BinanceOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "trading_pair": msg["s"],
+            "trading_pair": binance_utils.convert_from_exchange_trading_pair(msg["s"]),
             "update_id": msg["u"],
             "bids": msg["b"],
             "asks": msg["a"],
@@ -112,7 +113,7 @@ cdef class BinanceOrderBook(OrderBook):
             msg.update(metadata)
         ts = record.timestamp
         return OrderBookMessage(OrderBookMessageType.TRADE, {
-            "trading_pair": msg["s"],
+            "trading_pair": binance_utils.convert_from_exchange_trading_pair(msg["s"]),
             "trade_type": float(TradeType.SELL.value) if msg["m"] else float(TradeType.BUY.value),
             "trade_id": msg["t"],
             "update_id": ts,
@@ -126,7 +127,7 @@ cdef class BinanceOrderBook(OrderBook):
             msg.update(metadata)
         ts = msg["E"]
         return OrderBookMessage(OrderBookMessageType.TRADE, {
-            "trading_pair": msg["s"],
+            "trading_pair": binance_utils.convert_from_exchange_trading_pair(msg["s"]),
             "trade_type": float(TradeType.SELL.value) if msg["m"] else float(TradeType.BUY.value),
             "trade_id": msg["t"],
             "update_id": ts,
