@@ -1,5 +1,6 @@
 cdef class InFlightOrderBase:
     cdef:
+        public object market_class
         public str client_order_id
         public str exchange_order_id
         public str trading_pair
