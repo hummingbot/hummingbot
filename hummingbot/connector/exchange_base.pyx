@@ -217,7 +217,7 @@ cdef class ExchangeBase(ConnectorBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = NaN) -> TradeFee:
+                price: Decimal = s_decimal_NaN) -> TradeFee:
         raise NotImplementedError
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:

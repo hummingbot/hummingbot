@@ -186,7 +186,7 @@ cdef class ConnectorBase(NetworkIterator):
         pass
 
     def tick(self, timestamp: float):
-        raise NotImplementedError
+        pass
 
     cdef c_tick(self, double timestamp):
         NetworkIterator.c_tick(self, timestamp)

@@ -16,9 +16,9 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.market.crypto_com.crypto_com_api_user_stream_data_source import CryptoComAPIUserStreamDataSource
-from hummingbot.market.crypto_com.crypto_com_auth import CryptoComAuth
-from hummingbot.market.crypto_com.crypto_com_constants import EXCHANGE_NAME
+from hummingbot.connector.exchange.crypto_com.crypto_com_api_user_stream_data_source import CryptoComAPIUserStreamDataSource
+from hummingbot.connector.exchange.crypto_com.crypto_com_auth import CryptoComAuth
+from hummingbot.connector.exchange.crypto_com.crypto_com_constants import EXCHANGE_NAME
 
 
 class CryptoComUserStreamTracker(UserStreamTracker):
@@ -31,10 +31,9 @@ class CryptoComUserStreamTracker(UserStreamTracker):
         return cls._bust_logger
 
     def __init__(self,
-                 data_source_type: UserStreamTrackerDataSourceType = UserStreamTrackerDataSourceType.EXCHANGE_API,
                  crypto_com_auth: Optional[CryptoComAuth] = None,
                  trading_pairs: Optional[List[str]] = []):
-        super().__init__(data_source_type=data_source_type)
+        super().__init__(data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API)
         self._crypto_com_auth: CryptoComAuth = crypto_com_auth
         self._trading_pairs: List[str] = trading_pairs
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
