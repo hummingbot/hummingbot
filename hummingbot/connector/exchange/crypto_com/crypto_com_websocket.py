@@ -5,6 +5,7 @@ import logging
 import websockets
 import ujson
 import hummingbot.connector.exchange.crypto_com.crypto_com_constants as constants
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 from typing import Optional, AsyncIterable, Any, List
@@ -63,8 +64,9 @@ class CryptoComWebsocket(RequestId):
                 try:
                     raw_msg_str: str = await asyncio.wait_for(self._client.recv(), timeout=self.MESSAGE_TIMEOUT)
                     raw_msg = ujson.loads(raw_msg_str)
-                    # if "book" in raw_msg_str:
-                    #     print(f"WEB_SOCKET: {raw_msg}")
+                    if "method" in raw_msg and raw_msg["method"] == "public/heartbeat":
+                        payload = {"id": raw_msg["id"], "method": "public/respond-heartbeat"}
+                        safe_ensure_future(self._client.send(ujson.dumps(payload)))
                     yield raw_msg
                 except asyncio.TimeoutError:
                     await asyncio.wait_for(self._client.ping(), timeout=self.PING_TIMEOUT)
