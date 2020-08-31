@@ -1,6 +1,6 @@
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
-from hummingbot.market.crypto_com.crypto_com_active_order_tracker import CryptoComActiveOrderTracker
+from hummingbot.connector.exchange.crypto_com.crypto_com_active_order_tracker import CryptoComActiveOrderTracker
 
 
 class CryptoComOrderBookTrackerEntry(OrderBookTrackerEntry):
