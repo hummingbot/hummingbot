@@ -63,7 +63,7 @@ class CryptoComWebsocket(RequestId):
                 try:
                     raw_msg_str: str = await asyncio.wait_for(self._client.recv(), timeout=self.MESSAGE_TIMEOUT)
                     raw_msg = ujson.loads(raw_msg_str)
-                    # if "user." in raw_msg_str:
+                    # if "book" in raw_msg_str:
                     #     print(f"WEB_SOCKET: {raw_msg}")
                     yield raw_msg
                 except asyncio.TimeoutError:
