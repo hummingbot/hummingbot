@@ -50,10 +50,11 @@ from hummingbot.core.event.events import (
     TradeType,
     TradeFee
 )
-from hummingbot.market.market_base import (
-    MarketBase,
-    s_decimal_NaN,
-)
+from hummingbot.connector.exchange_base import ExchangeBase
+# from hummingbot.market.market_base import (
+#     # MarketBase,
+#     s_decimal_NaN,
+# )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.order_book cimport OrderBook
@@ -74,6 +75,7 @@ from hummingbot.core.utils.estimate_fee import estimate_fee
 
 s_logger = None
 s_decimal_0 = Decimal(0)
+s_decimal_NaN = Decimal("nan")
 BROKER_ID = "x-XEKWYICX"
 
 
@@ -99,7 +101,7 @@ cdef class BinanceMarketTransactionTracker(TransactionTracker):
         self._owner.c_did_timeout_tx(tx_id)
 
 
-cdef class BinanceMarket(MarketBase):
+cdef class BinanceMarket(ExchangeBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
@@ -127,6 +129,8 @@ cdef class BinanceMarket(MarketBase):
         return s_logger
 
     def __init__(self,
+                 fee_estimates: Dict[bool, Decimal],
+                 balance_limits: Dict[str, Decimal],
                  binance_api_key: str,
                  binance_api_secret: str,
                  order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
@@ -137,7 +141,7 @@ cdef class BinanceMarket(MarketBase):
                  trading_required: bool = True):
 
         self.monkey_patch_binance_time()
-        super().__init__()
+        super().__init__(fee_estimates, balance_limits)
         self._trading_required = trading_required
         self._order_book_tracker = BinanceOrderBookTracker(trading_pairs=trading_pairs)
         self._binance_client = BinanceClient(binance_api_key, binance_api_secret)
@@ -744,10 +748,10 @@ cdef class BinanceMarket(MarketBase):
 
     cdef c_start(self, Clock clock, double timestamp):
         self._tx_tracker.c_start(clock, timestamp)
-        MarketBase.c_start(self, clock, timestamp)
+        ExchangeBase.c_start(self, clock, timestamp)
 
     cdef c_stop(self, Clock clock):
-        MarketBase.c_stop(self, clock)
+        ExchangeBase.c_stop(self, clock)
         self._async_scheduler.stop()
 
     async def start_network(self):
@@ -791,7 +795,7 @@ cdef class BinanceMarket(MarketBase):
                                     else self.LONG_POLL_INTERVAL)
             int64_t last_tick = <int64_t>(self._last_timestamp / poll_interval)
             int64_t current_tick = <int64_t>(timestamp / poll_interval)
-        MarketBase.c_tick(self, timestamp)
+        ExchangeBase.c_tick(self, timestamp)
         self._tx_tracker.c_tick(timestamp)
         if current_tick > last_tick:
             if not self._poll_notifier.is_set():
@@ -1017,7 +1021,7 @@ cdef class BinanceMarket(MarketBase):
             object current_price = self.c_get_price(trading_pair, False)
             object notional_size
         global s_decimal_0
-        quantized_amount = MarketBase.c_quantize_order_amount(self, trading_pair, amount)
+        quantized_amount = ExchangeBase.c_quantize_order_amount(self, trading_pair, amount)
 
         # Check against min_order_size and min_notional_size. If not passing either check, return 0.
         if quantized_amount < trading_rule.min_order_size:
