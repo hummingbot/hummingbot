@@ -231,6 +231,7 @@ class HummingbotApplication(*commands):
                 binance_api_key = global_config_map.get("binance_api_key").value
                 binance_api_secret = global_config_map.get("binance_api_secret").value
                 market = BinanceMarket(
+                    {}, {},
                     binance_api_key,
                     binance_api_secret,
                     order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,

@@ -26,7 +26,6 @@ cdef class BinanceInFlightOrder(InFlightOrderBase):
                  amount: Decimal,
                  initial_state: str = "NEW"):
         super().__init__(
-            BinanceMarket,
             client_order_id,
             exchange_order_id,
             trading_pair,
