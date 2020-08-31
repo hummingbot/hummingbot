@@ -88,8 +88,8 @@ If the mid price dips below price_floor or goes above price_ceiling, it will can
 
 ```
 - order_refresh_tolerance_pct: 1%
-- price_ceiling: 11650
-- price_floor: 11750
+- price_ceiling: 11750
+- price_floor: 11650
 ```
 
 With the above scenario, mid price dips below price floor so the bot cancel current orders regardless of the order refresh tolerance.
