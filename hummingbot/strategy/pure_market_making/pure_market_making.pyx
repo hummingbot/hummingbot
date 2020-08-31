@@ -17,9 +17,11 @@ from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.market.market_base cimport MarketBase
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.exchange_base cimport ExchangeBase
+# from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.market_base import (
-    MarketBase,
+    # MarketBase,
     OrderType,
 )
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
@@ -387,7 +389,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     def inventory_skew_stats_data_frame(self) -> Optional[pd.DataFrame]:
         cdef:
-            MarketBase market = self._market_info.market
+            ExchangeBase market = self._market_info.market
 
         mid_price = self.get_mid_price()
         base_asset_amount, quote_asset_amount = self.c_get_adjusted_available_balance(self.active_orders)
@@ -603,7 +605,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     cdef object c_create_base_proposal(self):
         cdef:
-            MarketBase market = self._market_info.market
+            ExchangeBase market = self._market_info.market
             list buys = []
             list sells = []
         for level in range(0, self._buy_levels):
@@ -629,7 +631,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         :return: (base amount, quote amount) in Decimal
         """
         cdef:
-            MarketBase market = self._market_info.market
+            ExchangeBase market = self._market_info.market
             object base_balance = market.c_get_available_balance(self.base_asset)
             object quote_balance = market.c_get_available_balance(self.quote_asset)
 
@@ -680,7 +682,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     cdef c_apply_inventory_skew(self, object proposal):
         cdef:
-            MarketBase market = self._market_info.market
+            ExchangeBase market = self._market_info.market
             object bid_adj_ratio
             object ask_adj_ratio
             object size
@@ -710,7 +712,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     cdef c_apply_budget_constraint(self, object proposal):
         cdef:
-            MarketBase market = self._market_info.market
+            ExchangeBase market = self._market_info.market
             object quote_size
             object base_size
             object quote_size_total = Decimal("0")
@@ -739,7 +741,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     cdef c_filter_out_takers(self, object proposal):
         cdef:
-            MarketBase market = self._market_info.market
+            ExchangeBase market = self._market_info.market
             list new_buys = []
             list new_sells = []
         top_ask = market.c_get_price(self.trading_pair, True)
@@ -752,7 +754,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     # Compare the market price with the top bid and top ask price
     cdef c_apply_order_optimization(self, object proposal):
         cdef:
-            MarketBase market = self._market_info.market
+            ExchangeBase market = self._market_info.market
             object own_buy_size = s_decimal_zero
             object own_sell_size = s_decimal_zero
 
@@ -800,7 +802,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     cdef object c_apply_add_transaction_costs(self, object proposal):
         cdef:
-            MarketBase market = self._market_info.market
+            ExchangeBase market = self._market_info.market
         for buy in proposal.buys:
             fee = market.c_get_fee(self.base_asset, self.quote_asset,
                                    self._limit_order_type, TradeType.BUY, buy.size, buy.price)

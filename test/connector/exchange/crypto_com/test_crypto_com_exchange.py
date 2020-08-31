@@ -317,7 +317,8 @@ class CryptoComExchangeUnitTest(unittest.TestCase):
         sell_id = self._place_order(False, amount, OrderType.LIMIT, ask_price, 2)
 
         self.ev_loop.run_until_complete(asyncio.sleep(1))
-        self.ev_loop.run_until_complete(self.connector.cancel_all(5))
+        results = self.ev_loop.run_until_complete(self.connector.cancel_all(5))
+        print(results)
         if API_MOCK_ENABLED:
             data = fixture.WS_ORDER_CANCELLED.copy()
             data["result"]["data"][0]["client_oid"] = buy_id

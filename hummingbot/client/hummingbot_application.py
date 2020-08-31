@@ -47,6 +47,7 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.market.markets_recorder import MarketsRecorder
 from hummingbot.client.config.security import Security
 
+from hummingbot.connector.exchange.crypto_com.crypto_com_exchange import CryptoComExchange
 
 s_logger = None
 
@@ -333,6 +334,14 @@ class HummingbotApplication(*commands):
                                       order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                       trading_pairs=trading_pairs,
                                       trading_required=self._trading_required)
+            elif market_name == "crypto_com":
+                api_key = global_config_map.get("crypto_com_api_key").value
+                secret_key = global_config_map.get("crypto_com_secret_key").value
+                market = CryptoComExchange({}, {},
+                                           api_key,
+                                           secret_key,
+                                           trading_pairs=trading_pairs,
+                                           trading_required=self._trading_required)
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")
 

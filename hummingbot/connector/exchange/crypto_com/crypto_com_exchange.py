@@ -18,6 +18,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.core.clock import Clock
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.market.trading_rule import TradingRule
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.event.events import (
@@ -73,7 +74,7 @@ class CryptoComExchange(ExchangeBase):
         self._shared_client = None
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
-        self._in_flight_orders = {}  # Dict[client_order_id:str, BinanceInFlightOrder]
+        self._in_flight_orders = {}  # Dict[client_order_id:str, CryptoComInFlightOrder]
         self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
         # self._tx_tracker = BinanceMarketTransactionTracker(self)
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
@@ -191,10 +192,10 @@ class CryptoComExchange(ExchangeBase):
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
                 raise
-            except Exception:
-                self.logger().network("Unexpected error while fetching trading rules.",
+            except Exception as e:
+                self.logger().network(f"Unexpected error while fetching trading rules. Error: {str(e)}",
                                       exc_info=True,
-                                      app_warning_msg="Could not fetch new trading rules from Kucoin. "
+                                      app_warning_msg="Could not fetch new trading rules from Crypto.com. "
                                                       "Check network connection.")
                 await asyncio.sleep(0.5)
 
@@ -276,8 +277,8 @@ class CryptoComExchange(ExchangeBase):
         if response.status != 200:
             raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. "
                           f"Message: {parsed_response}")
-        print(f"REQUEST: {method} {path_url} {params}")
-        print(f"RESPONSE: {parsed_response}")
+        # print(f"REQUEST: {method} {path_url} {params}")
+        # print(f"RESPONSE: {parsed_response}")
         return parsed_response
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):
@@ -335,7 +336,7 @@ class CryptoComExchange(ExchangeBase):
         if order_type is OrderType.LIMIT_MAKER:
             api_params["exec_inst"] = "POST_ONLY"
         self.start_tracking_order(order_id,
-                                  "",
+                                  None,
                                   trading_pair,
                                   trade_type,
                                   price,
@@ -367,7 +368,7 @@ class CryptoComExchange(ExchangeBase):
         except Exception as e:
             self.stop_tracking_order(order_id)
             self.logger().network(
-                f"Error submitting {trade_type.name} {order_type.name} order to Binance for "
+                f"Error submitting {trade_type.name} {order_type.name} order to Crypto.com for "
                 f"{amount} {trading_pair} "
                 f"{price}.",
                 exc_info=True,
@@ -407,7 +408,7 @@ class CryptoComExchange(ExchangeBase):
                 "post",
                 "private/cancel-order",
                 {"instrument_name": crypto_com_utils.convert_to_exchange_trading_pair(trading_pair),
-                 "order_id": tracked_order.exchange_order_id},
+                 "order_id": await tracked_order.get_exchange_order_id()},
                 True
             )
         except Exception as e:
@@ -417,6 +418,7 @@ class CryptoComExchange(ExchangeBase):
                 app_warning_msg=f"Failed to cancel the order {order_id} on CryptoCom. "
                                 f"Check API key and network connection."
             )
+            raise e
 
     async def _status_polling_loop(self):
         while True:
@@ -430,9 +432,10 @@ class CryptoComExchange(ExchangeBase):
                 self._last_poll_timestamp = self.current_timestamp
             except asyncio.CancelledError:
                 raise
-            except Exception:
-                self.logger().network("Unexpected error while fetching account updates.", exc_info=True,
-                                      app_warning_msg="Could not fetch account updates from Binance. "
+            except Exception as e:
+                self.logger().network(f"Unexpected error while fetching account updates. Error: {str(e)}",
+                                      exc_info=True,
+                                      app_warning_msg="Could not fetch account updates from Crypto.com. "
                                                       "Check API key and network connection.")
                 await asyncio.sleep(0.5)
 
@@ -461,7 +464,10 @@ class CryptoComExchange(ExchangeBase):
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
             tasks = [
-                self._api_request("post", "private/get-order-detail", {"order_id": o.exchange_order_id}, True)
+                self._api_request("post",
+                                  "private/get-order-detail",
+                                  {"order_id": await o.get_exchange_order_id()},
+                                  True)
                 for o in tracked_orders
             ]
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
@@ -551,7 +557,13 @@ class CryptoComExchange(ExchangeBase):
         """
         incomplete_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
         tasks = [self._execute_cancel(o.trading_pair, o.client_order_id) for o in incomplete_orders]
-        await safe_gather(*tasks, return_exceptions=True)
+        # await safe_gather(*tasks, return_exceptions=True)
+        cancellation_results = []
+        results = await safe_gather(*tasks, return_exceptions=True)
+        for result, order in zip(results, incomplete_orders):
+            is_success = not isinstance(result, Exception)
+            cancellation_results.append(CancellationResult(order.client_order_id, is_success))
+        return cancellation_results
 
     def tick(self, timestamp: float):
         now = time.time()
