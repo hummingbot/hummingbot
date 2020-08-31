@@ -27,6 +27,7 @@ class ConnectorBaseUnitTest(unittest.TestCase):
 
     def test_in_flight_asset_balances(self):
         connector = ConnectorBase(balance_limits={}, fee_estimates={})
+        print(connector._account_balances)
         orders = {
             "1": InFightOrderTest(connector, "1", "A", "HBOT-USDT", OrderType.LIMIT, TradeType.BUY, 100, 1, "live"),
             "2": InFightOrderTest(connector, "2", "B", "HBOT-USDT", OrderType.LIMIT, TradeType.BUY, 100, 2, "live"),
