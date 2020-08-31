@@ -628,8 +628,7 @@ cdef class LiquidMarket(MarketBase):
             # Calculate the newly executed amount for this update.
             new_confirmed_amount = Decimal(order_update["filled_quantity"])
             execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
-            execute_price = s_decimal_0 if new_confirmed_amount == s_decimal_0 \
-                else Decimal(order_update["price"])
+            execute_price = Decimal(order_update["price"])
 
             order_type_description = tracked_order.order_type_description
             order_type = tracked_order.order_type
