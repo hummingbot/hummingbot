@@ -84,6 +84,25 @@ Orders:
 
 When it's time to refresh orders, the price band will take priority over the tolerable change in spreads.
 
+If the mid price dips below price_floor or goes above price_ceiling, it will cancel your existing order regardless of order refresh tolerance.
+
+```
+- order_refresh_tolerance_pct: 1%
+- price_ceiling: 11650
+- price_floor: 11750
+```
+
+With the above scenario, mid price dips below price floor so the bot cancel current orders regardless of the order refresh tolerance.
+
+```
+18:59:15 - pure_market_making - (BTC-USDT) Creating 1 bid orders at (Size, Price): ['0.003 BTC, 11691.58 USDT']
+18:59:16 - pure_market_making - (BTC-USDT) Creating 1 ask orders at (Size, Price): ['0.003 BTC, 11723.73 USDT']
+18:59:31 - pure_market_making - Not cancelling active orders since difference between new order prices and current order prices is within 1.00% order_refresh_tolerance_pct
+18:59:45 - pure_market_making - Not cancelling active orders since difference between new order prices and current order prices is within 1.00% order_refresh_tolerance_pct
+19:00:01 - pure_market_making - (BTC-USDT) Cancelling the limit order buy://BTC-USDT/d81c2b6376b8b759c99c0c498d. [clock=2020-08-31 11:00:01+00:00]
+19:00:01 - pure_market_making - (BTC-USDT) Cancelling the limit order sell://BTC-USDT/e69022b440adf92952bb34e42f. [clock=2020-08-31 11:00:01+00:00]
+19:00:02 - pure_market_making - (BTC-USDT) Creating 1 ask orders at (Size, Price): ['0.003 BTC, 11725 USDT']
+```
 
 ## Price Band with External Pricing Source
 
@@ -96,6 +115,3 @@ If `price_source` is enabled then the mid price reference point will be the exte
 |-----------|--------|------------|
 | **price_ceiling** | `Enter the price point above which only sell orders will be placed` | Place only sell orders when mid price goes above this price. |
 | **price_floor** | `Enter the price below which only buy orders will be placed` | Place only buy orders when mid price falls below this price. |
-
-!!! warning "Price Band with `order_refresh_tolerance_pct`"
-    <li> Using Price Band and Order Refresh Tolerance, if the mid price dips below price_floor or goes above price_ceiling, it will cancel your existing order regardless of order refresh tolerance.
