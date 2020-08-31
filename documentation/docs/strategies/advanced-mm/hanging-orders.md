@@ -107,6 +107,36 @@ Orders:
 
 ```
 
+## Hanging Orders with Order Refresh Tolerance
+
+Order Refresh Tolerance orders will be canceled every order refresh time excluding Hanging Orders.
+
+```
+- hanging_orders_enabled: True
+- order_refresh_time: 5
+- order_refresh_tolerance_pct: 1
+```
+
+With the sample config above with 1 hanging order. 
+
+```
+20:24:50 - pure_market_making - Not cancelling active orders since difference between new order prices and current order prices is within 1.00% order_refresh_tolerance_pct
+20:24:54 - pure_market_making - Not cancelling active orders since difference between new order prices and current order prices is within 1.00% order_refresh_tolerance_pct
+20:25:08 - pure_market_making - (ETH-USDT) Cancelling the limit order buy://ETH-USDT/902fec21c8f8f039dcac5e21da. [clock=2020-08-31 12:25:08+00:00]
+20:25:08 - pure_market_making - (ETH-USDT) Cancelling the limit order sell://ETH-USDT/b9ba54ba9953aca2ff9424c071. [clock=2020-08-31 12:25:08+00:00]
+20:25:08 - pure_market_making - (ETH-USDT) Creating 1 bid orders at (Size, Price): ['0.05 ETH, 429.1304 USDT']
+20:25:09 - pure_market_making - (ETH-USDT) Creating 1 ask orders at (Size, Price): ['0.05 ETH, 437.7996 USDT']
+```
+
+When its time to refresh order the Hanging Order remain untouched.
+
+```
+  Orders:
+     Level  Type    Price Spread Amount (Orig)  Amount (Adj)  Age
+      hang  sell 436.9613  1.00%          0.05          0.05  00:01:08
+         1  sell 437.7996  1.00%          0.05          0.05  00:00:01
+         1   buy 429.1304  1.00%          0.05          0.05  00:00:01
+```
 
 ## Relevant Parameters
 
@@ -114,6 +144,3 @@ Orders:
 |-----------|--------|------------|
 | **hanging_orders_enabled** | `Do you want to enable hanging orders? (Yes/No)` | When enabled, the orders on the side opposite to the filled orders remains active. |
 | **hanging_orders_cancel_pct** | `At what spread percentage (from mid price) will hanging orders be canceled?` | Cancels the hanging orders when their spread goes above this value. |
-
-!!! warning "Hanging Orders with `order_refresh_tolerance_pct`"
-    <li> Order Refresh Tolerance orders will be canceled every order refresh time excluding Hanging Orders.
