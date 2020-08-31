@@ -700,6 +700,10 @@ class PMMUnitTest(unittest.TestCase):
 
         self.assertEqual((bid + ask) / 2, mid_price)
         self.assertEqual(last_trade, Decimal("123"))
+        assert isinstance(bid, Decimal)
+        assert isinstance(ask, Decimal)
+        assert isinstance(mid_price, Decimal)
+        assert isinstance(last_trade, Decimal)
 
     def test_external_exchange_price_source(self):
         strategy = self.one_level_strategy
