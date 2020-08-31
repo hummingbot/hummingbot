@@ -53,10 +53,15 @@ class HummingWsServerFactory:
 
     @staticmethod
     async def send_json(url, data, delay=0):
-        if delay > 0:
-            await asyncio.sleep(delay)
-        ws_server = HummingWsServerFactory.get_ws_server(url)
-        await ws_server.websocket.send(json.dumps(data))
+        try:
+            if delay > 0:
+                await asyncio.sleep(delay)
+            ws_server = HummingWsServerFactory.get_ws_server(url)
+            message = json.dumps(data)
+            await ws_server.websocket.send(message)
+        except Exception as e:
+            print(f"HummingWsServerFactory Error: {str(e)}")
+            raise e
 
     @staticmethod
     def send_json_threadsafe(url, data, delay=0):

@@ -12,11 +12,11 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 NaN = float("nan")
 s_logger = None
 
+
 class NetworkStatus(Enum):
     STOPPED = 0
     NOT_CONNECTED = 1
     CONNECTED = 2
-
 
 
 cdef class NetworkIterator(TimeIterator):
@@ -126,3 +126,9 @@ cdef class NetworkIterator(TimeIterator):
             self._check_network_task = None
         self._network_status = NetworkStatus.STOPPED
         safe_ensure_future(self.stop_network())
+
+    def start(self, clock: Clock, timestamp: float):
+        self.c_start(clock, timestamp)
+
+    def stop(self, clock: Clock):
+        self.c_stop(clock)
