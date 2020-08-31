@@ -629,7 +629,7 @@ cdef class LiquidMarket(MarketBase):
             new_confirmed_amount = Decimal(order_update["filled_quantity"])
             execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
             execute_price = s_decimal_0 if new_confirmed_amount == s_decimal_0 \
-                else Decimal(order_update["average_price"])
+                else Decimal(order_update["price"])
 
             order_type_description = tracked_order.order_type_description
             order_type = tracked_order.order_type
@@ -660,7 +660,7 @@ cdef class LiquidMarket(MarketBase):
             # Update the tracked order
             tracked_order.last_state = order_status if order_status in {"filled", "canceled"} else order_update["status"]
             tracked_order.executed_amount_base = new_confirmed_amount
-            tracked_order.executed_amount_quote = Decimal(order_update["average_price"]) * tracked_order.executed_amount_base
+            tracked_order.executed_amount_quote = Decimal(order_update["price"]) * tracked_order.executed_amount_base
             tracked_order.fee_paid = Decimal(order_update["order_fee"])
             if tracked_order.is_done:
                 if not tracked_order.is_failure:
