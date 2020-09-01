@@ -516,7 +516,8 @@ class CryptoComExchange(ExchangeBase):
             self.stop_tracking_order(client_order_id)
 
     async def _process_trade_message(self, trade_msg: Dict[str, Any]):
-        [await o.get_exchange_order_id() for o in self._in_flight_orders.values()]
+        for order in self._in_flight_orders.values():
+            await order.get_exchange_order_id()
         track_order = [o for o in self._in_flight_orders.values() if trade_msg["order_id"] == o.exchange_order_id]
         if not track_order:
             return
