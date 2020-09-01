@@ -59,21 +59,21 @@ In the next order refresh new buy and sell orders with 0.5% spreads will be crea
 Setting a higher value than your bid and ask spread will result in no order being created. For eg. bid and spread is at 0.5% then minimum spread is 1%.
 
 ```json
-- bid_spread : 0.50
-- ask_spread : 0.50
-- minimum_spread : 1
+- bid_spread: 0.50
+- ask_spread: 0.50
+- minimum_spread: 1
 ```
 
 With the above scenario, bot won't able to place any order. Resulting with `No active maker orders.`
 
 ```
-18:22:07 - pure_market_making - (ETH-USDC) Creating 1 bid orders at (Size, Price): ['0.05 ETH, 423.3825 USDC']
-18:22:07 - pure_market_making - (ETH-USDC) Creating 1 ask orders at (Size, Price): ['0.05 ETH, 427.6375 USDC']
+18:22:07 - (ETH-USDC) Creating 1 bid orders at (Size, Price): ['0.05 ETH, 423.3825 USDC']
+18:22:07 - (ETH-USDC) Creating 1 ask orders at (Size, Price): ['0.05 ETH, 427.6375 USDC']
 
-18:22:08 - pure_market_making - Order is below minimum spread (0.01). Cancelling Order: (Buy) ID - buy://ETH-USDC/253a4819cf0917684924934caf
-18:22:08 - pure_market_making - (ETH-USDC) Cancelling the limit order buy://ETH-USDC/253a4819cf0917684924934caf. [clock=2020-08-31 10:22:08+00:00]
-18:22:08 - pure_market_making - Order is below minimum spread (0.01). Cancelling Order: (Sell) ID - sell://ETH-USDC/1fa39c092e280b6951c198135b
-18:22:08 - pure_market_making - (ETH-USDC) Cancelling the limit order sell://ETH-USDC/1fa39c092e280b6951c198135b. [clock=2020-08-31 10:22:08+00:00]
+18:22:08 - Order is below minimum spread (0.01). Cancelling Order: (Buy) ID - buy://ETH-USDC/253a4819cf0917684924934caf
+18:22:08 - (ETH-USDC) Cancelling the limit order buy://ETH-USDC/253a4819cf0917684924934caf. [clock=2020-08-31 10:22:08+00:00]
+18:22:08 - Order is below minimum spread (0.01). Cancelling Order: (Sell) ID - sell://ETH-USDC/1fa39c092e280b6951c198135b
+18:22:08 - (ETH-USDC) Cancelling the limit order sell://ETH-USDC/1fa39c092e280b6951c198135b. [clock=2020-08-31 10:22:08+00:00]
 ```
 
 
