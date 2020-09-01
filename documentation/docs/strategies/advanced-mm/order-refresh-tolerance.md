@@ -98,6 +98,41 @@ Lets say that a market taker thinks the market price will decrease substantially
 
 The default for this parameter is a tolerance of 0%. Thus, at each refresh cycle, if the spreads changes *at all*, then the bot will cancel the orders and place new orders at the configuration spread. Because the spread resets at every refresh cycle, this increases the likelyhood that the bid and ask spread are closer to the original bid and ask spread. This reduces the risk that the spread substantially strays away from the original spread, perhaps preventing a loss. *However*, as we have seen above, the strategy can capitalize on the flexibility (tolerance) of the bid and ask spreads because price takers could be looking for some range of spreads that is unknown to you.
 
+## Order Refresh Tolerance on Hanging Orders
+
+Hanging orders remain uncanceled even if they exceed the tolerable change in spreads. They only get canceled automatically when they exceed the `hanging_orders_cancel_pct` value.
+
+```json
+- bid_spread: 1%
+- ask_spread: 1%
+- order_refresh_time: 5
+- order_refresh_tolerance_pct: 1%
+- hanging_orders_enabled: True
+```
+
+With the sample config above with 1 hanging order. 
+
+```
+20:24:50 - Not cancelling active orders since difference between new order prices and current order prices is within 1.00% order_refresh_tolerance_pct
+20:24:54 - Not cancelling active orders since difference between new order prices and current order prices is within 1.00% order_refresh_tolerance_pct
+20:25:08 - (ETH-USDT) Cancelling the limit order buy://ETH-USDT/902fec21c8f8f039dcac5e21da. [clock=2020-08-31 12:25:08+00:00]
+20:25:08 - (ETH-USDT) Cancelling the limit order sell://ETH-USDT/b9ba54ba9953aca2ff9424c071. [clock=2020-08-31 12:25:08+00:00]
+20:25:08 - (ETH-USDT) Creating 1 bid orders at (Size, Price): ['0.05 ETH, 429.1304 USDT']
+20:25:09 - (ETH-USDT) Creating 1 ask orders at (Size, Price): ['0.05 ETH, 437.7996 USDT']
+```
+
+After running a `status` command, it shows that the bot created both bid and ask then the Hanging Order remains.  
+
+```
+  Orders:
+     Level  Type    Price Spread Amount (Orig)  Amount (Adj)  Age
+      hang  sell 436.9613  1.00%          0.05          0.05  00:01:08
+         1  sell 437.7996  1.00%          0.05          0.05  00:00:01
+         1   buy 429.1304  1.00%          0.05          0.05  00:00:01
+```
+
+For more information about how hanging orders are cancelled, read more in the [Hanging Orders](https://docs.hummingbot.io/strategies/advanced-mm/hanging-orders/#sample-configurations) section.
+
 ## Relevant Parameters
 
 | Parameter | Prompt | Definition |
