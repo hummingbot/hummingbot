@@ -19,7 +19,6 @@ from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.liquid.liquid_market import LiquidMarket
 from hummingbot.market.eterbase.eterbase_market import EterbaseMarket
-from hummingbot.market.market_base import MarketBase
 from hummingbot.market.paper_trade import create_paper_trade_market
 from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
@@ -47,6 +46,7 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.market.markets_recorder import MarketsRecorder
 from hummingbot.client.config.security import Security
 
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.crypto_com.crypto_com_exchange import CryptoComExchange
 
 s_logger = None
@@ -79,7 +79,7 @@ class HummingbotApplication(*commands):
             input_handler=self._handle_command, bindings=load_key_bindings(self), completer=load_completer(self)
         )
 
-        self.markets: Dict[str, MarketBase] = {}
+        self.markets: Dict[str, ExchangeBase] = {}
         self.wallet: Optional[Web3Wallet] = None
         # strategy file name and name get assigned value after import or create command
         self.strategy_file_name: str = None
@@ -346,7 +346,7 @@ class HummingbotApplication(*commands):
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")
 
-            self.markets[market_name]: MarketBase = market
+            self.markets[market_name]: ExchangeBase = market
 
         self.markets_recorder = MarketsRecorder(
             self.trade_fill_db,

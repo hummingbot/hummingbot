@@ -9,7 +9,6 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 
 
@@ -24,7 +23,6 @@ cdef class CoinbaseProInFlightOrder(InFlightOrderBase):
                  amount: Decimal,
                  initial_state: str = "open"):
         super().__init__(
-            CoinbaseProMarket,
             client_order_id,
             exchange_order_id,
             trading_pair,

@@ -10,7 +10,6 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 from hummingbot.market.utils import (
     zrx_order_to_json,
@@ -33,7 +32,6 @@ cdef class RadarRelayInFlightOrder(InFlightOrderBase):
                  tx_hash: Optional[str] = None,
                  zero_ex_order: Optional[ZeroExOrder] = None):
         super().__init__(
-            RadarRelayMarket,
             client_order_id,
             exchange_order_id,
             trading_pair,
@@ -45,7 +43,7 @@ cdef class RadarRelayInFlightOrder(InFlightOrderBase):
         )
         self.available_amount_base = amount
         self.gas_fee_amount = s_decimal_0
-        self.tx_hash = tx_hash # used for tracking market orders
+        self.tx_hash = tx_hash  # used for tracking market orders
         self.zero_ex_order = zero_ex_order
 
     def __repr__(self) -> str:
@@ -80,7 +78,6 @@ cdef class RadarRelayInFlightOrder(InFlightOrderBase):
     @property
     def is_expired(self) -> bool:
         return self.last_state in {"EXPIRED"}
-
 
     def to_json(self) -> Dict[str, Any]:
         return {

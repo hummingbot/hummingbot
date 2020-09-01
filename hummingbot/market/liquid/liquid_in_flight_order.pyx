@@ -9,7 +9,6 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.market.liquid.liquid_market import LiquidMarket
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 
 
@@ -24,7 +23,6 @@ cdef class LiquidInFlightOrder(InFlightOrderBase):
                  amount: Decimal,
                  initial_state: str = "live"):
         super().__init__(
-            LiquidMarket,
             client_order_id,
             exchange_order_id,
             trading_pair,

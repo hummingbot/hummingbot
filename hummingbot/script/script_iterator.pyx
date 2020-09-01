@@ -18,16 +18,16 @@ from hummingbot.market.market_base import MarketBase
 from hummingbot.script.script_process import run_script
 from hummingbot.script.script_interface import StrategyParameter, PMMParameters, OnTick, OnStatus, CallNotify, CallLog
 
-s_logger = None
+sir_logger = None
 
 
 cdef class ScriptIterator(TimeIterator):
     @classmethod
     def logger(cls):
-        global s_logger
-        if s_logger is None:
-            s_logger = logging.getLogger(__name__)
-        return s_logger
+        global sir_logger
+        if sir_logger is None:
+            sir_logger = logging.getLogger(__name__)
+        return sir_logger
 
     def __init__(self,
                  script_file_path: str,

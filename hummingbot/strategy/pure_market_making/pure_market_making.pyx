@@ -44,7 +44,7 @@ from .inventory_skew_calculator import calculate_total_order_size
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
 s_decimal_neg_one = Decimal(-1)
-s_logger = None
+pmm_logger = None
 
 
 cdef class PureMarketMakingStrategy(StrategyBase):
@@ -58,10 +58,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     @classmethod
     def logger(cls):
-        global s_logger
-        if s_logger is None:
-            s_logger = logging.getLogger(__name__)
-        return s_logger
+        global pmm_logger
+        if pmm_logger is None:
+            pmm_logger = logging.getLogger(__name__)
+        return pmm_logger
 
     def __init__(self,
                  market_info: MarketTradingPairTuple,

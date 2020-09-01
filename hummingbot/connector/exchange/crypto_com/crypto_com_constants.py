@@ -3,8 +3,10 @@
 
 EXCHANGE_NAME = "crypto_com"
 REST_URL = "https://api.crypto.com/v2"
-WSS_PRIVATE_URL = "wss://stream.crypto.com/v2/user"
-WSS_PUBLIC_URL = "wss://stream.crypto.com/v2/market"
+# WSS_PRIVATE_URL = "wss://stream.crypto.com/v2/user"
+WSS_PRIVATE_URL = "wss://d289dek49b4wqs.cloudfront.net/v2/user"
+# WSS_PUBLIC_URL = "wss://stream.crypto.com/v2/market"
+WSS_PUBLIC_URL = "wss://d10tq1f9ygdz7y.cloudfront.net/v2/market"
 
 API_REASONS = {
     0: "Success",

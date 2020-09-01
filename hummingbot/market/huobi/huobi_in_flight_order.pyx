@@ -9,7 +9,6 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 
 
@@ -24,7 +23,6 @@ cdef class HuobiInFlightOrder(InFlightOrderBase):
                  amount: Decimal,
                  initial_state: str = "submitted"):
         super().__init__(
-            HuobiMarket,
             client_order_id,
             exchange_order_id,
             trading_pair,

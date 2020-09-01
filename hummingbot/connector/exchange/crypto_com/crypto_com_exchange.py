@@ -12,6 +12,7 @@ import json
 import aiohttp
 import math
 import time
+from async_timeout import timeout
 
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
@@ -41,7 +42,7 @@ from .crypto_com_auth import CryptoComAuth
 from .crypto_com_in_flight_order import CryptoComInFlightOrder
 from . import crypto_com_utils
 from . import crypto_com_constants as Constants
-s_logger = None
+ctce_logger = None
 s_decimal_NaN = Decimal("nan")
 
 
@@ -53,10 +54,10 @@ class CryptoComExchange(ExchangeBase):
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global s_logger
-        if s_logger is None:
-            s_logger = logging.getLogger(__name__)
-        return s_logger
+        global ctce_logger
+        if ctce_logger is None:
+            ctce_logger = logging.getLogger(__name__)
+        return ctce_logger
 
     def __init__(self,
                  fee_estimates: Dict[bool, Decimal],
@@ -117,7 +118,7 @@ class CryptoComExchange(ExchangeBase):
     def limit_orders(self) -> List[LimitOrder]:
         return [
             in_flight_order.to_limit_order()
-            for in_flight_order in self._in_flight_orders.values()
+            for in_flight_order in self._in_flight_orders.values() if not in_flight_order.is_done
         ]
 
     @property
@@ -137,12 +138,10 @@ class CryptoComExchange(ExchangeBase):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     def start(self, clock: Clock, timestamp: float):
-        # self._tx_tracker.c_start(clock, timestamp)
-        ExchangeBase.start(self, clock, timestamp)
+        super().start(clock, timestamp)
 
     def stop(self, clock: Clock):
-        ExchangeBase.stop(self, clock)
-        # self._async_scheduler.stop()
+        super().stop(clock)
 
     async def start_network(self):
         self._order_book_tracker.start()
@@ -160,6 +159,9 @@ class CryptoComExchange(ExchangeBase):
         if self._trading_rules_polling_task is not None:
             self._trading_rules_polling_task.cancel()
             self._trading_rules_polling_task = None
+        if self._status_polling_task is not None:
+            self._status_polling_task.cancel()
+            self._status_polling_task = None
         if self._user_stream_tracker_task is not None:
             self._user_stream_tracker_task.cancel()
             self._user_stream_tracker_task = None
@@ -404,13 +406,18 @@ class CryptoComExchange(ExchangeBase):
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is None:
                 raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
-            await self._api_request(
+            ex_order_id = await tracked_order.get_exchange_order_id()
+            result = await self._api_request(
                 "post",
                 "private/cancel-order",
                 {"instrument_name": crypto_com_utils.convert_to_exchange_trading_pair(trading_pair),
-                 "order_id": await tracked_order.get_exchange_order_id()},
+                 "order_id": ex_order_id},
                 True
             )
+            if result["code"] == 0:
+                return order_id
+        except asyncio.CancelledError:
+            raise
         except Exception as e:
             self.logger().network(
                 f"Failed to cancel order {order_id}: {str(e)}",
@@ -418,7 +425,7 @@ class CryptoComExchange(ExchangeBase):
                 app_warning_msg=f"Failed to cancel the order {order_id} on CryptoCom. "
                                 f"Check API key and network connection."
             )
-            raise e
+        return None
 
     async def _status_polling_loop(self):
         while True:
@@ -433,7 +440,8 @@ class CryptoComExchange(ExchangeBase):
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                self.logger().network(f"Unexpected error while fetching account updates. Error: {str(e)}",
+                self.logger().error(str(e), exc_info=True)
+                self.logger().network(f"Unexpected error while fetching account updates.",
                                       exc_info=True,
                                       app_warning_msg="Could not fetch account updates from Crypto.com. "
                                                       "Check API key and network connection.")
@@ -463,13 +471,13 @@ class CryptoComExchange(ExchangeBase):
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
-            tasks = [
-                self._api_request("post",
-                                  "private/get-order-detail",
-                                  {"order_id": await o.get_exchange_order_id()},
-                                  True)
-                for o in tracked_orders
-            ]
+            tasks = []
+            for tracked_order in tracked_orders:
+                order_id = await tracked_order.get_exchange_order_id()
+                tasks.append(self._api_request("post",
+                                               "private/get-order-detail",
+                                               {"order_id": order_id},
+                                               True))
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
             update_results = await safe_gather(*tasks, return_exceptions=True)
             for update_result in update_results:
@@ -478,7 +486,7 @@ class CryptoComExchange(ExchangeBase):
                 if "result" not in update_result:
                     continue
                 for trade_msg in update_result["result"]["trade_list"]:
-                    self._process_trade_message(trade_msg)
+                    await self._process_trade_message(trade_msg)
                 self._process_order_message(update_result["result"]["order_info"])
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
@@ -489,6 +497,7 @@ class CryptoComExchange(ExchangeBase):
         # Update order execution status
         tracked_order.last_state = order_msg["status"]
         if tracked_order.is_cancelled:
+            tracked_order.cancelled_event.set()
             self.logger().info(f"Successfully cancelled order {client_order_id}.")
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(
@@ -506,10 +515,12 @@ class CryptoComExchange(ExchangeBase):
                                ))
             self.stop_tracking_order(client_order_id)
 
-    def _process_trade_message(self, trade_msg: Dict[str, Any]):
-        if not any(trade_msg["order_id"] == o.exchange_order_id for o in self._in_flight_orders.values()):
+    async def _process_trade_message(self, trade_msg: Dict[str, Any]):
+        [await o.get_exchange_order_id() for o in self._in_flight_orders.values()]
+        track_order = [o for o in self._in_flight_orders.values() if trade_msg["order_id"] == o.exchange_order_id]
+        if not track_order:
             return
-        tracked_order = [o for o in self._in_flight_orders.values() if trade_msg["order_id"] == o.exchange_order_id][0]
+        tracked_order = track_order[0]
         updated = tracked_order.update_with_trade_update(trade_msg)
         if not updated:
             return
@@ -558,12 +569,26 @@ class CryptoComExchange(ExchangeBase):
         incomplete_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
         tasks = [self._execute_cancel(o.trading_pair, o.client_order_id) for o in incomplete_orders]
         # await safe_gather(*tasks, return_exceptions=True)
-        cancellation_results = []
-        results = await safe_gather(*tasks, return_exceptions=True)
-        for result, order in zip(results, incomplete_orders):
-            is_success = not isinstance(result, Exception)
-            cancellation_results.append(CancellationResult(order.client_order_id, is_success))
-        return cancellation_results
+        order_id_set = set([o.client_order_id for o in incomplete_orders])
+        successful_cancellations = []
+        try:
+            async with timeout(timeout_seconds):
+                results = await safe_gather(*tasks, return_exceptions=True)
+                for result, track_order in zip(results, incomplete_orders):
+                    if result is not None and not isinstance(result, Exception):
+                        await track_order.cancelled_event.wait()
+                        order_id_set.remove(result)
+                        successful_cancellations.append(CancellationResult(result, True))
+        except Exception:
+            self.logger().error("Cancel all failed.", exc_info=True)
+            self.logger().network(
+                f"Unexpected error cancelling orders.",
+                exc_info=True,
+                app_warning_msg="Failed to cancel order on Crypto.com. Check API key and network connection."
+            )
+
+        failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
+        return successful_cancellations + failed_cancellations
 
     def tick(self, timestamp: float):
         now = time.time()
@@ -609,7 +634,7 @@ class CryptoComExchange(ExchangeBase):
                 channel = event_message["result"]["channel"]
                 if "user.trade" in channel:
                     for trade_msg in event_message["result"]["data"]:
-                        self._process_trade_message(trade_msg)
+                        await self._process_trade_message(trade_msg)
                 elif "user.order" in channel:
                     for order_msg in event_message["result"]["data"]:
                         self._process_order_message(order_msg)
