@@ -208,7 +208,7 @@ class OrderBookTracker(ABC):
                 # Log some statistics.
                 now: float = time.time()
                 if int(now / 60.0) > int(last_message_timestamp / 60.0):
-                    self.logger().info(f"Diff messages processed: {messages_accepted}, rejected: {messages_rejected}")
+                    self.logger().debug(f"Diff messages processed: {messages_accepted}, rejected: {messages_rejected}")
                     messages_accepted = 0
                     messages_rejected = 0
 

@@ -534,7 +534,7 @@ class CryptoComExchange(ExchangeBase):
                 tracked_order.order_type,
                 Decimal(str(trade_msg["traded_price"])),
                 Decimal(str(trade_msg["traded_quantity"])),
-                TradeFee(0.0, [trade_msg["fee_currency"], Decimal(str(trade_msg["fee"]))]),
+                TradeFee(0.0, [(trade_msg["fee_currency"], Decimal(str(trade_msg["fee"])))]),
                 exchange_trade_id=trade_msg["order_id"]
             )
         )
