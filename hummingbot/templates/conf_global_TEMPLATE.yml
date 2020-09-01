@@ -36,6 +36,10 @@ eterbase_api_key: null
 eterbase_secret_key: null
 eterbase_account: null
 
+okex_api_key: null
+okex_secret_key: null
+okex_passphrase: null
+
 celo_address: null
 celo_password: null
 
