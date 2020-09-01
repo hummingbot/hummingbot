@@ -79,6 +79,23 @@ The following walks through all the steps when running `create` command.
 
 ## Advanced Parameters
 
+The following parameters are fields in Hummingbot configuration files (located in the `/conf` folder, e.g. `conf/conf_xemm_[#].yml`).
+
+| Term | Definition |
+|------|------------|
+| **adjust_order_enabled** | If enabled, the strategy will place the order on top of the top bid and ask if it is more profitable to place it there. If disabled, the strategy will ignore the top of the maker order book for price calculations and only place the order based on taker price and min_profitability. Refer to Adjusting orders and maker price calculations section above. _Default value: True_
+| **active_order_canceling** | If enabled, Hummingbot will cancel orders that becomes unprofitable based on the `min_profitability` threshold. If disabled, Hummingbot will allow any outstanding orders to expire, unless `cancel_order_threshold` is reached.
+| **cancel_order_threshold** | This parameter works when `active_order_canceling` is disabled. If the profitability of an order falls below this threshold, Hummingbot will cancel an existing order and place a new one, if possible.  This allows the bot to cancel orders when paying gas to cancel (if applicable) is a better than incurring the potential loss of the trade.
+| **limit_order_min_expiration** | An amount in seconds, which is the minimum duration for any placed limit orders.
+| **top_depth_tolerance** | An amount expressed in base currency which is used for getting the top bid and ask, ignoring dust orders on top of the order book.<br/><br/>*Example: If you have a top depth tolerance of `0.01 ETH`, then while calculating the top bid, you exclude orders starting from the top until the sum of orders excluded reaches `0.01 ETH`.*
+| **anti_hysteresis_duration** | An amount in seconds, which is the minimum amount of time interval between adjusting limit order prices.
+| **order_size_taker_volume_factor** | Specifies the percentage of hedge-able volume on taker side which will be considered for calculating the market making price.
+| **order_size_taker_balance_factor** | Specifies the percentage of asset balance to be used for hedging the trade on taker side.
+| **order_size_portfolio_ratio_limit** | Specifies the ratio of total portfolio value on both maker and taker markets to be used for calculating the order size if order_amount is not specified.
+| **taker_to_maker_base_conversion_rate** | Specifies conversion rate for taker base asset value to maker base asset value.
+| **taker_to_maker_quote_conversion_rate** | Specifies conversion rate for taker quote asset value to maker quote asset value.
+
+
 ### Exchange Rate Conversion
 
 From past versions of Hummingbot it uses [CoinGecko](https://www.coingecko.com/en/api) and [CoinCap](https://docs.coincap.io/?version=latest) public APIs to fetch asset prices. However, this dependency caused issues for users when those APIs were unavailable. Starting on version [0.28.0](/release-notes/0.28.0/#removed-dependency-on-external-data-feeds), Hummingbot uses exchange order books to perform necessary conversions rather than data feeds.
@@ -113,20 +130,3 @@ To configure a parameter value without going through the prompts, input command 
 config taker_to_maker_base_conversion_rate 1.01
 config taker_to_maker_quote_conversion_rate 0.99
 ```
-
-
-The following parameters are fields in Hummingbot configuration files (located in the `/conf` folder, e.g. `conf/conf_xemm_[#].yml`).
-
-| Term | Definition |
-|------|------------|
-| **adjust_order_enabled** | If enabled, the strategy will place the order on top of the top bid and ask if it is more profitable to place it there. If disabled, the strategy will ignore the top of the maker order book for price calculations and only place the order based on taker price and min_profitability. Refer to Adjusting orders and maker price calculations section above. _Default value: True_
-| **active_order_canceling** | If enabled, Hummingbot will cancel orders that becomes unprofitable based on the `min_profitability` threshold. If disabled, Hummingbot will allow any outstanding orders to expire, unless `cancel_order_threshold` is reached.
-| **cancel_order_threshold** | This parameter works when `active_order_canceling` is disabled. If the profitability of an order falls below this threshold, Hummingbot will cancel an existing order and place a new one, if possible.  This allows the bot to cancel orders when paying gas to cancel (if applicable) is a better than incurring the potential loss of the trade.
-| **limit_order_min_expiration** | An amount in seconds, which is the minimum duration for any placed limit orders.
-| **top_depth_tolerance** | An amount expressed in base currency which is used for getting the top bid and ask, ignoring dust orders on top of the order book.<br/><br/>*Example: If you have a top depth tolerance of `0.01 ETH`, then while calculating the top bid, you exclude orders starting from the top until the sum of orders excluded reaches `0.01 ETH`.*
-| **anti_hysteresis_duration** | An amount in seconds, which is the minimum amount of time interval between adjusting limit order prices.
-| **order_size_taker_volume_factor** | Specifies the percentage of hedge-able volume on taker side which will be considered for calculating the market making price.
-| **order_size_taker_balance_factor** | Specifies the percentage of asset balance to be used for hedging the trade on taker side.
-| **order_size_portfolio_ratio_limit** | Specifies the ratio of total portfolio value on both maker and taker markets to be used for calculating the order size if order_amount is not specified.
-| **taker_to_maker_base_conversion_rate** | Specifies conversion rate for taker base asset value to maker base asset value.
-| **taker_to_maker_quote_conversion_rate** | Specifies conversion rate for taker quote asset value to maker quote asset value.

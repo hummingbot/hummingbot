@@ -22,6 +22,7 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.huobi.huobi_order_book import HuobiOrderBook
+from hummingbot.market.huobi.huobi_utils import convert_to_exchange_trading_pair
 
 HUOBI_SYMBOLS_URL = "https://api.huobi.pro/v1/common/symbols"
 HUOBI_TICKER_URL = "https://api.huobi.pro/market/tickers"
@@ -52,14 +53,14 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
             resp = await client.get(HUOBI_TICKER_URL)
             resp_json = await resp.json()
             for trading_pair in trading_pairs:
-                resp_record = [o for o in resp_json["data"] if o["symbol"] == trading_pair][0]
+                resp_record = [o for o in resp_json["data"] if o["symbol"] == convert_to_exchange_trading_pair(trading_pair)][0]
                 results[trading_pair] = float(resp_record["close"])
         return results
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
         # when type is set to "step0", the default value of "depth" is 150
-        params: Dict = {"symbol": trading_pair, "type": "step0"}
+        params: Dict = {"symbol": convert_to_exchange_trading_pair(trading_pair), "type": "step0"}
         async with client.get(HUOBI_DEPTH_URL, params=params) as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
@@ -89,11 +90,8 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
                     yield msg
                 except asyncio.TimeoutError:
-                    try:
-                        pong_waiter = await ws.ping()
-                        await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
-                    except asyncio.TimeoutError:
-                        raise
+                    pong_waiter = await ws.ping()
+                    await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
         except asyncio.TimeoutError:
             self.logger().warning("WebSocket ping timed out. Going to reconnect...")
             return
@@ -110,8 +108,8 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     ws: websockets.WebSocketClientProtocol = ws
                     for trading_pair in trading_pairs:
                         subscribe_request: Dict[str, Any] = {
-                            "sub": f"market.{trading_pair}.trade.detail",
-                            "id": trading_pair
+                            "sub": f"market.{convert_to_exchange_trading_pair(trading_pair)}.trade.detail",
+                            "id": convert_to_exchange_trading_pair(trading_pair)
                         }
                         await ws.send(json.dumps(subscribe_request))
 
@@ -148,8 +146,8 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     ws: websockets.WebSocketClientProtocol = ws
                     for trading_pair in trading_pairs:
                         subscribe_request: Dict[str, Any] = {
-                            "sub": f"market.{trading_pair}.depth.step0",
-                            "id": trading_pair
+                            "sub": f"market.{convert_to_exchange_trading_pair(trading_pair)}.depth.step0",
+                            "id": convert_to_exchange_trading_pair(trading_pair)
                         }
                         await ws.send(json.dumps(subscribe_request))
 

@@ -26,9 +26,9 @@ Assets:
    Current %              47.6%    52.4%                                
                                                                         
 Orders:                                                                 
-   Level  Type    Price Spread Amount (Orig)  Amount (Adj)       Age Hang
-       1  sell 9072.081  0.01%         0.005         0.005  00:00:01   no
-       1   buy  9026.63  0.50%         0.005         0.005  00:00:01   no
+   Level  Type    Price Spread Amount (Orig)  Amount (Adj)       Age
+       1  sell 9072.081  0.01%         0.005         0.005  00:00:01
+       1   buy  9026.63  0.50%         0.005         0.005  00:00:01
 ```
 
 When one order gets filled, it will wait for `filled_order_delay` before creating new sets of orders. The remaining order will be cancelled based on order refresh time. See examples in the next sections.
@@ -100,8 +100,8 @@ Assets:
    Current %               42.8%    57.2%                              
                                                                        
 Orders:                                                                
-   Level Type   Price Spread Amount (Orig)  Amount (Adj)       Age Hang
-       1  buy 9026.63  0.50%         0.005         0.005  00:00:11   no
+   Level Type   Price Spread Amount (Orig)  Amount (Adj)       Age
+       1  buy 9026.63  0.50%         0.005         0.005  00:00:11
 ```
 
 Notice the timestamps. Since the refresh time is longer than the filled order delay, the unfilled order will remain active until it's time to create new sets of orders.

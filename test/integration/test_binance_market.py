@@ -47,6 +47,7 @@ from hummingbot.market.binance.binance_market import (
     BinanceTime,
     binance_client_module
 )
+from hummingbot.market.binance.binance_utils import convert_to_exchange_trading_pair
 from hummingbot.market.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
@@ -106,21 +107,21 @@ class BinanceMarketUnitTest(unittest.TestCase):
             cls._req_patcher = unittest.mock.patch.object(requests.Session, "request", autospec=True)
             cls._req_url_mock = cls._req_patcher.start()
             cls._req_url_mock.side_effect = HummingWebApp.reroute_request
-            cls.web_app.update_response("get", cls.base_api_url, "/api/v3/account", FixtureBinance.GET_ACCOUNT)
+            cls.web_app.update_response("get", cls.base_api_url, "/api/v3/account", FixtureBinance.BALANCES)
             cls.web_app.update_response("get", cls.base_api_url, "/api/v1/exchangeInfo",
-                                        FixtureBinance.EXCHANGE_INFO)
+                                        FixtureBinance.MARKETS)
             cls.web_app.update_response("get", cls.base_api_url, "/wapi/v3/tradeFee.html",
-                                        FixtureBinance.GET_TRADE_FEES)
+                                        FixtureBinance.TRADE_FEES)
             cls.web_app.update_response("post", cls.base_api_url, "/api/v1/userDataStream",
-                                        FixtureBinance.GET_LISTEN_KEY)
+                                        FixtureBinance.LISTEN_KEY)
             cls.web_app.update_response("put", cls.base_api_url, "/api/v1/userDataStream",
-                                        FixtureBinance.GET_LISTEN_KEY)
+                                        FixtureBinance.LISTEN_KEY)
             cls.web_app.update_response("get", cls.base_api_url, "/api/v1/depth",
                                         FixtureBinance.LINKETH_SNAP, params={'symbol': 'LINKETH'})
             cls.web_app.update_response("get", cls.base_api_url, "/api/v1/depth",
                                         FixtureBinance.ZRXETH_SNAP, params={'symbol': 'ZRXETH'})
             ws_base_url = "wss://stream.binance.com:9443/ws"
-            cls._ws_user_url = f"{ws_base_url}/{FixtureBinance.GET_LISTEN_KEY['listenKey']}"
+            cls._ws_user_url = f"{ws_base_url}/{FixtureBinance.LISTEN_KEY['listenKey']}"
             HummingWsServerFactory.start_new_server(cls._ws_user_url)
             HummingWsServerFactory.start_new_server(f"{ws_base_url}/linketh@depth/zrxeth@depth")
             cls._ws_patcher = unittest.mock.patch("websockets.connect", autospec=True)
@@ -134,7 +135,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
             API_KEY, API_SECRET,
             order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
-            trading_pairs=["LINKETH", "ZRXETH"]
+            trading_pairs=["LINK-ETH", "ZRX-ETH"]
         )
         print("Initializing Binance market... this will take about a minute.")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
@@ -228,11 +229,11 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
     def test_buy_and_sell(self):
         self.assertGreater(self.market.get_balance("ETH"), Decimal("0.05"))
-        bid_price: Decimal = self.market.get_price("LINKETH", True)
+        bid_price: Decimal = self.market.get_price("LINK-ETH", True)
         amount: Decimal = 1
-        quantized_amount: Decimal = self.market.quantize_order_amount("LINKETH", amount)
+        quantized_amount: Decimal = self.market.quantize_order_amount("LINK-ETH", amount)
 
-        order_id = self.place_order(True, "LINKETH", amount, OrderType.LIMIT, bid_price, 10001, FixtureBinance.ORDER_BUY,
+        order_id = self.place_order(True, "LINK-ETH", amount, OrderType.LIMIT, bid_price, 10001, FixtureBinance.BUY_MARKET_ORDER,
                                     FixtureBinance.WS_AFTER_BUY_1, FixtureBinance.WS_AFTER_BUY_2)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
@@ -256,10 +257,10 @@ class BinanceMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
         # Try to sell back the same amount of ZRX to the exchange, and watch for completion event.
-        ask_price: Decimal = self.market.get_price("LINKETH", False)
+        ask_price: Decimal = self.market.get_price("LINK-ETH", False)
         amount = order_completed_event.base_asset_amount
         quantized_amount = order_completed_event.base_asset_amount
-        order_id = self.place_order(False, "LINKETH", amount, OrderType.LIMIT, ask_price, 10002, FixtureBinance.ORDER_SELL,
+        order_id = self.place_order(False, "LINK-ETH", amount, OrderType.LIMIT, ask_price, 10002, FixtureBinance.SELL_MARKET_ORDER,
                                     FixtureBinance.WS_AFTER_SELL_1, FixtureBinance.WS_AFTER_SELL_2)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
@@ -283,11 +284,11 @@ class BinanceMarketUnitTest(unittest.TestCase):
         self.assertGreater(self.market.get_balance("ETH"), Decimal("0.05"))
 
         # Try to put a buy limit maker order that is going to match, this should triggers order failure event.
-        price: Decimal = self.market.get_price("LINKETH", True) * Decimal('1.02')
-        price: Decimal = self.market.quantize_order_price("LINKETH", price)
-        amount = self.market.quantize_order_amount("LINKETH", 1)
+        price: Decimal = self.market.get_price("LINK-ETH", True) * Decimal('1.02')
+        price: Decimal = self.market.quantize_order_price("LINK-ETH", price)
+        amount = self.market.quantize_order_amount("LINK-ETH", 1)
 
-        order_id = self.place_order(True, "LINKETH", amount, OrderType.LIMIT_MAKER,
+        order_id = self.place_order(True, "LINK-ETH", amount, OrderType.LIMIT_MAKER,
                                     price, 10001,
                                     FixtureBinance.LIMIT_MAKER_ERROR)
         [order_failure_event] = self.run_parallel(self.market_logger.wait_for(MarketOrderFailureEvent))
@@ -296,35 +297,35 @@ class BinanceMarketUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
         # Try to put a sell limit maker order that is going to match, this should triggers order failure event.
-        price: Decimal = self.market.get_price("LINKETH", True) * Decimal('0.98')
-        price: Decimal = self.market.quantize_order_price("LINKETH", price)
-        amount = self.market.quantize_order_amount("LINKETH", 1)
+        price: Decimal = self.market.get_price("LINK-ETH", True) * Decimal('0.98')
+        price: Decimal = self.market.quantize_order_price("LINK-ETH", price)
+        amount = self.market.quantize_order_amount("LINK-ETH", 1)
 
-        order_id = self.place_order(False, "LINKETH", amount, OrderType.LIMIT_MAKER,
+        order_id = self.place_order(False, "LINK-ETH", amount, OrderType.LIMIT_MAKER,
                                     price, 10002,
                                     FixtureBinance.LIMIT_MAKER_ERROR)
         [order_failure_event] = self.run_parallel(self.market_logger.wait_for(MarketOrderFailureEvent))
         self.assertEqual(order_id, order_failure_event.order_id)
 
     def test_limit_makers_unfilled(self):
-        price = self.market.get_price("LINKETH", True) * Decimal("0.8")
-        price = self.market.quantize_order_price("LINKETH", price)
-        amount = self.market.quantize_order_amount("LINKETH", 1)
+        price = self.market.get_price("LINK-ETH", True) * Decimal("0.8")
+        price = self.market.quantize_order_price("LINK-ETH", price)
+        amount = self.market.quantize_order_amount("LINK-ETH", 1)
 
-        order_id = self.place_order(True, "LINKETH", amount, OrderType.LIMIT_MAKER,
+        order_id = self.place_order(True, "LINK-ETH", amount, OrderType.LIMIT_MAKER,
                                     price, 10001,
-                                    FixtureBinance.ORDER_BUY_NOT_FILLED)
+                                    FixtureBinance.OPEN_BUY_ORDER)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id, order_created_event.order_id)
 
-        price = self.market.get_price("LINKETH", True) * Decimal("1.2")
-        price = self.market.quantize_order_price("LINKETH", price)
-        amount = self.market.quantize_order_amount("LINKETH", 1)
+        price = self.market.get_price("LINK-ETH", True) * Decimal("1.2")
+        price = self.market.quantize_order_price("LINK-ETH", price)
+        amount = self.market.quantize_order_amount("LINK-ETH", 1)
 
-        order_id = self.place_order(False, "LINKETH", amount, OrderType.LIMIT_MAKER,
+        order_id = self.place_order(False, "LINK-ETH", amount, OrderType.LIMIT_MAKER,
                                     price, 10002,
-                                    FixtureBinance.ORDER_SELL_NOT_FILLED)
+                                    FixtureBinance.OPEN_SELL_ORDER)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id, order_created_event.order_id)
@@ -366,7 +367,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
         return order_id
 
     def test_cancel_all(self):
-        trading_pair = "LINKETH"
+        trading_pair = "LINK-ETH"
         bid_price: Decimal = self.market.get_price(trading_pair, True)
         ask_price: Decimal = self.market.get_price(trading_pair, False)
         amount: Decimal = 1
@@ -376,12 +377,12 @@ class BinanceMarketUnitTest(unittest.TestCase):
         quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price * Decimal("0.7"))
         quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price * Decimal("1.5"))
 
-        buy_id = self.place_order(True, "LINKETH", quantized_amount, OrderType.LIMIT, quantize_bid_price, 10001,
-                                  FixtureBinance.ORDER_BUY_NOT_FILLED, FixtureBinance.WS_AFTER_BUY_1,
+        buy_id = self.place_order(True, "LINK-ETH", quantized_amount, OrderType.LIMIT, quantize_bid_price, 10001,
+                                  FixtureBinance.OPEN_BUY_ORDER, FixtureBinance.WS_AFTER_BUY_1,
                                   FixtureBinance.WS_AFTER_BUY_2)
 
-        sell_id = self.place_order(False, "LINKETH", quantized_amount, OrderType.LIMIT, quantize_ask_price, 10002,
-                                   FixtureBinance.ORDER_SELL_NOT_FILLED, FixtureBinance.WS_AFTER_SELL_1,
+        sell_id = self.place_order(False, "LINK-ETH", quantized_amount, OrderType.LIMIT, quantize_ask_price, 10002,
+                                   FixtureBinance.OPEN_SELL_ORDER, FixtureBinance.WS_AFTER_SELL_1,
                                    FixtureBinance.WS_AFTER_SELL_2)
 
         self.run_parallel(asyncio.sleep(1))
@@ -399,7 +400,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
     def test_order_price_precision(self):
         # As of the day this test was written, the min order size (base) is 1 LINK, the min order size (quote) is
         # 0.01 ETH, and order step size is 1 LINK.
-        trading_pair = "LINKETH"
+        trading_pair = "LINK-ETH"
         bid_price: Decimal = self.market.get_price(trading_pair, True)
         ask_price: Decimal = self.market.get_price(trading_pair, False)
         mid_price: Decimal = (bid_price + ask_price) / 2
@@ -420,7 +421,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
         bid_amount: Decimal = Decimal("1.23123216")
 
         if API_MOCK_ENABLED:
-            resp = self.order_response(FixtureBinance.ORDER_BUY_PRECISION, 1000001, "buy", "LINKETH")
+            resp = self.order_response(FixtureBinance.ORDER_BUY_PRECISION, 1000001, "buy", "LINK-ETH")
             self.web_app.update_response("post", self.base_api_url, "/api/v3/order", resp)
         # Test bid order
         bid_order_id: str = self.market.buy(
@@ -449,7 +450,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
         # Test ask order
         if API_MOCK_ENABLED:
-            resp = self.order_response(FixtureBinance.ORDER_SELL_PRECISION, 1000002, "sell", "LINKETH")
+            resp = self.order_response(FixtureBinance.ORDER_SELL_PRECISION, 1000002, "sell", "LINK-ETH")
             self.web_app.update_response("post", self.base_api_url, "/api/v3/order", resp)
         ask_order_id: str = self.market.sell(
             trading_pair,
@@ -523,17 +524,17 @@ class BinanceMarketUnitTest(unittest.TestCase):
             self.assertEqual(0, len(self.market.tracking_states))
 
             # Try to put limit buy order for 0.02 ETH worth of ZRX, and watch for order creation event.
-            current_bid_price: Decimal = self.market.get_price("LINKETH", True)
+            current_bid_price: Decimal = self.market.get_price("LINK-ETH", True)
             bid_price: Decimal = current_bid_price * Decimal("0.8")
-            quantize_bid_price: Decimal = self.market.quantize_order_price("LINKETH", bid_price)
+            quantize_bid_price: Decimal = self.market.quantize_order_price("LINK-ETH", bid_price)
 
             amount: Decimal = 1
-            quantized_amount: Decimal = self.market.quantize_order_amount("LINKETH", amount)
+            quantized_amount: Decimal = self.market.quantize_order_amount("LINK-ETH", amount)
 
             if API_MOCK_ENABLED:
-                resp = self.order_response(FixtureBinance.ORDER_BUY_NOT_FILLED, 1000001, "buy", "LINKETH")
+                resp = self.order_response(FixtureBinance.OPEN_BUY_ORDER, 1000001, "buy", "LINK-ETH")
                 self.web_app.update_response("post", self.base_api_url, "/api/v3/order", resp)
-            order_id = self.market.buy("LINKETH", quantized_amount, OrderType.LIMIT, quantize_bid_price)
+            order_id = self.market.buy("LINK-ETH", quantized_amount, OrderType.LIMIT, quantize_bid_price)
             [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
             order_created_event: BuyOrderCreatedEvent = order_created_event
             self.assertEqual(order_id, order_created_event.order_id)
@@ -562,7 +563,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
                 binance_api_secret=API_SECRET,
                 order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                 user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
-                trading_pairs=["LINKETH", "ZRXETH"]
+                trading_pairs=["LINK-ETH", "ZRX-ETH"]
             )
             for event_tag in self.events:
                 self.market.add_listener(event_tag, self.market_logger)
@@ -582,7 +583,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
                 resp = self.fixture(FixtureBinance.CANCEL_ORDER, origClientOrderId=order_id, side="BUY")
                 self.web_app.update_response("delete", self.base_api_url, "/api/v3/order", resp,
                                              params={'origClientOrderId': order_id})
-            self.market.cancel("LINKETH", order_id)
+            self.market.cancel("LINK-ETH", order_id)
             self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
             order_id = None
             self.assertEqual(0, len(self.market.limit_orders))
@@ -591,7 +592,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
             self.assertEqual(0, len(saved_market_states.saved_state))
         finally:
             if order_id is not None:
-                self.market.cancel("LINKETH", order_id)
+                self.market.cancel("LINK-ETH", order_id)
                 self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
@@ -615,10 +616,10 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
         try:
             # Try to buy 1 LINK from the exchange, and watch for completion event.
-            bid_price: Decimal = self.market.get_price("LINKETH", True)
+            bid_price: Decimal = self.market.get_price("LINK-ETH", True)
             amount: Decimal = 1
-            order_id = self.place_order(True, "LINKETH", amount, OrderType.LIMIT, bid_price, 10001,
-                                        FixtureBinance.ORDER_BUY_LIMIT, FixtureBinance.WS_AFTER_BUY_1,
+            order_id = self.place_order(True, "LINK-ETH", amount, OrderType.LIMIT, bid_price, 10001,
+                                        FixtureBinance.BUY_LIMIT_ORDER, FixtureBinance.WS_AFTER_BUY_1,
                                         FixtureBinance.WS_AFTER_BUY_2)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
@@ -626,10 +627,10 @@ class BinanceMarketUnitTest(unittest.TestCase):
             self.market_logger.clear()
 
             # Try to sell back the same amount of LINK to the exchange, and watch for completion event.
-            ask_price: Decimal = self.market.get_price("LINKETH", False)
+            ask_price: Decimal = self.market.get_price("LINK-ETH", False)
             amount = buy_order_completed_event.base_asset_amount
-            order_id = self.place_order(False, "LINKETH", amount, OrderType.LIMIT, ask_price, 10002,
-                                        FixtureBinance.ORDER_SELL_LIMIT, FixtureBinance.WS_AFTER_SELL_1,
+            order_id = self.place_order(False, "LINK-ETH", amount, OrderType.LIMIT, ask_price, 10002,
+                                        FixtureBinance.SELL_LIMIT_ORDER, FixtureBinance.WS_AFTER_SELL_1,
                                         FixtureBinance.WS_AFTER_SELL_2)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 
@@ -645,11 +646,18 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
         finally:
             if order_id is not None:
-                self.market.cancel("LINKETH", order_id)
+                self.market.cancel("LINK-ETH", order_id)
                 self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
             os.unlink(self.db_path)
+
+    def test_pair_convesion(self):
+        if API_MOCK_ENABLED:
+            return
+        for pair in self.market.trading_rules:
+            exchange_pair = convert_to_exchange_trading_pair(pair)
+            self.assertTrue(exchange_pair in self.market.order_books)
 
 
 if __name__ == "__main__":
