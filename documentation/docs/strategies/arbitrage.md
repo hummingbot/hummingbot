@@ -36,6 +36,14 @@ The following walks through all the steps when running `create` command. These p
 
 ## Advanced Parameters
 
+The following parameters are fields in Hummingbot configuration files (located in the `/conf` folder, e.g. `conf/conf_arb_[#].yml`).
+
+| Term | Definition |
+|------|------------|
+| **secondary_to_primary_base_conversion_rate** | Specifies conversion rate for secondary quote asset value to primary quote asset value.
+| **secondary_to_primary_quote_conversion_rate** | Specifies conversion rate for secondary quote asset value to primary quote asset value.
+
+
 ### Exchange Rate Conversion
 
 From past versions of Hummingbot it uses [CoinGecko](https://www.coingecko.com/en/api) and [CoinCap](https://docs.coincap.io/?version=latest) public APIs to fetch asset prices. However, this dependency caused issues for users when those APIs were unavailable. Starting on version [0.28.0](/release-notes/0.28.0/#removed-dependency-on-external-data-feeds), Hummingbot uses exchange order books to perform necessary conversions rather than data feeds.
@@ -70,11 +78,3 @@ To configure a parameter value without going through the prompts, input command 
 config secondary_to_primary_base_conversion_rate: 1.01
 config secondary_to_primary_quote_conversion_rate: 0.99
 ```
-
-
-The following parameters are fields in Hummingbot configuration files (located in the `/conf` folder, e.g. `conf/conf_arb_[#].yml`).
-
-| Term | Definition |
-|------|------------|
-| **secondary_to_primary_base_conversion_rate** | Specifies conversion rate for secondary quote asset value to primary quote asset value.
-| **secondary_to_primary_quote_conversion_rate** | Specifies conversion rate for secondary quote asset value to primary quote asset value.

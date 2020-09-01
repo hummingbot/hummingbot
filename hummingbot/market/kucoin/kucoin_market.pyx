@@ -293,10 +293,11 @@ cdef class KucoinMarket(MarketBase):
                         continue
                 elif event_type == "message" and event_topic == "/account/balance":
                     currency = execution_data["currency"]
-                    available_balance = execution_data["available"]
-                    total_balance = execution_data["total"]
-                    self._account_balances.update({currency, total_balance})
-                    self._account_available_balances.update({currency, available_balance})
+                    available_balance = Decimal(execution_data["available"])
+                    total_balance = Decimal(execution_data["total"])
+                    self._account_balances.update({currency: total_balance})
+                    self._account_available_balances.update({currency: available_balance})
+                    continue
                 else:
                     continue
 
@@ -666,7 +667,7 @@ cdef class KucoinMarket(MarketBase):
                           price: Decimal) -> str:
         path_url = "/api/v1/orders"
         side = "buy" if is_buy else "sell"
-        order_type_str = order_type.name.lower()
+        order_type_str = "limit"
         params = {
             "size": str(amount),
             "clientOid": order_id,

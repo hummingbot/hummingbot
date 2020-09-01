@@ -8,7 +8,6 @@ from decimal import Decimal
 from libc.stdint cimport int64_t
 import logging
 import pandas as pd
-import re
 import time
 from typing import (
     Any,
@@ -58,6 +57,9 @@ from hummingbot.market.huobi.huobi_api_user_stream_data_source import (
 from hummingbot.market.huobi.huobi_auth import HuobiAuth
 from hummingbot.market.huobi.huobi_in_flight_order import HuobiInFlightOrder
 from hummingbot.market.huobi.huobi_order_book_tracker import HuobiOrderBookTracker
+from hummingbot.market.huobi.huobi_utils import (
+    convert_to_exchange_trading_pair,
+    convert_from_exchange_trading_pair)
 from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.market.market_base import (
     MarketBase,
@@ -70,7 +72,6 @@ from hummingbot.core.utils.estimate_fee import estimate_fee
 
 hm_logger = None
 s_decimal_0 = Decimal(0)
-TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(usdt|husd|btc|eth|ht|trx)$")
 HUOBI_ROOT_API = "https://api.huobi.pro/v1"
 
 
@@ -145,28 +146,6 @@ cdef class HuobiMarket(MarketBase):
         self._user_stream_event_listener_task = None
         self._user_stream_tracker = HuobiUserStreamTracker(huobi_auth=self._huobi_auth,
                                                            trading_pairs=trading_pairs)
-
-    @staticmethod
-    def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
-        try:
-            m = TRADING_PAIR_SPLITTER.match(trading_pair)
-            return m.group(1), m.group(2)
-        # Exceptions are now logged as warnings in trading pair fetcher
-        except Exception as e:
-            return None
-
-    @staticmethod
-    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
-        if HuobiMarket.split_trading_pair(exchange_trading_pair) is None:
-            return None
-        # Huobi uses lowercase (btcusdt)
-        base_asset, quote_asset = HuobiMarket.split_trading_pair(exchange_trading_pair)
-        return f"{base_asset.upper()}-{quote_asset.upper()}"
-
-    @staticmethod
-    def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-        # Huobi uses lowercase (btcusdt)
-        return hb_trading_pair.replace("-", "").lower()
 
     @property
     def name(self) -> str:
@@ -346,7 +325,7 @@ cdef class HuobiMarket(MarketBase):
         balances = data.get("list", [])
         if len(balances) > 0:
             for balance_entry in balances:
-                asset_name = balance_entry["currency"]
+                asset_name = balance_entry["currency"].upper()
                 balance = Decimal(balance_entry["balance"])
                 if balance == s_decimal_0:
                     continue
@@ -393,7 +372,7 @@ cdef class HuobiMarket(MarketBase):
             trading_rules_list = self._format_trading_rules(exchange_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
-                self._trading_rules[trading_rule.trading_pair] = trading_rule
+                self._trading_rules[convert_from_exchange_trading_pair(trading_rule.trading_pair)] = trading_rule
 
     def _format_trading_rules(self, raw_trading_pair_info: List[Dict[str, Any]]) -> List[TradingRule]:
         cdef:
@@ -610,7 +589,7 @@ cdef class HuobiMarket(MarketBase):
 
                 data = stream_message["data"]
                 if channel == HUOBI_ACCOUNT_UPDATE_TOPIC:
-                    asset_name = data["currency"]
+                    asset_name = data["currency"].upper()
                     balance = data["balance"]
                     available_balance = data["available"]
 
@@ -748,7 +727,7 @@ cdef class HuobiMarket(MarketBase):
             "account-id": self._account_id,
             "amount": f"{amount:f}",
             "client-order-id": order_id,
-            "symbol": trading_pair,
+            "symbol": convert_to_exchange_trading_pair(trading_pair),
             "type": f"{side}-{order_type_str}",
         }
         if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
