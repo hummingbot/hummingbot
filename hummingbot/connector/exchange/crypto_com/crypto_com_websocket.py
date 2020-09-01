@@ -44,7 +44,7 @@ class CryptoComWebsocket(RequestId):
             if self._isPrivate:
                 await self._emit("public/auth", None)
                 # TODO: wait for response
-                await asyncio.sleep(2)
+                await asyncio.sleep(1)
 
             return self._client
         except Exception as e:

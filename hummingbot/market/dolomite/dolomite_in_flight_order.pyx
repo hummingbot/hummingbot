@@ -73,7 +73,6 @@ cdef class DolomiteInFlightOrder(InFlightOrderBase):
                  or Decimal(dolomite_order["exchange_rate"]))
 
         return DolomiteInFlightOrder(
-            market_class=market,
             client_order_id=client_order_id,
             exchange_order_id=dolomite_order["dolomite_order_id"],
             trading_pair=dolomite_order["market"],

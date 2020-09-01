@@ -2,7 +2,6 @@ from decimal import Decimal
 from typing import Optional, Dict, Any
 
 from hummingbot.core.event.events import OrderType, TradeType
-from hummingbot.market.bittrex.bittrex_market import BittrexMarket
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 
 
@@ -17,7 +16,6 @@ cdef class BittrexInFlightOrder(InFlightOrderBase):
                  amount: Decimal,
                  initial_state: str = "OPEN"):
         super().__init__(
-            BittrexMarket,
             client_order_id,
             exchange_order_id,
             trading_pair,

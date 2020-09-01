@@ -14,12 +14,10 @@ cdef class TimeIterator(PubSub):
         self._clock = None
 
     cdef c_start(self, Clock clock, double timestamp):
-        self._clock = clock
-        self._current_timestamp = timestamp
+        self.start(clock, clock.current_timestamp)
 
     cdef c_stop(self, Clock clock):
-        self._current_timestamp = NaN
-        self._clock = None
+        self.stop(clock)
 
     cdef c_tick(self, double timestamp):
         self._current_timestamp = timestamp
@@ -32,8 +30,10 @@ cdef class TimeIterator(PubSub):
     def clock(self) -> Optional[Clock]:
         return self._clock
 
-    def start(self, clock: Clock):
-        self.c_start(clock, clock.current_timestamp)
+    def start(self, clock: Clock, timestamp: float):
+        self._clock = clock
+        self._current_timestamp = timestamp
 
     def stop(self, clock: Clock):
-        self.c_stop(clock)
+        self._current_timestamp = NaN
+        self._clock = None

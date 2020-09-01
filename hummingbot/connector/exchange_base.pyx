@@ -58,9 +58,6 @@ cdef class ExchangeBase(ConnectorBase):
         """
         raise NotImplementedError
 
-    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
-        raise NotImplementedError
-
     cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.MARKET,
                    object price=s_decimal_NaN, dict kwargs={}):
         return self.buy(trading_pair, amount, order_type, price, **kwargs)

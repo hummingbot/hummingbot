@@ -10,7 +10,6 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 from hummingbot.market.utils import (
     zrx_order_to_json,
@@ -39,7 +38,6 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
                  recorded_fills: Optional[[]] = [],
                  has_been_cancelled: Optional[bool] = False):
         super().__init__(
-            BambooRelayMarket,
             client_order_id,
             exchange_order_id,
             trading_pair,
@@ -83,7 +81,7 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"FILLED"}#self.available_amount_base == s_decimal_0
+        return self.last_state in {"FILLED"}
 
     @property
     def is_cancelled(self) -> bool:

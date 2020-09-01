@@ -9,7 +9,6 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.market.kucoin.kucoin_market import KucoinMarket
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 
 
@@ -24,7 +23,6 @@ cdef class KucoinInFlightOrder(InFlightOrderBase):
                  amount: Decimal,
                  initial_state: str = "DEAL"):
         super().__init__(
-            KucoinMarket,
             client_order_id,
             exchange_order_id,
             trading_pair,

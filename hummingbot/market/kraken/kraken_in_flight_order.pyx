@@ -9,7 +9,6 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.market.kraken.kraken_market import KrakenMarket
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 
 s_decimal_0 = Decimal(0)
@@ -27,7 +26,6 @@ cdef class KrakenInFlightOrder(InFlightOrderBase):
                  userref: int,
                  initial_state: str = "NEW"):
         super().__init__(
-            KrakenMarket,
             client_order_id,
             exchange_order_id,
             trading_pair,

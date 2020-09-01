@@ -13,7 +13,6 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.market.eterbase.eterbase_market import EterbaseMarket
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 
 s_decimal_0 = Decimal(0)
@@ -33,7 +32,6 @@ cdef class EterbaseInFlightOrder(InFlightOrderBase):
                  initial_state: str = "open",
                  fill_ids: Set[str] = set()):
         super().__init__(
-            EterbaseMarket,
             client_order_id,
             exchange_order_id,
             trading_pair,
