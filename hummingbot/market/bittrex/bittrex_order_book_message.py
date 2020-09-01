@@ -41,7 +41,7 @@ class BittrexOrderBookMessage(OrderBookMessage):
 
     @property
     def trading_pair(self) -> str:
-        return self.content["M"]
+        return self.content["symbol"]
 
     @property
     def asks(self) -> List[OrderBookRow]:
