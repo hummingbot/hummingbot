@@ -25,7 +25,7 @@ class UserBalances:
     def connect_market(exchange, *api_details):
         market = None
         if exchange == "binance":
-            market = BinanceMarket({}, {}, api_details[0], api_details[1])
+            market = BinanceMarket(*api_details)
         elif exchange == "bittrex":
             market = BittrexMarket(api_details[0], api_details[1])
         elif exchange == "coinbase_pro":
@@ -41,7 +41,7 @@ class UserBalances:
         elif exchange == "eterbase":
             market = EterbaseMarket(api_details[0], api_details[1], api_details[2])
         elif exchange == "crypto_com":
-            market = CryptoComExchange({}, {}, api_details[0], api_details[1])
+            market = CryptoComExchange(*api_details)
 
         return market
 

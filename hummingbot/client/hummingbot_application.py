@@ -231,12 +231,10 @@ class HummingbotApplication(*commands):
                 binance_api_key = global_config_map.get("binance_api_key").value
                 binance_api_secret = global_config_map.get("binance_api_secret").value
                 market = BinanceMarket(
-                    {}, {},
                     binance_api_key,
                     binance_api_secret,
-                    order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                     trading_pairs=trading_pairs,
-                    trading_required=self._trading_required,
+                    trading_required=self._trading_required
                 )
 
             elif market_name == "radar_relay":
@@ -338,9 +336,7 @@ class HummingbotApplication(*commands):
             elif market_name == "crypto_com":
                 api_key = global_config_map.get("crypto_com_api_key").value
                 secret_key = global_config_map.get("crypto_com_secret_key").value
-                market = CryptoComExchange({}, {},
-                                           api_key,
-                                           secret_key,
+                market = CryptoComExchange(api_key, secret_key,
                                            trading_pairs=trading_pairs,
                                            trading_required=self._trading_required)
             else:

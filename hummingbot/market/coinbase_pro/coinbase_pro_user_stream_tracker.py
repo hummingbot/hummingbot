@@ -8,10 +8,7 @@ from typing import (
 )
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.user_stream_tracker import (
-    UserStreamTrackerDataSourceType,
-    UserStreamTracker
-)
+from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
@@ -30,10 +27,9 @@ class CoinbaseProUserStreamTracker(UserStreamTracker):
         return cls._bust_logger
 
     def __init__(self,
-                 data_source_type: UserStreamTrackerDataSourceType = UserStreamTrackerDataSourceType.EXCHANGE_API,
                  coinbase_pro_auth: Optional[CoinbaseProAuth] = None,
                  trading_pairs: Optional[List[str]] = []):
-        super().__init__(data_source_type=data_source_type)
+        super().__init__()
         self._coinbase_pro_auth: CoinbaseProAuth = coinbase_pro_auth
         self._trading_pairs: List[str] = trading_pairs
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
@@ -48,11 +44,8 @@ class CoinbaseProUserStreamTracker(UserStreamTracker):
         :return: OrderBookTrackerDataSource
         """
         if not self._data_source:
-            if self._data_source_type is UserStreamTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = CoinbaseProAPIUserStreamDataSource(coinbase_pro_auth=self._coinbase_pro_auth,
-                                                                       trading_pairs=self._trading_pairs)
-            else:
-                raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
+            self._data_source = CoinbaseProAPIUserStreamDataSource(coinbase_pro_auth=self._coinbase_pro_auth,
+                                                                   trading_pairs=self._trading_pairs)
         return self._data_source
 
     @property

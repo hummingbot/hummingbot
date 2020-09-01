@@ -6,11 +6,9 @@ cdef class ConnectorBase(NetworkIterator):
     cdef:
         EventReporter _event_reporter
         EventLogger _event_logger
+        public bint _trading_required
         public dict _account_available_balances
         public dict _account_balances
-        dict _balance_limits
-        dict _fee_estimates
-        public bint _trading_required
         public bint _real_time_balance_update
         public dict _in_flight_orders_snapshot
         public double _in_flight_orders_snapshot_timestamp

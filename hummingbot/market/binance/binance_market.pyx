@@ -129,24 +129,18 @@ cdef class BinanceMarket(ExchangeBase):
         return s_logger
 
     def __init__(self,
-                 fee_estimates: Dict[bool, Decimal],
-                 balance_limits: Dict[str, Decimal],
                  binance_api_key: str,
                  binance_api_secret: str,
-                 order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
-                 OrderBookTrackerDataSourceType.EXCHANGE_API,
-                 user_stream_tracker_data_source_type: UserStreamTrackerDataSourceType =
-                 UserStreamTrackerDataSourceType.EXCHANGE_API,
                  trading_pairs: Optional[List[str]] = None,
-                 trading_required: bool = True):
+                 trading_required: bool = True
+                 ):
 
         self.monkey_patch_binance_time()
-        super().__init__(fee_estimates, balance_limits)
+        super().__init__()
         self._trading_required = trading_required
         self._order_book_tracker = BinanceOrderBookTracker(trading_pairs=trading_pairs)
         self._binance_client = BinanceClient(binance_api_key, binance_api_secret)
-        self._user_stream_tracker = BinanceUserStreamTracker(
-            data_source_type=user_stream_tracker_data_source_type, binance_client=self._binance_client)
+        self._user_stream_tracker = BinanceUserStreamTracker(binance_client=self._binance_client)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
@@ -156,7 +150,6 @@ cdef class BinanceMarket(ExchangeBase):
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
         self._trade_fees = {}  # Dict[trading_pair:str, (maker_fee_percent:Decimal, taken_fee_percent:Decimal)]
         self._last_update_trade_fees_timestamp = 0
-        self._data_source_type = order_book_tracker_data_source_type
         self._status_polling_task = None
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
@@ -1037,3 +1030,26 @@ cdef class BinanceMarket(ExchangeBase):
             return s_decimal_0
 
         return quantized_amount
+
+    def get_price(self, trading_pair: str, is_buy: bool) -> Decimal:
+        return self.c_get_price(trading_pair, is_buy)
+
+    def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+            price: Decimal = s_decimal_NaN, **kwargs) -> str:
+        return self.c_buy(trading_pair, amount, order_type, price, kwargs)
+
+    def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+             price: Decimal = s_decimal_NaN, **kwargs) -> str:
+        return self.c_sell(trading_pair, amount, order_type, price, kwargs)
+
+    def cancel(self, trading_pair: str, client_order_id: str):
+        return self.c_cancel(trading_pair, client_order_id)
+
+    def get_fee(self,
+                base_currency: str,
+                quote_currency: str,
+                order_type: OrderType,
+                order_side: TradeType,
+                amount: Decimal,
+                price: Decimal = s_decimal_NaN) -> TradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)

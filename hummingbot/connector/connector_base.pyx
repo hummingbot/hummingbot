@@ -2,7 +2,8 @@ from decimal import Decimal
 from typing import (
     Dict,
     List,
-    Tuple
+    Tuple,
+    Any
 )
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.event.events import (
@@ -15,7 +16,8 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.network_iterator import NetworkIterator
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.event.events import OrderFilledEvent
-
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.core.utils.estimate_fee import estimate_fee
 
 NaN = float("nan")
 s_decimal_NaN = Decimal("nan")
@@ -36,8 +38,9 @@ cdef class ConnectorBase(NetworkIterator):
         MarketEvent.OrderExpired
     ]
 
-    def __init__(self, fee_estimates: Dict[bool, Decimal], balance_limits: Dict[str, Decimal]):
+    def __init__(self):
         super().__init__()
+
         self._event_reporter = EventReporter(event_source=self.name)
         self._event_logger = EventLogger(event_source=self.name)
         for event_tag in self.MARKET_EVENTS:
@@ -46,8 +49,6 @@ cdef class ConnectorBase(NetworkIterator):
 
         self._account_balances = {}  # Dict[asset_name:str, Decimal]
         self._account_available_balances = {}  # Dict[asset_name:str, Decimal]
-        self._balance_limits = balance_limits
-        self._fee_estimates = fee_estimates
         self._real_time_balance_update = True
         self._in_flight_orders_snapshot = {}  # Dict[order_id:str, InFlightOrderBase]
         self._in_flight_orders_snapshot_timestamp = 0.0
@@ -76,24 +77,24 @@ cdef class ConnectorBase(NetworkIterator):
     def in_flight_orders_snapshot_timestamp(self, value: float):
         self._in_flight_orders_snapshot_timestamp = value
 
-    @property
-    def account_balances(self) -> Dict[str, Decimal]:
-        return self._account_balances
+    # @property
+    # def account_balances(self) -> Dict[str, Decimal]:
+    #     return self._account_balances
+    #
+    # @account_balances.setter
+    # def account_balances(self, value: Dict[str, Decimal]):
+    #     self._account_balances = value
+    #
+    # @property
+    # def account_available_balances(self) -> Dict[str, Decimal]:
+    #     return self._account_available_balances
+    #
+    # @account_available_balances.setter
+    # def account_available_balances(self, value: Dict[str, Decimal]):
+    #     self._account_available_balances = value
 
-    @account_balances.setter
-    def account_balances(self, value: Dict[str, Decimal]):
-        self._account_balances = value
-
-    @property
-    def account_available_balances(self) -> Dict[str, Decimal]:
-        return self._account_available_balances
-
-    @account_available_balances.setter
-    def account_available_balances(self, value: Dict[str, Decimal]):
-        self._account_available_balances = value
-
-    def estimate_fee(self, is_maker: bool) -> Decimal:
-        return self._fee_estimates.get(is_maker, s_decimal_0)
+    def estimate_fee_pct(self, is_maker: bool) -> Decimal:
+        return estimate_fee(self.name, is_maker).percent
 
     @staticmethod
     def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
@@ -114,7 +115,7 @@ cdef class ConnectorBase(NetworkIterator):
                 outstanding_value = order_value - order.executed_amount_quote
                 if order.quote_asset not in asset_balances:
                     asset_balances[order.quote_asset] = s_decimal_0
-                fee = self.estimate_fee(True)
+                fee = self.estimate_fee_pct(True)
                 outstanding_value *= (Decimal(1) + fee)
                 asset_balances[order.quote_asset] += outstanding_value
             else:
@@ -149,6 +150,16 @@ cdef class ConnectorBase(NetworkIterator):
             balances[base] += base_value
             balances[quote] += quote_value
         return balances
+
+    def get_exchange_limit_config(self, market: str) -> Dict[str, object]:
+        """
+        Retrieves the Balance Limits for the specified market.
+        """
+        all_ex_limit = global_config_map["balance_asset_limit"].value
+        if all_ex_limit is None:
+            return {}
+        exchange_limits = all_ex_limit.get(market, {})
+        return exchange_limits if exchange_limits is not None else {}
 
     @property
     def status_dict(self) -> Dict[str, bool]:
@@ -276,8 +287,9 @@ cdef class ConnectorBase(NetworkIterator):
         available_balance = self._account_available_balances.get(currency, s_decimal_0)
         if not self._real_time_balance_update:
             available_balance = self.apply_balance_update_since_snapshot(currency, available_balance)
-        if currency in self._balance_limits:
-            balance_limit = Decimal(str(self._balance_limits[currency]))
+        balance_limits = self.get_exchange_limit_config(self.name)
+        if currency in balance_limits:
+            balance_limit = Decimal(str(balance_limits[currency]))
             available_balance = self.apply_balance_limit(currency, available_balance, balance_limit)
         return available_balance
 
