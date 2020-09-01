@@ -83,8 +83,6 @@ class CryptoComExchangeUnitTest(unittest.TestCase):
 
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.connector: CryptoComExchange = CryptoComExchange(
-            balance_limits={},
-            fee_estimates={True: Decimal("0.001"), False: Decimal("0.002")},
             crypto_com_api_key=API_KEY,
             crypto_com_api_secret=API_SECRET,
             trading_pairs=[cls.trading_pair],
@@ -149,10 +147,10 @@ class CryptoComExchangeUnitTest(unittest.TestCase):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_estimate_fee(self):
-        maker_fee = self.connector.estimate_fee(True)
-        self.assertEqual(maker_fee, Decimal("0.001"))
-        taker_fee = self.connector.estimate_fee(False)
-        self.assertEqual(taker_fee, Decimal("0.002"))
+        maker_fee = self.connector.estimate_fee_pct(True)
+        self.assertAlmostEqual(maker_fee, Decimal("0.001"))
+        taker_fee = self.connector.estimate_fee_pct(False)
+        self.assertAlmostEqual(taker_fee, Decimal("0.001"))
 
     def _place_order(self, is_buy, amount, order_type, price, ex_order_id, get_order_fixture=None,
                      ws_trade_fixture=None, ws_order_fixture=None) -> str:

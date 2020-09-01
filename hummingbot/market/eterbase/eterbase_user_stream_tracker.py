@@ -8,10 +8,7 @@ from typing import (
 )
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.user_stream_tracker import (
-    UserStreamTrackerDataSourceType,
-    UserStreamTracker
-)
+from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
@@ -32,10 +29,9 @@ class EterbaseUserStreamTracker(UserStreamTracker):
 
     def __init__(self,
                  eterbase_account: str,
-                 data_source_type: UserStreamTrackerDataSourceType = UserStreamTrackerDataSourceType.EXCHANGE_API,
                  eterbase_auth: Optional[EterbaseAuth] = None,
                  trading_pairs: Optional[List[str]] = []):
-        super().__init__(data_source_type=data_source_type)
+        super().__init__()
         self._eterbase_auth: EterbaseAuth = eterbase_auth
         self._trading_pairs: List[str] = trading_pairs
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
@@ -51,12 +47,9 @@ class EterbaseUserStreamTracker(UserStreamTracker):
         :return: OrderBookTrackerDataSource
         """
         if not self._data_source:
-            if self._data_source_type is UserStreamTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = EterbaseAPIUserStreamDataSource(eterbase_auth=self._eterbase_auth,
-                                                                    eterbase_account=self._eterbase_account,
-                                                                    trading_pairs=self._trading_pairs)
-            else:
-                raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
+            self._data_source = EterbaseAPIUserStreamDataSource(eterbase_auth=self._eterbase_auth,
+                                                                eterbase_account=self._eterbase_account,
+                                                                trading_pairs=self._trading_pairs)
         return self._data_source
 
     @property

@@ -57,6 +57,14 @@ loggers:
         level: NETWORK
         handlers: [console_info, file_handler, report_proxy_handler]
         propagate: false
+    hummingbot.connector:
+        level: NETWORK
+        handlers: [console_info, file_handler, report_proxy_handler]
+        propagate: false
+    hummingbot.client:
+        level: NETWORK
+        handlers: [console_info, file_handler, report_proxy_handler]
+        propagate: false
     hummingbot.wallet:
         level: NETWORK
         handlers: [console_info, file_handler, report_proxy_handler]

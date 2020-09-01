@@ -36,12 +36,12 @@ from hummingbot.core.event.events import (
     TradeFee
 )
 from hummingbot.connector.exchange_base import ExchangeBase
-from .crypto_com_order_book_tracker import CryptoComOrderBookTracker
-from .crypto_com_user_stream_tracker import CryptoComUserStreamTracker
-from .crypto_com_auth import CryptoComAuth
-from .crypto_com_in_flight_order import CryptoComInFlightOrder
-from . import crypto_com_utils
-from . import crypto_com_constants as Constants
+from hummingbot.connector.exchange.crypto_com.crypto_com_order_book_tracker import CryptoComOrderBookTracker
+from hummingbot.connector.exchange.crypto_com.crypto_com_user_stream_tracker import CryptoComUserStreamTracker
+from hummingbot.connector.exchange.crypto_com.crypto_com_auth import CryptoComAuth
+from hummingbot.connector.exchange.crypto_com.crypto_com_in_flight_order import CryptoComInFlightOrder
+from hummingbot.connector.exchange.crypto_com import crypto_com_utils
+from hummingbot.connector.exchange.crypto_com import crypto_com_constants as Constants
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
 
@@ -60,15 +60,14 @@ class CryptoComExchange(ExchangeBase):
         return ctce_logger
 
     def __init__(self,
-                 fee_estimates: Dict[bool, Decimal],
-                 balance_limits: Dict[str, Decimal],
                  crypto_com_api_key: str,
                  crypto_com_api_secret: str,
                  trading_pairs: Optional[List[str]] = None,
-                 trading_required: bool = True):
-        super().__init__(fee_estimates, balance_limits)
-        self._crypto_com_auth = CryptoComAuth(crypto_com_api_key, crypto_com_api_secret)
+                 trading_required: bool = True
+                 ):
+        super().__init__()
         self._trading_required = trading_required
+        self._crypto_com_auth = CryptoComAuth(crypto_com_api_key, crypto_com_api_secret)
         self._order_book_tracker = CryptoComOrderBookTracker(trading_pairs=trading_pairs)
         self._user_stream_tracker = CryptoComUserStreamTracker(self._crypto_com_auth, trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
@@ -611,7 +610,7 @@ class CryptoComExchange(ExchangeBase):
                 amount: Decimal,
                 price: Decimal = s_decimal_NaN) -> TradeFee:
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return TradeFee(percent=self.estimate_fee(is_maker))
+        return TradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:

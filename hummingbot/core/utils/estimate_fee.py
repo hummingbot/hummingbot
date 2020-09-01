@@ -11,7 +11,8 @@ default_cex_estimate = {
     "kraken": [0.16, 0.26],
     "kucoin": [0.1, 0.1],
     "liquid": [0.1, 0.1],
-    "eterbase": [0.35, 0.35]
+    "eterbase": [0.35, 0.35],
+    "crypto_com": [0.1, 0.1]
 }
 
 default_dex_estimate = {

@@ -5,7 +5,8 @@ from typing import (
     List,
     Tuple,
     Optional,
-    Iterator)
+    Iterator,
+    Any)
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.order_book_query_result import (
     OrderBookQueryResult,
@@ -27,9 +28,10 @@ NaN = float("nan")
 s_decimal_NaN = Decimal("nan")
 s_decimal_0 = Decimal(0)
 
+
 cdef class ExchangeBase(ConnectorBase):
-    def __init__(self, fee_estimates: Dict[bool, Decimal], balance_limits: Dict[str, Decimal]):
-        super().__init__(fee_estimates, balance_limits)
+    def __init__(self):
+        super().__init__()
         self._order_book_tracker = None
 
     @staticmethod

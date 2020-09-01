@@ -7,10 +7,7 @@ from typing import (
 )
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.user_stream_tracker import (
-    UserStreamTrackerDataSourceType,
-    UserStreamTracker
-)
+from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
@@ -30,9 +27,8 @@ class KucoinUserStreamTracker(UserStreamTracker):
         return cls._kust_logger
 
     def __init__(self,
-                 data_source_type: UserStreamTrackerDataSourceType = UserStreamTrackerDataSourceType.EXCHANGE_API,
                  kucoin_auth: Optional[KucoinAuth] = None):
-        super().__init__(data_source_type=data_source_type)
+        super().__init__()
         self._kucoin_client: KucoinAuth = kucoin_auth
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[UserStreamTrackerDataSource] = None
@@ -41,10 +37,7 @@ class KucoinUserStreamTracker(UserStreamTracker):
     @property
     def data_source(self) -> UserStreamTrackerDataSource:
         if not self._data_source:
-            if self._data_source_type is UserStreamTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = KucoinAPIUserStreamDataSource(kucoin_auth=self._kucoin_client)
-            else:
-                raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
+            self._data_source = KucoinAPIUserStreamDataSource(kucoin_auth=self._kucoin_client)
         return self._data_source
 
     @property
