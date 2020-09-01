@@ -86,7 +86,7 @@ When it's time to refresh orders, the price band will take priority over the tol
 
 If the mid price dips below price_floor or goes above price_ceiling, it will cancel your existing order regardless of order refresh tolerance.
 
-```
+```json
 - order_refresh_tolerance_pct: 1%
 - price_ceiling: 11750
 - price_floor: 11650
@@ -95,13 +95,13 @@ If the mid price dips below price_floor or goes above price_ceiling, it will can
 With the above scenario, mid price dips below price floor so the bot cancel current orders regardless of the order refresh tolerance.
 
 ```
-18:59:15 - pure_market_making - (BTC-USDT) Creating 1 bid orders at (Size, Price): ['0.003 BTC, 11691.58 USDT']
-18:59:16 - pure_market_making - (BTC-USDT) Creating 1 ask orders at (Size, Price): ['0.003 BTC, 11723.73 USDT']
-18:59:31 - pure_market_making - Not cancelling active orders since difference between new order prices and current order prices is within 1.00% order_refresh_tolerance_pct
-18:59:45 - pure_market_making - Not cancelling active orders since difference between new order prices and current order prices is within 1.00% order_refresh_tolerance_pct
-19:00:01 - pure_market_making - (BTC-USDT) Cancelling the limit order buy://BTC-USDT/d81c2b6376b8b759c99c0c498d. [clock=2020-08-31 11:00:01+00:00]
-19:00:01 - pure_market_making - (BTC-USDT) Cancelling the limit order sell://BTC-USDT/e69022b440adf92952bb34e42f. [clock=2020-08-31 11:00:01+00:00]
-19:00:02 - pure_market_making - (BTC-USDT) Creating 1 ask orders at (Size, Price): ['0.003 BTC, 11725 USDT']
+18:59:15 - (BTC-USDT) Creating 1 bid orders at (Size, Price): ['0.003 BTC, 11691.58 USDT']
+18:59:16 - (BTC-USDT) Creating 1 ask orders at (Size, Price): ['0.003 BTC, 11723.73 USDT']
+18:59:31 - Not cancelling active orders since difference between new order prices and current order prices is within 1.00% order_refresh_tolerance_pct
+18:59:45 - Not cancelling active orders since difference between new order prices and current order prices is within 1.00% order_refresh_tolerance_pct
+19:00:01 - (BTC-USDT) Cancelling the limit order buy://BTC-USDT/d81c2b6376b8b759c99c0c498d. [clock=2020-08-31 11:00:01+00:00]
+19:00:01 - (BTC-USDT) Cancelling the limit order sell://BTC-USDT/e69022b440adf92952bb34e42f. [clock=2020-08-31 11:00:01+00:00]
+19:00:02 - (BTC-USDT) Creating 1 ask orders at (Size, Price): ['0.003 BTC, 11725 USDT']
 ```
 
 ## Price Band with External Pricing Source
