@@ -28,7 +28,7 @@ BITTREX_REST_URL = "https://api.bittrex.com/v3"
 BITTREX_EXCHANGE_INFO_PATH = "/markets"
 BITTREX_MARKET_SUMMARY_PATH = "/markets/summaries"
 BITTREX_TICKER_PATH = "/markets/tickers"
-BITTREX_WS_FEED = " https://socket-v3.bittrex.com/signalr"
+BITTREX_WS_FEED = "https://socket-v3.bittrex.com/signalr"
 
 MAX_RETRIES = 20
 MESSAGE_TIMEOUT = 30.0
@@ -53,6 +53,17 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._websocket_hub: Optional[Hub] = None
         self._snapshot_msg: Dict[str, any] = {}
 
+    @classmethod
+    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
+        results = dict()
+        async with aiohttp.ClientSession() as client:
+            resp = await client.get(f"{BITTREX_REST_URL}{BITTREX_TICKER_PATH}")
+            resp_json = await resp.json()
+            for trading_pair in trading_pairs:
+                resp_record = [o for o in resp_json if o["symbol"] == trading_pair][0]
+                results[trading_pair] = float(resp_record["lastTradeRate"])
+        return results
+
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         async with aiohttp.ClientSession() as client:
             snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
@@ -60,7 +71,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             snapshot_msg: OrderBookMessage = BittrexOrderBook.snapshot_message_from_exchange(
                 snapshot,
                 snapshot_timestamp,
-                metadata={"symbol": trading_pair}
+                metadata={"marketSymbol": trading_pair}
             )
             order_book: OrderBook = self.order_book_create_function()
             active_order_tracker: BittrexActiveOrderTracker = BittrexActiveOrderTracker()
@@ -89,21 +100,64 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
         # Creates/Reuses connection to obtain a single snapshot of the trading_pair
-        async with client.get(f"{BITTREX_REST_URL}{BITTREX_EXCHANGE_INFO_PATH}/{trading_pair}/orderbook") as response:
+        params = {"depth": 25}
+        async with client.get(f"{BITTREX_REST_URL}{BITTREX_EXCHANGE_INFO_PATH}/{trading_pair}/orderbook", params=params) as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
                 raise IOError(f"Error fetching Bittrex market snapshot for {trading_pair}. "
                               f"HTTP status is {response.status}.")
             data: Dict[str, Any] = await response.json()
+            data["sequence"] = response.headers["sequence"]
             return data
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         # Trade messages are received as Orderbook Deltas and handled by listen_for_order_book_stream()
-        pass
+        # passa
+        while True:
+            connection, hub = await self.websocket_connection()
+            try:
+                async for raw_message in self._socket_stream():
+                    decoded: Dict[str, Any] = self._transform_raw_message(raw_message)
+
+                    # Processes snapshot messages
+                    if decoded["type"] == "trade":
+                        trades: Dict[str, any] = decoded
+                        for trade in trades["results"]["deltas"]:
+                            trade_msg: OrderBookMessage = BittrexOrderBook.trade_message_from_exchange(
+                                trade, metadata={"trading_pair": trades["results"]["marketSymbol"],
+                                                 "sequence": trades["results"]["sequence"]}, timestamp=trades["nonce"]
+                            )
+                            output.put_nowait(trade_msg)
+
+            except Exception:
+                self.logger().error("Unexpected error when listening on socket stream.", exc_info=True)
+            finally:
+                connection.close()
+                self._websocket_connection = self._websocket_hub = None
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         # Orderbooks Deltas and Snapshots are handled by listen_for_order_book_stream()
-        pass
+        # pass
+        while True:
+            connection, hub = await self.websocket_connection()
+            try:
+                async for raw_message in self._socket_stream():
+                    decoded: Dict[str, Any] = self._transform_raw_message(raw_message)
+
+                    # Processes diff messages
+                    if decoded["type"] == "delta":
+                        diff: Dict[str, any] = decoded
+                        diff_timestamp = diff["nonce"]
+                        diff_msg: OrderBookMessage = BittrexOrderBook.diff_message_from_exchange(
+                            diff["results"], diff_timestamp
+                        )
+                        output.put_nowait(diff_msg)
+
+            except Exception:
+                self.logger().error("Unexpected error when listening on socket stream.", exc_info=True)
+            finally:
+                connection.close()
+                self._websocket_connection = self._websocket_hub = None
 
     async def _socket_stream(self) -> AsyncIterable[str]:
         try:
@@ -127,21 +181,22 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return ujson.loads(decoded_msg.decode())
 
         def _is_market_delta(msg) -> bool:
-            return len(msg.get("M", [])) > 0 and type(msg["M"][0]) == dict and msg["M"][0].get("M", None) == "orderbook"
+            return len(msg.get("M", [])) > 0 and type(msg["M"][0]) == dict and msg["M"][0].get("M", None) == "orderBook"
 
         def _is_market_update(msg) -> bool:
             return len(msg.get("M", [])) > 0 and type(msg["M"][0]) == dict and msg["M"][0].get("M", None) == "trade"
 
         output: Dict[str, Any] = {"nonce": None, "type": None, "results": {}}
         msg: Dict[str, Any] = ujson.loads(msg)
-        output["results"] = _decode_message(msg["M"][0]["A"][0])
-        output["nonce"] = output["results"]["N"]
+        if len(msg.get("M", [])) > 0:
+            output["results"] = _decode_message(msg["M"][0]["A"][0])
+            output["nonce"] = time.time() * 1000
 
         if _is_market_delta(msg):
             output["type"] = "delta"
 
         elif _is_market_update(msg):
-            output["type"] = "update"
+            output["type"] = "trade"
 
         return output
 
@@ -157,7 +212,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             snapshot_msg: OrderBookMessage = BittrexOrderBook.snapshot_message_from_exchange(
                                 snapshot,
                                 snapshot_timestamp,
-                                metadata={"symbol": trading_pair}
+                                metadata={"marketSymbol": trading_pair}
                             )
                             output.put_nowait(snapshot_msg)
                             self.logger().info(f"Saved {trading_pair} snapshots.")
@@ -175,41 +230,3 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception:
                 self.logger().error("Unexpected error occurred invoking queryExchangeState", exc_info=True)
                 await asyncio.sleep(5.0)
-
-    async def listen_for_order_book_stream(self,
-                                           ev_loop: asyncio.BaseEventLoop,
-                                           trade_queue: asyncio.Queue,
-                                           diff_queue: asyncio.Queue):
-        while True:
-            connection, hub = await self.websocket_connection()
-            try:
-                async for raw_message in self._socket_stream():
-                    decoded: Dict[str, Any] = self._transform_raw_message(raw_message)
-                    trading_pair: str = decoded["results"].get("M")
-
-                    if not trading_pair:  # Ignores any other websocket response messages
-                        continue
-
-                    # Processes snapshot messages
-                    if decoded["type"] == "trade":
-                        trade: Dict[str, any] = decoded
-                        trade_msg: OrderBookMessage = BittrexOrderBook.trade_message_from_exchange(
-                            trade["results"], metadata={"trading_pair": trade["results"]["marketSymbol"]}
-                        )
-                        trade_queue.put_nowait(trade_msg)
-
-                    # Processes diff messages
-                    if decoded["type"] == "delta":
-                        diff: Dict[str, any] = decoded
-                        diff_timestamp = diff["nonce"]
-                        diff_msg: OrderBookMessage = BittrexOrderBook.diff_message_from_exchange(
-                            diff["results"], diff_timestamp
-                        )
-                        diff_queue.put_nowait(diff_msg)
-
-            except Exception:
-                self.logger().error("Unexpected error when listening on socket stream.", exc_info=True)
-            finally:
-                connection.close()
-                self._websocket_connection = self._websocket_hub = None
-                self.logger().info("Websocket connection disconnected.")

@@ -45,13 +45,13 @@ cdef class BittrexActiveOrderTracker:
         return sum([float(msg["remaining_size"]) for msg in self._active_bids[price].values()])
 
     def get_rates_and_quantities(self, entry) -> tuple:
-        return entry["rate"], entry["quantity"]
+        return float(entry["rate"]), float(entry["quantity"])
 
     cdef tuple c_convert_diff_message_to_np_arrays(self, object message):
         cdef:
             dict content = message.content
-            list bid_entries = content["bidDeltas"]
-            list ask_entries = content["askDeltas"]
+            list bid_entries = content["bids"]
+            list ask_entries = content["asks"]
             str order_id
             str order_side
             str price_raw
@@ -99,8 +99,8 @@ cdef class BittrexActiveOrderTracker:
         self._active_asks.clear()
         timestamp = message.timestamp
 
-        for snapshot_orders, active_orders in [(message.content["bid"], self._active_bids),
-                                              (message.content["ask"], self.active_asks)]:
+        for snapshot_orders, active_orders in [(message.content["bids"], self._active_bids),
+                                              (message.content["asks"], self.active_asks)]:
 
             for order in snapshot_orders:
                 price = order["rate"]
