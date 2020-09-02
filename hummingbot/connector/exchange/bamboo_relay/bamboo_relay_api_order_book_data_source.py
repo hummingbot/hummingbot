@@ -20,11 +20,11 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.core.utils.ssl_client_request import SSLClientRequest
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.bamboo_relay.bamboo_relay_order_book import BambooRelayOrderBook
-from hummingbot.market.bamboo_relay.bamboo_relay_order_book_message import BambooRelayOrderBookMessage
-from hummingbot.market.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
+from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_order_book import BambooRelayOrderBook
+from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_order_book_message import BambooRelayOrderBookMessage
+from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
-from hummingbot.market.bamboo_relay.bamboo_relay_constants import (
+from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_constants import (
     BAMBOO_RELAY_REST_ENDPOINT,
     BAMBOO_RELAY_TEST_ENDPOINT,
     BAMBOO_RELAY_REST_WS,

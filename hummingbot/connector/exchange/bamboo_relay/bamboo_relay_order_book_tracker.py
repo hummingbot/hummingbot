@@ -13,16 +13,16 @@ from typing import (
 from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.market.bamboo_relay.bamboo_relay_api_order_book_data_source import BambooRelayAPIOrderBookDataSource
-from hummingbot.market.bamboo_relay.bamboo_relay_order_book_message import BambooRelayOrderBookMessage
+from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_api_order_book_data_source import BambooRelayAPIOrderBookDataSource
+from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_order_book_message import BambooRelayOrderBookMessage
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessageType,
     OrderBookMessage
 )
-from hummingbot.market.bamboo_relay.bamboo_relay_order_book import BambooRelayOrderBook
-from hummingbot.market.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
+from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_order_book import BambooRelayOrderBook
+from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
-from hummingbot.market.bamboo_relay.bamboo_relay_constants import (
+from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_constants import (
     BAMBOO_RELAY_REST_ENDPOINT,
     BAMBOO_RELAY_TEST_ENDPOINT
 )
@@ -143,9 +143,9 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
                 raise
             except Exception:
                 self.logger().network(
-                    f"Unexpected error routing order book messages.",
+                    f'{"Unexpected error routing order book messages."}',
                     exc_info=True,
-                    app_warning_msg=f"Unexpected error routing order book messages. Retrying after 5 seconds."
+                    app_warning_msg=f'{"Unexpected error routing order book messages. Retrying after 5 seconds."}'
                 )
                 await asyncio.sleep(5.0)
 
@@ -182,6 +182,6 @@ class BambooRelayOrderBookTracker(OrderBookTracker):
                 self.logger().network(
                     f"Unexpected error tracking order book for {trading_pair}.",
                     exc_info=True,
-                    app_warning_msg=f"Unexpected error tracking order book. Retrying after 5 seconds."
+                    app_warning_msg=f'{"Unexpected error tracking order book. Retrying after 5 seconds."}'
                 )
                 await asyncio.sleep(5.0)

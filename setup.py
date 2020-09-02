@@ -34,7 +34,7 @@ def main():
         "hummingbot.data_feed",
         "hummingbot.logger",
         "hummingbot.market",
-        "hummingbot.market.bamboo_relay",
+        "hummingbot.connector.exchange.bamboo_relay",
         "hummingbot.connector",
         "hummingbot.connector.exchange.binance",
         "hummingbot.market.bittrex",
