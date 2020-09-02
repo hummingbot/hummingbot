@@ -1,25 +1,18 @@
 # distutils: sources=['hummingbot/core/cpp/Utils.cpp', 'hummingbot/core/cpp/LimitOrder.cpp', 'hummingbot/core/cpp/OrderExpirationEntry.cpp']
 
-import asyncio
-from async_timeout import timeout
 from collections import (
     deque, defaultdict
 )
 from cpython cimport PyObject
 from decimal import Decimal
-from functools import partial
-import hummingbot
 from libcpp cimport bool as cppbool
 from libcpp.vector cimport vector
-import logging
 import math
 import pandas as pd
 import random
-import time
 from typing import (
     Dict,
     List,
-    Coroutine,
     Tuple)
 from cython.operator cimport(
     postincrement as inc,
@@ -32,7 +25,6 @@ from hummingbot.core.Utils cimport(
 )
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.clock import (
-    ClockMode,
     Clock
 )
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -45,9 +37,7 @@ from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.event.events import (
     MarketEvent,
     OrderType,
-    OrderExpiredEvent,
     TradeType,
-    TradeFee,
     BuyOrderCompletedEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
@@ -61,7 +51,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.market.paper_trade.trading_pair import TradingPair
+from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
 from hummingbot.core.utils.estimate_fee import estimate_fee
 
 from .market_config import (
