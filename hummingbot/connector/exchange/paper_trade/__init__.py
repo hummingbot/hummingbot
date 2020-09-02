@@ -3,8 +3,8 @@ from typing import List
 from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_order_book_tracker import BambooRelayOrderBookTracker
 from hummingbot.connector.exchange.binance.binance_order_book_tracker import BinanceOrderBookTracker
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
-from hummingbot.market.huobi.huobi_market import HuobiMarket
-from hummingbot.market.huobi.huobi_order_book_tracker import HuobiOrderBookTracker
+from hummingbot.connector.exchange.huobi.huobi_market import HuobiMarket
+from hummingbot.connector.exchange.huobi.huobi_order_book_tracker import HuobiOrderBookTracker
 from hummingbot.connector.exchange.paper_trade.market_config import MarketConfig
 from hummingbot.connector.exchange.paper_trade.paper_trade_market import PaperTradeMarket
 from hummingbot.connector.exchange.radar_relay.radar_relay_market import RadarRelayMarket

@@ -21,8 +21,8 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.huobi.huobi_order_book import HuobiOrderBook
-from hummingbot.market.huobi.huobi_utils import convert_to_exchange_trading_pair
+from hummingbot.connector.exchange.huobi.huobi_order_book import HuobiOrderBook
+from hummingbot.connector.exchange.huobi.huobi_utils import convert_to_exchange_trading_pair
 
 HUOBI_SYMBOLS_URL = "https://api.huobi.pro/v1/common/symbols"
 HUOBI_TICKER_URL = "https://api.huobi.pro/market/tickers"

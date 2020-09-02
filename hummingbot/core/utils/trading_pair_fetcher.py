@@ -184,7 +184,7 @@ class TradingPairFetcher:
 
     async def fetch_huobi_trading_pairs(self) -> List[str]:
         try:
-            from hummingbot.market.huobi.huobi_utils import convert_from_exchange_trading_pair
+            from hummingbot.connector.exchange.huobi.huobi_utils import convert_from_exchange_trading_pair
 
             client: aiohttp.ClientSession = self.http_client()
             async with client.get(HUOBI_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:

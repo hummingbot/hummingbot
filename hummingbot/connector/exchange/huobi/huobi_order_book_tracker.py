@@ -15,7 +15,7 @@ from hummingbot.core.data_type.order_book_message import (
 )
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.huobi.huobi_api_order_book_data_source import HuobiAPIOrderBookDataSource
+from hummingbot.connector.exchange.huobi.huobi_api_order_book_data_source import HuobiAPIOrderBookDataSource
 
 
 class HuobiOrderBookTracker(OrderBookTracker):

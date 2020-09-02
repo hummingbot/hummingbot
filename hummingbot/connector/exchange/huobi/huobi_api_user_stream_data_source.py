@@ -13,7 +13,7 @@ from typing import (
 
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.huobi.huobi_auth import HuobiAuth
+from hummingbot.connector.exchange.huobi.huobi_auth import HuobiAuth
 
 HUOBI_API_ENDPOINT = "https://api.huobi.pro"
 HUOBI_WS_ENDPOINT = "wss://api.huobi.pro/ws/v2"
