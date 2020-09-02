@@ -23,7 +23,7 @@ from hummingbot.core.utils.async_utils import (
 from hummingbot.connector.exchange.eterbase.eterbase_order_book_message import EterbaseOrderBookMessage
 from hummingbot.connector.exchange.eterbase.eterbase_market import EterbaseMarket, EterbaseAuth
 from hummingbot.connector.exchange.eterbase.eterbase_user_stream_tracker import EterbaseUserStreamTracker
-from hummingbot.market.market_base import OrderType
+from hummingbot.core.event.events import OrderType
 
 
 class EterbaseUserStreamTrackerUnitTest(unittest.TestCase):

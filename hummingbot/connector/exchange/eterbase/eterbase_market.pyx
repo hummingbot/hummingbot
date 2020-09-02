@@ -44,9 +44,7 @@ from hummingbot.connector.exchange.eterbase.eterbase_order_book_tracker import E
 from hummingbot.connector.exchange.eterbase.eterbase_user_stream_tracker import EterbaseUserStreamTracker
 from hummingbot.connector.exchange.eterbase.eterbase_api_order_book_data_source import EterbaseAPIOrderBookDataSource
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.market.market_base import (
-    OrderType,
-)
+from hummingbot.core.event.events import OrderType
 from hummingbot.connector.exchange.eterbase.eterbase_utils import (
     convert_from_exchange_trading_pair)
 from hummingbot.connector.exchange.eterbase.eterbase_trading_rule cimport EterbaseTradingRule

@@ -42,7 +42,7 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.logger import NETWORK
-from hummingbot.market.market_base import OrderType
+from hummingbot.core.event.events import OrderType
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.connector.exchange.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.model.market_state import MarketState

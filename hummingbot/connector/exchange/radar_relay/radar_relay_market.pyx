@@ -47,9 +47,7 @@ from hummingbot.core.utils.async_utils import (
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
-from hummingbot.market.market_base import (
-    OrderType,
-    s_decimal_NaN)
+from hummingbot.core.event.events import OrderType
 from hummingbot.connector.exchange.radar_relay.radar_relay_api_order_book_data_source import RadarRelayAPIOrderBookDataSource
 from hummingbot.connector.exchange.radar_relay.radar_relay_in_flight_order cimport RadarRelayInFlightOrder
 from hummingbot.connector.exchange.radar_relay.radar_relay_order_book_tracker import RadarRelayOrderBookTracker
@@ -62,6 +60,7 @@ from hummingbot.core.utils.estimate_fee import estimate_fee
 
 rrm_logger = None
 s_decimal_0 = Decimal(0)
+s_decimal_NaN = Decimal("NaN")
 
 ZERO_EX_MAINNET_ERC20_PROXY = "0x95E6F48254609A6ee006F7D493c8e5fB97094ceF"
 ZERO_EX_MAINNET_EXCHANGE_ADDRESS = "0x61935CbDd02287B511119DDb11Aeb42F1593b7Ef"

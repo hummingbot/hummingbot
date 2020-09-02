@@ -6,7 +6,6 @@ from libcpp.utility cimport pair
 from hummingbot.core.data_type.LimitOrder cimport LimitOrder as CPPLimitOrder
 from hummingbot.core.data_type.OrderExpirationEntry cimport OrderExpirationEntry as CPPOrderExpirationEntry
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-# from hummingbot.market.market_base cimport MarketBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.event.events import MarketEvent, OrderType

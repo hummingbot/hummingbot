@@ -54,14 +54,13 @@ from hummingbot.connector.exchange.huobi.huobi_utils import (
     convert_from_exchange_trading_pair)
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.market.market_base import (
-    s_decimal_NaN)
 from hummingbot.connector.exchange.huobi.huobi_user_stream_tracker import HuobiUserStreamTracker
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.utils.estimate_fee import estimate_fee
 
 hm_logger = None
 s_decimal_0 = Decimal(0)
+s_decimal_NaN = Decimal("NaN")
 HUOBI_ROOT_API = "https://api.huobi.pro/v1"
 
 

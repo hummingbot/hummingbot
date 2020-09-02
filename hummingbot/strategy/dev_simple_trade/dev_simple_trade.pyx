@@ -16,7 +16,7 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
-from hummingbot.market.market_base import (
+from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )

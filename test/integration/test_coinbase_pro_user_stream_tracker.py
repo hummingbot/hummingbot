@@ -23,7 +23,7 @@ from hummingbot.core.utils.async_utils import (
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_message import CoinbaseProOrderBookMessage
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_market import CoinbaseProMarket, CoinbaseProAuth
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
-from hummingbot.market.market_base import OrderType
+from hummingbot.core.event.events import OrderType
 
 
 class CoinbaseProUserStreamTrackerUnitTest(unittest.TestCase):
