@@ -38,7 +38,7 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.market_base import OrderType
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState

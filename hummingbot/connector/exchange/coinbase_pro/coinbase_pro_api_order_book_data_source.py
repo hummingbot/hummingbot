@@ -17,13 +17,13 @@ import websockets
 from websockets.exceptions import ConnectionClosed
 
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.market.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from hummingbot.market.coinbase_pro.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
-from hummingbot.market.coinbase_pro.coinbase_pro_order_book_tracker_entry import CoinbaseProOrderBookTrackerEntry
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_tracker_entry import CoinbaseProOrderBookTrackerEntry
 from hummingbot.core.utils.async_utils import safe_gather
 
 COINBASE_REST_URL = "https://api.pro.coinbase.com"
@@ -209,10 +209,10 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 raise
             except Exception:
                 self.logger().network(
-                    f"Unexpected error with WebSocket connection.",
+                    f'{"Unexpected error with WebSocket connection."}',
                     exc_info=True,
-                    app_warning_msg=f"Unexpected error with WebSocket connection. Retrying in 30 seconds. "
-                                    f"Check network connection."
+                    app_warning_msg=f'{"Unexpected error with WebSocket connection. Retrying in 30 seconds. "}'
+                                    f'{"Check network connection."}'
                 )
                 await asyncio.sleep(30.0)
 
@@ -244,10 +244,10 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             raise
                         except Exception:
                             self.logger().network(
-                                f"Unexpected error with WebSocket connection.",
+                                f'{"Unexpected error with WebSocket connection."}',
                                 exc_info=True,
-                                app_warning_msg=f"Unexpected error with WebSocket connection. Retrying in 5 seconds. "
-                                                f"Check network connection."
+                                app_warning_msg=f'{"Unexpected error with WebSocket connection. Retrying in 5 seconds. "}'
+                                                f'{"Check network connection."}'
                             )
                             await asyncio.sleep(5.0)
                     this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)

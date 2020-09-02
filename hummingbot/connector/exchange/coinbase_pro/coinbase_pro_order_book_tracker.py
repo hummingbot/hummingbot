@@ -18,14 +18,14 @@ from typing import (
 from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.market.coinbase_pro.coinbase_pro_api_order_book_data_source import CoinbaseProAPIOrderBookDataSource
-from hummingbot.market.coinbase_pro.coinbase_pro_order_book_message import CoinbaseProOrderBookMessage
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_api_order_book_data_source import CoinbaseProAPIOrderBookDataSource
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_message import CoinbaseProOrderBookMessage
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessageType,
     OrderBookMessage,
 )
-from hummingbot.market.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
-from hummingbot.market.coinbase_pro.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_active_order_tracker import CoinbaseProActiveOrderTracker
 
 
 class CoinbaseProOrderBookTracker(OrderBookTracker):
@@ -112,9 +112,9 @@ class CoinbaseProOrderBookTracker(OrderBookTracker):
                 raise
             except Exception:
                 self.logger().network(
-                    f"Unexpected error routing order book messages.",
+                    f'{"Unexpected error routing order book messages."}',
                     exc_info=True,
-                    app_warning_msg=f"Unexpected error routing order book messages. Retrying after 5 seconds."
+                    app_warning_msg=f'{"Unexpected error routing order book messages. Retrying after 5 seconds."}'
                 )
                 await asyncio.sleep(5.0)
 
@@ -175,6 +175,6 @@ class CoinbaseProOrderBookTracker(OrderBookTracker):
                 self.logger().network(
                     f"Unexpected error processing order book messages for {trading_pair}.",
                     exc_info=True,
-                    app_warning_msg=f"Unexpected error processing order book messages. Retrying after 5 seconds."
+                    app_warning_msg=f'{"Unexpected error processing order book messages. Retrying after 5 seconds."}'
                 )
                 await asyncio.sleep(5.0)

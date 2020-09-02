@@ -83,7 +83,7 @@ cdef class CoinbaseProActiveOrderTracker:
             str remaining_size
             double timestamp = message.timestamp
             double quantity = 0
-        
+
         order_id = content.get("order_id") or content.get("maker_order_id")
         order_side = content.get("side")
         price_raw = content.get("price")
@@ -93,7 +93,7 @@ cdef class CoinbaseProActiveOrderTracker:
             raise ValueError(f"Unknown order side for message - '{message}'. Aborting.")
         if price_raw is None:
             raise ValueError(f"Unknown order price for message - '{message}'. Aborting.")
-        elif price_raw == "null": # 'change' messages have 'null' as price for market orders
+        elif price_raw == "null":  # 'change' messages have 'null' as price for market orders
             return s_empty_diff, s_empty_diff
         price = Decimal(price_raw)
 
