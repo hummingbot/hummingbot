@@ -48,21 +48,21 @@ This allows users to ignore dust orders specified in base currency amount. As sh
 - bid_order_optimization_depth: 0
 ```
 
-![jump_orders_3](/assets/img/jump_orders5.png)
+![jump_orders_3](/assets/img/jump_orders3.png)
 
-Then we reconfigure and set `ask_order_optimization_depth` and `bid_order_optimization_depth` both to 5000.
+Then we reconfigure and set `ask_order_optimization_depth` and `bid_order_optimization_depth` both to 50,000.
 
 ```json
 - bid_spread: 0.1%
 - ask_spread: 0.1%
 - order_optimization_enabled: True
-- ask_order_optimization_depth: 5000
-- bid_order_optimization_depth: 5000
+- ask_order_optimization_depth: 50000
+- bid_order_optimization_depth: 50000
 ```
 
-Doing this ignores the first 5,000 units of orders on each side in the orderbook and places our orders right next to them.
+Doing this ignores the first 50,000 units of orders on each side in the orderbook and places our orders right next to them.
 
-![jump_orders_4](/assets/img/jump_orders6.png)
+![jump_orders_4](/assets/img/jump_orders4.png)
 
 
 ## Relevant Parameters

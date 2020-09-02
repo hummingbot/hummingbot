@@ -4,11 +4,6 @@ from typing import (
     Dict,
     Optional
 )
-import ujson
-
-from aiokafka import ConsumerRecord
-from sqlalchemy.engine import RowProxy
-
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.order_book cimport OrderBook
@@ -16,7 +11,6 @@ from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType
 )
-from hummingbot.market.kraken.kraken_market import KrakenMarket
 
 _krob_logger = None
 

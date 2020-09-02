@@ -34,9 +34,9 @@ With the above configuration, the bot creates buy and sell orders at 0.5% spread
 
 ```
 Orders:                                                                
-   Level  Type  Price Spread Amount (Orig)  Amount (Adj)       Age Hang
-       1  sell 229.69  0.49%          0.05          0.05  00:00:00   no
-       1   buy 227.41  0.50%          0.05          0.05  00:00:00   no
+   Level  Type  Price Spread Amount (Orig)  Amount (Adj)       Age
+       1  sell 229.69  0.49%          0.05          0.05  00:00:00
+       1   buy 227.41  0.50%          0.05          0.05  00:00:00
 ```
 
 Even before the 60 seconds refresh time was up, the sell order was cancelled when its spread went below the minimum.
@@ -48,8 +48,8 @@ Even before the 60 seconds refresh time was up, the sell order was cancelled whe
 
 ```
 Orders:                                                               
-   Level Type  Price Spread Amount (Orig)  Amount (Adj)       Age Hang
-       1  buy 227.41  0.52%          0.05          0.05  00:00:12   no
+   Level Type  Price Spread Amount (Orig)  Amount (Adj)       Age
+       1  buy 227.41  0.52%          0.05          0.05  00:00:12
 ```
 
 In the next order refresh new buy and sell orders with 0.5% spreads will be created.

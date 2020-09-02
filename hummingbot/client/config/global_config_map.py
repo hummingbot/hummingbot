@@ -46,11 +46,6 @@ def validate_script_file_path(file_path: str) -> Optional[bool]:
         return f"{file_path} file does not exist."
 
 
-MIN_QUOTE_ORDER_AMOUNTS = [["BTC", 0.0011],
-                           ["ETH", 0.05],
-                           ["USD", 11],
-                           ["BNB", 0.5]]
-
 # Main global config store
 global_config_map = {
     # The variables below are usually not prompted during setup process
@@ -112,14 +107,7 @@ global_config_map = {
                          "e.g. [[\"ETH\", 10.0], [\"USDC\", 100]]) >>> ",
                   required_if=lambda: False,
                   type_str="json",
-                  default=[["USDT", 3000],
-                           ["ONE", 1000],
-                           ["BTC", 1],
-                           ["ETH", 10],
-                           ["WETH", 10],
-                           ["USDC", 3000],
-                           ["TUSD", 3000],
-                           ["PAX", 3000]]),
+                  ),
     "binance_api_key":
         ConfigVar(key="binance_api_key",
                   prompt="Enter your Binance API key >>> ",
@@ -270,13 +258,11 @@ global_config_map = {
     "ethereum_rpc_url":
         ConfigVar(key="ethereum_rpc_url",
                   prompt="Which Ethereum node would you like your client to connect to? >>> ",
-                  required_if=lambda: global_config_map["ethereum_wallet"].value is not None,
-                  is_connect_key=True),
+                  required_if=lambda: global_config_map["ethereum_wallet"].value is not None),
     "ethereum_rpc_ws_url":
         ConfigVar(key="ethereum_rpc_ws_url",
                   prompt="Enter the Websocket Address of your Ethereum Node >>> ",
-                  required_if=lambda: global_config_map["ethereum_rpc_url"].value is not None,
-                  is_connect_key=True),
+                  required_if=lambda: global_config_map["ethereum_rpc_url"].value is not None),
     "ethereum_chain_name":
         ConfigVar(key="ethereum_chain_name",
                   prompt="What is your preferred ethereum chain name? >>> ",
@@ -335,7 +321,7 @@ global_config_map = {
                   prompt=None,
                   required_if=lambda: False,
                   type_str="json",
-                  default=MIN_QUOTE_ORDER_AMOUNTS),
+                  ),
     # Database options
     "db_engine":
         ConfigVar(key="db_engine",
