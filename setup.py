@@ -38,7 +38,7 @@ def main():
         "hummingbot.connector",
         "hummingbot.connector.exchange.binance",
         "hummingbot.market.bittrex",
-        "hummingbot.market.coinbase_pro",
+        "hummingbot.connector.exchange.coinbase_pro",
         "hummingbot.market.huobi",
         "hummingbot.market.radar_relay",
         "hummingbot.market.kraken",

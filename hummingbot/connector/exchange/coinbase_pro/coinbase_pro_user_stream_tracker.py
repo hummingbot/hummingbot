@@ -13,8 +13,8 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.market.coinbase_pro.coinbase_pro_api_user_stream_data_source import CoinbaseProAPIUserStreamDataSource
-from hummingbot.market.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_api_user_stream_data_source import CoinbaseProAPIUserStreamDataSource
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
 
 
 class CoinbaseProUserStreamTracker(UserStreamTracker):
