@@ -3,6 +3,9 @@ import time
 import random
 from typing import Dict, List
 
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from . import crypto_com_constants as Constants
+
 
 # deeply merge two dictionaries
 def merge_dicts(source: Dict, destination: Dict) -> Dict:
@@ -33,13 +36,31 @@ def ms_timestamp_to_s(ms: int) -> int:
 
 
 # Request ID class
-class RequestId():
+class RequestId:
     """
     Generate request ids
     """
     _request_id: int = 0
 
-    def generate_request_id(self) -> int:
-        self._request_id += 1
-        # return self._request_id
+    @classmethod
+    def generate_request_id(cls) -> int:
+        cls._request_id += 1
+        # return cls._request_id
         return math.floor(random.random() * 1e18)
+
+
+def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
+    return exchange_trading_pair.replace("_", "-")
+
+
+def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
+    return hb_trading_pair.replace("-", "_")
+
+
+def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
+    side = "buy" if is_buy else "sell"
+    return f"{side}-{trading_pair}-{get_tracking_nonce()}"
+
+
+def get_api_reason(code: str) -> str:
+    return Constants.API_REASONS.get(int(code), code)

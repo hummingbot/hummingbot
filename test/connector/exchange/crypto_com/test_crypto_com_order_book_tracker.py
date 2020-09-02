@@ -1,23 +1,17 @@
 #!/usr/bin/env python
+from os.path import join, realpath
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 import math
 import time
-import sys
 import asyncio
 import logging
 import unittest
-
-from os.path import join, realpath
 from typing import Dict, Optional, List
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent, TradeType
-from hummingbot.market.crypto_com.crypto_com_order_book_tracker import CryptoComOrderBookTracker
+from hummingbot.connector.exchange.crypto_com.crypto_com_order_book_tracker import CryptoComOrderBookTracker
+from hummingbot.connector.exchange.crypto_com.crypto_com_api_order_book_data_source import CryptoComAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_tracker import (
-    OrderBookTrackerDataSourceType
-)
-from hummingbot.core.utils.async_utils import safe_ensure_future
-
-sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 
 class CryptoComOrderBookTrackerUnitTest(unittest.TestCase):
@@ -26,16 +20,15 @@ class CryptoComOrderBookTrackerUnitTest(unittest.TestCase):
         OrderBookEvent.TradeEvent
     ]
     trading_pairs: List[str] = [
-        "BTC_USDT",
-        "ETH_USDT",
+        "BTC-USDT",
+        "ETH-USDT",
     ]
 
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        cls.order_book_tracker: CryptoComOrderBookTracker = CryptoComOrderBookTracker(
-            OrderBookTrackerDataSourceType.EXCHANGE_API, trading_pairs=cls.trading_pairs)
-        cls.order_book_tracker_task: asyncio.Task = safe_ensure_future(cls.order_book_tracker.start())
+        cls.order_book_tracker: CryptoComOrderBookTracker = CryptoComOrderBookTracker(cls.trading_pairs)
+        cls.order_book_tracker.start()
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
 
     @classmethod
@@ -89,12 +82,20 @@ class CryptoComOrderBookTrackerUnitTest(unittest.TestCase):
         # Wait 5 seconds to process some diffs.
         self.ev_loop.run_until_complete(asyncio.sleep(10.0))
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
-        eth_usdt: OrderBook = order_books["ETH_USDT"]
+        eth_usdt: OrderBook = order_books["ETH-USDT"]
         self.assertIsNot(eth_usdt.last_diff_uid, 0)
         self.assertGreaterEqual(eth_usdt.get_price_for_volume(True, 10).result_price,
                                 eth_usdt.get_price(True))
         self.assertLessEqual(eth_usdt.get_price_for_volume(False, 10).result_price,
                              eth_usdt.get_price(False))
+
+    def test_api_get_last_traded_prices(self):
+        prices = self.ev_loop.run_until_complete(
+            CryptoComAPIOrderBookDataSource.get_last_traded_prices(["BTC-USDT", "LTC-BTC"]))
+        for key, value in prices.items():
+            print(f"{key} last_trade_price: {value}")
+        self.assertGreater(prices["BTC-USDT"], 1000)
+        self.assertLess(prices["LTC-BTC"], 1)
 
 
 def main():
