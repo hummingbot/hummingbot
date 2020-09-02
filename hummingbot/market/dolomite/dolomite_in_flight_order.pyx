@@ -4,7 +4,7 @@ from typing import (Any, Dict, List)
 from decimal import Decimal
 from hummingbot.core.event.events import (OrderFilledEvent, TradeType, OrderType, TradeFee)
 from hummingbot.market.in_flight_order_base cimport InFlightOrderBase
-from hummingbot.market.market_base cimport MarketBase
+from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.market.dolomite.dolomite_util import (unpad, DolomiteExchangeInfo)
 
 s_decimal_0 = Decimal(0)
@@ -64,7 +64,7 @@ cdef class DolomiteInFlightOrder(InFlightOrderBase):
         )
 
     @classmethod
-    def from_dolomite_order(cls, dolomite_order: Dict[str, Any], client_order_id: str, market: MarketBase) -> DolomiteInFlightOrder:
+    def from_dolomite_order(cls, dolomite_order: Dict[str, Any], client_order_id: str, market: ExchangeBase) -> DolomiteInFlightOrder:
         order_type = (OrderType.LIMIT, OrderType.LIMIT_MAKER)[dolomite_order["order_type"] == "LIMIT_MAKER"]
         order_side = (TradeType.SELL, TradeType.BUY)[dolomite_order["order_side"] == "BUY"]
 

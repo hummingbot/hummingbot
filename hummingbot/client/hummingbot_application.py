@@ -9,7 +9,6 @@ from typing import List, Dict, Optional, Tuple, Set, Deque
 from hummingbot.client.command import __all__ as commands
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
-from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.market.binance.binance_market import BinanceMarket
@@ -274,7 +273,6 @@ class HummingbotApplication(*commands):
                 huobi_secret_key = global_config_map.get("huobi_secret_key").value
                 market = HuobiMarket(huobi_api_key,
                                      huobi_secret_key,
-                                     order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                      trading_pairs=trading_pairs,
                                      trading_required=self._trading_required)
             elif market_name == "liquid":
@@ -283,8 +281,6 @@ class HummingbotApplication(*commands):
 
                 market = LiquidMarket(liquid_api_key,
                                       liquid_secret_key,
-                                      order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                                      user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
                                       trading_pairs=trading_pairs,
                                       trading_required=self._trading_required)
             elif market_name == "dolomite":
@@ -293,7 +289,6 @@ class HummingbotApplication(*commands):
                 market = DolomiteMarket(
                     wallet=self.wallet,
                     ethereum_rpc_url=ethereum_rpc_url,
-                    order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                     trading_pairs=trading_pairs,
                     isTestNet=is_test_net,
                     trading_required=self._trading_required,
@@ -313,7 +308,6 @@ class HummingbotApplication(*commands):
                 market = KucoinMarket(kucoin_api_key,
                                       kucoin_passphrase,
                                       kucoin_secret_key,
-                                      order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                       trading_pairs=trading_pairs,
                                       trading_required=self._trading_required)
             elif market_name == "eterbase":
@@ -330,7 +324,6 @@ class HummingbotApplication(*commands):
                 kraken_secret_key = global_config_map.get("kraken_secret_key").value
                 market = KrakenMarket(kraken_api_key,
                                       kraken_secret_key,
-                                      order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                       trading_pairs=trading_pairs,
                                       trading_required=self._trading_required)
             elif market_name == "crypto_com":

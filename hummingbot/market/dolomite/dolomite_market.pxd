@@ -1,7 +1,7 @@
-from hummingbot.market.market_base cimport MarketBase
+from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 
-cdef class DolomiteMarket(MarketBase):
+cdef class DolomiteMarket(ExchangeBase):
     cdef:
         str API_REST_ENDPOINT
         str WS_ENDPOINT

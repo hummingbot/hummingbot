@@ -21,7 +21,6 @@ from hummingbot.core.clock import (
     ClockMode
 )
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
@@ -88,10 +87,9 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
                                 backend_urls=conf.test_web3_provider_list,
                                 erc20_token_addresses=[conf.mn_zerox_token_address, conf.mn_weth_token_address],
                                 chain=EthereumChain.MAIN_NET)
-        cls.market: RadarRelayMarket = RadarRelayMarket(
+        cls.market = RadarRelayMarket(
             wallet=cls.wallet,
             ethereum_rpc_url=conf.test_web3_provider_list[0],
-            order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             trading_pairs=["ZRX-WETH"]
         )
         print("Initializing Radar Relay market... ")
@@ -347,10 +345,9 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
             self.clock.remove_iterator(self.market)
             for event_tag in self.market_events:
                 self.market.remove_listener(event_tag, self.market_logger)
-            self.market: RadarRelayMarket = RadarRelayMarket(
+            self.market = RadarRelayMarket(
                 wallet=self.wallet,
                 ethereum_rpc_url=conf.test_web3_provider_list[0],
-                order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                 trading_pairs=["ZRX-WETH"]
             )
             for event_tag in self.market_events:

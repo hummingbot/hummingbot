@@ -1,14 +1,13 @@
 from libc.stdint cimport int64_t
 
-from hummingbot.market.market_base cimport MarketBase
+from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 
 
-cdef class KucoinMarket(MarketBase):
+cdef class KucoinMarket(ExchangeBase):
     cdef:
         str _account_id
         object _async_scheduler
-        object _data_source_type
         object _ev_loop
         object _kucoin_auth
         dict _in_flight_orders

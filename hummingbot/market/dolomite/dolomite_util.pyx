@@ -3,7 +3,6 @@ import time
 from typing import (Any, Dict)
 from decimal import Decimal
 from hummingbot.core.event.events import (OrderFilledEvent, TradeType, OrderType, TradeFee)
-from hummingbot.market.market_base cimport MarketBase
 from hummingbot.market.in_flight_order_base cimport InFlightOrderBase
 from Crypto.Hash import keccak
 

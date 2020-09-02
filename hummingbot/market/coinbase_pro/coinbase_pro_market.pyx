@@ -45,8 +45,8 @@ from hummingbot.market.coinbase_pro.coinbase_pro_auth import CoinbaseProAuth
 from hummingbot.market.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
 from hummingbot.market.coinbase_pro.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
 from hummingbot.market.coinbase_pro.coinbase_pro_api_order_book_data_source import CoinbaseProAPIOrderBookDataSource
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.market.market_base import (
-    MarketBase,
     OrderType,
 )
 from hummingbot.market.trading_rule cimport TradingRule
@@ -73,7 +73,7 @@ cdef class CoinbaseProMarketTransactionTracker(TransactionTracker):
         self._owner.c_did_timeout_tx(tx_id)
 
 
-cdef class CoinbaseProMarket(MarketBase):
+cdef class CoinbaseProMarket(ExchangeBase):
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
     MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
@@ -103,8 +103,6 @@ cdef class CoinbaseProMarket(MarketBase):
                  coinbase_pro_secret_key: str,
                  coinbase_pro_passphrase: str,
                  poll_interval: float = 5.0,    # interval which the class periodically pulls status from the rest API
-                 order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
-                 OrderBookTrackerDataSourceType.EXCHANGE_API,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
         super().__init__()
@@ -122,7 +120,6 @@ cdef class CoinbaseProMarket(MarketBase):
         self._in_flight_orders = {}
         self._tx_tracker = CoinbaseProMarketTransactionTracker(self)
         self._trading_rules = {}
-        self._data_source_type = order_book_tracker_data_source_type
         self._status_polling_task = None
         self._user_stream_tracker_task = None
         self._user_stream_event_listener_task = None
@@ -230,7 +227,7 @@ cdef class CoinbaseProMarket(MarketBase):
         c_start function used by top level Clock to orchestrate components of the bot
         """
         self._tx_tracker.c_start(clock, timestamp)
-        MarketBase.c_start(self, clock, timestamp)
+        ExchangeBase.c_start(self, clock, timestamp)
 
     async def start_network(self):
         """
@@ -289,7 +286,7 @@ cdef class CoinbaseProMarket(MarketBase):
             int64_t last_tick = <int64_t>(self._last_timestamp / self._poll_interval)
             int64_t current_tick = <int64_t>(timestamp / self._poll_interval)
 
-        MarketBase.c_tick(self, timestamp)
+        ExchangeBase.c_tick(self, timestamp)
         if current_tick > last_tick:
             if not self._poll_notifier.is_set():
                 self._poll_notifier.set()
@@ -1082,7 +1079,7 @@ cdef class CoinbaseProMarket(MarketBase):
             TradingRule trading_rule = self._trading_rules[trading_pair]
 
         global s_decimal_0
-        quantized_amount = MarketBase.c_quantize_order_amount(self, trading_pair, amount)
+        quantized_amount = ExchangeBase.c_quantize_order_amount(self, trading_pair, amount)
 
         # Check against min_order_size. If not passing either check, return 0.
         if quantized_amount < trading_rule.min_order_size:
@@ -1093,3 +1090,26 @@ cdef class CoinbaseProMarket(MarketBase):
             return s_decimal_0
 
         return quantized_amount
+
+    def get_price(self, trading_pair: str, is_buy: bool) -> Decimal:
+        return self.c_get_price(trading_pair, is_buy)
+
+    def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+            price: Decimal = s_decimal_nan, **kwargs) -> str:
+        return self.c_buy(trading_pair, amount, order_type, price, kwargs)
+
+    def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+             price: Decimal = s_decimal_nan, **kwargs) -> str:
+        return self.c_sell(trading_pair, amount, order_type, price, kwargs)
+
+    def cancel(self, trading_pair: str, client_order_id: str):
+        return self.c_cancel(trading_pair, client_order_id)
+
+    def get_fee(self,
+                base_currency: str,
+                quote_currency: str,
+                order_type: OrderType,
+                order_side: TradeType,
+                amount: Decimal,
+                price: Decimal = s_decimal_nan) -> TradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)

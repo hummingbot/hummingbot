@@ -99,8 +99,6 @@ class LiquidMarketUnitTest(unittest.TestCase):
         cls.market: LiquidMarket = LiquidMarket(
             API_KEY, API_SECRET,
             poll_interval=5,
-            order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-            user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
             trading_pairs=['CEL-ETH'],
         )
         # cls.ev_loop.run_until_complete(cls.market._update_balances())

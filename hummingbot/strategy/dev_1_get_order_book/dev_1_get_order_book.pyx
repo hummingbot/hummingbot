@@ -14,9 +14,7 @@ from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 
 from libc.stdint cimport int64_t
-from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.market.market_base import MarketBase
-from hummingbot.market.market_base cimport MarketBase
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
 
@@ -67,15 +65,15 @@ cdef class GetOrderBookStrategy(StrategyBase):
         self.c_add_markets(list(all_markets))
 
     @property
-    def active_bids(self) -> List[Tuple[MarketBase, LimitOrder]]:
+    def active_bids(self) -> List[Tuple[ExchangeBase, LimitOrder]]:
         return self._sb_order_tracker.active_bids
 
     @property
-    def active_asks(self) -> List[Tuple[MarketBase, LimitOrder]]:
+    def active_asks(self) -> List[Tuple[ExchangeBase, LimitOrder]]:
         return self._sb_order_tracker.active_asks
 
     @property
-    def active_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
+    def active_maker_orders(self) -> List[Tuple[ExchangeBase, LimitOrder]]:
         return self._sb_order_tracker.active_limit_orders
 
     @property

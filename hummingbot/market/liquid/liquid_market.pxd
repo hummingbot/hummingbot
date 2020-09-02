@@ -1,8 +1,8 @@
-from hummingbot.market.market_base cimport MarketBase
+from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 
 
-cdef class LiquidMarket(MarketBase):
+cdef class LiquidMarket(ExchangeBase):
     cdef:
         object _user_stream_tracker
         object _liquid_auth
@@ -14,7 +14,6 @@ cdef class LiquidMarket(MarketBase):
         dict _in_flight_orders
         TransactionTracker _tx_tracker
         dict _trading_rules
-        object _data_source_type
         object _coro_queue
         public object _status_polling_task
         public object _coro_scheduler_task

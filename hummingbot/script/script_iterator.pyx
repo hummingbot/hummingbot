@@ -14,7 +14,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.market.market_base import MarketBase
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.script.script_process import run_script
 from hummingbot.script.script_interface import StrategyParameter, PMMParameters, OnTick, OnStatus, CallNotify, CallLog
 
@@ -31,7 +31,7 @@ cdef class ScriptIterator(TimeIterator):
 
     def __init__(self,
                  script_file_path: str,
-                 markets: List[MarketBase],
+                 markets: List[ExchangeBase],
                  strategy: PureMarketMakingStrategy,
                  queue_check_interval: float = 0.01,
                  is_unit_testing_mode: bool = False):
@@ -91,13 +91,13 @@ cdef class ScriptIterator(TimeIterator):
 
     def _did_complete_buy_order(self,
                                 event_tag: int,
-                                market: MarketBase,
+                                market: ExchangeBase,
                                 event: BuyOrderCompletedEvent):
         self._parent_queue.put(event)
 
     def _did_complete_sell_order(self,
                                  event_tag: int,
-                                 market: MarketBase,
+                                 market: ExchangeBase,
                                  event: SellOrderCompletedEvent):
         self._parent_queue.put(event)
 
