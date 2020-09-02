@@ -24,6 +24,7 @@ KUCOIN_ENDPOINT = "https://api.kucoin.com/api/v1/symbols"
 DOLOMITE_ENDPOINT = "https://exchange-api.dolomite.io/v1/markets"
 ETERBASE_ENDPOINT = "https://api.eterbase.exchange/api/markets"
 KRAKEN_ENDPOINT = "https://api.kraken.com/0/public/AssetPairs"
+CRYPTO_COM_ENDPOINT = "https://api.crypto.com/v2/public/get-ticker"
 
 API_CALL_TIMEOUT = 5
 
@@ -246,14 +247,30 @@ class TradingPairFetcher:
         return []
 
     @staticmethod
+    async def fetch_crypto_com_trading_pairs() -> List[str]:
+        async with aiohttp.ClientSession() as client:
+            async with client.get(CRYPTO_COM_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
+                if response.status == 200:
+                    try:
+                        data: Dict[str, Any] = await response.json()
+                        return [item["i"] for item in data["result"]["data"]]
+                    except Exception:
+                        pass
+                        # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
+                return []
+
+    @staticmethod
     async def fetch_kucoin_trading_pairs() -> List[str]:
         async with aiohttp.ClientSession() as client:
             async with client.get(KUCOIN_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                 if response.status == 200:
+                    from hummingbot.connector.exchange.crypto_com.crypto_com_utils import \
+                        convert_from_exchange_trading_pair
                     try:
                         data: Dict[str, Any] = await response.json()
                         all_trading_pairs = data.get("data", [])
-                        return [item["symbol"] for item in all_trading_pairs if item["enableTrading"] is True]
+                        return [convert_from_exchange_trading_pair(item["symbol"])
+                                for item in all_trading_pairs if item["enableTrading"] is True]
                     except Exception:
                         pass
                         # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
@@ -318,7 +335,8 @@ class TradingPairFetcher:
                  self.fetch_kucoin_trading_pairs(),
                  self.fetch_kraken_trading_pairs(),
                  self.fetch_radar_relay_trading_pairs(),
-                 self.fetch_eterbase_trading_pairs()]
+                 self.fetch_eterbase_trading_pairs(),
+                 self.fetch_crypto_com_trading_pairs()]
 
         # Radar Relay has not yet been migrated to a new version
         # Endpoint needs to be updated after migration
@@ -337,5 +355,6 @@ class TradingPairFetcher:
             "kraken": results[8],
             "radar_relay": results[9],
             "eterbase": results[10],
+            "crypto_com": results[11]
         }
         self.ready = True
