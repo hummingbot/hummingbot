@@ -1,4 +1,4 @@
-import hummingbot.market.kraken.kraken_constants as constants
+import hummingbot.connector.exchange.kraken.kraken_constants as constants
 from typing import (
     Optional,
     Tuple)

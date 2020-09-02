@@ -22,10 +22,10 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.market.kraken.kraken_api_order_book_data_source import KrakenAPIOrderBookDataSource
-from hummingbot.market.kraken.kraken_auth import KrakenAuth
-import hummingbot.market.kraken.kraken_constants as constants
-from hummingbot.market.kraken.kraken_utils import (
+from hummingbot.connector.exchange.kraken.kraken_api_order_book_data_source import KrakenAPIOrderBookDataSource
+from hummingbot.connector.exchange.kraken.kraken_auth import KrakenAuth
+import hummingbot.connector.exchange.kraken.kraken_constants as constants
+from hummingbot.connector.exchange.kraken.kraken_utils import (
     convert_from_exchange_symbol,
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
@@ -51,9 +51,9 @@ from hummingbot.market.market_base import (
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.market.kraken.kraken_order_book_tracker import KrakenOrderBookTracker
-from hummingbot.market.kraken.kraken_user_stream_tracker import KrakenUserStreamTracker
-from hummingbot.market.kraken.kraken_in_flight_order import KrakenInFlightOrder
+from hummingbot.connector.exchange.kraken.kraken_order_book_tracker import KrakenOrderBookTracker
+from hummingbot.connector.exchange.kraken.kraken_user_stream_tracker import KrakenUserStreamTracker
+from hummingbot.connector.exchange.kraken.kraken_in_flight_order import KrakenInFlightOrder
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.connector.trading_rule cimport TradingRule

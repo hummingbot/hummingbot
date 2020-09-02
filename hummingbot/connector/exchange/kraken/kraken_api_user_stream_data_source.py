@@ -14,8 +14,8 @@ import ujson
 import websockets
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.kraken.kraken_auth import KrakenAuth
-from hummingbot.market.kraken.kraken_order_book import KrakenOrderBook
+from hummingbot.connector.exchange.kraken.kraken_auth import KrakenAuth
+from hummingbot.connector.exchange.kraken.kraken_order_book import KrakenOrderBook
 
 KRAKEN_WS_URL = "wss://ws-auth.kraken.com/"
 

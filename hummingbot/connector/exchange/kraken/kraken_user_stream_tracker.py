@@ -12,8 +12,8 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.market.kraken.kraken_api_user_stream_data_source import KrakenAPIUserStreamDataSource
-from hummingbot.market.kraken.kraken_auth import KrakenAuth
+from hummingbot.connector.exchange.kraken.kraken_api_user_stream_data_source import KrakenAPIUserStreamDataSource
+from hummingbot.connector.exchange.kraken.kraken_auth import KrakenAuth
 
 
 class KrakenUserStreamTracker(UserStreamTracker):

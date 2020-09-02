@@ -6,7 +6,7 @@ from typing import (
 import base64
 import hashlib
 import hmac
-from hummingbot.market.kraken.kraken_tracking_nonce import get_tracking_nonce
+from hummingbot.connector.exchange.kraken.kraken_tracking_nonce import get_tracking_nonce
 
 
 class KrakenAuth:

@@ -21,9 +21,9 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.kraken.kraken_order_book import KrakenOrderBook
-import hummingbot.market.kraken.kraken_constants as constants
-from hummingbot.market.kraken.kraken_utils import (
+from hummingbot.connector.exchange.kraken.kraken_order_book import KrakenOrderBook
+import hummingbot.connector.exchange.kraken.kraken_constants as constants
+from hummingbot.connector.exchange.kraken.kraken_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair)
 
