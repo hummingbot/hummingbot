@@ -12,8 +12,8 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.market.kucoin.kucoin_api_user_stream_data_source import KucoinAPIUserStreamDataSource
-from hummingbot.market.kucoin.kucoin_auth import KucoinAuth
+from hummingbot.connector.exchange.kucoin.kucoin_api_user_stream_data_source import KucoinAPIUserStreamDataSource
+from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
 # from kucoin.client import Client as KucoinClient
 
 

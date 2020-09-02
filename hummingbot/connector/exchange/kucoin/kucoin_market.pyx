@@ -41,11 +41,11 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
-from hummingbot.market.kucoin.kucoin_auth import KucoinAuth
-from hummingbot.market.kucoin.kucoin_in_flight_order import KucoinInFlightOrder
-from hummingbot.market.kucoin.kucoin_order_book_tracker import KucoinOrderBookTracker
-from hummingbot.market.kucoin.kucoin_user_stream_tracker import KucoinUserStreamTracker
+from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
+from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
+from hummingbot.connector.exchange.kucoin.kucoin_in_flight_order import KucoinInFlightOrder
+from hummingbot.connector.exchange.kucoin.kucoin_order_book_tracker import KucoinOrderBookTracker
+from hummingbot.connector.exchange.kucoin.kucoin_user_stream_tracker import KucoinUserStreamTracker
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce

@@ -13,7 +13,7 @@ import ujson
 import websockets
 
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.market.kucoin.kucoin_auth import KucoinAuth
+from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
 from hummingbot.logger import HummingbotLogger
 
 KUCOIN_API_ENDPOINT = "https://api.kucoin.com"

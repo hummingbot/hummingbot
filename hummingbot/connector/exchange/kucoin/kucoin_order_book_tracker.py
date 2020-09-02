@@ -14,11 +14,11 @@ from typing import (
 
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.market.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
+from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
-from hummingbot.market.kucoin.kucoin_order_book_message import KucoinOrderBookMessage
-from hummingbot.market.kucoin.kucoin_active_order_tracker import KucoinActiveOrderTracker
+from hummingbot.connector.exchange.kucoin.kucoin_order_book_message import KucoinOrderBookMessage
+from hummingbot.connector.exchange.kucoin.kucoin_active_order_tracker import KucoinActiveOrderTracker
 
 
 class KucoinOrderBookTracker(OrderBookTracker):
