@@ -15,7 +15,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
-from hummingbot.market.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
+from hummingbot.connector.exchange.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
 from hummingbot.logger import HummingbotLogger
 
 

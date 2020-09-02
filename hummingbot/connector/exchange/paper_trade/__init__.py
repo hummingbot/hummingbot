@@ -17,7 +17,7 @@ from hummingbot.connector.exchange.binance.binance_market import BinanceMarket
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 
 from hummingbot.market.bittrex.bittrex_market import BittrexOrderBookTracker, BittrexMarket
-from hummingbot.market.liquid.liquid_market import LiquidOrderBookTracker, LiquidMarket
+from hummingbot.connector.exchange.liquid.liquid_market import LiquidOrderBookTracker, LiquidMarket
 from hummingbot.market.kucoin.kucoin_market import KucoinOrderBookTracker, KucoinMarket
 from hummingbot.market.kraken.kraken_market import KrakenOrderBookTracker, KrakenMarket
 from hummingbot.connector.exchange.crypto_com.crypto_com_exchange import CryptoComOrderBookTracker, CryptoComExchange

@@ -7,8 +7,8 @@ from os.path import join, realpath
 import sys
 
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.market.liquid.liquid_auth import LiquidAuth
-from hummingbot.market.liquid.liquid_user_stream_tracker import LiquidUserStreamTracker
+from hummingbot.connector.exchange.liquid.liquid_auth import LiquidAuth
+from hummingbot.connector.exchange.liquid.liquid_user_stream_tracker import LiquidUserStreamTracker
 
 sys.path.insert(0, realpath(join(__file__, "../../../")))
 logging.basicConfig(level=logging.DEBUG)

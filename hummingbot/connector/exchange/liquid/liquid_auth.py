@@ -2,7 +2,7 @@ import time
 import jwt
 from typing import Any, Dict
 
-from hummingbot.market.liquid.constants import Constants
+from hummingbot.connector.exchange.liquid.constants import Constants
 
 
 class LiquidAuth:

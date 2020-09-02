@@ -8,7 +8,7 @@ from typing import (
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
-from hummingbot.market.liquid.liquid_order_book_message import LiquidOrderBookMessage
+from hummingbot.connector.exchange.liquid.liquid_order_book_message import LiquidOrderBookMessage
 
 
 cdef class LiquidOrderBook(OrderBook):

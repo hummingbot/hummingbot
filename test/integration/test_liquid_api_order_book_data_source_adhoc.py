@@ -10,8 +10,8 @@ from test.integration.assets.mock_data.fixture_liquid import FixtureLiquid
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 # from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.market.liquid.liquid_order_book_message import LiquidOrderBookMessage
-from hummingbot.market.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
+from hummingbot.connector.exchange.liquid.liquid_order_book_message import LiquidOrderBookMessage
+from hummingbot.connector.exchange.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
 
 
 PATCH_BASE_PATH = \

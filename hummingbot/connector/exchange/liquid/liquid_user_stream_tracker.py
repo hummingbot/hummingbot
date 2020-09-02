@@ -13,8 +13,8 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.market.liquid.liquid_api_user_stream_data_source import LiquidAPIUserStreamDataSource
-from hummingbot.market.liquid.liquid_auth import LiquidAuth
+from hummingbot.connector.exchange.liquid.liquid_api_user_stream_data_source import LiquidAPIUserStreamDataSource
+from hummingbot.connector.exchange.liquid.liquid_auth import LiquidAuth
 
 
 class LiquidUserStreamTracker(UserStreamTracker):

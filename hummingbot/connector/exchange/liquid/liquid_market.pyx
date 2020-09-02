@@ -41,18 +41,18 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.liquid.constants import Constants
-from hummingbot.market.liquid.liquid_auth import LiquidAuth
-from hummingbot.market.liquid.liquid_order_book_tracker import LiquidOrderBookTracker
-from hummingbot.market.liquid.liquid_user_stream_tracker import LiquidUserStreamTracker
-from hummingbot.market.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
+from hummingbot.connector.exchange.liquid.constants import Constants
+from hummingbot.connector.exchange.liquid.liquid_auth import LiquidAuth
+from hummingbot.connector.exchange.liquid.liquid_order_book_tracker import LiquidOrderBookTracker
+from hummingbot.connector.exchange.liquid.liquid_user_stream_tracker import LiquidUserStreamTracker
+from hummingbot.connector.exchange.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.market.market_base import (
     OrderType,
 )
 from hummingbot.connector.trading_rule cimport TradingRule
-from hummingbot.market.liquid.liquid_in_flight_order import LiquidInFlightOrder
-from hummingbot.market.liquid.liquid_in_flight_order cimport LiquidInFlightOrder
+from hummingbot.connector.exchange.liquid.liquid_in_flight_order import LiquidInFlightOrder
+from hummingbot.connector.exchange.liquid.liquid_in_flight_order cimport LiquidInFlightOrder
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.utils.estimate_fee import estimate_fee
 
