@@ -48,9 +48,9 @@ from hummingbot.core.utils.async_utils import (
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.bamboo_relay.bamboo_relay_api_order_book_data_source import BambooRelayAPIOrderBookDataSource
-from hummingbot.market.bamboo_relay.bamboo_relay_in_flight_order cimport BambooRelayInFlightOrder
-from hummingbot.market.bamboo_relay.bamboo_relay_order_book_tracker import BambooRelayOrderBookTracker
+from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_api_order_book_data_source import BambooRelayAPIOrderBookDataSource
+from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_in_flight_order cimport BambooRelayInFlightOrder
+from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_order_book_tracker import BambooRelayOrderBookTracker
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
@@ -67,7 +67,7 @@ from hummingbot.wallet.ethereum.zero_ex.zero_ex_custom_utils_v3 import (
 )
 from hummingbot.wallet.ethereum.zero_ex.zero_ex_exchange_v3 import ZeroExExchange
 from hummingbot.wallet.ethereum.zero_ex.zero_ex_coordinator_v3 import ZeroExCoordinator
-from hummingbot.market.bamboo_relay.bamboo_relay_constants import (
+from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_constants import (
     BAMBOO_RELAY_REST_ENDPOINT,
     BAMBOO_RELAY_TEST_ENDPOINT,
     ZERO_EX_MAINNET_ERC20_PROXY,

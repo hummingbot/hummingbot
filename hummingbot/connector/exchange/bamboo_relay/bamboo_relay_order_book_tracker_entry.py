@@ -1,6 +1,6 @@
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
-from hummingbot.market.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
+from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_active_order_tracker import BambooRelayActiveOrderTracker
 
 
 class BambooRelayOrderBookTrackerEntry(OrderBookTrackerEntry):

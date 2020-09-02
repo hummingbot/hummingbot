@@ -10,7 +10,7 @@ from typing import (
 from sqlalchemy.engine import RowProxy
 
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.bamboo_relay.bamboo_relay_order_book_message import BambooRelayOrderBookMessage
+from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_order_book_message import BambooRelayOrderBookMessage
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
@@ -28,7 +28,7 @@ cdef class BambooRelayOrderBook(OrderBook):
         if _rrob_logger is None:
             _rrob_logger = logging.getLogger(__name__)
         return _rrob_logger
-    
+
     def __init__(self):
         super().__init__(dex=True)
 

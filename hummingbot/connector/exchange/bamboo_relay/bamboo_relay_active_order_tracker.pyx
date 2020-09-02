@@ -135,12 +135,12 @@ cdef class BambooRelayActiveOrderTracker:
                             if event["order"]["state"] == "FILLED":
                                 del self._order_price_map[order_hash]
                                 del self._active_bids[price][order_hash]
-                            else: # update the remaining amount of the order
+                            else:  # update the remaining amount of the order
                                 self._active_bids[price][order_hash]["remainingBaseTokenAmount"] = remaining_base_amount
 
                             if len(self._active_bids[price]) < 1:
                                 del self._active_bids[price]
-                            
+
                             didUpdate = True
                 elif order_side == "ASK":
                     if price in self._active_asks:
@@ -148,12 +148,12 @@ cdef class BambooRelayActiveOrderTracker:
                             if event["order"]["state"] == "FILLED":
                                 del self._order_price_map[order_hash]
                                 del self._active_asks[price][order_hash]
-                            else: # update the remaining amount of the order
+                            else:  # update the remaining amount of the order
                                 self._active_asks[price][order_hash]["remainingBaseTokenAmount"] = remaining_base_amount
 
                             if len(self._active_asks[price]) < 1:
                                 del self._active_asks[price]
-                            
+
                             didUpdate = True
         # Return the re-sorted snapshot tables.
         cdef:
@@ -247,7 +247,6 @@ cdef class BambooRelayActiveOrderTracker:
 
         return np.array([message.timestamp, trade_type_value, float(price), float(filled_base_amount)],
                         dtype="float64")
-
 
     def convert_diff_message_to_order_book_row(self, message):
         np_bids, np_asks = self.c_convert_diff_message_to_np_arrays(message)
