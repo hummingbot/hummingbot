@@ -316,8 +316,8 @@ class HuobiMarketUnitTest(unittest.TestCase):
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
         self.assertEqual(order_id, buy_order_completed_event.order_id)
         self.assertAlmostEqual(quantized_amount, buy_order_completed_event.base_asset_amount, places=4)
-        self.assertEqual("eth", buy_order_completed_event.base_asset)
-        self.assertEqual("usdt", buy_order_completed_event.quote_asset)
+        self.assertEqual("ETH", buy_order_completed_event.base_asset)
+        self.assertEqual("USDT", buy_order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, buy_order_completed_event.base_asset_amount, places=4)
         self.assertAlmostEqual(quote_amount_traded, buy_order_completed_event.quote_asset_amount, places=4)
         self.assertGreater(buy_order_completed_event.fee_amount, Decimal(0))
@@ -344,8 +344,8 @@ class HuobiMarketUnitTest(unittest.TestCase):
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
         self.assertEqual(order_id, sell_order_completed_event.order_id)
         self.assertAlmostEqual(quantized_amount, sell_order_completed_event.base_asset_amount)
-        self.assertEqual("eth", sell_order_completed_event.base_asset)
-        self.assertEqual("usdt", sell_order_completed_event.quote_asset)
+        self.assertEqual("ETH", sell_order_completed_event.base_asset)
+        self.assertEqual("USDT", sell_order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, sell_order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, sell_order_completed_event.quote_asset_amount)
         self.assertGreater(sell_order_completed_event.fee_amount, Decimal(0))
@@ -447,7 +447,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
             self.market: HuobiMarket = HuobiMarket(
                 huobi_api_key=API_KEY,
                 huobi_secret_key=API_SECRET,
-                trading_pairs=["ETH-USDT", "btcusdt"]
+                trading_pairs=["ETH-USDT", "BTC-USDT"]
             )
             for event_tag in self.events:
                 self.market.add_listener(event_tag, self.market_logger)
