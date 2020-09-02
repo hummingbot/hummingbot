@@ -7,7 +7,7 @@ from collections import (
 from typing import List, Dict
 from hummingbot import check_dev_mode
 from hummingbot.logger.application_warning import ApplicationWarning
-from hummingbot.market.market_base import MarketBase
+from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.ethereum import check_web3
@@ -165,13 +165,13 @@ class StatusCommand:
             else:
                 self._notify("  - ETH wallet check: ETH wallet is not connected.")
 
-        loading_markets: List[MarketBase] = []
+        loading_markets: List[ConnectorBase] = []
         for market in self.markets.values():
             if not market.ready:
                 loading_markets.append(market)
 
         if len(loading_markets) > 0:
-            self._notify(f"  - Exchange connectors check:  Waiting for exchange connectors " +
+            self._notify(f"  - Connectors check:  Waiting for connectors " +
                          ",".join([m.name.capitalize() for m in loading_markets]) + f" to get ready for trading. \n"
                          f"                    Please keep the bot running and try to start again in a few minutes. \n")
 
@@ -192,7 +192,7 @@ class StatusCommand:
                 if market.network_status is not NetworkStatus.CONNECTED
             ]
             for offline_market in offline_markets:
-                self._notify(f"  - Exchange connector check: {offline_market} is currently offline.")
+                self._notify(f"  - Connector check: {offline_market} is currently offline.")
             return False
         self.application_warning()
         self._notify(f"  - All checks: Confirmed.")

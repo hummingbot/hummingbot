@@ -60,10 +60,8 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
-# from hummingbot.market.market_base import MarketBase, s_decimal_NaN
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.market.paper_trade.trading_pair import TradingPair
-from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.estimate_fee import estimate_fee
 
 from .market_config import (

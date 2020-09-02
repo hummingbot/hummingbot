@@ -47,8 +47,8 @@ from hummingbot.core.event.events import (
     TradeType,
     TradeFee
 )
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.market.market_base import (
-    MarketBase,
     s_decimal_NaN,
 )
 from hummingbot.core.network_iterator import NetworkStatus
@@ -90,7 +90,7 @@ cdef class KrakenMarketTransactionTracker(TransactionTracker):
         self._owner.c_did_timeout_tx(tx_id)
 
 
-cdef class KrakenMarket(MarketBase):
+cdef class KrakenMarket(ExchangeBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
@@ -118,10 +118,6 @@ cdef class KrakenMarket(MarketBase):
                  kraken_api_key: str,
                  kraken_api_secret: str,
                  poll_interval: float = 10.0,
-                 order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
-                 OrderBookTrackerDataSourceType.EXCHANGE_API,
-                 user_stream_tracker_data_source_type: UserStreamTrackerDataSourceType =
-                 UserStreamTrackerDataSourceType.EXCHANGE_API,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
 
@@ -129,10 +125,7 @@ cdef class KrakenMarket(MarketBase):
         self._trading_required = trading_required
         self._order_book_tracker = KrakenOrderBookTracker(trading_pairs=trading_pairs)
         self._kraken_auth = KrakenAuth(kraken_api_key, kraken_api_secret)
-        self._user_stream_tracker = KrakenUserStreamTracker(
-            kraken_auth=self._kraken_auth,
-            data_source_type=user_stream_tracker_data_source_type
-        )
+        self._user_stream_tracker = KrakenUserStreamTracker(kraken_auth=self._kraken_auth)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
@@ -143,7 +136,6 @@ cdef class KrakenMarket(MarketBase):
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
         self._trade_fees = {}  # Dict[trading_pair:str, (maker_fee_percent:Decimal, taken_fee_percent:Decimal)]
         self._last_update_trade_fees_timestamp = 0
-        self._data_source_type = order_book_tracker_data_source_type
         self._status_polling_task = None
         self._user_stream_tracker_task = None
         self._user_stream_event_listener_task = None
@@ -619,10 +611,10 @@ cdef class KrakenMarket(MarketBase):
 
     cdef c_start(self, Clock clock, double timestamp):
         self._tx_tracker.c_start(clock, timestamp)
-        MarketBase.c_start(self, clock, timestamp)
+        ExchangeBase.c_start(self, clock, timestamp)
 
     cdef c_stop(self, Clock clock):
-        MarketBase.c_stop(self, clock)
+        ExchangeBase.c_stop(self, clock)
         self._async_scheduler.stop()
 
     async def start_network(self):
@@ -664,7 +656,7 @@ cdef class KrakenMarket(MarketBase):
         cdef:
             int64_t last_tick = <int64_t>(self._last_timestamp / self._poll_interval)
             int64_t current_tick = <int64_t>(timestamp / self._poll_interval)
-        MarketBase.c_tick(self, timestamp)
+        ExchangeBase.c_tick(self, timestamp)
         self._tx_tracker.c_tick(timestamp)
         if current_tick > last_tick:
             if not self._poll_notifier.is_set():
@@ -1041,10 +1033,33 @@ cdef class KrakenMarket(MarketBase):
     cdef object c_quantize_order_amount(self, str trading_pair, object amount, object price=s_decimal_0):
         cdef:
             TradingRule trading_rule = self._trading_rules[trading_pair]
-            object quantized_amount = MarketBase.c_quantize_order_amount(self, trading_pair, amount)
+            object quantized_amount = ExchangeBase.c_quantize_order_amount(self, trading_pair, amount)
 
         global s_decimal_0
         if quantized_amount < trading_rule.min_order_size:
             return s_decimal_0
 
         return quantized_amount
+
+    def get_price(self, trading_pair: str, is_buy: bool) -> Decimal:
+        return self.c_get_price(trading_pair, is_buy)
+
+    def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+            price: Decimal = s_decimal_NaN, **kwargs) -> str:
+        return self.c_buy(trading_pair, amount, order_type, price, kwargs)
+
+    def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+             price: Decimal = s_decimal_NaN, **kwargs) -> str:
+        return self.c_sell(trading_pair, amount, order_type, price, kwargs)
+
+    def cancel(self, trading_pair: str, client_order_id: str):
+        return self.c_cancel(trading_pair, client_order_id)
+
+    def get_fee(self,
+                base_currency: str,
+                quote_currency: str,
+                order_type: OrderType,
+                order_side: TradeType,
+                amount: Decimal,
+                price: Decimal = s_decimal_NaN) -> TradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)

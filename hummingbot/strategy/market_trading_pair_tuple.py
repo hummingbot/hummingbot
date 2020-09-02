@@ -5,12 +5,12 @@ from typing import (
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_query_result import ClientOrderBookQueryResult
 from hummingbot.core.data_type.order_book_row import ClientOrderBookRow
-from hummingbot.market.market_base import MarketBase
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.event.events import PriceType
 
 
 class MarketTradingPairTuple(NamedTuple):
-    market: MarketBase
+    market: ExchangeBase
     trading_pair: str
     base_asset: str
     quote_asset: str

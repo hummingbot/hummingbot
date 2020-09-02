@@ -54,9 +54,9 @@ from hummingbot.market.bamboo_relay.bamboo_relay_api_order_book_data_source impo
 from hummingbot.market.bamboo_relay.bamboo_relay_in_flight_order cimport BambooRelayInFlightOrder
 from hummingbot.market.bamboo_relay.bamboo_relay_order_book_tracker import BambooRelayOrderBookTracker
 from hummingbot.market.trading_rule cimport TradingRule
-from hummingbot.market.market_base cimport MarketBase
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.market.market_base import (
-    MarketBase,
     OrderType,
     NaN,
     s_decimal_NaN)
@@ -119,7 +119,7 @@ cdef class BambooRelayTransactionTracker(TransactionTracker):
         self._owner.c_did_timeout_tx(tx_id)
 
 
-cdef class BambooRelayMarket(MarketBase):
+cdef class BambooRelayMarket(ExchangeBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
@@ -150,8 +150,6 @@ cdef class BambooRelayMarket(MarketBase):
                  wallet: Web3Wallet,
                  ethereum_rpc_url: str,
                  poll_interval: float = 5.0,
-                 order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
-                 OrderBookTrackerDataSourceType.EXCHANGE_API,
                  trading_pairs: Optional[List[str]] = None,
                  use_coordinator: Optional[bool] = True,
                  pre_emptive_soft_cancels: Optional[bool] = True,
@@ -1695,7 +1693,7 @@ cdef class BambooRelayMarket(MarketBase):
             int64_t current_tick = <int64_t>(timestamp / self._poll_interval)
 
         self._tx_tracker.c_tick(timestamp)
-        MarketBase.c_tick(self, timestamp)
+        ExchangeBase.c_tick(self, timestamp)
         if current_tick > last_tick:
             if not self._poll_notifier.is_set():
                 self._poll_notifier.set()
@@ -1798,10 +1796,33 @@ cdef class BambooRelayMarket(MarketBase):
         cdef:
             TradingRule trading_rule = self._trading_rules[trading_pair]
         global s_decimal_0
-        quantized_amount = MarketBase.c_quantize_order_amount(self, trading_pair, min(amount, trading_rule.max_order_size))
+        quantized_amount = ExchangeBase.c_quantize_order_amount(self, trading_pair, min(amount, trading_rule.max_order_size))
 
         # Check against min_order_size. If not passing the check, return 0.
         if quantized_amount < trading_rule.min_order_size:
             return s_decimal_0
 
         return quantized_amount
+
+    def get_price(self, trading_pair: str, is_buy: bool) -> Decimal:
+        return self.c_get_price(trading_pair, is_buy)
+
+    def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+            price: Decimal = s_decimal_NaN, **kwargs) -> str:
+        return self.c_buy(trading_pair, amount, order_type, price, kwargs)
+
+    def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+             price: Decimal = s_decimal_NaN, **kwargs) -> str:
+        return self.c_sell(trading_pair, amount, order_type, price, kwargs)
+
+    def cancel(self, trading_pair: str, client_order_id: str):
+        return self.c_cancel(trading_pair, client_order_id)
+
+    def get_fee(self,
+                base_currency: str,
+                quote_currency: str,
+                order_type: OrderType,
+                order_side: TradeType,
+                amount: Decimal,
+                price: Decimal = s_decimal_NaN) -> TradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)

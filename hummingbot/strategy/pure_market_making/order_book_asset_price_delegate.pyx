@@ -1,10 +1,10 @@
 from hummingbot.core.event.events import PriceType
 from .asset_price_delegate cimport AssetPriceDelegate
-from hummingbot.market.market_base import MarketBase
+from hummingbot.connector.exchange_base import ExchangeBase
 from decimal import Decimal
 
 cdef class OrderBookAssetPriceDelegate(AssetPriceDelegate):
-    def __init__(self, market: MarketBase, trading_pair: str):
+    def __init__(self, market: ExchangeBase, trading_pair: str):
         super().__init__()
         self._market = market
         self._trading_pair = trading_pair

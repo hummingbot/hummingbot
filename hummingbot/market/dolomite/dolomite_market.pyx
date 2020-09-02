@@ -21,7 +21,7 @@ from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
-from hummingbot.market.market_base cimport MarketBase
+from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.market.dolomite.dolomite_order_book_tracker import DolomiteOrderBookTracker
@@ -120,7 +120,7 @@ cdef class DolomiteMarketTransactionTracker(TransactionTracker):
         TransactionTracker.c_did_timeout_tx(self, tx_id)
         self._owner.c_did_timeout_tx(tx_id)
 
-cdef class DolomiteMarket(MarketBase):
+cdef class DolomiteMarket(ExchangeBase):
     # This causes it to hang when starting network
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -133,8 +133,6 @@ cdef class DolomiteMarket(MarketBase):
                  wallet: Web3Wallet,
                  ethereum_rpc_url: str,
                  poll_interval: float = 10.0,
-                 order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
-                 OrderBookTrackerDataSourceType.EXCHANGE_API,
                  trading_pairs: Optional[List[str]] = None,
                  isTestNet: bool = False,
                  trading_required: bool = True):
@@ -144,7 +142,7 @@ cdef class DolomiteMarket(MarketBase):
         self.API_REST_ENDPOINT = TESTNET_API_REST_ENDPOINT if isTestNet else MAINNET_API_REST_ENDPOINT
         self.WS_ENDPOINT = TESTNET_WS_ENDPOINT if isTestNet else MAINNET_WS_ENDPOINT
         self._order_book_tracker = DolomiteOrderBookTracker(
-            data_source_type=order_book_tracker_data_source_type,
+            OrderBookTrackerDataSourceType.EXCHANGE_API,
             trading_pairs=trading_pairs,
             rest_api_url=self.API_REST_ENDPOINT,
             websocket_url=self.WS_ENDPOINT
@@ -734,7 +732,7 @@ cdef class DolomiteMarket(MarketBase):
             int64_t current_tick = <int64_t> (timestamp / self._poll_interval)
 
         self._tx_tracker.c_tick(timestamp)
-        MarketBase.c_tick(self, timestamp)
+        ExchangeBase.c_tick(self, timestamp)
         if current_tick > last_tick:
             if not self._poll_notifier.is_set():
                 self._poll_notifier.set()

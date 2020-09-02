@@ -1,9 +1,9 @@
-from hummingbot.market.market_base cimport MarketBase
+from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 from libc.stdint cimport int32_t
 
 
-cdef class KrakenMarket(MarketBase):
+cdef class KrakenMarket(ExchangeBase):
     cdef:
         object _user_stream_tracker
         object _ev_loop
@@ -17,7 +17,6 @@ cdef class KrakenMarket(MarketBase):
         dict _trading_rules
         dict _trade_fees
         double _last_update_trade_fees_timestamp
-        object _data_source_type
         public object _status_polling_task
         public object _user_stream_event_listener_task
         public object _user_stream_tracker_task

@@ -49,8 +49,8 @@ from hummingbot.market.eterbase.eterbase_auth import EterbaseAuth
 from hummingbot.market.eterbase.eterbase_order_book_tracker import EterbaseOrderBookTracker
 from hummingbot.market.eterbase.eterbase_user_stream_tracker import EterbaseUserStreamTracker
 from hummingbot.market.eterbase.eterbase_api_order_book_data_source import EterbaseAPIOrderBookDataSource
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.market.market_base import (
-    MarketBase,
     OrderType,
 )
 from hummingbot.market.eterbase.eterbase_utils import (
@@ -89,7 +89,7 @@ cdef class EterbaseMarketTransactionTracker(TransactionTracker):
         self._owner.c_did_timeout_tx(tx_id)
 
 
-cdef class EterbaseMarket(MarketBase):
+cdef class EterbaseMarket(ExchangeBase):
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
     MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
@@ -115,8 +115,6 @@ cdef class EterbaseMarket(MarketBase):
                  eterbase_secret_key: str,
                  eterbase_account: str,
                  poll_interval: float = 5.0,
-                 order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
-                 OrderBookTrackerDataSourceType.EXCHANGE_API,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
         super().__init__()
@@ -136,7 +134,6 @@ cdef class EterbaseMarket(MarketBase):
         self._in_flight_orders = dict()
         self._tx_tracker = EterbaseMarketTransactionTracker(self)
         self._trading_rules = {}
-        self._data_source_type = order_book_tracker_data_source_type
         self._status_polling_task = None
         self._order_tracker_task = None
         self._user_stream_tracker_task = None
@@ -244,7 +241,7 @@ cdef class EterbaseMarket(MarketBase):
         c_start function used by top level Clock to orchestrate components of the bot
         """
         self._tx_tracker.c_start(clock, timestamp)
-        MarketBase.c_start(self, clock, timestamp)
+        ExchangeBase.c_start(self, clock, timestamp)
 
     async def start_network(self):
         """
@@ -306,7 +303,7 @@ cdef class EterbaseMarket(MarketBase):
             int64_t last_tick = <int64_t>(self._last_timestamp / self._poll_interval)
             int64_t current_tick = <int64_t>(timestamp / self._poll_interval)
 
-        MarketBase.c_tick(self, timestamp)
+        ExchangeBase.c_tick(self, timestamp)
         if current_tick > last_tick:
             if not self._poll_notifier.is_set():
                 self._poll_notifier.set()
@@ -1240,10 +1237,31 @@ cdef class EterbaseMarket(MarketBase):
         cdef:
             EterbaseTradingRule trading_rule = self._trading_rules[trading_pair]
 
-        quantized_price = MarketBase.c_quantize_order_price(self, trading_pair, price)
+        quantized_price = ExchangeBase.c_quantize_order_price(self, trading_pair, price)
 
         quantized_price = self.c_round_to_sig_digits(quantized_price, trading_rule.max_price_significant_digits)
 
         return quantized_price
 
+    def get_price(self, trading_pair: str, is_buy: bool) -> Decimal:
+        return self.c_get_price(trading_pair, is_buy)
 
+    def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+            price: Decimal = s_decimal_nan, **kwargs) -> str:
+        return self.c_buy(trading_pair, amount, order_type, price, kwargs)
+
+    def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+             price: Decimal = s_decimal_nan, **kwargs) -> str:
+        return self.c_sell(trading_pair, amount, order_type, price, kwargs)
+
+    def cancel(self, trading_pair: str, client_order_id: str):
+        return self.c_cancel(trading_pair, client_order_id)
+
+    def get_fee(self,
+                base_currency: str,
+                quote_currency: str,
+                order_type: OrderType,
+                order_side: TradeType,
+                amount: Decimal,
+                price: Decimal = s_decimal_nan) -> TradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)

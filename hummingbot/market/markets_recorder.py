@@ -31,7 +31,7 @@ from hummingbot.core.event.events import (
     TradeFee
 )
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
-from hummingbot.market.market_base import MarketBase
+from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.order_status import OrderStatus
@@ -47,7 +47,7 @@ class MarketsRecorder:
 
     def __init__(self,
                  sql: SQLConnectionManager,
-                 markets: List[MarketBase],
+                 markets: List[ConnectorBase],
                  config_file_path: str,
                  strategy_name: str):
         if threading.current_thread() != threading.main_thread():
@@ -55,7 +55,7 @@ class MarketsRecorder:
 
         self._ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         self._sql: SQLConnectionManager = sql
-        self._markets: List[MarketBase] = markets
+        self._markets: List[ConnectorBase] = markets
         self._config_file_path: str = config_file_path
         self._strategy_name: str = strategy_name
 
@@ -107,7 +107,7 @@ class MarketsRecorder:
             for event_pair in self._event_pairs:
                 market.remove_listener(event_pair[0], event_pair[1])
 
-    def get_orders_for_config_and_market(self, config_file_path: str, market: MarketBase) -> List[Order]:
+    def get_orders_for_config_and_market(self, config_file_path: str, market: ConnectorBase) -> List[Order]:
         session: Session = self.session
         query: Query = (session
                         .query(Order)
@@ -127,7 +127,7 @@ class MarketsRecorder:
         else:
             return query.limit(number_of_rows).all()
 
-    def save_market_states(self, config_file_path: str, market: MarketBase, no_commit: bool = False):
+    def save_market_states(self, config_file_path: str, market: ConnectorBase, no_commit: bool = False):
         session: Session = self.session
         market_states: Optional[MarketState] = self.get_market_states(config_file_path, market)
         timestamp: int = self.db_timestamp
@@ -145,13 +145,13 @@ class MarketsRecorder:
         if not no_commit:
             session.commit()
 
-    def restore_market_states(self, config_file_path: str, market: MarketBase):
+    def restore_market_states(self, config_file_path: str, market: ConnectorBase):
         market_states: Optional[MarketState] = self.get_market_states(config_file_path, market)
 
         if market_states is not None:
             market.restore_tracking_states(market_states.saved_state)
 
-    def get_market_states(self, config_file_path: str, market: MarketBase) -> Optional[MarketState]:
+    def get_market_states(self, config_file_path: str, market: ConnectorBase) -> Optional[MarketState]:
         session: Session = self.session
         query: Query = (session
                         .query(MarketState)
@@ -162,7 +162,7 @@ class MarketsRecorder:
 
     def _did_create_order(self,
                           event_tag: int,
-                          market: MarketBase,
+                          market: ConnectorBase,
                           evt: Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]):
         if threading.current_thread() != threading.main_thread():
             self._ev_loop.call_soon_threadsafe(self._did_create_order, event_tag, market, evt)
@@ -195,7 +195,7 @@ class MarketsRecorder:
 
     def _did_fill_order(self,
                         event_tag: int,
-                        market: MarketBase,
+                        market: ConnectorBase,
                         evt: OrderFilledEvent):
         if threading.current_thread() != threading.main_thread():
             self._ev_loop.call_soon_threadsafe(self._did_fill_order, event_tag, market, evt)
@@ -255,7 +255,7 @@ class MarketsRecorder:
 
     def _update_order_status(self,
                              event_tag: int,
-                             market: MarketBase,
+                             market: ConnectorBase,
                              evt: Union[OrderCancelledEvent,
                                         MarketOrderFailureEvent,
                                         BuyOrderCompletedEvent,
@@ -285,24 +285,24 @@ class MarketsRecorder:
 
     def _did_cancel_order(self,
                           event_tag: int,
-                          market: MarketBase,
+                          market: ConnectorBase,
                           evt: OrderCancelledEvent):
         self._update_order_status(event_tag, market, evt)
 
     def _did_fail_order(self,
                         event_tag: int,
-                        market: MarketBase,
+                        market: ConnectorBase,
                         evt: MarketOrderFailureEvent):
         self._update_order_status(event_tag, market, evt)
 
     def _did_complete_order(self,
                             event_tag: int,
-                            market: MarketBase,
+                            market: ConnectorBase,
                             evt: Union[BuyOrderCompletedEvent, SellOrderCompletedEvent]):
         self._update_order_status(event_tag, market, evt)
 
     def _did_expire_order(self,
                           event_tag: int,
-                          market: MarketBase,
+                          market: ConnectorBase,
                           evt: OrderExpiredEvent):
         self._update_order_status(event_tag, market, evt)
