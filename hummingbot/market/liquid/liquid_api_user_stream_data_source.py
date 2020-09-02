@@ -16,7 +16,6 @@ import websockets
 from websockets.exceptions import ConnectionClosed
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.market.liquid.constants import Constants
 from hummingbot.market.liquid.liquid_auth import LiquidAuth
 from hummingbot.market.liquid.liquid_order_book import LiquidOrderBook
@@ -64,6 +63,7 @@ class LiquidAPIUserStreamDataSource(UserStreamTrackerDataSource):
             try:
                 async with websockets.connect(Constants.BAEE_WS_URL) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
+                    ev_loop.create_task(self.custom_ping(ws))
 
                     # Send a auth request first
                     auth_request: Dict[str, Any] = {
@@ -92,15 +92,10 @@ class LiquidAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
                         event_type = diff_msg.get('event', None)
                         if event_type == 'updated':
-                            # Channel example: 'user_executions_cash_ethusd'
-                            trading_pair = diff_msg.get('channel').split('_')[-1].upper()
-                            diff_timestamp: float = time.time()
-                            diff_msg: OrderBookMessage = LiquidOrderBook.diff_message_from_exchange(
-                                diff_msg,
-                                diff_timestamp,
-                                metadata={"trading_pair": trading_pair}
-                            )
                             output.put_nowait(diff_msg)
+                            self._last_recv_time = time.time()
+                        elif event_type == "pusher:pong":
+                            self._last_recv_time = time.time()
                         elif not event_type:
                             raise ValueError(f"Liquid Websocket message does not contain an event type - {diff_msg}")
             except asyncio.CancelledError:
@@ -120,21 +115,26 @@ class LiquidAPIUserStreamDataSource(UserStreamTrackerDataSource):
         # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
         try:
             while True:
-                try:
-                    msg: str = await asyncio.wait_for(ws.recv(), timeout=Constants.MESSAGE_TIMEOUT)
-                    self._last_recv_time = time.time()
-                    yield msg
-                except asyncio.TimeoutError:
-                    try:
-                        pong_waiter = await ws.ping()
-                        self._last_recv_time = time.time()
-                        await asyncio.wait_for(pong_waiter, timeout=Constants.PING_TIMEOUT)
-                    except asyncio.TimeoutError:
-                        raise
+                msg: str = await asyncio.wait_for(ws.recv(), timeout=Constants.MESSAGE_TIMEOUT)
+                yield msg
         except asyncio.TimeoutError:
-            self.logger().warning("WebSocket ping timed out. Going to reconnect...")
+            self.logger().warning("WebSocket message timed out. Going to reconnect...")
             return
         except ConnectionClosed:
             return
         finally:
             await ws.close()
+
+    async def custom_ping(self, ws: websockets.WebSocketClientProtocol):
+        """
+        Sends a ping meassage to the Liquid websocket
+        :param ws: current web socket connection
+        """
+
+        ping_data: Dict[str, Any] = {"event": "pusher:ping", "data": {}}
+        try:
+            while True:
+                await ws.send(ujson.dumps(ping_data))
+                await asyncio.sleep(60.0)
+        except Exception:
+            return
