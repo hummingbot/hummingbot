@@ -40,7 +40,7 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.market.liquid.liquid_market import LiquidMarket, Constants
+from hummingbot.connector.exchange.liquid.liquid_market import LiquidMarket, Constants
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order

@@ -16,9 +16,9 @@ import websockets
 from websockets.exceptions import ConnectionClosed
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.market.liquid.constants import Constants
-from hummingbot.market.liquid.liquid_auth import LiquidAuth
-from hummingbot.market.liquid.liquid_order_book import LiquidOrderBook
+from hummingbot.connector.exchange.liquid.constants import Constants
+from hummingbot.connector.exchange.liquid.liquid_auth import LiquidAuth
+from hummingbot.connector.exchange.liquid.liquid_order_book import LiquidOrderBook
 
 
 class LiquidAPIUserStreamDataSource(UserStreamTrackerDataSource):

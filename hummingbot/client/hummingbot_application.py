@@ -16,9 +16,9 @@ from hummingbot.market.bittrex.bittrex_market import BittrexMarket
 from hummingbot.market.kucoin.kucoin_market import KucoinMarket
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.huobi.huobi_market import HuobiMarket
-from hummingbot.market.liquid.liquid_market import LiquidMarket
+from hummingbot.connector.exchange.liquid.liquid_market import LiquidMarket
 from hummingbot.market.eterbase.eterbase_market import EterbaseMarket
-from hummingbot.market.paper_trade import create_paper_trade_market
+from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
 from hummingbot.connector.exchange.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
