@@ -1,4 +1,5 @@
 import platform
+import threading
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from typing import TYPE_CHECKING
 
@@ -9,6 +10,9 @@ if TYPE_CHECKING:
 class StopCommand:
     def stop(self,  # type: HummingbotApplication
              skip_order_cancellation: bool = False):
+        if threading.current_thread() != threading.main_thread():
+            self.ev_loop.call_soon_threadsafe(self.stop)
+            return
         safe_ensure_future(self.stop_loop(skip_order_cancellation), loop=self.ev_loop)
 
     async def stop_loop(self,  # type: HummingbotApplication

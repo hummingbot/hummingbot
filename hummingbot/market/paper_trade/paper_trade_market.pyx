@@ -60,7 +60,8 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.market.market_base import MarketBase, s_decimal_NaN
+# from hummingbot.market.market_base import MarketBase, s_decimal_NaN
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.market.paper_trade.trading_pair import TradingPair
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.estimate_fee import estimate_fee
@@ -140,9 +141,9 @@ cdef class QueuedOrder:
 
 cdef class OrderBookTradeListener(EventListener):
     cdef:
-        MarketBase _market
+        ExchangeBase _market
 
-    def __init__(self, market: MarketBase):
+    def __init__(self, market: ExchangeBase):
         super().__init__()
         self._market = market
 
@@ -154,9 +155,9 @@ cdef class OrderBookTradeListener(EventListener):
 
 cdef class OrderBookMarketOrderFillListener(EventListener):
     cdef:
-        MarketBase _market
+        ExchangeBase _market
 
-    def __init__(self, market: MarketBase):
+    def __init__(self, market: ExchangeBase):
         super().__init__()
         self._market = market
 
@@ -168,7 +169,7 @@ cdef class OrderBookMarketOrderFillListener(EventListener):
         order_book.record_filled_order(event_object)
 
 
-cdef class PaperTradeMarket(MarketBase):
+cdef class PaperTradeMarket(ExchangeBase):
     TRADE_EXECUTION_DELAY = 5.0
     ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
     SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
@@ -180,8 +181,9 @@ cdef class PaperTradeMarket(MarketBase):
     MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
 
     def __init__(self, order_book_tracker: OrderBookTracker, config: MarketConfig, target_market: type):
-        super(MarketBase, self).__init__()
         order_book_tracker.data_source.order_book_create_function = lambda: CompositeOrderBook()
+        self._order_book_tracker = order_book_tracker
+        super(ExchangeBase, self).__init__()
         self._account_balances = {}
         self._account_available_balances = {}
         self._paper_trade_market_initialized = False
@@ -189,7 +191,6 @@ cdef class PaperTradeMarket(MarketBase):
         self._config = config
         self._queued_orders = deque()
         self._quantization_params = {}
-        self._order_book_tracker = order_book_tracker
         self._order_book_trade_listener = OrderBookTradeListener(self)
         self._target_market = target_market
         self._market_order_filled_listener = OrderBookMarketOrderFillListener(self)
@@ -301,7 +302,7 @@ cdef class PaperTradeMarket(MarketBase):
     # </editor-fold>
 
     cdef c_start(self, Clock clock, double timestamp):
-        MarketBase.c_start(self, clock, timestamp)
+        ExchangeBase.c_start(self, clock, timestamp)
 
     async def start_network(self):
         await self.stop_network()
@@ -323,7 +324,7 @@ cdef class PaperTradeMarket(MarketBase):
         return self._account_balances[currency.upper()]
 
     cdef c_tick(self, double timestamp):
-        MarketBase.c_tick(self, timestamp)
+        ExchangeBase.c_tick(self, timestamp)
         self.c_process_market_orders()
         self.c_process_crossed_limit_orders()
 

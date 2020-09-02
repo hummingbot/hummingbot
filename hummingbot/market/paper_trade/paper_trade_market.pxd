@@ -6,7 +6,8 @@ from libcpp.utility cimport pair
 from hummingbot.core.data_type.LimitOrder cimport LimitOrder as CPPLimitOrder
 from hummingbot.core.data_type.OrderExpirationEntry cimport OrderExpirationEntry as CPPOrderExpirationEntry
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.market.market_base cimport MarketBase
+# from hummingbot.market.market_base cimport MarketBase
+from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.event.events import MarketEvent, OrderType
 
@@ -24,7 +25,7 @@ ctypedef cpp_set[CPPOrderExpirationEntry] LimitOrderExpirationSet
 ctypedef cpp_set[CPPOrderExpirationEntry].iterator LimitOrderExpirationSetIterator
 
 
-cdef class PaperTradeMarket(MarketBase):
+cdef class PaperTradeMarket(ExchangeBase):
     cdef:
         LimitOrders _bid_limit_orders
         LimitOrders _ask_limit_orders
