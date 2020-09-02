@@ -1,6 +1,8 @@
 name: ci
 
 on:
+  pusht:
+    branches: [ master, development ]
   pull_request:
     branches: [ master, development ]
 
@@ -91,6 +93,6 @@ jobs:
           HOOK_OS_NAME: ${{ runner.os }}
           WORKFLOW_NAME: ${{ github.workflow }}
         run: |
-          git clone https://github.com/DiscordHooks/github-actions-discord-webhook.git webhook
+          git clone --depth 1 https://github.com/DiscordHooks/github-actions-discord-webhook.git webhook
           bash webhook/send.sh $JOB_STATUS $WEBHOOK_URL
         shell: bash
