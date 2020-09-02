@@ -1,6 +1,6 @@
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
-from hummingbot.market.kucoin.kucoin_active_order_tracker import KucoinActiveOrderTracker
+from hummingbot.connector.exchange.kucoin.kucoin_active_order_tracker import KucoinActiveOrderTracker
 
 
 class KucoinOrderBookTrackerEntry(OrderBookTrackerEntry):

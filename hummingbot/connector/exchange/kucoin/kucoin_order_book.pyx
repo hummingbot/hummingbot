@@ -16,7 +16,7 @@ from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType
 )
-from hummingbot.market.kucoin.kucoin_order_book_message import KucoinOrderBookMessage
+from hummingbot.connector.exchange.kucoin.kucoin_order_book_message import KucoinOrderBookMessage
 
 _kob_logger = None
 

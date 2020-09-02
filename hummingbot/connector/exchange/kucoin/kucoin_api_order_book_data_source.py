@@ -19,8 +19,8 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.kucoin.kucoin_order_book import KucoinOrderBook
-from hummingbot.market.kucoin.kucoin_active_order_tracker import KucoinActiveOrderTracker
+from hummingbot.connector.exchange.kucoin.kucoin_order_book import KucoinOrderBook
+from hummingbot.connector.exchange.kucoin.kucoin_active_order_tracker import KucoinActiveOrderTracker
 
 
 SNAPSHOT_REST_URL = "https://api.kucoin.com/api/v2/market/orderbook/level2"
