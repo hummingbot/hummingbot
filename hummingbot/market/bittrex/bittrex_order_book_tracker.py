@@ -23,7 +23,6 @@ from hummingbot.market.bittrex.bittrex_api_order_book_data_source import Bittrex
 from hummingbot.market.bittrex.bittrex_order_book import BittrexOrderBook
 from hummingbot.market.bittrex.bittrex_order_book_message import BittrexOrderBookMessage
 from hummingbot.market.bittrex.bittrex_order_book_tracker_entry import BittrexOrderBookTrackerEntry
-from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class BittrexOrderBookTracker(OrderBookTracker):
@@ -195,23 +194,3 @@ class BittrexOrderBookTracker(OrderBookTracker):
                     app_warning_msg=f"Unexpected error processing order book messages. Retrying after 5 seconds.",
                 )
                 await asyncio.sleep(5.0)
-
-    def start(self):
-        self.stop()
-        self._init_order_books_task = safe_ensure_future(
-            self._init_order_books()
-        )
-        self._order_book_snapshot_listener_task = safe_ensure_future(
-            self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
-        )
-        self._order_book_diff_listener_task = safe_ensure_future(
-            self.data_source.listen_for_order_book_stream(self._ev_loop,
-                                                          self._order_book_snapshot_stream,
-                                                          self._order_book_diff_stream)
-        )
-        self._order_book_diff_router_task = safe_ensure_future(
-            self._order_book_diff_router()
-        )
-        self._order_book_snapshot_router_task = safe_ensure_future(
-            self._order_book_snapshot_router()
-        )

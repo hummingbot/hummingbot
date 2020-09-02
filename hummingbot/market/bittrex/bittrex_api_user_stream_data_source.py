@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import random
+import uuid
 import asyncio
 import hashlib
 import hmac
@@ -150,8 +150,8 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 await asyncio.sleep(30.0)
 
     async def authenticate(self):
-        timestamp = time.time()
-        randomized = ''.join(random.choice("HUMMINGBOT") for _ in range(10))
+        timestamp = int(round(time.time() * 1000))
+        randomized = str(uuid.uuid4())
         challenge = f"{timestamp}{randomized}"
         signed_challenge = hmac.new(self._bittrex_auth.secret_key.encode(), challenge.encode(), hashlib.sha512).hexdigest()
         self.hub.server.invoke("Authenticate", self._bittrex_auth.api_key, timestamp, randomized, signed_challenge)

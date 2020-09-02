@@ -472,8 +472,8 @@ cdef class BittrexMarket(MarketBase):
     async def _user_stream_event_listener(self):
         async for stream_message in self._iter_user_stream_queue():
             try:
-                content = stream_message.content.get("content")
-                event_type = stream_message.content.get("event_type")
+                content = stream_message.get("content")
+                event_type = stream_message.get("event_type")
 
                 if event_type == "balance":  # Updates total balance and available balance of specified currency
                     balance_delta = content["delta"]
@@ -484,7 +484,7 @@ cdef class BittrexMarket(MarketBase):
                     self._account_balances[asset_name] = total_balance
                 elif event_type == "order":  # Updates track order status
                     order = content["delta"]
-                    order_status = content["status"]
+                    order_status = order["status"]
                     order_id = order["id"]
 
                     tracked_order = None
@@ -529,47 +529,50 @@ cdef class BittrexMarket(MarketBase):
                                                  )
                                              ))
 
-                    if order_status == "CLOSED" and (order["quantity"] == order["fillQuantity"]):  # FILL(COMPLETE)
-                        tracked_order.last_state = "done"
-                        if tracked_order.trade_type is TradeType.BUY:
-                            self.logger().info(f"The LIMIT_BUY order {tracked_order.client_order_id} has completed "
-                                               f"according to order delta websocket API.")
-                            self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
-                                                 BuyOrderCompletedEvent(
-                                                     self._current_timestamp,
-                                                     tracked_order.client_order_id,
-                                                     tracked_order.base_asset,
-                                                     tracked_order.quote_asset,
-                                                     tracked_order.fee_asset or tracked_order.quote_asset,
-                                                     tracked_order.executed_amount_base,
-                                                     tracked_order.executed_amount_quote,
-                                                     tracked_order.fee_paid,
-                                                     tracked_order.order_type
-                                                 ))
-                        elif tracked_order.trade_type is TradeType.SELL:
-                            self.logger().info(f"The LIMIT_SELL order {tracked_order.client_order_id} has completed "
-                                               f"according to Order Delta WebSocket API.")
-                            self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
-                                                 SellOrderCompletedEvent(
-                                                     self._current_timestamp,
-                                                     tracked_order.client_order_id,
-                                                     tracked_order.base_asset,
-                                                     tracked_order.quote_asset,
-                                                     tracked_order.fee_asset or tracked_order.quote_asset,
-                                                     tracked_order.executed_amount_base,
-                                                     tracked_order.executed_amount_quote,
-                                                     tracked_order.fee_paid,
-                                                     tracked_order.order_type
-                                                 ))
-                        self.c_stop_tracking_order(tracked_order.client_order_id)
-                        continue
+                    if order_status == "CLOSED":
+                        if order["quantity"] == order["fillQuantity"]:
+                            tracked_order.last_state = "done"
+                            if tracked_order.trade_type is TradeType.BUY:
+                                self.logger().info(f"The BUY order {tracked_order.client_order_id} has completed "
+                                                   f"according to order delta websocket API.")
+                                self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
+                                                     BuyOrderCompletedEvent(
+                                                         self._current_timestamp,
+                                                         tracked_order.client_order_id,
+                                                         tracked_order.base_asset,
+                                                         tracked_order.quote_asset,
+                                                         tracked_order.fee_asset or tracked_order.quote_asset,
+                                                         tracked_order.executed_amount_base,
+                                                         tracked_order.executed_amount_quote,
+                                                         tracked_order.fee_paid,
+                                                         tracked_order.order_type
+                                                     ))
+                            elif tracked_order.trade_type is TradeType.SELL:
+                                self.logger().info(f"The SELL order {tracked_order.client_order_id} has completed "
+                                                   f"according to Order Delta WebSocket API.")
+                                self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
+                                                     SellOrderCompletedEvent(
+                                                         self._current_timestamp,
+                                                         tracked_order.client_order_id,
+                                                         tracked_order.base_asset,
+                                                         tracked_order.quote_asset,
+                                                         tracked_order.fee_asset or tracked_order.quote_asset,
+                                                         tracked_order.executed_amount_base,
+                                                         tracked_order.executed_amount_quote,
+                                                         tracked_order.fee_paid,
+                                                         tracked_order.order_type
+                                                     ))
+                            self.c_stop_tracking_order(tracked_order.client_order_id)
+                            continue
 
-                    else:  # CANCEL
-                        tracked_order.last_state = "cancelled"
-                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                             OrderCancelledEvent(self._current_timestamp,
-                                                                 tracked_order.client_order_id))
-                        self.c_stop_tracking_order(tracked_order.client_order_id)
+                        else:  # CANCEL
+                            self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled "
+                                               f"according to Order Delta WebSocket API.")
+                            tracked_order.last_state = "cancelled"
+                            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                                 OrderCancelledEvent(self._current_timestamp,
+                                                                     tracked_order.client_order_id))
+                            self.c_stop_tracking_order(tracked_order.client_order_id)
                 else:
                     # Ignores all other user stream message types
                     continue
