@@ -400,7 +400,7 @@ class CryptoComExchange(ExchangeBase):
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
 
-    async def _execute_cancel(self, trading_pair: str, order_id: str):
+    async def _execute_cancel(self, trading_pair: str, order_id: str, wait_for_status: bool = False):
         try:
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is None:
@@ -414,6 +414,8 @@ class CryptoComExchange(ExchangeBase):
                 True
             )
             if result["code"] == 0:
+                if wait_for_status:
+                    await tracked_order.cancelled_event.wait()
                 return order_id
         except asyncio.CancelledError:
             raise
@@ -424,7 +426,6 @@ class CryptoComExchange(ExchangeBase):
                 app_warning_msg=f"Failed to cancel the order {order_id} on CryptoCom. "
                                 f"Check API key and network connection."
             )
-        return None
 
     async def _status_polling_loop(self):
         while True:
@@ -496,12 +497,12 @@ class CryptoComExchange(ExchangeBase):
         # Update order execution status
         tracked_order.last_state = order_msg["status"]
         if tracked_order.is_cancelled:
-            tracked_order.cancelled_event.set()
             self.logger().info(f"Successfully cancelled order {client_order_id}.")
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(
                                    self.current_timestamp,
                                    client_order_id))
+            tracked_order.cancelled_event.set()
             self.stop_tracking_order(client_order_id)
         elif tracked_order.is_failure:
             self.logger().info(f"The market order {client_order_id} has failed according to order status API. "
@@ -567,16 +568,14 @@ class CryptoComExchange(ExchangeBase):
         :returns: List of CancellationResult which indicates whether each order is successfully cancelled.
         """
         incomplete_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
-        tasks = [self._execute_cancel(o.trading_pair, o.client_order_id) for o in incomplete_orders]
-        # await safe_gather(*tasks, return_exceptions=True)
+        tasks = [self._execute_cancel(o.trading_pair, o.client_order_id, True) for o in incomplete_orders]
         order_id_set = set([o.client_order_id for o in incomplete_orders])
         successful_cancellations = []
         try:
             async with timeout(timeout_seconds):
-                results = await safe_gather(*tasks, return_exceptions=True)
-                for result, track_order in zip(results, incomplete_orders):
+                results = await safe_gather(*tasks, return_exceptions=True, loop=self._ev_loop)
+                for result in results:
                     if result is not None and not isinstance(result, Exception):
-                        await track_order.cancelled_event.wait()
                         order_id_set.remove(result)
                         successful_cancellations.append(CancellationResult(result, True))
         except Exception:
