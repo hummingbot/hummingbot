@@ -37,7 +37,7 @@ class Constants:
     WS_PUSHER_SUBSCRIBE_EVENT = 'pusher:subscribe'
 
     # Timeouts
-    MESSAGE_TIMEOUT = 30.0
+    MESSAGE_TIMEOUT = 90.0
     PING_TIMEOUT = 10.0
 
     API_CALL_TIMEOUT = 10.0

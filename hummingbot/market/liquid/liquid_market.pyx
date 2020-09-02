@@ -628,8 +628,7 @@ cdef class LiquidMarket(MarketBase):
             # Calculate the newly executed amount for this update.
             new_confirmed_amount = Decimal(order_update["filled_quantity"])
             execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
-            execute_price = s_decimal_0 if new_confirmed_amount == s_decimal_0 \
-                else Decimal(order_update["average_price"])
+            execute_price = Decimal(order_update["price"])
 
             order_type_description = tracked_order.order_type_description
             order_type = tracked_order.order_type
@@ -660,7 +659,7 @@ cdef class LiquidMarket(MarketBase):
             # Update the tracked order
             tracked_order.last_state = order_status if order_status in {"filled", "canceled"} else order_update["status"]
             tracked_order.executed_amount_base = new_confirmed_amount
-            tracked_order.executed_amount_quote = Decimal(order_update["average_price"]) * tracked_order.executed_amount_base
+            tracked_order.executed_amount_quote = Decimal(order_update["price"]) * tracked_order.executed_amount_base
             tracked_order.fee_paid = Decimal(order_update["order_fee"])
             if tracked_order.is_done:
                 if not tracked_order.is_failure:
@@ -758,15 +757,15 @@ cdef class LiquidMarket(MarketBase):
         """
         async for event_message in self._iter_user_event_queue():
             try:
-                content = json.loads(event_message.content.get('data', {}))
-                event_type = content.get("status")
+                content = json.loads(event_message.get('data', {}))
+                event_status = content["status"]
 
                 # Order id retreived from exhcnage, that initially sent by client
-                exchange_order_id = content.get('id')
+                exchange_order_id = content["client_order_id"]
                 tracked_order = None
 
                 for order in self._in_flight_orders.values():
-                    if order.exchange_order_id == exchange_order_id:
+                    if order.client_order_id == exchange_order_id:
                         tracked_order = order
                         break
 
@@ -774,12 +773,12 @@ cdef class LiquidMarket(MarketBase):
                     continue
 
                 order_type_description = tracked_order.order_type_description
-                execute_price = Decimal(content.get("average_price", 0.0))
-                execute_amount_diff = s_decimal_0
+                execute_price = Decimal(content["price"])
+                execute_amount_diff = Decimal(content["filled_quantity"])
 
                 if execute_amount_diff > s_decimal_0:
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
-                                       f"{order_type_description} order {tracked_order.client_order_id}")
+                                       f"{order_type_description} order {tracked_order.client_order_id} according to Liquid user stream.")
                     self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
                                          OrderFilledEvent(
                                              self._current_timestamp,
@@ -800,7 +799,9 @@ cdef class LiquidMarket(MarketBase):
                                              exchange_trade_id=tracked_order.exchange_order_id
                                          ))
 
-                if content.get("status") == "filled":
+                if event_status == "filled":
+                    tracked_order.executed_amount_base = Decimal(content["filled_quantity"])
+                    tracked_order.executed_amount_quote = Decimal(content["filled_quantity"]) * Decimal(content["price"])
                     if tracked_order.trade_type == TradeType.BUY:
                         self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
                                            f"according to Liquid user stream.")
@@ -830,12 +831,12 @@ cdef class LiquidMarket(MarketBase):
                                                                      tracked_order.fee_paid,
                                                                      tracked_order.order_type))
                     self.c_stop_tracking_order(tracked_order.client_order_id)
-                else:  # status == "cancelled":
-                    execute_amount_diff = 0
+                elif event_status == "cancelled":  # status == "cancelled":
                     tracked_order.last_state = "cancelled"
+                    self.logger().info(f"The market order {tracked_order.client_order_id} has failed/been cancelled "
+                                       f"according to Liquid user stream.")
                     self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                          OrderCancelledEvent(self._current_timestamp, tracked_order.client_order_id))
-                    execute_amount_diff = 0
                     self.c_stop_tracking_order(tracked_order.client_order_id)
 
             except asyncio.CancelledError:
