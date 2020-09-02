@@ -6,8 +6,8 @@ from typing import Optional, List
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
-from hummingbot.market.huobi.huobi_api_user_stream_data_source import HuobiAPIUserStreamDataSource
-from hummingbot.market.huobi.huobi_auth import HuobiAuth
+from hummingbot.connector.exchange.huobi.huobi_api_user_stream_data_source import HuobiAPIUserStreamDataSource
+from hummingbot.connector.exchange.huobi.huobi_auth import HuobiAuth
 
 
 class HuobiUserStreamTracker(UserStreamTracker):
