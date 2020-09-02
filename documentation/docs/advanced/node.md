@@ -23,6 +23,18 @@ Below, we list different ways that you can access an Ethereum node.
 ![](/assets/img/infura3.png)
 5. The websocket address is below the Ethereum node that starts with `wss://`
 
+## Option 1a. QuikNode
+
+[QuikNode](https://www.quiknode.io/) is a popular and high-performance node service.
+
+1. Sign up for an account on QuikNode.io
+![](/assets/img/QuikNode1.png)
+2. Click on **CREATE NODE** after verifying your e-mail address.
+![](/assets/img/QuikNode2.png)
+3. Select **LAUNCH** plan as it'll give you free trial, then choose **ETH** as chain, select **Mainnet** as network, click on **CONTINUE TO BILLING** and complete the billing process.
+![](/assets/img/QuikNode3.png)
+4. Under the **Nodes** section you'll find your new node, click on the node and open the node dashboard.
+5. In **Get Started** option from left-vertical menu you can find websocket address under **WSS Provider**, you can simply copy and use it.
 
 ## Option 2. Run your own local node
 
