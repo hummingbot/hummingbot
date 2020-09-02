@@ -17,7 +17,7 @@ from hummingbot.core.data_type.order_book_tracker import (
     OrderBookTrackerDataSourceType)
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.remote_api_order_book_data_source import RemoteAPIOrderBookDataSource
-from hummingbot.market.kraken.kraken_api_order_book_data_source import KrakenAPIOrderBookDataSource
+from hummingbot.connector.exchange.kraken.kraken_api_order_book_data_source import KrakenAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.utils.async_utils import wait_til

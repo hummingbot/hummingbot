@@ -282,7 +282,7 @@ class TradingPairFetcher:
             async with aiohttp.ClientSession() as client:
                 async with client.get(KRAKEN_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                     if response.status == 200:
-                        from hummingbot.market.kraken.kraken_utils import convert_from_exchange_trading_pair
+                        from hummingbot.connector.exchange.kraken.kraken_utils import convert_from_exchange_trading_pair
                         data: Dict[str, Any] = await response.json()
                         raw_pairs = data.get("result", [])
                         converted_pairs: List[str] = []

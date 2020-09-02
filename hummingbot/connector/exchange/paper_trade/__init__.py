@@ -19,7 +19,7 @@ from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_market import Coinb
 from hummingbot.market.bittrex.bittrex_market import BittrexOrderBookTracker, BittrexMarket
 from hummingbot.connector.exchange.liquid.liquid_market import LiquidOrderBookTracker, LiquidMarket
 from hummingbot.connector.exchange.kucoin.kucoin_market import KucoinOrderBookTracker, KucoinMarket
-from hummingbot.market.kraken.kraken_market import KrakenOrderBookTracker, KrakenMarket
+from hummingbot.connector.exchange.kraken.kraken_market import KrakenOrderBookTracker, KrakenMarket
 from hummingbot.connector.exchange.crypto_com.crypto_com_exchange import CryptoComOrderBookTracker, CryptoComExchange
 
 ORDER_BOOK_TRACKER_CLASS = {
