@@ -24,17 +24,23 @@ Liquidity mining sets forth an analytical framework for determining market maker
 - [Get help on Discord](https://discord.hummingbot.io): Join the **#liquidity-mining** channel for 24/7 support
 
 ## Current campaign terms
-!!! note
-    Currently, only orders that have been outstanding for less than 30 minutes are eligible to earn rewards.  This imposed limit is due to errors created by longer-duration orders.  Work on removing this limit is in progress, read more [here](https://www.reddit.com/r/Hummingbot/comments/hz5xv3/tracking_rewards_for_orders_longer_than_30m/)
-!!! warning "Terms subject to change"
-    Please check this page or the [Miner's app](https://miners.hummingbot.io) for the most up-to-date terms.<br/>We will notify participants of changes, if any, on our [Discord](https://discord.hummingbot.io) and [reddit](https://www.reddit.com/r/Hummingbot/).
 
-!!! note "Campaign updates for the week starting July 28, 2020 12.00am UTC"
-    After discussions with miners and traders in our community, we have decided to revise the spread density function constant to increase rewards for placing orders with tighter spreads vs those placed at wider spreads.
-    
-    You can read more about it in our [Reddit post](https://www.reddit.com/r/Hummingbot/comments/hx9wy5/change_to_spread_factor_constant_more_rewards_for/).
+!!! warning "Important information regarding campaign terms"
+    <li>**Terms subject to change**. Please check this page or the [Miner's app](https://miners.hummingbot.io) for the most up-to-date terms.<br/>We will notify participants of changes, if any, on our [Discord](https://discord.hummingbot.io) and [reddit](https://www.reddit.com/r/Hummingbot/).
 
-**Current reward period: July 28, 2020 12.00am UTC to August 3, 2020 12.00am UTC**
+    <li>**Orders outstanding for more than 30 minutes not counted for rewards.** Work on removing this limit is in progress, you can read more about it in our [Reddit post](https://www.reddit.com/r/Hummingbot/comments/hz5xv3/tracking_rewards_for_orders_longer_than_30m/).
+    > <em>**Tip**: To ensure that orders do not stay outstanding for longer than 30 minutes, Hummingbot users should disable [order refresh tolerance](https://docs.hummingbot.io/strategies/advanced-mm/order-refresh-tolerance/#how-it-works).</em>
+
+    <li>**Minimum reward payout amount**: due to the recent surge in Ethereum gas price, Hummingbot will impose a $10.00 minimum on the weekly payout, starting with the next scheduled payout on August 21, 2020 (UTC). For miners who earn < $10 within one week, their rewards will be accrued and rolled over to the next period, read more [here](https://www.reddit.com/r/Hummingbot/comments/i9rh5g/announcement_a_10_minimum_to_liquidity_mining/).
+
+
+!!! note "Campaign updates for the week starting August 25, 2020 12.00am UTC"
+    **Native RLC rewards for iExec campaign**: we have rolled out [native token liquidity mining rewards](https://hummingbot.io/blog/2020-08-native-token-payments/)!  Since August 18, liquidity miners participating in RLC pairs have earned or will be earning RLC rewards.
+
+    **Liquidiy mining reward increases for RLC market**: total reward **RLC 540/week**, you can read more about it on this [reddit post](https://www.reddit.com/r/Hummingbot/comments/ifswoj/update_to_rlc_liquidity_mining_rewards_rlc_540week/).
+
+
+**Current reward period: August 25, 2020 12.00am UTC to September 1, 2020 12.00am UTC**
 
 <table>
   <thead>
@@ -91,70 +97,26 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>USDC 275</td>
     </tr>
     <tr>
-      <td rowspan="3"><a href="#nuls">NULS</a><br></td>
-      <td>NULS/BTC</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td>USDC 666</td>
-    </tr>
-    <tr>
-      <td>NULS/USDT</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td>USDC 667</td>
-    </tr>
-    <tr>
-      <td>NULS/ETH</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td>USDC 667</td>
-    </tr>
-    <tr>
       <td rowspan="3"><a href="#iexec">iExec</a><br></td>
       <td>RLC/BTC</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 250</td>
+      <td><b><em>RLC 180</em></b></td>
     </tr>
     <tr>
       <td>RLC/USDT</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 250</td>
+      <td><b><em>RLC 180</em></b></td>
     </tr>
     <tr>
       <td>RLC/ETH</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 250</td>
-    </tr>
-    <tr>
-      <td rowspan="3"><a href="#solana">Solana</a><br></td>
-      <td>SOL/BTC</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td>USDC 250</td>
-    </tr>
-    <tr>
-      <td>SOL/BUSD</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td>USDC 250</td>
-    </tr>
-    <tr>
-      <td>SOL/BNB</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td>USDC 125</td>
+      <td><b><em>RLC 180</em></b></td>
     </tr>
     <tr>
       <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
@@ -200,18 +162,6 @@ No upcoming changes.
 The [Mainframe (MFT)](https://mainframe.com/) Lending Protocol allows anyone to borrow against their crypto. Mainframe uses a bond-like instrument, representing an on-chain obligation that settles on a specific future date. Buying and selling the tokenized debt enables fixed-rate lending and borrowing — something much needed in decentralized finance today.
 
 [Blog](https://blog.mainframe.com) | [Twitter](https://twitter.com/Mainframe_HQ) | [Discord](https://discord.gg/mhtSRz6) | [Github](https://github.com/MainframeHQ) | [CoinMarketCap](https://coinmarketcap.com/currencies/mainframe/) | [CoinGecko](https://www.coingecko.com/en/coins/mainframe)
-
-### NULS
-
-[NULS](https://nuls.io) is a microservices-driven blockchain project that uses the Proof of Credit (PoC) consensus mechanism (dPoS plus credit rating) to mine via staking. The NULS modular design features NULSTAR, a microservices-based framework reportedly enabling enterprise-grade blockchain solutions for smart contracts, private chains, public chains, dApps and NRC-20 tokenization. NULS 1.0 mainnet launched in July, 2018. The main product of NULS is Chain Factory, a chain-building tool that allows businesses to utilize the plug-and-play selection of modules from the NULS Module Repository including cross-chain consensus for asset value circulation within the NULS ecosystem.
-
-[Blog](https://medium.com/@nuls) | [Twitter](https://twitter.com/Nuls) | [Github](https://github.com/nuls-io) | [CoinMarketCap](https://coinmarketcap.com/currencies/nuls/) | [CoinGecko](https://www.coingecko.com/en/coins/nuls)
-
-### Solana
-
-[Solana (SOL)](https://solana.com) is a high-performance blockchain based out of San Francisco. The project was founded with the mission to support all high-growth and high-frequency blockchain applications, and to democratize the world’s financial systems. As of today, Solana can support up to 50,000 transactions per second, with 400ms block times and transaction fees estimated to be $0.00001 each, which will continue to scale further as its network architecture was designed from the ground up to leverage improvements in hardware and bandwidth.
-
-[Whitepaper](https://solana.com/solana-whitepaper.pdf) | [Blog](https://medium.com/solana-labs) | [Podcast](https://podcast.solana.com/) | [Twitter](https://twitter.com/solana) | [Telegram](https://t.me/solanaio) | [Discord](https://discordapp.com/invite/pquxPsq) | [Github](https://github.com/solana-labs) | [CoinMarketCap](https://coinmarketcap.com/currencies/solana/markets/) | [CoinGecko](https://www.coingecko.com/en/coins/solana)
 
 ### Zcoin
 

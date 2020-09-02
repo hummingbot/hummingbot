@@ -26,9 +26,12 @@ These commands execute the helper scripts for running Hummingbot and are perform
 
 ### Updating your scripts
 
-Copy the commands below and paste into the shell or terminal to download and enable the automated scripts.
+We sometimes add/remove/edit commands in the helper scripts along with certain new features like the [Scripts](/release-notes/0.29.0/#new-feature-scripts) we released in version 0.29.0 and you would need to update your scripts.
+
+Copy the commands below and paste into the shell or terminal to delete the old scripts and download the most recently updated ones.
 
 ```bash tab="Linux"
+rm -rf create.sh start.sh update.sh
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh
@@ -36,6 +39,7 @@ chmod a+x *.sh
 ```
 
 ```bash tab="MacOS"
+rm -rf create.sh start.sh update.sh
 curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh -o create.sh
 curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh -o start.sh
 curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh -o update.sh
@@ -44,6 +48,7 @@ chmod a+x *.sh
 
 ```bash tab="Windows via Docker Toolbox"
 cd ~
+rm -rf create.sh start.sh update.sh
 curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh -o create.sh
 curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh -o start.sh
 curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/update.sh -o update.sh
