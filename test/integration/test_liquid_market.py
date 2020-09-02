@@ -233,7 +233,7 @@ class LiquidMarketUnitTest(unittest.TestCase):
         buy_price = bid_price * Decimal("0.9")
         buy_price = self.market.quantize_order_price(trading_pair, buy_price)
         amount = Decimal("1")
-        post_data = FixtureLiquid.ORDER_BUY.copy()
+        post_data = FixtureLiquid.BUY_MARKET_ORDER.copy()
         get_data = FixtureLiquid.ORDERS_UNFILLED.copy()
         if API_MOCK_ENABLED:
             resp = FixtureLiquid.CRYPTO_ACCOUNTS.copy()
@@ -257,7 +257,7 @@ class LiquidMarketUnitTest(unittest.TestCase):
         print(f"{quote} available: {quote_bal}")
 
         self.run_parallel(asyncio.sleep(5))
-        post_data = FixtureLiquid.ORDER_BUY.copy()
+        post_data = FixtureLiquid.BUY_MARKET_ORDER.copy()
         get_data = FixtureLiquid.ORDERS_UNFILLED.copy()
         get_data["models"].append(get_data["models"][0].copy())
         get_data["models"][0]["client_order_id"] = order_id_1
@@ -280,7 +280,7 @@ class LiquidMarketUnitTest(unittest.TestCase):
         print(f"{quote} available: {quote_bal}")
 
         if API_MOCK_ENABLED:
-            order_cancel_resp = FixtureLiquid.ORDER_CANCEL_ALL_1
+            order_cancel_resp = FixtureLiquid.SELL_LIMIT_ORDER_AFTER_CANCEL
             self.web_app.update_response("put", API_HOST, f"/orders/{str(exchange_id_2)}/cancel",
                                          order_cancel_resp)
             resp = FixtureLiquid.CRYPTO_ACCOUNTS.copy()
@@ -295,7 +295,7 @@ class LiquidMarketUnitTest(unittest.TestCase):
         self.assertAlmostEqual(quote_bal, expected_quote_bal, 5)
 
         if API_MOCK_ENABLED:
-            order_cancel_resp = FixtureLiquid.ORDER_CANCEL_ALL_1
+            order_cancel_resp = FixtureLiquid.SELL_LIMIT_ORDER_AFTER_CANCEL
             self.web_app.update_response("put", API_HOST, f"/orders/{str(exchange_id_1)}/cancel",
                                          order_cancel_resp)
 
@@ -356,6 +356,8 @@ class LiquidMarketUnitTest(unittest.TestCase):
                              for event in self.market_logger.event_log]))
 
     def test_limit_maker_rejections(self):
+        if API_MOCK_ENABLED:
+            return
         trading_pair = "CEL-ETH"
 
         # Try to put a buy limit maker order that is going to match, this should triggers order failure event.
@@ -391,7 +393,7 @@ class LiquidMarketUnitTest(unittest.TestCase):
 
         buy_order_id, buy_exchange_id = self.place_order(
             True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_bid_price,
-            10001, FixtureLiquid.ORDER_BUY_CANCEL_ALL,
+            10001, FixtureLiquid.BUY_LIMIT_ORDER_BEFORE_CANCEL,
             FixtureLiquid.ORDERS_GET_AFTER_BUY
         )
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
@@ -399,18 +401,18 @@ class LiquidMarketUnitTest(unittest.TestCase):
 
         sell_order_id, sell_exchange_id = self.place_order(
             False, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
-            quantize_ask_price, 10002, FixtureLiquid.ORDER_SELL_CANCEL_ALL,
-            FixtureLiquid.ORDERS_GET_AFTER_SELL
+            quantize_ask_price, 10002, FixtureLiquid.SELL_LIMIT_ORDER_BEFORE_CANCEL,
+            FixtureLiquid.ORDERS_GET_AFTER_MARKET_SELL
         )
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         self.assertEqual(sell_order_id, order_created_event.order_id)
 
         self.run_parallel(asyncio.sleep(1))
         if API_MOCK_ENABLED:
-            order_cancel_resp = FixtureLiquid.ORDER_CANCEL_ALL_1
+            order_cancel_resp = FixtureLiquid.SELL_LIMIT_ORDER_AFTER_CANCEL
             self.web_app.update_response("put", API_HOST, f"/orders/{str(buy_exchange_id)}/cancel",
                                          order_cancel_resp)
-            order_cancel_resp = FixtureLiquid.ORDER_CANCEL_ALL_2
+            order_cancel_resp = FixtureLiquid.BUY_LIMIT_ORDER_AFTER_CANCEL
             self.web_app.update_response("put", API_HOST, f"/orders/{str(sell_exchange_id)}/cancel",
                                          order_cancel_resp)
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
