@@ -44,9 +44,7 @@ from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_tracker 
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_api_order_book_data_source import CoinbaseProAPIOrderBookDataSource
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.market.market_base import (
-    OrderType,
-)
+from hummingbot.core.event.events import OrderType
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_in_flight_order import CoinbaseProInFlightOrder
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_in_flight_order cimport CoinbaseProInFlightOrder

@@ -46,9 +46,6 @@ from hummingbot.core.event.events import (
     TradeFee
 )
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.market.market_base import (
-    s_decimal_NaN,
-)
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.connector.exchange.kraken.kraken_order_book_tracker import KrakenOrderBookTracker
@@ -62,6 +59,7 @@ from hummingbot.core.utils.estimate_fee import estimate_fee
 
 s_logger = None
 s_decimal_0 = Decimal(0)
+s_decimal_NaN = Decimal("NaN")
 KRAKEN_ROOT_API = "https://api.kraken.com"
 ADD_ORDER_URI = "/0/private/AddOrder"
 CANCEL_ORDER_URI = "/0/private/CancelOrder"

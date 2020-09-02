@@ -54,9 +54,7 @@ from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_order_book_tracker 
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
-from hummingbot.market.market_base import (
-    OrderType,
-    s_decimal_NaN)
+from hummingbot.core.event.events import OrderType
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.wallet.ethereum.zero_ex.zero_ex_custom_utils_v3 import (
@@ -101,6 +99,7 @@ from hummingbot.core.utils.estimate_fee import estimate_fee
 
 brm_logger = None
 s_decimal_0 = Decimal(0)
+s_decimal_NaN = Decimal("NaN")
 
 cdef class BambooRelayTransactionTracker(TransactionTracker):
     cdef:

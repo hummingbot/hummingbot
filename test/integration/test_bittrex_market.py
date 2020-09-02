@@ -35,7 +35,7 @@ from hummingbot.core.event.events import (
     TradeType,
 )
 from hummingbot.market.bittrex.bittrex_market import BittrexMarket
-from hummingbot.market.market_base import OrderType
+from hummingbot.core.event.events import OrderType
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order

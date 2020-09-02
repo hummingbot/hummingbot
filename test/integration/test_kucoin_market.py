@@ -39,7 +39,7 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.connector.exchange.kucoin.kucoin_market import KucoinMarket
-from hummingbot.market.market_base import OrderType
+from hummingbot.core.event.events import OrderType
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order

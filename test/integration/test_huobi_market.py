@@ -40,7 +40,7 @@ from hummingbot.core.utils.async_utils import (
 )
 from hummingbot.connector.exchange.huobi.huobi_market import HuobiMarket
 from hummingbot.connector.exchange.huobi.huobi_utils import convert_to_exchange_trading_pair
-from hummingbot.market.market_base import OrderType
+from hummingbot.core.event.events import OrderType
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
