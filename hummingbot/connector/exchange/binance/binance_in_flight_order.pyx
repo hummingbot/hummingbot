@@ -1,16 +1,14 @@
 from decimal import Decimal
 from typing import (
     Any,
-    Dict,
-    Optional
+    Dict
 )
 
 from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.market.binance.binance_market import BinanceMarket
-from hummingbot.market.in_flight_order_base import InFlightOrderBase
+from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 
 s_decimal_0 = Decimal(0)
 

@@ -1,4 +1,4 @@
-from hummingbot.market.trading_rule cimport TradingRule
+from hummingbot.connector.trading_rule cimport TradingRule
 
 cdef class EterbaseTradingRule(TradingRule):
     cdef:

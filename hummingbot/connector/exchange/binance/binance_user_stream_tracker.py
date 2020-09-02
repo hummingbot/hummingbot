@@ -12,7 +12,7 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.market.binance.binance_api_user_stream_data_source import BinanceAPIUserStreamDataSource
+from .binance_api_user_stream_data_source import BinanceAPIUserStreamDataSource
 from binance.client import Client as BinanceClient
 
 

@@ -40,7 +40,7 @@ from hummingbot.core.utils.async_utils import (
 )
 from hummingbot.market.kucoin.kucoin_market import KucoinMarket
 from hummingbot.market.market_base import OrderType
-from hummingbot.market.markets_recorder import MarketsRecorder
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import (

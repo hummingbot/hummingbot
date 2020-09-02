@@ -7,7 +7,6 @@ import logging
 import math
 import pandas as pd
 import sys
-import time
 import copy
 from typing import (
     Any,
@@ -21,10 +20,8 @@ from libc.stdint cimport int64_t
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
-from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
 from hummingbot.core.event.events import (
     TradeType,
     TradeFee,
@@ -53,11 +50,10 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.market.market_base import (
     OrderType,
 )
-from hummingbot.market.trading_rule cimport TradingRule
+from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.market.liquid.liquid_in_flight_order import LiquidInFlightOrder
 from hummingbot.market.liquid.liquid_in_flight_order cimport LiquidInFlightOrder
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.core.utils.estimate_fee import estimate_fee
 
 s_logger = None

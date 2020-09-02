@@ -22,8 +22,8 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.binance.binance_order_book import BinanceOrderBook
-from hummingbot.market.binance.binance_utils import convert_to_exchange_trading_pair
+from hummingbot.connector.exchange.binance.binance_order_book import BinanceOrderBook
+from hummingbot.connector.exchange.binance.binance_utils import convert_to_exchange_trading_pair
 
 TRADING_PAIR_FILTER = re.compile(r"(BTC|ETH|USDT)$")
 

@@ -11,7 +11,7 @@ from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
-from hummingbot.market.binance.binance_market import BinanceMarket
+from hummingbot.connector.exchange.binance.binance_market import BinanceMarket
 from hummingbot.market.bittrex.bittrex_market import BittrexMarket
 from hummingbot.market.kucoin.kucoin_market import KucoinMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
@@ -42,7 +42,7 @@ from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.notifier.telegram_notifier import TelegramNotifier
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.market.markets_recorder import MarketsRecorder
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.client.config.security import Security
 
 from hummingbot.connector.exchange_base import ExchangeBase

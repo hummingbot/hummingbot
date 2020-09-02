@@ -1,11 +1,10 @@
-import copy
 import time
 from typing import (Any, Dict, List)
 from decimal import Decimal
 from hummingbot.core.event.events import (OrderFilledEvent, TradeType, OrderType, TradeFee)
-from hummingbot.market.in_flight_order_base cimport InFlightOrderBase
+from hummingbot.connector.in_flight_order_base cimport InFlightOrderBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
-from hummingbot.market.dolomite.dolomite_util import (unpad, DolomiteExchangeInfo)
+from hummingbot.market.dolomite.dolomite_util import (unpad)
 
 s_decimal_0 = Decimal(0)
 

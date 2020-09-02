@@ -2,19 +2,17 @@ from decimal import Decimal
 from typing import (
     Dict,
     List,
-    Tuple,
-    Any
+    Tuple
 )
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.event.events import (
     MarketEvent,
     OrderType,
-    TradeType,
-    TradeFee
+    TradeType
 )
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.network_iterator import NetworkIterator
-from hummingbot.market.in_flight_order_base import InFlightOrderBase
+from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.event.events import OrderFilledEvent
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.estimate_fee import estimate_fee

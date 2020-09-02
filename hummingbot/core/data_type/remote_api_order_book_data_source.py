@@ -17,7 +17,7 @@ import websockets
 from websockets.exceptions import ConnectionClosed
 
 import conf
-from hummingbot.market.binance.binance_order_book import BinanceOrderBook
+from hummingbot.connector.exchange.binance.binance_order_book import BinanceOrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry

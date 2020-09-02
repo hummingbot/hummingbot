@@ -19,7 +19,6 @@ from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.events import (
     MarketEvent,
@@ -47,7 +46,7 @@ from hummingbot.market.kucoin.kucoin_auth import KucoinAuth
 from hummingbot.market.kucoin.kucoin_in_flight_order import KucoinInFlightOrder
 from hummingbot.market.kucoin.kucoin_order_book_tracker import KucoinOrderBookTracker
 from hummingbot.market.kucoin.kucoin_user_stream_tracker import KucoinUserStreamTracker
-from hummingbot.market.trading_rule cimport TradingRule
+from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.utils.estimate_fee import estimate_fee
