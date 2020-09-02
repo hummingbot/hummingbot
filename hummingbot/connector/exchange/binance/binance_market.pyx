@@ -22,7 +22,6 @@ from typing import (
     AsyncIterable,
     Optional,
     Coroutine,
-    Tuple,
 )
 
 import conf
@@ -34,7 +33,7 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.market.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
+from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.events import (
     MarketEvent,
@@ -53,18 +52,18 @@ from hummingbot.core.event.events import (
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.market.binance.binance_order_book_tracker import BinanceOrderBookTracker
-from hummingbot.market.binance.binance_user_stream_tracker import BinanceUserStreamTracker
-from hummingbot.market.binance.binance_time import BinanceTime
-from hummingbot.market.binance.binance_in_flight_order import BinanceInFlightOrder
-from hummingbot.market.binance.binance_utils import (
-    convert_from_exchange_trading_pair,
-    convert_to_exchange_trading_pair)
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
-from hummingbot.market.trading_rule cimport TradingRule
+from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.utils.estimate_fee import estimate_fee
+from .binance_order_book_tracker import BinanceOrderBookTracker
+from .binance_user_stream_tracker import BinanceUserStreamTracker
+from .binance_time import BinanceTime
+from .binance_in_flight_order import BinanceInFlightOrder
+from .binance_utils import (
+    convert_from_exchange_trading_pair,
+    convert_to_exchange_trading_pair)
 
 s_logger = None
 s_decimal_0 = Decimal(0)

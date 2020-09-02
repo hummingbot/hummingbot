@@ -1,5 +1,5 @@
 from decimal import Decimal
-from hummingbot.market.trading_rule cimport TradingRule
+from hummingbot.connector.trading_rule cimport TradingRule
 
 s_decimal_0 = Decimal(0)
 s_decimal_max = Decimal("1e56")

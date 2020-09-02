@@ -36,7 +36,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.market.bittrex.bittrex_market import BittrexMarket
 from hummingbot.market.market_base import OrderType
-from hummingbot.market.markets_recorder import MarketsRecorder
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import (
@@ -279,19 +279,20 @@ class BittrexMarketUnitTest(unittest.TestCase):
         quantized_ask_amount: Decimal = self.market.quantize_order_amount(trading_pair, ask_amount)
 
         order_id, exch_order_id_1 = self.place_order(True, trading_pair, quantized_bid_amount, OrderType.LIMIT_MAKER,
-                                              quantize_bid_price, 10001,
-                                              FixtureBittrex.FILLED_BUY_LIMIT_ORDER, FixtureBittrex.WS_AFTER_BUY_2)
+                                                     quantize_bid_price, 10001,
+                                                     FixtureBittrex.FILLED_BUY_LIMIT_ORDER,
+                                                     FixtureBittrex.WS_AFTER_BUY_2)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id, order_created_event.order_id)
 
         order_id2, exch_order_id_2 = self.place_order(False, trading_pair, quantized_ask_amount, OrderType.LIMIT_MAKER,
-                                              quantize_ask_price, 10002,
-                                              FixtureBittrex.ORDER_PLACE_OPEN, FixtureBittrex.WS_ORDER_OPEN)
+                                                      quantize_ask_price, 10002,
+                                                      FixtureBittrex.ORDER_PLACE_OPEN, FixtureBittrex.WS_ORDER_OPEN)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id2, order_created_event.order_id)
- 
+
         self.run_parallel(asyncio.sleep(1))
         if API_MOCK_ENABLED:
             resp = FixtureBittrex.ORDER_CANCEL.copy()
@@ -429,7 +430,8 @@ class BittrexMarketUnitTest(unittest.TestCase):
 
             order_id, exch_order_id = self.place_order(True, trading_pair, quantized_bid_amount, OrderType.LIMIT,
                                                        quantize_bid_price, 10001,
-                                                       FixtureBittrex.OPEN_BUY_LIMIT_ORDER, FixtureBittrex.WS_AFTER_BUY_1)
+                                                       FixtureBittrex.OPEN_BUY_LIMIT_ORDER,
+                                                       FixtureBittrex.WS_AFTER_BUY_1)
             [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
             order_created_event: BuyOrderCreatedEvent = order_created_event
             self.assertEqual(order_id, order_created_event.order_id)

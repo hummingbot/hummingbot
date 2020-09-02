@@ -18,7 +18,7 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.clock import Clock
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.market.trading_rule import TradingRule
+from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.limit_order import LimitOrder

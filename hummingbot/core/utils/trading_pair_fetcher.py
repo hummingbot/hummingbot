@@ -61,7 +61,7 @@ class TradingPairFetcher:
 
     async def fetch_binance_trading_pairs(self) -> List[str]:
         try:
-            from hummingbot.market.binance.binance_utils import convert_from_exchange_trading_pair
+            from hummingbot.connector.exchange.binance import convert_from_exchange_trading_pair
             client: aiohttp.ClientSession = self.http_client()
             async with client.get(BINANCE_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                 if response.status == 200:

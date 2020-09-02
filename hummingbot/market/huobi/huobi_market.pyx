@@ -1,31 +1,23 @@
 import aiohttp
 from aiohttp.test_utils import TestClient
 import asyncio
-from async_timeout import timeout
-import conf
-from datetime import datetime
 from decimal import Decimal
 from libc.stdint cimport int64_t
 import logging
 import pandas as pd
-import time
 from typing import (
     Any,
     AsyncIterable,
-    Coroutine,
     Dict,
     List,
-    Optional,
-    Tuple
+    Optional
 )
 import ujson
 
-import hummingbot
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.events import (
     MarketEvent,
@@ -60,14 +52,12 @@ from hummingbot.market.huobi.huobi_order_book_tracker import HuobiOrderBookTrack
 from hummingbot.market.huobi.huobi_utils import (
     convert_to_exchange_trading_pair,
     convert_from_exchange_trading_pair)
-from hummingbot.market.trading_rule cimport TradingRule
+from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.market.market_base import (
-    NaN,
     s_decimal_NaN)
 from hummingbot.market.huobi.huobi_user_stream_tracker import HuobiUserStreamTracker
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.core.utils.estimate_fee import estimate_fee
 
 hm_logger = None

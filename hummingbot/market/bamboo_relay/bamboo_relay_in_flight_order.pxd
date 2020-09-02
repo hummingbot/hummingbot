@@ -1,4 +1,4 @@
-from hummingbot.market.in_flight_order_base cimport InFlightOrderBase
+from hummingbot.connector.in_flight_order_base cimport InFlightOrderBase
 
 cdef class BambooRelayInFlightOrder(InFlightOrderBase):
     cdef:
@@ -11,4 +11,3 @@ cdef class BambooRelayInFlightOrder(InFlightOrderBase):
         public str tx_hash
         public list recorded_fills
         public object zero_ex_order
-        

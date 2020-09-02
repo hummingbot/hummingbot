@@ -14,8 +14,7 @@ from typing import (
     Dict,
     List,
     Optional,
-    Tuple,
-    NamedTuple
+    Tuple
 )
 from decimal import (
     ROUND_FLOOR,
@@ -29,7 +28,6 @@ from web3.exceptions import TransactionNotFound
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.event.events import (
     MarketEvent,
     BuyOrderCreatedEvent,
@@ -53,12 +51,11 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.market.bamboo_relay.bamboo_relay_api_order_book_data_source import BambooRelayAPIOrderBookDataSource
 from hummingbot.market.bamboo_relay.bamboo_relay_in_flight_order cimport BambooRelayInFlightOrder
 from hummingbot.market.bamboo_relay.bamboo_relay_order_book_tracker import BambooRelayOrderBookTracker
-from hummingbot.market.trading_rule cimport TradingRule
+from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.market.market_base import (
     OrderType,
-    NaN,
     s_decimal_NaN)
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
@@ -93,7 +90,6 @@ from hummingbot.market.bamboo_relay.bamboo_relay_constants import (
     ZERO_EX_TEST_EXCHANGE_ADDRESS,
     ZERO_EX_TEST_COORDINATOR_ADDRESS,
     ZERO_EX_TEST_COORDINATOR_REGISTRY_ADDRESS,
-    ZERO_EX_PROTOCOL_FEE_MULTIPLIER,
     BAMBOO_RELAY_MAINNET_FEE_RECIPIENT_ADDRESS,
     BAMBOO_RELAY_ROPSTEN_FEE_RECIPIENT_ADDRESS,
     BAMBOO_RELAY_RINKEBY_FEE_RECIPIENT_ADDRESS,

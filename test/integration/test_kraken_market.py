@@ -6,7 +6,7 @@ import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 from hummingbot.market.kraken.kraken_market import KrakenMarket
 from hummingbot.market.kraken.kraken_utils import convert_to_exchange_trading_pair
-from hummingbot.market.markets_recorder import MarketsRecorder
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
     SQLConnectionType

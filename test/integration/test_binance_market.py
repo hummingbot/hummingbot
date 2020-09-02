@@ -40,13 +40,13 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.market.binance.binance_market import (
+from hummingbot.connector.exchange.binance.binance_market import (
     BinanceMarket,
     BinanceTime,
     binance_client_module
 )
-from hummingbot.market.binance.binance_utils import convert_to_exchange_trading_pair
-from hummingbot.market.markets_recorder import MarketsRecorder
+from hummingbot.connector.exchange.binance import convert_to_exchange_trading_pair
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import (

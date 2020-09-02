@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import time
 from decimal import Decimal
 from typing import Optional, List, Dict, Any, AsyncIterable
 
@@ -16,7 +15,6 @@ from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.event.events import (
     MarketEvent,
-    TradeFee,
     OrderType,
     OrderFilledEvent,
     TradeType,
@@ -33,9 +31,8 @@ from hummingbot.market.bittrex.bittrex_in_flight_order import BittrexInFlightOrd
 from hummingbot.market.bittrex.bittrex_order_book_tracker import BittrexOrderBookTracker
 from hummingbot.market.bittrex.bittrex_user_stream_tracker import BittrexUserStreamTracker
 from hummingbot.market.market_base import NaN
-from hummingbot.market.trading_rule cimport TradingRule
+from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.core.utils.estimate_fee import estimate_fee
 
 bm_logger = None

@@ -10,8 +10,8 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.market.in_flight_order_base import InFlightOrderBase
-from hummingbot.market.utils import (
+from hummingbot.connector.in_flight_order_base import InFlightOrderBase
+from hummingbot.connector.utils import (
     zrx_order_to_json,
     json_to_zrx_order
 )

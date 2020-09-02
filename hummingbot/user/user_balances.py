@@ -1,4 +1,4 @@
-from hummingbot.market.binance.binance_market import BinanceMarket
+from hummingbot.connector.exchange.binance.binance_market import BinanceMarket
 from hummingbot.market.bittrex.bittrex_market import BittrexMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.huobi.huobi_market import HuobiMarket
