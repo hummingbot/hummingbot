@@ -1,7 +1,7 @@
 name: ci
 
 on:
-  pusht:
+  push:
     branches: [ master, development ]
   pull_request:
     branches: [ master, development ]
