@@ -21,10 +21,10 @@ from typing import (
     Optional,
     List,
 )
-from hummingbot.market.eterbase.eterbase_order_book_tracker import EterbaseOrderBookTracker
-from hummingbot.market.eterbase.eterbase_api_order_book_data_source import EterbaseAPIOrderBookDataSource
-from hummingbot.market.eterbase.eterbase_order_book import EterbaseOrderBook
-from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.connector.exchange.eterbase.eterbase_order_book_tracker import EterbaseOrderBookTracker
+from hummingbot.connector.exchange.eterbase.eterbase_api_order_book_data_source import EterbaseAPIOrderBookDataSource
+from hummingbot.connector.exchange.eterbase.eterbase_order_book import EterbaseOrderBook
+.from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSource
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,

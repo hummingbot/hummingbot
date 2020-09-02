@@ -12,14 +12,14 @@ import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.market.eterbase.eterbase_auth import EterbaseAuth
+from hummingbot.connector.exchange.eterbase.eterbase_auth import EterbaseAuth
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from hummingbot.market.eterbase.eterbase_order_book import EterbaseOrderBook
-from hummingbot.market.eterbase.eterbase_api_order_book_data_source import EterbaseAPIOrderBookDataSource
+from hummingbot.connector.exchange.eterbase.eterbase_order_book import EterbaseOrderBook
+from hummingbot.connector.exchange.eterbase.eterbase_api_order_book_data_source import EterbaseAPIOrderBookDataSource
 
-import hummingbot.market.eterbase.eterbase_constants as constants
-from hummingbot.market.eterbase.eterbase_utils import api_request
+import hummingbot.connector.exchange.eterbase.eterbase_constants as constants
+from hummingbot.connector.exchange.eterbase.eterbase_utils import api_request
 
 MAX_RETRIES = 20
 NaN = float("nan")

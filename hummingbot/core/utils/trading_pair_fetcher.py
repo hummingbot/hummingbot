@@ -161,7 +161,7 @@ class TradingPairFetcher:
 
     async def fetch_eterbase_trading_pairs(self) -> List[str]:
         try:
-            from hummingbot.market.eterbase.eterbase_utils import convert_from_exchange_trading_pair
+            from hummingbot.connector.exchange.eterbase.eterbase_utils import convert_from_exchange_trading_pair
 
             client: aiohttp.ClientSession() = self.http_client()
             async with client.get(ETERBASE_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:

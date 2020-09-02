@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, Any, Optional, Tuple, List
-import hummingbot.market.eterbase.eterbase_constants as constants
-from hummingbot.market.eterbase.eterbase_auth import EterbaseAuth
+import hummingbot.connector.exchange.eterbase.eterbase_constants as constants
+from hummingbot.connector.exchange.eterbase.eterbase_auth import EterbaseAuth
 
 import aiohttp
 import asyncio
