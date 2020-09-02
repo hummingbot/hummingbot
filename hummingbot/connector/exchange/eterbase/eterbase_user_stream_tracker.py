@@ -13,9 +13,9 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.market.eterbase.eterbase_api_user_stream_data_source import EterbaseAPIUserStreamDataSource
-from hummingbot.market.eterbase.eterbase_auth import EterbaseAuth
-import hummingbot.market.eterbase.eterbase_constants as constants
+from hummingbot.connector.exchange.eterbase.eterbase_api_user_stream_data_source import EterbaseAPIUserStreamDataSource
+from hummingbot.connector.exchange.eterbase.eterbase_auth import EterbaseAuth
+import hummingbot.connector.exchange.eterbase.eterbase_constants as constants
 
 
 class EterbaseUserStreamTracker(UserStreamTracker):

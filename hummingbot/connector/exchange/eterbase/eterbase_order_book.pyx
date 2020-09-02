@@ -17,7 +17,7 @@ from hummingbot.core.data_type.order_book_message import (
     OrderBookMessageType
 )
 
-from hummingbot.market.eterbase.eterbase_order_book_message import EterbaseOrderBookMessage
+from hummingbot.connector.exchange.eterbase.eterbase_order_book_message import EterbaseOrderBookMessage
 
 _eob_logger = None
 

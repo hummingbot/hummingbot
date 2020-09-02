@@ -1,29 +1,23 @@
-import aiohttp
 import asyncio
 from async_timeout import timeout
 from decimal import Decimal
 from threading import Thread
-import json
 import logging
 import pandas as pd
-import time
 import re
-from itertools import zip_longest
 import copy
 from typing import (
     Any,
     Dict,
     List,
     Optional,
-    AsyncIterable,
-    Tuple
+    AsyncIterable
 )
 from libc.stdint cimport int64_t
 
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.events import (
@@ -45,26 +39,24 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.eterbase.eterbase_auth import EterbaseAuth
-from hummingbot.market.eterbase.eterbase_order_book_tracker import EterbaseOrderBookTracker
-from hummingbot.market.eterbase.eterbase_user_stream_tracker import EterbaseUserStreamTracker
-from hummingbot.market.eterbase.eterbase_api_order_book_data_source import EterbaseAPIOrderBookDataSource
+from hummingbot.connector.exchange.eterbase.eterbase_auth import EterbaseAuth
+from hummingbot.connector.exchange.eterbase.eterbase_order_book_tracker import EterbaseOrderBookTracker
+from hummingbot.connector.exchange.eterbase.eterbase_user_stream_tracker import EterbaseUserStreamTracker
+from hummingbot.connector.exchange.eterbase.eterbase_api_order_book_data_source import EterbaseAPIOrderBookDataSource
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.market.market_base import (
     OrderType,
 )
-from hummingbot.market.eterbase.eterbase_utils import (
-    convert_from_exchange_trading_pair,
-    convert_to_exchange_trading_pair)
-from hummingbot.market.eterbase.eterbase_trading_rule cimport EterbaseTradingRule
-from hummingbot.market.eterbase.eterbase_in_flight_order import EterbaseInFlightOrder
-from hummingbot.market.eterbase.eterbase_in_flight_order cimport EterbaseInFlightOrder
+from hummingbot.connector.exchange.eterbase.eterbase_utils import (
+    convert_from_exchange_trading_pair)
+from hummingbot.connector.exchange.eterbase.eterbase_trading_rule cimport EterbaseTradingRule
+from hummingbot.connector.exchange.eterbase.eterbase_in_flight_order cimport EterbaseInFlightOrder
 
 from datetime import datetime, timedelta
 import time
 
-import hummingbot.market.eterbase.eterbase_constants as constants
-from hummingbot.market.eterbase.eterbase_utils import api_request
+import hummingbot.connector.exchange.eterbase.eterbase_constants as constants
+from hummingbot.connector.exchange.eterbase.eterbase_utils import api_request
 
 s_logger = None
 s_decimal_0 = Decimal(0)

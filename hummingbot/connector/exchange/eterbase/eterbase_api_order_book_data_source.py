@@ -17,14 +17,14 @@ import websockets
 from websockets.exceptions import ConnectionClosed
 
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.market.eterbase.eterbase_order_book import EterbaseOrderBook
+from hummingbot.connector.exchange.eterbase.eterbase_order_book import EterbaseOrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from hummingbot.market.eterbase.eterbase_active_order_tracker import EterbaseActiveOrderTracker
-import hummingbot.market.eterbase.eterbase_constants as constants
-from hummingbot.market.eterbase.eterbase_utils import (
+from hummingbot.connector.exchange.eterbase.eterbase_active_order_tracker import EterbaseActiveOrderTracker
+import hummingbot.connector.exchange.eterbase.eterbase_constants as constants
+from hummingbot.connector.exchange.eterbase.eterbase_utils import (
     convert_to_exchange_trading_pair,
     convert_from_exchange_trading_pair)
 

@@ -11,7 +11,7 @@ from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType,
 )
-from hummingbot.market.eterbase.eterbase_utils import get_marketid_mapping
+from hummingbot.connector.exchange.eterbase.eterbase_utils import get_marketid_mapping
 
 
 class EterbaseOrderBookMessage(OrderBookMessage):

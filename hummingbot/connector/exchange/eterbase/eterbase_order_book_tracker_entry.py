@@ -1,6 +1,6 @@
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
-from hummingbot.market.eterbase.eterbase_active_order_tracker import EterbaseActiveOrderTracker
+from hummingbot.connector.exchange.eterbase.eterbase_active_order_tracker import EterbaseActiveOrderTracker
 
 
 class EterbaseOrderBookTrackerEntry(OrderBookTrackerEntry):

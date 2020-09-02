@@ -5,7 +5,7 @@ from hummingbot.connector.exchange.huobi.huobi_market import HuobiMarket
 from hummingbot.connector.exchange.kucoin.kucoin_market import KucoinMarket
 from hummingbot.connector.exchange.liquid.liquid_market import LiquidMarket
 from hummingbot.connector.exchange.kraken.kraken_market import KrakenMarket
-from hummingbot.market.eterbase.eterbase_market import EterbaseMarket
+from hummingbot.connector.exchange.eterbase.eterbase_market import EterbaseMarket
 from hummingbot.connector.exchange.crypto_com.crypto_com_exchange import CryptoComExchange
 from hummingbot.core.utils.market_mid_price import get_mid_price
 from hummingbot.client.settings import EXCHANGES, DEXES
