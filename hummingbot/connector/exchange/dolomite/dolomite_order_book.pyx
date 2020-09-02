@@ -11,7 +11,7 @@ from typing import (
 import ujson
 
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.dolomite.dolomite_order_book_message import DolomiteOrderBookMessage
+from hummingbot.connector.exchange.dolomite.dolomite_order_book_message import DolomiteOrderBookMessage
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,

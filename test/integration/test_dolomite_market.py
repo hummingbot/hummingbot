@@ -23,7 +23,7 @@ from hummingbot.core.event.events import (
     TradeType,
     TradeFee,
 )
-from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
+from hummingbot.connector.exchange.dolomite.dolomite_market import DolomiteMarket
 from hummingbot.market.market_base import OrderType
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet

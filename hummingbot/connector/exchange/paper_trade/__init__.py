@@ -9,8 +9,8 @@ from hummingbot.connector.exchange.paper_trade.market_config import MarketConfig
 from hummingbot.connector.exchange.paper_trade.paper_trade_market import PaperTradeMarket
 from hummingbot.connector.exchange.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.connector.exchange.radar_relay.radar_relay_order_book_tracker import RadarRelayOrderBookTracker
-from hummingbot.market.dolomite.dolomite_order_book_tracker import DolomiteOrderBookTracker
-from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
+from hummingbot.connector.exchange.dolomite.dolomite_order_book_tracker import DolomiteOrderBookTracker
+from hummingbot.connector.exchange.dolomite.dolomite_market import DolomiteMarket
 
 from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.connector.exchange.binance.binance_market import BinanceMarket

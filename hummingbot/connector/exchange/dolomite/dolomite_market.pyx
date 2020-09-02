@@ -24,8 +24,8 @@ from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSou
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
-from hummingbot.market.dolomite.dolomite_order_book_tracker import DolomiteOrderBookTracker
-from hummingbot.market.dolomite.dolomite_api_order_book_data_source import DolomiteAPIOrderBookDataSource
+from hummingbot.connector.exchange.dolomite.dolomite_order_book_tracker import DolomiteOrderBookTracker
+from hummingbot.connector.exchange.dolomite.dolomite_api_order_book_data_source import DolomiteAPIOrderBookDataSource
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
 )
@@ -43,11 +43,11 @@ from hummingbot.core.event.events import (
     TradeFee,
 )
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.dolomite.dolomite_in_flight_order cimport DolomiteInFlightOrder
-from hummingbot.market.dolomite.dolomite_util cimport(
+from hummingbot.connector.exchange.dolomite.dolomite_in_flight_order cimport DolomiteInFlightOrder
+from hummingbot.connector.exchange.dolomite.dolomite_util cimport(
     DolomiteTradingRule,
 )
-from hummingbot.market.dolomite.dolomite_util import (
+from hummingbot.connector.exchange.dolomite.dolomite_util import (
     unpad,
     sha3,
     DolomiteExchangeRates,

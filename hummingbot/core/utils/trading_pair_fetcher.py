@@ -301,7 +301,7 @@ class TradingPairFetcher:
 
     async def fetch_dolomite_trading_pairs(self) -> List[str]:
         try:
-            from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
+            from hummingbot.connector.exchange.dolomite.dolomite_market import DolomiteMarket
             client: aiohttp.ClientSession = TradingPairFetcher.http_client()
             async with client.get(DOLOMITE_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                 if response.status == 200:

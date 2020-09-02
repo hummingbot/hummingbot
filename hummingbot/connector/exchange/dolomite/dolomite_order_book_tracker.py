@@ -2,15 +2,15 @@ import asyncio
 import logging
 from collections import deque, defaultdict
 from typing import Optional, Deque, List, Dict, Set
-from hummingbot.market.dolomite.dolomite_active_order_tracker import DolomiteActiveOrderTracker
+from hummingbot.connector.exchange.dolomite.dolomite_active_order_tracker import DolomiteActiveOrderTracker
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
-from hummingbot.market.dolomite.dolomite_order_book import DolomiteOrderBook
-from hummingbot.market.dolomite.dolomite_order_book_message import DolomiteOrderBookMessage
+from hummingbot.connector.exchange.dolomite.dolomite_order_book import DolomiteOrderBook
+from hummingbot.connector.exchange.dolomite.dolomite_order_book_message import DolomiteOrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.remote_api_order_book_data_source import RemoteAPIOrderBookDataSource
-from hummingbot.market.dolomite.dolomite_api_order_book_data_source import DolomiteAPIOrderBookDataSource
-from hummingbot.market.dolomite.dolomite_order_book_tracker_entry import DolomiteOrderBookTrackerEntry
+from hummingbot.connector.exchange.dolomite.dolomite_api_order_book_data_source import DolomiteAPIOrderBookDataSource
+from hummingbot.connector.exchange.dolomite.dolomite_order_book_tracker_entry import DolomiteOrderBookTrackerEntry
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 
 
@@ -115,6 +115,6 @@ class DolomiteOrderBookTracker(OrderBookTracker):
                 self.logger().network(
                     f"Unexpected error tracking order book for {trading_pair}.",
                     exc_info=True,
-                    app_warning_msg=f"Unexpected error tracking order book. Retrying after 5 seconds.",
+                    app_warning_msg=f'{"Unexpected error tracking order book. Retrying after 5 seconds."}',
                 )
                 await asyncio.sleep(5.0)
