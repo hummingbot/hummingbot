@@ -44,7 +44,7 @@ class MarketTradingPairTuple(NamedTuple):
         elif price_type is PriceType.MidPrice:
             return self.get_mid_price()
         elif price_type is PriceType.LastTrade:
-            return self.market.get_order_book(self.trading_pair).last_trade_price
+            return Decimal(self.market.get_order_book(self.trading_pair).last_trade_price)
 
     def get_vwap_for_volume(self, is_buy: bool, volume: Decimal) -> ClientOrderBookQueryResult:
         return self.market.get_vwap_for_volume(self.trading_pair, is_buy, volume)
