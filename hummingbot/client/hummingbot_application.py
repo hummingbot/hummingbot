@@ -21,7 +21,7 @@ from hummingbot.market.eterbase.eterbase_market import EterbaseMarket
 from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
 from hummingbot.connector.exchange.radar_relay.radar_relay_market import RadarRelayMarket
 from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_market import BambooRelayMarket
-from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
+from hummingbot.connector.exchange.dolomite.dolomite_market import DolomiteMarket
 from hummingbot.market.kraken.kraken_market import KrakenMarket
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
