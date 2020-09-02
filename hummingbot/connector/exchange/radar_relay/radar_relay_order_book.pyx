@@ -11,7 +11,7 @@ from typing import (
 from sqlalchemy.engine import RowProxy
 
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.radar_relay.radar_relay_order_book_message import RadarRelayOrderBookMessage
+from hummingbot.connector.exchange.radar_relay.radar_relay_order_book_message import RadarRelayOrderBookMessage
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,

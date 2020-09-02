@@ -7,8 +7,8 @@ from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.huobi.huobi_order_book_tracker import HuobiOrderBookTracker
 from hummingbot.market.paper_trade.market_config import MarketConfig
 from hummingbot.market.paper_trade.paper_trade_market import PaperTradeMarket
-from hummingbot.market.radar_relay.radar_relay_market import RadarRelayMarket
-from hummingbot.market.radar_relay.radar_relay_order_book_tracker import RadarRelayOrderBookTracker
+from hummingbot.connector.exchange.radar_relay.radar_relay_market import RadarRelayMarket
+from hummingbot.connector.exchange.radar_relay.radar_relay_order_book_tracker import RadarRelayOrderBookTracker
 from hummingbot.market.dolomite.dolomite_order_book_tracker import DolomiteOrderBookTracker
 from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
 

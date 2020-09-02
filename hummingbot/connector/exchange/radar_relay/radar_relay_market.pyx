@@ -50,9 +50,9 @@ from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.market.market_base import (
     OrderType,
     s_decimal_NaN)
-from hummingbot.market.radar_relay.radar_relay_api_order_book_data_source import RadarRelayAPIOrderBookDataSource
-from hummingbot.market.radar_relay.radar_relay_in_flight_order cimport RadarRelayInFlightOrder
-from hummingbot.market.radar_relay.radar_relay_order_book_tracker import RadarRelayOrderBookTracker
+from hummingbot.connector.exchange.radar_relay.radar_relay_api_order_book_data_source import RadarRelayAPIOrderBookDataSource
+from hummingbot.connector.exchange.radar_relay.radar_relay_in_flight_order cimport RadarRelayInFlightOrder
+from hummingbot.connector.exchange.radar_relay.radar_relay_order_book_tracker import RadarRelayOrderBookTracker
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.wallet.ethereum.zero_ex.zero_ex_custom_utils_v3 import fix_signature

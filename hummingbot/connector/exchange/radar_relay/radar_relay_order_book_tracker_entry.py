@@ -1,6 +1,6 @@
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
-from hummingbot.market.radar_relay.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
+from hummingbot.connector.exchange.radar_relay.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
 
 
 class RadarRelayOrderBookTrackerEntry(OrderBookTrackerEntry):

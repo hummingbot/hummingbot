@@ -17,9 +17,9 @@ import websockets
 from websockets.exceptions import ConnectionClosed
 
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.market.radar_relay.radar_relay_order_book import RadarRelayOrderBook
-from hummingbot.market.radar_relay.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
-from hummingbot.market.radar_relay.radar_relay_order_book_message import RadarRelayOrderBookMessage
+from hummingbot.connector.exchange.radar_relay.radar_relay_order_book import RadarRelayOrderBook
+from hummingbot.connector.exchange.radar_relay.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
+from hummingbot.connector.exchange.radar_relay.radar_relay_order_book_message import RadarRelayOrderBookMessage
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
