@@ -1,15 +1,14 @@
 from libc.stdint cimport int64_t
 
-from hummingbot.market.market_base cimport MarketBase
+from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 
 
-cdef class BittrexMarket(MarketBase):
+cdef class BittrexMarket(ExchangeBase):
     cdef:
         str _account_id
         object _bittrex_auth
         object _coro_queue
-        object _data_source_type
         object _ev_loop
         dict _in_flight_orders
         double _last_timestamp

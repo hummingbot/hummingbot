@@ -16,7 +16,7 @@ from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_market import Bambo
 from hummingbot.connector.exchange.binance.binance_market import BinanceMarket
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 
-from hummingbot.market.bittrex.bittrex_market import BittrexOrderBookTracker, BittrexMarket
+from hummingbot.connector.exchange.bittrex.bittrex_market import BittrexOrderBookTracker, BittrexMarket
 from hummingbot.connector.exchange.liquid.liquid_market import LiquidOrderBookTracker, LiquidMarket
 from hummingbot.connector.exchange.kucoin.kucoin_market import KucoinOrderBookTracker, KucoinMarket
 from hummingbot.connector.exchange.kraken.kraken_market import KrakenOrderBookTracker, KrakenMarket

@@ -34,7 +34,7 @@ from hummingbot.core.event.events import (
     TradeFee,
     TradeType,
 )
-from hummingbot.market.bittrex.bittrex_market import BittrexMarket
+from hummingbot.connector.exchange.bittrex.bittrex_market import BittrexMarket
 from hummingbot.core.event.events import OrderType
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
@@ -98,18 +98,21 @@ class BittrexMarketUnitTest(unittest.TestCase):
             cls.web_app.update_response("get", API_BASE_URL, "/v3/markets/tickers", FixtureBittrex.MARKETS_TICKERS)
             cls.web_app.update_response("get", API_BASE_URL, "/v3/balances", FixtureBittrex.BALANCES)
             cls.web_app.update_response("get", API_BASE_URL, "/v3/orders/open", FixtureBittrex.ORDERS_OPEN)
-            cls._t_nonce_patcher = unittest.mock.patch("hummingbot.market.bittrex.bittrex_market.get_tracking_nonce")
+            cls._t_nonce_patcher = unittest.mock.patch(
+                "hummingbot.connector.exchange.bittrex.bittrex_market.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
 
-            cls._us_patcher = unittest.mock.patch("hummingbot.market.bittrex.bittrex_api_user_stream_data_source."
-                                                  "BittrexAPIUserStreamDataSource._transform_raw_message",
-                                                  autospec=True)
+            cls._us_patcher = unittest.mock.patch(
+                "hummingbot.connector.exchange.bittrex.bittrex_api_user_stream_data_source."
+                "BittrexAPIUserStreamDataSource._transform_raw_message",
+                autospec=True)
             cls._us_mock = cls._us_patcher.start()
             cls._us_mock.side_effect = _transform_raw_message_patch
 
-            cls._ob_patcher = unittest.mock.patch("hummingbot.market.bittrex.bittrex_api_order_book_data_source."
-                                                  "BittrexAPIOrderBookDataSource._transform_raw_message",
-                                                  autospec=True)
+            cls._ob_patcher = unittest.mock.patch(
+                "hummingbot.connector.exchange.bittrex.bittrex_api_order_book_data_source."
+                "BittrexAPIOrderBookDataSource._transform_raw_message",
+                autospec=True)
             cls._ob_mock = cls._ob_patcher.start()
             cls._ob_mock.side_effect = _transform_raw_message_patch
 

@@ -8,11 +8,10 @@ from typing import List, Dict, Optional, Tuple, Set, Deque
 
 from hummingbot.client.command import __all__ as commands
 from hummingbot.core.clock import Clock
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.connector.exchange.binance.binance_market import BinanceMarket
-from hummingbot.market.bittrex.bittrex_market import BittrexMarket
+from hummingbot.connector.exchange.bittrex.bittrex_market import BittrexMarket
 from hummingbot.connector.exchange.kucoin.kucoin_market import KucoinMarket
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.connector.exchange.huobi.huobi_market import HuobiMarket
@@ -298,7 +297,6 @@ class HummingbotApplication(*commands):
                 bittrex_secret_key = global_config_map.get("bittrex_secret_key").value
                 market = BittrexMarket(bittrex_api_key,
                                        bittrex_secret_key,
-                                       order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                        trading_pairs=trading_pairs,
                                        trading_required=self._trading_required)
             elif market_name == "kucoin":

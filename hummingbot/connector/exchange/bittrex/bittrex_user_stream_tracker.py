@@ -6,8 +6,8 @@ from typing import Optional, List
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
-from hummingbot.market.bittrex.bittrex_api_user_stream_data_source import BittrexAPIUserStreamDataSource
-from hummingbot.market.bittrex.bittrex_auth import BittrexAuth
+from hummingbot.connector.exchange.bittrex.bittrex_api_user_stream_data_source import BittrexAPIUserStreamDataSource
+from hummingbot.connector.exchange.bittrex.bittrex_auth import BittrexAuth
 
 
 class BittrexUserStreamTracker(UserStreamTracker):
