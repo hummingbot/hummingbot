@@ -10,6 +10,7 @@ import os
 from typing import List
 from unittest import mock
 import conf
+import math
 
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
@@ -31,6 +32,7 @@ from hummingbot.model.sql_connection_manager import (
 )
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
+from hummingbot.model.trade_fill import TradeFill
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.connector.exchange.crypto_com.crypto_com_exchange import CryptoComExchange
 from hummingbot.connector.exchange.crypto_com.crypto_com_constants import WSS_PUBLIC_URL, WSS_PRIVATE_URL
@@ -451,6 +453,62 @@ class CryptoComExchangeUnitTest(unittest.TestCase):
         finally:
             if order_id is not None:
                 self.connector.cancel(self.trading_pair, cl_order_id)
+                self.run_parallel(self.event_logger.wait_for(OrderCancelledEvent))
+
+            recorder.stop()
+            os.unlink(self.db_path)
+
+    def test_update_last_prices(self):
+        # This is basic test to see if order_book last_trade_price is initiated and updated.
+        for order_book in self.connector.order_books.values():
+            for _ in range(5):
+                self.ev_loop.run_until_complete(asyncio.sleep(1))
+                print(order_book.last_trade_price)
+                self.assertFalse(math.isnan(order_book.last_trade_price))
+
+    def test_filled_orders_recorded(self):
+        config_path: str = "test_config"
+        strategy_name: str = "test_strategy"
+        sql = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
+        order_id = None
+        recorder = MarketsRecorder(sql, [self.connector], config_path, strategy_name)
+        recorder.start()
+
+        try:
+            # Try to buy some token from the exchange, and watch for completion event.
+            price = self.connector.get_price(self.trading_pair, True) * Decimal("1.05")
+            price = self.connector.quantize_order_price(self.trading_pair, price)
+            amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0001"))
+
+            order_id = self._place_order(True, amount, OrderType.LIMIT, price, 1, None,
+                                         fixture.WS_TRADE)
+            self.ev_loop.run_until_complete(self.event_logger.wait_for(BuyOrderCompletedEvent))
+            self.ev_loop.run_until_complete(asyncio.sleep(1))
+
+            # Reset the logs
+            self.event_logger.clear()
+
+            # Try to sell back the same amount to the exchange, and watch for completion event.
+            price = self.connector.get_price(self.trading_pair, True) * Decimal("0.95")
+            price = self.connector.quantize_order_price(self.trading_pair, price)
+            amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0001"))
+            order_id = self._place_order(False, amount, OrderType.LIMIT, price, 2, None,
+                                         fixture.WS_TRADE)
+            self.ev_loop.run_until_complete(self.event_logger.wait_for(SellOrderCompletedEvent))
+
+            # Query the persisted trade logs
+            trade_fills: List[TradeFill] = recorder.get_trades_for_config(config_path)
+            self.assertGreaterEqual(len(trade_fills), 2)
+            buy_fills: List[TradeFill] = [t for t in trade_fills if t.trade_type == "BUY"]
+            sell_fills: List[TradeFill] = [t for t in trade_fills if t.trade_type == "SELL"]
+            self.assertGreaterEqual(len(buy_fills), 1)
+            self.assertGreaterEqual(len(sell_fills), 1)
+
+            order_id = None
+
+        finally:
+            if order_id is not None:
+                self.connector.cancel(self.trading_pair, order_id)
                 self.run_parallel(self.event_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
