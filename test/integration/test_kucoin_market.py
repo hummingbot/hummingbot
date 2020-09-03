@@ -95,7 +95,8 @@ class KucoinMarketUnitTest(unittest.TestCase):
             cls._url_mock.side_effect = cls.web_app.reroute_local
             cls.web_app.update_response("get", API_BASE_URL, "/api/v1/accounts", FixtureKucoin.BALANCES)
 
-            cls._t_nonce_patcher = unittest.mock.patch("hummingbot.market.kucoin.kucoin_market.get_tracking_nonce")
+            cls._t_nonce_patcher = unittest.mock.patch(
+                "hummingbot.connector.exchange.kucoin.kucoin_market.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
             cls._exch_order_id = 20001
         cls.clock: Clock = Clock(ClockMode.REALTIME)

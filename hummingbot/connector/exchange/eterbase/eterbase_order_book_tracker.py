@@ -17,7 +17,7 @@ from typing import (
 
 from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.connector.exchange.eterbase.eterbase_api_order_book_data_source import EterbaseAPIOrderBookDataSource
 from hummingbot.connector.exchange.eterbase.eterbase_order_book_message import EterbaseOrderBookMessage
@@ -39,7 +39,7 @@ class EterbaseOrderBookTracker(OrderBookTracker):
         return cls._eobt_logger
 
     def __init__(self, trading_pairs: List[str]):
-        super().__init__(data_source = EterbaseAPIOrderBookDataSource(trading_pairs=trading_pairs),
+        super().__init__(data_source=EterbaseAPIOrderBookDataSource(trading_pairs=trading_pairs),
                          trading_pairs=trading_pairs)
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
@@ -58,10 +58,7 @@ class EterbaseOrderBookTracker(OrderBookTracker):
         :return: OrderBookTrackerDataSource
         """
         if not self._data_source:
-            if self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = EterbaseAPIOrderBookDataSource(trading_pairs=self._trading_pairs)
-            else:
-                raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
+            self._data_source = EterbaseAPIOrderBookDataSource(trading_pairs=self._trading_pairs)
         return self._data_source
 
     @property

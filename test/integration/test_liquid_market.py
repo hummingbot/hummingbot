@@ -19,8 +19,6 @@ from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
-from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -93,7 +91,8 @@ class LiquidMarketUnitTest(unittest.TestCase):
             cls.web_app.update_response("get", API_HOST, "/crypto_accounts",
                                         FixtureLiquid.CRYPTO_ACCOUNTS)
             cls.web_app.update_response("get", API_HOST, "/orders", FixtureLiquid.ORDERS_GET)
-            cls._t_nonce_patcher = unittest.mock.patch("hummingbot.market.liquid.liquid_market.get_tracking_nonce")
+            cls._t_nonce_patcher = unittest.mock.patch(
+                "hummingbot.connector.exchange.liquid.liquid_market.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: LiquidMarket = LiquidMarket(
@@ -495,8 +494,6 @@ class LiquidMarketUnitTest(unittest.TestCase):
 
             self.market: LiquidMarket = LiquidMarket(
                 API_KEY, API_SECRET,
-                order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
                 trading_pairs=['ETH-USD', 'CEL-ETH']
             )
 
