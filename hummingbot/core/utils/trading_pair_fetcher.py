@@ -251,9 +251,11 @@ class TradingPairFetcher:
         async with aiohttp.ClientSession() as client:
             async with client.get(CRYPTO_COM_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                 if response.status == 200:
+                    from hummingbot.connector.exchange.crypto_com.crypto_com_utils import \
+                        convert_from_exchange_trading_pair
                     try:
                         data: Dict[str, Any] = await response.json()
-                        return [item["i"] for item in data["result"]["data"]]
+                        return [convert_from_exchange_trading_pair(item["i"]) for item in data["result"]["data"]]
                     except Exception:
                         pass
                         # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
@@ -264,13 +266,10 @@ class TradingPairFetcher:
         async with aiohttp.ClientSession() as client:
             async with client.get(KUCOIN_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                 if response.status == 200:
-                    from hummingbot.connector.exchange.crypto_com.crypto_com_utils import \
-                        convert_from_exchange_trading_pair
                     try:
                         data: Dict[str, Any] = await response.json()
                         all_trading_pairs = data.get("data", [])
-                        return [convert_from_exchange_trading_pair(item["symbol"])
-                                for item in all_trading_pairs if item["enableTrading"] is True]
+                        return [item["symbol"] for item in all_trading_pairs if item["enableTrading"] is True]
                     except Exception:
                         pass
                         # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
