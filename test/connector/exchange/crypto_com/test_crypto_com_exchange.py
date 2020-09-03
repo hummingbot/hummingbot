@@ -25,6 +25,13 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     OrderCancelledEvent
 )
+from hummingbot.model.sql_connection_manager import (
+    SQLConnectionManager,
+    SQLConnectionType
+)
+from hummingbot.model.market_state import MarketState
+from hummingbot.model.order import Order
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.connector.exchange.crypto_com.crypto_com_exchange import CryptoComExchange
 from hummingbot.connector.exchange.crypto_com.crypto_com_constants import WSS_PUBLIC_URL, WSS_PRIVATE_URL
 from test.integration.humming_web_app import HummingWebApp
@@ -108,11 +115,13 @@ class CryptoComExchangeUnitTest(unittest.TestCase):
             cls._ws_patcher.stop()
 
     @classmethod
-    async def wait_til_ready(cls):
+    async def wait_til_ready(cls, connector = None):
+        if connector is None:
+            connector = cls.connector
         while True:
             now = time.time()
             next_iteration = now // 1.0 + 1
-            if cls.connector.ready:
+            if connector.ready:
                 break
             else:
                 await cls._clock.run_til(next_iteration)
@@ -315,19 +324,18 @@ class CryptoComExchangeUnitTest(unittest.TestCase):
         sell_id = self._place_order(False, amount, OrderType.LIMIT, ask_price, 2)
 
         self.ev_loop.run_until_complete(asyncio.sleep(1))
-        results = self.ev_loop.run_until_complete(self.connector.cancel_all(5))
-        print(results)
+        asyncio.ensure_future(self.connector.cancel_all(3))
         if API_MOCK_ENABLED:
             data = fixture.WS_ORDER_CANCELLED.copy()
             data["result"]["data"][0]["client_oid"] = buy_id
             data["result"]["data"][0]["order_id"] = 1
-            HummingWsServerFactory.send_json_threadsafe(WSS_PRIVATE_URL, data)
+            HummingWsServerFactory.send_json_threadsafe(WSS_PRIVATE_URL, data, delay=0.1)
             self.ev_loop.run_until_complete(asyncio.sleep(1))
             data = fixture.WS_ORDER_CANCELLED.copy()
             data["result"]["data"][0]["client_oid"] = sell_id
             data["result"]["data"][0]["order_id"] = 2
-            HummingWsServerFactory.send_json_threadsafe(WSS_PRIVATE_URL, data)
-        self.ev_loop.run_until_complete(asyncio.sleep(2))
+            HummingWsServerFactory.send_json_threadsafe(WSS_PRIVATE_URL, data, delay=0.11)
+        self.ev_loop.run_until_complete(asyncio.sleep(3))
         cancel_events = [t for t in self.event_logger.event_log if isinstance(t, OrderCancelledEvent)]
         self.assertEqual({buy_id, sell_id}, {o.order_id for o in cancel_events})
 
@@ -347,25 +355,103 @@ class CryptoComExchangeUnitTest(unittest.TestCase):
         bid_price = mid_price * Decimal("0.9333192292111341")
         ask_price = mid_price * Decimal("1.0492431474884933")
 
-        cl_order_id = self._place_order(True, amount, OrderType.LIMIT, bid_price, 1, fixture.UNFILLED_ORDER)
+        cl_order_id_1 = self._place_order(True, amount, OrderType.LIMIT, bid_price, 1, fixture.UNFILLED_ORDER)
 
         # Wait for the order created event and examine the order made
         self.ev_loop.run_until_complete(self.event_logger.wait_for(BuyOrderCreatedEvent))
-        order = self.connector.in_flight_orders[cl_order_id]
+        order = self.connector.in_flight_orders[cl_order_id_1]
         quantized_bid_price = self.connector.quantize_order_price(self.trading_pair, bid_price)
         quantized_bid_size = self.connector.quantize_order_amount(self.trading_pair, amount)
         self.assertEqual(quantized_bid_price, order.price)
         self.assertEqual(quantized_bid_size, order.amount)
 
         # Test ask order
-        cl_order_id = self._place_order(False, amount, OrderType.LIMIT, ask_price, 1, fixture.UNFILLED_ORDER)
+        cl_order_id_2 = self._place_order(False, amount, OrderType.LIMIT, ask_price, 1, fixture.UNFILLED_ORDER)
 
         # Wait for the order created event and examine and order made
         self.ev_loop.run_until_complete(self.event_logger.wait_for(SellOrderCreatedEvent))
-        order = self.connector.in_flight_orders[cl_order_id]
+        order = self.connector.in_flight_orders[cl_order_id_2]
         quantized_ask_price = self.connector.quantize_order_price(self.trading_pair, Decimal(ask_price))
         quantized_ask_size = self.connector.quantize_order_amount(self.trading_pair, Decimal(amount))
         self.assertEqual(quantized_ask_price, order.price)
         self.assertEqual(quantized_ask_size, order.amount)
 
-        self.run_parallel(self.connector.cancel_all(5))
+        self._cancel_order(cl_order_id_1)
+        self._cancel_order(cl_order_id_2)
+
+    def test_orders_saving_and_restoration(self):
+        config_path = "test_config"
+        strategy_name = "test_strategy"
+        sql = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
+        order_id = None
+        recorder = MarketsRecorder(sql, [self.connector], config_path, strategy_name)
+        recorder.start()
+
+        try:
+            self.connector._in_flight_orders.clear()
+            self.assertEqual(0, len(self.connector.tracking_states))
+
+            # Try to put limit buy order for 0.02 ETH worth of ZRX, and watch for order creation event.
+            current_bid_price: Decimal = self.connector.get_price(self.trading_pair, True)
+            price: Decimal = current_bid_price * Decimal("0.8")
+            price = self.connector.quantize_order_price(self.trading_pair, price)
+
+            amount: Decimal = Decimal("0.0001")
+            amount = self.connector.quantize_order_amount(self.trading_pair, amount)
+
+            cl_order_id = self._place_order(True, amount, OrderType.LIMIT_MAKER, price, 1, fixture.UNFILLED_ORDER)
+            order_created_event = self.ev_loop.run_until_complete(self.event_logger.wait_for(BuyOrderCreatedEvent))
+            self.assertEqual(cl_order_id, order_created_event.order_id)
+
+            # Verify tracking states
+            self.assertEqual(1, len(self.connector.tracking_states))
+            self.assertEqual(cl_order_id, list(self.connector.tracking_states.keys())[0])
+
+            # Verify orders from recorder
+            recorded_orders: List[Order] = recorder.get_orders_for_config_and_market(config_path, self.connector)
+            self.assertEqual(1, len(recorded_orders))
+            self.assertEqual(cl_order_id, recorded_orders[0].id)
+
+            # Verify saved market states
+            saved_market_states: MarketState = recorder.get_market_states(config_path, self.connector)
+            self.assertIsNotNone(saved_market_states)
+            self.assertIsInstance(saved_market_states.saved_state, dict)
+            self.assertGreater(len(saved_market_states.saved_state), 0)
+
+            # Close out the current market and start another market.
+            self.connector.stop(self._clock)
+            self.ev_loop.run_until_complete(asyncio.sleep(5))
+            self.clock.remove_iterator(self.connector)
+            for event_tag in self.events:
+                self.connector.remove_listener(event_tag, self.event_logger)
+            new_connector = CryptoComExchange(API_KEY, API_SECRET, [self.trading_pair], True)
+            for event_tag in self.events:
+                new_connector.add_listener(event_tag, self.event_logger)
+            recorder.stop()
+            recorder = MarketsRecorder(sql, [new_connector], config_path, strategy_name)
+            recorder.start()
+            saved_market_states = recorder.get_market_states(config_path, new_connector)
+            self.clock.add_iterator(new_connector)
+            if not API_MOCK_ENABLED:
+                self.ev_loop.run_until_complete(self.wait_til_ready(new_connector))
+            self.assertEqual(0, len(new_connector.limit_orders))
+            self.assertEqual(0, len(new_connector.tracking_states))
+            new_connector.restore_tracking_states(saved_market_states.saved_state)
+            self.assertEqual(1, len(new_connector.limit_orders))
+            self.assertEqual(1, len(new_connector.tracking_states))
+
+            # Cancel the order and verify that the change is saved.
+            self._cancel_order(cl_order_id)
+            self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
+            order_id = None
+            self.assertEqual(0, len(new_connector.limit_orders))
+            self.assertEqual(0, len(new_connector.tracking_states))
+            saved_market_states = recorder.get_market_states(config_path, new_connector)
+            self.assertEqual(0, len(saved_market_states.saved_state))
+        finally:
+            if order_id is not None:
+                self.connector.cancel(self.trading_pair, cl_order_id)
+                self.run_parallel(self.event_logger.wait_for(OrderCancelledEvent))
+
+            recorder.stop()
+            os.unlink(self.db_path)
