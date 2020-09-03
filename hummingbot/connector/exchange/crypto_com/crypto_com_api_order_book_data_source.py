@@ -140,13 +140,14 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     if response.get("result") is None:
                         continue
 
-                    diff = response["result"]["data"][0]
-                    diff_timestamp: int = ms_timestamp_to_s(diff["t"])
-                    # data in this channel is not order book but the entire order book (up to depth 150)
-                    # so we need to convert it into a order book snapshot
+                    order_book_data = response["result"]["data"][0]
+                    timestamp: int = ms_timestamp_to_s(order_book_data["t"])
+                    # data in this channel is not order book diff but the entire order book (up to depth 150).
+                    # so we need to convert it into a order book snapshot.
+                    # Crypto.com does not offer order book diff ws updates.
                     orderbook_msg: OrderBookMessage = CryptoComOrderBook.snapshot_message_from_exchange(
-                        diff,
-                        diff_timestamp,
+                        order_book_data,
+                        timestamp,
                         metadata={"trading_pair": crypto_com_utils.convert_from_exchange_trading_pair(
                             response["result"]["instrument_name"])}
                     )
