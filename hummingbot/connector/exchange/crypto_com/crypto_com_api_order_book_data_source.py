@@ -142,7 +142,9 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                     diff = response["result"]["data"][0]
                     diff_timestamp: int = ms_timestamp_to_s(diff["t"])
-                    orderbook_msg: OrderBookMessage = CryptoComOrderBook.diff_message_from_exchange(
+                    # data in this channel is not order book but the entire order book (up to depth 150)
+                    # so we need to convert it into a order book snapshot
+                    orderbook_msg: OrderBookMessage = CryptoComOrderBook.snapshot_message_from_exchange(
                         diff,
                         diff_timestamp,
                         metadata={"trading_pair": crypto_com_utils.convert_from_exchange_trading_pair(
