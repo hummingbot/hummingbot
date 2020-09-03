@@ -18,11 +18,11 @@ from typing import (
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.market.bittrex.bittrex_active_order_tracker import BittrexActiveOrderTracker
-from hummingbot.market.bittrex.bittrex_api_order_book_data_source import BittrexAPIOrderBookDataSource
-from hummingbot.market.bittrex.bittrex_order_book import BittrexOrderBook
-from hummingbot.market.bittrex.bittrex_order_book_message import BittrexOrderBookMessage
-from hummingbot.market.bittrex.bittrex_order_book_tracker_entry import BittrexOrderBookTrackerEntry
+from hummingbot.connector.exchange.bittrex.bittrex_active_order_tracker import BittrexActiveOrderTracker
+from hummingbot.connector.exchange.bittrex.bittrex_api_order_book_data_source import BittrexAPIOrderBookDataSource
+from hummingbot.connector.exchange.bittrex.bittrex_order_book import BittrexOrderBook
+from hummingbot.connector.exchange.bittrex.bittrex_order_book_message import BittrexOrderBookMessage
+from hummingbot.connector.exchange.bittrex.bittrex_order_book_tracker_entry import BittrexOrderBookTrackerEntry
 
 
 class BittrexOrderBookTracker(OrderBookTracker):

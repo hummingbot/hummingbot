@@ -14,7 +14,7 @@ import signalr_aio
 import ujson
 from async_timeout import timeout
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.market.bittrex.bittrex_auth import BittrexAuth
+from hummingbot.connector.exchange.bittrex.bittrex_auth import BittrexAuth
 from hummingbot.logger import HummingbotLogger
 
 BITTREX_WS_FEED = "https://socket-v3.bittrex.com/signalr"

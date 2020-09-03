@@ -18,8 +18,8 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.bittrex.bittrex_active_order_tracker import BittrexActiveOrderTracker
-from hummingbot.market.bittrex.bittrex_order_book import BittrexOrderBook
+from hummingbot.connector.exchange.bittrex.bittrex_active_order_tracker import BittrexActiveOrderTracker
+from hummingbot.connector.exchange.bittrex.bittrex_order_book import BittrexOrderBook
 
 
 EXCHANGE_NAME = "Bittrex"

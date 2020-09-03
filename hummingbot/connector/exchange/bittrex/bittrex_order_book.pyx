@@ -10,7 +10,7 @@ from typing import (
 
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.events import TradeType
-from hummingbot.market.bittrex.bittrex_order_book_message import BittrexOrderBookMessage
+from hummingbot.connector.exchange.bittrex.bittrex_order_book_message import BittrexOrderBookMessage
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
