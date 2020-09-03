@@ -45,7 +45,7 @@ from hummingbot.connector.exchange.binance.binance_market import (
     BinanceTime,
     binance_client_module
 )
-from hummingbot.connector.exchange.binance import convert_to_exchange_trading_pair
+from hummingbot.connector.exchange.binance.binance_utils import convert_to_exchange_trading_pair
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
@@ -126,7 +126,8 @@ class BinanceMarketUnitTest(unittest.TestCase):
             cls._ws_mock = cls._ws_patcher.start()
             cls._ws_mock.side_effect = HummingWsServerFactory.reroute_ws_connect
 
-            cls._t_nonce_patcher = unittest.mock.patch("hummingbot.market.binance.binance_market.get_tracking_nonce")
+            cls._t_nonce_patcher = unittest.mock.patch(
+                "hummingbot.connector.exchange.binance.binance_market.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: BinanceMarket = BinanceMarket(API_KEY, API_SECRET, ["LINK-ETH", "ZRX-ETH"], True)
@@ -490,7 +491,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
         try:
             local_time_offset = (time.time() - time.perf_counter()) * 1e3
-            with patch("hummingbot.market.binance.binance_time.time") as market_time:
+            with patch("hummingbot.connector.exchange.binance.binance_time.time") as market_time:
                 def delayed_time():
                     return time.perf_counter() - 30.0
                 market_time.perf_counter = delayed_time
