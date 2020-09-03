@@ -105,7 +105,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             cls._ws_mock.side_effect = HummingWsServerFactory.reroute_ws_connect
 
             cls._t_nonce_patcher = unittest.mock.patch(
-                "hummingbot.market.coinbase_pro.coinbase_pro_market.get_tracking_nonce")
+                "hummingbot.connector.exchange.coinbase_pro.coinbase_pro_market.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: CoinbaseProMarket = CoinbaseProMarket(
