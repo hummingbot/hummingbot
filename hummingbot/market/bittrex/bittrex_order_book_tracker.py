@@ -15,11 +15,7 @@ from typing import (
     Deque,
 )
 
-from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessageType,
-    OrderBookMessage,
-)
-from hummingbot.core.event.events import TradeType
+from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.market.bittrex.bittrex_active_order_tracker import BittrexActiveOrderTracker
@@ -27,7 +23,6 @@ from hummingbot.market.bittrex.bittrex_api_order_book_data_source import Bittrex
 from hummingbot.market.bittrex.bittrex_order_book import BittrexOrderBook
 from hummingbot.market.bittrex.bittrex_order_book_message import BittrexOrderBookMessage
 from hummingbot.market.bittrex.bittrex_order_book_tracker_entry import BittrexOrderBookTrackerEntry
-from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class BittrexOrderBookTracker(OrderBookTracker):
@@ -109,19 +104,6 @@ class BittrexOrderBookTracker(OrderBookTracker):
                     continue
                 await message_queue.put(ob_message)
                 message_accepted += 1
-
-                if len(ob_message.content["f"]) != 0:
-                    for trade in ob_message.content["f"]:
-                        trade_type = float(TradeType.SELL.value) if trade["OT"].upper() == "SELL" \
-                            else float(TradeType.BUY.value)
-                        self._order_book_trade_stream.put_nowait(OrderBookMessage(OrderBookMessageType.TRADE, {
-                            "trading_pair": ob_message.trading_pair,
-                            "trade_type": trade_type,
-                            "trade_id": trade["FI"],
-                            "update_id": trade["T"],
-                            "price": trade["R"],
-                            "amount": trade["Q"]
-                        }, timestamp=trade["T"]))
 
                 # Log some statistics
                 now: float = time.time()
@@ -212,23 +194,3 @@ class BittrexOrderBookTracker(OrderBookTracker):
                     app_warning_msg=f"Unexpected error processing order book messages. Retrying after 5 seconds.",
                 )
                 await asyncio.sleep(5.0)
-
-    def start(self):
-        self.stop()
-        self._init_order_books_task = safe_ensure_future(
-            self._init_order_books()
-        )
-        self._order_book_snapshot_listener_task = safe_ensure_future(
-            self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
-        )
-        self._order_book_diff_listener_task = safe_ensure_future(
-            self.data_source.listen_for_order_book_stream(self._ev_loop,
-                                                          self._order_book_snapshot_stream,
-                                                          self._order_book_diff_stream)
-        )
-        self._order_book_diff_router_task = safe_ensure_future(
-            self._order_book_diff_router()
-        )
-        self._order_book_snapshot_router_task = safe_ensure_future(
-            self._order_book_snapshot_router()
-        )

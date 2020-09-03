@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import uuid
 import asyncio
 import hashlib
 import hmac
@@ -15,10 +16,8 @@ from async_timeout import timeout
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.market.bittrex.bittrex_auth import BittrexAuth
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from hummingbot.market.bittrex.bittrex_order_book import BittrexOrderBook
 
-BITTREX_WS_FEED = "https://socket.bittrex.com/signalr"
+BITTREX_WS_FEED = "https://socket-v3.bittrex.com/signalr"
 MAX_RETRIES = 20
 MESSAGE_TIMEOUT = 30.0
 NaN = float("nan")
@@ -44,11 +43,16 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._listen_for_user_stream_task = None
         self._last_recv_time: float = 0
         self._websocket_connection: Optional[signalr_aio.Connection] = None
+        self._hub = None
         super().__init__()
 
     @property
-    def order_book_class(self):
-        return BittrexOrderBook
+    def hub(self):
+        return self._hub
+
+    @hub.setter
+    def hub(self, value):
+        self._hub = value
 
     @property
     def last_recv_time(self) -> float:
@@ -66,8 +70,6 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     def _transform_raw_message(self, msg) -> Dict[str, Any]:
 
-        timestamp_patten = "%Y-%m-%dT%H:%M:%S"
-
         def _decode_message(raw_message: bytes) -> Dict[str, Any]:
             try:
                 decode_msg: bytes = decompress(b64decode(raw_message, validate=True), -MAX_WBITS)
@@ -79,40 +81,34 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
             return ujson.loads(decode_msg.decode(), precise_float=True)
 
-        def _is_auth_context(msg):
-            return "R" in msg and type(msg["R"]) is not bool and msg["I"] == str(0)
+        def _is_heartbeat(msg):
+            return len(msg.get("M", [])) > 0 and type(msg["M"][0]) == dict and msg["M"][0].get("M", None) == "heartbeat"
+
+        def _is_auth_notification(msg):
+            return len(msg.get("M", [])) > 0 and type(msg["M"][0]) == dict and msg["M"][0].get("M", None) == "authenticationExpiring"
 
         def _is_order_delta(msg) -> bool:
-            return len(msg.get("M", [])) > 0 and type(msg["M"][0]) == dict and msg["M"][0].get("M", None) == "uO"
+            return len(msg.get("M", [])) > 0 and type(msg["M"][0]) == dict and msg["M"][0].get("M", None) == "order"
 
         def _is_balance_delta(msg) -> bool:
-            return len(msg.get("M", [])) > 0 and type(msg["M"][0]) == dict and msg["M"][0].get("M", None) == "uB"
-
-        def _get_signed_challenge(api_secret: str, challenge: str):
-            return hmac.new(api_secret.encode(), challenge.encode(), hashlib.sha512).hexdigest()
+            return len(msg.get("M", [])) > 0 and type(msg["M"][0]) == dict and msg["M"][0].get("M", None) == "balance"
 
         output: Dict[str, Any] = {"event_type": None, "content": None, "error": None}
         msg: Dict[str, Any] = ujson.loads(msg)
 
-        if _is_auth_context(msg):
-            output["event_type"] = "auth"
-            output["content"] = {"signature": _get_signed_challenge(self._bittrex_auth.secret_key, msg["R"])}
+        if _is_auth_notification(msg):
+            output["event_type"] = "re-authenticate"
+
+        elif _is_heartbeat(msg):
+            output["event_type"] = "heartbeat"
+
         elif _is_balance_delta(msg):
-            output["event_type"] = "uB"
+            output["event_type"] = "balance"
             output["content"] = _decode_message(msg["M"][0]["A"][0])
-            output["time"] = time.strftime(timestamp_patten, time.gmtime(output["content"]['d']['u'] / 1000))
 
         elif _is_order_delta(msg):
-            output["event_type"] = "uO"
+            output["event_type"] = "order"
             output["content"] = _decode_message(msg["M"][0]["A"][0])
-            output["time"] = time.strftime(timestamp_patten, time.gmtime(output["content"]['o']['u'] / 1000))
-
-            # TODO: Refactor accordingly when V3 WebSocket API is released
-            # WebSocket API returns market trading_pairs in 'Quote-Base' format
-            # Code below converts 'Quote-Base' -> 'Base-Quote'
-            output["content"]["o"].update({
-                "E": f"{output['content']['o']['E'].split('-')[1]}-{output['content']['o']['E'].split('-')[0]}"
-            })
 
         return output
 
@@ -120,10 +116,13 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         while True:
             try:
                 self._websocket_connection = signalr_aio.Connection(BITTREX_WS_FEED, session=None)
-                hub = self._websocket_connection.register_hub("c2")
+                self.hub = self._websocket_connection.register_hub("c3")
 
-                self.logger().info("Invoked GetAuthContext")
-                hub.server.invoke("GetAuthContext", self._bittrex_auth.api_key)
+                self.logger().info("Authenticating...")
+                await self.authenticate()
+                self.hub.server.invoke("Subscribe", ["heartbeat"])
+                self.hub.server.invoke("Subscribe", ["order"])
+                self.hub.server.invoke("Subscribe", ["balance"])
                 self._websocket_connection.start()
 
                 async for raw_message in self._socket_user_stream(self._websocket_connection):
@@ -133,15 +132,14 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         continue
 
                     if decode.get("content") is not None:
-                        signature = decode["content"].get("signature")
                         content_type = decode["event_type"]
-                        if signature is not None:
-                            hub.server.invoke("Authenticate", self._bittrex_auth.api_key, signature)
-                            continue
 
-                        if content_type in ["uO", "uB"]:  # uB: Balance Delta, uO: Order Delta
-                            order_delta: OrderBookMessage = self.order_book_class.diff_message_from_exchange(decode)
-                            output.put_nowait(order_delta)
+                        if content_type in ["balance", "order"]:  # balance: Balance Delta, order: Order Delta
+                            output.put_nowait(decode)
+                        elif content_type == "re-authenticate":
+                            await self.authenticate()
+                        elif content_type == "heartbeat":
+                            continue
 
             except asyncio.CancelledError:
                 raise
@@ -150,3 +148,11 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     "Unexpected error with Bittrex WebSocket connection. " "Retrying after 30 seconds...", exc_info=True
                 )
                 await asyncio.sleep(30.0)
+
+    async def authenticate(self):
+        timestamp = int(round(time.time() * 1000))
+        randomized = str(uuid.uuid4())
+        challenge = f"{timestamp}{randomized}"
+        signed_challenge = hmac.new(self._bittrex_auth.secret_key.encode(), challenge.encode(), hashlib.sha512).hexdigest()
+        self.hub.server.invoke("Authenticate", self._bittrex_auth.api_key, timestamp, randomized, signed_challenge)
+        return
