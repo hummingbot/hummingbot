@@ -579,7 +579,6 @@ class CryptoComExchange(ExchangeBase):
             async with timeout(timeout_seconds):
                 results = await safe_gather(*tasks, return_exceptions=True)
                 for result in results:
-                    self.logger().info(f"cancel_all result: {result}")
                     if result is not None and not isinstance(result, Exception):
                         order_id_set.remove(result)
                         successful_cancellations.append(CancellationResult(result, True))
