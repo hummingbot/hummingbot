@@ -117,7 +117,7 @@ class CryptoComExchange(ExchangeBase):
     def limit_orders(self) -> List[LimitOrder]:
         return [
             in_flight_order.to_limit_order()
-            for in_flight_order in self._in_flight_orders.values() if not in_flight_order.is_done
+            for in_flight_order in self._in_flight_orders.values()
         ]
 
     @property
@@ -125,6 +125,7 @@ class CryptoComExchange(ExchangeBase):
         return {
             key: value.to_json()
             for key, value in self._in_flight_orders.items()
+            if not value.is_done
         }
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
@@ -405,7 +406,9 @@ class CryptoComExchange(ExchangeBase):
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is None:
                 raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
-            ex_order_id = await tracked_order.get_exchange_order_id()
+            if tracked_order.exchange_order_id is None:
+                await tracked_order.get_exchange_order_id()
+            ex_order_id = tracked_order.exchange_order_id
             result = await self._api_request(
                 "post",
                 "private/cancel-order",
@@ -415,7 +418,8 @@ class CryptoComExchange(ExchangeBase):
             )
             if result["code"] == 0:
                 if wait_for_status:
-                    await tracked_order.cancelled_event.wait()
+                    from hummingbot.core.utils.async_utils import wait_til
+                    await wait_til(lambda: tracked_order.is_cancelled)
                 return order_id
         except asyncio.CancelledError:
             raise
@@ -573,8 +577,9 @@ class CryptoComExchange(ExchangeBase):
         successful_cancellations = []
         try:
             async with timeout(timeout_seconds):
-                results = await safe_gather(*tasks, return_exceptions=True, loop=self._ev_loop)
+                results = await safe_gather(*tasks, return_exceptions=True)
                 for result in results:
+                    self.logger().info(f"cancel_all result: {result}")
                     if result is not None and not isinstance(result, Exception):
                         order_id_set.remove(result)
                         successful_cancellations.append(CancellationResult(result, True))
