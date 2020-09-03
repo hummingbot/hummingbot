@@ -9,6 +9,7 @@ from typing import (
 )
 
 from hummingbot.logger import HummingbotLogger
+from hummingbot.core.event.events import TradeType
 from hummingbot.market.bittrex.bittrex_order_book_message import BittrexOrderBookMessage
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import (
@@ -34,10 +35,12 @@ cdef class BittrexOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return BittrexOrderBookMessage(
-            message_type=OrderBookMessageType.SNAPSHOT,
-            content=msg,
-            timestamp=timestamp
-        )
+            OrderBookMessageType.SNAPSHOT, {
+            "trading_pair": msg["marketSymbol"],
+            "update_id": int(msg["sequence"]),
+            "bids": msg["bid"],
+            "asks": msg["ask"]
+        }, timestamp=timestamp)
 
     @classmethod
     def diff_message_from_exchange(cls,
@@ -47,10 +50,12 @@ cdef class BittrexOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return BittrexOrderBookMessage(
-            message_type=OrderBookMessageType.DIFF,
-            content=msg,
-            timestamp=timestamp
-        )
+            OrderBookMessageType.DIFF, {
+            "trading_pair": msg["marketSymbol"],
+            "update_id": int(msg["sequence"]),
+            "bids": msg["bidDeltas"],
+            "asks": msg["askDeltas"]
+        }, timestamp=timestamp)
 
     @classmethod
     def trade_message_from_exchange(cls,
@@ -59,6 +64,16 @@ cdef class BittrexOrderBook(OrderBook):
                                     metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
+        return BittrexOrderBookMessage(
+            OrderBookMessageType.TRADE, {
+            "trading_pair": msg["trading_pair"],
+            "trade_type": float(TradeType.BUY.value) if msg["takerSide"] == "BUY"
+            else float(TradeType.SELL.value),
+            "trade_id": msg["id"],
+            "update_id": msg["sequence"],
+            "price": msg["rate"],
+            "amount": msg["quantity"]
+        }, timestamp=timestamp)
         msg_ts = int(msg)
 
     @classmethod
