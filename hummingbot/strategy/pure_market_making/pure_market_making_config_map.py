@@ -304,5 +304,10 @@ pure_market_making_config_map = {
                                         "order book? (Yes/No) >>> ",
                                  required_if=lambda: pure_market_making_config_map.get("price_source_enabled").value,
                                  type_str="bool",
-                                 validator=validate_take_if_crossed)
+                                 validator=validate_take_if_crossed),
+    "order_override":
+        ConfigVar(key="order_orveride",
+                  prompt=None,
+                  default=None,
+                  type_str="json")
 }
