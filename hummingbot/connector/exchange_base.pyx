@@ -31,6 +31,11 @@ s_decimal_0 = Decimal(0)
 
 
 cdef class ExchangeBase(ConnectorBase):
+    """
+    ExchangeBase provides common exchange (for both centralized and decentralized) connector functionality and
+    interface.
+    """
+
     def __init__(self):
         super().__init__()
         self._order_book_tracker = None
@@ -236,6 +241,9 @@ cdef class ExchangeBase(ConnectorBase):
         return [OrderType.LIMIT, OrderType.MARKET]
 
     def get_maker_order_type(self):
+        """
+        Return a maker order type depending what order types the connector supports.
+        """
         if OrderType.LIMIT_MAKER in self.supported_order_types():
             return OrderType.LIMIT_MAKER
         elif OrderType.LIMIT in self.supported_order_types():
@@ -244,6 +252,9 @@ cdef class ExchangeBase(ConnectorBase):
             raise Exception("There is no maker order type supported by this exchange.")
 
     def get_taker_order_type(self):
+        """
+        Return a taker order type depending what order types the connector supports.
+        """
         if OrderType.MARKET in self.supported_order_types():
             return OrderType.MARKET
         elif OrderType.LIMIT in self.supported_order_types():
@@ -252,6 +263,12 @@ cdef class ExchangeBase(ConnectorBase):
             raise Exception("There is no taker order type supported by this exchange.")
 
     def get_price_by_type(self, trading_pair: str, price_type: PriceType) -> Decimal:
+        """
+        Gets price by type (BestBid, BestAsk, MidPrice or LastTrade)
+        :param trading_pair: The market trading pair
+        :param price_type: The price type
+        :returns The price
+        """
         if price_type is PriceType.BestBid:
             return self.c_get_price(trading_pair, False)
         elif price_type is PriceType.BestAsk:
