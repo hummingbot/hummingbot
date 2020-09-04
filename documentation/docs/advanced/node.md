@@ -10,7 +10,9 @@ Which Ethereum node would you like your client to connect to? >>>
 
 Below, we list different ways that you can access an Ethereum node.
 
-## Option 1. Infura
+## Option 1. Hosted Node
+
+### a. Infura
 
 [Infura](https://infura.io/) provides free and the most widely used Ethereum nodes.
 
@@ -23,7 +25,7 @@ Below, we list different ways that you can access an Ethereum node.
 ![](/assets/img/infura3.png)
 5. The websocket address is below the Ethereum node that starts with `wss://`
 
-## Option 1a. QuikNode
+### b. QuikNode
 
 [QuikNode](https://www.quiknode.io/) is a popular and high-performance node service.
 
