@@ -18,11 +18,4 @@ cdef class OrderBookAssetPriceDelegate(AssetPriceDelegate):
         return self._market.ready
 
     def get_price_by_type(self, price_type: PriceType) -> Decimal:
-        if price_type is PriceType.BestBid:
-            return self._market.get_price(self._trading_pair, False)
-        elif price_type is PriceType.BestAsk:
-            return self._market.get_price(self._trading_pair, True)
-        elif price_type is PriceType.MidPrice:
-            return self._market.get_mid_price(self._trading_pair)
-        elif price_type is PriceType.LastTrade:
-            return Decimal(self._market.get_order_book(self._trading_pair).last_trade_price)
+        return self._market.get_price_by_type(self._trading_pair, price_type)

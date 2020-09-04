@@ -18,7 +18,8 @@ from hummingbot.core.data_type.order_book_row import (
 from hummingbot.core.event.events import (
     OrderType,
     TradeType,
-    TradeFee
+    TradeFee,
+    PriceType
 )
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
@@ -249,3 +250,13 @@ cdef class ExchangeBase(ConnectorBase):
             return OrderType.LIMIT
         else:
             raise Exception("There is no taker order type supported by this exchange.")
+
+    def get_price_by_type(self, trading_pair: str, price_type: PriceType) -> Decimal:
+        if price_type is PriceType.BestBid:
+            return self.c_get_price(trading_pair, False)
+        elif price_type is PriceType.BestAsk:
+            return self.c_get_price(trading_pair, True)
+        elif price_type is PriceType.MidPrice:
+            return (self.c_get_price(trading_pair, True) + self.c_get_price(trading_pair, False)) / Decimal("2")
+        elif price_type is PriceType.LastTrade:
+            return Decimal(self.c_get_order_book(trading_pair).last_trade_price)
