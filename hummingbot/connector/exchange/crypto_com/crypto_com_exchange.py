@@ -111,7 +111,7 @@ class CryptoComExchange(ExchangeBase):
     @property
     def status_dict(self) -> Dict[str, bool]:
         """
-        :return a dictionary of statuses of various connector's components.
+        A dictionary of statuses of various connector's components.
         """
         return {
             "order_books_initialized": self._order_book_tracker.ready,
