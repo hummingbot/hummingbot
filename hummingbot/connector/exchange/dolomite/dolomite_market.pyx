@@ -770,3 +770,6 @@ cdef class DolomiteMarket(ExchangeBase):
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
             data = await response.json()
             return data
+
+    def get_order_book(self, trading_pair: str) -> OrderBook:
+        return self.c_get_order_book(trading_pair)

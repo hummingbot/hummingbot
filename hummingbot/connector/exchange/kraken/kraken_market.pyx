@@ -1056,3 +1056,6 @@ cdef class KrakenMarket(ExchangeBase):
                 amount: Decimal,
                 price: Decimal = s_decimal_NaN) -> TradeFee:
         return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+
+    def get_order_book(self, trading_pair: str) -> OrderBook:
+        return self.c_get_order_book(trading_pair)

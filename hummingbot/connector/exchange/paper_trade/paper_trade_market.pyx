@@ -957,3 +957,6 @@ cdef class PaperTradeMarket(ExchangeBase):
     def set_balance(self, currency: str, balance: Decimal):
         self.c_set_balance(currency, balance)
     # </editor-fold>
+
+    def get_order_book(self, trading_pair: str) -> OrderBook:
+        return self.c_get_order_book(trading_pair)
