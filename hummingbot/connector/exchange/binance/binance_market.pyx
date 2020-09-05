@@ -653,9 +653,7 @@ cdef class BinanceMarket(ExchangeBase):
                                                      ))
                         self.c_stop_tracking_order(tracked_order.client_order_id)
 
-                elif event_type == "outboundAccountInfo":
-                    local_asset_names = set(self._account_balances.keys())
-                    remote_asset_names = set()
+                elif event_type == "outboundAccountPosition":
                     balances = event_message["B"]
                     for balance_entry in balances:
                         asset_name = balance_entry["a"]
@@ -663,12 +661,6 @@ cdef class BinanceMarket(ExchangeBase):
                         total_balance = Decimal(balance_entry["f"]) + Decimal(balance_entry["l"])
                         self._account_available_balances[asset_name] = free_balance
                         self._account_balances[asset_name] = total_balance
-                        remote_asset_names.add(asset_name)
-
-                    asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-                    for asset_name in asset_names_to_remove:
-                        del self._account_available_balances[asset_name]
-                        del self._account_balances[asset_name]
 
             except asyncio.CancelledError:
                 raise
