@@ -116,20 +116,20 @@ cdef class NetworkIterator(TimeIterator):
                 await asyncio.sleep(self._network_error_wait_time)
 
     cdef c_start(self, Clock clock, double timestamp):
-        self.start(clock, timestamp)
-
-    cdef c_stop(self, Clock clock):
-        self.stop(clock)
-
-    def start(self, clock: Clock, timestamp: float):
-        TimeIterator.start(self, clock, timestamp)
+        TimeIterator.c_start(self, clock, timestamp)
         self._check_network_task = safe_ensure_future(self._check_network_loop())
         self._network_status = NetworkStatus.NOT_CONNECTED
 
-    def stop(self, clock: Clock):
-        TimeIterator.stop(self, clock)
+    cdef c_stop(self, Clock clock):
+        TimeIterator.c_stop(self, clock)
         if self._check_network_task is not None:
             self._check_network_task.cancel()
             self._check_network_task = None
         self._network_status = NetworkStatus.STOPPED
         safe_ensure_future(self.stop_network())
+
+    def start(self, clock: Clock, timestamp: float):
+        self.c_start(clock, timestamp)
+
+    def stop(self, clock: Clock):
+        self.c_stop(clock)
