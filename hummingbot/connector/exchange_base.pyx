@@ -5,7 +5,8 @@ from typing import (
     List,
     Tuple,
     Optional,
-    Iterator)
+    Iterator,
+    Any)
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.order_book_query_result import (
     OrderBookQueryResult,
@@ -17,7 +18,8 @@ from hummingbot.core.data_type.order_book_row import (
 from hummingbot.core.event.events import (
     OrderType,
     TradeType,
-    TradeFee
+    TradeFee,
+    PriceType
 )
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
@@ -27,9 +29,15 @@ NaN = float("nan")
 s_decimal_NaN = Decimal("nan")
 s_decimal_0 = Decimal(0)
 
+
 cdef class ExchangeBase(ConnectorBase):
-    def __init__(self, fee_estimates: Dict[bool, Decimal], balance_limits: Dict[str, Decimal]):
-        super().__init__(fee_estimates, balance_limits)
+    """
+    ExchangeBase provides common exchange (for both centralized and decentralized) connector functionality and
+    interface.
+    """
+
+    def __init__(self):
+        super().__init__()
         self._order_book_tracker = None
 
     @staticmethod
@@ -58,16 +66,13 @@ cdef class ExchangeBase(ConnectorBase):
         """
         raise NotImplementedError
 
-    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
-        raise NotImplementedError
-
     cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.MARKET,
                    object price=s_decimal_NaN, dict kwargs={}):
-        return self.buy(trading_pair, amount, order_type, price, kwargs)
+        return self.buy(trading_pair, amount, order_type, price, **kwargs)
 
     cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.MARKET,
                     object price=s_decimal_NaN, dict kwargs={}):
-        return self.sell(trading_pair, amount, order_type, price, kwargs)
+        return self.sell(trading_pair, amount, order_type, price, **kwargs)
 
     cdef c_cancel(self, str trading_pair, str client_order_id):
         return self.cancel(trading_pair, client_order_id)
@@ -217,7 +222,7 @@ cdef class ExchangeBase(ConnectorBase):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal = NaN) -> TradeFee:
+                price: Decimal = s_decimal_NaN) -> TradeFee:
         raise NotImplementedError
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
@@ -236,6 +241,9 @@ cdef class ExchangeBase(ConnectorBase):
         return [OrderType.LIMIT, OrderType.MARKET]
 
     def get_maker_order_type(self):
+        """
+        Return a maker order type depending what order types the connector supports.
+        """
         if OrderType.LIMIT_MAKER in self.supported_order_types():
             return OrderType.LIMIT_MAKER
         elif OrderType.LIMIT in self.supported_order_types():
@@ -244,9 +252,28 @@ cdef class ExchangeBase(ConnectorBase):
             raise Exception("There is no maker order type supported by this exchange.")
 
     def get_taker_order_type(self):
+        """
+        Return a taker order type depending what order types the connector supports.
+        """
         if OrderType.MARKET in self.supported_order_types():
             return OrderType.MARKET
         elif OrderType.LIMIT in self.supported_order_types():
             return OrderType.LIMIT
         else:
             raise Exception("There is no taker order type supported by this exchange.")
+
+    def get_price_by_type(self, trading_pair: str, price_type: PriceType) -> Decimal:
+        """
+        Gets price by type (BestBid, BestAsk, MidPrice or LastTrade)
+        :param trading_pair: The market trading pair
+        :param price_type: The price type
+        :returns The price
+        """
+        if price_type is PriceType.BestBid:
+            return self.c_get_price(trading_pair, False)
+        elif price_type is PriceType.BestAsk:
+            return self.c_get_price(trading_pair, True)
+        elif price_type is PriceType.MidPrice:
+            return (self.c_get_price(trading_pair, True) + self.c_get_price(trading_pair, False)) / Decimal("2")
+        elif price_type is PriceType.LastTrade:
+            return Decimal(self.c_get_order_book(trading_pair).last_trade_price)

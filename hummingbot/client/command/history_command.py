@@ -14,7 +14,7 @@ from typing import (
     List
 )
 from hummingbot.client.performance_analysis import calculate_trade_performance
-from hummingbot.market.market_base import MarketBase
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from datetime import datetime
 from hummingbot.client.config.global_config_map import global_config_map
@@ -69,7 +69,7 @@ class HistoryCommand:
             return
         rows = []
         for market_trading_pair_tuple in self.market_trading_pair_tuples:
-            market: MarketBase = market_trading_pair_tuple.market
+            market: ExchangeBase = market_trading_pair_tuple.market
             for asset in set(a.upper() for a in self.assets):
                 asset_delta: Dict[str, Decimal] = market_trading_pair_stats[market_trading_pair_tuple]["asset"].get(
                     asset, {"delta": Decimal("0")})

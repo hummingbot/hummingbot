@@ -18,8 +18,8 @@ from typing import (
     Dict,
     Optional,
     List)
-from hummingbot.market.liquid.liquid_order_book_tracker import LiquidOrderBookTracker
-from hummingbot.market.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
+from hummingbot.connector.exchange.liquid.liquid_order_book_tracker import LiquidOrderBookTracker
+from hummingbot.connector.exchange.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,

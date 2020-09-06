@@ -8,14 +8,14 @@ from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.event.events import (
     MarketEvent,
     OrderType,
-    TradeType,
-    TradeFee
+    TradeType
 )
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.network_iterator import NetworkIterator
-from hummingbot.market.in_flight_order_base import InFlightOrderBase
+from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.event.events import OrderFilledEvent
-
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.core.utils.estimate_fee import estimate_fee
 
 NaN = float("nan")
 s_decimal_NaN = Decimal("nan")
@@ -36,8 +36,9 @@ cdef class ConnectorBase(NetworkIterator):
         MarketEvent.OrderExpired
     ]
 
-    def __init__(self, fee_estimates: Dict[bool, Decimal], balance_limits: Dict[str, Decimal]):
+    def __init__(self):
         super().__init__()
+
         self._event_reporter = EventReporter(event_source=self.name)
         self._event_logger = EventLogger(event_source=self.name)
         for event_tag in self.MARKET_EVENTS:
@@ -46,9 +47,11 @@ cdef class ConnectorBase(NetworkIterator):
 
         self._account_balances = {}  # Dict[asset_name:str, Decimal]
         self._account_available_balances = {}  # Dict[asset_name:str, Decimal]
-        self._balance_limits = balance_limits
-        self._fee_estimates = fee_estimates
+        # _real_time_balance_update is used to flag whether the connector provides real time balance updates.
+        # if not, the available will be calculated based on what happened since snapshot taken.
         self._real_time_balance_update = True
+        # If _real_time_balance_update is set to False, Sub classes of this connector class need to set values
+        # for _in_flight_orders_snapshot and _in_flight_orders_snapshot_timestamp when the update user balances.
         self._in_flight_orders_snapshot = {}  # Dict[order_id:str, InFlightOrderBase]
         self._in_flight_orders_snapshot_timestamp = 0.0
 
@@ -76,24 +79,13 @@ cdef class ConnectorBase(NetworkIterator):
     def in_flight_orders_snapshot_timestamp(self, value: float):
         self._in_flight_orders_snapshot_timestamp = value
 
-    @property
-    def account_balances(self) -> Dict[str, Decimal]:
-        return self._account_balances
-
-    @account_balances.setter
-    def account_balances(self, value: Dict[str, Decimal]):
-        self._account_balances = value
-
-    @property
-    def account_available_balances(self) -> Dict[str, Decimal]:
-        return self._account_available_balances
-
-    @account_available_balances.setter
-    def account_available_balances(self, value: Dict[str, Decimal]):
-        self._account_available_balances = value
-
-    def estimate_fee(self, is_maker: bool) -> Decimal:
-        return self._fee_estimates.get(is_maker, s_decimal_0)
+    def estimate_fee_pct(self, is_maker: bool) -> Decimal:
+        """
+        Estimate the trading fee for maker or taker type of order
+        :param is_maker: Whether to get trading for maker or taker order
+        :returns An estimated fee in percentage value
+        """
+        return estimate_fee(self.name, is_maker).percent
 
     @staticmethod
     def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
@@ -101,9 +93,11 @@ cdef class ConnectorBase(NetworkIterator):
 
     def in_flight_asset_balances(self, in_flight_orders: Dict[str, InFlightOrderBase]) -> Dict[str, Decimal]:
         """
-        Calculates the individual asset balances used in in_flight_orders
+        Calculates total asset balances locked in in_flight_orders including fee (estimated)
         For BUY order, this is the quote asset balance locked in the order
         For SELL order, this is the base asset balance locked in the order
+        :param in_flight_orders: a dictionary of in-flight orders
+        :return A dictionary of tokens and their balance locked in the orders
         """
         asset_balances = {}
         if in_flight_orders is None:
@@ -114,7 +108,7 @@ cdef class ConnectorBase(NetworkIterator):
                 outstanding_value = order_value - order.executed_amount_quote
                 if order.quote_asset not in asset_balances:
                     asset_balances[order.quote_asset] = s_decimal_0
-                fee = self.estimate_fee(True)
+                fee = self.estimate_fee_pct(True)
                 outstanding_value *= (Decimal(1) + fee)
                 asset_balances[order.quote_asset] += outstanding_value
             else:
@@ -124,18 +118,19 @@ cdef class ConnectorBase(NetworkIterator):
                 asset_balances[order.base_asset] += outstanding_value
         return asset_balances
 
-    def order_filled_balances(self, starting_timestamp = 0):
+    def order_filled_balances(self, starting_timestamp = 0) -> Dict[str, Decimal]:
         """
-        Calculates the individual asset balances as a result of order being filled
+        Calculates total asset balance changes from filled orders since the time stamp
         For BUY filled order, the quote balance goes down while the base balance goes up, and for SELL order, it's the
         opposite. This does not account for fee.
+        :param starting_timestamp: The starting timestamp to include filter order filled events
+        :returns A dictionary of tokens and their balance
         """
         order_filled_events = list(filter(lambda e: isinstance(e, OrderFilledEvent), self.event_logs))
         order_filled_events = [o for o in order_filled_events if o.timestamp > starting_timestamp]
         balances = {}
         for event in order_filled_events:
-            hb_trading_pair = self.convert_from_exchange_trading_pair(event.trading_pair)
-            base, quote = hb_trading_pair.split("-")[0], hb_trading_pair.split("-")[1]
+            base, quote = event.trading_pair.split("-")[0], event.trading_pair.split("-")[1]
             if event.trade_type is TradeType.BUY:
                 quote_value = Decimal("-1") * event.price * event.amount
                 base_value = event.amount
@@ -150,8 +145,21 @@ cdef class ConnectorBase(NetworkIterator):
             balances[quote] += quote_value
         return balances
 
+    def get_exchange_limit_config(self, market: str) -> Dict[str, object]:
+        """
+        Retrieves the Balance Limits for the specified market.
+        """
+        all_ex_limit = global_config_map["balance_asset_limit"].value
+        if all_ex_limit is None:
+            return {}
+        exchange_limits = all_ex_limit.get(market, {})
+        return exchange_limits if exchange_limits is not None else {}
+
     @property
     def status_dict(self) -> Dict[str, bool]:
+        """
+        A dictionary of statuses of various connector's components.
+        """
         raise NotImplementedError
 
     @property
@@ -168,6 +176,9 @@ cdef class ConnectorBase(NetworkIterator):
 
     @property
     def ready(self) -> bool:
+        """
+        Indicates whether the connector is ready to be used.
+        """
         raise NotImplementedError
 
     @property
@@ -186,16 +197,33 @@ cdef class ConnectorBase(NetworkIterator):
         pass
 
     def tick(self, timestamp: float):
-        raise NotImplementedError
+        """
+        Is called automatically by the clock for each clock's tick (1 second by default).
+        """
+        pass
 
     cdef c_tick(self, double timestamp):
         NetworkIterator.c_tick(self, timestamp)
         self.tick(timestamp)
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+        """
+        Cancels all in-flight orders and waits for cancellation results.
+        Used by bot's top level stop and exit commands (cancelling outstanding orders on exit)
+        :param timeout_seconds: The timeout at which the operation will be canceled.
+        :returns List of CancellationResult which indicates whether each order is successfully cancelled.
+        """
         raise NotImplementedError
 
     def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal) -> str:
+        """
+        Buys an amount of base asset (of the given trading pair).
+        :param trading_pair: The market (e.g. BTC-USDT) to buy from
+        :param amount: The amount in base token value
+        :param order_type: The order type
+        :param price: The price (note: this is no longer optional)
+        :returns An order id
+        """
         raise NotImplementedError
 
     cdef str c_buy(self, str trading_pair, object amount, object order_type=OrderType.MARKET,
@@ -203,6 +231,14 @@ cdef class ConnectorBase(NetworkIterator):
         return self.buy(trading_pair, amount, order_type, price)
 
     def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal) -> str:
+        """
+        Sells an amount of base asset (of the given trading pair).
+        :param trading_pair: The market (e.g. BTC-USDT) to sell from
+        :param amount: The amount in base token value
+        :param order_type: The order type
+        :param price: The price (note: this is no longer optional)
+        :returns An order id
+        """
         raise NotImplementedError
 
     cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.MARKET,
@@ -213,18 +249,25 @@ cdef class ConnectorBase(NetworkIterator):
         self.cancel(trading_pair, client_order_id)
 
     def cancel(self, trading_pair: str, client_order_id: str):
+        """
+        Cancel an order.
+        :param trading_pair: The market (e.g. BTC-USDT) of the order.
+        :param client_order_id: The internal order id (also called client_order_id)
+        """
         raise NotImplementedError
 
     cdef c_stop_tracking_order(self, str order_id):
         raise NotImplementedError
 
     def stop_tracking_order(self, order_id: str):
+        """
+        Stops tracking an in-flight order.
+        """
         raise NotImplementedError
 
     def get_all_balances(self) -> Dict[str, Decimal]:
         """
-        *required
-        :return: Dict[asset_name: asst_balance]: Balances of all assets being traded
+        :return: Dict[asset_name: asst_balance]: Total balances of all assets
         """
         return self._account_balances.copy()
 
@@ -232,6 +275,10 @@ cdef class ConnectorBase(NetworkIterator):
         self.get_balance(currency)
 
     def get_balance(self, currency: str) -> Decimal:
+        """
+        :param currency: The currency (token) name
+        :return: A balance for the given currency (token)
+        """
         return self._account_balances.get(currency, s_decimal_0)
 
     def apply_balance_limit(self, currency: str, available_balance: Decimal, limit: Decimal) -> Decimal:
@@ -242,6 +289,10 @@ cdef class ConnectorBase(NetworkIterator):
         - Plus balance accredited from filled orders (since the bot started), if the budget is 1 ETH and the bot has
           bought LINK (for 0.5 ETH), the ETH budget is now 0.5. However if later on the bot has sold LINK (for 0.5 ETH)
           the budget is now 1 ETH
+        :param currency: The currency (token) name
+        :param available_balance: The available balance of the token
+        :param limit: The balance limit for the token
+        :returns An available balance after the limit has been applied
         """
         in_flight_balance = self.in_flight_asset_balances(self.in_flight_orders).get(currency, s_decimal_0)
         limit -= in_flight_balance
@@ -250,7 +301,7 @@ cdef class ConnectorBase(NetworkIterator):
         limit = max(limit, s_decimal_0)
         return min(available_balance, limit)
 
-    def apply_balance_update_since_snapshot(self, currency: str, available_balance: Decimal):
+    def apply_balance_update_since_snapshot(self, currency: str, available_balance: Decimal) -> Decimal:
         """
         Applies available balance update as followings
         :param currency: the token symbol
@@ -270,14 +321,17 @@ cdef class ConnectorBase(NetworkIterator):
 
     def get_available_balance(self, currency: str) -> Decimal:
         """
-        If there is a budget limit set on the balance
-        :returns: Balance available for trading for a specific asset
+        Return availalbe balance for a given currency. The function accounts for balance changes since the last time
+        the snapshot was taken if no real time balance update. The function applied limit if configured.
+        :param currency: The currency (token) name
+        :returns: Balance available for trading for the specified currency
         """
         available_balance = self._account_available_balances.get(currency, s_decimal_0)
         if not self._real_time_balance_update:
             available_balance = self.apply_balance_update_since_snapshot(currency, available_balance)
-        if currency in self._balance_limits:
-            balance_limit = Decimal(str(self._balance_limits[currency]))
+        balance_limits = self.get_exchange_limit_config(self.name)
+        if currency in balance_limits:
+            balance_limit = Decimal(str(balance_limits[currency]))
             available_balance = self.apply_balance_limit(currency, available_balance, balance_limit)
         return available_balance
 
@@ -285,18 +339,31 @@ cdef class ConnectorBase(NetworkIterator):
         self.get_price(trading_pair, is_buy)
 
     def get_price(self, trading_pair: str, is_buy: bool, amount: Decimal = s_decimal_NaN) -> Decimal:
+        """
+        Get price for the market trading pair.
+        :param trading_pair: The market trading pair
+        :param is_buy: Whether to buy or sell the underlying asset
+        :param amount: The amount (to buy or sell) (optional)
+        :returns The price
+        """
         raise NotImplementedError
 
     cdef object c_get_order_price_quantum(self, str trading_pair, object price):
         return self.get_order_price_quantum(trading_pair, price)
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
+        """
+        Returns a price step, a minimum price increment for a given trading pair.
+        """
         raise NotImplementedError
 
     cdef object c_get_order_size_quantum(self, str trading_pair, object order_size):
         return self.get_order_size_quantum(trading_pair, order_size)
 
     def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
+        """
+        Returns an order amount step, a minimum amount increment for a given trading pair.
+        """
         raise NotImplementedError
 
     cdef object c_quantize_order_price(self, str trading_pair, object price):
@@ -306,6 +373,9 @@ cdef class ConnectorBase(NetworkIterator):
         return round(price / price_quantum) * price_quantum
 
     def quantize_order_price(self, trading_pair: str, price: Decimal) -> Decimal:
+        """
+        Applies trading rule to quantize order price.
+        """
         return self.c_quantize_order_price(trading_pair, price)
 
     cdef object c_quantize_order_amount(self, str trading_pair, object amount, object price=s_decimal_NaN):
@@ -313,4 +383,7 @@ cdef class ConnectorBase(NetworkIterator):
         return (amount // order_size_quantum) * order_size_quantum
 
     def quantize_order_amount(self, trading_pair: str, amount: Decimal) -> Decimal:
+        """
+        Applies trading rule to quantize order amount.
+        """
         return self.c_quantize_order_amount(trading_pair, amount)
