@@ -74,7 +74,6 @@ cdef class BittrexOrderBook(OrderBook):
             "price": msg["rate"],
             "amount": msg["quantity"]
         }, timestamp=timestamp)
-        msg_ts = int(msg)
 
     @classmethod
     def from_snapshot(cls, snapshot: OrderBookMessage):
