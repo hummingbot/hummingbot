@@ -6,7 +6,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 NaN = float("nan")
-s_logger = None
+nb_logger = None
 
 
 class NetworkStatus(Enum):

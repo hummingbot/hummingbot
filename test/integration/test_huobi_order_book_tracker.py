@@ -22,8 +22,8 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.market.huobi.huobi_order_book_tracker import HuobiOrderBookTracker
-from hummingbot.market.huobi.huobi_api_order_book_data_source import HuobiAPIOrderBookDataSource
+from hummingbot.connector.exchange.huobi.huobi_order_book_tracker import HuobiOrderBookTracker
+from hummingbot.connector.exchange.huobi.huobi_api_order_book_data_source import HuobiAPIOrderBookDataSource
 
 
 class HuobiOrderBookTrackerUnitTest(unittest.TestCase):

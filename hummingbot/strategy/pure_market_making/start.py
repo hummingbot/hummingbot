@@ -10,8 +10,8 @@ from hummingbot.strategy.pure_market_making import (
     APIAssetPriceDelegate
 )
 from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map as c_map
-from hummingbot.market.paper_trade import create_paper_trade_market
-from hummingbot.market.market_base import MarketBase
+from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
+from hummingbot.connector.exchange_base import ExchangeBase
 from decimal import Decimal
 
 
@@ -60,7 +60,7 @@ def start(self):
         if price_source == "external_market":
             asset_trading_pair: str = price_source_market
             ext_market = create_paper_trade_market(price_source_exchange, [asset_trading_pair])
-            self.markets[price_source_exchange]: MarketBase = ext_market
+            self.markets[price_source_exchange]: ExchangeBase = ext_market
             asset_price_delegate = OrderBookAssetPriceDelegate(ext_market, asset_trading_pair)
         elif price_source == "custom_api":
             asset_price_delegate = APIAssetPriceDelegate(price_source_custom_api)

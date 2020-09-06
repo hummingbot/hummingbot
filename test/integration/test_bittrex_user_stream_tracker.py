@@ -4,11 +4,11 @@ from os.path import join, realpath
 import sys
 
 import conf
-from hummingbot.market.bittrex.bittrex_auth import BittrexAuth
+from hummingbot.connector.exchange.bittrex.bittrex_auth import BittrexAuth
 
-from hummingbot.market.bittrex.bittrex_user_stream_tracker import BittrexUserStreamTracker
+from hummingbot.connector.exchange.bittrex.bittrex_user_stream_tracker import BittrexUserStreamTracker
 
-from hummingbot.market.bittrex.bittrex_order_book_tracker import BittrexOrderBookTracker
+from hummingbot.connector.exchange.bittrex.bittrex_order_book_tracker import BittrexOrderBookTracker
 import asyncio
 import logging
 from typing import Optional
