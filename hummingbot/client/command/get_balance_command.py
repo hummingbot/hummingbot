@@ -1,7 +1,7 @@
 import pandas as pd
 from typing import TYPE_CHECKING
 
-from hummingbot.market.market_base import MarketBase
+from hummingbot.connector.exchange_base import ExchangeBase
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -15,7 +15,7 @@ class GetBalanceCommand:
 
     def get_exchange_balance(self,  # type: HummingbotApplication
                              exchange_name: str) -> pd.DataFrame:
-        market: MarketBase = self.markets[exchange_name]
+        market: ExchangeBase = self.markets[exchange_name]
         raw_balance: pd.DataFrame = pd.DataFrame(data=list(market.get_all_balances().items()),
                                                  columns=["currency", "balance"]).set_index("currency")
         return raw_balance[raw_balance.balance > 0]

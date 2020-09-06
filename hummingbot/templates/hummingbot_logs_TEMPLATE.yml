@@ -1,6 +1,6 @@
 ---
 version: 1
-template_version: 7
+template_version: 8
 
 formatters:
     simple:
@@ -54,6 +54,14 @@ loggers:
         handlers: [console_info, file_handler, report_proxy_handler]
         propagate: false
     hummingbot.market:
+        level: NETWORK
+        handlers: [console_info, file_handler, report_proxy_handler]
+        propagate: false
+    hummingbot.connector:
+        level: NETWORK
+        handlers: [console_info, file_handler, report_proxy_handler]
+        propagate: false
+    hummingbot.client:
         level: NETWORK
         handlers: [console_info, file_handler, report_proxy_handler]
         propagate: false

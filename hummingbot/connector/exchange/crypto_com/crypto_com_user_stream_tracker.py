@@ -9,14 +9,14 @@ from typing import (
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.user_stream_tracker import (
-    UserStreamTrackerDataSourceType,
     UserStreamTracker
 )
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.connector.exchange.crypto_com.crypto_com_api_user_stream_data_source import CryptoComAPIUserStreamDataSource
+from hummingbot.connector.exchange.crypto_com.crypto_com_api_user_stream_data_source import \
+    CryptoComAPIUserStreamDataSource
 from hummingbot.connector.exchange.crypto_com.crypto_com_auth import CryptoComAuth
 from hummingbot.connector.exchange.crypto_com.crypto_com_constants import EXCHANGE_NAME
 
@@ -33,7 +33,7 @@ class CryptoComUserStreamTracker(UserStreamTracker):
     def __init__(self,
                  crypto_com_auth: Optional[CryptoComAuth] = None,
                  trading_pairs: Optional[List[str]] = []):
-        super().__init__(data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API)
+        super().__init__()
         self._crypto_com_auth: CryptoComAuth = crypto_com_auth
         self._trading_pairs: List[str] = trading_pairs
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
@@ -48,13 +48,10 @@ class CryptoComUserStreamTracker(UserStreamTracker):
         :return: OrderBookTrackerDataSource
         """
         if not self._data_source:
-            if self._data_source_type is UserStreamTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = CryptoComAPIUserStreamDataSource(
-                    crypto_com_auth=self._crypto_com_auth,
-                    trading_pairs=self._trading_pairs
-                )
-            else:
-                raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
+            self._data_source = CryptoComAPIUserStreamDataSource(
+                crypto_com_auth=self._crypto_com_auth,
+                trading_pairs=self._trading_pairs
+            )
         return self._data_source
 
     @property

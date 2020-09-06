@@ -15,11 +15,9 @@ from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.market.market_base import (
-    MarketBase,
-    OrderType
-)
-from hummingbot.market.market_base cimport MarketBase
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.exchange_base cimport ExchangeBase
+from hummingbot.core.event.events import OrderType
 
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
@@ -80,15 +78,15 @@ cdef class PerformTradeStrategy(StrategyBase):
         self.c_add_markets(list(all_markets))
 
     @property
-    def active_bids(self) -> List[Tuple[MarketBase, LimitOrder]]:
+    def active_bids(self) -> List[Tuple[ExchangeBase, LimitOrder]]:
         return self._sb_order_tracker.active_bids
 
     @property
-    def active_asks(self) -> List[Tuple[MarketBase, LimitOrder]]:
+    def active_asks(self) -> List[Tuple[ExchangeBase, LimitOrder]]:
         return self._sb_order_tracker.active_asks
 
     @property
-    def active_limit_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
+    def active_limit_orders(self) -> List[Tuple[ExchangeBase, LimitOrder]]:
         return self._sb_order_tracker.active_limit_orders
 
     @property
@@ -177,7 +175,7 @@ cdef class PerformTradeStrategy(StrategyBase):
 
     cdef c_place_order(self, object market_info):
         cdef:
-            MarketBase market = market_info.market
+            ExchangeBase market = market_info.market
             object quantized_amount = market.c_quantize_order_amount(market_info.trading_pair, self._order_amount)
             object quantized_price
 
@@ -214,7 +212,7 @@ cdef class PerformTradeStrategy(StrategyBase):
 
     cdef c_has_enough_balance(self, object market_info):
         cdef:
-            MarketBase market = market_info.market
+            ExchangeBase market = market_info.market
             object base_asset_balance = market.c_get_balance(market_info.base_asset)
             object quote_asset_balance = market.c_get_balance(market_info.quote_asset)
             OrderBook order_book = market_info.order_book
@@ -224,7 +222,7 @@ cdef class PerformTradeStrategy(StrategyBase):
 
     cdef c_process_market(self, object market_info):
         cdef:
-            MarketBase maker_market = market_info.market
+            ExchangeBase maker_market = market_info.market
 
         if self._place_orders:
             self._place_orders = False

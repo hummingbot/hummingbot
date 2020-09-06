@@ -236,6 +236,18 @@ global_config_map = {
                   required_if=using_exchange("kraken"),
                   is_secure=True,
                   is_connect_key=True),
+    "crypto_com_api_key":
+        ConfigVar(key="crypto_com_api_key",
+                  prompt="Enter your Crypto.com API key >>> ",
+                  required_if=using_exchange("crypto_com"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "crypto_com_secret_key":
+        ConfigVar(key="crypto_com_secret_key",
+                  prompt="Enter your Crypto.com secret key >>> ",
+                  required_if=using_exchange("crypto_com"),
+                  is_secure=True,
+                  is_connect_key=True),
     "celo_address":
         ConfigVar(key="celo_address",
                   prompt="Enter your Celo account address >>> ",

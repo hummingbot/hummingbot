@@ -11,7 +11,7 @@ import logging
 from typing import Dict, Optional, List
 import unittest
 
-from hummingbot.market.bittrex.bittrex_order_book_tracker import BittrexOrderBookTracker
+from hummingbot.connector.exchange.bittrex.bittrex_order_book_tracker import BittrexOrderBookTracker
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
