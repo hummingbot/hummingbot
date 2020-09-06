@@ -24,6 +24,7 @@ KUCOIN_ENDPOINT = "https://api.kucoin.com/api/v1/symbols"
 DOLOMITE_ENDPOINT = "https://exchange-api.dolomite.io/v1/markets"
 ETERBASE_ENDPOINT = "https://api.eterbase.exchange/api/markets"
 KRAKEN_ENDPOINT = "https://api.kraken.com/0/public/AssetPairs"
+CRYPTO_COM_ENDPOINT = "https://api.crypto.com/v2/public/get-ticker"
 
 API_CALL_TIMEOUT = 5
 
@@ -60,7 +61,7 @@ class TradingPairFetcher:
 
     async def fetch_binance_trading_pairs(self) -> List[str]:
         try:
-            from hummingbot.market.binance.binance_utils import convert_from_exchange_trading_pair
+            from hummingbot.connector.exchange.binance import convert_from_exchange_trading_pair
             client: aiohttp.ClientSession = self.http_client()
             async with client.get(BINANCE_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                 if response.status == 200:
@@ -160,7 +161,7 @@ class TradingPairFetcher:
 
     async def fetch_eterbase_trading_pairs(self) -> List[str]:
         try:
-            from hummingbot.market.eterbase.eterbase_utils import convert_from_exchange_trading_pair
+            from hummingbot.connector.exchange.eterbase.eterbase_utils import convert_from_exchange_trading_pair
 
             client: aiohttp.ClientSession() = self.http_client()
             async with client.get(ETERBASE_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
@@ -183,7 +184,7 @@ class TradingPairFetcher:
 
     async def fetch_huobi_trading_pairs(self) -> List[str]:
         try:
-            from hummingbot.market.huobi.huobi_utils import convert_from_exchange_trading_pair
+            from hummingbot.connector.exchange.huobi.huobi_utils import convert_from_exchange_trading_pair
 
             client: aiohttp.ClientSession = self.http_client()
             async with client.get(HUOBI_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
@@ -246,6 +247,21 @@ class TradingPairFetcher:
         return []
 
     @staticmethod
+    async def fetch_crypto_com_trading_pairs() -> List[str]:
+        async with aiohttp.ClientSession() as client:
+            async with client.get(CRYPTO_COM_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
+                if response.status == 200:
+                    from hummingbot.connector.exchange.crypto_com.crypto_com_utils import \
+                        convert_from_exchange_trading_pair
+                    try:
+                        data: Dict[str, Any] = await response.json()
+                        return [convert_from_exchange_trading_pair(item["i"]) for item in data["result"]["data"]]
+                    except Exception:
+                        pass
+                        # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
+                return []
+
+    @staticmethod
     async def fetch_kucoin_trading_pairs() -> List[str]:
         async with aiohttp.ClientSession() as client:
             async with client.get(KUCOIN_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
@@ -265,7 +281,7 @@ class TradingPairFetcher:
             async with aiohttp.ClientSession() as client:
                 async with client.get(KRAKEN_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                     if response.status == 200:
-                        from hummingbot.market.kraken.kraken_utils import convert_from_exchange_trading_pair
+                        from hummingbot.connector.exchange.kraken.kraken_utils import convert_from_exchange_trading_pair
                         data: Dict[str, Any] = await response.json()
                         raw_pairs = data.get("result", [])
                         converted_pairs: List[str] = []
@@ -284,7 +300,7 @@ class TradingPairFetcher:
 
     async def fetch_dolomite_trading_pairs(self) -> List[str]:
         try:
-            from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
+            from hummingbot.connector.exchange.dolomite.dolomite_market import DolomiteMarket
             client: aiohttp.ClientSession = TradingPairFetcher.http_client()
             async with client.get(DOLOMITE_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                 if response.status == 200:
@@ -318,7 +334,8 @@ class TradingPairFetcher:
                  self.fetch_kucoin_trading_pairs(),
                  self.fetch_kraken_trading_pairs(),
                  self.fetch_radar_relay_trading_pairs(),
-                 self.fetch_eterbase_trading_pairs()]
+                 self.fetch_eterbase_trading_pairs(),
+                 self.fetch_crypto_com_trading_pairs()]
 
         # Radar Relay has not yet been migrated to a new version
         # Endpoint needs to be updated after migration
@@ -337,5 +354,6 @@ class TradingPairFetcher:
             "kraken": results[8],
             "radar_relay": results[9],
             "eterbase": results[10],
+            "crypto_com": results[11]
         }
         self.ready = True

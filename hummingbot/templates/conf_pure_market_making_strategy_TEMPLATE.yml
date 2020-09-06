@@ -2,7 +2,7 @@
 ###       Pure market making strategy config         ###
 ########################################################
 
-template_version: 17
+template_version: 18
 strategy: null
 
 # Exchange and token parameters.
@@ -88,11 +88,11 @@ bid_order_optimization_depth: null
 # Whether to enable adding transaction costs to order price calculation (true/false).
 add_transaction_costs: null
 
-# Whether to use external pricing source for the mid price (true/false).
-price_source_enabled: null
+# The price source (current_market/external_market/custom_api).
+price_source: null
 
-# The type of external pricing source (exchange/custom_api).
-price_source_type: null
+# The price type (mid_price/last_price).
+price_type: null
 
 # An external exchange name (for external exchange pricing source).
 price_source_exchange: null
@@ -100,8 +100,8 @@ price_source_exchange: null
 # A trading pair for the external exchange, e.g. BTC-USDT (for external exchange pricing source).
 price_source_market: null
 
-# An external api that returns price (for external custom_api pricing source).
-price_source_custom: null
+# An external api that returns price (for custom_api pricing source).
+price_source_custom_api: null
 
 #Take order if they cross orderbook when external price source is enabled
 take_if_crossed: null

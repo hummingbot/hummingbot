@@ -22,8 +22,6 @@ from hummingbot.client.settings import (
     SCRIPTS_PATH
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.data_feed.data_feed_base import DataFeedBase
-from hummingbot.data_feed.coin_cap_data_feed import CoinCapDataFeed
 from hummingbot.core.utils.kill_switch import KillSwitch
 from typing import TYPE_CHECKING
 from hummingbot.client.config.global_config_map import global_config_map
@@ -72,9 +70,6 @@ class StartCommand:
         if platform.system() == "Darwin":
             import appnope
             appnope.nope()
-
-        # TODO add option to select data feed
-        self.data_feed: DataFeedBase = CoinCapDataFeed.get_instance()
 
         self._initialize_notifiers()
 

@@ -43,9 +43,9 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.logger import NETWORK
-from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
-from hummingbot.market.market_base import OrderType
-from hummingbot.market.markets_recorder import MarketsRecorder
+from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_market import BambooRelayMarket
+from hummingbot.core.event.events import OrderType
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import (
@@ -452,7 +452,6 @@ class BambooRelayMarketUncoordinatedUnitTest(unittest.TestCase):
             self.market: BambooRelayMarket = BambooRelayMarket(
                 wallet=self.wallet,
                 ethereum_rpc_url=conf.test_web3_provider_list[0],
-                order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                 trading_pairs=[self.base_token_asset + "-" + self.quote_token_asset],
                 use_coordinator=False,
                 pre_emptive_soft_cancels=False

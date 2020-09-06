@@ -16,8 +16,8 @@ from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler, safe_ensure_future
-from hummingbot.market.market_base import MarketBase
-from hummingbot.market.market_base cimport MarketBase
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.market.celo.celo_cli import (
@@ -141,11 +141,11 @@ cdef class CeloArbStrategy(StrategyBase):
         return self._celo_orders
 
     @property
-    def active_bids(self) -> List[Tuple[MarketBase, LimitOrder]]:
+    def active_bids(self) -> List[Tuple[ExchangeBase, LimitOrder]]:
         return self._sb_order_tracker.active_bids
 
     @property
-    def active_asks(self) -> List[Tuple[MarketBase, LimitOrder]]:
+    def active_asks(self) -> List[Tuple[ExchangeBase, LimitOrder]]:
         return self._sb_order_tracker.active_asks
 
     @property
@@ -294,7 +294,7 @@ cdef class CeloArbStrategy(StrategyBase):
         cdef:
             object quantized_buy_amount
             object quantized_sell_amount
-            MarketBase market = self._market_info.market
+            ExchangeBase market = self._market_info.market
 
         quantized_sell_amount = market.c_quantize_order_amount(self._market_info.trading_pair,
                                                                self._order_amount)
@@ -350,7 +350,7 @@ cdef class CeloArbStrategy(StrategyBase):
             object quantized_buy_amount
             object quantized_sell_amount
             object quantized_order_amount = Decimal("0")
-            MarketBase market = self._market_info.market
+            ExchangeBase market = self._market_info.market
 
         quantized_buy_amount = market.c_quantize_order_amount(self._market_info.trading_pair,
                                                               self._order_amount,
