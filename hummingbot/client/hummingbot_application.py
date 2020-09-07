@@ -104,7 +104,7 @@ class HummingbotApplication(*commands):
         self.trade_fill_db: SQLConnectionManager = SQLConnectionManager.get_trade_fills_instance()
         self.markets_recorder: Optional[MarketsRecorder] = None
         self._script_iterator = None
-        # This is to start fetch trading pairs for auto-complete
+        # This is to start fetching trading pairs for auto-complete
         TradingPairFetcher.get_instance()
 
     @property
