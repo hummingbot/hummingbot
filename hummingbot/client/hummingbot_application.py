@@ -46,6 +46,7 @@ from hummingbot.client.config.security import Security
 
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.crypto_com.crypto_com_exchange import CryptoComExchange
+from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 
 s_logger = None
 
@@ -103,6 +104,8 @@ class HummingbotApplication(*commands):
         self.trade_fill_db: SQLConnectionManager = SQLConnectionManager.get_trade_fills_instance()
         self.markets_recorder: Optional[MarketsRecorder] = None
         self._script_iterator = None
+        # This is to start fetch trading pairs for auto-complete
+        TradingPairFetcher.get_instance()
 
     @property
     def strategy_config_map(self):
