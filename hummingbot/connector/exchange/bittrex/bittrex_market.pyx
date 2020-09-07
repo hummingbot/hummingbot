@@ -484,7 +484,8 @@ cdef class BittrexMarket(ExchangeBase):
 
                     tracked_order = None
                     for o in self._in_flight_orders.values():
-                        if o.exchange_order_id == order_id:
+                        exchange_order_id = await o.get_exchange_order_id()
+                        if exchange_order_id == order_id:
                             tracked_order = o
                             break
 
@@ -493,17 +494,17 @@ cdef class BittrexMarket(ExchangeBase):
 
                     order_type_description = tracked_order.order_type_description
                     execute_price = Decimal(order["limit"])
-                    execute_amount_diff = s_decimal_0
+                    executed_amount_diff = s_decimal_0
 
                     tracked_order.fee_paid = Decimal(order["commission"])
                     remaining_size = Decimal(order["quantity"]) - Decimal(order["fillQuantity"])
                     new_confirmed_amount = tracked_order.amount - remaining_size
                     executed_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
                     tracked_order.executed_amount_base = new_confirmed_amount
-                    tracked_order.executed_amount_quote += Decimal(execute_amount_diff * execute_price)
+                    tracked_order.executed_amount_quote += Decimal(executed_amount_diff * execute_price)
 
-                    if execute_amount_diff > s_decimal_0:
-                        self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
+                    if executed_amount_diff > s_decimal_0:
+                        self.logger().info(f"Filled {executed_amount_diff} out of {tracked_order.amount} of the "
                                            f"{order_type_description} order {tracked_order.client_order_id}.")
                         self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
                                              OrderFilledEvent(
@@ -513,14 +514,14 @@ cdef class BittrexMarket(ExchangeBase):
                                                  tracked_order.trade_type,
                                                  tracked_order.order_type,
                                                  execute_price,
-                                                 execute_amount_diff,
+                                                 executed_amount_diff,
                                                  self.c_get_fee(
                                                      tracked_order.base_asset,
                                                      tracked_order.quote_asset,
                                                      tracked_order.order_type,
                                                      tracked_order.trade_type,
                                                      execute_price,
-                                                     execute_amount_diff
+                                                     executed_amount_diff
                                                  )
                                              ))
 
