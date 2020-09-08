@@ -947,6 +947,9 @@ cdef class PaperTradeMarket(ExchangeBase):
         order_size_quantum = self.c_get_order_size_quantum(trading_pair, amount)
         return (amount // order_size_quantum) * order_size_quantum
 
+    def get_available_balance(self, currency: str) -> Decimal:
+        return self.c_get_available_balance(currency)
+
     def get_all_balances(self) -> Dict[str, Decimal]:
         return self._account_balances.copy()
 
