@@ -29,9 +29,9 @@ class BitfinexOrderBookTrackerUnitTest(unittest.TestCase):
     trading_pairs: List[str] = [
         "BTCUSD",
     ]
-    integrity_test_max_volume = 10  # Max volume in asks and bids for the book to be ready for tests
-    daily_volume = 5000  # Approximate total daily volume in BTC for this exchange for sanity test
-    book_enties = 10  # Number of asks and bids (each) for the book to be ready for tests
+    integrity_test_max_volume = 5  # Max volume in asks and bids for the book to be ready for tests
+    daily_volume = 2500  # Approximate total daily volume in BTC for this exchange for sanity test
+    book_enties = 5  # Number of asks and bids (each) for the book to be ready for tests
 
     @classmethod
     def setUpClass(cls):
@@ -115,8 +115,6 @@ class BitfinexOrderBookTrackerUnitTest(unittest.TestCase):
     def test_tracker_integrity(self):
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
         sut_book: OrderBook = order_books[self.trading_pairs[0]]
-        print("Book: ")
-        print(sut_book.snapshot)
 
         # # 1 - test that best bid is less than best ask
         # self.assertGreater(sut_book.get_price(False), sut_book.get_price(True))

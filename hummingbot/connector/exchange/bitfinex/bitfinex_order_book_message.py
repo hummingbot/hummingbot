@@ -42,7 +42,10 @@ class BitfinexOrderBookMessage(OrderBookMessage):
 
     @property
     def trading_pair(self) -> str:
-        return self.content["symbol"]
+        if "trading_pair" in self.content:
+            return self.content["trading_pair"]
+        elif "symbol" in self.content:
+            return self.content["symbol"]
 
     @property
     def event_info(self):
@@ -56,4 +59,10 @@ class BitfinexOrderBookMessage(OrderBookMessage):
 
     @property
     def type_heartbeat(self):
-        return self.content[1] == ContentEventType.HEART_BEAT if isinstance(self.content, list) else None
+        if isinstance(self.content, list):
+            return self.content[1] == ContentEventType.HEART_BEAT
+
+    @property
+    def event_wallet(self):
+        if isinstance(self.content, list):
+            return self.content[1] == ContentEventType.WALLET_SNAPSHOT or self.content[1] == ContentEventType.WALLET_UPDATE

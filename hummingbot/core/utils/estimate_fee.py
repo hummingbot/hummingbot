@@ -2,6 +2,7 @@ from decimal import Decimal
 from hummingbot.core.event.events import TradeFee
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 
+# exchange: [maker_fee, taker_fee]
 default_cex_estimate = {
     # exchange: [maker_fee, taker_fee]
     "binance": [0.1, 0.1],
@@ -13,6 +14,7 @@ default_cex_estimate = {
     "liquid": [0.1, 0.1],
     "eterbase": [0.35, 0.35],
     "crypto_com": [0.1, 0.1]
+    "bitfinex": [0.1, 0.2],
 }
 
 default_dex_estimate = {

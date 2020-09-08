@@ -4,6 +4,7 @@ from typing import Optional
 import cachetools.func
 from hummingbot.connector.exchange.binance.binance_market import BinanceMarket
 from hummingbot.connector.exchange.kraken.kraken_market import KrakenMarket
+from hummingbot.connector.exchange.bitfinex.bitfinex_market import BitfinexMarket
 
 
 BINANCE_PRICE_URL = "https://api.binance.com/api/v3/ticker/bookTicker"
@@ -12,6 +13,7 @@ LIQUID_PRICE_URL = "https://api.liquid.com/products"
 BITTREX_PRICE_URL = "https://api.bittrex.com/api/v1.1/public/getmarketsummaries"
 KRAKEN_PRICE_URL = "https://api.kraken.com/0/public/Ticker?pair="
 COINBASE_PRO_PRICE_URL = "https://api.pro.coinbase.com/products/TO_BE_REPLACED/ticker"
+BITFINEX_PRICE_URL = "https://api-pub.bitfinex.com/v2/ticker"
 
 
 def get_mid_price(exchange: str, trading_pair: str) -> Optional[Decimal]:
@@ -27,6 +29,8 @@ def get_mid_price(exchange: str, trading_pair: str) -> Optional[Decimal]:
         return kraken_mid_price(trading_pair)
     elif exchange == "coinbase_pro":
         return coinbase_pro_mid_price(trading_pair)
+    elif exchange == "bitfinex":
+        return bitfinex_mid_price(trading_pair)
     else:
         return binance_mid_price(trading_pair)
 
@@ -102,3 +106,12 @@ def coinbase_pro_mid_price(trading_pair: str) -> Optional[Decimal]:
     if "bid" in record and "ask" in record:
         result = (Decimal(record["bid"]) + Decimal(record["ask"])) / Decimal("2")
         return result
+
+
+@cachetools.func.ttl_cache(ttl=10)
+def bitfinex_mid_price(trading_pair: str) -> Optional[Decimal]:
+    exchange_trading_pair = BitfinexMarket.convert_to_exchange_trading_pair(trading_pair)
+    resp = requests.get(url=f"{BITFINEX_PRICE_URL}/t{exchange_trading_pair}")
+    record = resp.json()
+    result = (Decimal(record[0]) + Decimal(record[2])) / Decimal("2")
+    return result

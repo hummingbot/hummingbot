@@ -206,6 +206,18 @@ global_config_map = {
                   required_if=using_exchange("kucoin"),
                   is_secure=True,
                   is_connect_key=True),
+    "bitfinex_api_key":
+        ConfigVar(key="bitfinex_api_key",
+                  prompt="Enter your Bitfinex API key >>> ",
+                  required_if=using_exchange("bitfinex"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "bitfinex_secret_key":
+        ConfigVar(key="bitfinex_secret_key",
+                  prompt="Enter your Bitfinex secret key >>> ",
+                  required_if=using_exchange("bitfinex"),
+                  is_secure=True,
+                  is_connect_key=True),
     "eterbase_api_key":
         ConfigVar(key="eterbase_api_key",
                   prompt="Enter your Eterbase API key >>> ",
