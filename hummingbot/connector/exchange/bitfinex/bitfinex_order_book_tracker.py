@@ -1,7 +1,7 @@
 from collections import defaultdict, deque
 import logging
 import time
-from typing import Deque, Dict, List, Optional, Set
+from typing import Deque, Dict, List, Optional
 
 import asyncio
 import bisect
@@ -17,7 +17,6 @@ from hummingbot.core.data_type.order_book_tracker import (
 )
 from hummingbot.core.data_type.order_book_tracker_data_source import \
     OrderBookTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.bitfinex.bitfinex_active_order_tracker import \
     BitfinexActiveOrderTracker
@@ -76,36 +75,6 @@ class BitfinexOrderBookTracker(OrderBookTracker):
     def exchange_name(self) -> str:
         return "bitfinex"
 
-    async def _refresh_tracking_tasks(self):
-        print("bitfinext: _refresh_tracking_tasks")
-        tracking_trading_pair: Set[str] = set(
-            [
-                key for key in self._tracking_tasks.keys()
-                if not self._tracking_tasks[key].done()
-            ]
-        )
-        available_pairs: TRACKER_TYPE = await self.data_source.get_tracking_pairs()
-        available_trading_pair: Set[str] = set(available_pairs.keys())
-        new_trading_pair: Set[str] = available_trading_pair - tracking_trading_pair
-
-        deleted_trading_pair: Set[str] = tracking_trading_pair - available_trading_pair
-
-        for trading_pair in new_trading_pair:
-            order_book_tracker_entry: BitfinexOrderBookTrackerEntry = available_pairs[trading_pair]
-            self._active_order_trackers[trading_pair] = order_book_tracker_entry.active_order_tracker
-            self._order_books[trading_pair] = order_book_tracker_entry.order_book
-            self._tracking_message_queues[trading_pair] = asyncio.Queue()
-            self._tracking_tasks[trading_pair] = safe_ensure_future(self._track_single_book(trading_pair))
-            self.logger().info("Started order book tracking for %s." % trading_pair)
-
-        for trading_pair in deleted_trading_pair:
-            self._tracking_tasks[trading_pair].cancel()
-            del self._tracking_tasks[trading_pair]
-            del self._order_books[trading_pair]
-            del self._active_order_trackers[trading_pair]
-            del self._tracking_message_queues[trading_pair]
-            self.logger().info("Stopped order book tracking for %s." % trading_pair)
-
     async def _order_book_diff_router(self):
         last_message_timestamp: float = time.time()
         messages_queued: int = 0
@@ -150,7 +119,7 @@ class BitfinexOrderBookTracker(OrderBookTracker):
                 raise
             except Exception:
                 self.logger().network(
-                    f"Unexpected error routing order book messages.",
+                    "Unexpected error routing order book messages.",
                     exc_info=True,
                     app_warning_msg="Unexpected error routing order book messages. "
                                     f"Retrying after {int(self.EXCEPTION_TIME_SLEEP)} seconds."
