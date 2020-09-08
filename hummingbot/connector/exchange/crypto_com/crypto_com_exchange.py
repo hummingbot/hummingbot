@@ -673,7 +673,8 @@ class CryptoComExchange(ExchangeBase):
                 exchange_trade_id=trade_msg["order_id"]
             )
         )
-        if tracked_order.executed_amount_base >= tracked_order.amount:
+        if math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or \
+                tracked_order.executed_amount_base >= tracked_order.amount:
             tracked_order.last_state = "FILLED"
             self.logger().info(f"The {tracked_order.trade_type.name} order "
                                f"{tracked_order.client_order_id} has completed "
