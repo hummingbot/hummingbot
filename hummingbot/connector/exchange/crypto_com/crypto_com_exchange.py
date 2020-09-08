@@ -609,6 +609,7 @@ class CryptoComExchange(ExchangeBase):
                 if isinstance(update_result, Exception):
                     raise update_result
                 if "result" not in update_result:
+                    self.logger().info(f"_update_order_status result not in resp: {update_result}")
                     continue
                 for trade_msg in update_result["result"]["trade_list"]:
                     await self._process_trade_message(trade_msg)
@@ -672,7 +673,7 @@ class CryptoComExchange(ExchangeBase):
                 exchange_trade_id=trade_msg["order_id"]
             )
         )
-        if tracked_order.executed_amount_base == tracked_order.amount:
+        if tracked_order.executed_amount_base >= tracked_order.amount:
             tracked_order.last_state = "FILLED"
             self.logger().info(f"The {tracked_order.trade_type.name} order "
                                f"{tracked_order.client_order_id} has completed "
