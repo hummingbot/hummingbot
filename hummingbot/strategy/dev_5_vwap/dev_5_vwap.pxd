@@ -1,7 +1,6 @@
 # distutils: language=c++
 
 from hummingbot.strategy.strategy_base cimport StrategyBase
-from hummingbot.market.market_base cimport MarketBase
 from libc.stdint cimport int64_t
 
 cdef class Dev5TwapTradeStrategy(StrategyBase):

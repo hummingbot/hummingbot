@@ -10,7 +10,7 @@ from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.core.time_iterator cimport TimeIterator
-from hummingbot.market.market_base cimport MarketBase
+from hummingbot.connector.connector_base cimport ConnectorBase
 from hummingbot.core.data_type.trade import Trade
 from hummingbot.core.event.events import (
     OrderFilledEvent,
@@ -110,7 +110,7 @@ cdef class StrategyBase(TimeIterator):
         self._sb_order_tracker = OrderTracker()
 
     @property
-    def active_markets(self) -> List[MarketBase]:
+    def active_markets(self) -> List[ConnectorBase]:
         return list(self._sb_markets)
 
     def format_status(self):
@@ -141,7 +141,7 @@ cdef class StrategyBase(TimeIterator):
 
     def market_status_data_frame(self, market_trading_pair_tuples: List[MarketTradingPairTuple]) -> pd.DataFrame:
         cdef:
-            MarketBase market
+            ConnectorBase market
             str trading_pair
             str base_asset
             str quote_asset
@@ -169,7 +169,7 @@ cdef class StrategyBase(TimeIterator):
 
     def wallet_balance_data_frame(self, market_trading_pair_tuples: List[MarketTradingPairTuple]) -> pd.DataFrame:
         cdef:
-            MarketBase market
+            ConnectorBase market
             str base_asset
             str quote_asset
             double base_balance
@@ -242,7 +242,7 @@ cdef class StrategyBase(TimeIterator):
 
     cdef c_add_markets(self, list markets):
         cdef:
-            MarketBase typed_market
+            ConnectorBase typed_market
 
         for market in markets:
             typed_market = market
@@ -258,7 +258,7 @@ cdef class StrategyBase(TimeIterator):
 
     cdef c_remove_markets(self, list markets):
         cdef:
-            MarketBase typed_market
+            ConnectorBase typed_market
 
         for market in markets:
             typed_market = market
@@ -386,7 +386,7 @@ cdef class StrategyBase(TimeIterator):
             dict kwargs = {
                 "expiration_ts": self._current_timestamp + expiration_seconds
             }
-            MarketBase market = market_trading_pair_tuple.market
+            ConnectorBase market = market_trading_pair_tuple.market
 
         if market not in self._sb_markets:
             raise ValueError(f"Market object for buy order is not in the whitelisted markets set.")
@@ -430,7 +430,7 @@ cdef class StrategyBase(TimeIterator):
                 "expiration_ts": self._current_timestamp + expiration_seconds
             }
 
-            MarketBase market = market_trading_pair_tuple.market
+            ConnectorBase market = market_trading_pair_tuple.market
 
         if market not in self._sb_markets:
             raise ValueError(f"Market object for sell order is not in the whitelisted markets set.")
@@ -449,7 +449,7 @@ cdef class StrategyBase(TimeIterator):
 
     cdef c_cancel_order(self, object market_trading_pair_tuple, str order_id):
         cdef:
-            MarketBase market = market_trading_pair_tuple.market
+            ConnectorBase market = market_trading_pair_tuple.market
 
         if self._sb_order_tracker.c_check_and_track_cancel(order_id):
             self.log_with_clock(

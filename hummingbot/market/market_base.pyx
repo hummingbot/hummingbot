@@ -28,7 +28,7 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkIterator
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.market.in_flight_order_base import InFlightOrderBase
+from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from .deposit_info import DepositInfo
 from hummingbot.core.event.events import OrderFilledEvent
 from hummingbot.core.utils.estimate_fee import estimate_fee
