@@ -149,5 +149,5 @@ dependencies:
     - yarl==1.4.2
     - zope-interface==4.7.1
     - git+https://github.com/CoinAlpha/python-signalr-client.git
-    - https://hummingbot-python.s3-us-west-2.amazonaws.com/hummingsim-20200308-cp38-cp38-macosx_10_9_x86_64.whl
+    - https://hummingbot-python.s3-us-west-2.amazonaws.com/hummingsim-20200902-cp38-cp38-macosx_10_9_x86_64.whl
 prefix: /Users/martin_kou/anaconda3/envs/hummingbot

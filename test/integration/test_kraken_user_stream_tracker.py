@@ -2,8 +2,8 @@
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
-from hummingbot.market.kraken.kraken_user_stream_tracker import KrakenUserStreamTracker
-from hummingbot.market.kraken.kraken_auth import KrakenAuth
+from hummingbot.connector.exchange.kraken.kraken_user_stream_tracker import KrakenUserStreamTracker
+from hummingbot.connector.exchange.kraken.kraken_auth import KrakenAuth
 from hummingbot.core.utils.async_utils import safe_ensure_future
 import asyncio
 import logging

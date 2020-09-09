@@ -2,8 +2,8 @@ import requests
 from decimal import Decimal
 from typing import Optional
 import cachetools.func
-from hummingbot.market.binance.binance_market import BinanceMarket
-from hummingbot.market.kraken.kraken_market import KrakenMarket
+from hummingbot.connector.exchange.binance.binance_market import BinanceMarket
+from hummingbot.connector.exchange.kraken.kraken_market import KrakenMarket
 
 
 BINANCE_PRICE_URL = "https://api.binance.com/api/v3/ticker/bookTicker"

@@ -1,11 +1,12 @@
-from hummingbot.market.binance.binance_market import BinanceMarket
-from hummingbot.market.bittrex.bittrex_market import BittrexMarket
-from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
-from hummingbot.market.huobi.huobi_market import HuobiMarket
-from hummingbot.market.kucoin.kucoin_market import KucoinMarket
-from hummingbot.market.liquid.liquid_market import LiquidMarket
-from hummingbot.market.kraken.kraken_market import KrakenMarket
-from hummingbot.market.eterbase.eterbase_market import EterbaseMarket
+from hummingbot.connector.exchange.binance.binance_market import BinanceMarket
+from hummingbot.connector.exchange.bittrex.bittrex_market import BittrexMarket
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
+from hummingbot.connector.exchange.huobi.huobi_market import HuobiMarket
+from hummingbot.connector.exchange.kucoin.kucoin_market import KucoinMarket
+from hummingbot.connector.exchange.liquid.liquid_market import LiquidMarket
+from hummingbot.connector.exchange.kraken.kraken_market import KrakenMarket
+from hummingbot.connector.exchange.eterbase.eterbase_market import EterbaseMarket
+from hummingbot.connector.exchange.crypto_com.crypto_com_exchange import CryptoComExchange
 from hummingbot.core.utils.market_mid_price import get_mid_price
 from hummingbot.client.settings import EXCHANGES, DEXES
 from hummingbot.client.config.security import Security
@@ -24,7 +25,7 @@ class UserBalances:
     def connect_market(exchange, *api_details):
         market = None
         if exchange == "binance":
-            market = BinanceMarket(api_details[0], api_details[1])
+            market = BinanceMarket(*api_details)
         elif exchange == "bittrex":
             market = BittrexMarket(api_details[0], api_details[1])
         elif exchange == "coinbase_pro":
@@ -39,6 +40,8 @@ class UserBalances:
             market = KrakenMarket(api_details[0], api_details[1])
         elif exchange == "eterbase":
             market = EterbaseMarket(api_details[0], api_details[1], api_details[2])
+        elif exchange == "crypto_com":
+            market = CryptoComExchange(*api_details)
 
         return market
 
