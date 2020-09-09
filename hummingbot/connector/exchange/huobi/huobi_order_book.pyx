@@ -16,6 +16,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.connector.exchange.huobi.huobi_utils import convert_from_exchange_trading_pair
 
 _hob_logger = None
 
@@ -37,7 +38,7 @@ cdef class HuobiOrderBook(OrderBook):
             msg.update(metadata)
         msg_ts = int(msg["ts"] * 1e-3)
         content = {
-            "trading_pair": msg["trading_pair"],
+            "trading_pair": convert_from_exchange_trading_pair(msg["trading_pair"]),
             "update_id": msg_ts,
             "bids": msg["tick"]["bids"],
             "asks": msg["tick"]["asks"]
@@ -46,14 +47,14 @@ cdef class HuobiOrderBook(OrderBook):
 
     @classmethod
     def trade_message_from_exchange(cls,
-                                   msg: Dict[str, Any],
-                                   timestamp: Optional[float] = None,
-                                   metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                    msg: Dict[str, Any],
+                                    timestamp: Optional[float] = None,
+                                    metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
         msg_ts = int(msg["ts"] * 1e-3)
         content = {
-            "trading_pair": msg["trading_pair"],
+            "trading_pair": convert_from_exchange_trading_pair(msg["trading_pair"]),
             "trade_type": float(TradeType.SELL.value) if msg["direction"] == "buy" else float(TradeType.BUY.value),
             "trade_id": msg["id"],
             "update_id": msg_ts,
@@ -71,7 +72,7 @@ cdef class HuobiOrderBook(OrderBook):
             msg.update(metadata)
         msg_ts = int(msg["ts"] * 1e-3)
         content = {
-            "trading_pair": msg["ch"].split(".")[1],
+            "trading_pair": convert_from_exchange_trading_pair(msg["ch"].split(".")[1]),
             "update_id": msg_ts,
             "bids": msg["tick"]["bids"],
             "asks": msg["tick"]["asks"]
@@ -86,7 +87,7 @@ cdef class HuobiOrderBook(OrderBook):
             msg.update(metadata)
 
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": msg["ch"].split(".")[1],
+            "trading_pair": convert_from_exchange_trading_pair(msg["ch"].split(".")[1]),
             "update_id": int(ts),
             "bids": msg["tick"]["bids"],
             "asks": msg["tick"]["asks"]
@@ -99,7 +100,7 @@ cdef class HuobiOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "trading_pair": msg["s"],
+            "trading_pair": convert_from_exchange_trading_pair(msg["s"]),
             "update_id": int(ts),
             "bids": msg["b"],
             "asks": msg["a"]
@@ -112,7 +113,7 @@ cdef class HuobiOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": msg["ch"].split(".")[1],
+            "trading_pair": convert_from_exchange_trading_pair(msg["ch"].split(".")[1]),
             "update_id": ts,
             "bids": msg["tick"]["bids"],
             "asks": msg["tick"]["asks"]
@@ -126,7 +127,7 @@ cdef class HuobiOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "trading_pair": msg["s"],
+            "trading_pair": convert_from_exchange_trading_pair(msg["s"]),
             "update_id": ts,
             "bids": msg["bids"],
             "asks": msg["asks"]
@@ -140,9 +141,8 @@ cdef class HuobiOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.TRADE, {
-            "trading_pair": msg["ch"].split(".")[1],
-            "trade_type": float(TradeType.BUY.value) if data["direction"] == "sell"
-                            else float(TradeType.SELL.value),
+            "trading_pair": convert_from_exchange_trading_pair(msg["ch"].split(".")[1]),
+            "trade_type": float(TradeType.BUY.value) if data["direction"] == "sell" else float(TradeType.SELL.value),
             "trade_id": ts,
             "update_id": ts,
             "price": data["price"],
