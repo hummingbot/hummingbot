@@ -37,7 +37,6 @@ from .asset_price_delegate cimport AssetPriceDelegate
 from .asset_price_delegate import AssetPriceDelegate
 from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
 from .inventory_skew_calculator import calculate_total_order_size
-from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map as c_map
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -90,6 +89,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                  status_report_interval: float = 900,
                  minimum_spread: Decimal = Decimal(0),
                  hb_app_notification: bool = False,
+                 order_override: {} = None,
                  ):
 
         if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
@@ -126,6 +126,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._ping_pong_enabled = ping_pong_enabled
         self._ping_pong_warning_lines = []
         self._hb_app_notification = hb_app_notification
+        self._order_override = order_override
 
         self._cancel_timestamp = 0
         self._create_timestamp = 0
@@ -605,7 +606,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             list buys = []
             list sells = []
 
-        order_override = c_map.get("order_override")
+        order_override = self._order_override
         if len(order_override) > 0:
             for key, value in order_override.items():
                 if str(value[0]) in ['buy', 'sell']:

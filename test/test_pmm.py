@@ -110,6 +110,11 @@ class PMMUnitTest(unittest.TestCase):
             minimum_spread=-1,
         )
 
+        self.enter_orders_as_array = PureMarketMakingStrategy(
+            self.market_info,
+            order_override={"order1": ["buy", "0.5", "100"]},
+        )
+
         self.ext_market: BacktestMarket = BacktestMarket()
         self.ext_data: MockOrderBookLoader = MockOrderBookLoader(self.trading_pair, self.base_asset, self.quote_asset)
         self.ext_market_info: MarketTradingPairTuple = MarketTradingPairTuple(
@@ -728,6 +733,12 @@ class PMMUnitTest(unittest.TestCase):
         last_ask_order = strategy.active_sells[-1]
         self.assertAlmostEqual(Decimal("96"), last_bid_order.price, 2)
         self.assertAlmostEqual(Decimal("104"), last_ask_order.price, 2)
+
+    def test_enter_orders_as_array(self):
+        strategy = self.enter_orders_as_array
+        self.assertEqual("buy", strategy.order_override["order1"][0])
+        self.assertEqual(0.5, float(strategy.order_override["order1"][1]))
+        self.assertEqual(100, float(strategy.order_override["order1"][2]))
 
 
 class PureMarketMakingMinimumSpreadUnitTest(unittest.TestCase):
