@@ -65,13 +65,14 @@ Paper trade assets can be added in two ways:
 
 ## Supported Connectors
 
-- Binance
-- Coinbase Pro
-- Huobi
 - Bamboo Relay
-- Radar Relay
+- Binance
 - Bittrex
+- Coinbase Pro
+- Crypto.com
 - Dolomite
-- Liquid
+- Huobi
 - KuCoin
 - Kraken
+- Liquid
+- Radar Relay
