@@ -38,9 +38,9 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
-from hummingbot.market.market_base import OrderType
-from hummingbot.market.markets_recorder import MarketsRecorder
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
+from hummingbot.core.event.events import OrderType
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import (
@@ -95,8 +95,8 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             cls._patcher = mock.patch("aiohttp.client.URL")
             cls._url_mock = cls._patcher.start()
             cls._url_mock.side_effect = cls.web_app.reroute_local
-            cls.web_app.update_response("get", API_BASE_URL, "/accounts", FixtureCoinbasePro.ACCOUNTS_GET)
-            cls.web_app.update_response("get", API_BASE_URL, "/fees", FixtureCoinbasePro.FEES_GET)
+            cls.web_app.update_response("get", API_BASE_URL, "/accounts", FixtureCoinbasePro.BALANCES)
+            cls.web_app.update_response("get", API_BASE_URL, "/fees", FixtureCoinbasePro.TRADE_FEES)
             cls.web_app.update_response("get", API_BASE_URL, "/orders", FixtureCoinbasePro.ORDERS_STATUS)
 
             HummingWsServerFactory.start_new_server(WS_BASE_URL)
@@ -105,7 +105,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             cls._ws_mock.side_effect = HummingWsServerFactory.reroute_ws_connect
 
             cls._t_nonce_patcher = unittest.mock.patch(
-                "hummingbot.market.coinbase_pro.coinbase_pro_market.get_tracking_nonce")
+                "hummingbot.connector.exchange.coinbase_pro.coinbase_pro_market.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: CoinbaseProMarket = CoinbaseProMarket(
@@ -231,7 +231,6 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         price: Decimal = self.market.get_price(trading_pair, True) * Decimal('1.02')
         price: Decimal = self.market.quantize_order_price(trading_pair, price)
         amount = self.market.quantize_order_amount(trading_pair, Decimal("0.02"))
-
         order_id = self.market.buy(trading_pair, amount, OrderType.LIMIT_MAKER, price)
         [order_failure_event] = self.run_parallel(self.market_logger.wait_for(MarketOrderFailureEvent))
         self.assertEqual(order_id, order_failure_event.order_id)
@@ -260,15 +259,18 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price * Decimal("0.7"))
         quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price * Decimal("1.5"))
 
-        order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_bid_price,
-                                            10001, FixtureCoinbasePro.ORDERS_LIMIT, FixtureCoinbasePro.WS_ORDER_OPEN)
+        order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
+                                                   quantize_bid_price,
+                                                   10001, FixtureCoinbasePro.OPEN_BUY_LIMIT_ORDER,
+                                                   FixtureCoinbasePro.WS_ORDER_OPEN)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id, order_created_event.order_id)
 
         order_id_2, exch_order_id_2 = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
-                                              quantize_ask_price, 10002, FixtureCoinbasePro.ORDERS_LIMIT_2,
-                                              FixtureCoinbasePro.WS_ORDER_OPEN)
+                                                       quantize_ask_price, 10002,
+                                                       FixtureCoinbasePro.OPEN_SELL_LIMIT_ORDER,
+                                                       FixtureCoinbasePro.WS_ORDER_OPEN)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id_2, order_created_event.order_id)
@@ -298,7 +300,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT, price, 10001,
-                                       FixtureCoinbasePro.ORDERS_MARKET, FixtureCoinbasePro.WS_MARKET_FILLED)
+                                       FixtureCoinbasePro.BUY_MARKET_ORDER, FixtureCoinbasePro.WS_AFTER_MARKET_BUY_2)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -326,7 +328,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         order_id, _ = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT, price, 10001,
-                                       FixtureCoinbasePro.ORDERS_MARKET, FixtureCoinbasePro.WS_MARKET_FILLED)
+                                       FixtureCoinbasePro.BUY_MARKET_ORDER, FixtureCoinbasePro.WS_AFTER_MARKET_BUY_2)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         trade_events = [t for t in self.market_logger.event_log if isinstance(t, OrderFilledEvent)]
@@ -357,7 +359,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
-                                                   quantize_bid_price, 10001, FixtureCoinbasePro.ORDERS_LIMIT,
+                                                   quantize_bid_price, 10001, FixtureCoinbasePro.OPEN_BUY_LIMIT_ORDER,
                                                    FixtureCoinbasePro.WS_ORDER_OPEN)
 
         self.cancel_order(trading_pair, order_id, exch_order_id, FixtureCoinbasePro.WS_ORDER_CANCELLED)
@@ -377,9 +379,9 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price * Decimal("1.5"))
 
         _, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_bid_price,
-                                            10001, FixtureCoinbasePro.ORDERS_LIMIT, FixtureCoinbasePro.WS_ORDER_OPEN)
+                                            10001, FixtureCoinbasePro.OPEN_BUY_LIMIT_ORDER, FixtureCoinbasePro.WS_ORDER_OPEN)
         _, exch_order_id_2 = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
-                                              quantize_ask_price, 10002, FixtureCoinbasePro.ORDERS_LIMIT_2,
+                                              quantize_ask_price, 10002, FixtureCoinbasePro.OPEN_SELL_LIMIT_ORDER,
                                               FixtureCoinbasePro.WS_ORDER_OPEN)
         self.run_parallel(asyncio.sleep(1))
 
@@ -436,7 +438,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
             order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
-                                                       quantize_bid_price, 10001, FixtureCoinbasePro.ORDERS_LIMIT,
+                                                       quantize_bid_price, 10001, FixtureCoinbasePro.OPEN_BUY_LIMIT_ORDER,
                                                        FixtureCoinbasePro.WS_ORDER_OPEN)
             [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
             order_created_event: BuyOrderCreatedEvent = order_created_event
@@ -518,8 +520,8 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             price: Decimal = self.market.get_price(trading_pair, True)
             amount: Decimal = Decimal("0.02")
             order_id, exch_order_id = self.place_order(True, trading_pair, amount, OrderType.LIMIT, price,
-                                                       10001, FixtureCoinbasePro.ORDERS_MARKET,
-                                                       FixtureCoinbasePro.WS_MARKET_FILLED)
+                                                       10001, FixtureCoinbasePro.BUY_MARKET_ORDER,
+                                                       FixtureCoinbasePro.WS_AFTER_MARKET_BUY_2)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
             # Reset the logs
@@ -529,8 +531,8 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             price: Decimal = self.market.get_price(trading_pair, False)
             amount = buy_order_completed_event.base_asset_amount
             order_id, exch_order_id = self.place_order(False, trading_pair, amount, OrderType.LIMIT, price,
-                                                       10002, FixtureCoinbasePro.ORDERS_MARKET_2,
-                                                       FixtureCoinbasePro.WS_MARKET_FILLED)
+                                                       10002, FixtureCoinbasePro.SELL_MARKET_ORDER,
+                                                       FixtureCoinbasePro.WS_AFTER_MARKET_BUY_2)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 
             # Query the persisted trade logs

@@ -4,8 +4,9 @@ from os import unlink
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
-from hummingbot.market.kraken.kraken_market import KrakenMarket
-from hummingbot.market.markets_recorder import MarketsRecorder
+from hummingbot.connector.exchange.kraken.kraken_market import KrakenMarket
+from hummingbot.connector.exchange.kraken.kraken_utils import convert_to_exchange_trading_pair
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
     SQLConnectionType
@@ -44,7 +45,7 @@ from decimal import Decimal
 import unittest
 import conf
 
-PAIR = "ETHUSDC"
+PAIR = "ETH-USDC"
 BASE = "ETH"
 QUOTE = "USDC"
 
@@ -412,6 +413,11 @@ class KrakenMarketUnitTest(unittest.TestCase):
 
             recorder.stop()
             unlink(self.db_path)
+
+    def test_pair_convesion(self):
+        for pair in self.market.trading_rules:
+            exchange_pair = convert_to_exchange_trading_pair(pair)
+            self.assertTrue(exchange_pair in self.market.order_books)
 
 
 def main():
