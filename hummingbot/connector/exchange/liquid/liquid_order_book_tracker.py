@@ -63,6 +63,17 @@ class LiquidOrderBookTracker(OrderBookTracker):
                 if order_book.snapshot_uid > ob_message.update_id:
                     messages_rejected += 1
                     continue
+                # Liquid order_book diff message does not contain entries to be deleted, it is actually a snapshot with
+                # just one side of the book (either bids or asks), we have to manually check for existing entries here
+                # and include them with 0 amount.
+                if "asks" in ob_message.content and len(ob_message.content["asks"]) > 0:
+                    for price in order_book.snapshot[1].price:
+                        if price not in [float(p[0]) for p in ob_message.content["asks"]]:
+                            ob_message.content["asks"].append([str(price), str(0)])
+                elif "bids" in ob_message.content and len(ob_message.content["bids"]) > 0:
+                    for price in order_book.snapshot[0].price:
+                        if price not in [float(p[0]) for p in ob_message.content["bids"]]:
+                            ob_message.content["bids"].append([str(price), str(0)])
                 await message_queue.put(ob_message)
                 messages_accepted += 1
 

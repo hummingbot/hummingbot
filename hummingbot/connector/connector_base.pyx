@@ -272,7 +272,7 @@ cdef class ConnectorBase(NetworkIterator):
         return self._account_balances.copy()
 
     cdef object c_get_balance(self, str currency):
-        self.get_balance(currency)
+        return self.get_balance(currency)
 
     def get_balance(self, currency: str) -> Decimal:
         """
@@ -336,7 +336,7 @@ cdef class ConnectorBase(NetworkIterator):
         return available_balance
 
     cdef object c_get_price(self, str trading_pair, bint is_buy):
-        self.get_price(trading_pair, is_buy)
+        return self.get_price(trading_pair, is_buy)
 
     def get_price(self, trading_pair: str, is_buy: bool, amount: Decimal = s_decimal_NaN) -> Decimal:
         """
