@@ -14,6 +14,7 @@ from hummingbot.core.data_type.order_book_message import (
     OrderBookMessageType
 )
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.huobi.huobi_api_order_book_data_source import HuobiAPIOrderBookDataSource
 
@@ -37,6 +38,16 @@ class HuobiOrderBookTracker(OrderBookTracker):
     @property
     def exchange_name(self) -> str:
         return "huobi"
+
+    @property
+    def data_source(self) -> OrderBookTrackerDataSource:
+        if not self._data_source:
+            self._data_source = HuobiAPIOrderBookDataSource(trading_pairs=self._trading_pairs)
+        return self._data_source
+
+    @data_source.setter
+    def data_source(self, data_source):
+        self._data_source = data_source
 
     async def _order_book_diff_router(self):
         """
