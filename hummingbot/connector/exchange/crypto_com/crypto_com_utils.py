@@ -1,9 +1,7 @@
 import math
-import time
-import random
 from typing import Dict, List
 
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce, get_tracking_nonce_low_res
 from . import crypto_com_constants as Constants
 
 
@@ -27,7 +25,7 @@ def join_paths(*paths: List[str]) -> str:
 
 # get timestamp in milliseconds
 def get_ms_timestamp() -> int:
-    return math.floor(time.time() * 1e3)
+    return get_tracking_nonce_low_res()
 
 
 # convert milliseconds timestamp to seconds
@@ -44,9 +42,7 @@ class RequestId:
 
     @classmethod
     def generate_request_id(cls) -> int:
-        cls._request_id += 1
-        # return cls._request_id
-        return math.floor(random.random() * 1e18)
+        return get_tracking_nonce()
 
 
 def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
