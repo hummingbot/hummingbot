@@ -19,7 +19,7 @@ from hummingbot.core.event.events import (
     TradeType
 )
 
-from hummingbot.market.bamboo_relay.bamboo_relay_order_book_tracker import BambooRelayOrderBookTracker
+from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_order_book_tracker import BambooRelayOrderBookTracker
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
@@ -38,6 +38,7 @@ class BambooRelayOrderBookTrackerUnitTest(unittest.TestCase):
         "WETH-USDC",
         "DAI-USDC"
     ]
+
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()

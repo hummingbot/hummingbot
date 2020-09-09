@@ -38,10 +38,10 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.market.huobi.huobi_market import HuobiMarket
-from hummingbot.market.huobi.huobi_utils import convert_to_exchange_trading_pair
-from hummingbot.market.market_base import OrderType
-from hummingbot.market.markets_recorder import MarketsRecorder
+from hummingbot.connector.exchange.huobi.huobi_market import HuobiMarket
+from hummingbot.connector.exchange.huobi.huobi_utils import convert_to_exchange_trading_pair
+from hummingbot.core.event.events import OrderType
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import (
@@ -96,7 +96,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
             cls.web_app.update_response("get", API_BASE_URL, "/v1/account/accounts", FixtureHuobi.GET_ACCOUNTS)
             cls.web_app.update_response("get", API_BASE_URL, f"/v1/account/accounts/{mock_account_id}/balance",
                                         FixtureHuobi.BALANCES)
-            cls._t_nonce_patcher = unittest.mock.patch("hummingbot.market.huobi.huobi_market.get_tracking_nonce")
+            cls._t_nonce_patcher = unittest.mock.patch("hummingbot.connector.exchange.huobi.huobi_market.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: HuobiMarket = HuobiMarket(
@@ -316,8 +316,8 @@ class HuobiMarketUnitTest(unittest.TestCase):
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
         self.assertEqual(order_id, buy_order_completed_event.order_id)
         self.assertAlmostEqual(quantized_amount, buy_order_completed_event.base_asset_amount, places=4)
-        self.assertEqual("eth", buy_order_completed_event.base_asset)
-        self.assertEqual("usdt", buy_order_completed_event.quote_asset)
+        self.assertEqual("ETH", buy_order_completed_event.base_asset)
+        self.assertEqual("USDT", buy_order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, buy_order_completed_event.base_asset_amount, places=4)
         self.assertAlmostEqual(quote_amount_traded, buy_order_completed_event.quote_asset_amount, places=4)
         self.assertGreater(buy_order_completed_event.fee_amount, Decimal(0))
@@ -344,8 +344,8 @@ class HuobiMarketUnitTest(unittest.TestCase):
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
         self.assertEqual(order_id, sell_order_completed_event.order_id)
         self.assertAlmostEqual(quantized_amount, sell_order_completed_event.base_asset_amount)
-        self.assertEqual("eth", sell_order_completed_event.base_asset)
-        self.assertEqual("usdt", sell_order_completed_event.quote_asset)
+        self.assertEqual("ETH", sell_order_completed_event.base_asset)
+        self.assertEqual("USDT", sell_order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, sell_order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, sell_order_completed_event.quote_asset_amount)
         self.assertGreater(sell_order_completed_event.fee_amount, Decimal(0))
@@ -447,7 +447,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
             self.market: HuobiMarket = HuobiMarket(
                 huobi_api_key=API_KEY,
                 huobi_secret_key=API_SECRET,
-                trading_pairs=["ETH-USDT", "btcusdt"]
+                trading_pairs=["ETH-USDT", "BTC-USDT"]
             )
             for event_tag in self.events:
                 self.market.add_listener(event_tag, self.market_logger)
