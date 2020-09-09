@@ -10,15 +10,19 @@ default_cex_estimate = {
     "huobi": [0.2, 0.2],
     "kraken": [0.16, 0.26],
     "kucoin": [0.1, 0.1],
-    "liquid": [0.1, 0.1]}
+    "liquid": [0.1, 0.1],
+    "eterbase": [0.35, 0.35],
+    "crypto_com": [0.1, 0.1]
+}
 
 default_dex_estimate = {
     "bamboo_relay": [0, 0.00001],
     "radar_relay": [0, 0.00001],
-    "dolomite": [0, 0.00001]}
+    "dolomite": [0, 0.00001]
+}
 
 
-def estimate_fee(exchange, is_maker):
+def estimate_fee(exchange: str, is_maker: bool) -> Decimal:
     override_config_name_suffix = "_maker_fee" if is_maker else "_taker_fee"
     override_config_name = exchange + override_config_name_suffix
     if exchange in default_dex_estimate:

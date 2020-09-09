@@ -151,6 +151,7 @@ nav:
       - Binance: connectors/binance.md
       - Bittrex Global: connectors/bittrex.md
       - Coinbase Pro: connectors/coinbase.md
+      - Crypto.com : connectors/crypto-com.md
       - Eterbase: connectors/eterbase.md
       - Huobi Global: connectors/huobi.md
       - KuCoin: connectors/kucoin.md
@@ -168,7 +169,7 @@ nav:
       - Ethereum Wallet: advanced/wallet.md
       - Ethereum Node: advanced/node.md
       - Telegram: advanced/telegram.md
-      - Docker Autostart <sup>(BETA)</sup>: advanced/autostart.md
+      - Autostart <sup>(BETA)</sup>: advanced/autostart.md
       - External Database <sup>(BETA)</sup>: advanced/db-config.md
       - Scripts: advanced/scripts.md
     - Community:
@@ -205,8 +206,12 @@ nav:
       - Connectors:
         - Intro: developers/connectors/index.md
         - Architecture: developers/connectors/architecture.md
-        - Order Lifecycle: developers/connectors/order-lifecycle.md
-        - Building Connectors: developers/connectors/tutorial.md
+        - Building Connectors: 
+          - Overview: developers/connectors/tutorial.md
+          - Task 1 - Data Source & Order Book Tracker: developers/connectors/task1.md
+          - Task 2 - User Stream Tracker : developers/connectors/task2.md
+          - Task 3 - Market Connector: developers/connectors/task3.md
+          - Task 4 - Hummingbot Client: developers/connectors/task4.md
         - Miscellaneous: developers/connectors/miscellaneous.md
       - Tutorial (WIP):
         - Intro: developers/tutorial/index.md
@@ -216,6 +221,7 @@ nav:
       - Configuration: developers/config.md
   - Release Notes:
     - About Releases: release-notes/index.md
+    - 0.31.0: release-notes/0.31.0.md
     - 0.30.0: release-notes/0.30.0.md
     - 0.29.0: release-notes/0.29.0.md
     - 0.28.1: release-notes/0.28.1.md

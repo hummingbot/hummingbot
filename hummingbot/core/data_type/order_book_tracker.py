@@ -208,9 +208,7 @@ class OrderBookTracker(ABC):
                 # Log some statistics.
                 now: float = time.time()
                 if int(now / 60.0) > int(last_message_timestamp / 60.0):
-                    self.logger().info("Diff messages processed: %d, rejected: %d",
-                                       messages_accepted,
-                                       messages_rejected)
+                    self.logger().debug(f"Diff messages processed: {messages_accepted}, rejected: {messages_rejected}")
                     messages_accepted = 0
                     messages_rejected = 0
 
@@ -297,7 +295,7 @@ class OrderBookTracker(ABC):
                     price=float(trade_message.content["price"]),
                     amount=float(trade_message.content["amount"]),
                     type=TradeType.SELL if
-                    trade_message.content["trade_type"] == float(TradeType.SELL.value) else TradeType.SELL
+                    trade_message.content["trade_type"] == float(TradeType.SELL.value) else TradeType.BUY
                 ))
 
                 messages_accepted += 1
