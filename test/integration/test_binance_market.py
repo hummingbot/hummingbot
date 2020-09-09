@@ -21,8 +21,6 @@ from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
-from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -42,13 +40,13 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.market.binance.binance_market import (
+from hummingbot.connector.exchange.binance.binance_market import (
     BinanceMarket,
     BinanceTime,
     binance_client_module
 )
-from hummingbot.market.binance.binance_utils import convert_to_exchange_trading_pair
-from hummingbot.market.markets_recorder import MarketsRecorder
+from hummingbot.connector.exchange.binance.binance_utils import convert_to_exchange_trading_pair
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import (
@@ -128,15 +126,11 @@ class BinanceMarketUnitTest(unittest.TestCase):
             cls._ws_mock = cls._ws_patcher.start()
             cls._ws_mock.side_effect = HummingWsServerFactory.reroute_ws_connect
 
-            cls._t_nonce_patcher = unittest.mock.patch("hummingbot.market.binance.binance_market.get_tracking_nonce")
+            cls._t_nonce_patcher = unittest.mock.patch(
+                "hummingbot.connector.exchange.binance.binance_market.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.market: BinanceMarket = BinanceMarket(
-            API_KEY, API_SECRET,
-            order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-            user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
-            trading_pairs=["LINK-ETH", "ZRX-ETH"]
-        )
+        cls.market: BinanceMarket = BinanceMarket(API_KEY, API_SECRET, ["LINK-ETH", "ZRX-ETH"], True)
         print("Initializing Binance market... this will take about a minute.")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.market)
@@ -497,7 +491,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
 
         try:
             local_time_offset = (time.time() - time.perf_counter()) * 1e3
-            with patch("hummingbot.market.binance.binance_time.time") as market_time:
+            with patch("hummingbot.connector.exchange.binance.binance_time.time") as market_time:
                 def delayed_time():
                     return time.perf_counter() - 30.0
                 market_time.perf_counter = delayed_time
@@ -558,13 +552,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
             self.clock.remove_iterator(self.market)
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
-            self.market: BinanceMarket = BinanceMarket(
-                binance_api_key=API_KEY,
-                binance_api_secret=API_SECRET,
-                order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
-                trading_pairs=["LINK-ETH", "ZRX-ETH"]
-            )
+            self.market: BinanceMarket = BinanceMarket(API_KEY, API_SECRET, ["LINK-ETH", "ZRX-ETH"], True)
             for event_tag in self.events:
                 self.market.add_listener(event_tag, self.market_logger)
             recorder.stop()

@@ -8,10 +8,7 @@ from typing import (
 )
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.user_stream_tracker import (
-    UserStreamTrackerDataSourceType,
-    UserStreamTracker,
-)
+from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
@@ -31,11 +28,10 @@ class BitfinexUserStreamTracker(UserStreamTracker):
 
     def __init__(
         self,
-        data_source_type: UserStreamTrackerDataSourceType = UserStreamTrackerDataSourceType.EXCHANGE_API,
         bitfinex_auth: Optional[BitfinexAuth] = None,
         trading_pairs=None,
     ):
-        super().__init__(data_source_type=data_source_type)
+        super().__init__()
         if trading_pairs is None:
             trading_pairs = []
         self._bitfinex_auth: BitfinexAuth = bitfinex_auth
@@ -50,12 +46,9 @@ class BitfinexUserStreamTracker(UserStreamTracker):
 
         """
         if not self._data_source:
-            if self._data_source_type is UserStreamTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = BitfinexAPIUserStreamDataSource(
-                    bitfinex_auth=self._bitfinex_auth, trading_pairs=self._trading_pairs
-                )
-            else:
-                raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
+            self._data_source = BitfinexAPIUserStreamDataSource(
+                bitfinex_auth=self._bitfinex_auth, trading_pairs=self._trading_pairs
+            )
         return self._data_source
 
     @property

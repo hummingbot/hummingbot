@@ -11,10 +11,10 @@ from typing import (
     Dict,
     Optional
 )
-from hummingbot.market.eterbase.eterbase_order_book_tracker import EterbaseOrderBookTracker
+from hummingbot.connector.exchange.eterbase.eterbase_order_book_tracker import EterbaseOrderBookTracker
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.market.eterbase.eterbase_order_book_message import EterbaseOrderBookMessage
-from hummingbot.market.eterbase.eterbase_order_book import EterbaseOrderBook
+from hummingbot.connector.exchange.eterbase.eterbase_order_book_message import EterbaseOrderBookMessage
+from hummingbot.connector.exchange.eterbase.eterbase_order_book import EterbaseOrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 
 test_trading_pair = "ETHEUR"
