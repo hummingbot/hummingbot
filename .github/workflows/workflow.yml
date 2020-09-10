@@ -16,22 +16,18 @@ jobs:
     steps:
       - uses: pre-commit/action@v1.0.1
 
-  pre-commit:
+  lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-
-      - name: Set PY
-        run: echo "::set-env name=PY::$(python -c 'import hashlib, sys;print(hashlib.sha256(sys.version.encode()+sys.executable.encode()).hexdigest())')"
-
-      - name: Set up cache
-        uses: actions/cache@v1
+      - uses: actions/checkout@v1
+      - uses: grantmcconnaughey/lintly-flake8-github-action@v1.0
         with:
-          path: ~/.cache/pre-commit
-          key: pre-commit|${{ env.PY }}|${{ hashFiles('.pre-commit-config.yaml') }}
-
-      - uses: pre-commit/action@v1.0.1
+          # The GitHub API token to create reviews with
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # Fail if "new" violations detected or "any", default "new"
+          failIf: new
+          # Additional arguments to pass to flake8, default "." (current directory)
+          args: "--ignore=E121,E123 ."
 
   build_hummingbot:
     name: build + stable tests
