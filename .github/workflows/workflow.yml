@@ -14,8 +14,24 @@ jobs:
     timeout-minutes: 1
 
     steps:
-      - name: Run a one-line script
-        run: echo "There is no build and check on draft PR."
+      - uses: pre-commit/action@v1.0.1
+
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+
+      - name: Set PY
+        run: echo "::set-env name=PY::$(python -c 'import hashlib, sys;print(hashlib.sha256(sys.version.encode()+sys.executable.encode()).hexdigest())')"
+
+      - name: Set up cache
+        uses: actions/cache@v1
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit|${{ env.PY }}|${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - uses: pre-commit/action@v1.0.1
 
   build_hummingbot:
     name: build + stable tests
@@ -23,6 +39,7 @@ jobs:
     runs-on: "ubuntu-latest"
 
     steps:
+      - uses: pre-commit/action@v1.0.1
       - uses: actions/checkout@v2
     
       # Use cache's hashFiles function to check for changes in core code
