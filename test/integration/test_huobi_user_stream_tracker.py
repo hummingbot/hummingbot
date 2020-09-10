@@ -11,8 +11,8 @@ import unittest
 
 from typing import Optional
 
-from hummingbot.market.huobi.huobi_auth import HuobiAuth
-from hummingbot.market.huobi.huobi_user_stream_tracker import HuobiUserStreamTracker
+from hummingbot.connector.exchange.huobi.huobi_auth import HuobiAuth
+from hummingbot.connector.exchange.huobi.huobi_user_stream_tracker import HuobiUserStreamTracker
 
 sys.path.insert(0, realpath(join(__file__, "../../../")))
 

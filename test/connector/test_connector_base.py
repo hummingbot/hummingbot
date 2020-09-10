@@ -3,7 +3,7 @@ from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../../")))
 import unittest
 from decimal import Decimal
-from hummingbot.market.in_flight_order_base import InFlightOrderBase
+from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.event.events import OrderType, TradeType
 
 from hummingbot.connector.connector_base import ConnectorBase

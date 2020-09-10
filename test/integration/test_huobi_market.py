@@ -38,10 +38,10 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.market.huobi.huobi_market import HuobiMarket
-from hummingbot.market.huobi.huobi_utils import convert_to_exchange_trading_pair
-from hummingbot.market.market_base import OrderType
-from hummingbot.market.markets_recorder import MarketsRecorder
+from hummingbot.connector.exchange.huobi.huobi_market import HuobiMarket
+from hummingbot.connector.exchange.huobi.huobi_utils import convert_to_exchange_trading_pair
+from hummingbot.core.event.events import OrderType
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import (
@@ -96,7 +96,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
             cls.web_app.update_response("get", API_BASE_URL, "/v1/account/accounts", FixtureHuobi.GET_ACCOUNTS)
             cls.web_app.update_response("get", API_BASE_URL, f"/v1/account/accounts/{mock_account_id}/balance",
                                         FixtureHuobi.BALANCES)
-            cls._t_nonce_patcher = unittest.mock.patch("hummingbot.market.huobi.huobi_market.get_tracking_nonce")
+            cls._t_nonce_patcher = unittest.mock.patch("hummingbot.connector.exchange.huobi.huobi_market.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: HuobiMarket = HuobiMarket(

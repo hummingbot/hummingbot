@@ -4,12 +4,12 @@ from typing import (
     Dict,
     Optional,
 )
-
+import asyncio
 from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.market.in_flight_order_base import InFlightOrderBase
+from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 
 
 class CryptoComInFlightOrder(InFlightOrderBase):
@@ -33,6 +33,7 @@ class CryptoComInFlightOrder(InFlightOrderBase):
             initial_state,
         )
         self.trade_id_set = set()
+        self.cancelled_event = asyncio.Event()
 
     @property
     def is_done(self) -> bool:

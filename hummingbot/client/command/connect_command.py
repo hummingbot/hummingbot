@@ -20,7 +20,8 @@ OPTIONS = {
     "kraken",
     "ethereum",
     "eterbase",
-    "celo"
+    "celo",
+    "crypto_com"
 }
 
 
