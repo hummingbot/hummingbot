@@ -7,6 +7,15 @@ on:
     branches: [ master, development ]
 
 jobs:
+  draft-build:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == true
+    timeout-minutes: 1
+
+    steps:
+      - name: Run a one-line script
+        run: echo Draft PR, you are good.
+        
   build_hummingbot:
     name: build + stable tests
     if: github.event.pull_request.draft == false
