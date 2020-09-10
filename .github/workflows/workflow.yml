@@ -9,6 +9,7 @@ on:
 jobs:
   build_hummingbot:
     name: build + stable tests
+    if: github.event.pull_request.draft == false
     runs-on: "ubuntu-latest"
 
     steps:
