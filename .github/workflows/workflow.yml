@@ -14,20 +14,23 @@ jobs:
     timeout-minutes: 1
 
     steps:
-      - uses: pre-commit/action@v1.0.1
+      - name: Check out Git repository
+        uses: actions/checkout@v2
 
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v1
-      - uses: grantmcconnaughey/lintly-flake8-github-action@v1.0
+      - name: Set up Python
+        uses: actions/setup-python@v1
         with:
-          # The GitHub API token to create reviews with
-          token: ${{ secrets.GITHUB_TOKEN }}
-          # Fail if "new" violations detected or "any", default "new"
-          failIf: new
-          # Additional arguments to pass to flake8, default "." (current directory)
-          args: "--ignore=E121,E123 ."
+          python-version: 3.8
+
+      - name: Install Python dependencies
+        run: pip install black flake8
+
+      - name: Run linters
+        uses: wearerequired/lint-action@v1
+        with:
+          github_token: ${{ secrets.github_token }}
+          # Enable linters
+          flake8: true
 
   build_hummingbot:
     name: build + stable tests
@@ -71,6 +74,14 @@ jobs:
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
         with:
           python-version: 3.x
+
+      - name: Run linters
+        uses: wearerequired/lint-action@v1
+        with:
+          github_token: ${{ secrets.github_token }}
+          # Enable linters
+          flake8: true
+
       - name: Install Miniconda and nose
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
         shell: bash
