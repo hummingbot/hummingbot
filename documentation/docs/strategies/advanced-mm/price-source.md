@@ -68,12 +68,12 @@ Run `config price_type` command to change the price reference to `last_price`, `
 Custom API is mostly used by advanced users or developers for using a different price reference. Take note that `price_source` should be set to `custom_api` with the API URL indicated in `price_source_custom_api`.
 
 ```json
-           price_source:  custom_api
-             price_type:  mid_price
-  price_source_exchange:  None
-    price_source_market:  None
-        take_if_crossed:  None
-price_source_custom_api:  https://www.your-custom-api-url.com/
+           price_source: custom_api
+             price_type: mid_price
+  price_source_exchange: None
+    price_source_market: None
+        take_if_crossed: None
+price_source_custom_api: https://www.your-custom-api-url.com/
 ```
 
 **Custom API Output Required Parameters**
