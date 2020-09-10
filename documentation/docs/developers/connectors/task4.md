@@ -567,7 +567,7 @@ Below is a sample code for POST-ing a LIMIT-BUY order on Bittrex. This script no
 import asyncio
 import aiohttp
 from typing import Dict
-from hummingbot.market.bittrex.bittrex_auth import BittrexAuth
+from hummingbot.connector.exchange.bittrex.bittrex_auth import BittrexAuth
 
 BITTREX_API_ENDPOINT = "https://api.bittrex.com/v3"
 

@@ -8,9 +8,10 @@ from typing import Optional
 from hummingbot.core.clock cimport Clock
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.time_iterator import TimeIterator
 
 NaN = float("nan")
-s_logger = None
+ni_logger = None
 
 
 class NetworkStatus(Enum):
@@ -22,10 +23,10 @@ class NetworkStatus(Enum):
 cdef class NetworkIterator(TimeIterator):
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global s_logger
-        if s_logger is None:
-            s_logger = logging.getLogger(__name__)
-        return s_logger
+        global ni_logger
+        if ni_logger is None:
+            ni_logger = logging.getLogger(__name__)
+        return ni_logger
 
     def __init__(self):
         super().__init__()
