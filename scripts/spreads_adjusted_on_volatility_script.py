@@ -27,7 +27,7 @@ class SpreadsAdjustedOnVolatility(ScriptBase):
 
     def __init__(self):
         super().__init__()
-        self.original_bid_spread = None
+        self.original_bid_spread =None
         self.original_ask_spread = None
 
     def on_tick(self):
