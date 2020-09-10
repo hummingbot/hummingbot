@@ -21,7 +21,6 @@ from hummingbot.core.clock import (
     ClockMode
 )
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
@@ -42,9 +41,9 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.logger import NETWORK
-from hummingbot.market.bamboo_relay.bamboo_relay_market import BambooRelayMarket
-from hummingbot.market.market_base import OrderType
-from hummingbot.market.markets_recorder import MarketsRecorder
+from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_market import BambooRelayMarket
+from hummingbot.core.event.events import OrderType
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import (
@@ -103,7 +102,6 @@ class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
         cls.market: BambooRelayMarket = BambooRelayMarket(
             wallet=cls.wallet,
             ethereum_rpc_url=conf.test_web3_provider_list[0],
-            order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             trading_pairs=[conf.test_bamboo_relay_base_token_symbol + "-" + conf.test_bamboo_relay_quote_token_symbol],
             use_coordinator=True,
             pre_emptive_soft_cancels=True
@@ -446,7 +444,6 @@ class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
             self.market: BambooRelayMarket = BambooRelayMarket(
                 wallet=self.wallet,
                 ethereum_rpc_url=conf.test_web3_provider_list[0],
-                order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                 trading_pairs=[self.base_token_asset + "-" + self.quote_token_asset],
                 use_coordinator=True,
                 pre_emptive_soft_cancels=True
