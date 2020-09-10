@@ -3,12 +3,12 @@
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
-from hummingbot.market.kucoin.kucoin_user_stream_tracker import KucoinUserStreamTracker
-from hummingbot.market.kucoin.kucoin_auth import KucoinAuth
+from hummingbot.connector.exchange.kucoin.kucoin_user_stream_tracker import KucoinUserStreamTracker
+from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
-from hummingbot.market.kucoin.kucoin_order_book_tracker import KucoinOrderBookTracker
+from hummingbot.connector.exchange.kucoin.kucoin_order_book_tracker import KucoinOrderBookTracker
 import asyncio
 import logging
 import conf

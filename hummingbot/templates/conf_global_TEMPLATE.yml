@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 10
+template_version: 11
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -31,6 +31,9 @@ kucoin_passphrase: null
 
 kraken_api_key: null
 kraken_secret_key: null
+
+crypto_com_api_key: null
+crypto_com_secret_key: null
 
 eterbase_api_key: null
 eterbase_secret_key: null
