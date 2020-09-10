@@ -88,6 +88,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                  status_report_interval: float = 900,
                  minimum_spread: Decimal = Decimal(0),
                  hb_app_notification: bool = False,
+                 order_override: Dict[str, List[str]] = {},
                  ):
 
         if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
@@ -125,6 +126,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._ping_pong_enabled = ping_pong_enabled
         self._ping_pong_warning_lines = []
         self._hb_app_notification = hb_app_notification
+        self._order_override = order_override
 
         self._cancel_timestamp = 0
         self._create_timestamp = 0
@@ -618,20 +620,35 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             ExchangeBase market = self._market_info.market
             list buys = []
             list sells = []
-        for level in range(0, self._buy_levels):
-            price = self.get_price() * (Decimal("1") - self._bid_spread - (level * self._order_level_spread))
-            price = market.c_quantize_order_price(self.trading_pair, price)
-            size = self._order_amount + (self._order_level_amount * level)
-            size = market.c_quantize_order_amount(self.trading_pair, size)
-            if size > 0:
-                buys.append(PriceSize(price, size))
-        for level in range(0, self._sell_levels):
-            price = self.get_price() * (Decimal("1") + self._ask_spread + (level * self._order_level_spread))
-            price = market.c_quantize_order_price(self.trading_pair, price)
-            size = self._order_amount + (self._order_level_amount * level)
-            size = market.c_quantize_order_amount(self.trading_pair, size)
-            if size > 0:
-                sells.append(PriceSize(price, size))
+        order_override = self._order_override
+        if order_override is not None:
+            for key, value in order_override.items():
+                if str(value[0]) in ["buy", "sell"]:
+                    if str(value[0]) == "buy":
+                        price = self.c_get_mid_price() * (Decimal("1") - Decimal(value[1]))
+                        size = Decimal(value[2])
+                        if size > 0:
+                            buys.append(PriceSize(price, size))
+                    elif str(value[0]) == "sell":
+                        price = self.c_get_mid_price() * (Decimal("1") - Decimal(value[1]))
+                        size = Decimal(value[2])
+                        if size > 0:
+                            sells.append(PriceSize(price, size))
+        else:
+            for level in range(0, self._buy_levels):
+                price = self.get_price() * (Decimal("1") - self._bid_spread - (level * self._order_level_spread))
+                price = market.c_quantize_order_price(self.trading_pair, price)
+                size = self._order_amount + (self._order_level_amount * level)
+                size = market.c_quantize_order_amount(self.trading_pair, size)
+                if size > 0:
+                    buys.append(PriceSize(price, size))
+            for level in range(0, self._sell_levels):
+                price = self.get_price() * (Decimal("1") + self._ask_spread + (level * self._order_level_spread))
+                price = market.c_quantize_order_price(self.trading_pair, price)
+                size = self._order_amount + (self._order_level_amount * level)
+                size = market.c_quantize_order_amount(self.trading_pair, size)
+                if size > 0:
+                    sells.append(PriceSize(price, size))
 
         return Proposal(buys, sells)
 
