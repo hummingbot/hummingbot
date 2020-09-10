@@ -8,10 +8,9 @@ on:
     types: [ready_for_review, opened, synchronize, reopened]
 
 jobs:
-  draft-build:
+  run-linters:
+    name: Run linters
     runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == true
-    timeout-minutes: 1
 
     steps:
       - name: Check out Git repository
@@ -38,7 +37,6 @@ jobs:
     runs-on: "ubuntu-latest"
 
     steps:
-      - uses: pre-commit/action@v1.0.1
       - uses: actions/checkout@v2
     
       # Use cache's hashFiles function to check for changes in core code
@@ -74,13 +72,6 @@ jobs:
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
         with:
           python-version: 3.x
-
-      - name: Run linters
-        uses: wearerequired/lint-action@v1
-        with:
-          github_token: ${{ secrets.github_token }}
-          # Enable linters
-          flake8: true
 
       - name: Install Miniconda and nose
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
