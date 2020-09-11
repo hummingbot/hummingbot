@@ -16,6 +16,9 @@ cdef class LoopringMarket(MarketBase):
         str _loopring_private_key
         object _order_sign_param
 
+        object _user_stream_tracker
+        object _user_stream_tracker_task
+        object _user_stream_event_listener_task
         public object _polling_update_task
         public object _token_configuration
 
