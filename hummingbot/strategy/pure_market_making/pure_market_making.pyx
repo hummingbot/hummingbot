@@ -621,18 +621,18 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             list buys = []
             list sells = []
         order_override = self._order_override
-        if order_override is not None:
+        if order_override is not None and len(order_override) > 0:
             for key, value in order_override.items():
                 if str(value[0]) in ["buy", "sell"]:
                     if str(value[0]) == "buy":
                         price = self.c_get_mid_price() * (Decimal("1") - Decimal(value[1]))
                         size = Decimal(value[2])
-                        if size > 0:
+                        if size > 0 and price > 0:
                             buys.append(PriceSize(price, size))
                     elif str(value[0]) == "sell":
-                        price = self.c_get_mid_price() * (Decimal("1") - Decimal(value[1]))
+                        price = self.c_get_mid_price() * (Decimal("1") + Decimal(value[1]))
                         size = Decimal(value[2])
-                        if size > 0:
+                        if size > 0 and price > 0:
                             sells.append(PriceSize(price, size))
         else:
             for level in range(0, self._buy_levels):
