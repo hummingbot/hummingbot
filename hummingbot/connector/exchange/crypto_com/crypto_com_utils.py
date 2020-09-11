@@ -4,6 +4,8 @@ from typing import Dict, List
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce, get_tracking_nonce_low_res
 from . import crypto_com_constants as Constants
 
+HBOT_BROKER_ID = "HBOT-"
+
 
 # deeply merge two dictionaries
 def merge_dicts(source: Dict, destination: Dict) -> Dict:
@@ -54,8 +56,8 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
 
 
 def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
-    side = "buy" if is_buy else "sell"
-    return f"{side}-{trading_pair}-{get_tracking_nonce()}"
+    side = "B" if is_buy else "S"
+    return f"{HBOT_BROKER_ID}{side}-{trading_pair}-{get_tracking_nonce()}"
 
 
 def get_api_reason(code: str) -> str:
