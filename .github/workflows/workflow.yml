@@ -8,18 +8,6 @@ on:
     types: [ready_for_review, opened, synchronize, reopened]
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v1
-      - uses: grantmcconnaughey/lintly-flake8-github-action@v1.0
-        with:
-          # The GitHub API token to create reviews with
-          token: ${{ secrets.GITHUB_TOKEN }}
-          # Fail if "new" violations detected or "any", default "new"
-          failIf: new
-
   build_hummingbot:
     name: build + stable tests
     if: github.event.pull_request.draft == false
