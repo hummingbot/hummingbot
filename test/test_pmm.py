@@ -111,6 +111,21 @@ class PMMUnitTest(unittest.TestCase):
             minimum_spread=-1,
         )
 
+        self.order_override_strategy = PureMarketMakingStrategy(
+            self.market_info,
+            bid_spread=Decimal("0.01"),
+            ask_spread=Decimal("0.01"),
+            order_amount=Decimal("1"),
+            order_refresh_time=5.0,
+            filled_order_delay=5.0,
+            order_refresh_tolerance_pct=-1,
+            order_levels=3,
+            order_level_spread=Decimal("0.01"),
+            order_level_amount=Decimal("1"),
+            minimum_spread=-1,
+            order_override={"override_order_one": ["buy", "1", "1"], "override_order_two": ["sell", "1", "1"]},
+        )
+
         self.ext_market: BacktestMarket = BacktestMarket()
         self.ext_data: MockOrderBookLoader = MockOrderBookLoader(self.trading_pair, self.base_asset, self.quote_asset)
         self.ext_market_info: MarketTradingPairTuple = MarketTradingPairTuple(
@@ -813,6 +828,18 @@ class PMMUnitTest(unittest.TestCase):
         last_ask_order = strategy.active_sells[-1]
         self.assertAlmostEqual(Decimal("96"), last_bid_order.price, 2)
         self.assertAlmostEqual(Decimal("104"), last_ask_order.price, 2)
+
+    def test_order_override(self):
+        strategy = self.one_level_strategy
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+
+        buys = strategy.active_buys
+        sells = strategy.active_sells
+        self.assertEqual(Decimal("99"), buys[0].price)
+        self.assertEqual(Decimal("1"), buys[0].quantity)
+        self.assertEqual(Decimal("101"), sells[0].price)
+        self.assertEqual(Decimal("1"), sells[0].quantity)
 
 
 class PureMarketMakingMinimumSpreadUnitTest(unittest.TestCase):
