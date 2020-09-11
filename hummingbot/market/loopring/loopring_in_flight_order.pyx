@@ -66,11 +66,11 @@ cdef class LoopringInFlightOrder(InFlightOrderBase):
            "client_order_id" : self.client_order_id,
            "exchange_order_id" : self.exchange_order_id,
            "trading_pair" : self.trading_pair,
-           "order_type" : str(self.order_type),
-           "trade_type" : str(self.trade_type),
+           "order_type" : self.order_type.name,
+           "trade_type" : self.trade_type.name,
            "price" : str(self.price),
            "amount" : str(self.amount),
-           "status" : str(self.status),
+           "status" : self.status.name,
            "executed_amount_base" : str(self.executed_amount_base),
            "executed_amount_quote" : str(self.executed_amount_quote),
            "fee_paid" : str(self.fee_paid),
@@ -142,7 +142,7 @@ cdef class LoopringInFlightOrder(InFlightOrderBase):
             diff_quote : Decimal = new_executed_amount_quote - self.executed_amount_quote
             diff_fee : Decimal = new_fee_paid - self.fee_paid
             if diff_quote > Decimal(0):
-                price : Decimal =  diff_quote / diff_base
+                price : Decimal = diff_quote / diff_base
             else:
                 price : Decimal = self.executed_amount_quote / self.executed_amount_base
                 

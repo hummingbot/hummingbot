@@ -54,8 +54,6 @@ class LoopringAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 async with websockets.connect(LOOPRING_WS_URL) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
 
-                    # topic="account"
-                    # topic="order" market=M for M in OrderBookTrackerDataSource.get_trading_pairs()
                     topics = [{"topic": "order", "market":m} for m in await self._orderbook_tracker_data_source.get_trading_pairs()]
                     topics.append({
                         "topic": "account"
@@ -63,7 +61,7 @@ class LoopringAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
                     subscribe_request: Dict[str, Any] = {
                         "op": "sub",
-                        "apiKey": self._loopring_auth.generate_auth_dict(uri=LOOPRING_WS_URL)["X-API-KEY"],
+                        "apiKey": self._loopring_auth.generate_auth_dict()["X-API-KEY"],
                         "unsubscribeAll": True,
                         "topics": topics
                     }
@@ -73,6 +71,8 @@ class LoopringAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         self._last_recv_time = time.time()
 
                         diff_msg = ujson.loads(raw_msg)
+                        if 'op' in diff_msg:
+                            continue # These messages are for control of the stream, so skip sending them to the market class
                         output.put_nowait(diff_msg)
             except asyncio.CancelledError:
                 raise
@@ -98,7 +98,7 @@ class LoopringAPIUserStreamDataSource(UserStreamTrackerDataSource):
             while True:
                 msg: str = await asyncio.wait_for(ws.recv(), timeout=None)    #  This will throw the ConnectionClosed exception on disconnect
                 if msg == "ping":
-                    await ws.send("pong")
+                    await ws.send("pong") # skip returning this and handle this protocol level message here
                 else:
                     yield msg
         except websockets.exceptions.ConnectionClosed: 
