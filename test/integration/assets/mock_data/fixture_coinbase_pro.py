@@ -1,41 +1,41 @@
 class FixtureCoinbasePro:
-    ACCOUNTS_GET = [{"id": "2d36cb78-5145-41fe-90b0-3f204f2e357d", "currency": "USDC", "balance": "90.1480261500000000",
+    BALANCES = [{"id": "2d36cb78-5145-41fe-90b0-3f204f2e357d", "currency": "USDC", "balance": "90.1480261500000000",
                      "available": "90.14802615", "hold": "0.0000000000000000",
                      "profile_id": "bc2f3a64-0c0b-49ce-bb3e-5efc978b5b5c", "trading_enabled": True},
                     {"id": "d3356a99-ad27-4b1b-92f8-26233be0d62a", "currency": "ETH", "balance": "0.4424257124965000",
                      "available": "0.4424257124965", "hold": "0.0000000000000000",
                      "profile_id": "bc2f3a64-0c0b-49ce-bb3e-5efc978b5b5c", "trading_enabled": True}]
 
-    FEES_GET = {"maker_fee_rate": "0.0050", "taker_fee_rate": "0.0050", "usd_volume": "462.93"}
+    TRADE_FEES = {"maker_fee_rate": "0.0050", "taker_fee_rate": "0.0050", "usd_volume": "462.93"}
 
     ORDERS_STATUS = []
 
-    ORDERS_LIMIT = {"id": "4aa4773e-ca4e-4146-8ac1-a0ec8c39f835", "price": "278.05000000", "size": "0.02000000",
+    OPEN_BUY_LIMIT_ORDER = {"id": "4aa4773e-ca4e-4146-8ac1-a0ec8c39f835", "price": "278.05000000", "size": "0.02000000",
                     "product_id": "ETH-USDC", "side": "buy", "stp": "dc", "type": "limit", "time_in_force": "GTC",
                     "post_only": False, "created_at": "2020-02-14T06:52:32.167853Z", "fill_fees": "0",
                     "filled_size": "0", "executed_value": "0", "status": "pending", "settled": False}
 
-    ORDERS_LIMIT_2 = {"id": "9087815a-3d3d-4c2c-b627-78fd83d8644e", "price": "787.44000000", "size": "0.07000000",
+    OPEN_SELL_LIMIT_ORDER = {"id": "9087815a-3d3d-4c2c-b627-78fd83d8644e", "price": "787.44000000", "size": "0.07000000",
                       "product_id": "ETH-USDC", "side": "sell", "stp": "dc", "type": "limit", "time_in_force": "GTC",
                       "post_only": False, "created_at": "2020-02-14T07:57:31.842502Z", "fill_fees": "0",
                       "filled_size": "0", "executed_value": "0", "status": "pending", "settled": False}
 
-    WS_ORDER_FILLED = {"type": "done", "side": "buy", "product_id": "ETH-USDC", "time": "2020-02-14T06:52:32.172333Z",
+    WS_AFTER_BUY_2 = {"type": "done", "side": "buy", "product_id": "ETH-USDC", "time": "2020-02-14T06:52:32.172333Z",
                        "sequence": 544313348, "profile_id": "bc2f3a64-0c0b-49ce-bb3e-5efc978b5b5c",
                        "user_id": "5dc62091b2d9e604842cad56", "order_id": "4aa4773e-ca4e-4146-8ac1-a0ec8c39f835",
                        "reason": "filled", "price": "278.05", "remaining_size": "0"}
 
-    ORDERS_MARKET = {"id": "dedfcd66-2324-4805-bd31-b8920c3a25b4", "size": "0.02000000", "product_id": "ETH-USDC",
+    BUY_MARKET_ORDER = {"id": "dedfcd66-2324-4805-bd31-b8920c3a25b4", "size": "0.02000000", "product_id": "ETH-USDC",
                      "side": "buy", "stp": "dc", "funds": "84.33950263", "type": "market", "post_only": False,
                      "created_at": "2020-02-14T07:21:17.166831Z", "fill_fees": "0", "filled_size": "0",
                      "executed_value": "0", "status": "pending", "settled": False}
 
-    ORDERS_MARKET_2 = {"id": "CBS_MARKET_SELL", "size": "0.02000000", "product_id": "ETH-USDC",
+    SELL_MARKET_ORDER = {"id": "CBS_MARKET_SELL", "size": "0.02000000", "product_id": "ETH-USDC",
                        "side": "sell", "stp": "dc", "funds": "84.33950263", "type": "market", "post_only": False,
                        "created_at": "2020-02-14T07:21:17.166831Z", "fill_fees": "0", "filled_size": "0",
                        "executed_value": "0", "status": "pending", "settled": False}
 
-    WS_MARKET_FILLED = {"type": "done", "side": "buy", "product_id": "ETH-USDC", "time": "2020-02-14T07:21:17.171949Z",
+    WS_AFTER_MARKET_BUY_2 = {"type": "done", "side": "buy", "product_id": "ETH-USDC", "time": "2020-02-14T07:21:17.171949Z",
                         "sequence": 544350029, "profile_id": "bc2f3a64-0c0b-49ce-bb3e-5efc978b5b5c",
                         "user_id": "5dc62091b2d9e604842cad56", "order_id": "dedfcd66-2324-4805-bd31-b8920c3a25b4",
                         "reason": "filled", "remaining_size": "0"}

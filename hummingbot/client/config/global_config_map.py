@@ -8,7 +8,7 @@ from hummingbot.client.settings import (
     DEXES,
     DEFAULT_KEY_FILE_PATH,
     DEFAULT_LOG_FILE_PATH,
-    SCRIPTS_PATH
+    SCRIPTS_PATH, EXCHANGES
 )
 from hummingbot.client.config.config_validators import (
     validate_bool,
@@ -45,11 +45,6 @@ def validate_script_file_path(file_path: str) -> Optional[bool]:
     if not os.path.isfile(file_path):
         return f"{file_path} file does not exist."
 
-
-MIN_QUOTE_ORDER_AMOUNTS = [["BTC", 0.0011],
-                           ["ETH", 0.05],
-                           ["USD", 11],
-                           ["BNB", 0.5]]
 
 # Main global config store
 global_config_map = {
@@ -112,14 +107,7 @@ global_config_map = {
                          "e.g. [[\"ETH\", 10.0], [\"USDC\", 100]]) >>> ",
                   required_if=lambda: False,
                   type_str="json",
-                  default=[["USDT", 3000],
-                           ["ONE", 1000],
-                           ["BTC", 1],
-                           ["ETH", 10],
-                           ["WETH", 10],
-                           ["USDC", 3000],
-                           ["TUSD", 3000],
-                           ["PAX", 3000]]),
+                  ),
     "binance_api_key":
         ConfigVar(key="binance_api_key",
                   prompt="Enter your Binance API key >>> ",
@@ -248,6 +236,18 @@ global_config_map = {
                   required_if=using_exchange("kraken"),
                   is_secure=True,
                   is_connect_key=True),
+    "crypto_com_api_key":
+        ConfigVar(key="crypto_com_api_key",
+                  prompt="Enter your Crypto.com API key >>> ",
+                  required_if=using_exchange("crypto_com"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "crypto_com_secret_key":
+        ConfigVar(key="crypto_com_secret_key",
+                  prompt="Enter your Crypto.com secret key >>> ",
+                  required_if=using_exchange("crypto_com"),
+                  is_secure=True,
+                  is_connect_key=True),
     "celo_address":
         ConfigVar(key="celo_address",
                   prompt="Enter your Celo account address >>> ",
@@ -294,13 +294,11 @@ global_config_map = {
     "ethereum_rpc_url":
         ConfigVar(key="ethereum_rpc_url",
                   prompt="Which Ethereum node would you like your client to connect to? >>> ",
-                  required_if=lambda: global_config_map["ethereum_wallet"].value is not None,
-                  is_connect_key=True),
+                  required_if=lambda: global_config_map["ethereum_wallet"].value is not None),
     "ethereum_rpc_ws_url":
         ConfigVar(key="ethereum_rpc_ws_url",
                   prompt="Enter the Websocket Address of your Ethereum Node >>> ",
-                  required_if=lambda: global_config_map["ethereum_rpc_url"].value is not None,
-                  is_connect_key=True),
+                  required_if=lambda: global_config_map["ethereum_rpc_url"].value is not None),
     "ethereum_chain_name":
         ConfigVar(key="ethereum_chain_name",
                   prompt="What is your preferred ethereum chain name? >>> ",
@@ -359,7 +357,7 @@ global_config_map = {
                   prompt=None,
                   required_if=lambda: False,
                   type_str="json",
-                  default=MIN_QUOTE_ORDER_AMOUNTS),
+                  ),
     # Database options
     "db_engine":
         ConfigVar(key="db_engine",
@@ -415,4 +413,11 @@ global_config_map = {
                   type_str="str",
                   required_if=lambda: global_config_map["script_enabled"].value,
                   validator=validate_script_file_path),
+    "balance_asset_limit":
+        ConfigVar(key="balance_asset_limit",
+                  prompt="Use the `balance limit` command"
+                         "e.g. balance limit [EXCHANGE] [ASSET] [AMOUNT]",
+                  required_if=lambda: False,
+                  type_str="json",
+                  default={exchange: None for exchange in EXCHANGES}),
 }

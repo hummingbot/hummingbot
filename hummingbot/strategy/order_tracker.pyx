@@ -12,7 +12,7 @@ from typing import (
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
-from hummingbot.market.market_base import MarketBase
+from hummingbot.connector.connector_base import ConnectorBase
 from .market_trading_pair_tuple import MarketTradingPairTuple
 
 NaN = float("nan")
@@ -36,7 +36,7 @@ cdef class OrderTracker(TimeIterator):
         self._in_flight_cancels = OrderedDict()
 
     @property
-    def active_limit_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
+    def active_limit_orders(self) -> List[Tuple[ConnectorBase, LimitOrder]]:
         limit_orders = []
         for market_pair, orders_map in self._tracked_limit_orders.items():
             for limit_order in orders_map.values():
@@ -46,7 +46,7 @@ cdef class OrderTracker(TimeIterator):
         return limit_orders
 
     @property
-    def shadow_limit_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
+    def shadow_limit_orders(self) -> List[Tuple[ConnectorBase, LimitOrder]]:
         limit_orders = []
         for market_pair, orders_map in self._shadow_tracked_limit_orders.items():
             for limit_order in orders_map.values():
@@ -69,31 +69,34 @@ cdef class OrderTracker(TimeIterator):
         return market_pair_to_orders
 
     @property
-    def active_bids(self) -> List[Tuple[MarketBase, LimitOrder]]:
+    def active_bids(self) -> List[Tuple[ConnectorBase, LimitOrder]]:
         return [(market, limit_order) for market, limit_order in self.active_limit_orders if limit_order.is_buy]
 
     @property
-    def active_asks(self) -> List[Tuple[MarketBase, LimitOrder]]:
+    def active_asks(self) -> List[Tuple[ConnectorBase, LimitOrder]]:
         return [(market, limit_order) for market, limit_order in self.active_limit_orders if not limit_order.is_buy]
 
     @property
-    def tracked_limit_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
-        return [(market_trading_pair_tuple[0], order) for market_trading_pair_tuple, order_map in self._tracked_limit_orders.items()
+    def tracked_limit_orders(self) -> List[Tuple[ConnectorBase, LimitOrder]]:
+        return [(market_trading_pair_tuple[0], order) for market_trading_pair_tuple, order_map in
+                self._tracked_limit_orders.items()
                 for order in order_map.values()]
 
     @property
     def tracked_limit_orders_data_frame(self) -> List[pd.DataFrame]:
-        limit_orders = [[market_trading_pair_tuple.market.display_name, market_trading_pair_tuple.trading_pair, order_id, order.quantity,
-                          "n/a" if "//" in order.client_order_id else
-                          pd.Timestamp(int(order.client_order_id[-16:])/1e6, unit='s', tz='UTC').strftime('%Y-%m-%d %H:%M:%S')
-                          ]
-                         for market_trading_pair_tuple, order_map in self._tracked_limit_orders.items()
-                         for order_id, order in order_map.items()]
+        limit_orders = [
+            [market_trading_pair_tuple.market.display_name, market_trading_pair_tuple.trading_pair, order_id,
+             order.quantity,
+             "n/a" if "//" in order.client_order_id else
+             pd.Timestamp(int(order.client_order_id[-16:]) / 1e6, unit='s', tz='UTC').strftime('%Y-%m-%d %H:%M:%S')
+             ]
+            for market_trading_pair_tuple, order_map in self._tracked_limit_orders.items()
+            for order_id, order in order_map.items()]
 
         return pd.DataFrame(data=limit_orders, columns=["market", "trading_pair", "order_id", "quantity", "timestamp"])
 
     @property
-    def tracked_market_orders(self) -> List[Tuple[MarketBase, MarketOrder]]:
+    def tracked_market_orders(self) -> List[Tuple[ConnectorBase, MarketOrder]]:
         return [(market_trading_pair_tuple[0], order) for market_trading_pair_tuple, order_map
                 in self._tracked_market_orders.items() for order in order_map.values()]
 

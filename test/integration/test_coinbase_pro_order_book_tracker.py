@@ -21,13 +21,12 @@ from typing import (
     Optional,
     List,
 )
-from hummingbot.market.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
-from hummingbot.market.coinbase_pro.coinbase_pro_api_order_book_data_source import CoinbaseProAPIOrderBookDataSource
-from hummingbot.market.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_api_order_book_data_source import CoinbaseProAPIOrderBookDataSource
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import (
-    OrderBookTrackerDataSource,
-    OrderBookTrackerDataSourceType,
+    OrderBookTrackerDataSource
 )
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
@@ -48,18 +47,18 @@ class CoinbaseProOrderBookTrackerUnitTest(unittest.TestCase):
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.order_book_tracker: CoinbaseProOrderBookTracker = CoinbaseProOrderBookTracker(
-            OrderBookTrackerDataSourceType.EXCHANGE_API,
             trading_pairs=cls.trading_pairs)
         cls.order_book_tracker_task: asyncio.Task = safe_ensure_future(cls.order_book_tracker.start())
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
 
     @classmethod
     async def wait_til_tracker_ready(cls):
-        while True:
-            if len(cls.order_book_tracker.order_books) > 0:
-                print("Initialized real-time order books.")
-                return
-            await asyncio.sleep(1)
+        await cls.order_book_tracker._order_books_initialized.wait()
+        # while True:
+        #     if len(cls.order_book_tracker.order_books) > 0:
+        #         print("Initialized real-time order books.")
+        #         return
+        #     await asyncio.sleep(1)
 
     async def run_parallel_async(self, *tasks, timeout=None):
         future: asyncio.Future = safe_ensure_future(safe_gather(*tasks))
@@ -118,19 +117,6 @@ class CoinbaseProOrderBookTrackerUnitTest(unittest.TestCase):
 
     def test_order_book_data_source(self):
         self.assertTrue(isinstance(self.order_book_tracker.data_source, OrderBookTrackerDataSource))
-
-    def test_get_active_exchange_markets(self):
-        [active_markets_df] = self.run_parallel(self.order_book_tracker.data_source.get_active_exchange_markets())
-        # print(active_markets_df)
-        self.assertGreater(active_markets_df.size, 0)
-        self.assertTrue("baseAsset" in active_markets_df)
-        self.assertTrue("quoteAsset" in active_markets_df)
-        self.assertTrue("USDVolume" in active_markets_df)
-
-    def test_get_trading_pairs(self):
-        [trading_pairs] = self.run_parallel(self.order_book_tracker.data_source.get_trading_pairs())
-        # print(trading_pairs)
-        self.assertEqual(len(trading_pairs), len(self.trading_pairs))
 
     def test_diff_msg_get_added_to_order_book(self):
         test_active_order_tracker = self.order_book_tracker._active_order_trackers["BTC-USD"]

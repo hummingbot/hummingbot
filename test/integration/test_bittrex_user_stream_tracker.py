@@ -4,11 +4,11 @@ from os.path import join, realpath
 import sys
 
 import conf
-from hummingbot.market.bittrex.bittrex_auth import BittrexAuth
+from hummingbot.connector.exchange.bittrex.bittrex_auth import BittrexAuth
 
-from hummingbot.market.bittrex.bittrex_user_stream_tracker import BittrexUserStreamTracker
+from hummingbot.connector.exchange.bittrex.bittrex_user_stream_tracker import BittrexUserStreamTracker
 
-from hummingbot.market.bittrex.bittrex_order_book_tracker import BittrexOrderBookTracker
+from hummingbot.connector.exchange.bittrex.bittrex_order_book_tracker import BittrexOrderBookTracker
 import asyncio
 import logging
 from typing import Optional
@@ -27,9 +27,9 @@ class BittrexUserStreamTrackerUnitTest(unittest.TestCase):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.bittrex_auth = BittrexAuth(conf.bittrex_api_key,
                                        conf.bittrex_secret_key)
-        cls.trading_pair = ["LTC-ETH"]  # Using V3 convention since OrderBook is built using V3
+        cls.trading_pairs = ["LTC-ETH"]  # Using V3 convention since OrderBook is built using V3
         cls.user_stream_tracker: BittrexUserStreamTracker = BittrexUserStreamTracker(
-            bittrex_auth=cls.bittrex_auth, trading_pair=cls.trading_pair)
+            bittrex_auth=cls.bittrex_auth, trading_pairs=cls.trading_pairs)
         cls.user_stream_tracker_task: asyncio.Task = asyncio.ensure_future(cls.user_stream_tracker.start())
 
     def test_user_stream(self):
