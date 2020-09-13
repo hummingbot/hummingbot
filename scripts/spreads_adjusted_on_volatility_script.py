@@ -29,8 +29,14 @@ class SpreadsAdjustedOnVolatility(ScriptBase):
 
     # Let's set interval and sample sizes as below.
     # These numbers are for testing purposes only (in reality, they should be larger numbers)
+    # interval is a interim which to pick historical mid price samples from, if you set it to 5, the first sample is
+    # the last (current) mid price, the second sample is a past mid price 5 seconds before the last, and so on.
     interval = 5
+    # short_period is how many interval to pick the samples for the average short term volatility calculation,
+    # for short_period of 3, this is 3 samples (5 seconds interval), of the last 15 seconds
     short_period = 3
+    # long_period is how many interval to pick the samples for the median long term volatility calculation,
+    # for long_period of 10, this is 10 samples (5 seconds interval), of the last 50 seconds
     long_period = 10
     last_stats_logged = 0
 
