@@ -18,10 +18,9 @@ from typing import (
     Dict,
     Optional,
     List)
-from hummingbot.market.liquid.liquid_order_book_tracker import LiquidOrderBookTracker
-from hummingbot.market.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
+from hummingbot.connector.exchange.liquid.liquid_order_book_tracker import LiquidOrderBookTracker
+from hummingbot.connector.exchange.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
@@ -42,9 +41,7 @@ class LiquidOrderBookTrackerUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        cls.order_book_tracker: LiquidOrderBookTracker = LiquidOrderBookTracker(
-            OrderBookTrackerDataSourceType.EXCHANGE_API,
-            trading_pairs=cls.trading_pairs)
+        cls.order_book_tracker: LiquidOrderBookTracker = LiquidOrderBookTracker(cls.trading_pairs)
 
         cls.order_book_tracker_task: asyncio.Task = safe_ensure_future(cls.order_book_tracker.start())
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())

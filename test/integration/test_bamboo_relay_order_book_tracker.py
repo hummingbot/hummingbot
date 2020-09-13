@@ -1,16 +1,8 @@
 #!/usr/bin/env python
-import math
-import time
 from os.path import join, realpath
-import sys
-sys.path.insert(0, realpath(join(__file__, "../../../")))
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
-from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    OrderBookEvent,
-    OrderBookTradeEvent,
-    TradeType
-)
+import math
 import asyncio
 import logging
 import unittest
@@ -20,11 +12,15 @@ from typing import (
     List
 )
 
-from hummingbot.market.bamboo_relay.bamboo_relay_order_book_tracker import BambooRelayOrderBookTracker
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_tracker import (
-    OrderBookTrackerDataSourceType
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import (
+    OrderBookEvent,
+    OrderBookTradeEvent,
+    TradeType
 )
+
+from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_order_book_tracker import BambooRelayOrderBookTracker
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
@@ -42,11 +38,11 @@ class BambooRelayOrderBookTrackerUnitTest(unittest.TestCase):
         "WETH-USDC",
         "DAI-USDC"
     ]
+
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.order_book_tracker: BambooRelayOrderBookTracker = BambooRelayOrderBookTracker(
-            data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             trading_pairs=cls.trading_pairs
         )
         cls.order_book_tracker_task: asyncio.Task = safe_ensure_future(cls.order_book_tracker.start())
@@ -54,11 +50,7 @@ class BambooRelayOrderBookTrackerUnitTest(unittest.TestCase):
 
     @classmethod
     async def wait_til_tracker_ready(cls):
-        while True:
-            if len(cls.order_book_tracker.order_books) > 0:
-                print("Initialized real-time order books.")
-                return
-            await asyncio.sleep(1)
+        await cls.order_book_tracker._order_books_initialized.wait()
 
     async def run_parallel_async(self, *tasks, timeout=None):
         future: asyncio.Future = safe_ensure_future(safe_gather(*tasks))
@@ -67,8 +59,6 @@ class BambooRelayOrderBookTrackerUnitTest(unittest.TestCase):
             if timeout and timer > timeout:
                 raise Exception("Time out running parallel async task in tests.")
             timer += 1
-            now = time.time()
-            next_iteration = now // 1.0 + 1
             await asyncio.sleep(1.0)
         return future.result()
 

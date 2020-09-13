@@ -21,14 +21,11 @@ from typing import (
     Optional,
     List,
 )
-from hummingbot.market.eterbase.eterbase_order_book_tracker import EterbaseOrderBookTracker
-from hummingbot.market.eterbase.eterbase_api_order_book_data_source import EterbaseAPIOrderBookDataSource
-from hummingbot.market.eterbase.eterbase_order_book import EterbaseOrderBook
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_tracker import (
-    OrderBookTrackerDataSource,
-    OrderBookTrackerDataSourceType,
-)
+from hummingbot.connector.exchange.eterbase.eterbase_order_book_tracker import EterbaseOrderBookTracker
+from hummingbot.connector.exchange.eterbase.eterbase_api_order_book_data_source import EterbaseAPIOrderBookDataSource
+from hummingbot.connector.exchange.eterbase.eterbase_order_book import EterbaseOrderBook
+.from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSource
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
@@ -48,7 +45,6 @@ class EterbaseOrderBookTrackerUnitTest(unittest.TestCase):
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.order_book_tracker: EterbaseOrderBookTracker = EterbaseOrderBookTracker(
-            OrderBookTrackerDataSourceType.EXCHANGE_API,
             trading_pairs=cls.trading_pairs)
         cls.order_book_tracker_task: asyncio.Task = safe_ensure_future(cls.order_book_tracker.start())
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
@@ -118,18 +114,6 @@ class EterbaseOrderBookTrackerUnitTest(unittest.TestCase):
 
     def test_order_book_data_source(self):
         self.assertTrue(isinstance(self.order_book_tracker.data_source, OrderBookTrackerDataSource))
-
-    def test_get_active_exchange_markets(self):
-        [active_markets_df] = self.run_parallel(self.order_book_tracker.data_source.get_active_exchange_markets())
-
-        self.assertGreater(active_markets_df.size, 0)
-        self.assertTrue("baseAsset" in active_markets_df)
-        self.assertTrue("quoteAsset" in active_markets_df)
-        self.assertTrue("USDVolume" in active_markets_df)
-
-    def test_get_trading_pairs(self):
-        [trading_pairs] = self.run_parallel(self.order_book_tracker.data_source.get_trading_pairs())
-        self.assertEqual(len(trading_pairs), len(self.trading_pairs))
 
     def test_diff_msg_get_added_to_order_book(self):
         test_active_order_tracker = self.order_book_tracker._active_order_trackers["ETHEUR"]
