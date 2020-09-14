@@ -39,7 +39,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
     > <em>**Tip:** Miners participating should enter their XZC wallet address in the Miner's app. <br/> **Note:** you can enter your Binance XZC deposit address to receive the XZC directly into Binance</em>
 
 
-**Current reward period: September 8, 2020 12.00am UTC to September 15, 2020 12.00am UTC**
+**Current reward period: September 15, 2020 12.00am UTC to September 22, 2020 12.00am UTC**
 
 <table>
   <thead>
@@ -123,14 +123,14 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 375</td>
+      <td><b>XZC 125</b></td>
     </tr>
     <tr>
       <td>XZC/USDT</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 375</td>
+      <td><b>XZC 125</b></td>
     </tr>
   </tbody>
 </table>
@@ -140,34 +140,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
 
 
 ## Upcoming changes to campaign terms 
-This new reward amount will be effective from the weekly rewards period starting from September 15, 2020 12.00am UTC.
-<table>
-  <thead>
-    <th>Token Issuer</th>
-    <th>Trading pair</th>
-    <th>Exchange</th>
-    <th>Maximum spread</th>
-    <th>Spread factor *</th>
-    <th>Weekly rewards</th>
-  </thead>
-  <tbody>
-      <tr>
-      <td rowspan="3"><a href="#zcoin">Zcoin</a><br></td>
-      <td>XZC/BTC</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td><b>XZC 125</b></td>
-    </tr>
-    <tr>
-      <td>XZC/USDT</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td><b>XZC 125</b></td>
-    </tr>
- </tbody>
-</table>
+No upcoming changes
 
 ## Token Issuers
 
