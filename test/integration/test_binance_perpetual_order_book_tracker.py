@@ -4,11 +4,10 @@ import unittest
 from typing import Optional, List, Dict
 
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent, TradeType
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.market.binance_perpetual.binance_perpetual_order_book_tracker import BinancePerpetualOrderBookTracker
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_tracker import BinancePerpetualOrderBookTracker
 
 
 class BinancePerpetualOrderBookTrackerUnitTest(unittest.TestCase):
@@ -25,7 +24,6 @@ class BinancePerpetualOrderBookTrackerUnitTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.order_book_tracker: BinancePerpetualOrderBookTracker = BinancePerpetualOrderBookTracker(
-            data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             trading_pairs=cls.trading_pairs
         )
         cls.order_book_tracker_task: asyncio.Task = safe_ensure_future(cls.order_book_tracker.start())

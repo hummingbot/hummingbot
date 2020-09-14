@@ -2,10 +2,10 @@ from decimal import Decimal
 from typing import Dict, Any
 
 from hummingbot.core.event.events import OrderType, TradeType
-from hummingbot.market.binance_perpetual.binance_perpetual_market import BinancePerpetualMarket
-from hummingbot.market.in_flight_order_base import InFlightOrderBase
+from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 
-cdef class BinancePerpetualsInFlightOrder(InFlightOrderBase):
+
+class BinancePerpetualsInFlightOrder(InFlightOrderBase):
     def __init__(self,
                  client_order_id: str,
                  exchange_order_id: str,
@@ -16,7 +16,6 @@ cdef class BinancePerpetualsInFlightOrder(InFlightOrderBase):
                  amount: Decimal,
                  initial_state: str = "NEW"):
         super().__init__(
-            BinancePerpetualMarket,
             client_order_id,
             exchange_order_id,
             trading_pair,
@@ -42,17 +41,16 @@ cdef class BinancePerpetualsInFlightOrder(InFlightOrderBase):
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]):
-        cdef:
-            BinancePerpetualsInFlightOrder return_val = BinancePerpetualsInFlightOrder(
-                client_order_id=data["client_order_id"],
-                exchange_order_id=data["exchange_order_id"],
-                trading_pair=data["trading_pair"],
-                order_type=getattr(OrderType, data["order_type"]),
-                trade_type=getattr(TradeType, data["trade_type"]),
-                price=Decimal(data["price"]),
-                amount=Decimal(data["amount"]),
-                initial_state=data["last_state"]
-            )
+        return_val: BinancePerpetualsInFlightOrder = BinancePerpetualsInFlightOrder(
+            client_order_id=data["client_order_id"],
+            exchange_order_id=data["exchange_order_id"],
+            trading_pair=data["trading_pair"],
+            order_type=getattr(OrderType, data["order_type"]),
+            trade_type=getattr(TradeType, data["trade_type"]),
+            price=Decimal(data["price"]),
+            amount=Decimal(data["amount"]),
+            initial_state=data["last_state"]
+        )
         return_val.executed_amount_base = Decimal(data["executed_amount_base"])
         return_val.executed_amount_quote = Decimal(data["executed_amount_quote"])
         return_val.fee_asset = data["fee_asset"]

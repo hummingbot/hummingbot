@@ -20,7 +20,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.market.binance_perpetual.binance_perpetual_market import BinancePerpetualMarket
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_market import BinancePerpetualMarket
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from .assets.test_keys import Keys
 

@@ -86,7 +86,7 @@ class TradingPairFetcher:
 
     async def fetch_binance_perpetuals_trading_pairs(self) -> List[str]:
         try:
-            from hummingbot.market.binance_perpetual.binance_perpetual_market import BinancePerpetualMarket
+            from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils import convert_from_exchange_trading_pair
             client: aiohttp.ClientSession = self.http_client()
             async with client.get(BINANCE_PERPETUALS_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                 if response.status == 200:
@@ -94,7 +94,7 @@ class TradingPairFetcher:
                     raw_trading_pairs = [d["symbol"] for d in data["symbols"] if d["status"] == "TRADING"]
                     trading_pair_list: List[str] = []
                     for raw_trading_pair in raw_trading_pairs:
-                        trading_pair = BinancePerpetualMarket.convert_from_exchange_trading_pair(raw_trading_pair)
+                        trading_pair = convert_from_exchange_trading_pair(raw_trading_pair)
                         if trading_pair is not None:
                             trading_pair_list.append(trading_pair)
                         else:

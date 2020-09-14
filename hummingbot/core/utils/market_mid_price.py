@@ -3,9 +3,6 @@ from decimal import Decimal
 from typing import Optional
 import cachetools.func
 
-from hummingbot.connector.exchange.binance.binance_market import BinanceMarket
-from hummingbot.connector.exchange.binance_perpetual.binance_perpetual_market import BinancePerpetualMarket
-from hummingbot.connector.exchange.kraken.kraken_market import KrakenMarket
 
 BINANCE_PRICE_URL = "https://api.binance.com/api/v3/ticker/bookTicker"
 BINANCE_PERPETUAL_PRICE_URL = "https://fapi.binance.com/fapi/v1/ticker/bookTicker"
@@ -37,11 +34,13 @@ def get_mid_price(exchange: str, trading_pair: str) -> Optional[Decimal]:
 
 @cachetools.func.ttl_cache(ttl=10)
 def binance_mid_price(trading_pair: str) -> Optional[Decimal]:
+    from hummingbot.connector.exchange.binance.binance_utils import convert_from_exchange_trading_pair
+
     resp = requests.get(url=BINANCE_PRICE_URL)
     records = resp.json()
     result = None
     for record in records:
-        pair = BinanceMarket.convert_from_exchange_trading_pair(record["symbol"])
+        pair = convert_from_exchange_trading_pair(record["symbol"])
         if trading_pair == pair and record["bidPrice"] is not None and record["askPrice"] is not None:
             result = (Decimal(record["bidPrice"]) + Decimal(record["askPrice"])) / Decimal("2")
             break
@@ -50,7 +49,9 @@ def binance_mid_price(trading_pair: str) -> Optional[Decimal]:
 
 @cachetools.func.ttl_cache(ttl=10)
 def binance_perpetuals_mid_price(trading_pair: str) -> Optional[Decimal]:
-    exchange_format_trading_pair = BinancePerpetualMarket.convert_to_exchange_trading_pair(trading_pair)
+    from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils import convert_to_exchange_trading_pair
+
+    exchange_format_trading_pair = convert_to_exchange_trading_pair(trading_pair)
     resp = requests.get(url=f"{BINANCE_PERPETUAL_PRICE_URL}?symbol={exchange_format_trading_pair}")
     record = resp.json()
     result = (Decimal(record["bidPrice"]) + Decimal(record["askPrice"])) / Decimal("2")
@@ -98,7 +99,9 @@ def bittrex_mid_price(trading_pair: str) -> Optional[Decimal]:
 
 @cachetools.func.ttl_cache(ttl=10)
 def kraken_mid_price(trading_pair: str) -> Optional[Decimal]:
-    k_pair = KrakenMarket.convert_to_exchange_trading_pair(trading_pair)
+    from hummingbot.connector.exchange.kraken.kraken_utils import convert_to_exchange_trading_pair
+
+    k_pair = convert_to_exchange_trading_pair(trading_pair)
     resp = requests.get(url=KRAKEN_PRICE_URL + k_pair)
     resp_json = resp.json()
     if len(resp_json["error"]) == 0:
