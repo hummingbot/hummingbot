@@ -31,7 +31,8 @@ Liquidity mining sets forth an analytical framework for determining market maker
     <li>**Orders outstanding for more than 30 minutes not counted for rewards.** Work on removing this limit is in progress, you can read more about it in our [Reddit post](https://www.reddit.com/r/Hummingbot/comments/hz5xv3/tracking_rewards_for_orders_longer_than_30m/).
     > <em>**Tip**: To ensure that orders do not stay outstanding for longer than 30 minutes, Hummingbot users should disable [order refresh tolerance](https://docs.hummingbot.io/strategies/advanced-mm/order-refresh-tolerance/#how-it-works).</em>
 
-    <li>**Minimum reward payout amount**: due to the recent surge in Ethereum gas price, Hummingbot will impose a $50.00 minimum on the weekly payout, starting with the next scheduled payout on September 18th  (UTC). For miners who earn < $50 within one week, their rewards will be accrued and rolled over to the next period, read more [here](https://www.reddit.com/r/Hummingbot/comments/ip4mc3/announcement_raising_minimum_payment_to_50/).
+    <li>**Minimum reward payout amount**: due to the recent surge in Ethereum gas price, Hummingbot will impose a $50.00 minimum on the weekly payout `for payments on the Ethereum blockchain (currently USDC and RLC)`, starting with the next scheduled payout on September 18th (UTC).  For miners who earn < $50 within one week, their rewards will be accrued and rolled over to the next period, read more [here](https://www.reddit.com/r/Hummingbot/comments/ip4mc3/announcement_raising_minimum_payment_to_50/).<br/>
+    > <em>**Note:** `XZC payments are not subject to a minimum payout reward; all payouts will be made for each period.`</em>
 
 
 !!! note "Campaign updates for the week starting September 15, 2020 12.00am UTC"
