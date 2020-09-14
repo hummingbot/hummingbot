@@ -620,6 +620,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             ExchangeBase market = self._market_info.market
             list buys = []
             list sells = []
+        # first to check if any advanced users provide an order override array. In this case, the orders will be
+        # generated per orverride array, otherwise the order will be generated according to spread/amounts/levels
+        # specificed by users through client interface
         order_override = self._order_override
         if order_override is not None and len(order_override) > 0:
             for key, value in order_override.items():
