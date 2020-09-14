@@ -16,13 +16,12 @@ from typing import (
 sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.market.loopring.loopring_order_book_tracker import LoopringOrderBookTracker
+from hummingbot.connector.exchange.loopring.loopring_order_book_tracker import LoopringOrderBookTracker
 from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent, TradeType
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.market.loopring.loopring_api_token_configuration_data_source import LoopringAPITokenConfigurationDataSource
-from hummingbot.market.loopring.loopring_auth import LoopringAuth
+from hummingbot.connector.exchange.loopring.loopring_api_token_configuration_data_source import LoopringAPITokenConfigurationDataSource
+from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
 
 class LoopringOrderBookTrackerUnitTest(unittest.TestCase):
     order_book_tracker: Optional[LoopringOrderBookTracker] = None
@@ -38,7 +37,6 @@ class LoopringOrderBookTrackerUnitTest(unittest.TestCase):
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.order_book_tracker: LoopringOrderBookTracker = LoopringOrderBookTracker(
-            data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             trading_pairs=cls.trading_pairs,
         )
         cls.order_book_tracker_task: asyncio.Task = safe_ensure_future(cls.order_book_tracker.start())

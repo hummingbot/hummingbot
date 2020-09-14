@@ -11,7 +11,7 @@ from typing import (
 import ujson
 
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.loopring.loopring_order_book_message import LoopringOrderBookMessage
+from hummingbot.connector.exchange.loopring.loopring_order_book_message import LoopringOrderBookMessage
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import (

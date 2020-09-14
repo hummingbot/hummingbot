@@ -20,15 +20,14 @@ from libc.stdint cimport int64_t
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
-from hummingbot.market.market_base cimport MarketBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
-from hummingbot.market.loopring.loopring_auth import LoopringAuth
-from hummingbot.market.loopring.loopring_order_book_tracker import LoopringOrderBookTracker
-from hummingbot.market.loopring.loopring_api_order_book_data_source import LoopringAPIOrderBookDataSource
-from hummingbot.market.loopring.loopring_api_token_configuration_data_source import LoopringAPITokenConfigurationDataSource
-from hummingbot.market.loopring.loopring_user_stream_tracker import LoopringUserStreamTracker
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
+from hummingbot.connector.exchange.loopring.loopring_order_book_tracker import LoopringOrderBookTracker
+from hummingbot.connector.exchange.loopring.loopring_api_order_book_data_source import LoopringAPIOrderBookDataSource
+from hummingbot.connector.exchange.loopring.loopring_api_token_configuration_data_source import LoopringAPITokenConfigurationDataSource
+from hummingbot.connector.exchange.loopring.loopring_user_stream_tracker import LoopringUserStreamTracker
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
 )
@@ -47,14 +46,14 @@ from hummingbot.core.event.events import (
     TradeFee,
 )
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.loopring.loopring_in_flight_order cimport LoopringInFlightOrder
-from hummingbot.market.trading_rule cimport TradingRule
+from hummingbot.connector.exchange.loopring.loopring_in_flight_order cimport LoopringInFlightOrder
+from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
-from hummingbot.market.loopring.ethsnarks2.eddsa import PureEdDSA, PoseidonEdDSA
-from hummingbot.market.loopring.ethsnarks2.field import FQ, SNARK_SCALAR_FIELD
-from hummingbot.market.loopring.ethsnarks2.poseidon import poseidon_params, poseidon
+from hummingbot.connector.exchange.loopring.ethsnarks2.eddsa import PureEdDSA, PoseidonEdDSA
+from hummingbot.connector.exchange.loopring.ethsnarks2.field import FQ, SNARK_SCALAR_FIELD
+from hummingbot.connector.exchange.loopring.ethsnarks2.poseidon import poseidon_params, poseidon
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -105,7 +104,7 @@ cdef class LoopringMarketTransactionTracker(TransactionTracker):
         TransactionTracker.c_did_timeout_tx(self, tx_id)
         self._owner.c_did_timeout_tx(tx_id)
 
-cdef class LoopringMarket(MarketBase):
+cdef class LoopringMarket(ExchangeBase):
     # This causes it to hang when starting network
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -120,11 +119,12 @@ cdef class LoopringMarket(MarketBase):
                  loopring_private_key: str,
                  loopring_api_key: str,
                  poll_interval: float = 10.0,
-                 order_book_tracker_data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
 
         super().__init__()
+
+        self._real_time_balance_update = True
 
         self._loopring_auth = LoopringAuth(loopring_api_key)
         self._token_configuration = LoopringAPITokenConfigurationDataSource()
@@ -132,7 +132,6 @@ cdef class LoopringMarket(MarketBase):
         self.API_REST_ENDPOINT = MAINNET_API_REST_ENDPOINT
         self.WS_ENDPOINT = MAINNET_WS_ENDPOINT
         self._order_book_tracker = LoopringOrderBookTracker(
-            data_source_type=order_book_tracker_data_source_type,
             trading_pairs=trading_pairs,
             rest_api_url=self.API_REST_ENDPOINT,
             websocket_url=self.WS_ENDPOINT,
@@ -228,6 +227,10 @@ cdef class LoopringMarket(MarketBase):
     # Order Submission
     # ----------------------------------------------------------
 
+    @property
+    def in_flight_orders(self) -> Dict[str, LoopringInFlightOrder]:
+        return self._in_flight_orders
+
     async def _get_next_order_id(self, token, force_sync = False):
         async with self._order_id_lock:
             next_id = self._next_order_id
@@ -261,7 +264,10 @@ cdef class LoopringMarket(MarketBase):
             int(order["buy"] == 'true'),            
             int(order["label"])
         ]
-        
+
+    def supported_order_types(self):
+        return [OrderType.LIMIT] # TODO: add LIMIT_MAKER
+
     async def place_order(self,
                           client_order_id: str,
                           trading_pair: str,
@@ -826,7 +832,7 @@ cdef class LoopringMarket(MarketBase):
             int64_t current_tick = <int64_t> (timestamp / self._poll_interval)
 
         self._tx_tracker.c_tick(timestamp)
-        MarketBase.c_tick(self, timestamp)
+        ExchangeBase.c_tick(self, timestamp)
         if current_tick > last_tick:
             if not self._poll_notifier.is_set():
                 self._poll_notifier.set()

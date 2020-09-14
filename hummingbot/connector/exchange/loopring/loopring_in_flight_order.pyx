@@ -3,10 +3,10 @@ import json
 import time
 from typing import (Any, Dict, List, Tuple)
 from decimal import Decimal
-from hummingbot.market.loopring.loopring_order_status import LoopringOrderStatus
+from hummingbot.connector.exchange.loopring.loopring_order_status import LoopringOrderStatus
+from hummingbot.connector.in_flight_order_base cimport InFlightOrderBase
+from hummingbot.connector.exchange.loopring.loopring_market cimport LoopringMarket
 from hummingbot.core.event.events import (OrderFilledEvent, TradeType, OrderType, TradeFee, MarketEvent)
-from hummingbot.market.in_flight_order_base cimport InFlightOrderBase
-from hummingbot.market.loopring.loopring_market cimport LoopringMarket
 
 cdef class LoopringInFlightOrder(InFlightOrderBase):
     def __init__(self, 
@@ -24,8 +24,7 @@ cdef class LoopringInFlightOrder(InFlightOrderBase):
                  filled_fee: Decimal,
                  created_at: int):
 
-        super().__init__(market_class=LoopringMarket,
-                client_order_id=client_order_id,
+        super().__init__(client_order_id=client_order_id,
                 exchange_order_id=exchange_order_id,
                 trading_pair=trading_pair,
                 order_type=order_type,

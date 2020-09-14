@@ -2,7 +2,7 @@ from typing import List
 
 from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_order_book_tracker import BambooRelayOrderBookTracker
 from hummingbot.connector.exchange.binance.binance_order_book_tracker import BinanceOrderBookTracker
-from hummingbot.market.loopring.loopring_order_book_tracker import LoopringOrderBookTracker
+from hummingbot.connector.exchange.loopring.loopring_order_book_tracker import LoopringOrderBookTracker
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_tracker import CoinbaseProOrderBookTracker
 from hummingbot.connector.exchange.huobi.huobi_market import HuobiMarket
 from hummingbot.connector.exchange.huobi.huobi_order_book_tracker import HuobiOrderBookTracker
@@ -15,7 +15,7 @@ from hummingbot.connector.exchange.dolomite.dolomite_market import DolomiteMarke
 
 from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.connector.exchange.binance.binance_market import BinanceMarket
-from hummingbot.market.loopring.loopring_market import LoopringMarket
+from hummingbot.connector.exchange.loopring.loopring_market import LoopringMarket
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 
 from hummingbot.connector.exchange.bittrex.bittrex_market import BittrexOrderBookTracker, BittrexMarket
