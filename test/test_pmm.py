@@ -123,7 +123,7 @@ class PMMUnitTest(unittest.TestCase):
             order_level_spread=Decimal("0.01"),
             order_level_amount=Decimal("1"),
             minimum_spread=-1,
-            order_override={"order_one": ["buy", "0.5", "0.7"], "order_two": ["buy", "1.3", "1.1"], "order_three": ["sell", "1.1", "2"]},
+            order_override={"order_one": ["buy", 0.5, 0.7], "order_two": ["buy", 1.3, 1.1], "order_three": ["sell", 1.1, 2]},
         )
 
         self.ext_market: BacktestMarket = BacktestMarket()
