@@ -298,12 +298,13 @@ pure_market_making_config_map = {
                   on_validated=on_validate_price_source),
     "price_type":
         ConfigVar(key="price_type",
-                  prompt="Which price type to use? (mid_price/last_price/best_bid/best_ask) >>> ",
+                  prompt="Which price type to use? (mid_price/last_price/last_own_trade_price/best_bid/best_ask) >>> ",
                   type_str="str",
                   required_if=lambda: pure_market_making_config_map.get("price_source").value != "custom_api",
                   default="mid_price",
                   validator=lambda s: None if s in {"mid_price",
                                                     "last_price",
+                                                    "last_own_trade_price",
                                                     "best_bid",
                                                     "best_ask"} else
                   "Invalid price type."),
