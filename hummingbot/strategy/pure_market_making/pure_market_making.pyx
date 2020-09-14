@@ -625,13 +625,17 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             for key, value in order_override.items():
                 if str(value[0]) in ["buy", "sell"]:
                     if str(value[0]) == "buy":
-                        price = self.c_get_mid_price() * (Decimal("1") - Decimal(value[1]) / Decimal("100"))
-                        size = Decimal(value[2])
+                        price = self.c_get_mid_price() * (Decimal("1") - Decimal(str(value[1])) / Decimal("100"))
+                        price = market.c_quantize_order_price(self.trading_pair, price)
+                        size = Decimal(str(value[2]))
+                        size = market.c_quantize_order_amount(self.trading_pair, size)
                         if size > 0 and price > 0:
                             buys.append(PriceSize(price, size))
                     elif str(value[0]) == "sell":
-                        price = self.c_get_mid_price() * (Decimal("1") + Decimal(value[1]) / Decimal("100"))
-                        size = Decimal(value[2])
+                        price = self.c_get_mid_price() * (Decimal("1") + Decimal(str(value[1])) / Decimal("100"))
+                        price = market.c_quantize_order_price(self.trading_pair, price)
+                        size = Decimal(str(value[2]))
+                        size = market.c_quantize_order_amount(self.trading_pair, size)
                         if size > 0 and price > 0:
                             sells.append(PriceSize(price, size))
         else:
