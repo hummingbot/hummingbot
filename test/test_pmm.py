@@ -123,7 +123,7 @@ class PMMUnitTest(unittest.TestCase):
             order_level_spread=Decimal("0.01"),
             order_level_amount=Decimal("1"),
             minimum_spread=-1,
-            order_override={"override_order_one": ["buy", "1", "1"], "override_order_two": ["sell", "1", "1"]},
+            order_override={"order_one": ["buy", "0.5", "0.7"], "order_two": ["buy", "1.3", "1.1"], "order_three": ["sell", "1.1", "2"]},
         )
 
         self.ext_market: BacktestMarket = BacktestMarket()
@@ -830,16 +830,20 @@ class PMMUnitTest(unittest.TestCase):
         self.assertAlmostEqual(Decimal("104"), last_ask_order.price, 2)
 
     def test_order_override(self):
-        strategy = self.one_level_strategy
+        strategy = self.order_override_strategy
         self.clock.add_iterator(strategy)
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
 
         buys = strategy.active_buys
         sells = strategy.active_sells
-        self.assertEqual(Decimal("99"), buys[0].price)
-        self.assertEqual(Decimal("1"), buys[0].quantity)
-        self.assertEqual(Decimal("101"), sells[0].price)
-        self.assertEqual(Decimal("1"), sells[0].quantity)
+        self.assertEqual(2, len(buys))
+        self.assertEqual(1, len(sells))
+        self.assertEqual(Decimal("99.5"), buys[0].price)
+        self.assertEqual(Decimal("0.7"), buys[0].quantity)
+        self.assertEqual(Decimal("98.7"), buys[1].price)
+        self.assertEqual(Decimal("1.1"), buys[1].quantity)
+        self.assertEqual(Decimal("101.1"), sells[0].price)
+        self.assertEqual(Decimal("2"), sells[0].quantity)
 
 
 class PureMarketMakingMinimumSpreadUnitTest(unittest.TestCase):
