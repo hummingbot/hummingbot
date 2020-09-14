@@ -2,7 +2,7 @@
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
-from hummingbot.market.loopring.loopring_api_order_book_data_source import LoopringAPIOrderBookDataSource
+from hummingbot.connector.exchange.loopring.loopring_api_order_book_data_source import LoopringAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 import asyncio
 import aiohttp

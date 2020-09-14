@@ -25,15 +25,21 @@ Liquidity mining sets forth an analytical framework for determining market maker
 
 ## Current campaign terms
 
-!!! warning "Terms subject to change"
-    Please check this page or the [Miner's app](https://miners.hummingbot.io) for the most up-to-date terms.<br/>We will notify participants of changes, if any, on our [Discord](https://discord.hummingbot.io) and [reddit](https://www.reddit.com/r/Hummingbot/).
+!!! warning "Important information regarding campaign terms"
+    <li>**Terms subject to change**. Please check this page or the [Miner's app](https://miners.hummingbot.io) for the most up-to-date terms.<br/>We will notify participants of changes, if any, on our [Discord](https://discord.hummingbot.io) and [reddit](https://www.reddit.com/r/Hummingbot/).
 
-!!! note "Campaign updates for the week starting July 28, 2020 12.00am UTC"
-    After discussions with miners and traders in our community, we have decided to revise the spread density function constant to increase rewards for placing orders with tighter spreads vs those placed at wider spreads.
-    
-    You can read more about it in our [Reddit post](https://www.reddit.com/r/Hummingbot/comments/hx9wy5/change_to_spread_factor_constant_more_rewards_for/).
+    <li>**Orders outstanding for more than 30 minutes not counted for rewards.** Work on removing this limit is in progress, you can read more about it in our [Reddit post](https://www.reddit.com/r/Hummingbot/comments/hz5xv3/tracking_rewards_for_orders_longer_than_30m/).
+    > <em>**Tip**: To ensure that orders do not stay outstanding for longer than 30 minutes, Hummingbot users should disable [order refresh tolerance](https://docs.hummingbot.io/strategies/advanced-mm/order-refresh-tolerance/#how-it-works).</em>
 
-**Current reward period: July 28, 2020 12.00am UTC to August 3, 2020 12.00am UTC**
+    <li>**Minimum reward payout amount**: due to the recent surge in Ethereum gas price, Hummingbot will impose a $50.00 minimum on the weekly payout, starting with the next scheduled payout on September 18th  (UTC). For miners who earn < $50 within one week, their rewards will be accrued and rolled over to the next period, read more [here](https://www.reddit.com/r/Hummingbot/comments/ip4mc3/announcement_raising_minimum_payment_to_50/).
+
+
+!!! note "Campaign updates for the week starting September 15, 2020 12.00am UTC"
+    **Native XZC rewards for Zcoin campaign**: We are rolling out [XZC native token payments](https://hummingbot.io/blog/2020-09-xzc-native-token-payment/) for the Zcoin liquidity mining campaign! Miners participating in the Zcoin liquidity mining campaign will start earning and be paid in XZC tokens.
+    > <em>**Tip:** Miners participating should enter their XZC wallet address in the Miner's app. <br/> **Note:** you can enter your Binance XZC deposit address to receive the XZC directly into Binance</em>
+
+
+**Current reward period: September 8, 2020 12.00am UTC to September 15, 2020 12.00am UTC**
 
 <table>
   <thead>
@@ -90,70 +96,26 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>USDC 275</td>
     </tr>
     <tr>
-      <td rowspan="3"><a href="#nuls">NULS</a><br></td>
-      <td>NULS/BTC</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td>USDC 666</td>
-    </tr>
-    <tr>
-      <td>NULS/USDT</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td>USDC 667</td>
-    </tr>
-    <tr>
-      <td>NULS/ETH</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td>USDC 667</td>
-    </tr>
-    <tr>
       <td rowspan="3"><a href="#iexec">iExec</a><br></td>
       <td>RLC/BTC</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 250</td>
+      <td>RLC 180</td>
     </tr>
     <tr>
       <td>RLC/USDT</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 250</td>
+      <td>RLC 180</td>
     </tr>
     <tr>
       <td>RLC/ETH</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 250</td>
-    </tr>
-    <tr>
-      <td rowspan="3"><a href="#solana">Solana</a><br></td>
-      <td>SOL/BTC</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td>USDC 250</td>
-    </tr>
-    <tr>
-      <td>SOL/BUSD</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td>USDC 250</td>
-    </tr>
-    <tr>
-      <td>SOL/BNB</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td>USDC 125</td>
+      <td>RLC 180</td>
     </tr>
     <tr>
       <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
@@ -177,14 +139,42 @@ Liquidity mining sets forth an analytical framework for determining market maker
 \* Spread density function constant is one of the factors that determines the relative weighting of orders by spread, i.e., the amount of additional rewards for orders with tighter spreads vs those with wider spreads. Refer to this [spreadsheet](https://docs.google.com/spreadsheets/d/1mUZsQoiqlMs5HjcL6AXSKIx1oaULsmuQStJaCc2wggQ/edit?ts=5f1e89bd#gid=18167917) for the spread weights and for a visual of the graph that shows the curve.
 
 
-## Upcoming changes to campaign terms
-
-No upcoming changes.
+## Upcoming changes to campaign terms 
+This new reward amount will be effective from the weekly rewards period starting from September 15, 2020 12.00am UTC.
+<table>
+  <thead>
+    <th>Token Issuer</th>
+    <th>Trading pair</th>
+    <th>Exchange</th>
+    <th>Maximum spread</th>
+    <th>Spread factor *</th>
+    <th>Weekly rewards</th>
+  </thead>
+  <tbody>
+      <tr>
+      <td rowspan="3"><a href="#zcoin">Zcoin</a><br></td>
+      <td>XZC/BTC</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>8</td>
+      <td><b>XZC 125</b></td>
+    </tr>
+    <tr>
+      <td>XZC/USDT</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>8</td>
+      <td><b>XZC 125</b></td>
+    </tr>
+ </tbody>
+</table>
 
 ## Token Issuers
 
 ### COTI
 [COTI](https://coti.io/) is a fully encompassing “finance on the blockchain” ecosystem that is designed specifically to meet the challenges of traditional finance (fees, latency, global inclusion and risk) by introducing a new type of DAG based base protocol and infrastructure that is scalable, fast, private, inclusive, low cost and is optimized for real time payments. The ecosystem includes a [DAG based Blockchain](https://www.youtube.com/watch?v=kSdRxqHDKe8), a [Proof of Trust Consensus Algorithm](https://coti.io/files/COTI-technical-whitepaper.pdf), a [multiDAG](https://medium.com/cotinetwork%27/coti-is-launching-multidag-a-protocol-to-issue-tokens-on-a-dag-infrastructure-5c6282e5c3d1) a [Global Trust System](https://medium.com/cotinetwork/introducing-cotis-global-trust-system-gts-an-advanced-layer-of-trust-for-any-blockchain-7e44587b8bda), a [Universal Payment Solution](https://medium.com/cotinetwork/coti-universal-payment-system-ups-8614e149ee76), a [Payment Gateway](https://medium.com/cotinetwork/announcing-the-first-release-of-the-coti-payment-gateway-4a9f3e515b86), as well as consumer (COTI Pay) and merchant (COTI Pay Business) applications.
+
+[Whitepaper](https://coti.io/files/COTI-technical-whitepaper.pdf) | [Twitter](https://twitter.com/COTInetwork) | [Telegram](https://t.me/COTInetwork) | [Discord](https://discord.me/coti) | [Github](https://github.com/coti-io) | [CoinMarketCap](https://coinmarketcap.com/currencies/coti/markets/) | [CoinGecko](https://www.coingecko.com/en/coins/coti)
 
 ### iExec
 
@@ -197,18 +187,6 @@ No upcoming changes.
 The [Mainframe (MFT)](https://mainframe.com/) Lending Protocol allows anyone to borrow against their crypto. Mainframe uses a bond-like instrument, representing an on-chain obligation that settles on a specific future date. Buying and selling the tokenized debt enables fixed-rate lending and borrowing — something much needed in decentralized finance today.
 
 [Blog](https://blog.mainframe.com) | [Twitter](https://twitter.com/Mainframe_HQ) | [Discord](https://discord.gg/mhtSRz6) | [Github](https://github.com/MainframeHQ) | [CoinMarketCap](https://coinmarketcap.com/currencies/mainframe/) | [CoinGecko](https://www.coingecko.com/en/coins/mainframe)
-
-### NULS
-
-[NULS](https://nuls.io) is a microservices-driven blockchain project that uses the Proof of Credit (PoC) consensus mechanism (dPoS plus credit rating) to mine via staking. The NULS modular design features NULSTAR, a microservices-based framework reportedly enabling enterprise-grade blockchain solutions for smart contracts, private chains, public chains, dApps and NRC-20 tokenization. NULS 1.0 mainnet launched in July, 2018. The main product of NULS is Chain Factory, a chain-building tool that allows businesses to utilize the plug-and-play selection of modules from the NULS Module Repository including cross-chain consensus for asset value circulation within the NULS ecosystem.
-
-[Blog](https://medium.com/@nuls) | [Twitter](https://twitter.com/Nuls) | [Github](https://github.com/nuls-io) | [CoinMarketCap](https://coinmarketcap.com/currencies/nuls/) | [CoinGecko](https://www.coingecko.com/en/coins/nuls)
-
-### Solana
-
-[Solana (SOL)](https://solana.com) is a high-performance blockchain based out of San Francisco. The project was founded with the mission to support all high-growth and high-frequency blockchain applications, and to democratize the world’s financial systems. As of today, Solana can support up to 50,000 transactions per second, with 400ms block times and transaction fees estimated to be $0.00001 each, which will continue to scale further as its network architecture was designed from the ground up to leverage improvements in hardware and bandwidth.
-
-[Whitepaper](https://solana.com/solana-whitepaper.pdf) | [Blog](https://medium.com/solana-labs) | [Podcast](https://podcast.solana.com/) | [Twitter](https://twitter.com/solana) | [Telegram](https://t.me/solanaio) | [Discord](https://discordapp.com/invite/pquxPsq) | [Github](https://github.com/solana-labs) | [CoinMarketCap](https://coinmarketcap.com/currencies/solana/markets/) | [CoinGecko](https://www.coingecko.com/en/coins/solana)
 
 ### Zcoin
 

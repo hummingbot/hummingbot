@@ -19,8 +19,8 @@ def start(self):
     secondary_to_primary_quote_conversion_rate = arbitrage_config_map["secondary_to_primary_quote_conversion_rate"].value
 
     try:
-        primary_trading_pair: str = self._convert_to_exchange_trading_pair(primary_market, [raw_primary_trading_pair])[0]
-        secondary_trading_pair: str = self._convert_to_exchange_trading_pair(secondary_market, [raw_secondary_trading_pair])[0]
+        primary_trading_pair: str = raw_primary_trading_pair
+        secondary_trading_pair: str = raw_secondary_trading_pair
         primary_assets: Tuple[str, str] = self._initialize_market_assets(primary_market, [primary_trading_pair])[0]
         secondary_assets: Tuple[str, str] = self._initialize_market_assets(secondary_market,
                                                                            [secondary_trading_pair])[0]

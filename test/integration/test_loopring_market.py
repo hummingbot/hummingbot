@@ -13,7 +13,6 @@ import unittest
 from decimal import Decimal
 
 from hummingbot.core.clock import Clock, ClockMode
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
@@ -24,9 +23,9 @@ from hummingbot.core.event.events import (
     TradeType,
     TradeFee,
 )
-from hummingbot.market.loopring.loopring_market import LoopringMarket
+from hummingbot.connector.exchange.loopring.loopring_market import LoopringMarket
 from hummingbot.market.market_base import OrderType
-from hummingbot.market.loopring.loopring_auth import LoopringAuth
+from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
 
 sys.path.insert(0, realpath(join(__file__, "../../../")))
 
@@ -55,7 +54,6 @@ class LoopringMarketUnitTest(unittest.TestCase):
             conf.loopring_exchangeid,
             conf.loopring_private_key,
             conf.loopring_api_key,
-            order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             trading_pairs=["LRC-ETH"],
         )
         print("Initializing Loopring market... ")

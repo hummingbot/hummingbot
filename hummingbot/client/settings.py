@@ -38,7 +38,8 @@ EXCHANGES = {
     "bittrex",
     "kucoin",
     "eterbase",
-    "kraken"
+    "kraken",
+    "crypto_com"
 }
 
 DEXES = {
@@ -61,7 +62,8 @@ EXAMPLE_PAIRS = {
     "liquid": "ETH-USD",
     "radar_relay": "ZRX-WETH",
     "eterbase": "ETH-EUR",
-    "kraken": "ETH-USDC"
+    "kraken": "ETH-USDC",
+    "crypto_com": "ETH-USDT"
 }
 
 EXAMPLE_ASSETS = {
@@ -76,7 +78,8 @@ EXAMPLE_ASSETS = {
     "liquid": "ETH",
     "radar_relay": "ZRX",
     "eterbase": "ETH",
-    "kraken": "XETH"
+    "kraken": "XETH",
+    "crypto_com": "ETH",
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000

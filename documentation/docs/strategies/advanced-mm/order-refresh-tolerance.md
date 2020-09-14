@@ -35,9 +35,9 @@ The ask and bid spread is 2%, so your bot will place orders at the ask price of 
 
 ```
 Orders:                                                               
-     Level  Type    Price Spread Amount (Orig)  Amount (Adj)  	   Age Hang
-         1  sell      204  2.00%         0.001         0.001  00:00:01   no
-         1   buy      196  2.00%         0.001         0.001  00:00:01   no
+     Level  Type    Price Spread Amount (Orig)  Amount (Adj)  	   Age
+         1  sell      204  2.00%         0.001         0.001  00:00:01
+         1   buy      196  2.00%         0.001         0.001  00:00:01
 ```
 
 Every 30 seconds, the bot will only cancel and replace the orders if the spreads exceed the range of 1% - 3%.
@@ -45,9 +45,9 @@ Every 30 seconds, the bot will only cancel and replace the orders if the spreads
 After 30 seconds ($t_2$), the mid-market price increases to 201; the sell spread is 1.49% and the buy spread is 2.49%. The status of the orders is follows:
 ```
 Orders:                                                               
-     Level  Type    Price Spread Amount (Orig)  Amount (Adj)  	   Age Hang
-         1  sell      204  1.49%         0.001         0.001  00:00:29   no
-         1   buy      196  2.49%         0.001         0.001  00:00:29   no
+     Level  Type    Price Spread Amount (Orig)  Amount (Adj)  	   Age
+         1  sell      204  1.49%         0.001         0.001  00:00:29
+         1   buy      196  2.49%         0.001         0.001  00:00:29
 ```
 
 The spread of buy/sell order did not change by more than 1% of what it initially was, a message will show in the logs pane.
@@ -61,9 +61,9 @@ Let's say a market taker, someone taking a position in the market, likes the sma
 
 ```
 Orders:                                                               
-     Level  Type    Price Spread Amount (Orig)  Amount (Adj)  	   Age Hang
-         1  sell   205.02  2.00%         0.001         0.001  00:00:01   no
-         1   buy   196.98  2.00%         0.001         0.001  00:00:01   no
+     Level  Type    Price Spread Amount (Orig)  Amount (Adj)  	   Age
+         1  sell   205.02  2.00%         0.001         0.001  00:00:01
+         1   buy   196.98  2.00%         0.001         0.001  00:00:01
 ```
 
 Consider now that at $t_4$ the price drops to 199. The bid spread is 1.01% and the ask spread is 3.02%. This is outside of the order refresh tolerance because the spread has changed by more than 1%. 
@@ -73,18 +73,18 @@ The bot cancels both orders and replaces them with a spread of 2%, lets say at $
 
 ```
 Orders:                                                               
-     Level  Type    Price Spread Amount (Orig)  Amount (Adj)  	   Age Hang
-         1  sell   202.98  2.00%         0.001         0.001  00:00:01   no
-         1   buy   195.02  2.00%         0.001         0.001  00:00:01   no
+     Level  Type    Price Spread Amount (Orig)  Amount (Adj)  	   Age
+         1  sell   202.98  2.00%         0.001         0.001  00:00:01
+         1   buy   195.02  2.00%         0.001         0.001  00:00:01
 ```
 
 Now, at $t_6$ the spread is now 1.5% and 2.5% for bid and ask spreads, respectively. 
 
 ```
 Orders:                                                               
-     Level  Type    Price Spread Amount (Orig)  Amount (Adj)  	   Age Hang
-         1  sell   202.98  2.52%         0.001         0.001  00:00:29   no
-         1   buy   195.02  1.51%         0.001         0.001  00:00:29   no
+     Level  Type    Price Spread Amount (Orig)  Amount (Adj)  	   Age
+         1  sell   202.98  2.52%         0.001         0.001  00:00:29
+         1   buy   195.02  1.51%         0.001         0.001  00:00:29
 ```
 
 The bot will leave these orders because they are within the order refresh tolerance and display the following message again:
