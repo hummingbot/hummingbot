@@ -266,7 +266,7 @@ cdef class LoopringMarket(ExchangeBase):
         ]
 
     def supported_order_types(self):
-        return [OrderType.LIMIT] # TODO: add LIMIT_MAKER
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     async def place_order(self,
                           client_order_id: str,
@@ -296,6 +296,8 @@ cdef class LoopringMarket(ExchangeBase):
             "clientOrderId" : client_order_id,
             **order_details
         }
+        if order_type is OrderType.LIMIT_MAKER:
+            order["orderType"] = "MAKER_ONLY"
 
         serialized_message = await self._serialize_order(order)
         msgHash = poseidon(serialized_message, self._order_sign_param)
