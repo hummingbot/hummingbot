@@ -2,7 +2,6 @@
 import math
 from os.path import join, realpath
 import sys
-import conf
 
 import asyncio
 import logging
@@ -39,7 +38,7 @@ class LoopringOrderBookTrackerUnitTest(unittest.TestCase):
         cls.order_book_tracker: LoopringOrderBookTracker = LoopringOrderBookTracker(
             trading_pairs=cls.trading_pairs,
         )
-        cls.order_book_tracker_task: asyncio.Task = safe_ensure_future(cls.order_book_tracker.start())
+        cls.order_book_tracker.start()
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
 
     @classmethod
