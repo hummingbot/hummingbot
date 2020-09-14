@@ -6,7 +6,7 @@ from typing import (
 
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.market.market_base import MarketBase
+from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_tracker cimport OrderTracker
 
@@ -22,7 +22,7 @@ cdef class PureMarketMakingOrderTracker(OrderTracker):
         super().__init__()
 
     @property
-    def active_limit_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
+    def active_limit_orders(self) -> List[Tuple[ConnectorBase, LimitOrder]]:
         limit_orders = []
         for market_pair, orders_map in self._tracked_limit_orders.items():
             for limit_order in orders_map.values():
@@ -30,7 +30,7 @@ cdef class PureMarketMakingOrderTracker(OrderTracker):
         return limit_orders
 
     @property
-    def shadow_limit_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
+    def shadow_limit_orders(self) -> List[Tuple[ConnectorBase, LimitOrder]]:
         limit_orders = []
         for market_pair, orders_map in self._shadow_tracked_limit_orders.items():
             for limit_order in orders_map.values():

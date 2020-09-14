@@ -46,7 +46,7 @@ def validate_market_trading_pair(market: str, value: str) -> Optional[str]:
     # in case of network issues or slow wifi, this check returns true and does not prevent users from proceeding,
     trading_pair_fetcher: TradingPairFetcher = TradingPairFetcher.get_instance()
     if trading_pair_fetcher.ready:
-        trading_pairs = trading_pair_fetcher.trading_pairs.get(market)
+        trading_pairs = trading_pair_fetcher.trading_pairs.get(market, [])
         if len(trading_pairs) == 0:
             return None
         elif value not in trading_pairs:

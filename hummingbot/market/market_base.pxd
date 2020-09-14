@@ -13,8 +13,12 @@ cdef class MarketBase(NetworkIterator):
         EventLogger _event_logger
         dict _account_available_balances
         dict _account_balances
+        dict _asset_limit
+        bint _real_time_balance_update
         bint _trading_required
         object _order_book_tracker
+        dict _in_flight_orders_snapshot
+        double _in_flight_orders_snapshot_timestamp
 
     cdef str c_buy(self, str trading_pair, object amount, object order_type=*, object price=*, dict kwargs=*)
     cdef str c_sell(self, str trading_pair, object amount, object order_type=*, object price=*, dict kwargs=*)
