@@ -45,6 +45,7 @@ def main():
         "hummingbot.connector.exchange.kraken",
         "hummingbot.connector.exchange.crypto_com",
         "hummingbot.connector.exchange.kucoin",
+        "hummingbot.connector.exchange.loopring",
         "hummingbot.script",
         "hummingbot.strategy",
         "hummingbot.strategy.arbitrage",
