@@ -2,8 +2,8 @@
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
-from hummingbot.market.loopring.loopring_api_token_configuration_data_source import LoopringAPITokenConfigurationDataSource
-from hummingbot.market.loopring.loopring_auth import LoopringAuth
+from hummingbot.connector.exchange.loopring.loopring_api_token_configuration_data_source import LoopringAPITokenConfigurationDataSource
+from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
 from decimal import Decimal
 import asyncio
 import conf

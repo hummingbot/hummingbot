@@ -14,9 +14,9 @@ import ujson
 import websockets
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.loopring.loopring_auth import LoopringAuth
-from hummingbot.market.loopring.loopring_api_order_book_data_source import LoopringAPIOrderBookDataSource
-from hummingbot.market.loopring.loopring_order_book import LoopringOrderBook
+from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
+from hummingbot.connector.exchange.loopring.loopring_api_order_book_data_source import LoopringAPIOrderBookDataSource
+from hummingbot.connector.exchange.loopring.loopring_order_book import LoopringOrderBook
 
 LOOPRING_WS_URL = "wss://ws.loopring.io/v2/ws"
 
@@ -54,7 +54,7 @@ class LoopringAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 async with websockets.connect(LOOPRING_WS_URL) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
 
-                    topics = [{"topic": "order", "market":m} for m in await self._orderbook_tracker_data_source.get_trading_pairs()]
+                    topics = [{"topic": "order", "market":m} for m in self._orderbook_tracker_data_source.trading_pairs]
                     topics.append({
                         "topic": "account"
                     })

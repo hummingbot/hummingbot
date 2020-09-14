@@ -326,7 +326,7 @@ class TradingPairFetcher:
     
     async def fetch_loopring_trading_pairs(self) -> List[str]:
         try:
-            from hummingbot.market.loopring.loopring_market import LoopringMarket
+            from hummingbot.connector.exchange.loopring.loopring_market import LoopringMarket
             client: aiohttp.ClientSession = TradingPairFetcher.http_client()
             async with client.get(LOOPRING_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
                 if response.status == 200:

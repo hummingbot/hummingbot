@@ -22,7 +22,7 @@ from hummingbot.connector.exchange.radar_relay.radar_relay_market import RadarRe
 from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.connector.exchange.dolomite.dolomite_market import DolomiteMarket
 from hummingbot.connector.exchange.kraken.kraken_market import KrakenMarket
-from hummingbot.market.loopring.loopring_market import LoopringMarket
+from hummingbot.connector.exchange.loopring.loopring_market import LoopringMarket
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
@@ -50,8 +50,6 @@ from hummingbot.connector.exchange.crypto_com.crypto_com_exchange import CryptoC
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 
 s_logger = None
-
-    "loopring": LoopringMarket,
 
 class HummingbotApplication(*commands):
     KILL_TIMEOUT = 10.0
@@ -308,8 +306,7 @@ class HummingbotApplication(*commands):
                     loopring_private_key=loopring_private_key,
                     loopring_api_key=loopring_api_key,
                     trading_pairs=trading_pairs,
-                    trading_required=self._trading_required,
-                    order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API
+                    trading_required=self._trading_required
                 )
             elif market_name == "bittrex":
                 bittrex_api_key = global_config_map.get("bittrex_api_key").value

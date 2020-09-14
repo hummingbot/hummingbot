@@ -9,13 +9,13 @@ from decimal import Decimal
 
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_row import ClientOrderBookRow
-from hummingbot.market.loopring.loopring_api_token_configuration_data_source import LoopringAPITokenConfigurationDataSource
+from hummingbot.connector.exchange.loopring.loopring_api_token_configuration_data_source import LoopringAPITokenConfigurationDataSource
 
 s_empty_diff = np.ndarray(shape=(0, 4), dtype="float64")
 _ddaot_logger = None
 
 cdef class LoopringActiveOrderTracker:
-    def __init__(self, token_configuration=None, active_asks=None, active_bids=None):
+    def __init__(self, token_configuration, active_asks=None, active_bids=None):
         super().__init__()
         self._token_config: LoopringAPITokenConfigurationDataSource = token_configuration
         self._active_asks = active_asks or {}
@@ -105,7 +105,6 @@ cdef class LoopringActiveOrderTracker:
         pair_tuple = tuple(market.split('-'))
         tokenid = self._token_config.get_tokenid(pair_tuple[0])
         return float(entry[0]), float(self._token_config.unpad(entry[1], tokenid))
-        #return float(entry[0]), (float(entry[1])/float(f"1e+{decimals}"))
 
     cdef tuple c_convert_diff_message_to_np_arrays(self, object message):
         cdef:
