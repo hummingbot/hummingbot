@@ -13,7 +13,7 @@ default_cex_estimate = {
     "liquid": [0.1, 0.1],
     "eterbase": [0.35, 0.35],
     "crypto_com": [0.1, 0.1],
-    "loopring": [0.0, 0.1]
+    "loopring": [0.0, 0.2]
 }
 
 default_dex_estimate = {
