@@ -12,7 +12,6 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
 
 from hummingbot.connector.exchange.binance.binance_market import BinanceMarket
-from hummingbot.connector.exchange.binance_perpetual.binance_perpetual_market import BinancePerpetualMarket
 from hummingbot.connector.exchange.bittrex.bittrex_market import BittrexMarket
 from hummingbot.connector.exchange.kucoin.kucoin_market import KucoinMarket
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
@@ -24,6 +23,7 @@ from hummingbot.connector.exchange.radar_relay.radar_relay_market import RadarRe
 from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.connector.exchange.dolomite.dolomite_market import DolomiteMarket
 from hummingbot.connector.exchange.kraken.kraken_market import KrakenMarket
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_market import BinancePerpetualMarket
 
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 

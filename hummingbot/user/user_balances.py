@@ -1,5 +1,4 @@
 from hummingbot.connector.exchange.binance.binance_market import BinanceMarket
-from hummingbot.connector.exchange.binance_perpetual.binance_perpetual_market import BinancePerpetualMarket
 from hummingbot.connector.exchange.bittrex.bittrex_market import BittrexMarket
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.connector.exchange.huobi.huobi_market import HuobiMarket
@@ -8,6 +7,8 @@ from hummingbot.connector.exchange.liquid.liquid_market import LiquidMarket
 from hummingbot.connector.exchange.kraken.kraken_market import KrakenMarket
 from hummingbot.connector.exchange.eterbase.eterbase_market import EterbaseMarket
 from hummingbot.connector.exchange.crypto_com.crypto_com_exchange import CryptoComExchange
+
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_market import BinancePerpetualMarket
 
 from hummingbot.core.utils.market_mid_price import get_mid_price
 from hummingbot.client.settings import EXCHANGES, DEXES

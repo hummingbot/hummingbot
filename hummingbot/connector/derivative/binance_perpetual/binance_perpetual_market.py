@@ -1,22 +1,21 @@
-import re
 from collections import defaultdict
 from enum import Enum
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
-from hummingbot.market.binance_perpetual.position import Position
+from hummingbot.connector.derivative.position import Position
 
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.estimate_fee import estimate_fee
 
 from async_timeout import timeout
 
-from hummingbot.core.clock cimport Clock
+from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.market.binance_perpetual.binance_perpetual_in_flight_order import BinancePerpetualsInFlightOrder
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_in_flight_order import BinancePerpetualsInFlightOrder
 
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.market.binance_perpetual.binance_perpetual_order_book_data_source import (
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_data_source import (
     BinancePerpetualOrderBookDataSource
 )
 
@@ -27,15 +26,12 @@ import time
 import logging
 import pandas as pd
 from decimal import Decimal
-from typing import Optional, List, Dict, Any, Tuple, AsyncIterable
+from typing import Optional, List, Dict, Any, AsyncIterable
 from urllib.parse import urlencode
-from libc.stdint cimport int64_t
 
 import aiohttp
 
-from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
-from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.event.events import (
     OrderType,
     TradeType,
@@ -51,10 +47,11 @@ from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.asyncio_throttle import Throttler
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.binance_perpetual.binance_perpetual_order_book_tracker import BinancePerpetualOrderBookTracker
-from hummingbot.market.binance_perpetual.binance_perpetual_user_stream_tracker import BinancePerpetualUserStreamTracker
-from hummingbot.market.market_base import MarketBase, s_decimal_NaN
-from hummingbot.market.trading_rule cimport TradingRule
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_tracker import BinancePerpetualOrderBookTracker
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_tracker import BinancePerpetualUserStreamTracker
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils import convert_from_exchange_trading_pair, convert_to_exchange_trading_pair
+from hummingbot.connector.derivative_base import DerivativeBase, s_decimal_NaN
+from hummingbot.connector.trading_rule import TradingRule
 
 
 class MethodType(Enum):
@@ -66,27 +63,28 @@ class MethodType(Enum):
 
 bpm_logger = None
 
-TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|USDS|TUSD|PAX|TRX|BUSD|NGN|RUB|TRY|EUR|IDRT|ZAR|UAH|GBP|BKRW|BIDR)$")
+
 BROKER_ID = "x-XEKWYICX"
 
-cdef str get_client_order_id(str order_side, object trading_pair):
-    cdef:
-        int64_t nonce = <int64_t> get_tracking_nonce()
-        object symbols = trading_pair.split("-")
-        str base = symbols[0].upper()
-        str quote = symbols[1].upper()
+
+def get_client_order_id(order_side: str, trading_pair: object):
+    nonce = get_tracking_nonce()
+    symbols: str = trading_pair.split("-")
+    base: str = symbols[0].upper()
+    quote: str = symbols[1].upper()
     return f"{BROKER_ID}-{order_side.upper()[0]}{base[0]}{base[-1]}{quote[0]}{quote[-1]}{nonce}"
 
-cdef class BinancePerpetualMarket(MarketBase):
-    MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
-    MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
-    MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
-    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
-    MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure.value
-    MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
-    MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
-    MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
-    MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
+
+class BinancePerpetualMarket(DerivativeBase):
+    MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset
+    MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted
+    MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted
+    MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled
+    MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure
+    MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure
+    MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled
+    MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated
+    MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated
 
     API_CALL_TIMEOUT = 10.0
     SHORT_POLL_INTERVAL = 5.0
@@ -104,21 +102,17 @@ cdef class BinancePerpetualMarket(MarketBase):
     def __init__(self,
                  api_key: str,
                  api_secret: str,
-                 order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
-                 OrderBookTrackerDataSourceType.EXCHANGE_API,
-                 user_stream_tracker_data_source_type: UserStreamTrackerDataSourceType =
-                 UserStreamTrackerDataSourceType.EXCHANGE_API,
-                 trading_pairs: Optional[List[str]] = None):
+                 trading_pairs: Optional[List[str]] = None,
+                 trading_required: bool = True):
         super().__init__()
         self._api_key = api_key
         self._api_secret = api_secret
+        self._trading_required = trading_required
+        # self._account_balances = {}
+        # self._account_available_balances = {}
 
-        self._user_stream_tracker = BinancePerpetualUserStreamTracker(
-            data_source_type=user_stream_tracker_data_source_type,
-            api_key=self._api_key)
-        self._order_book_tracker = BinancePerpetualOrderBookTracker(
-            data_source_type=order_book_tracker_data_source_type,
-            trading_pairs=trading_pairs)
+        self._user_stream_tracker = BinancePerpetualUserStreamTracker(api_key=self._api_key)
+        self._order_book_tracker = BinancePerpetualOrderBookTracker(trading_pairs=trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._in_flight_orders = {}
@@ -127,7 +121,6 @@ cdef class BinancePerpetualMarket(MarketBase):
         self._trading_rules = {}
         # self._trade_fees = {}
         # self._last_update_trade_fees_timestamp = 0
-        self._data_source_type = order_book_tracker_data_source_type
         self._status_polling_task = None
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
@@ -135,7 +128,7 @@ cdef class BinancePerpetualMarket(MarketBase):
         self._last_poll_timestamp = 0
         self._throttler = Throttler((10.0, 1.0))
 
-        # TODO: Add this to MarketBase (Perhaps create abstraction of MarketBase called DerivitivesMarketBase)
+        # TODO: Add this to DerivativeBase (Perhaps create abstraction of MarketBase called DerivitivesMarketBase)
         self._account_positions = {}
 
     @property
@@ -159,7 +152,7 @@ cdef class BinancePerpetualMarket(MarketBase):
         return {
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "trading_rule_initialized": len(self._trading_rules) > 0
+            "trading_rule_initialized": len(self._trading_rules) > 0,
 
             # TODO: Uncomment when figured out trade fees
             # "trade_fees_initialized": len(self._trade_fees) > 0
@@ -169,21 +162,24 @@ cdef class BinancePerpetualMarket(MarketBase):
     def limit_orders(self):
         return [in_flight_order.to_limit_order() for in_flight_order in self._in_flight_orders.values()]
 
-    cdef c_start(self, Clock clock, double timestamp):
-        MarketBase.c_start(self, clock, timestamp)
+    def start(self, clock: Clock, timestamp: float):
+        # super().start(clock, timestamp)
+        DerivativeBase.start(self, clock, timestamp)
 
-    cdef c_stop(self, Clock clock):
-        MarketBase.c_stop(self, clock)
+    def stop(self, clock: Clock):
+        # super().stop(clock)
+        DerivativeBase.stop(self, clock)
         # self._async_scheduler.stop()
 
     async def start_network(self):
         self._order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
-        self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-        self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
-        self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
+        if self._trading_required:
+            self._status_polling_task = safe_ensure_future(self._status_polling_loop())
+            self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
+            self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
 
-    def _stop_network(self):
+    def stop_network(self):
         self._order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
@@ -205,6 +201,13 @@ cdef class BinancePerpetualMarket(MarketBase):
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
 
+    def supported_order_types(self) -> List[OrderType]:
+        """
+        :return a list of OrderType supported by this connector.
+        Note that Market order type is no longer required and will not be used.
+        """
+        return [OrderType.LIMIT, OrderType.MARKET]
+
     # ORDER PLACE AND CANCEL EXECUTIONS ---
     async def create_order(self,
                            trade_type: TradeType,
@@ -213,20 +216,20 @@ cdef class BinancePerpetualMarket(MarketBase):
                            amount: Decimal,
                            order_type: OrderType,
                            price: Optional[Decimal] = Decimal("NaN")):
-        cdef:
-            TradingRule trading_rule = self._trading_rules[trading_pair]
+
+        trading_rule: TradingRule = self._trading_rules[trading_pair]
         if order_type == OrderType.LIMIT_MAKER:
             raise ValueError("Binance Perpetuals does not support the Limit Maker order type.")
 
-        amount = self.c_quantize_order_amount(trading_pair, amount)
-        price = Decimal("NaN") if order_type == OrderType.MARKET else self.c_quantize_order_price(trading_pair, price)
+        amount = self.quantize_order_amount(trading_pair, amount)
+        price = Decimal("NaN") if order_type == OrderType.MARKET else self.quantize_order_price(trading_pair, price)
 
         if amount < trading_rule.min_order_size:
             raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}")
 
         order_result = None
-        api_params = {"symbol": trading_pair,
+        api_params = {"symbol": convert_to_exchange_trading_pair(trading_pair),
                       "side": "BUY" if trade_type is TradeType.BUY else "SELL",
                       "type": order_type.name.upper(),
                       "quantity": f"{amount}",
@@ -237,7 +240,7 @@ cdef class BinancePerpetualMarket(MarketBase):
         if order_type == OrderType.LIMIT:
             api_params["timeInForce"] = "GTC"
 
-        self.c_start_tracking_order(order_id, "", trading_pair, trade_type, price, amount, order_type)
+        self.start_tracking_order(order_id, "", trading_pair, trade_type, price, amount, order_type)
 
         try:
             order_result = await self.request(path="/fapi/v1/order",
@@ -245,31 +248,36 @@ cdef class BinancePerpetualMarket(MarketBase):
                                               method=MethodType.POST,
                                               add_timestamp = True,
                                               is_signed=True)
+            exchange_order_id = str(order_result["orderId"])
+            tracked_order = self._in_flight_orders.get(order_id)
+            if tracked_order is not None:
+                self.logger().info(f"Created {order_type.name.lower()} {trade_type.name.lower()} order {order_id} for "
+                                   f"{amount} {trading_pair}.")
+                tracked_order.exchange_order_id = exchange_order_id
+
             event_tag = self.MARKET_BUY_ORDER_CREATED_EVENT_TAG if trade_type is TradeType.BUY \
                 else self.MARKET_SELL_ORDER_CREATED_EVENT_TAG
             event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
-            self.c_trigger_event(event_tag,
-                                 event_class(
-                                     self._current_timestamp,
-                                     order_type,
-                                     trading_pair,
-                                     amount,
-                                     price,
-                                     order_id
-                                 ))
+            self.trigger_event(event_tag,
+                               event_class(self.current_timestamp,
+                                           order_type,
+                                           trading_pair,
+                                           amount,
+                                           price,
+                                           order_id))
             return order_result
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            self.c_stop_tracking_order(order_id)
+            self.stop_tracking_order(order_id)
             self.logger().network(
                 f"Error submitting order to Binance Perpetuals for {amount} {trading_pair} "
                 f"{'' if order_type is OrderType.MARKET else price}.",
                 exc_info=True,
                 app_warning_msg=str(e)
             )
-            self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                                 MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
+            self.trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                               MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
 
     async def execute_buy(self,
                           order_id: str,
@@ -279,15 +287,11 @@ cdef class BinancePerpetualMarket(MarketBase):
                           price: Optional[Decimal] = s_decimal_NaN):
         return await self.create_order(TradeType.BUY, order_id, trading_pair, amount, order_type, price)
 
-    cdef str c_buy(self,
-                   str trading_pair,
-                   object amount,
-                   object order_type=OrderType.MARKET,
-                   object price=s_decimal_NaN,
-                   dict kwargs={}):
-        cdef:
-            str t_pair = BinancePerpetualMarket.convert_from_exchange_trading_pair(trading_pair)
-            str order_id = get_client_order_id("buy", t_pair)
+    def buy(self, trading_pair: str, amount: object, order_type: object = OrderType.MARKET,
+            price: object = s_decimal_NaN, **kwargs) -> str:
+
+        t_pair: str = trading_pair
+        order_id: str = get_client_order_id("sell", t_pair)
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
         return order_id
 
@@ -296,14 +300,14 @@ cdef class BinancePerpetualMarket(MarketBase):
                            trading_pair: str,
                            amount: Decimal,
                            order_type: OrderType,
-                           price: Optional[Decimal] = Decimal("NaN")):
+                           price: Optional[Decimal] = s_decimal_NaN):
         return await self.create_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price)
 
-    cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.MARKET,
-                    object price=s_decimal_NaN, dict kwargs={}):
-        cdef:
-            str t_pair = BinancePerpetualMarket.convert_from_exchange_trading_pair(trading_pair)
-            str order_id = get_client_order_id("sell", t_pair)
+    def sell(self, trading_pair: str, amount: object, order_type: object = OrderType.MARKET,
+             price: object = s_decimal_NaN, **kwargs) -> str:
+
+        t_pair: str = trading_pair
+        order_id: str = get_client_order_id("sell", t_pair)
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id
 
@@ -324,14 +328,14 @@ cdef class BinancePerpetualMarket(MarketBase):
                         successful_cancellations.append(CancellationResult(client_order_id, True))
         except Exception:
             self.logger().network(
-                f"Unexpected error cancelling orders.",
+                "Unexpected error cancelling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order with Binance Perpetual. Check API key and network connection."
             )
         failed_cancellations = [CancellationResult(order_id, False) for order_id in order_id_set]
         return successful_cancellations + failed_cancellations
 
-    async def cancel_all_account_orders(self, str trading_pair):
+    async def cancel_all_account_orders(self, trading_pair: str):
         try:
             params = {
                 "symbol": trading_pair
@@ -345,14 +349,14 @@ cdef class BinancePerpetualMarket(MarketBase):
             )
             if response.get("code") == 200:
                 for order_id in list(self._in_flight_orders.keys()):
-                    self.c_stop_tracking_order(order_id)
+                    self.stop_tracking_order(order_id)
             else:
                 raise IOError(f"Error cancelling all account orders. Server Response: {response}")
         except Exception as e:
             self.logger().error("Could not cancel all account orders.")
             raise e
 
-    cdef c_cancel(self, str trading_pair, str client_order_id):
+    def cancel(self, trading_pair: str, client_order_id: str):
         safe_ensure_future(self.execute_cancel(trading_pair, client_order_id))
         return client_order_id
 
@@ -360,7 +364,7 @@ cdef class BinancePerpetualMarket(MarketBase):
         try:
             params = {
                 "origClientOrderId": client_order_id,
-                "symbol": trading_pair
+                "symbol": convert_to_exchange_trading_pair(trading_pair)
             }
             response = await self.request(
                 path="/fapi/v1/order",
@@ -373,9 +377,9 @@ cdef class BinancePerpetualMarket(MarketBase):
             if response.get("code") == -2011 or "Unknown order sent" in response.get("msg", ""):
                 self.logger().debug(f"The order {client_order_id} does not exist on Binance Perpetuals. "
                                     f"No cancellation needed.")
-                self.c_stop_tracking_order(client_order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                     OrderCancelledEvent(self._current_timestamp, client_order_id))
+                self.stop_tracking_order(client_order_id)
+                self.trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                   OrderCancelledEvent(self.current_timestamp, client_order_id))
                 return {
                     "origClientOrderId": client_order_id
                 }
@@ -384,27 +388,28 @@ cdef class BinancePerpetualMarket(MarketBase):
             raise e
         if response.get("status", None) == "CANCELED":
             self.logger().info(f"Successfully canceled order {client_order_id}")
-            self.c_stop_tracking_order(client_order_id)
-            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                 OrderCancelledEvent(self._current_timestamp, client_order_id))
+            self.stop_tracking_order(client_order_id)
+            self.trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                               OrderCancelledEvent(self.current_timestamp, client_order_id))
         return response
 
     # TODO: Implement
     async def close_position(self, trading_pair: str):
         pass
 
-    cdef object c_quantize_order_amount(self, str trading_pair, object amount, object price=Decimal(0)):
-        cdef:
-            TradingRule trading_rule = self._trading_rules[trading_pair]
-            object current_price = self.c_get_price(trading_pair, False)
-            object notional_size
-        quantized_amount = MarketBase.c_quantize_order_amount(self, trading_pair, amount)
+    def quantize_order_amount(self, trading_pair: str, amount: object, price: object = Decimal(0)):
+        trading_rule: TradingRule = self._trading_rules[trading_pair]
+        # current_price: object = self.get_price(trading_pair, False)
+        notional_size: object
+        quantized_amount = DerivativeBase.quantize_order_amount(self, trading_pair, amount)
         if quantized_amount < trading_rule.min_order_size:
             return Decimal(0)
+        """
         if price == Decimal(0):
             notional_size = current_price * quantized_amount
         else:
             notional_size = price * quantized_amount
+        """
 
         # TODO: NOTIONAL MIN SIZE DOES NOT EXIST
         # if notional_size < trading_rule.min_notional_size * Decimal("1.01"):
@@ -412,19 +417,17 @@ cdef class BinancePerpetualMarket(MarketBase):
 
         return quantized_amount
 
-    cdef object c_get_order_price_quantum(self, str trading_pair, object price):
-        cdef:
-            TradingRule trading_rule = self._trading_rules[trading_pair]
+    def get_order_price_quantum(self, trading_pair: str, price: object):
+        trading_rule: TradingRule = self._trading_rules[trading_pair]
         return trading_rule.min_price_increment
 
-    cdef object c_get_order_size_quantum(self, str trading_pair, object order_size):
-        cdef:
-            TradingRule trading_rule = self._trading_rules[trading_pair]
+    def get_order_size_quantum(self, trading_pair: str, order_size: object):
+        trading_rule: TradingRule = self._trading_rules[trading_pair]
         return Decimal(trading_rule.min_base_amount_increment)
 
     # ORDER TRACKING ---
-    cdef c_start_tracking_order(self, str order_id, str exchange_order_id, str trading_pair, object trading_type,
-                                object price, object amount, object order_type):
+    def start_tracking_order(self, order_id: str, exchange_order_id: str, trading_pair: str, trading_type: object,
+                             price: object, amount: object, order_type: object):
         self._in_flight_orders[order_id] = BinancePerpetualsInFlightOrder(
             client_order_id=order_id,
             exchange_order_id=exchange_order_id,
@@ -435,7 +438,7 @@ cdef class BinancePerpetualMarket(MarketBase):
             amount=amount
         )
 
-    cdef c_stop_tracking_order(self, str order_id):
+    def stop_tracking_order(self, order_id: str):
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
         if order_id in self._order_not_found_records:
@@ -478,19 +481,21 @@ cdef class BinancePerpetualMarket(MarketBase):
                             order_id=client_order_id,
                             trading_pair=order_message.get("s"),
                             trade_type=trade_type,
-                            order_type=OrderType[order_message.get("o")],
+                            order_type=OrderType.LIMIT if order_message.get("o") == "LIMIT" else OrderType.MARKET,
                             price=Decimal(order_message.get("L")),
                             amount=Decimal(order_message.get("l")),
-                            trade_fee=self.c_get_fee(
+                            trade_fee=self.get_fee(
                                 base_currency=tracked_order.base_asset,
                                 quote_currency=tracked_order.quote_asset,
-                                order_type=OrderType[order_message.get("o")],
+                                order_type=tracked_order.order_type,
                                 order_side=trade_type,
-                                amount=order_message.get("q"),
-                                price=order_message.get("p")
+                                amount=Decimal(order_message.get("q")),
+                                price=Decimal(order_message.get("p"))
                             ),
                             exchange_trade_id=order_message.get("t")
                         )
+                        self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
+
                     if tracked_order.is_done:
                         if not tracked_order.is_failure:
                             event_tag = None
@@ -503,36 +508,31 @@ cdef class BinancePerpetualMarket(MarketBase):
                                 event_class = SellOrderCompletedEvent
                             self.logger().info(f"The market {trade_type} order {client_order_id} has completed "
                                                f"according to order status API.")
-                            self.c_trigger_event(event_tag,
-                                                 event_class(
-                                                     self._current_timestamp,
-                                                     client_order_id,
-                                                     tracked_order.base_asset,
-                                                     tracked_order.quote_asset,
-                                                     (tracked_order.fee_asset or tracked_order.quote_asset),
-                                                     tracked_order.executed_amount_base,
-                                                     tracked_order.executed_amount_quote,
-                                                     tracked_order.fee_paid,
-                                                     tracked_order.order_type)
-                                                 )
+                            self.trigger_event(event_tag,
+                                               event_class(self.current_timestamp,
+                                                           client_order_id,
+                                                           tracked_order.base_asset,
+                                                           tracked_order.quote_asset,
+                                                           (tracked_order.fee_asset or tracked_order.quote_asset),
+                                                           tracked_order.executed_amount_base,
+                                                           tracked_order.executed_amount_quote,
+                                                           tracked_order.fee_paid,
+                                                           tracked_order.order_type))
                         else:
                             if tracked_order.is_cancelled:
                                 if tracked_order.client_order_id in self._in_flight_orders:
                                     self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
-                                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                                         OrderCancelledEvent(
-                                                             self._current_timestamp,
-                                                             tracked_order.client_order_id))
+                                    self.trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                                       OrderCancelledEvent(self.current_timestamp,
+                                                                           tracked_order.client_order_id))
                                 else:
                                     self.logger().info(f"The market order {tracked_order.client_order_id} has failed "
                                                        f"according to order status API.")
-                                    self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                                                         MarketOrderFailureEvent(
-                                                             self._current_timestamp,
-                                                             tracked_order.client_order_id,
-                                                             tracked_order.order_type
-                                                         ))
-                        self.c_stop_tracking_order(tracked_order.client_order_id)
+                                    self.trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                                                       MarketOrderFailureEvent(self.current_timestamp,
+                                                                               tracked_order.client_order_id,
+                                                                               tracked_order.order_type))
+                        self.stop_tracking_order(tracked_order.client_order_id)
                         await self._update_positions()
                 elif event_type == "ACCOUNT_UPDATE":
                     self.logger().info("Account updates pushed to client.")
@@ -541,14 +541,14 @@ cdef class BinancePerpetualMarket(MarketBase):
                 elif event_type == "MARGIN_CALL":
                     positions = event_message.get("p")
                     total_maint_margin_required = 0
-                    total_pnl = 0
+                    # total_pnl = 0
                     negative_pnls_msg = ""
                     for position in positions:
                         total_maint_margin_required += position.get("mm", 0)
                         if position.get("up", 0) < 1:
                             negative_pnls_msg += f"{position.get('s')}: {position.get('up')}, "
-                    self.logger().warning(f"Margin Call: Your position risk is too high, and you are at risk of "
-                                          f"liquidation. Close your positions or add additional margin to your wallet.")
+                    self.logger().warning("Margin Call: Your position risk is too high, and you are at risk of "
+                                          "liquidation. Close your positions or add additional margin to your wallet.")
                     self.logger().info(f"Margin Required: {total_maint_margin_required}. Total Unrealized PnL: "
                                        f"{negative_pnls_msg}. Negative PnL assets: {negative_pnls_msg}.")
             except asyncio.CancelledError:
@@ -557,24 +557,37 @@ cdef class BinancePerpetualMarket(MarketBase):
                 self.logger().error(f"Unexpected error in user stream listener loop: {e}", exc_info=True)
                 await asyncio.sleep(5.0)
 
+    def tick(self, timestamp: float):
+        """
+        Is called automatically by the clock for each clock's tick (1 second by default).
+        It checks if status polling task is due for execution.
+        """
+        now = time.time()
+        poll_interval = (self.SHORT_POLL_INTERVAL
+                         if now - self._user_stream_tracker.last_recv_time > 60.0
+                         else self.LONG_POLL_INTERVAL)
+        last_tick = self._last_timestamp / poll_interval
+        current_tick = timestamp / poll_interval
+        if current_tick > last_tick:
+            if not self._poll_notifier.is_set():
+                self._poll_notifier.set()
+        self._last_timestamp = timestamp
+
     # MARKET AND ACCOUNT INFO ---
-    # TODO: IMPLEMENT --- not right
-    cdef object c_get_fee(self, str base_currency, str quote_currency, object order_type, object order_side,
-                          object amount, object price):
+    def get_fee(self, base_currency: str, quote_currency: str, order_type: object, order_side: object,
+                amount: object, price: object):
         is_maker = order_type is OrderType.LIMIT
         return estimate_fee("binance_perpetuals", is_maker)
 
-    cdef OrderBook c_get_order_book(self, str trading_pair):
-        cdef:
-            dict order_books = self._order_book_tracker.order_books
+    def get_order_book(self, trading_pair: str) -> OrderBook:
+        order_books: dict = self._order_book_tracker.order_books
         if trading_pair not in order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
         return order_books[trading_pair]
 
     async def _update_trading_rules(self):
-        cdef:
-            int64_t last_tick = <int64_t> (self._last_timestamp / 60.0)
-            int64_t current_tick = <int64_t> (self._current_timestamp / 60.0)
+        last_tick = self._last_timestamp / 60.0
+        current_tick = self.current_timestamp / 60.0
         if current_tick > last_tick or len(self._trading_rules) < 1:
             exchange_info = await self.request(path="/fapi/v1/exchangeInfo", method=MethodType.GET, is_signed=False)
             trading_rules_list = self._format_trading_rules(exchange_info)
@@ -583,12 +596,11 @@ cdef class BinancePerpetualMarket(MarketBase):
                 self._trading_rules[trading_rule.trading_pair] = trading_rule
 
     def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
-        cdef:
-            list rules = exchange_info_dict.get("symbols", [])
-            list return_val = []
+        rules: list = exchange_info_dict.get("symbols", [])
+        return_val: list = []
         for rule in rules:
             try:
-                trading_pair = rule["symbol"]
+                trading_pair = convert_from_exchange_trading_pair(rule["symbol"])
                 filters = rule["filters"]
                 filt_dict = {fil["filterType"]: fil for fil in filters}
 
@@ -639,9 +651,9 @@ cdef class BinancePerpetualMarket(MarketBase):
                     self._update_balances(),
                     self._update_positions(),
                     self._update_order_fills_from_trades(),
-                    self._update_order_status
+                    self._update_order_status()
                 )
-                self._last_poll_timestamp = self._current_timestamp
+                self._last_poll_timestamp = self.current_timestamp
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -651,13 +663,8 @@ cdef class BinancePerpetualMarket(MarketBase):
                 await asyncio.sleep(0.5)
 
     async def _update_balances(self):
-        cdef:
-            dict account_info
-            list balances
-            str asset_name
-            set local_asset_names = set(self._account_balances.keys())
-            set remote_asset_names = set()
-            set asset_names_to_remove
+        local_asset_names = set(self._account_balances.keys())
+        remote_asset_names = set()
         account_info = await self.request(path="/fapi/v2/account", is_signed=True, add_timestamp=True)
         assets = account_info.get("assets")
         for asset in assets:
@@ -676,11 +683,8 @@ cdef class BinancePerpetualMarket(MarketBase):
     # TODO: Note --- Data Structure Assumes One-way Position Mode [not hedge position mode] (see Binance Futures Docs)
     # Note --- Hedge Mode allows for Both Long and Short Positions on a trading pair
     async def _update_positions(self):
-        cdef:
-            list positions
-            set local_position_names = set(self._account_positions.keys())
-            set remote_position_names = set()
-            set position_names_to_remove
+        # local_position_names = set(self._account_positions.keys())
+        # remote_position_names = set()
         positions = await self.request(path="/fapi/v2/positionRisk", add_timestamp=True, is_signed=True)
         for position in positions:
             trading_pair = position.get("symbol")
@@ -691,7 +695,7 @@ cdef class BinancePerpetualMarket(MarketBase):
             leverage = Decimal(position.get("leverage"))
             if amount > 0:
                 self._account_positions[trading_pair] = Position(
-                    trading_pair=trading_pair,
+                    trading_pair=convert_to_exchange_trading_pair(trading_pair),
                     position_side=position_side,
                     unrealized_pnl=unrealized_pnl,
                     entry_price=entry_price,
@@ -700,9 +704,8 @@ cdef class BinancePerpetualMarket(MarketBase):
                 )
 
     async def _update_order_fills_from_trades(self):
-        cdef:
-            int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
-            int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
+        last_tick = self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
+        current_tick = self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             trading_pairs_to_order_map = defaultdict(lambda: {})
             for order in self._in_flight_orders.values():
@@ -712,8 +715,9 @@ cdef class BinancePerpetualMarket(MarketBase):
                 self.request(
                     path="/fapi/v1/userTrades",
                     params={
-                        "symbol": trading_pair
+                        "symbol": convert_to_exchange_trading_pair(trading_pair)
                     },
+                    is_signed=True,
                     add_timestamp=True
                 ) for trading_pair in trading_pairs]
             self.logger().debug(f"Polling for order fills of {len(tasks)} trading_pairs.")
@@ -733,17 +737,17 @@ cdef class BinancePerpetualMarket(MarketBase):
                         order_type = tracked_order.order_type
                         applied_trade = tracked_order.update_with_trade_updates(trade)
                         if applied_trade:
-                            self.c_trigger_event(
+                            self.trigger_event(
                                 self.MARKET_ORDER_FILLED_EVENT_TAG,
                                 OrderFilledEvent(
-                                    self._current_timestamp,
+                                    self.current_timestamp,
                                     tracked_order.client_order_id,
                                     tracked_order.trading_pair,
                                     tracked_order.trade_type,
                                     order_type,
                                     Decimal(trade.get("price")),
                                     Decimal(trade.get("qty")),
-                                    self.c_get_fee(
+                                    self.get_fee(
                                         tracked_order.base_asset,
                                         tracked_order.quote_asset,
                                         order_type,
@@ -755,19 +759,19 @@ cdef class BinancePerpetualMarket(MarketBase):
                             )
 
     async def _update_order_status(self):
-        cdef:
-            int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
-            int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
+        last_tick = self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
+        current_tick = self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
-            tracked_orders = list(self._in_flight_orders)
+            tracked_orders = list(self._in_flight_orders.values())
             tasks = [self.request(path="/fapi/v1/order",
                                   params={
-                                      "symbol": order.trading_pair,
+                                      "symbol": convert_to_exchange_trading_pair(order.trading_pair),
                                       "origClientOrderId": order.client_order_id
                                   },
                                   method=MethodType.GET,
                                   add_timestamp=True,
-                                  is_signed=True)
+                                  is_signed=True,
+                                  return_err=True)
                      for order in tracked_orders]
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
             results = await safe_gather(*tasks, return_exceptions=True)
@@ -777,22 +781,23 @@ cdef class BinancePerpetualMarket(MarketBase):
                     continue
                 if isinstance(order_update, Exception):
                     # NO_SUCH_ORDER code
-                    if order_update.code == 2013 or order_update.message == "Order does not exist.":
+                    if order_update["code"] == -2013 or order_update["msg"] == "Order does not exist.":
                         self._order_not_found_records[client_order_id] = \
                             self._order_not_found_records.get(client_order_id, 0) + 1
                         if self._order_not_found_records[client_order_id] < self.ORDER_NOT_EXIST_CONFIRMATION_COUNT:
                             continue
-                        self.c_trigger_event(
+                        self.trigger_event(
                             self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                            MarketOrderFailureEvent(self._current_timestamp, client_order_id, tracked_order.order_type)
+                            MarketOrderFailureEvent(self.current_timestamp, client_order_id, tracked_order.order_type)
                         )
-                        self.c_stop_tracking_order(client_order_id)
+                        self.stop_tracking_order(client_order_id)
                     else:
                         self.logger().network(f"Error fetching status update for the order {client_order_id}: "
                                               f"{order_update}.")
                     continue
+
                 tracked_order.last_state = order_update.get("status")
-                order_type = OrderType[order_update.get("type")]
+                order_type = OrderType.LIMIT if order_update.get("type") == "LIMIT" else OrderType.MARKET
                 executed_amount_base = Decimal(order_update.get("executedQty"))
                 executed_amount_quote = Decimal(order_update.get("cumQuote"))
 
@@ -809,39 +814,35 @@ cdef class BinancePerpetualMarket(MarketBase):
                             event_class = SellOrderCompletedEvent
                         self.logger().info(f"The market {tracked_order.trade_type.name} order {client_order_id} has "
                                            f"completed according to order status API.")
-                        self.c_trigger_event(event_tag,
-                                             event_class(self._current_timestamp,
-                                                         client_order_id,
-                                                         tracked_order.base_asset,
-                                                         tracked_order.quote_asset,
-                                                         (tracked_order.fee_asset
-                                                          or tracked_order.base_asset),
-                                                         executed_amount_base,
-                                                         executed_amount_quote,
-                                                         tracked_order.fee_paid,
-                                                         order_type))
+                        self.trigger_event(event_tag,
+                                           event_class(self.current_timestamp,
+                                                       client_order_id,
+                                                       tracked_order.base_asset,
+                                                       tracked_order.quote_asset,
+                                                       (tracked_order.fee_asset or tracked_order.base_asset),
+                                                       executed_amount_base,
+                                                       executed_amount_quote,
+                                                       tracked_order.fee_paid,
+                                                       order_type))
                     else:
                         if tracked_order.is_cancelled:
                             self.logger().info(f"Successfully cancelled order {client_order_id}.")
-                            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                                 OrderCancelledEvent(
-                                                     self._current_timestamp,
-                                                     client_order_id))
+                            self.trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                               OrderCancelledEvent(self.current_timestamp,
+                                                                   client_order_id))
                         else:
                             self.logger().info(f"The market order {client_order_id} has failed according to "
                                                f"order status API.")
-                            self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                                                 MarketOrderFailureEvent(
-                                                     self._current_timestamp,
-                                                     client_order_id,
-                                                     order_type
-                                                 ))
-                    self.c_stop_tracking_order(client_order_id)
+                            self.trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                                               MarketOrderFailureEvent(self.current_timestamp,
+                                                                       client_order_id,
+                                                                       order_type))
+                    self.stop_tracking_order(client_order_id)
 
     # TODO: QUESTION: What do I do about trading fees
     # async def _update_trade_fees(self):
     #     cdef:
-    #         double current_timestamp = self._current_timestamp
+    #         double current_timestamp = self.current_timestamp
     #     if current_timestamp - self._last_update_trade_fees_timestamp > 60.0 * 60.0 or len(self._trade_fees) < 1:
     #         try:
     #             response = await self.request(
@@ -860,7 +861,7 @@ cdef class BinancePerpetualMarket(MarketBase):
 
     async def set_margin(self, trading_pair: str, leverage: int = 1):
         params = {
-            "symbol": trading_pair,
+            "symbol": convert_to_exchange_trading_pair(trading_pair),
             "leverage": leverage
         }
         return await self.request(
@@ -877,7 +878,7 @@ cdef class BinancePerpetualMarket(MarketBase):
 
     async def get_funding_rate(self, trading_pair):
         # TODO: Note --- the "premiumIndex" endpoint can get markPrice, indexPrice, and nextFundingTime as well
-        prem_index = await self.request("/fapi/v1/premiumIndex", params={"symbol": trading_pair})
+        prem_index = await self.request("/fapi/v1/premiumIndex", params={"symbol": convert_to_exchange_trading_pair(trading_pair)})
         return Decimal(prem_index.get("lastFundingRate"), "NaN")
 
     async def set_hedge_mode(self, position_mode: PositionMode):
@@ -891,26 +892,6 @@ cdef class BinancePerpetualMarket(MarketBase):
             add_timestamp=True,
             is_signed=True
         )
-
-    # Helper Functions ---
-    @staticmethod
-    def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
-        try:
-            m = TRADING_PAIR_SPLITTER.match(trading_pair)
-            return m.group(1), m.group(2)
-        except Exception as e:
-            raise e
-
-    @staticmethod
-    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
-        if BinancePerpetualMarket.split_trading_pair(exchange_trading_pair) is None:
-            return None
-        base_asset, quote_asset = BinancePerpetualMarket.split_trading_pair(exchange_trading_pair)
-        return f"{base_asset}-{quote_asset}"
-
-    @staticmethod
-    def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-        return hb_trading_pair.replace("-", "")
 
     async def request(self, path: str, params: Dict[str, Any] = {}, method: MethodType = MethodType.GET,
                       add_timestamp: bool = False, is_signed: bool = False, request_weight: int = 1, return_err: bool = False):
@@ -942,10 +923,10 @@ cdef class BinancePerpetualMarket(MarketBase):
                 raise e
 
     # Not Needed ---
-    cdef c_did_timout_tx(self, str tracking_id):
+    def did_timout_tx(self, tracking_id: str):
         pass
 
-    cdef str c_withdraw(self, str address, str currency, object amount):
+    def withdraw(self, address: str, currency: str, amount: object):
         pass
 
     async def get_deposit_info(self, asset: str):

@@ -12,11 +12,10 @@ from websockets.exceptions import ConnectionClosed
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
-from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.binance_perpetual.binance_perpetual_order_book import BinancePerpetualOrderBook
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book import BinancePerpetualOrderBook
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils import convert_to_exchange_trading_pair
 
 DIFF_STREAM_URL = "wss://fstream.binance.com/stream"
 PERPETUAL_BASE_URL = "https://fapi.binance.com/fapi/v1"
@@ -27,9 +26,9 @@ RECENT_TRADES_URL = PERPETUAL_BASE_URL + "/trades"
 
 
 class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
-    def __init__(self, trading_pairs: Optional[List[str]] = None):
-        super().__init__()
-        self._trading_pairs: Optional[List[str]] = trading_pairs
+    def __init__(self, trading_pairs: List[str] = None):
+        super().__init__(trading_pairs)
+        self._trading_pairs: List[str] = trading_pairs
         self._order_book_create_function = lambda: OrderBook()
 
     _bpobds_logger: Optional[HummingbotLogger] = None
@@ -40,54 +39,20 @@ class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
             cls._bpobds_logger = logging.getLogger(__name__)
         return cls._bpobds_logger
 
-    # TODO: DEPRECATED
     @classmethod
-    @async_ttl_cache(ttl=60 * 30, maxsize=1)
-    async def get_active_exchange_markets(cls) -> pd.DataFrame:
-        """
-        Returned data frame should have trading_pair as index and include usd volume, baseAsset and quoteAsset
-        """
+    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
+        tasks = [cls.get_last_traded_price(t_pair) for t_pair in trading_pairs]
+        results = await safe_gather(*tasks)
+        return {t_pair: result for t_pair, result in zip(trading_pairs, results)}
+
+    @classmethod
+    async def get_last_traded_price(cls, trading_pair: str) -> float:
         async with aiohttp.ClientSession() as client:
-            market_response, exchange_response = await safe_gather(
-                client.get(TICKER_PRICE_CHANGE_URL),
-                client.get(EXCHANGE_INFO_URL)
-            )
-            market_response: aiohttp.ClientResponse = market_response
-            exchange_response: aiohttp.ClientResponse = exchange_response
+            resp = await client.get(f"{TICKER_PRICE_CHANGE_URL}?symbol={convert_to_exchange_trading_pair(trading_pair)}")
+            resp_json = await resp.json()
+            return float(resp_json["lastPrice"])
 
-            if market_response.status != 200:
-                raise IOError(f"Error fetching Binance Perpetual markets information. "
-                              f"HTTP status is {market_response.status}.")
-            if exchange_response.status != 200:
-                raise IOError(f"Error fetching Binance Perpetual exchange information. "
-                              f"HTTP status is {exchange_response.status}.")
-            market_data = await market_response.json()
-            exchange_data = await exchange_response.json()
-
-            trading_pairs: Dict[str, Any] = {ticker["symbol"]: {asset: ticker[asset]
-                                                                for asset in ["baseAsset", "quoteAsset"]}
-                                             for ticker in exchange_data["symbols"]
-                                             if ticker["status"] == "TRADING"}
-            market_data: List[Dict[str, Any]] = [{**item, **trading_pairs[item["symbol"]]}
-                                                 for item in market_data
-                                                 if item["symbol"] in trading_pairs]
-            all_markets: pd.DataFrame = pd.DataFrame.from_records(data=market_data, index="symbol")
-            btc_price: float = float(all_markets.loc["BTCUSDT"].lastPrice)
-            eth_price: float = float(all_markets.loc["ETHUSDT"].lastPrice)
-            usd_volume = [
-                (
-                    quoteVolume * btc_price if trading_pair.endswith("BTC") else
-                    quoteVolume * eth_price if trading_pairs.endswith("ETH") else
-                    quoteVolume
-                )
-                for trading_pair, quoteVolume in zip(all_markets.index,
-                                                     all_markets.quoteVolume.astype("float"))
-            ]
-            all_markets.loc[:, "USDVolume"] = usd_volume
-            all_markets.loc[:, "volume"] = all_markets.quoteVolume
-
-            return all_markets.sort_values("USDVolume", ascending=False)
-
+    """
     async def get_trading_pairs(self) -> List[str]:
         if not self._trading_pairs:
             try:
@@ -96,16 +61,18 @@ class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception as e:
                 self._trading_pairs = []
                 self.logger().network(
-                    "Error getting active exchange information.",
+                    "Error getting active trading pairs.",
                     exc_info=True,
-                    app_warning_msg="Error getting active exchange information. Check network connection."
+                    app_warning_msg="Error getting active trading_pairs. Check network connection."
                 )
                 raise e
         return self._trading_pairs
+    """
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, limit: int = 1000) -> Dict[str, Any]:
-        params: Dict = {"limit": str(limit), "symbol": trading_pair} if limit != 0 else {"symbol": trading_pair}
+        params: Dict = {"limit": str(limit), "symbol": convert_to_exchange_trading_pair(trading_pair)} if limit != 0 \
+            else {"symbol": convert_to_exchange_trading_pair(trading_pair)}
         async with client.get(SNAPSHOT_REST_URL, params=params) as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
@@ -114,6 +81,20 @@ class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
             data: Dict[str, Any] = await response.json()
             return data
 
+    async def get_new_order_book(self, trading_pair: str) -> OrderBook:
+        async with aiohttp.ClientSession() as client:
+            snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, 1000)
+            snapshot_timestamp: float = time.time()
+            snapshot_msg: OrderBookMessage = BinancePerpetualOrderBook.snapshot_message_from_exchange(
+                snapshot,
+                snapshot_timestamp,
+                metadata={"trading_pair": trading_pair}
+            )
+            order_book = self.order_book_create_function()
+            order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
+            return order_book
+
+    """
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
         async with aiohttp.ClientSession() as client:
             trading_pairs: List[str] = await self.get_trading_pairs()
@@ -136,6 +117,17 @@ class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
                     self.logger().error(f"Error getting snapshot for {trading_pair}: {e}", exc_info=True)
                     await asyncio.sleep(5)
             return return_val
+    """
+
+    async def ping_waiter(self, client: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
+        while True:
+            try:
+                ping = None
+                ping: str = await asyncio.wait_for(client.ping(), timeout=180.0)
+                if ping:
+                    await client.pong(data=b'')
+            except asyncio.TimeoutError:
+                await client.pong(data=b'')
 
     async def ws_messages(self, client: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         try:
@@ -144,14 +136,7 @@ class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
                     raw_msg: str = await asyncio.wait_for(client.recv(), timeout=30.0)
                     yield raw_msg
                 except asyncio.TimeoutError:
-                    try:
-                        pong_waiter = await client.ping()
-                        await asyncio.wait_for(pong_waiter, timeout=10.0)
-                    except asyncio.TimeoutError:
-                        raise
-        except asyncio.TimeoutError:
-            self.logger().warning("Websocket ping timed out. Going to reconnect... ")
-            return
+                    await client.pong(data=b'')
         except ConnectionClosed:
             return
         finally:
@@ -160,9 +145,9 @@ class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                trading_pairs: List[str] = await self.get_trading_pairs()
-                ws_subscription_path: str = "/".join([f"{trading_pair.lower()}@depth"
-                                                      for trading_pair in trading_pairs])
+                # trading_pairs: List[str] = await self.get_trading_pairs()
+                ws_subscription_path: str = "/".join([f"{convert_to_exchange_trading_pair(trading_pair).lower()}@depth"
+                                                      for trading_pair in self._trading_pairs])
                 stream_url: str = f"{DIFF_STREAM_URL}?streams={ws_subscription_path}"
                 async with websockets.connect(stream_url) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
@@ -174,6 +159,9 @@ class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
                             timestamp
                         )
                         output.put_nowait(order_book_message)
+                    async for raw_msg in self.ws_messages(ws):
+                        # do nothing
+                        pass
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -184,9 +172,9 @@ class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                trading_pairs: List[str] = await self.get_trading_pairs()
-                ws_subscription_path: str = "/".join([f"{trading_pair.lower()}@aggTrade"
-                                                      for trading_pair in trading_pairs])
+                # trading_pairs: List[str] = await self.get_trading_pairs()
+                ws_subscription_path: str = "/".join([f"{convert_to_exchange_trading_pair(trading_pair).lower()}@aggTrade"
+                                                      for trading_pair in self._trading_pairs])
                 stream_url = f"{DIFF_STREAM_URL}?streams={ws_subscription_path}"
                 async with websockets.connect(stream_url) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
@@ -194,6 +182,9 @@ class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
                         msg_json = ujson.loads(raw_msg)
                         trade_msg: OrderBookMessage = BinancePerpetualOrderBook.trade_message_from_exchange(msg_json)
                         output.put_nowait(trade_msg)
+                    async for raw_msg in self.ws_messages(ws):
+                        # do nothing
+                        pass
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -204,9 +195,9 @@ class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                trading_pairs: List[str] = await self.get_trading_pairs()
+                # trading_pairs: List[str] = await self.get_trading_pairs()
                 async with aiohttp.ClientSession() as client:
-                    for trading_pair in trading_pairs:
+                    for trading_pair in self._trading_pairs:
                         try:
                             snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
                             snapshot_timestamp: float = time.time()

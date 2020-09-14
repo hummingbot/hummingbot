@@ -2,12 +2,12 @@ import asyncio
 import logging
 from typing import Optional
 
-from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker, UserStreamTrackerDataSourceType
+from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_gather, safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 
-from hummingbot.market.binance_perpetual.binance_perpetual_user_stream_data_source import \
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_data_source import \
     BinancePerpetualUserStreamDataSource
 
 
@@ -21,10 +21,8 @@ class BinancePerpetualUserStreamTracker(UserStreamTracker):
             cls._bust_logger = logging.getLogger(__name__)
         return cls._bust_logger
 
-    def __init__(self,
-                 api_key: str,
-                 data_source_type: UserStreamTrackerDataSourceType = UserStreamTrackerDataSourceType.EXCHANGE_API):
-        super().__init__(data_source_type=data_source_type)
+    def __init__(self, api_key):
+        super().__init__()
         self._api_key: str = api_key
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[UserStreamTrackerDataSource] = None
@@ -37,11 +35,7 @@ class BinancePerpetualUserStreamTracker(UserStreamTracker):
     @property
     def data_source(self) -> UserStreamTrackerDataSource:
         if self._data_source is None:
-            if self._data_source_type is UserStreamTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = BinancePerpetualUserStreamDataSource(api_key=self._api_key,
-                                                                         )
-            else:
-                raise ValueError(f"data_source_type {self._data_source_type} is not supported.")
+            self._data_source = BinancePerpetualUserStreamDataSource(api_key=self._api_key)
         return self._data_source
 
     async def start(self):

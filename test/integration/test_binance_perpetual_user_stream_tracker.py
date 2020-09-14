@@ -1,29 +1,30 @@
+#!/usr/bin/env python
+from os.path import join, realpath
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 import asyncio
-import unittest
-from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
-from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.market.binance_perpetual.binance_perpetual_user_stream_tracker import BinancePerpetualUserStreamTracker
-from .assets.test_keys import Keys
-
 import logging
+from typing import Optional
+import unittest
+
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_tracker import BinancePerpetualUserStreamTracker
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_tracker import BinancePerpetualOrderBookTracker
 
 logging.basicConfig(level=logging.DEBUG)
 
-API_KEY = Keys.get_binance_futures_api_key()
 
+class BinancePerpetualOrderBookTrackerUnitTest(unittest.TestCase):
+    order_book_tracker: Optional[BinancePerpetualOrderBookTracker] = None
 
-class BinancePerpetualUserStreamTrackerUnitTest(unittest.TestCase):
     @classmethod
-    def setUpClass(cls) -> None:
+    def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        cls.user_stream_tracker: BinancePerpetualUserStreamTracker = BinancePerpetualUserStreamTracker(
-            data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
-            api_key=API_KEY
-        )
+        cls.user_stream_tracker: BinancePerpetualUserStreamTracker = BinancePerpetualUserStreamTracker(api_key="")
         cls.user_stream_tracker_task: asyncio.Task = safe_ensure_future(cls.user_stream_tracker.start())
 
     def test_user_stream(self):
-        self.ev_loop.run_until_complete((asyncio.sleep(120)))
+        # Wait process some msgs.
+        self.ev_loop.run_until_complete(asyncio.sleep(120.0))
         print(self.user_stream_tracker.user_stream)
 
 

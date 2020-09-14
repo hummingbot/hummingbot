@@ -2,7 +2,8 @@ from decimal import Decimal
 
 from hummingbot.core.event.events import PositionSide
 
-cdef class Position:
+
+class Position:
     def __init__(self,
                  trading_pair: str,
                  position_side: PositionSide,
