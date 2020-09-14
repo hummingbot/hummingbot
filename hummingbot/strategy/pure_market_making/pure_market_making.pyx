@@ -138,6 +138,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._logging_options = logging_options
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
+        self._last_own_trade_price = Decimal('nan')
 
         self.c_add_markets([market_info.market])
 
@@ -329,7 +330,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             price_provider = self._asset_price_delegate
         else:
             price_provider = self._market_info
-        price = price_provider.get_price_by_type(self._price_type)
+        if self._price_type is PriceType.LastOwnTrade:
+            price = self._last_own_trade_price
+        else:
+            price = price_provider.get_price_by_type(self._price_type)
         if price.is_nan():
             price = price_provider.get_price_by_type(PriceType.MidPrice)
         return price
@@ -881,6 +885,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 self._hanging_order_ids.append(other_order_id)
 
         self._filled_buys_balance += 1
+        self._last_own_trade_price = limit_order_record.price
 
         self.log_with_clock(
             logging.INFO,
@@ -924,6 +929,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 self._hanging_order_ids.append(other_order_id)
 
         self._filled_sells_balance += 1
+        self._last_own_trade_price = limit_order_record.price
 
         self.log_with_clock(
             logging.INFO,
@@ -1091,5 +1097,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             return PriceType.BestAsk
         elif price_type_str == "last_price":
             return PriceType.LastTrade
+        elif price_type_str == 'last_own_trade_price':
+            return PriceType.LastOwnTrade
         else:
             raise ValueError(f"Unrecognized price type string {price_type_str}.")
