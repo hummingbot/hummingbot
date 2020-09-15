@@ -35,6 +35,7 @@ class ImportCommand:
             return
         strategy_path = os.path.join(CONF_FILE_PATH, file_name)
         strategy = update_strategy_config_map_from_file(strategy_path)
+        file_name = file_name.lower()
         self.strategy_file_name = file_name
         self.strategy_name = strategy
         self._notify(f"Configuration from {self.strategy_file_name} file is imported.")
