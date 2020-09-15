@@ -481,7 +481,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         return df
 
     def active_orders_df(self) -> pd.DataFrame:
-        price = self.get_mid_price()
         active_orders = self.active_orders
         no_sells = len([o for o in active_orders if not o.is_buy and o.client_order_id not in self._hanging_order_ids])
         active_orders.sort(key=lambda x: x.price, reverse=True)
@@ -498,6 +497,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 else:
                     level = no_sells - lvl_sell
                     lvl_sell += 1
+            # Always use current market mid_price to show orders spread
+            price = self._market_info.get_mid_price()
             spread = 0 if price == 0 else abs(order.price - price)/price
             age = "n/a"
             # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
