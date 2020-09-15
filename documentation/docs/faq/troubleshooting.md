@@ -126,7 +126,7 @@ Below are instructions on how to access these files in various environments.
 
 **macOS**
 
-Launch the Terminal using either two ways:
+Launch the Terminal using either of two ways:
 
 1. Open Terminal from the Launchpad
 1. Press **⌘ + Space** to open Spotlight Search and enter "Terminal"
