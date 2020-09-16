@@ -1,0 +1,25 @@
+##########################################
+###   AMM Arbitrage strategy config   ###
+##########################################
+
+template_version: 1
+strategy: null
+
+# The following configuations are only required for the AMM arbitrage trading strategy
+
+# Connectors and markets parameters
+connector_1: null
+market_1: null
+connector_2: null
+market_2: null
+
+order_amount: null
+
+# Minimum profitability target required to place an order
+# Expressed in percentage value, e.g. 1 = 1% target profit
+min_profitability: null
+
+# A buffer to add to the price to account for slippage when buying/selling on each connector
+# (Enter 1 for 1%)
+slippage_buffer: null
+
