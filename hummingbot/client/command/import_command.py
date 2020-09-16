@@ -33,7 +33,6 @@ class ImportCommand:
         if self.app.to_stop_config:
             self.app.to_stop_config = False
             return
-        file_name = file_name.upper()
         strategy_path = os.path.join(CONF_FILE_PATH, file_name)
         strategy = update_strategy_config_map_from_file(strategy_path)
         self.strategy_file_name = file_name

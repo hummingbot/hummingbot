@@ -224,6 +224,9 @@ def load_required_configs(strategy_name) -> OrderedDict:
 
 
 def strategy_name_from_file(file_path: str) -> str:
+    for file_name in listdir(CONF_FILE_PATH):
+        if join(CONF_FILE_PATH, file_name).lower() == file_path:
+            file_path = join(CONF_FILE_PATH, file_name)
     with open(file_path) as stream:
         data = yaml_parser.load(stream) or {}
         strategy = data.get("strategy")
@@ -235,9 +238,9 @@ def validate_strategy_file(file_path: str) -> Optional[str]:
         return f"{file_path} file does not exist."
     strategy = strategy_name_from_file(file_path)
     if strategy is None:
-        return f"Invalid configuration file or 'strategy' field is missing."
+        return f"Invalid configuration file or {strategy} field is missing."
     if strategy not in get_strategy_list():
-        return f"Invalid strategy specified in the file."
+        return f"Invalid {strategy} specified in the file."
     return None
 
 
