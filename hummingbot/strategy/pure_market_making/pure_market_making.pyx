@@ -460,7 +460,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     def pure_mm_assets_df(self, to_show_current_pct: bool) -> pd.DataFrame:
         market, trading_pair, base_asset, quote_asset = self._market_info
-        price = self.get_price()
+        price = self._market_info.get_mid_price()
         base_balance = float(market.get_balance(base_asset))
         quote_balance = float(market.get_balance(quote_asset))
         available_base_balance = float(market.get_available_balance(base_asset))
