@@ -333,4 +333,10 @@ pure_market_making_config_map = {
                   prompt="Enter pricing API URL >>> ",
                   required_if=lambda: pure_market_making_config_map.get("price_source").value == "custom_api",
                   type_str="str"),
+    "order_override":
+        ConfigVar(key="order_override",
+                  prompt=None,
+                  required_if=lambda: False,
+                  default=None,
+                  type_str="json"),
 }
