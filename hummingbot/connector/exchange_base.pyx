@@ -278,8 +278,8 @@ cdef class ExchangeBase(ConnectorBase):
         elif price_type is PriceType.LastTrade:
             return Decimal(self.c_get_order_book(trading_pair).last_trade_price)
 
-    def get_quote_price(self, str trading_pair, is_buy: bool, amount: Decimal) -> Decimal:
-        return self.get_vwap_for_volume(trading_pair, is_buy, amount)
+    def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
+        return Decimal(str(self.get_vwap_for_volume(trading_pair, is_buy, amount).result_price))
 
-    def get_order_price(self, str trading_pair, is_buy: bool, amount: Decimal) -> Decimal:
-        return self.get_price_for_volume(trading_pair, is_buy, amount)
+    def get_order_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
+        return Decimal(str(self.get_price_for_volume(trading_pair, is_buy, amount).result_price))
