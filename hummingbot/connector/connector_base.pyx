@@ -388,8 +388,8 @@ cdef class ConnectorBase(NetworkIterator):
         """
         return self.c_quantize_order_amount(trading_pair, amount)
 
-    def get_quote_price(self, str trading_pair, is_buy: bool, amount: Decimal) -> Decimal:
+    def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
         raise NotImplementedError
 
-    def get_order_price(self, str trading_pair, is_buy: bool, amount: Decimal) -> Decimal:
+    def get_order_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
         raise NotImplementedError

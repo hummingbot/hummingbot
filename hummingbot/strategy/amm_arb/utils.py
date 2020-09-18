@@ -1,45 +1,31 @@
 from decimal import Decimal
-from typing import NamedTuple, List
+from typing import List
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from .data_types import ArbProposal, ArbProposalSide
 
 s_decimal_nan = Decimal("NaN")
 
 
-class OrderProspect(NamedTuple):
-    market_pair: MarketTradingPairTuple
-    is_buy: bool
-    quote_price: Decimal
-    order_price: Decimal
-
-
-class TradeProfit(NamedTuple):
-    prospects: List[OrderProspect]
-    amount: Decimal
-
-    def profit_pct(self) -> Decimal:
-        buy = [p for p in self.prospects if p.is_buy][0]
-        sell = [p for p in self.prospects if not p.is_buy][0]
-        if buy.quote_price == 0:
-            return s_decimal_nan
-        return (sell.quote_price - buy.quote_price) / buy.quote_price
-
-
-def create_trade_profits(market_pairs: List[MarketTradingPairTuple], order_amount: Decimal) -> List[TradeProfit]:
+def create_arb_proposals(market_info_1: MarketTradingPairTuple,
+                         market_info_2: MarketTradingPairTuple,
+                         order_amount: Decimal) -> List[ArbProposal]:
     order_amount = Decimal(str(order_amount))
     results = []
-    for index in range(0, 1):
+    for index in range(0, 2):
         is_buy = not bool(index)  # bool(0) is False, so start with buy first
-        prospect_1 = OrderProspect(
-            market_pairs[0].market,
+        first_side = ArbProposalSide(
+            market_info_1,
             is_buy,
-            market_pairs[0].market.get_quote_price(market_pairs[0].trading_pair, is_buy, order_amount),
-            market_pairs[0].market.get_order_price(market_pairs[0].trading_pair, is_buy, order_amount)
+            market_info_1.market.get_quote_price(market_info_1.trading_pair, is_buy, order_amount),
+            market_info_1.market.get_order_price(market_info_1.trading_pair, is_buy, order_amount),
+            order_amount
         )
-        prospect_2 = OrderProspect(
-            market_pairs[1].market,
+        second_side = ArbProposalSide(
+            market_info_2,
             not is_buy,
-            market_pairs[1].market.get_quote_price(market_pairs[1].trading_pair, not is_buy, order_amount),
-            market_pairs[1].market.get_order_price(market_pairs[1].trading_pair, not is_buy, order_amount)
+            market_info_2.market.get_quote_price(market_info_2.trading_pair, not is_buy, order_amount),
+            market_info_2.market.get_order_price(market_info_2.trading_pair, not is_buy, order_amount),
+            order_amount
         )
-        results.append(TradeProfit([prospect_1, prospect_2], order_amount))
+        results.append(ArbProposal(first_side, second_side))
     return results

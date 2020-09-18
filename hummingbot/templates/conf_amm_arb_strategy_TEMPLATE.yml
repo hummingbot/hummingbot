@@ -23,3 +23,7 @@ min_profitability: null
 # (Enter 1 for 1%)
 slippage_buffer: null
 
+# A flag (true/false), if true the bot submits both arbitrage taker orders (buy and sell) concurrently
+# If false, the bot will wait for first exchange order filled before submitting the other order
+concurrent_orders_submission: null
+

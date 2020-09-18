@@ -2,7 +2,8 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     validate_exchange,
     validate_market_trading_pair,
-    validate_decimal
+    validate_decimal,
+    validate_bool
 )
 from hummingbot.client.settings import (
     required_exchanges,
@@ -42,7 +43,7 @@ amm_arb_config_map = {
         default="amm_arb"),
     "connector_1": ConfigVar(
         key="connector_1",
-        prompt="Enter your first connector name >>> ",
+        prompt="Enter your first exchange name >>> ",
         prompt_on_new=True,
         validator=validate_exchange,
         on_validated=exchange_on_validated),
@@ -53,7 +54,7 @@ amm_arb_config_map = {
         validator=lambda x: validate_market_trading_pair(amm_arb_config_map["connector_1"].value, x)),
     "connector_2": ConfigVar(
         key="connector_2",
-        prompt="Enter your second connector name >>> ",
+        prompt="Enter your second exchange name >>> ",
         prompt_on_new=True,
         validator=validate_exchange,
         on_validated=exchange_on_validated),
@@ -81,4 +82,12 @@ amm_arb_config_map = {
         default=Decimal("0.01"),
         validator=lambda v: validate_decimal(v),
         type_str="decimal"),
+    "concurrent_orders_submission": ConfigVar(
+        key="concurrent_orders_submission",
+        prompt="Do you want to submit both arb orders concurrently (Yes/No) ? If No, the bot will wait for first "
+               "connector order filled before submitting the other order >>> ",
+        prompt_on_new=True,
+        default=False,
+        validator=validate_bool,
+        type_str="bool"),
 }
