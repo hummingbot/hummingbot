@@ -10,6 +10,7 @@ LIQUID_PRICE_URL = "https://api.liquid.com/products"
 BITTREX_PRICE_URL = "https://api.bittrex.com/api/v1.1/public/getmarketsummaries"
 KRAKEN_PRICE_URL = "https://api.kraken.com/0/public/Ticker?pair="
 COINBASE_PRO_PRICE_URL = "https://api.pro.coinbase.com/products/TO_BE_REPLACED/ticker"
+DUEDEX_PRICE_URL = "https://api.duedex.com/v1/ticker"
 
 
 def get_mid_price(exchange: str, trading_pair: str) -> Optional[Decimal]:
@@ -25,6 +26,8 @@ def get_mid_price(exchange: str, trading_pair: str) -> Optional[Decimal]:
         return kraken_mid_price(trading_pair)
     elif exchange == "coinbase_pro":
         return coinbase_pro_mid_price(trading_pair)
+    elif exchange == "duedex":
+        return duedex_mid_price(trading_pair)
     else:
         return binance_mid_price(trading_pair)
 
@@ -104,3 +107,15 @@ def coinbase_pro_mid_price(trading_pair: str) -> Optional[Decimal]:
     if "bid" in record and "ask" in record:
         result = (Decimal(record["bid"]) + Decimal(record["ask"])) / Decimal("2")
         return result
+
+
+@cachetools.func.ttl_cache(ttl=10)
+def duedex_mid_price(trading_pair: str) -> Optional[Decimal]:
+    url = DUEDEX_PRICE_URL + "/" + trading_pair.replace("-", "").upper()
+    resp = requests.get(url=url)
+    record = resp.json()
+    if "code" in record and record["code"] == 0:
+        return (Decimal(record["data"]["bestBid"]) + Decimal(record["data"]["bestAsk"])) / Decimal("2")
+    else:
+        raise Exception(f"fail to get mid price from {url}, response is {record}.")
+        return None

@@ -22,6 +22,7 @@ from hummingbot.connector.exchange.radar_relay.radar_relay_market import RadarRe
 from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.connector.exchange.dolomite.dolomite_market import DolomiteMarket
 from hummingbot.connector.exchange.kraken.kraken_market import KrakenMarket
+from hummingbot.connector.exchange.duedex.duedex_market import DuedexMarket
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
@@ -333,6 +334,12 @@ class HummingbotApplication(*commands):
                 market = CryptoComExchange(api_key, secret_key,
                                            trading_pairs=trading_pairs,
                                            trading_required=self._trading_required)
+            elif market_name == "duedex":
+                api_key = global_config_map.get("duedex_api_key").value
+                secret_key = global_config_map.get("duedex_secret_key").value
+                market = DuedexMarket(api_key, secret_key,
+                                      trading_pairs=trading_pairs,
+                                      trading_required=self._trading_required)
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")
 

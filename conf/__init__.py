@@ -87,6 +87,10 @@ eterbase_account = os.getenv("ETERBASE_ACCOUNT")
 crypto_com_api_key = os.getenv("CRYPTO_COM_API_KEY")
 crypto_com_secret_key = os.getenv("CRYPTO_COM_SECRET_KEY")
 
+# DueDEX Test
+duedex_api_key = os.getenv("DUEDEX_API_KEY")
+duedex_secret_key = os.getenv("DUEDEX_SECRET_KEY")
+
 # Wallet Tests
 test_erc20_token_address = os.getenv("TEST_ERC20_TOKEN_ADDRESS")
 web3_test_private_key_a = os.getenv("TEST_WALLET_PRIVATE_KEY_A")

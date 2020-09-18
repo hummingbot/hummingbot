@@ -248,6 +248,18 @@ global_config_map = {
                   required_if=using_exchange("crypto_com"),
                   is_secure=True,
                   is_connect_key=True),
+    "duedex_api_key":
+        ConfigVar(key="duedex_api_key",
+                  prompt="Enter your DueDEX.com API key >>> ",
+                  required_if=using_exchange("duedex"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "duedex_secret_key":
+        ConfigVar(key="duedex_secret_key",
+                  prompt="Enter your DueDEX.com secret key >>> ",
+                  required_if=using_exchange("duedex"),
+                  is_secure=True,
+                  is_connect_key=True),
     "celo_address":
         ConfigVar(key="celo_address",
                   prompt="Enter your Celo account address >>> ",
