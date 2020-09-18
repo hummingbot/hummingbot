@@ -3,6 +3,7 @@ import logging
 import asyncio
 import pandas as pd
 from typing import List, Dict
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
@@ -45,9 +46,9 @@ class AmmArbStrategy(StrategyPyBase):
         self._all_markets_ready = False
 
         self._ev_loop = asyncio.get_event_loop()
-        self._async_scheduler = None
-        self._last_synced_checked = 0
-        self._node_synced = False
+        self._main_task = None
+        self._first_order_completed_event = asyncio.Event()
+        self._first_order_id = None
 
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
@@ -83,9 +84,10 @@ class AmmArbStrategy(StrategyPyBase):
             else:
                 self.logger().info(f"Markets are ready. Trading started.")
         if self.ready_for_new_arb_trades():
-            self.main()
+            if self._main_task is None or self._main_task.done():
+                self._main_task = safe_ensure_future(self.main())
 
-    def main(self):
+    async def main(self):
         self._arb_proposals = create_arb_proposals(self._market_info_1, self._market_info_2, self._order_amount)
         arb_proposals = [t for t in self._arb_proposals if t.profit_pct() >= self._min_profitability]
         if len(arb_proposals) == 0:
@@ -95,7 +97,7 @@ class AmmArbStrategy(StrategyPyBase):
                 self._last_no_arb_reported = self.current_timestamp
             return
         self.apply_budget_constraint(arb_proposals)
-        self.execute_arb_proposals(arb_proposals)
+        await self.execute_arb_proposals(arb_proposals)
 
     def apply_budget_constraint(self, arb_proposals: List[ArbProposal]):
         for arb_proposal in arb_proposals:
@@ -115,22 +117,27 @@ class AmmArbStrategy(StrategyPyBase):
                                        f"({balance}) is below required order amount ({required}).")
                     continue
 
-    def execute_arb_proposals(self, arb_proposals: List[ArbProposal]):
+    async def execute_arb_proposals(self, arb_proposals: List[ArbProposal]):
         for arb_proposal in arb_proposals:
             if any(p.amount <= s_decimal_zero for p in (arb_proposal.first_side, arb_proposal.second_side)):
                 continue
             self.logger().info(f"Found arbitrage opportunity!: {arb_proposal}")
             for arb_side in (arb_proposal.first_side, arb_proposal.second_side):
+                if not self._concurrent_orders_submission and arb_side == arb_proposal.second_side:
+                    await self._first_order_completed_event.wait()
                 side = "BUY" if arb_side.is_buy else "SELL"
                 self.log_with_clock(logging.INFO,
                                     f"Placing {side} order for {arb_side.amount} {arb_side.market_info.base_asset} "
                                     f"at {arb_side.market_info.market.display_name} at {arb_side.order_price} price")
                 place_order_fn = self.buy_with_specific_market if arb_side.is_buy else self.sell_with_specific_market
-                place_order_fn(arb_side.market_info,
-                               arb_side.amount,
-                               arb_side.market_info.market.get_taker_order_type(),
-                               arb_side.order_price,
-                               )
+                order_id = place_order_fn(arb_side.market_info,
+                                          arb_side.amount,
+                                          arb_side.market_info.market.get_taker_order_type(),
+                                          arb_side.order_price,
+                                          )
+                if not self._concurrent_orders_submission and arb_side == arb_proposal.first_side:
+                    self._first_order_id = order_id
+                    self._first_order_completed_event = asyncio.Event()
 
     def ready_for_new_arb_trades(self) -> bool:
         outstanding_orders = {**self._sb_order_tracker.get_limit_orders(),
@@ -184,3 +191,14 @@ class AmmArbStrategy(StrategyPyBase):
         #     lines.extend(["", "*** WARNINGS ***"] + warning_lines)
 
         return "\n".join(lines)
+
+    def did_complete_buy_order(self, order_completed_event):
+        self.did_complete_order(order_completed_event)
+
+    def did_complete_sell_order(self, order_completed_event):
+        self.did_complete_order(order_completed_event)
+
+    def did_complete_order(self, order_completed_event):
+        if not self._concurrent_orders_submission and self._first_order_completed_event is not None and \
+                order_completed_event.order_id == self._first_order_id:
+            self._first_order_completed_event.set()
