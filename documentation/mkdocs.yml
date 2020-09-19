@@ -151,6 +151,7 @@ nav:
       - Binance: connectors/binance.md
       - Bittrex Global: connectors/bittrex.md
       - Coinbase Pro: connectors/coinbase.md
+      - Crypto.com : connectors/crypto-com.md
       - Eterbase: connectors/eterbase.md
       - Huobi Global: connectors/huobi.md
       - KuCoin: connectors/kucoin.md
@@ -220,6 +221,7 @@ nav:
       - Configuration: developers/config.md
   - Release Notes:
     - About Releases: release-notes/index.md
+    - 0.31.0: release-notes/0.31.0.md
     - 0.30.0: release-notes/0.30.0.md
     - 0.29.0: release-notes/0.29.0.md
     - 0.28.1: release-notes/0.28.1.md
