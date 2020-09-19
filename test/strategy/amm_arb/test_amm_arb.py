@@ -3,7 +3,9 @@ import sys; sys.path.insert(0, realpath(join(__file__, "../../../../")))
 import unittest
 from decimal import Decimal
 import pandas as pd
+import logging
 
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import QuantizationParams
 from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
@@ -17,6 +19,8 @@ from hummingbot.core.utils.estimate_fee import default_cex_estimate
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.amm_arb.amm_arb import AmmArbStrategy
 from hummingbot.strategy.amm_arb.utils import create_arb_proposals
+
+logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 trading_pair = "CGLD-CUSD"
 base_asset = trading_pair.split("-")[0]
@@ -87,5 +91,6 @@ class AmmArbUnitTest(unittest.TestCase):
     def test_profitable_celo_sell_trade(self):
         order_amount = 1
         self.strategy.order_amount = order_amount
+        self.clock.backtest_til(self.start_timestamp + 6)
         proposals = create_arb_proposals(self.market_info_1, self.market_info_2, order_amount)
         self.assertEqual(2, len(proposals))
