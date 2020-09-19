@@ -36,10 +36,10 @@ EXCHANGES = {
     "dolomite",
     "bittrex",
     "kucoin",
-    "bitcoin_com",
     "bitfinex",
     "eterbase",
-    "kraken"
+    "kraken",
+    "crypto_com"
 }
 
 DEXES = {
@@ -53,7 +53,6 @@ STRATEGIES: List[str] = get_strategy_list()
 EXAMPLE_PAIRS = {
     "bamboo_relay": "ZRX-WETH",
     "binance": "ZRX-ETH",
-    "bitcoin_com": "ETH-BCH",
     "bittrex": "ZRX-ETH",
     "kucoin": "ETH-USDT",
     "coinbase_pro": "ETH-USDC",
@@ -63,13 +62,13 @@ EXAMPLE_PAIRS = {
     "radar_relay": "ZRX-WETH",
     "bitfinex": "ETH-USD",
     "eterbase": "ETH-EUR",
-    "kraken": "ETH-USDC"
+    "kraken": "ETH-USDC",
+    "crypto_com": "ETH-USDT"
 }
 
 EXAMPLE_ASSETS = {
     "bamboo_relay": "ZRX",
     "binance": "ZRX",
-    "bitcoin_com": "BCH",
     "bittrex": "ZRX",
     "kucoin": "ETH",
     "coinbase_pro": "ETH",
@@ -79,7 +78,8 @@ EXAMPLE_ASSETS = {
     "radar_relay": "ZRX",
     "bitfinex": "ETH",
     "eterbase": "ETH",
-    "kraken": "XETH"
+    "kraken": "XETH",
+    "crypto_com": "ETH",
 }
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
