@@ -226,12 +226,6 @@ class DuedexMarketUnitTest(unittest.TestCase):
             self.web_app.update_response("delete", API_BASE_URL, "/v1/order", resp,
                                          params={"orderId": order_id})
         self.market.cancel(trading_pair, order_id)
-        if API_MOCK_ENABLED:
-            resp = get_resp.copy()
-            resp["data"]["orderId"] = exchange_order_id
-            resp["data"]["clientOrderId"] = order_id
-            self.web_app.update_response("delete", API_BASE_URL, "/v1/order", resp,
-                                         params={"orderId": order_id})
 
     def test_limit_maker_rejections(self):
         if API_MOCK_ENABLED:
@@ -273,13 +267,13 @@ class DuedexMarketUnitTest(unittest.TestCase):
         quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price * Decimal("1.2"))
 
         order_id1, exch_order_id1 = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_bid_price,
-                                                     10001, FixtureDuedex.OPEN_BUY_LIMIT_ORDER)
+                                                     1600330000000001, FixtureDuedex.OPEN_BUY_LIMIT_ORDER)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id1, order_created_event.order_id)
 
         order_id2, exch_order_id2 = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_ask_price,
-                                                     10002, FixtureDuedex.OPEN_SELL_LIMIT_ORDER)
+                                                     1600330000000002, FixtureDuedex.OPEN_SELL_LIMIT_ORDER)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id2, order_created_event.order_id)
@@ -298,7 +292,7 @@ class DuedexMarketUnitTest(unittest.TestCase):
         amount: Decimal = Decimal("10")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT, price, 10001,
+        order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT, price, 1600330000000001,
                                        FixtureDuedex.BUY_MARKET_ORDER)
         [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         buy_order_completed_event: BuyOrderCompletedEvent = buy_order_completed_event
@@ -331,7 +325,7 @@ class DuedexMarketUnitTest(unittest.TestCase):
         amount: Decimal = Decimal("10")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        order_id, _ = self.place_order(False, trading_pair, amount, OrderType.LIMIT, price, 10001,
+        order_id, _ = self.place_order(False, trading_pair, amount, OrderType.LIMIT, price, 1600330000000001,
                                        FixtureDuedex.SELL_MARKET_ORDER)
         [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         sell_order_completed_event: SellOrderCompletedEvent = sell_order_completed_event
@@ -369,7 +363,7 @@ class DuedexMarketUnitTest(unittest.TestCase):
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
         order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
-                                                   quantize_bid_price, 10001, FixtureDuedex.OPEN_BUY_LIMIT_ORDER)
+                                                   quantize_bid_price, 1600330000000001, FixtureDuedex.OPEN_BUY_LIMIT_ORDER)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
 
         self.cancel_order(trading_pair, order_id, exch_order_id, FixtureDuedex.CANCEL_ORDER)
@@ -419,7 +413,7 @@ class DuedexMarketUnitTest(unittest.TestCase):
             quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
             order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
-                                                       quantize_bid_price, 10001,
+                                                       quantize_bid_price, 1600330000000001,
                                                        FixtureDuedex.OPEN_BUY_LIMIT_ORDER)
             [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
             order_created_event: BuyOrderCreatedEvent = order_created_event
@@ -490,7 +484,7 @@ class DuedexMarketUnitTest(unittest.TestCase):
             # Try to buy 10 contracts from the exchange, and watch for completion event.
             price: Decimal = self.market.get_price(trading_pair, True)
             amount: Decimal = Decimal("10")
-            order_id, _ = self.place_order(True, trading_pair, amount, OrderType.LIMIT, price, 10001,
+            order_id, _ = self.place_order(True, trading_pair, amount, OrderType.LIMIT, price, 1600330000000001,
                                            FixtureDuedex.BUY_MARKET_ORDER)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
@@ -500,7 +494,7 @@ class DuedexMarketUnitTest(unittest.TestCase):
             # Try to sell back the same amount of BTC to the exchange, and watch for completion event.
             price = self.market.get_price(trading_pair, False)
             amount = buy_order_completed_event.base_asset_amount
-            order_id, _ = self.place_order(False, trading_pair, amount, OrderType.LIMIT, price, 10002,
+            order_id, _ = self.place_order(False, trading_pair, amount, OrderType.LIMIT, price, 1600330000000002,
                                            FixtureDuedex.SELL_MARKET_ORDER)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 

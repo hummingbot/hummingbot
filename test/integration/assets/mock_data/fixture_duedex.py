@@ -47,11 +47,11 @@ class FixtureDuedex:
 
     FILLED_SELL_LIMIT_ORDER = {'code': 0, 'data': {'instrument': 'BTCUSD', 'orderId': 70, 'clientOrderId': 'sell-BTC-USD-1600345787542148', 'type': 'limit', 'isCloseOrder': False, 'side': 'short', 'price': '10000.00', 'size': 10, 'timeInForce': 'gtc', 'notionalValue': '0.00100000', 'status': 'filled', 'fillPrice': '10000.00', 'filledSize': 10, 'accumulatedFees': '0.00000075', 'createTime': '2020-09-17T12:29:47.160Z', 'updateTime': '2020-09-17T12:29:47.160Z'}}
 
-    BUY_MARKET_ORDER = {}
+    BUY_MARKET_ORDER = {'code': 0, 'data': {'instrument': 'BTCUSD', 'orderId': 71, 'clientOrderId': 'buy-BTC-USD-1600334840999449', 'type': 'market', 'isCloseOrder': False, 'side': 'long', 'size': 20, 'timeInForce': 'ioc', 'notionalValue': '0.00190585', 'status': 'new', 'fillPrice': '0.00', 'filledSize': 0, 'accumulatedFees': '0.00000000', 'createTime': '2020-09-17T09:27:20.858Z', 'updateTime': '2020-09-17T09:27:20.858Z'}}
 
-    SELL_MARKET_ORDER = {}
+    SELL_MARKET_ORDER = {'code': 0, 'data': {'instrument': 'BTCUSD', 'orderId': 72, 'clientOrderId': 'sell-BTC-USD-1600334840999450', 'type': 'market', 'isCloseOrder': False, 'side': 'long', 'size': 20, 'timeInForce': 'ioc', 'notionalValue': '0.00190585', 'status': 'new', 'fillPrice': '0.00', 'filledSize': 0, 'accumulatedFees': '0.00000000', 'createTime': '2020-09-17T09:27:20.858Z', 'updateTime': '2020-09-17T09:27:20.858Z'}}
 
-    OPEN_BUY_LIMIT_ORDER = {'code': 0, 'data': {'instrument': 'BTCUSD', 'orderId': 56, 'clientOrderId': 'buy-BTC-USD-1600334840999448', 'type': 'limit', 'isCloseOrder': False, 'side': 'long', 'price': '10494.00', 'size': 20, 'timeInForce': 'gtc', 'notionalValue': '0.00190585', 'status': 'new', 'fillPrice': '0.00', 'filledSize': 0, 'accumulatedFees': '0.00000000', 'createTime': '2020-09-17T09:27:20.858Z', 'updateTime': '2020-09-17T09:27:20.858Z'}}
+    OPEN_BUY_LIMIT_ORDER = {'code': 0, 'data': {'instrument': 'BTCUSD', 'orderId': 56, 'clientOrderId': 'buy-BTC-USD-1600334840999451', 'type': 'limit', 'isCloseOrder': False, 'side': 'long', 'price': '10494.00', 'size': 20, 'timeInForce': 'gtc', 'notionalValue': '0.00190585', 'status': 'new', 'fillPrice': '0.00', 'filledSize': 0, 'accumulatedFees': '0.00000000', 'createTime': '2020-09-17T09:27:20.858Z', 'updateTime': '2020-09-17T09:27:20.858Z'}}
 
     OPEN_SELL_LIMIT_ORDER = {'code': 0, 'data': {'instrument': 'BTCUSD', 'orderId': 57, 'clientOrderId': 'sell-BTC-USD-1600334841000465', 'type': 'limit', 'isCloseOrder': False, 'side': 'short', 'price': '10706.00', 'size': 20, 'timeInForce': 'gtc', 'notionalValue': '0.00186811', 'status': 'new', 'fillPrice': '0.00', 'filledSize': 0, 'accumulatedFees': '0.00000000', 'createTime': '2020-09-17T09:27:20.858Z', 'updateTime': '2020-09-17T09:27:20.858Z'}}
 
