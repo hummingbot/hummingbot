@@ -18,9 +18,9 @@ from typing import (
     Dict,
     Optional,
     List)
-from hummingbot.market.liquid.liquid_order_book_tracker import LiquidOrderBookTracker
+from hummingbot.connector.exchange.liquid.liquid_order_book_tracker import LiquidOrderBookTracker
+from hummingbot.connector.exchange.liquid.liquid_api_order_book_data_source import LiquidAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
@@ -41,9 +41,7 @@ class LiquidOrderBookTrackerUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        cls.order_book_tracker: LiquidOrderBookTracker = LiquidOrderBookTracker(
-            OrderBookTrackerDataSourceType.EXCHANGE_API,
-            trading_pairs=cls.trading_pairs)
+        cls.order_book_tracker: LiquidOrderBookTracker = LiquidOrderBookTracker(cls.trading_pairs)
 
         cls.order_book_tracker_task: asyncio.Task = safe_ensure_future(cls.order_book_tracker.start())
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
@@ -108,6 +106,17 @@ class LiquidOrderBookTrackerUnitTest(unittest.TestCase):
                                 ethusd_book.get_price(True))
         self.assertLessEqual(lxcbtc_book.get_price_for_volume(False, 10).result_price,
                              lxcbtc_book.get_price(False))
+        for order_book in self.order_book_tracker.order_books.values():
+            print(order_book.last_trade_price)
+            self.assertFalse(math.isnan(order_book.last_trade_price))
+
+    def test_api_get_last_traded_prices(self):
+        prices = self.ev_loop.run_until_complete(
+            LiquidAPIOrderBookDataSource.get_last_traded_prices(["BTC-USD", "ETH-USD"]))
+        for key, value in prices.items():
+            print(f"{key} last_trade_price: {value}")
+        self.assertGreater(prices["BTC-USD"], 1000)
+        self.assertLess(prices["ETH-USD"], 1000)
 
 
 def main():

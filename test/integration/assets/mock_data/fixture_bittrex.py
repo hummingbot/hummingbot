@@ -1,13 +1,6 @@
 class FixtureBittrex:
     PING = {"serverTime": 1582535502000}
 
-    BALANCES = [{"currencySymbol": "BTC", "total": "0.00279886", "available": "0.00279886"},
-                {"currencySymbol": "BTXCRD", "total": "1031.33915356", "available": "1031.33915356"},
-                {"currencySymbol": "ETH", "total": "0.24010276", "available": "0.24010276"},
-                {"currencySymbol": "USDT", "total": "76.30113330", "available": "67.48856276"},
-                {"currencySymbol": "XZC", "total": "4.99205590", "available": "4.99205590"},
-                {"currencySymbol": "ZRX", "total": "0.00000000", "available": "0.00000000"}]
-
     MARKETS = [
         {"symbol": "ETH-BTC", "baseCurrencySymbol": "ETH", "quoteCurrencySymbol": "BTC",
          "minTradeSize": "0.01314872", "precision": 8, "status": "ONLINE", "createdAt": "2015-08-14T09:02:24.817Z"},
@@ -29,19 +22,28 @@ class FixtureBittrex:
          "askRate": "9770.73200000"}
     ]
 
-    ORDER_PLACE_FILLED = {"id": "d7850281-0440-4478-879f-248499b2134d", "marketSymbol": "ETH-USDT", "direction": "BUY",
+    # General User Info
+    BALANCES = [{"currencySymbol": "BTC", "total": "0.00279886", "available": "0.00279886"},
+                {"currencySymbol": "BTXCRD", "total": "1031.33915356", "available": "1031.33915356"},
+                {"currencySymbol": "ETH", "total": "0.24010276", "available": "0.24010276"},
+                {"currencySymbol": "USDT", "total": "76.30113330", "available": "67.48856276"},
+                {"currencySymbol": "XZC", "total": "4.99205590", "available": "4.99205590"},
+                {"currencySymbol": "ZRX", "total": "0.00000000", "available": "0.00000000"}]
+
+    # User Trade Info
+    FILLED_BUY_LIMIT_ORDER = {"id": "d7850281-0440-4478-879f-248499b2134d", "marketSymbol": "ETH-USDT", "direction": "BUY",
                           "type": "LIMIT", "quantity": "0.06000000", "limit": "268.09208274",
                           "timeInForce": "GOOD_TIL_CANCELLED", "fillQuantity": "0.06000000", "commission": "0.01333791",
                           "proceeds": "5.33516582", "status": "CLOSED", "createdAt": "2020-02-24T09:38:13.1Z",
                           "updatedAt": "2020-02-24T09:38:13.1Z", "closedAt": "2020-02-24T09:38:13.1Z"}
 
-    ORDER_PLACE_OPEN = {"id": "615aa7de-3ff9-486d-98d7-2d37aca212c9", "marketSymbol": "ETH-USDT", "direction": "BUY",
+    OPEN_BUY_LIMIT_ORDER = {"id": "615aa7de-3ff9-486d-98d7-2d37aca212c9", "marketSymbol": "ETH-USDT", "direction": "BUY",
                         "type": "LIMIT", "quantity": "0.06000000", "limit": "205.64319999",
                         "timeInForce": "GOOD_TIL_CANCELLED", "fillQuantity": "0.00000000", "commission": "0.00000000",
                         "proceeds": "0.00000000", "status": "OPEN", "createdAt": "2020-02-25T11:13:32.12Z",
                         "updatedAt": "2020-02-25T11:13:32.12Z"}
 
-    ORDER_CANCEL = {"id": "615aa7de-3ff9-486d-98d7-2d37aca212c9", "marketSymbol": "ETH-USDT", "direction": "BUY",
+    CANCEL_ORDER = {"id": "615aa7de-3ff9-486d-98d7-2d37aca212c9", "marketSymbol": "ETH-USDT", "direction": "BUY",
                     "type": "LIMIT", "quantity": "0.06000000", "limit": "205.64319999",
                     "timeInForce": "GOOD_TIL_CANCELLED", "fillQuantity": "0.00000000", "commission": "0.00000000",
                     "proceeds": "0.00000000", "status": "CLOSED", "createdAt": "2020-02-25T11:13:32.12Z",
@@ -58,7 +60,7 @@ class FixtureBittrex:
          "createdAt": "2020-01-26T02:58:14.19Z", "updatedAt": "2020-01-26T02:58:14.19Z"}
     ]
 
-    WS_ORDER_FILLED = {
+    WS_AFTER_BUY_2 = {
         'event_type': 'uO', 'content': {'w': 'f8907116-4e24-4602-b691-d110b5ce1bf8', 'N': 8, 'TY': 2,
                                         'o': {'U': '00000000-0000-0000-0000-000000000000',
                                               'I': 4551095126,
@@ -72,7 +74,7 @@ class FixtureBittrex:
         'time': '2020-02-24T10:32:21'
     }
 
-    WS_ORDER_OPEN = {
+    WS_AFTER_BUY_1 = {
         'event_type': 'uO', 'content': {'w': 'f8907116-4e24-4602-b691-d110b5ce1bf8', 'N': 13, 'TY': 0,
                                         'o': {'U': '00000000-0000-0000-0000-000000000000', 'I': 4564385840,
                                               'OU': '615aa7de-3ff9-486d-98d7-2d37aca212c9', 'E': 'ETH-USDT',
@@ -83,7 +85,7 @@ class FixtureBittrex:
         'time': '2020-02-25T11:13:32'
     }
 
-    WS_ORDER_FILLED_SELL = {'event_type': 'uO',
+    WS_AFTER_SELL_2 = {'event_type': 'uO',
                             'content': {'w': 'f8907116-4e24-4602-b691-d110b5ce1bf8', 'N': 10, 'TY': 2,
                                         'o': {'U': '00000000-0000-0000-0000-000000000000', 'I': 4279414326,
                                               'OU': '447256cc-9335-41f3-bec9-7392804d30cd', 'E': 'ETH-USDT',

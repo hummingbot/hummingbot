@@ -55,7 +55,23 @@ def validate_order_amount(value: str) -> Optional[str]:
         return "Invalid order amount."
 
 
-def price_source_market_prompt():
+def validate_price_source(value: str) -> Optional[str]:
+    if value not in {"current_market", "external_market", "custom_api"}:
+        return "Invalid price source type."
+
+
+def on_validate_price_source(value: str):
+    if value != "external_market":
+        pure_market_making_config_map["price_source_exchange"].value = None
+        pure_market_making_config_map["price_source_market"].value = None
+        pure_market_making_config_map["take_if_crossed"].value = None
+    if value != "custom_api":
+        pure_market_making_config_map["price_source_custom_api"].value = None
+    else:
+        pure_market_making_config_map["price_type"].value = None
+
+
+def price_source_market_prompt() -> str:
     external_market = pure_market_making_config_map.get("price_source_exchange").value
     return f'Enter the token trading pair on {external_market} >>> '
 
@@ -64,6 +80,11 @@ def validate_price_source_exchange(value: str) -> Optional[str]:
     if value == pure_market_making_config_map.get("exchange").value:
         return "Price source exchange cannot be the same as maker exchange."
     return validate_exchange(value)
+
+
+def on_validated_price_source_exchange(value: str):
+    if value is None:
+        pure_market_making_config_map["price_source_market"].value = None
 
 
 def validate_price_source_market(value: str) -> Optional[str]:
@@ -268,41 +289,47 @@ pure_market_making_config_map = {
                   type_str="bool",
                   default=False,
                   validator=validate_bool),
-    "price_source_enabled": ConfigVar(key="price_source_enabled",
-                                      prompt="Would you like to use an external pricing source for mid-market "
-                                             "price? (Yes/No) >>> ",
-                                      type_str="bool",
-                                      default=False,
-                                      validator=validate_bool),
-    "price_source_type": ConfigVar(key="price_source_type",
-                                   prompt="Which type of external price source to use? "
-                                          "(exchange/custom_api) >>> ",
-                                   required_if=lambda: pure_market_making_config_map.get(
-                                       "price_source_enabled").value,
-                                   type_str="str",
-                                   validator=lambda s: None if s in {"exchange", "custom_api"} else
-                                   "Invalid price source type."),
-    "price_source_exchange": ConfigVar(key="price_source_exchange",
-                                       prompt="Enter external price source exchange name >>> ",
-                                       required_if=lambda: pure_market_making_config_map.get(
-                                           "price_source_type").value == "exchange",
-                                       type_str="str",
-                                       validator=validate_price_source_exchange),
-    "price_source_market": ConfigVar(key="price_source_market",
-                                     prompt=price_source_market_prompt,
-                                     required_if=lambda: pure_market_making_config_map.get(
-                                         "price_source_type").value == "exchange",
-                                     type_str="str",
-                                     validator=validate_price_source_market),
-    "price_source_custom": ConfigVar(key="price_source_custom",
-                                     prompt="Enter pricing API URL >>> ",
-                                     required_if=lambda: pure_market_making_config_map.get(
-                                         "price_source_type").value == "custom_api",
-                                     type_str="str"),
-    "take_if_crossed": ConfigVar(key="take_if_crossed",
-                                 prompt="Do you want to let your maker orders match and fill if they cross the "
-                                        "order book? (Yes/No) >>> ",
-                                 required_if=lambda: pure_market_making_config_map.get("price_source_enabled").value,
-                                 type_str="bool",
-                                 validator=validate_take_if_crossed)
+    "price_source":
+        ConfigVar(key="price_source",
+                  prompt="Which price source to use? (current_market/external_market/custom_api) >>> ",
+                  type_str="str",
+                  default="current_market",
+                  validator=validate_price_source,
+                  on_validated=on_validate_price_source),
+    "price_type":
+        ConfigVar(key="price_type",
+                  prompt="Which price type to use? (mid_price/last_price/best_bid/best_ask) >>> ",
+                  type_str="str",
+                  required_if=lambda: pure_market_making_config_map.get("price_source").value != "custom_api",
+                  default="mid_price",
+                  validator=lambda s: None if s in {"mid_price",
+                                                    "last_price",
+                                                    "best_bid",
+                                                    "best_ask"} else
+                  "Invalid price type."),
+    "price_source_exchange":
+        ConfigVar(key="price_source_exchange",
+                  prompt="Enter external price source exchange name >>> ",
+                  required_if=lambda: pure_market_making_config_map.get("price_source").value == "external_market",
+                  type_str="str",
+                  validator=validate_price_source_exchange,
+                  on_validated=on_validated_price_source_exchange),
+    "price_source_market":
+        ConfigVar(key="price_source_market",
+                  prompt=price_source_market_prompt,
+                  required_if=lambda: pure_market_making_config_map.get("price_source").value == "external_market",
+                  type_str="str",
+                  validator=validate_price_source_market),
+    "take_if_crossed":
+        ConfigVar(key="take_if_crossed",
+                  prompt="Do you want to take the best order if orders cross the orderbook? ((Yes/No) >>> ",
+                  required_if=lambda: pure_market_making_config_map.get(
+                      "price_source").value == "external_market",
+                  type_str="bool",
+                  validator=validate_bool),
+    "price_source_custom_api":
+        ConfigVar(key="price_source_custom_api",
+                  prompt="Enter pricing API URL >>> ",
+                  required_if=lambda: pure_market_making_config_map.get("price_source").value == "custom_api",
+                  type_str="str"),
 }

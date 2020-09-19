@@ -14,14 +14,13 @@ It is recommended to disable `add_transaction_costs` (set to `False`) for this f
 - bid_spread: 0.1%
 - ask_spread: 0.1%
 - order_optimization_enabled: false
-- order_optimization_depth: 0
+- ask_order_optimization_depth: 0
+- bid_order_optimization_depth: 0
 ```
 
 Setting our bid and ask threshold to a very small value (0.1%) puts our orders at the top of the order book. The image on below shows the buy order is placed at `0.003159` and the sell order at `0.003165` with best bid ask jump mode disabled.
 
 ![jump_orders_1](/assets/img/jump_orders1.png)
-
-The image on the right has best bid ask jump enabled which places the buy order at `0.003150` and sell order at `0.003174` right just above the next best order.
 
 Now let's enable `order_optimization_enabled`. You'll see in the next image that the buy order is placed at `0.003150` and sell order at `0.003174` right just above the next best order.
 
@@ -29,7 +28,8 @@ Now let's enable `order_optimization_enabled`. You'll see in the next image that
 - bid_spread: 0.1%
 - ask_spread: 0.1%
 - order_optimization_enabled: True
-- order_optimization_depth: 0
+- ask_order_optimization_depth: 0
+- bid_order_optimization_depth: 0
 ```
 
 ![jump_orders_2](/assets/img/jump_orders2.png)
@@ -44,21 +44,23 @@ This allows users to ignore dust orders specified in base currency amount. As sh
 - bid_spread: 0.1%
 - ask_spread: 0.1%
 - order_optimization_enabled: True
-- order_optimization_depth: 0
+- ask_order_optimization_depth: 0
+- bid_order_optimization_depth: 0
 ```
 
 ![jump_orders_3](/assets/img/jump_orders3.png)
 
-Then we reconfigure and set `order_optimization_depth` to 10000.
+Then we reconfigure and set `ask_order_optimization_depth` and `bid_order_optimization_depth` both to 50,000.
 
 ```json
 - bid_spread: 0.1%
 - ask_spread: 0.1%
 - order_optimization_enabled: True
-- order_optimization_depth: 10000
+- ask_order_optimization_depth: 50000
+- bid_order_optimization_depth: 50000
 ```
 
-Doing this ignores the first 10,000 units of orders in the orderbook and places our orders right next to them.
+Doing this ignores the first 50,000 units of orders on each side in the orderbook and places our orders right next to them.
 
 ![jump_orders_4](/assets/img/jump_orders4.png)
 
@@ -68,4 +70,5 @@ Doing this ignores the first 10,000 units of orders in the orderbook and places 
 | Parameter | Prompt | Definition |
 |-----------|--------|------------|
 | **order_optimization_enabled** | `Do you want to enable best bid ask jumping? (Yes/No)` | Allows your bid and ask order prices to be adjusted based on the current top bid and ask prices in the market. |
-| **order_optimization_depth** | `How deep do you want to go into the order book for calculating the top bid and ask, ignoring dust orders on the top (expressed in base asset amount)?` | The depth in base asset amount to be used for finding top bid and ask. |
+| **ask_order_optimization_depth** | `How deep do you want to go into the order book for calculating the top ask, ignoring dust orders on the top (expressed in base asset amount)?` | The depth in base asset amount to be used for finding top bid ask. |
+| **bid_order_optimization_depth** | `How deep do you want to go into the order book for calculating the top bid, ignoring dust orders on the top (expressed in base asset amount)?` | The depth in base asset amount to be used for finding top bid. |

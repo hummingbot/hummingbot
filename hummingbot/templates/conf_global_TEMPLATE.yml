@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 9
+template_version: 11
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -11,9 +11,6 @@ bamboo_relay_pre_emptive_soft_cancels: false
 
 binance_api_key: null
 binance_api_secret: null
-
-bitcoin_com_api_key: null
-bitcoin_com_secret_key: null
 
 bittrex_api_key: null
 bittrex_secret_key: null
@@ -35,6 +32,9 @@ kucoin_passphrase: null
 kraken_api_key: null
 kraken_secret_key: null
 
+crypto_com_api_key: null
+crypto_com_secret_key: null
+
 eterbase_api_key: null
 eterbase_secret_key: null
 eterbase_account: null
@@ -54,33 +54,25 @@ ethereum_token_overrides: {}
 
 # Kill switch
 kill_switch_enabled: null
-## The rate of performance at which you would want the bot to stop trading (-20 = 20%)
+# The rate of performance at which you would want the bot to stop trading (-20 = 20%)
 kill_switch_rate: null
 
-#DEX active order cancellation
+# DEX active order cancellation
 0x_active_cancels: false
 
 # Paper Trading
 paper_trade_enabled: false
 paper_trade_account_balance:
-- - USDT
-  - 1000
-- - ONE
-  - 1000
-- - USDQ
-  - 1000
-- - TUSD
-  - 1000
-- - ETH
-  - 10
-- - WETH
-  - 10
-- - USDC
-  - 1000
-- - DAI
-  - 1000
+  BTC: 1
+  USDT: 1000
+  ONE: 1000
+  USDQ: 1000
+  TUSD: 1000
+  ETH: 10
+  WETH: 10
+  USDC: 1000
+  DAI: 1000
 
-# Telegram integration
 telegram_enabled: false
 telegram_token: null
 telegram_chat_id: null
@@ -103,18 +95,13 @@ on_chain_cancel_on_exit: false
 
 # Minimum default order amount (in quote currency), this is used for when prompting a new order_amount.
 min_quote_order_amount:
-- - BTC
-  - 0.0011
-- - ETH
-  - 0.05
-- - USD
-  - 11
-- - BNB
-  - 0.5
-- - USDT
-  - 11
-- - USDC
-  - 11
+  BTC: 0.0011
+  ETH: 0.05
+  USD: 11
+  BNB: 0.5
+  USDT: 11
+  USDC: 11
+
 
 # Advanced database options, currently supports SQLAlchemy's included dialects
 # Reference: https://docs.sqlalchemy.org/en/13/dialects/
@@ -127,4 +114,13 @@ db_name: null
 
 script_enabled: null
 script_file_path: null
+
+# Balance Limit Configurations
+# e.g. Setting USDT and BTC limits on Binance.
+# balance_asset_limit:
+#   binance:
+#     BTC: 0.1
+#     USDT: 1000
+balance_asset_limit:
+  binance:
 
