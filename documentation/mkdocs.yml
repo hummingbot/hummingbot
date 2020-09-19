@@ -161,6 +161,7 @@ nav:
       - Community Connectors:
         - Bamboo Relay: connectors/bamboo-relay.md
         - Dolomite: connectors/dolomite.md
+        - DueDEX: connectors/duedex.md
     - Advanced:
       - Multiple Bots: advanced/running-multiple-bots.md
       - Kill Switch: advanced/kill-switch.md
