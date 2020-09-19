@@ -88,6 +88,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                  status_report_interval: float = 900,
                  minimum_spread: Decimal = Decimal(0),
                  hb_app_notification: bool = False,
+                 order_override: Dict[str, List[str]] = {},
                  ):
 
         if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
@@ -125,6 +126,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._ping_pong_enabled = ping_pong_enabled
         self._ping_pong_warning_lines = []
         self._hb_app_notification = hb_app_notification
+        self._order_override = order_override
 
         self._cancel_timestamp = 0
         self._create_timestamp = 0
@@ -167,6 +169,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @order_levels.setter
     def order_levels(self, value: int):
         self._order_levels = value
+        self._buy_levels = value
+        self._sell_levels = value
 
     @property
     def buy_levels(self) -> int:
@@ -618,20 +622,43 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             ExchangeBase market = self._market_info.market
             list buys = []
             list sells = []
-        for level in range(0, self._buy_levels):
-            price = self.get_price() * (Decimal("1") - self._bid_spread - (level * self._order_level_spread))
-            price = market.c_quantize_order_price(self.trading_pair, price)
-            size = self._order_amount + (self._order_level_amount * level)
-            size = market.c_quantize_order_amount(self.trading_pair, size)
-            if size > 0:
-                buys.append(PriceSize(price, size))
-        for level in range(0, self._sell_levels):
-            price = self.get_price() * (Decimal("1") + self._ask_spread + (level * self._order_level_spread))
-            price = market.c_quantize_order_price(self.trading_pair, price)
-            size = self._order_amount + (self._order_level_amount * level)
-            size = market.c_quantize_order_amount(self.trading_pair, size)
-            if size > 0:
-                sells.append(PriceSize(price, size))
+
+        # first to check if any advanced users provide an order override array. In this case, the orders will be
+        # generated per orverride array, otherwise the order will be generated according to buy/sell/order spread/amounts
+        # specificed by users through client interface
+        order_override = self._order_override
+        if order_override is not None and len(order_override) > 0:
+            for key, value in order_override.items():
+                if str(value[0]) in ["buy", "sell"]:
+                    if str(value[0]) == "buy":
+                        price = self.c_get_mid_price() * (Decimal("1") - Decimal(str(value[1])) / Decimal("100"))
+                        price = market.c_quantize_order_price(self.trading_pair, price)
+                        size = Decimal(str(value[2]))
+                        size = market.c_quantize_order_amount(self.trading_pair, size)
+                        if size > 0 and price > 0:
+                            buys.append(PriceSize(price, size))
+                    elif str(value[0]) == "sell":
+                        price = self.c_get_mid_price() * (Decimal("1") + Decimal(str(value[1])) / Decimal("100"))
+                        price = market.c_quantize_order_price(self.trading_pair, price)
+                        size = Decimal(str(value[2]))
+                        size = market.c_quantize_order_amount(self.trading_pair, size)
+                        if size > 0 and price > 0:
+                            sells.append(PriceSize(price, size))
+        else:
+            for level in range(0, self._buy_levels):
+                price = self.get_price() * (Decimal("1") - self._bid_spread - (level * self._order_level_spread))
+                price = market.c_quantize_order_price(self.trading_pair, price)
+                size = self._order_amount + (self._order_level_amount * level)
+                size = market.c_quantize_order_amount(self.trading_pair, size)
+                if size > 0:
+                    buys.append(PriceSize(price, size))
+            for level in range(0, self._sell_levels):
+                price = self.get_price() * (Decimal("1") + self._ask_spread + (level * self._order_level_spread))
+                price = market.c_quantize_order_price(self.trading_pair, price)
+                size = self._order_amount + (self._order_level_amount * level)
+                size = market.c_quantize_order_amount(self.trading_pair, size)
+                if size > 0:
+                    sells.append(PriceSize(price, size))
 
         return Proposal(buys, sells)
 
