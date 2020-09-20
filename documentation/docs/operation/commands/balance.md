@@ -104,3 +104,6 @@ Paper account balances:
      WETH    10.0000
       ZRX  1000.0000
 ```
+
+!!! note "Note: Do not set Balance Limit to 0"
+    To disable balance limit, you need to remove the balance limit from the **conf_global.yml file**. If you set to 0, the bot does not start and displays "no active maket orders". 
