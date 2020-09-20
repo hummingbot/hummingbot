@@ -6,8 +6,8 @@ from typing import List
 import websockets
 
 import conf
-from hummingbot.market.bitfinex import BITFINEX_WS_AUTH_URI
-from hummingbot.market.bitfinex.bitfinex_auth import BitfinexAuth
+from hummingbot.connector.exchange.bitfinex import BITFINEX_WS_AUTH_URI
+from hummingbot.connector.exchange.bitfinex.bitfinex_auth import BitfinexAuth
 
 
 class TestAuth(unittest.TestCase):

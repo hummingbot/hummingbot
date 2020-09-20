@@ -6,10 +6,10 @@ from typing import Optional, List
 from hummingbot.core.data_type.user_stream_tracker_data_source import \
     UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.bitfinex.bitfinex_order_book import BitfinexOrderBook
-from hummingbot.market.bitfinex.bitfinex_websocket import BitfinexWebsocket
-from hummingbot.market.bitfinex.bitfinex_auth import BitfinexAuth
-from hummingbot.market.bitfinex.bitfinex_order_book_message import \
+from hummingbot.connector.exchange.bitfinex.bitfinex_order_book import BitfinexOrderBook
+from hummingbot.connector.exchange.bitfinex.bitfinex_websocket import BitfinexWebsocket
+from hummingbot.connector.exchange.bitfinex.bitfinex_auth import BitfinexAuth
+from hummingbot.connector.exchange.bitfinex.bitfinex_order_book_message import \
     BitfinexOrderBookMessage
 
 

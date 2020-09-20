@@ -35,8 +35,8 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.market.bitfinex.bitfinex_market import BitfinexMarket
-from hummingbot.market.markets_recorder import MarketsRecorder
+from hummingbot.connector.exchange.bitfinex.bitfinex_market import BitfinexMarket
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
@@ -144,11 +144,17 @@ class BitfinexMarketUnitTest(unittest.TestCase):
         current_ask_price: Decimal = self.market.get_price(trading_pair, False)
         # no fill
         bid_price: Decimal = Decimal("0.9") * current_ask_price
-        quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair,
-                                                                       bid_price)
+        quantize_ask_price: Decimal = self.market.quantize_order_price(
+            trading_pair,
+            bid_price
+        )
 
-        order_id = self.market.buy(trading_pair, amount, OrderType.LIMIT,
-                                   quantize_ask_price)
+        order_id = self.market.buy(
+            trading_pair,
+            amount,
+            OrderType.LIMIT,
+            quantize_ask_price
+        )
 
         # Wait for order creation event
         self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
@@ -199,7 +205,7 @@ class BitfinexMarketUnitTest(unittest.TestCase):
         bid_price: Decimal = Decimal(most_top_bid.price)
         quantize_bid_price: Decimal = \
             self.market.quantize_order_price(trading_pair, bid_price)
-        quantize_bid_price = quantize_bid_price + Decimal("0.2")
+        quantize_bid_price = quantize_bid_price * Decimal("1.1")
 
         order_id = self.market.buy(trading_pair,
                                    quantized_amount,
@@ -240,7 +246,7 @@ class BitfinexMarketUnitTest(unittest.TestCase):
         ask_price: Decimal = Decimal(most_top_ask.price)
         quantize_ask_price: Decimal = \
             self.market.quantize_order_price(trading_pair, ask_price)
-        quantize_ask_price = quantize_ask_price - Decimal("0.05")
+        quantize_ask_price = quantize_ask_price * Decimal("0.9")
 
         order_id = self.market.sell(trading_pair,
                                     quantized_amount,
