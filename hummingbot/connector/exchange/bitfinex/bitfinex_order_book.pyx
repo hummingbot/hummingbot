@@ -12,7 +12,7 @@ from hummingbot.core.data_type.order_book_message import (
 )
 from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.bitfinex.bitfinex_order_book_message import \
+from hummingbot.connector.exchange.bitfinex.bitfinex_order_book_message import \
     BitfinexOrderBookMessage
 
 _logger = None

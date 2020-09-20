@@ -329,7 +329,7 @@ class TradingPairFetcher:
             # To-DO: move pair conversion methods to utils file in bitfinix connector folder and uncomment the following lines
             # from hummingbot.connector.exchange.bitfinex.utils import convert_from_exchange_trading_pair
 
-            from hummingbot.market.bitfinex.bitfinex_market import BitfinexMarket
+            from hummingbot.connector.exchange.bitfinex.bitfinex_market import BitfinexMarket
 
             client: aiohttp.ClientSession = TradingPairFetcher.http_client()
             async with client.get(BITFINEX_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
@@ -341,8 +341,8 @@ class TradingPairFetcher:
                     )))
                     trading_pair_list: List[str] = []
                     for raw_trading_pair in raw_trading_pairs:
+                        # change the following line accordingly
                         converted_trading_pair: Optional[str] = \
-                            # change the following line accordingly
                             BitfinexMarket.convert_from_exchange_trading_pair(raw_trading_pair)
                         if converted_trading_pair is not None:
                             trading_pair_list.append(converted_trading_pair)

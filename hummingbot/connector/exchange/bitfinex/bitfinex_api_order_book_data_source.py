@@ -31,20 +31,21 @@ from hummingbot.core.data_type.order_book_message import (
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.bitfinex import (
+from hummingbot.connector.exchange.bitfinex import (
     BITFINEX_REST_URL,
     BITFINEX_REST_URL_V1,
     BITFINEX_WS_URI,
     ContentEventType,
 )
-from hummingbot.market.bitfinex.bitfinex_utils import (
-    get_precision
+from hummingbot.connector.exchange.bitfinex.bitfinex_utils import (
+    get_precision,
+    join_paths
 )
-from hummingbot.market.bitfinex.bitfinex_active_order_tracker import BitfinexActiveOrderTracker
-from hummingbot.market.bitfinex.bitfinex_order_book import BitfinexOrderBook
-from hummingbot.market.bitfinex.bitfinex_order_book_message import \
+from hummingbot.connector.exchange.bitfinex.bitfinex_active_order_tracker import BitfinexActiveOrderTracker
+from hummingbot.connector.exchange.bitfinex.bitfinex_order_book import BitfinexOrderBook
+from hummingbot.connector.exchange.bitfinex.bitfinex_order_book_message import \
     BitfinexOrderBookMessage
-from hummingbot.market.bitfinex.bitfinex_order_book_tracker_entry import \
+from hummingbot.connector.exchange.bitfinex.bitfinex_order_book_tracker_entry import \
     BitfinexOrderBookTrackerEntry
 
 BOOK_RET_TYPE = List[Dict[str, Any]]
@@ -82,7 +83,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return cls._logger
 
     def __init__(self, trading_pairs: Optional[List[str]] = None):
-        super().__init__()
+        super().__init__(trading_pairs)
         self._trading_pairs: Optional[List[str]] = trading_pairs
         # Dictionary that maps Order IDs to book enties (i.e. price, amount, and update_id the
         # way it is stored in Hummingbot order book, usually timestamp)
@@ -281,6 +282,37 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             self._track_order(o.update_id, OrderBookRow(o.price, o.amount, update_id), "bids")
         for o in snapshot["asks"]:
             self._track_order(o.update_id, OrderBookRow(o.price, o.amount, update_id), "asks")
+
+    @classmethod
+    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
+        tasks = [cls.get_last_traded_price(t_pair) for t_pair in trading_pairs]
+        results = await safe_gather(*tasks)
+        return {t_pair: result for t_pair, result in zip(trading_pairs, results)}
+
+    @classmethod
+    async def get_last_traded_price(cls, trading_pair: str) -> float:
+        async with aiohttp.ClientSession() as client:
+            # https://api-pub.bitfinex.com/v2/ticker/tBTCUSD
+            ticker_url: str = join_paths(BITFINEX_REST_URL, trading_pair)
+            resp = await client.get(ticker_url)
+            resp_json = await resp.json()
+            ticker = Ticker(*resp_json)
+            return float(ticker.last_price)
+
+    async def get_new_order_book(self, trading_pair: str) -> OrderBook:
+        async with aiohttp.ClientSession() as client:
+            snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
+            snapshot_timestamp: float = time.time()
+            snapshot_msg: OrderBookMessage = BitfinexOrderBook.snapshot_message_from_exchange(
+                snapshot,
+                snapshot_timestamp,
+                metadata={"symbol": trading_pair}
+            )
+            active_order_tracker: BitfinexActiveOrderTracker = BitfinexActiveOrderTracker()
+            bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
+            order_book = self.order_book_create_function()
+            order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
+            return order_book
 
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
         result: Dict[str, OrderBookTrackerEntry] = {}

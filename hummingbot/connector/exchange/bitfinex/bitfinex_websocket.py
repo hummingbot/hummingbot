@@ -9,8 +9,8 @@ from typing import Optional, AsyncIterable, Any
 from websockets.exceptions import ConnectionClosed
 from async_timeout import timeout
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.bitfinex import BITFINEX_WS_URI
-from hummingbot.market.bitfinex.bitfinex_auth import BitfinexAuth
+from hummingbot.connector.exchange.bitfinex import BITFINEX_WS_URI
+from hummingbot.connector.exchange.bitfinex.bitfinex_auth import BitfinexAuth
 
 
 # reusable websocket class
@@ -59,6 +59,7 @@ class BitfinexWebsocket():
                 try:
                     msg_str: str = await asyncio.wait_for(self._client.recv(), timeout=self.MESSAGE_TIMEOUT)
                     msg = ujson.loads(msg_str)
+                    # print("received", msg)
 
                     for queue in self._consumers.values():
                         await queue.put(msg)
@@ -120,6 +121,8 @@ class BitfinexWebsocket():
                         try:
                             if (waitFor(msg) is True):
                                 yield msg
+                        except IOError as e:
+                            raise e
                         except Exception:
                             pass
         except Exception as e:
@@ -133,6 +136,7 @@ class BitfinexWebsocket():
         if (self._listening is False):
             await self.connect()
 
+        # print("send", data)
         await self._client.send(ujson.dumps(data))
 
     # authenticate: authenticate session

@@ -1,6 +1,6 @@
 from hummingbot.connector.exchange.binance.binance_market import BinanceMarket
 from hummingbot.connector.exchange.bittrex.bittrex_market import BittrexMarket
-from hummingbot.connector.exchange.bittrex.bittrex_market import BittrexMarket
+from hummingbot.connector.exchange.bitfinex.bitfinex_market import BitfinexMarket
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.connector.exchange.huobi.huobi_market import HuobiMarket
 from hummingbot.connector.exchange.kucoin.kucoin_market import KucoinMarket

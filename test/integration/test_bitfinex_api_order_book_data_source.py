@@ -11,7 +11,7 @@ import logging
 import unittest
 from typing import List
 
-from hummingbot.market.bitfinex.bitfinex_api_order_book_data_source import (
+from hummingbot.connector.exchange.bitfinex.bitfinex_api_order_book_data_source import (
     BitfinexAPIOrderBookDataSource,
 )
 
