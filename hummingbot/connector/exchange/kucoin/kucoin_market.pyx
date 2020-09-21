@@ -620,7 +620,6 @@ cdef class KucoinMarket(ExchangeBase):
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {
-            "account_id_initialized": self._account_id != "" if self._trading_required else True,
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": self._account_balances if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0
