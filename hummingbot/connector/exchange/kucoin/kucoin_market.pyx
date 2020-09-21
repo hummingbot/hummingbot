@@ -207,7 +207,6 @@ cdef class KucoinMarket(ExchangeBase):
         self._order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
-            await self._update_account_id()
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
@@ -411,39 +410,19 @@ cdef class KucoinMarket(ExchangeBase):
                 raise IOError(f"Error parsing data from {url}.")
             return parsed_response
 
-    async def _update_account_id(self) -> str:
-        accounts = await self._api_request("get", path_url="/api/v1/accounts", is_auth_required=True)
-        try:
-            for account in accounts["data"]:
-                if account["type"] == "trade":
-                    self._account_id = str(account["id"])
-        except Exception as e:
-            raise ValueError(f"Unable to retrieve account id: {e}")
-
     async def _update_balances(self):
         cdef:
             str path_url = "/api/v1/accounts"
-            dict data = await self._api_request("get", path_url=path_url, is_auth_required=True)
-            list balances = data.get("list", [])
             dict new_available_balances = {}
             dict new_balances = {}
             str asset_name
-            object balance
 
+        data = await self._api_request("get", path_url=path_url, is_auth_required=True)
         if data:
             for balance_entry in data["data"]:
                 asset_name = balance_entry["currency"]
-                balance = Decimal(balance_entry["balance"])
-                if balance == s_decimal_0:
-                    continue
-                if asset_name not in new_available_balances:
-                    new_available_balances[asset_name] = s_decimal_0
-                if asset_name not in new_balances:
-                    new_balances[asset_name] = s_decimal_0
-
-                new_balances[asset_name] += balance
-                if balance_entry["type"] == "trade":
-                    new_available_balances[asset_name] = Decimal(balance_entry["available"])
+                new_balances[asset_name] = Decimal(balance_entry["balance"])
+                new_available_balances[asset_name] = Decimal(balance_entry["available"])
 
             self._account_available_balances.clear()
             self._account_available_balances = new_available_balances
