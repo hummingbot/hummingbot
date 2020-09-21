@@ -42,6 +42,9 @@ eterbase_account: null
 celo_address: null
 celo_password: null
 
+duedex_api_key: null
+duedex_secret_key: null
+
 # Ethereum wallet address: required for trading on a DEX
 ethereum_wallet: null
 ethereum_rpc_url: null

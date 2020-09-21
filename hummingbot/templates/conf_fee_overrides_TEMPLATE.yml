@@ -28,3 +28,6 @@ kucoin_taker_fee:
 
 crypto_com_maker_fee:
 crypto_com_taker_fee:
+
+duedex_maker_fee:
+duedex_taker_fee:
