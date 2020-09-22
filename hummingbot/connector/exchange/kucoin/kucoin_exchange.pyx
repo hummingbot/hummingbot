@@ -63,11 +63,11 @@ class KucoinAPIError(IOError):
         self.error_payload = error_payload
 
 
-cdef class KucoinMarketTransactionTracker(TransactionTracker):
+cdef class KucoinExchangeTransactionTracker(TransactionTracker):
     cdef:
-        KucoinMarket _owner
+        KucoinExchange _owner
 
-    def __init__(self, owner: KucoinMarket):
+    def __init__(self, owner: KucoinExchange):
         super().__init__()
         self._owner = owner
 
@@ -75,7 +75,7 @@ cdef class KucoinMarketTransactionTracker(TransactionTracker):
         TransactionTracker.c_did_timeout_tx(self, tx_id)
         self._owner.c_did_timeout_tx(tx_id)
 
-cdef class KucoinMarket(ExchangeBase):
+cdef class KucoinExchange(ExchangeBase):
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
     MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
@@ -120,7 +120,7 @@ cdef class KucoinMarket(ExchangeBase):
         self._trading_required = trading_required
         self._trading_rules = {}
         self._trading_rules_polling_task = None
-        self._tx_tracker = KucoinMarketTransactionTracker(self)
+        self._tx_tracker = KucoinExchangeTransactionTracker(self)
         self._user_stream_tracker = KucoinUserStreamTracker(kucoin_auth=self._kucoin_auth)
 
     @staticmethod
@@ -422,14 +422,14 @@ cdef class KucoinMarket(ExchangeBase):
 
     async def _update_balances(self):
         cdef:
-            str path_url = "/api/v1/accounts"
-            dict data = await self._api_request("get", path_url=path_url, is_auth_required=True)
-            list balances = data.get("list", [])
+            str path_url = "/api/v1/accounts?type=trade"
             dict new_available_balances = {}
             dict new_balances = {}
             str asset_name
             object balance
 
+        data = await self._api_request("get", path_url=path_url, is_auth_required=True)
+        print(data)
         if data:
             for balance_entry in data["data"]:
                 asset_name = balance_entry["currency"]
@@ -649,6 +649,7 @@ cdef class KucoinMarket(ExchangeBase):
 
     @property
     def ready(self) -> bool:
+        # print(self.status_dict)
         return all(self.status_dict.values())
 
     def supported_order_types(self):

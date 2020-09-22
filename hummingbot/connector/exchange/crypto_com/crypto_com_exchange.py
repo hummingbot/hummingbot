@@ -65,19 +65,19 @@ class CryptoComExchange(ExchangeBase):
 
     def __init__(self,
                  crypto_com_api_key: str,
-                 crypto_com_api_secret: str,
+                 crypto_com_secret_key: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True
                  ):
         """
         :param crypto_com_api_key: The API key to connect to private Crypto.com APIs.
-        :param crypto_com_api_secret: The API secret.
+        :param crypto_com_secret_key: The API secret.
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
         """
         super().__init__()
         self._trading_required = trading_required
-        self._crypto_com_auth = CryptoComAuth(crypto_com_api_key, crypto_com_api_secret)
+        self._crypto_com_auth = CryptoComAuth(crypto_com_api_key, crypto_com_secret_key)
         self._order_book_tracker = CryptoComOrderBookTracker(trading_pairs=trading_pairs)
         self._user_stream_tracker = CryptoComUserStreamTracker(self._crypto_com_auth, trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
@@ -563,7 +563,7 @@ class CryptoComExchange(ExchangeBase):
                 raise
             except Exception as e:
                 self.logger().error(str(e), exc_info=True)
-                self.logger().network(f"Unexpected error while fetching account updates.",
+                self.logger().network("Unexpected error while fetching account updates.",
                                       exc_info=True,
                                       app_warning_msg="Could not fetch account updates from Crypto.com. "
                                                       "Check API key and network connection.")
@@ -716,7 +716,7 @@ class CryptoComExchange(ExchangeBase):
         except Exception:
             self.logger().error("Cancel all failed.", exc_info=True)
             self.logger().network(
-                f"Unexpected error cancelling orders.",
+                "Unexpected error cancelling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order on Crypto.com. Check API key and network connection."
             )

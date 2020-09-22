@@ -70,11 +70,11 @@ class HuobiAPIError(IOError):
         self.error_payload = error_payload
 
 
-cdef class HuobiMarketTransactionTracker(TransactionTracker):
+cdef class HuobiExchangeTransactionTracker(TransactionTracker):
     cdef:
-        HuobiMarket _owner
+        HuobiExchange _owner
 
-    def __init__(self, owner: HuobiMarket):
+    def __init__(self, owner: HuobiExchange):
         super().__init__()
         self._owner = owner
 
@@ -83,7 +83,7 @@ cdef class HuobiMarketTransactionTracker(TransactionTracker):
         self._owner.c_did_timeout_tx(tx_id)
 
 
-cdef class HuobiMarket(ExchangeBase):
+cdef class HuobiExchange(ExchangeBase):
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
     MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
@@ -127,7 +127,7 @@ cdef class HuobiMarket(ExchangeBase):
         self._trading_required = trading_required
         self._trading_rules = {}
         self._trading_rules_polling_task = None
-        self._tx_tracker = HuobiMarketTransactionTracker(self)
+        self._tx_tracker = HuobiExchangeTransactionTracker(self)
 
         self._user_stream_event_listener_task = None
         self._user_stream_tracker = HuobiUserStreamTracker(huobi_auth=self._huobi_auth,

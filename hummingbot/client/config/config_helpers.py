@@ -1,7 +1,10 @@
 import logging
 from decimal import Decimal
 import ruamel.yaml
-from os import unlink
+from os import (
+    unlink,
+    scandir
+)
 from os.path import (
     join,
     isfile
@@ -174,6 +177,18 @@ def _merge_dicts(*args: Dict[str, ConfigVar]) -> OrderedDict:
     return result
 
 
+def get_all_connectors() -> Dict[str, List[str]]:
+    invalid_names = ["__pycache__", "paper_trade"]
+    all_connectors = {}
+    connector_types = ["connector", "exchange", "derivative"]
+    for connector_type in connector_types:
+        try:
+            all_connectors[connector_type] = [f.name for f in scandir(f'./hummingbot/connector/{connector_type}') if f.is_dir() and f.name not in invalid_names]
+        except Exception:
+            continue
+    return all_connectors
+
+
 def get_connector_class(connector_name: str) -> Callable:
     connector_types = ["connector", "exchange", "derivative"]
     for type in connector_types:
@@ -235,9 +250,9 @@ def validate_strategy_file(file_path: str) -> Optional[str]:
         return f"{file_path} file does not exist."
     strategy = strategy_name_from_file(file_path)
     if strategy is None:
-        return f"Invalid configuration file or 'strategy' field is missing."
+        return "Invalid configuration file or 'strategy' field is missing."
     if strategy not in get_strategy_list():
-        return f"Invalid strategy specified in the file."
+        return "Invalid strategy specified in the file."
     return None
 
 

@@ -103,9 +103,9 @@ s_decimal_NaN = Decimal("NaN")
 
 cdef class BambooRelayTransactionTracker(TransactionTracker):
     cdef:
-        BambooRelayMarket _owner
+        BambooRelayExchange _owner
 
-    def __init__(self, owner: BambooRelayMarket):
+    def __init__(self, owner: BambooRelayExchange):
         super().__init__()
         self._owner = owner
 
@@ -114,7 +114,7 @@ cdef class BambooRelayTransactionTracker(TransactionTracker):
         self._owner.c_did_timeout_tx(tx_id)
 
 
-cdef class BambooRelayMarket(ExchangeBase):
+cdef class BambooRelayExchange(ExchangeBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
