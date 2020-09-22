@@ -32,24 +32,28 @@ def estimate_fee(exchange: str, is_maker: bool) -> Decimal:
 
     if is_maker:
         if exchange in default_cex_estimate:
-            if fee_overrides_config_map[override_config_name].value is not None:
+            if override_config_name in fee_overrides_config_map and \
+                    fee_overrides_config_map[override_config_name].value is not None:
                 return TradeFee(percent=fee_overrides_config_map[override_config_name].value / s_decimal_100)
             else:
                 return TradeFee(percent=Decimal(default_cex_estimate[exchange][0]) / s_decimal_100)
         else:
-            if fee_overrides_config_map[override_config_name].value is not None:
+            if override_config_name in fee_overrides_config_map and \
+                    fee_overrides_config_map[override_config_name].value is not None:
                 return TradeFee(percent=s_decimal_0, flat_fees=[("ETH", fee_overrides_config_map[override_config_name].value)])
             else:
                 return TradeFee(percent=s_decimal_0, flat_fees=[("ETH", Decimal(default_dex_estimate[exchange][0]))])
 
     else:
         if exchange in default_cex_estimate:
-            if fee_overrides_config_map[override_config_name].value is not None:
+            if override_config_name in fee_overrides_config_map and \
+                    fee_overrides_config_map[override_config_name].value is not None:
                 return TradeFee(percent=fee_overrides_config_map[override_config_name].value / s_decimal_100)
             else:
                 return TradeFee(percent=Decimal(default_cex_estimate[exchange][1]) / s_decimal_100)
         else:
-            if fee_overrides_config_map[override_config_name].value is not None:
+            if override_config_name in fee_overrides_config_map and \
+                    fee_overrides_config_map[override_config_name].value is not None:
                 return TradeFee(percent=s_decimal_0, flat_fees=[("ETH", fee_overrides_config_map[override_config_name].value)])
             else:
                 return TradeFee(percent=s_decimal_0, flat_fees=[("ETH", Decimal(default_dex_estimate[exchange][1]))])
