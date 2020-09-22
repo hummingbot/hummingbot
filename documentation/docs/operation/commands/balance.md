@@ -63,6 +63,11 @@ binance:
        XZC    0.0076         -
 ```
 
+
+!!! note "Note: Disable Balance Limit"
+    To disable balance limit, you need to remove the balance limit from the **conf_global.yml file**. Setting it to 0 from the Hummingbot client e.g. command `balance limit binance USDT 0` will not place orders for that particular asset.
+
+
 ## balance paper
 
 Show existing paper account balance setting.

@@ -110,38 +110,39 @@ You should be able to paste items from your clipboard by doing mouse right-click
 
 Hummingbot saves user data in the following directories:
 
-* `conf`: strategy configuration files
-* `log`: log files
-* `data`: executed trades, saved in a sqlite database
+* `conf`: strategy and global configuration files
+* `log`: log files and exported trades
+* `data`: auto-saved CSV file of executed trades and sqlite local database
 
 Below are instructions on how to access these files in various environments.
 
 **Windows**
-1. Open File Explorer, select This PC and open local disc (C:\)
-2. Browse to the Users folder, and open your profile folder.
-3. Locate and open **AppData** folder
-4. Open **Local** folder then **Hummingbot.io** folder. You may see another folder named **Hummingbot**, open it and you will see the data files folder.
 
-!!! tip
-    In case the AppData folder is not visible, on the menu bar found above your folder, go to **View** and tick the checkbox for Hidden items.
-	 
-**MacOS**
-1. Open Finder
-2. On the top menu bar, click **Go**
-3. After clicking the **Go** menu, press the Option button on your keyboard.
-4. Additional **Library** option should appear after that. 
-5. Click **Library** 
-6. Find and open **Application Support** folder and you will see **Hummingbot** folder.
+1. Copy the path below
+```
+%localappdata%\hummingbot.io\Hummingbot\
+```
+1. Press the Windows key then **ctrl + V** to paste and hit **Enter**
 
-!!! note
-    Mac has multiple library folders, make sure that the library folder you're trying to open is the Library folder under your user profile.
+**macOS**
+
+Launch the Terminal using either of two ways:
+
+1. Open Terminal from the Launchpad
+1. Press **⌘ + Space** to open Spotlight Search and enter "Terminal"
+
+Run the command below to open the Hummingbot folder in Finder.
+
+```
+open ~/Library/Application\ Support/Hummingbot
+```
  
 **Docker**
+
 1. Run the following command to view the details of your instance:
 ```bash
 docker inspect $instance_name
 ```
-
 2. Look for a field `Mounts`, which will describe where the folders are on your local machine:
 ```
 "Mounts": [
@@ -171,7 +172,6 @@ docker inspect $instance_name
     }
 ],
 ```
-
 3. Go to the folder locations listed under *Source*.
 
 ### How do I edit my config files from the command line?
