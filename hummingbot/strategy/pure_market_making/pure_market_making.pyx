@@ -169,6 +169,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @order_levels.setter
     def order_levels(self, value: int):
         self._order_levels = value
+        self._buy_levels = value
+        self._sell_levels = value
 
     @property
     def buy_levels(self) -> int:
@@ -620,6 +622,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             ExchangeBase market = self._market_info.market
             list buys = []
             list sells = []
+
         # first to check if any advanced users provide an order override array. In this case, the orders will be
         # generated per orverride array, otherwise the order will be generated according to buy/sell/order spread/amounts
         # specificed by users through client interface
