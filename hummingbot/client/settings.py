@@ -41,6 +41,8 @@ EXCHANGES = {
     "crypto_com"
 }
 
+DERIVATIVES = {}
+
 DEXES = {
     "bamboo_relay",
     "radar_relay",

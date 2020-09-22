@@ -2,7 +2,7 @@ from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 
 
-cdef class CoinbaseProMarket(ExchangeBase):
+cdef class CoinbaseProExchange(ExchangeBase):
     cdef:
         object _user_stream_tracker
         object _coinbase_auth
