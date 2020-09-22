@@ -9,6 +9,13 @@ s_decimal_nan = Decimal("NaN")
 def create_arb_proposals(market_info_1: MarketTradingPairTuple,
                          market_info_2: MarketTradingPairTuple,
                          order_amount: Decimal) -> List[ArbProposal]:
+    """
+    Creates base arbitrage proposals for given markets without any filtering.
+    :param market_info_1: The first market
+    :param market_info_2: The second market
+    :param order_amount: The required order amount.
+    :return A list of 2 proposal - (market_1 buy, market_2 sell) and (market_1 sell, market_2 buy)
+    """
     order_amount = Decimal(str(order_amount))
     results = []
     for index in range(0, 2):
