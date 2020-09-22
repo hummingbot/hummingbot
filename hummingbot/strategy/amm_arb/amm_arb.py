@@ -2,12 +2,15 @@ from decimal import Decimal
 import logging
 import asyncio
 import pandas as pd
-from typing import List, Dict
+from typing import List, Dict, Tuple
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.market_order import MarketOrder
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
+from hummingbot.connector.connector_base import ConnectorBase
+
 from .utils import create_arb_proposals, ArbProposal
 
 
@@ -17,6 +20,11 @@ amm_logger = None
 
 
 class AmmArbStrategy(StrategyPyBase):
+    """
+    This is a basic arbitrage strategy which can be used for most types of connectors (CEX, DEX or AMM).
+    For a given order amount, the strategy checks both sides of the trade (market_1 and market_2) for arb opportunity.
+    If presents, the strategy submits taker orders to both market.
+    """
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -30,16 +38,30 @@ class AmmArbStrategy(StrategyPyBase):
                  market_info_2: MarketTradingPairTuple,
                  min_profitability: Decimal,
                  order_amount: Decimal,
-                 slippage_buffer: Decimal = Decimal("0.0001"),
+                 market_1_slippage_buffer: Decimal = Decimal("0"),
+                 market_2_slippage_buffer: Decimal = Decimal("0"),
                  concurrent_orders_submission: bool = True,
-                 status_report_interval: float = 900,
-                 hb_app_notification: bool = True):
+                 status_report_interval: float = 900):
+        """
+        :param market_info_1: The first market
+        :param market_info_2: The second market
+        :param min_profitability: The minimum profitability for execute trades (e.g. 0.0003 for 0.3%)
+        :param order_amount: The order amount
+        :param market_1_slippage_buffer: The buffer for which to adjust order price for higher chance of
+        the order getting filled. This is quite important for AMM which transaction takes a long time where a slippage
+        is acceptable rather having the transaction get rejected. The submitted order price will be adjust higher
+        for buy order and lower for sell order.
+        :param market_1_slippage_buffer: The slipper buffer for market_2
+        :param concurrent_orders_submission: whether to submit both arbitrage taker orders (buy and sell) simultaneously
+        If false, the bot will wait for first exchange order filled before submitting the other order.
+        """
         super().__init__()
         self._market_info_1 = market_info_1
         self._market_info_2 = market_info_2
         self._min_profitability = min_profitability
         self._order_amount = order_amount
-        self._slippage_buffer = slippage_buffer
+        self._market_1_slippage_buffer = market_1_slippage_buffer
+        self._market_2_slippage_buffer = market_2_slippage_buffer
         self._concurrent_orders_submission = concurrent_orders_submission
         self._last_no_arb_reported = 0
         self._arb_proposals = None
@@ -52,7 +74,6 @@ class AmmArbStrategy(StrategyPyBase):
 
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
-        self._hb_app_notification = hb_app_notification
         self.add_markets([market_info_1.market, market_info_2.market])
 
     @property
@@ -88,6 +109,11 @@ class AmmArbStrategy(StrategyPyBase):
                 self._main_task = safe_ensure_future(self.main())
 
     async def main(self):
+        """
+        The main procedure for the arbitrage strategy. It first creates arbitrage proposals, filters for ones that meets
+        min profitability required, applies the slippage buffer, applies budget constraint, then finally execute the
+        arbitrage.
+        """
         self._arb_proposals = create_arb_proposals(self._market_info_1, self._market_info_2, self._order_amount)
         arb_proposals = [t for t in self._arb_proposals if t.profit_pct() >= self._min_profitability]
         if len(arb_proposals) == 0:
@@ -96,14 +122,38 @@ class AmmArbStrategy(StrategyPyBase):
                                    "\n".join(self.short_proposal_msg(self._arb_proposals, False)))
                 self._last_no_arb_reported = self.current_timestamp
             return
+        self.apply_slippage_buffers(arb_proposals)
         self.apply_budget_constraint(arb_proposals)
         await self.execute_arb_proposals(arb_proposals)
 
-    def apply_budget_constraint(self, arb_proposals: List[ArbProposal]):
+    def apply_slippage_buffers(self, arb_proposals: List[ArbProposal]):
+        """
+        Updates arb_proposals by adjusting order price for slipper buffer percentage.
+        E.g. if it is a buy order, for an order price of 100 and 1% slipper buffer, the new order price is 101,
+        for a sell order, the new order price is 99.
+        :param arb_proposals: the arbitrage proposal
+        """
         for arb_proposal in arb_proposals:
             for arb_side in (arb_proposal.first_side, arb_proposal.second_side):
                 market = arb_side.market_info.market
                 arb_side.amount = market.quantize_order_amount(arb_side.market_info.trading_pair, arb_side.amount)
+                s_buffer = self._market_1_slippage_buffer if market == self._market_info_1.market \
+                    else self._market_2_slippage_buffer
+                if not arb_side.is_buy:
+                    s_buffer *= Decimal("-1")
+                arb_side.order_price *= Decimal("1") + s_buffer
+                arb_side.order_price = market.quantize_order_price(arb_side.market_info.trading_pair,
+                                                                   arb_side.order_price)
+
+    def apply_budget_constraint(self, arb_proposals: List[ArbProposal]):
+        """
+        Updates arb_proposals by setting proposal amount to 0 if there is not enough balance to submit order with
+        required order amount.
+        :param arb_proposals: the arbitrage proposal
+        """
+        for arb_proposal in arb_proposals:
+            for arb_side in (arb_proposal.first_side, arb_proposal.second_side):
+                market = arb_side.market_info.market
                 token = arb_side.market_info.quote_asset if arb_side.is_buy else arb_side.market_info.base_asset
                 balance = market.get_available_balance(token)
                 required = arb_side.amount
@@ -118,6 +168,11 @@ class AmmArbStrategy(StrategyPyBase):
                     continue
 
     async def execute_arb_proposals(self, arb_proposals: List[ArbProposal]):
+        """
+        Execute both sides of the arbitrage trades. If concurrent_orders_submission is False, it will wait for the
+        first order to fill before submit the second order.
+        :param arb_proposals: the arbitrage proposal
+        """
         for arb_proposal in arb_proposals:
             if any(p.amount <= s_decimal_zero for p in (arb_proposal.first_side, arb_proposal.second_side)):
                 continue
@@ -140,6 +195,10 @@ class AmmArbStrategy(StrategyPyBase):
                     self._first_order_completed_event = asyncio.Event()
 
     def ready_for_new_arb_trades(self) -> bool:
+        """
+        Returns True if there is no outstanding unfilled order.
+        """
+
         outstanding_orders = {**self._sb_order_tracker.get_limit_orders(),
                               **self._sb_order_tracker.get_market_orders()}
         for market_info in [self._market_info_1, self._market_info_2]:
@@ -148,6 +207,12 @@ class AmmArbStrategy(StrategyPyBase):
         return True
 
     def short_proposal_msg(self, arb_proposal: List[ArbProposal], indented: bool = True) -> List[str]:
+        """
+        Composes a short proposal message.
+        :param arb_proposal: The arbitrage proposal
+        :param indented: If the message should be indented (by 4 spaces)
+        :return A list of messages
+        """
         lines = []
         for proposal in arb_proposal:
             side1 = "buy" if proposal.first_side.is_buy else "sell"
@@ -158,6 +223,11 @@ class AmmArbStrategy(StrategyPyBase):
         return lines
 
     def format_status(self) -> str:
+        """
+        Returns a status string formatted to display nicely on terminal. The strings composes of 4 parts: markets,
+        assets, profitability and warnings(if any).
+        """
+
         if self._arb_proposals is None:
             return "  The strategy is not ready, please try again later."
         # active_orders = self.market_info_to_active_orders.get(self._market_info, [])
@@ -185,10 +255,12 @@ class AmmArbStrategy(StrategyPyBase):
 
         lines.extend(["", "  Profitability:"] + self.short_proposal_msg(self._arb_proposals))
 
-        # warning_lines.extend(self.network_warning([self._market_info]))
-        # warning_lines.extend(self.balance_warning([self._market_info]))
-        # if len(warning_lines) > 0:
-        #     lines.extend(["", "*** WARNINGS ***"] + warning_lines)
+        warning_lines = self.network_warning([self._market_info_1])
+        warning_lines.extend(self.network_warning([self._market_info_2]))
+        warning_lines.extend(self.balance_warning([self._market_info_1]))
+        warning_lines.extend(self.balance_warning([self._market_info_2]))
+        if len(warning_lines) > 0:
+            lines.extend(["", "*** WARNINGS ***"] + warning_lines)
 
         return "\n".join(lines)
 
@@ -202,3 +274,11 @@ class AmmArbStrategy(StrategyPyBase):
         if not self._concurrent_orders_submission and self._first_order_completed_event is not None and \
                 order_completed_event.order_id == self._first_order_id:
             self._first_order_completed_event.set()
+
+    @property
+    def tracked_limit_orders(self) -> List[Tuple[ConnectorBase, LimitOrder]]:
+        return self._sb_order_tracker.tracked_limit_orders
+
+    @property
+    def tracked_market_orders(self) -> List[Tuple[ConnectorBase, MarketOrder]]:
+        return self._sb_order_tracker.tracked_market_orders

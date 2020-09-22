@@ -72,14 +72,23 @@ amm_arb_config_map = {
         key="min_profitability",
         prompt="What is the minimum profitability for you to make a trade? (Enter 1 to indicate 1%) >>> ",
         prompt_on_new=True,
-        default=Decimal("0.3"),
+        default=Decimal("1"),
         validator=lambda v: validate_decimal(v),
         type_str="decimal"),
-    "slippage_buffer": ConfigVar(
+    "market_1_slippage_buffer": ConfigVar(
         key="slippage_buffer",
-        prompt="How much buffer do you want to add to the price to account for slippage (Enter 1 for 1%)? >>> ",
+        prompt="How much buffer do you want to add to the price to account for slippage for orders on the first market "
+               "(Enter 1 for 1%)? >>> ",
         prompt_on_new=True,
-        default=Decimal("0.01"),
+        default=Decimal("0"),
+        validator=lambda v: validate_decimal(v),
+        type_str="decimal"),
+    "market_2_slippage_buffer": ConfigVar(
+        key="slippage_buffer",
+        prompt="How much buffer do you want to add to the price to account for slippage for orders on the second market"
+               " (Enter 1 for 1%)? >>> ",
+        prompt_on_new=True,
+        default=Decimal("0"),
         validator=lambda v: validate_decimal(v),
         type_str="decimal"),
     "concurrent_orders_submission": ConfigVar(
