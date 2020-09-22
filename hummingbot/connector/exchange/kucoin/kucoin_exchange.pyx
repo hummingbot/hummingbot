@@ -207,10 +207,10 @@ cdef class KucoinExchange(ExchangeBase):
         self._order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
-            await self._update_account_id()
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
+            await self._update_balances()
 
     def _stop_network(self):
         self._order_book_tracker.stop()
@@ -411,44 +411,25 @@ cdef class KucoinExchange(ExchangeBase):
                 raise IOError(f"Error parsing data from {url}.")
             return parsed_response
 
-    async def _update_account_id(self) -> str:
-        accounts = await self._api_request("get", path_url="/api/v1/accounts", is_auth_required=True)
-        try:
-            for account in accounts["data"]:
-                if account["type"] == "trade":
-                    self._account_id = str(account["id"])
-        except Exception as e:
-            raise ValueError(f"Unable to retrieve account id: {e}")
-
     async def _update_balances(self):
         cdef:
             str path_url = "/api/v1/accounts?type=trade"
-            dict new_available_balances = {}
-            dict new_balances = {}
             str asset_name
-            object balance
+            set local_asset_names = set(self._account_balances.keys())
+            set remote_asset_names = set()
 
         data = await self._api_request("get", path_url=path_url, is_auth_required=True)
-        print(data)
         if data:
             for balance_entry in data["data"]:
                 asset_name = balance_entry["currency"]
-                balance = Decimal(balance_entry["balance"])
-                if balance == s_decimal_0:
-                    continue
-                if asset_name not in new_available_balances:
-                    new_available_balances[asset_name] = s_decimal_0
-                if asset_name not in new_balances:
-                    new_balances[asset_name] = s_decimal_0
+                self._account_available_balances[asset_name] = Decimal(balance_entry["available"])
+                self._account_balances[asset_name] = Decimal(balance_entry["balance"])
+                remote_asset_names.add(asset_name)
 
-                new_balances[asset_name] += balance
-                if balance_entry["type"] == "trade":
-                    new_available_balances[asset_name] = Decimal(balance_entry["available"])
-
-            self._account_available_balances.clear()
-            self._account_available_balances = new_available_balances
-            self._account_balances.clear()
-            self._account_balances = new_balances
+            asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+            for asset_name in asset_names_to_remove:
+                del self._account_available_balances[asset_name]
+                del self._account_balances[asset_name]
 
     cdef object c_get_fee(self,
                           str base_currency,
@@ -641,7 +622,6 @@ cdef class KucoinExchange(ExchangeBase):
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {
-            "account_id_initialized": self._account_id != "" if self._trading_required else True,
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": self._account_balances if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0

@@ -96,13 +96,17 @@ The Hummingbot Miners app uses your Ethereum wallet address to:
 
 1. Navigate to the [Sign up](https://miners.hummingbot.io/signup) page.
 2. Simply enter your email address and click **Agree to terms and conditions**, and click **Create Account**. You should see a popup window that instructs you to check your email.
-3. Once you confirm your email address. You should already be logged in to Hummingbot Miner. You can then proceed to complete the rest of the onboarding process, following the steps on the [Settings](https://miners.hummingbot.io/settings) page.
+3. Once you confirm your email address. You should already be logged in to Hummingbot Miner. 
+4. Navigate to the [Settings](https://miners.hummingbot.io/settings) page and connect your Binace API key.
+5. Connect wallets by adding your preferred Ethereum address and Ethereum wallet addresses for ERC20 token payments.
 
 !!! tip
-    You may edit the Ethereum address to receive payouts in a different wallet, or on Binance directly [How to get your ETH deposit address on Binance](https://academy.binance.com/tutorials/how-to-deposit#deposit).
-
-!!! note "Ethereum Wallet address not used for trading"
-    Since it is only used for the purposes mentioned above, you do not need deposit assets into or trade using this wallet.
+    To get your XZC wallet address:<br />
+    1. Go to your Binance account and navigate to Spot wallet.<br />
+    2. Click the `Deposit` button and choose `XZC` to display the deposit address. You may also refer to this step on [How to get your deposit address on Binance](https://academy.binance.com/tutorials/how-to-deposit#deposit).
+    
+!!! note "Wallet address not used for trading"
+    Wallet address are use for receiving payouts only, you do not need deposit assets into or trade using this wallet.
 
 
 ### How do I see how my rewards are calculated?
