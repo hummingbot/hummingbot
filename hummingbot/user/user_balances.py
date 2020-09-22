@@ -30,8 +30,6 @@ class UserBalances:
             """
             if isinstance(market, HuobiExchange):
                 await market._update_account_id()
-            elif isinstance(market, KucoinExchange):
-                await market._update_account_id()
             """
             await market._update_balances()
         except Exception as e:
