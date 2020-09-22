@@ -105,5 +105,5 @@ Paper account balances:
       ZRX  1000.0000
 ```
 
-!!! note "Note: Do not set Balance Limit to 0"
-    To disable balance limit, you need to remove the balance limit from the **conf_global.yml file**. If you set to 0, the bot does not start and displays "no active maket orders". 
+!!! note "Note: Disable Balance Limit"
+    To disable balance limit, you need to remove the balance limit from the **conf_global.yml file**. Setting it to 0 from the Hummingbot client e.g. balance limit binance USDT 0 will not place orders for that particular asset.
