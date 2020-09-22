@@ -422,10 +422,8 @@ cdef class KucoinMarket(ExchangeBase):
         if data:
             for balance_entry in data["data"]:
                 asset_name = balance_entry["currency"]
-                new_balances = Decimal(balance_entry["balance"])
-                new_available_balances = Decimal(balance_entry["available"])
-                self._account_available_balances[asset_name] = new_available_balances
-                self._account_balances[asset_name] = new_balances
+                self._account_available_balances[asset_name] = Decimal(balance_entry["available"])
+                self._account_balances[asset_name] = Decimal(balance_entry["balance"])
                 remote_asset_names.add(asset_name)
 
             asset_names_to_remove = local_asset_names.difference(remote_asset_names)
