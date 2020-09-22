@@ -210,6 +210,7 @@ cdef class KucoinMarket(ExchangeBase):
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
+            await self._update_balances()
 
     def _stop_network(self):
         self._order_book_tracker.stop()
@@ -412,22 +413,25 @@ cdef class KucoinMarket(ExchangeBase):
 
     async def _update_balances(self):
         cdef:
-            str path_url = "/api/v1/accounts"
-            dict new_available_balances = {}
-            dict new_balances = {}
+            str path_url = "/api/v1/accounts?type=trade"
             str asset_name
+            set local_asset_names = set(self._account_balances.keys())
+            set remote_asset_names = set()
 
         data = await self._api_request("get", path_url=path_url, is_auth_required=True)
         if data:
             for balance_entry in data["data"]:
                 asset_name = balance_entry["currency"]
-                new_balances[asset_name] = Decimal(balance_entry["balance"])
-                new_available_balances[asset_name] = Decimal(balance_entry["available"])
+                new_balances = Decimal(balance_entry["balance"])
+                new_available_balances = Decimal(balance_entry["available"])
+                self._account_available_balances[asset_name] = new_available_balances
+                self._account_balances[asset_name] = new_balances
+                remote_asset_names.add(asset_name)
 
-            self._account_available_balances.clear()
-            self._account_available_balances = new_available_balances
-            self._account_balances.clear()
-            self._account_balances = new_balances
+            asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+            for asset_name in asset_names_to_remove:
+                del self._account_available_balances[asset_name]
+                del self._account_balances[asset_name]
 
     cdef object c_get_fee(self,
                           str base_currency,
