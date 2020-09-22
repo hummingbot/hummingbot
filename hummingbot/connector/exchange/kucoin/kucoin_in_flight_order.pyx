@@ -40,6 +40,10 @@ cdef class KucoinInFlightOrder(InFlightOrderBase):
     def is_failure(self) -> bool:
         return self.last_state in {"CANCEL"}
 
+    @property
+    def is_cancelled(self) -> bool:
+        return self.last_state in {"CANCEL"}
+
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
         cdef:
