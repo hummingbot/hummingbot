@@ -40,7 +40,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
     > <em>**Tip:** Miners participating should enter their XZC wallet address in the Miner's app. <br/> **Note:** you can enter your Binance XZC deposit address to receive the XZC directly into Binance</em>
 
 
-**Current reward period: September 15, 2020 12.00am UTC to September 22, 2020 12.00am UTC**
+**Current reward period: September 22, 2020 12.00am UTC to September 29, 2020 12.00am UTC**
 
 <table>
   <thead>
@@ -141,7 +141,47 @@ Liquidity mining sets forth an analytical framework for determining market maker
 
 
 ## Upcoming changes to campaign terms 
-No upcoming changes
+We are launching liquidity mining campaigns for our open beta partners Harmony and Suku. For more details about the campaign, you can check our [blog post](https://hummingbot.io/blog/2020-09-launching-kucoin-liquidity-mining/).
+
+**Open beta period**: October 6, 2020 12.00am UTC to October 20, 2020 12.00am UTC
+
+<table>
+  <thead>
+    <th>Token Issuer</th>
+    <th>Trading pair</th>
+    <th>Exchange</th>
+    <th>Reward Pool</th>
+    <th>Reward Token</th>
+  </thead>
+  <tbody>
+    <tr>
+      <td rowspan="2"><a href="https://www.harmony.one/">Harmony</a></td>
+      <td>ONE/BTC</td>
+      <td>KuCoin</td>
+      <td><b>USD 1500</b></td>
+      <td><b>ONE</b></td>
+    </tr>
+    <tr>
+      <td>ONE/USDT</td>
+      <td>KuCoin</td>
+      <td><b>USD 1500</b></td>
+      <td><b>ONE</b></td>
+    </tr>
+    <tr>
+      <td rowspan="2"><a href="https://www.suku.world/">SUKU</a></td>
+      <td>SUKU/BTC</td>
+      <td>KuCoin</td>
+      <td><b>USDC 1500</b></td>
+      <td><b>USDC</b></td>
+    </tr>
+    <tr>
+      <td>SUKU/USDT</td>
+      <td>KuCoin</td>
+      <td><b>USDC 1500</b></td>
+      <td><b>USDC</b></td>
+    </tr>
+  </tbody>
+</table>
 
 ## Token Issuers
 
