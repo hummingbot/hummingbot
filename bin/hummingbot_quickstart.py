@@ -79,7 +79,7 @@ async def quick_start(args):
         autofix_permissions(args.auto_set_permissions)
 
     if password is not None and not Security.login(password):
-        logging.getLogger().error(f"Invalid password.")
+        logging.getLogger().error("Invalid password.")
         return
 
     await Security.wait_til_decryption_done()
