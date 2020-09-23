@@ -3,6 +3,21 @@ from typing import (
     Optional,
     Tuple)
 
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.config.config_methods import new_fee_config_var, using_exchange
+
+
+CENTRALIZED = True
+
+EXAMPLE_PAIR = "ETH-USDC"
+
+DEFAULT_FEES = [0.16, 0.26]
+
+FEE_OVERRIDE_MAP = {
+    "kraken_maker_fee": new_fee_config_var("kraken_maker_fee"),
+    "kraken_taker_fee": new_fee_config_var("kraken_taker_fee")
+}
+
 
 def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
     return tuple(convert_from_exchange_trading_pair(trading_pair).split("-"))
@@ -78,3 +93,19 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str, delimiter: str = "") 
 
     exchange_trading_pair = f"{base}{delimiter}{quote}"
     return exchange_trading_pair
+
+
+KEYS = {
+    "kraken_api_key":
+        ConfigVar(key="kraken_api_key",
+                  prompt="Enter your Kraken API key >>> ",
+                  required_if=using_exchange("kraken"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "kraken_secret_key":
+        ConfigVar(key="kraken_secret_key",
+                  prompt="Enter your Kraken secret key >>> ",
+                  required_if=using_exchange("kraken"),
+                  is_secure=True,
+                  is_connect_key=True),
+}

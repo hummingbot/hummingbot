@@ -433,8 +433,7 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             await asyncio.sleep(5.0)
                         except asyncio.CancelledError:
                             raise
-                        except Exception as e:
-                            print(e)
+                        except Exception:
                             self.logger().network(
                                 "Unexpected error with WebSocket connection.",
                                 exc_info=True,
