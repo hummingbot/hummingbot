@@ -2,15 +2,33 @@
 
 This section will define the necessary files that need to be modified to allow users configure Hummingbot to use the new exchange connector.
 
-Below are the files and the respective changes that **require** to be modified.
+The following list displays the files that **require** to be modified.
 
-- `conf/__init_.py`
+- __init_.py
+- global_config_map.py
+- fee_overrides_config_map.py
+- hummingbot_application.py
+- settings.py
+- user_balances.py
+- trading_pair_fetcher.py
+- market_mid_price.py
+- estimate_fee.py
+
+The following displays where the files are located and the respective code changes that **require** to be modified.
+
+## __init_.py
+
+Directory: `connector/__init_.py`
+
 ```python
 new_market_api_key = os.getenv("NEW_MARKET_API_KEY")
 new_market_secret_key = os.getenv("NEW_MARKET_SECRET_KEY")
 ```
 
-- `hummingbot/client/config/global_config_map.py`
+## global_config_map.py
+
+Directory: `hummingbot/client/config/global_config_map.py`
+
 ```python
 "new_market_api_key": ConfigVar(key="new_market_api_key",
                              prompt="Enter your NewMarket API key >>> ",
@@ -22,7 +40,11 @@ new_market_secret_key = os.getenv("NEW_MARKET_SECRET_KEY")
                                 is_secure=True),
 ```
 
-- `hummingbot/client/config/fee_overrides_config_map.py`
+## fee_overrides_config_map.py
+
+Directory: `hummingbot/client/config/fee_overrides_config_map.py`
+
+
 ```python
 fee_overrides_config_map = {
     "binance_maker_fee": new_fee_config_var("binance_maker_fee"),
@@ -34,7 +56,11 @@ fee_overrides_config_map = {
     "new_exchange_taker_fee": new_fee_config_var("new_exchange_taker_fee"),
 ```
 
-- `hummingbot/client/hummingbot_application.py`
+##  hummingbot_application.py
+
+Directory: `hummingbot/client/hummingbot_application.py`
+
+
 ```python
 MARKET_CLASSES = {
     .
@@ -61,7 +87,10 @@ MARKET_CLASSES = {
                             trading_required=self._trading_required)
 ```
 
-- `hummingbot/client/settings.py`
+## settings.py
+
+Directory: `hummingbot/client/settings.py`
+
 ```python
 EXCHANGES = {
     "bamboo_relay",
@@ -106,7 +135,11 @@ OPTIONS = {
 }
 ```
 
-- `hummingbot/user/user_balances.py`
+##  user_balances.py
+
+Directory: `hummingbot/user/user_balances.py`
+
+
 ```python
     @staticmethod
     def connect_market(exchange, *api_details):
@@ -121,7 +154,10 @@ OPTIONS = {
         return market
 ```
 
-- `hummingbot/core/utils/trading_pair_fetcher.py`
+## trading_pair_fetcher.py
+
+Directory: `hummingbot/user/hummingbot/core/utils/trading_pair_fetcher.py`
+
 ```python
 @staticmethod
 async def fetch_new_market_trading_pairs() -> List[str]:
@@ -155,7 +191,11 @@ async def fetch_all(self):
         .
         "new_market": new_market_trading_pairs,
 ```
-- `hummingbot/core/utils/market_mid_price.py`
+## market_mid_price.py
+
+Directory: `hummingbot/core/utils/market_mid_price.py`
+
+
 ```python
 def get_mid_price(exchange: str, trading_pair: str) -> Optional[Decimal]:
     .
@@ -175,7 +215,10 @@ def new_exchange_mid_price(trading_pair: str) -> Optional[Decimal]:
         .
     return result
 ```
-- `hummingbot/core/utils/estimate_fee.py`
+## estimate_fee.py
+
+Directory: `hummingbot/core/utils/estimate_fee.py`
+
 ```python
 default_cex_estimate = {
         .
