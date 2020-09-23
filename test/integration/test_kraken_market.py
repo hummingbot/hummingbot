@@ -4,7 +4,7 @@ from os import unlink
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
-from hummingbot.connector.exchange.kraken.kraken_market import KrakenMarket
+from hummingbot.connector.exchange.kraken.kraken_exchange import KrakenExchange
 from hummingbot.connector.exchange.kraken.kraken_utils import convert_to_exchange_trading_pair
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.sql_connection_manager import (
@@ -50,7 +50,7 @@ BASE = "ETH"
 QUOTE = "USDC"
 
 
-class KrakenMarketUnitTest(unittest.TestCase):
+class KrakenExchangeUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
         MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
@@ -63,7 +63,7 @@ class KrakenMarketUnitTest(unittest.TestCase):
         MarketEvent.OrderCancelled
     ]
 
-    market: KrakenMarket
+    market: KrakenExchange
     market_logger: EventLogger
     stack: contextlib.ExitStack
 
@@ -72,7 +72,7 @@ class KrakenMarketUnitTest(unittest.TestCase):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
 
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.market: KrakenMarket = KrakenMarket(
+        cls.market: KrakenExchange = KrakenExchange(
             conf.kraken_api_key,
             conf.kraken_secret_key,
             trading_pairs=[PAIR]
@@ -324,7 +324,7 @@ class KrakenMarketUnitTest(unittest.TestCase):
             self.clock.remove_iterator(self.market)
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
-            self.market: KrakenMarket = KrakenMarket(
+            self.market: KrakenExchange = KrakenExchange(
                 conf.kraken_api_key,
                 conf.kraken_secret_key,
                 trading_pairs=[PAIR]

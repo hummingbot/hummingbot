@@ -38,7 +38,7 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.connector.exchange.kucoin.kucoin_market import KucoinMarket
+from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange
 from hummingbot.core.event.events import OrderType
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
@@ -63,7 +63,7 @@ API_BASE_URL = "api.kucoin.com"
 EXCHANGE_ORDER_ID = 20001
 
 
-class KucoinMarketUnitTest(unittest.TestCase):
+class KucoinExchangeUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
@@ -76,7 +76,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
         MarketEvent.OrderFailure
     ]
 
-    market: KucoinMarket
+    market: KucoinExchange
     market_logger: EventLogger
     stack: contextlib.ExitStack
 
@@ -100,14 +100,14 @@ class KucoinMarketUnitTest(unittest.TestCase):
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
             cls._exch_order_id = 20001
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.market: KucoinMarket = KucoinMarket(
+        cls.market: KucoinExchange = KucoinExchange(
             kucoin_api_key=API_KEY,
             kucoin_passphrase=API_PASSPHRASE,
             kucoin_secret_key=API_SECRET,
             trading_pairs=["ETH-USDT"]
         )
         # Need 2nd instance of market to prevent events mixing up across tests
-        cls.market_2: KucoinMarket = KucoinMarket(
+        cls.market_2: KucoinExchange = KucoinExchange(
             kucoin_api_key=API_KEY,
             kucoin_passphrase=API_PASSPHRASE,
             kucoin_secret_key=API_SECRET,
@@ -387,7 +387,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
         if API_MOCK_ENABLED:
             resp = FixtureKucoin.ORDERS_BATCH_CANCELLED.copy()
             resp["data"]["cancelledOrderIds"] = [exch_order_id, exch_order_id2]
-            self.web_app.update_response("delete", API_BASE_URL, f"/api/v1/orders", resp)
+            self.web_app.update_response("delete", API_BASE_URL, "/api/v1/orders", resp)
         [cancellation_results] = self.run_parallel(self.market_2.cancel_all(5))
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
@@ -440,7 +440,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
             self.clock.remove_iterator(self.market)
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
-            self.market: KucoinMarket = KucoinMarket(
+            self.market: KucoinExchange = KucoinExchange(
                 kucoin_api_key=API_KEY,
                 kucoin_passphrase=API_PASSPHRASE,
                 kucoin_secret_key=API_SECRET,

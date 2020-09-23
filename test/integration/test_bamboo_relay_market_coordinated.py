@@ -41,7 +41,7 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.logger import NETWORK
-from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_market import BambooRelayMarket
+from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_market import BambooRelayExchange
 from hummingbot.core.event.events import OrderType
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
@@ -57,7 +57,7 @@ from hummingbot.wallet.ethereum.web3_wallet_backend import EthereumChain
 s_decimal_0 = Decimal(0)
 
 
-class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
+class BambooRelayExchangeCoordinatedUnitTest(unittest.TestCase):
     market_events: List[MarketEvent] = [
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
@@ -74,7 +74,7 @@ class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
     ]
 
     wallet: Web3Wallet
-    market: BambooRelayMarket
+    market: BambooRelayExchange
     market_logger: EventLogger
     wallet_logger: EventLogger
 
@@ -99,7 +99,7 @@ class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
                                 erc20_token_addresses=[conf.test_bamboo_relay_base_token_address,
                                                        conf.test_bamboo_relay_quote_token_address],
                                 chain=chain)
-        cls.market: BambooRelayMarket = BambooRelayMarket(
+        cls.market: BambooRelayExchange = BambooRelayExchange(
             wallet=cls.wallet,
             ethereum_rpc_url=conf.test_web3_provider_list[0],
             trading_pairs=[conf.test_bamboo_relay_base_token_symbol + "-" + conf.test_bamboo_relay_quote_token_symbol],
@@ -441,7 +441,7 @@ class BambooRelayMarketCoordinatedUnitTest(unittest.TestCase):
             self.clock.remove_iterator(self.market)
             for event_tag in self.market_events:
                 self.market.remove_listener(event_tag, self.market_logger)
-            self.market: BambooRelayMarket = BambooRelayMarket(
+            self.market: BambooRelayExchange = BambooRelayExchange(
                 wallet=self.wallet,
                 ethereum_rpc_url=conf.test_web3_provider_list[0],
                 trading_pairs=[self.base_token_asset + "-" + self.quote_token_asset],
