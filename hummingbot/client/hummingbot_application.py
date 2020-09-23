@@ -11,6 +11,7 @@ from hummingbot.core.clock import Clock
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.connector.exchange.binance.binance_market import BinanceMarket
+from hummingbot.connector.exchange.bitstamp.bitstamp_market import BitstampMarket
 from hummingbot.connector.exchange.bittrex.bittrex_market import BittrexMarket
 from hummingbot.connector.exchange.kucoin.kucoin_market import KucoinMarket
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
@@ -234,6 +235,18 @@ class HummingbotApplication(*commands):
                 market = BinanceMarket(
                     binance_api_key,
                     binance_api_secret,
+                    trading_pairs=trading_pairs,
+                    trading_required=self._trading_required
+                )
+
+            elif market_name == "bitstamp":
+                bitstamp_client_id = global_config_map.get("bitstamp_client_id").value
+                bitstamp_api_key = global_config_map.get("bitstamp_api_key").value
+                bitstamp_api_secret = global_config_map.get("bitstamp_api_secret").value
+                market = BitstampMarket(
+                    bitstamp_client_id,
+                    bitstamp_api_key,
+                    bitstamp_api_secret,
                     trading_pairs=trading_pairs,
                     trading_required=self._trading_required
                 )

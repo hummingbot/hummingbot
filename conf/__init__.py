@@ -41,6 +41,11 @@ mock_api_enabled = os.getenv("MOCK_API_ENABLED")
 binance_api_key = os.getenv("BINANCE_API_KEY")
 binance_api_secret = os.getenv("BINANCE_API_SECRET")
 
+# Bitstamp Tests
+bitstamp_client_id = os.getenv("BITSTAMP_CLIENT_ID")
+bitstamp_api_key = os.getenv("BITSTAMP_API_KEY")
+bitstamp_api_secret = os.getenv("BITSTAMP_API_SECRET")
+
 # Coinbase Pro Tests
 coinbase_pro_api_key = os.getenv("COINBASE_PRO_API_KEY")
 coinbase_pro_secret_key = os.getenv("COINBASE_PRO_SECRET_KEY")

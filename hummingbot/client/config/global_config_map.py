@@ -120,6 +120,24 @@ global_config_map = {
                   required_if=using_exchange("binance"),
                   is_secure=True,
                   is_connect_key=True),
+    "bitstamp_client_id":
+        ConfigVar(key="bitstamp_client_id",
+                  prompt="Enter your Bitstamp Client ID >>> ",
+                  required_if=using_exchange("bitstamp"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "bitstamp_api_key":
+        ConfigVar(key="bitstamp_api_key",
+                  prompt="Enter your Bitstamp API key >>> ",
+                  required_if=using_exchange("bitstamp"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "bitstamp_api_secret":
+        ConfigVar(key="bitstamp_api_secret",
+                  prompt="Enter your Bitstamp API secret >>> ",
+                  required_if=using_exchange("bitstamp"),
+                  is_secure=True,
+                  is_connect_key=True),
     "coinbase_pro_api_key":
         ConfigVar(key="coinbase_pro_api_key",
                   prompt="Enter your Coinbase API key >>> ",
