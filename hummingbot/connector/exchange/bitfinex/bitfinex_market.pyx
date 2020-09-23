@@ -300,6 +300,7 @@ cdef class BitfinexMarket(ExchangeBase):
                 "symbol": market["display_name"],
                 "dir": -1 if market["baseAsset"] == asset_name else 1
             } if market is not None else None
+            exchange_symbol = convert_to_exchange_trading_pair(trading_pair['symbol'])
 
             # bitfinex doesn't return 'BALANCE_AVAILABLE'
             # we must use https://docs.bitfinex.com/reference#rest-auth-calc-order-avail
@@ -307,7 +308,7 @@ cdef class BitfinexMarket(ExchangeBase):
                 "post",
                 path_url="auth/calc/order/avail",
                 data={
-                    "symbol": f"t{trading_pair['symbol']}",
+                    "symbol": f"t{exchange_symbol}",
                     "dir": trading_pair['dir'],
                     "rate": 1,
                     "type": "EXCHANGE"
@@ -627,7 +628,8 @@ cdef class BitfinexMarket(ExchangeBase):
             list retval = []
         for rule in raw_trading_rules:
             try:
-                trading_pair = rule["pair"].upper()
+                exchange_trading_pair = rule["pair"].upper()
+                trading_pair = convert_from_exchange_trading_pair(exchange_trading_pair)
                 precision = get_precision(rule["price_precision"])
 
                 retval.append(
@@ -657,6 +659,8 @@ cdef class BitfinexMarket(ExchangeBase):
         Async wrapper for placing orders through the rest API.
         :returns: json response from the API
         """
+        exchange_trading_pair = convert_to_exchange_trading_pair(trading_pair)
+
         data = [
             0,
             "on",
@@ -666,7 +670,7 @@ cdef class BitfinexMarket(ExchangeBase):
                     OrderType.LIMIT.name: "EXCHANGE LIMIT",
                     OrderType.MARKET.name: "MARKET",
                 }[order_type.name],
-                "symbol": f't{trading_pair}',
+                "symbol": f't{exchange_trading_pair}',
                 "price": str(price),
                 "amount": str(amount),
                 "meta": {

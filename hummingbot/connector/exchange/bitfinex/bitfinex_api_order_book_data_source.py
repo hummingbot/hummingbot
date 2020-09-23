@@ -326,7 +326,6 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             )
 
             def getTickerPrices(ticker: Ticker) -> Dict[Any, Any]:
-                print("tradingPair", ticker.tradingPair, symbol_details)
                 base, quote = split_trading_pair(ticker.tradingPair)
 
                 return {
@@ -380,7 +379,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         if not self._trading_pairs:
             try:
                 active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                self._trading_pairs = active_markets.index.tolist()
+                self._trading_pairs = active_markets.display_name.tolist()
             except Exception:
                 msg = "Error getting active exchange information. Check network connection."
                 self._trading_pairs = []
