@@ -15,13 +15,13 @@ import conf
 from typing import Optional
 import unittest
 
-
-
 # logging.basicConfig(level=logging.DEBUG)
 
 
 class KucoinOrderBookTrackerUnitTest(unittest.TestCase):
+
     order_book_tracker: Optional[KucoinOrderBookTracker] = None
+
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
