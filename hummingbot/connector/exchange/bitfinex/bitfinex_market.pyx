@@ -17,7 +17,6 @@ from libcpp cimport bool
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
@@ -61,6 +60,9 @@ from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.connector.exchange.bitfinex.bitfinex_utils import (
     get_precision,
+    split_trading_pair,
+    convert_from_exchange_trading_pair,
+    convert_to_exchange_trading_pair,
 )
 
 s_logger = None
@@ -115,10 +117,8 @@ cdef class BitfinexMarket(ExchangeBase):
     def __init__(self,
                  bitfinex_api_key: str,
                  bitfinex_secret_key: str,
-                 poll_interval: float = 5.0,
                  # interval which the class periodically pulls status from the rest API
-                 order_book_tracker_data_source_type: OrderBookTrackerDataSourceType =
-                 OrderBookTrackerDataSourceType.EXCHANGE_API,
+                 poll_interval: float = 5.0,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
         super().__init__()
@@ -139,7 +139,6 @@ cdef class BitfinexMarket(ExchangeBase):
         self._in_flight_orders = {}
         self._trading_rules = {}
         self._order_not_found_records = {}
-        self._data_source_type = order_book_tracker_data_source_type
         self._status_polling_task = None
         self._order_tracker_task = None
         self._user_stream_tracker_task = None
@@ -950,25 +949,15 @@ cdef class BitfinexMarket(ExchangeBase):
 
     @staticmethod
     def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
-        try:
-            m = TRADING_PAIR_SPLITTER.match(trading_pair)
-            return m.group(1), m.group(2)
-        # exceptions are now logged as warnings in trading pair fetcher
-        except Exception as e:
-            return None
+        return split_trading_pair(trading_pair)
 
     @staticmethod
     def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
-        if BitfinexMarket.split_trading_pair(exchange_trading_pair) is None:
-            return None
-        # exchange does not split BASEQUOTE (BTCUSDT)
-        base_asset, quote_asset = BitfinexMarket.split_trading_pair(exchange_trading_pair)
-        return f"{base_asset}-{quote_asset}"
+        return convert_from_exchange_trading_pair(exchange_trading_pair)
 
     @staticmethod
     def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-        # exchange does not split BASEQUOTE (BTCUSDT)
-        return hb_trading_pair.replace("-", "")
+        return convert_to_exchange_trading_pair(hb_trading_pair)
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, Any]]:
         """

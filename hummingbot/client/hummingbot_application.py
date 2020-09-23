@@ -319,7 +319,6 @@ class HummingbotApplication(*commands):
                 bitfinex_secret_key = global_config_map.get("bitfinex_secret_key").value
                 market = BitfinexMarket(bitfinex_api_key,
                                         bitfinex_secret_key,
-                                        order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
                                         trading_pairs=trading_pairs,
                                         trading_required=self._trading_required)
             elif market_name == "eterbase":

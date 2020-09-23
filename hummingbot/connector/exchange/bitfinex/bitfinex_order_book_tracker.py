@@ -13,7 +13,6 @@ from hummingbot.core.data_type.order_book_message import (
 )
 from hummingbot.core.data_type.order_book_tracker import (
     OrderBookTracker,
-    OrderBookTrackerDataSourceType
 )
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.bitfinex.bitfinex_active_order_tracker import \
@@ -25,7 +24,6 @@ from hummingbot.connector.exchange.bitfinex.bitfinex_order_book_tracker_entry im
     BitfinexOrderBookTrackerEntry
 from .bitfinex_api_order_book_data_source import BitfinexAPIOrderBookDataSource
 
-EXC_API = OrderBookTrackerDataSourceType.EXCHANGE_API
 SAVED_MESSAGES_QUEUE_SIZE = 1000
 CALC_STAT_MINUTE = 60.0
 

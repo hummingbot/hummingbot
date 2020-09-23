@@ -14,6 +14,7 @@ from hummingbot.connector.exchange.bitfinex import (
     OrderStatus,
     TRADING_PAIR_SPLITTER,
 )
+from hummingbot.connector.exchange.bitfinex.bitfinex_utils import split_trading_pair
 from hummingbot.connector.exchange.bitfinex.bitfinex_market import BitfinexMarket
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 
@@ -108,32 +109,10 @@ cdef class BitfinexInFlightOrder(InFlightOrderBase):
         retval.last_state = data["last_state"]
         return retval
 
-    @staticmethod
-    def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
-        try:
-            m = TRADING_PAIR_SPLITTER.match(trading_pair)
-            return m.group(1), m.group(2)
-        # exceptions are now logged as warnings in trading pair fetcher
-        except Exception as e:
-            return None
-
-    @staticmethod
-    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
-        if BitfinexMarket.split_trading_pair(exchange_trading_pair) is None:
-            return None
-        # exchange does not split BASEQUOTE (BTCUSDT)
-        base_asset, quote_asset = BitfinexMarket.split_trading_pair(exchange_trading_pair)
-        return f"{base_asset}-{quote_asset}"
-
-    @staticmethod
-    def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-        # exchange does not split BASEQUOTE (BTCUSDT)
-        return hb_trading_pair.replace("-", "")
-
     @property
     def base_asset(self) -> str:
-        return BitfinexInFlightOrder.split_trading_pair(self.trading_pair)[0]
+        return split_trading_pair(self.trading_pair)[0]
 
     @property
     def quote_asset(self) -> str:
-        return BitfinexInFlightOrder.split_trading_pair(self.trading_pair)[1]
+        return split_trading_pair(self.trading_pair)[1]

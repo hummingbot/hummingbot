@@ -91,7 +91,7 @@ class BitfinexOrderBookTrackerUnitTest(unittest.TestCase):
                 order_book.add_listener(event_tag, self.event_logger)
 
     def test_order_book_trade_event_emission(self):
-        """
+        """2
         Tests if the order book tracker is able to retrieve order book trade message from exchange
         and emit order book trade events after correctly parsing the trade messages
         """
