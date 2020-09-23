@@ -57,12 +57,22 @@ def get_derivatives():
     return derivatives
 
 
-def get_example_asset(pair=True):
-    from hummingbot.client.config.config_helpers import get_all_connectors
+def get_exchanges_and_derivatives():
+    invalid_names = ["__pycache__", "paper_trade"]
+    all_connectors = {}
+    connector_types = ["exchange", "derivative"]
+    for connector_type in connector_types:
+        try:
+            all_connectors[connector_type] = [f.name for f in scandir(f'./hummingbot/connector/{connector_type}') if f.is_dir() and f.name not in invalid_names]
+        except Exception:
+            continue
+    return all_connectors
 
+
+def get_example_asset(pair=True):
     pairs = []
     fetched_connectors = []
-    all_connectors = get_all_connectors()
+    all_connectors = get_exchanges_and_derivatives()
     for connector_type, connectors in all_connectors.items():
         if connector_type != "connector":
             for connector in connectors:
