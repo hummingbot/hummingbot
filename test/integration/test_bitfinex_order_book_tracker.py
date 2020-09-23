@@ -24,7 +24,7 @@ class BitfinexOrderBookTrackerUnitTest(unittest.TestCase):
         OrderBookEvent.TradeEvent
     ]
     trading_pairs: List[str] = [
-        "BTCUSD",
+        "BTC-USD",
     ]
     integrity_test_max_volume = 5  # Max volume in asks and bids for the book to be ready for tests
     daily_volume = 2500  # Approximate total daily volume in BTC for this exchange for sanity test
