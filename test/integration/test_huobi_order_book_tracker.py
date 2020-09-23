@@ -27,6 +27,7 @@ from hummingbot.connector.exchange.huobi.huobi_api_order_book_data_source import
 
 
 class HuobiOrderBookTrackerUnitTest(unittest.TestCase):
+
     order_book_tracker: Optional[HuobiOrderBookTracker] = None
     events: List[OrderBookEvent] = [
         OrderBookEvent.TradeEvent
@@ -35,6 +36,7 @@ class HuobiOrderBookTrackerUnitTest(unittest.TestCase):
         "btcusdt",
         "xrpusdt"
     ]
+
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
