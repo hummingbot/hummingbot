@@ -1,3 +1,5 @@
+import importlib
+from os import scandir
 from os.path import (
     realpath,
     join,
@@ -26,60 +28,66 @@ CONF_PREFIX = "conf_"
 CONF_POSTFIX = "_strategy"
 SCRIPTS_PATH = "scripts/"
 
-EXCHANGES = {
-    "bamboo_relay",
-    "binance",
-    "coinbase_pro",
-    "huobi",
-    "liquid",
-    "radar_relay",
-    "dolomite",
-    "bittrex",
-    "kucoin",
-    "eterbase",
-    "kraken",
-    "crypto_com"
-}
 
-DERIVATIVES = {}
+def get_exchange_list(cex=True):
+    invalid_names = ["__pycache__", "paper_trade"]
+    exchanges = set()
+    connectors = [f.name for f in scandir('./hummingbot/connector/exchange') if f.is_dir() and f.name not in invalid_names]
+    for connector in connectors:
+        try:
+            path = f"hummingbot.connector.exchange.{connector}.{connector}_utils"
+            is_cex = getattr(importlib.import_module(path), "CENTRALIZED")
+            if cex and is_cex:
+                exchanges.add(connector)
+            elif not cex and not is_cex:
+                exchanges.add(connector)
+        except Exception:
+            continue
+    return exchanges
 
-DEXES = {
-    "bamboo_relay",
-    "radar_relay",
-    "dolomite"
-}
+
+def get_derivatives():
+    invalid_names = ["__pycache__"]
+    derivatives = set()
+    try:
+        connectors = [f.name for f in scandir('./hummingbot/connector/derivative') if f.is_dir() and f.name not in invalid_names]
+        derivatives.update(connectors)
+    except Exception:
+        pass
+    return derivatives
+
+
+def get_example_asset(pair=True):
+    from hummingbot.client.config.config_helpers import get_all_connectors
+
+    pairs = []
+    fetched_connectors = []
+    all_connectors = get_all_connectors()
+    for connector_type, connectors in all_connectors.items():
+        if connector_type != "connector":
+            for connector in connectors:
+                module_path = f"hummingbot.connector.{connector_type}.{connector}.{connector}_utils"
+                if pair:
+                    pairs.append(getattr(importlib.import_module(module_path), "EXAMPLE_PAIR"))
+                else:
+                    pairs.append(getattr(importlib.import_module(module_path), "EXAMPLE_PAIR").split("-")[0])
+                fetched_connectors.append(connector)
+    return dict(zip(fetched_connectors, pairs))
+
+
+DERIVATIVES = get_derivatives()
+
+DEXES = get_exchange_list(False)
+
+# To-do: create CONNECTOR constant hold all types of connectors(i.e to replace EXCHANGES)
+# So EXCHANGES only hold the name of centralized exchanges
+EXCHANGES = DERIVATIVES.union(get_exchange_list()).union(DEXES)
 
 STRATEGIES: List[str] = get_strategy_list()
 
-EXAMPLE_PAIRS = {
-    "bamboo_relay": "ZRX-WETH",
-    "binance": "ZRX-ETH",
-    "bittrex": "ZRX-ETH",
-    "kucoin": "ETH-USDT",
-    "coinbase_pro": "ETH-USDC",
-    "dolomite": "WETH-DAI",
-    "huobi": "ETH-USDT",
-    "liquid": "ETH-USD",
-    "radar_relay": "ZRX-WETH",
-    "eterbase": "ETH-EUR",
-    "kraken": "ETH-USDC",
-    "crypto_com": "ETH-USDT"
-}
+EXAMPLE_PAIRS = get_example_asset()
 
-EXAMPLE_ASSETS = {
-    "bamboo_relay": "ZRX",
-    "binance": "ZRX",
-    "bittrex": "ZRX",
-    "kucoin": "ETH",
-    "coinbase_pro": "ETH",
-    "dolomite": "LRC",
-    "huobi": "eth",
-    "liquid": "ETH",
-    "radar_relay": "ZRX",
-    "eterbase": "ETH",
-    "kraken": "XETH",
-    "crypto_com": "ETH",
-}
+EXAMPLE_ASSETS = get_example_asset(False)
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
 MAXIMUM_LOG_PANE_LINE_COUNT = 1000
