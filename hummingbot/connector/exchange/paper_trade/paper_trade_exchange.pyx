@@ -227,6 +227,8 @@ cdef class PaperTradeExchange(ExchangeBase):
 
     @property
     def ready(self):
+        if not self._order_book_tracker.ready:
+            return False
         if all(self.status_dict.values()):
             if not self._paper_trade_market_initialized:
                 self.init_paper_trade_market()
