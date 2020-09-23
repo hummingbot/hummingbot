@@ -10,9 +10,15 @@ There are [existing connectors](https://github.com/CoinAlpha/hummingbot/tree/mas
 
 Building a new exchange connector requires conforming to the template code to the new exchange's APIs, identifying and handling any differences in functions/behaviors, and testing the new exchange connector on that exchange.
 
-- Centralized exchange: [Binance](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/binance), [Coinbase Pro](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/coinbase_pro), [Huobi](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/huobi), [Bittrex](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/bittrex)
-- Ethereum DEX (0x open order book): [Radar Relay](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/radar_relay)
-- Ethereum DEX (0x open order book w/coordinator support): [Bamboo Relay](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/bamboo_relay)
+!!! Tip:
+    For new developers building a connector, we recommend to use Binance as a template to start and understand the functions and behaviors.
+
+- Centralized exchange: 
+    - [Binance](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/binance) 
+    - [Coinbase Pro](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/coin-base_pro) - [Huobi](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/huobi)
+    - [Bittrex](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/bittrex)
+    - Ethereum DEX (0x open order book): [Radar Relay](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/radar_relay)
+    - Ethereum DEX (0x open order book w/coordinator support): [Bamboo Relay](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market/bamboo_relay)
 
 ## Exchange connector requirements
 1. A complete set of exchange connector files as listed [above](#exchange-connector-files).
