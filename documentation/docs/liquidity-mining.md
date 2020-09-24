@@ -150,7 +150,7 @@ We are launching liquidity mining campaigns for our open beta partners Harmony a
     <th>Token Issuer</th>
     <th>Trading pair</th>
     <th>Exchange</th>
-    <th>Weekly reward</th>
+    <th>Weekly rewards</th>
     <th>Reward token</th>
   </thead>
   <tbody>
