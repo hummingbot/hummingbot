@@ -73,8 +73,8 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         resp = requests.get(url=f"{TICKER_PRICE_CHANGE_URL}?symbol={convert_to_exchange_trading_pair(trading_pair)}")
         record = resp.json()
-        result = (Decimal(record["bidPrice"]) + Decimal(record["askPrice"])) / Decimal("2")
-        return result
+        result = (Decimal(record.get("bidPrice", "0")) + Decimal(record.get("askPrice", "0"))) / Decimal("2")
+        return result if result else None
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:

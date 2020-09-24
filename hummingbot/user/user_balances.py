@@ -26,11 +26,6 @@ class UserBalances:
     @staticmethod
     async def _update_balances(market) -> Optional[str]:
         try:
-            # Todo: Check first if _account_id is not already set, but the market objects need to expose this property.
-            """
-            if isinstance(market, HuobiExchange):
-                await market._update_account_id()
-            """
             await market._update_balances()
         except Exception as e:
             return str(e)

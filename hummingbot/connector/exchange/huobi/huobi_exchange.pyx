@@ -299,7 +299,6 @@ cdef class HuobiExchange(ExchangeBase):
 
     async def _update_balances(self):
         cdef:
-            str path_url = f"/account/accounts/{self._account_id}/balance"
             dict data
             list balances
             dict new_available_balances = {}
@@ -307,7 +306,9 @@ cdef class HuobiExchange(ExchangeBase):
             str asset_name
             object balance
 
-        data = await self._api_request("get", path_url=path_url, is_auth_required=True)
+        if not self._account_id:
+            await self._update_account_id()
+        data = await self._api_request("get", path_url=f"/account/accounts/{self._account_id}/balance", is_auth_required=True)
         balances = data.get("list", [])
         if len(balances) > 0:
             for balance_entry in balances:
