@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 
-import sys, os; sys.path.insert(0, os.path.realpath(os.path.join(__file__, "../../")))
+import sys
+import os; sys.path.insert(0, os.path.realpath(os.path.join(__file__, "../../")))
 import logging; logging.basicConfig(level=logging.DEBUG)
-
 import pandas as pd
-
 import hummingsim
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.binance_order_book_loader_v2 import BinanceOrderBookLoaderV2
@@ -48,10 +47,12 @@ def main():
     ddex_market.set_quantization_param(QuantizationParams("WETH-DAI", 5, 3, 5, 3))
 
     market_pair = CrossExchangeMarketPair(*(
-            [ddex_market] + list(ddex_trading_pair) + [binance_market] + list(binance_trading_pair)))
-    strategy = CrossExchangeMarketMakingStrategy([market_pair], 0.003,
-                                                 logging_options=
-                                                 CrossExchangeMarketMakingStrategy.OPTION_LOG_MAKER_ORDER_FILLED)
+        [ddex_market] + list(ddex_trading_pair) + [binance_market] + list(binance_trading_pair)))
+
+    strategy = CrossExchangeMarketMakingStrategy(
+        [market_pair], 0.003,
+        logging_options=
+        CrossExchangeMarketMakingStrategy.OPTION_LOG_MAKER_ORDER_FILLED)
 
     clock = Clock(ClockMode.BACKTEST, start_time=start.timestamp(), end_time=end.timestamp())
     clock.add_iterator(binance_market)
