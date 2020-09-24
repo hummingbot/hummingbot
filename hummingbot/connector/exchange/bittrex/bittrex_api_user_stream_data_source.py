@@ -66,7 +66,7 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     self._last_recv_time = time.time()
                     yield msg
         except asyncio.TimeoutError:
-            self.logger().warning(f"Message recv() timed out. Reconnecting to Bittrex SignalR WebSocket... ")
+            self.logger().warning("Message recv() timed out. Reconnecting to Bittrex SignalR WebSocket... ")
 
     def _transform_raw_message(self, msg) -> Dict[str, Any]:
 
@@ -76,7 +76,7 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             except SyntaxError:
                 decode_msg: bytes = decompress(b64decode(raw_message, validate=True))
             except Exception:
-                self.logger().error(f"Error decoding message", exc_info=True)
+                self.logger().error("Error decoding message", exc_info=True)
                 return {"error": "Error decoding message"}
 
             return ujson.loads(decode_msg.decode(), precise_float=True)
