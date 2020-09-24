@@ -150,7 +150,7 @@ class BitfinexOrderBookTracker(OrderBookTracker):
                 raise
             except Exception:
                 self.logger().network(
-                    f"Unexpected error routing order book messages.",
+                    "Unexpected error routing order book messages.",
                     exc_info=True,
                     app_warning_msg="Unexpected error routing order book messages. "
                                     f"Retrying after {int(self.EXCEPTION_TIME_SLEEP)} seconds."

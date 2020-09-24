@@ -111,6 +111,6 @@ class BinanceTime:
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().network(f"Error getting Binance server time.", exc_info=True,
-                                  app_warning_msg=f"Could not refresh Binance server time. "
-                                                  f"Check network connection.")
+            self.logger().network("Error getting Binance server time.", exc_info=True,
+                                  app_warning_msg="Could not refresh Binance server time. "
+                                                  "Check network connection.")
