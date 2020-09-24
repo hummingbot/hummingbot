@@ -563,7 +563,7 @@ class CryptoComExchange(ExchangeBase):
                 raise
             except Exception as e:
                 self.logger().error(str(e), exc_info=True)
-                self.logger().network(f"Unexpected error while fetching account updates.",
+                self.logger().network("Unexpected error while fetching account updates.",
                                       exc_info=True,
                                       app_warning_msg="Could not fetch account updates from Crypto.com. "
                                                       "Check API key and network connection.")
@@ -716,7 +716,7 @@ class CryptoComExchange(ExchangeBase):
         except Exception:
             self.logger().error("Cancel all failed.", exc_info=True)
             self.logger().network(
-                f"Unexpected error cancelling orders.",
+                "Unexpected error cancelling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order on Crypto.com. Check API key and network connection."
             )

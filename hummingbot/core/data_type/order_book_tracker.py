@@ -314,8 +314,8 @@ class OrderBookTracker(ABC):
                 raise
             except Exception:
                 self.logger().network(
-                    f"Unexpected error routing order book messages.",
+                    "Unexpected error routing order book messages.",
                     exc_info=True,
-                    app_warning_msg=f"Unexpected error routing order book messages. Retrying after 5 seconds."
+                    app_warning_msg="Unexpected error routing order book messages. Retrying after 5 seconds."
                 )
                 await asyncio.sleep(5.0)

@@ -93,7 +93,7 @@ async def download_bamboo_relay_token_addresses(token_dict: Dict[str, str]):
 def download_erc20_token_addresses():
     try:
         TOKEN_ADDRESS_PATH = "../../wallet/ethereum/erc20_tokens.json"
-        logging.getLogger().info(f"Downloading ERC20 token addresses...")
+        logging.getLogger().info("Downloading ERC20 token addresses...")
 
         with open(os.path.join(os.path.dirname(__file__), TOKEN_ADDRESS_PATH)) as old_erc20:
             td = json.load(old_erc20)

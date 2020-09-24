@@ -56,9 +56,9 @@ class MockAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception:
                 self._trading_pairs = []
                 self.logger().network(
-                    f"Error getting active exchange information.",
+                    "Error getting active exchange information.",
                     exc_info=True,
-                    app_warning_msg=f"Error getting active exchange information. Check network connection."
+                    app_warning_msg="Error getting active exchange information. Check network connection."
                 )
         return self._trading_pairs
 
