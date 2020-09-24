@@ -9,6 +9,7 @@ from wsgiref.handlers import format_date_time
 from datetime import datetime
 from time import mktime
 
+
 class EterbaseAuth():
     """
     Auth class required by Eterbase API
@@ -54,8 +55,7 @@ class EterbaseAuth():
         header_dict = self.gen_auth_dict_eter(method, path_url, body)
         return header_dict
 
-
-    def gen_auth_dict_eter(self, method:str, path_url: str, body: str=None):
+    def gen_auth_dict_eter(self, method: str, path_url: str, body: str = None):
         # Set the authorization header template
         auth_header_template = (
             'hmac username="{}",algorithm="{}",headers="{}",signature="{}"'
@@ -69,14 +69,14 @@ class EterbaseAuth():
         if (body is not None):
             base64sha256 = "SHA-256=" + self.sha256_hash_base64(body)
             signature_headers["digest"] = base64sha256
-    
+
         # Strip the hostname from the URL
         target_url = re.sub(r"^https?://[^/]+/", "/", path_url)
         # Build the request-line header
         request_line = method.upper() + " " + target_url + " HTTP/1.1"
         # Add to headers for the signature hash
         signature_headers["request-line"] = request_line
-    
+
         # Get the list of headers
         headers = self.get_headers_string(signature_headers)
         # Build the signature string
@@ -87,7 +87,7 @@ class EterbaseAuth():
         auth_header = auth_header_template.format(
             self.api_key, EterbaseAuth._HMAC_SHA256, headers, (signature_hash).decode(EterbaseAuth._UTF8)
         )
-    
+
         request_headers = None
         if (method.upper() == EterbaseAuth._HTTP_METHOD_GET) or (method.upper() == EterbaseAuth._HTTP_METHOD_DELETE):
             request_headers = {
@@ -108,8 +108,8 @@ class EterbaseAuth():
         stamp = mktime(now.timetuple())
         return format_date_time(stamp)
 
-    def sha256_hash_base64(self,string_to_hash, secret=None):
-        if secret==None:
+    def sha256_hash_base64(self, string_to_hash, secret = None):
+        if secret is None:
             m = hashlib.sha256()
             m.update(string_to_hash.encode(EterbaseAuth._UTF8))
             return base64.b64encode(m.digest()).decode(EterbaseAuth._UTF8)
@@ -117,7 +117,7 @@ class EterbaseAuth():
             h = hmac.new((secret).encode(EterbaseAuth._UTF8), (string_to_hash).encode(EterbaseAuth._UTF8), hashlib.sha256)
             return base64.b64encode(h.digest())
 
-    def get_signature_string(self,signature_headers):
+    def get_signature_string(self, signature_headers):
         sig_string = ""
         for key, value in signature_headers.items():
             if sig_string != "":
@@ -128,11 +128,10 @@ class EterbaseAuth():
                 sig_string += key.lower() + ": " + value
         return sig_string
 
-    def get_headers_string(self,signature_headers):
+    def get_headers_string(self, signature_headers):
         headers = ""
         for key in signature_headers:
             if headers != "":
                 headers += " "
             headers += key
         return headers
-
