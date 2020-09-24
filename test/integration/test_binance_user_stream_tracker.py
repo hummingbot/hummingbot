@@ -14,7 +14,9 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
+
     order_book_tracker: Optional[BinanceOrderBookTracker] = None
+
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
