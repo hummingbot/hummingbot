@@ -54,7 +54,7 @@ class ExportCommand:
                                           path):
         input = await self.app.prompt(prompt="Enter a new csv file name >>> ")
         if input is None or input == "":
-            self._notify(f"Value is required.")
+            self._notify("Value is required.")
             return await self.prompt_new_export_file_name(path)
         if "." not in input:
             input = input + ".csv"

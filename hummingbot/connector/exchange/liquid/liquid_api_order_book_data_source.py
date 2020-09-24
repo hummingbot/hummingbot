@@ -181,9 +181,9 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         except Exception:
             self._trading_pairs = []
             self.logger().network(
-                f"Error getting active exchange information.",
+                "Error getting active exchange information.",
                 exe_info=True,
-                app_warning_msg=f"Error getting active exchange information. Check network connection."
+                app_warning_msg="Error getting active exchange information. Check network connection."
             )
 
         return self._trading_pairs
@@ -399,10 +399,10 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         except Exception as e:
                             print(e)
                             self.logger().network(
-                                f"Unexpected error with WebSocket connection.",
+                                "Unexpected error with WebSocket connection.",
                                 exc_info=True,
-                                app_warning_msg=f"Unexpected error with WebSocket connection. Retrying in 5 seconds. "
-                                                f"Check network connection."
+                                app_warning_msg="Unexpected error with WebSocket connection. Retrying in 5 seconds. "
+                                                "Check network connection."
                             )
                             await asyncio.sleep(5.0)
                     this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
