@@ -63,7 +63,7 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
             from hummingbot.connector.exchange.huobi.huobi_utils import convert_from_exchange_trading_pair
 
             async with aiohttp.ClientSession() as client:
-                async with client.get(HUOBI_SYMBOLS_URL, timeout=5) as response:
+                async with client.get(HUOBI_SYMBOLS_URL, timeout=10) as response:
                     if response.status == 200:
                         all_trading_pairs: Dict[str, Any] = await response.json()
                         valid_trading_pairs: list = []
