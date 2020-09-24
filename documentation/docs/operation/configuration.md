@@ -50,6 +50,8 @@ Please see below for instructions to find your API keys for the exchanges that H
 
 * [Eterbase](/connectors/eterbase/#creating-eterbase-api-keys)
 
+* [Crypto.com](/connectors/crypto-com/#creating-cryptocom-api-keys)
+
 !!! warning "API key permissions"
     We recommend using only **"trade"** enabled API keys; enabling **"withdraw", "transfer", or the equivalent** is unnecessary for current Hummingbot strategies.
 

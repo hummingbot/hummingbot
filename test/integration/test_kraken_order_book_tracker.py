@@ -10,6 +10,7 @@ import unittest
 
 
 class KrakenOrderBookTrackerUnitTest(unittest.TestCase):
+
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
