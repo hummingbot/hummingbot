@@ -387,7 +387,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
         if API_MOCK_ENABLED:
             resp = FixtureKucoin.ORDERS_BATCH_CANCELLED.copy()
             resp["data"]["cancelledOrderIds"] = [exch_order_id, exch_order_id2]
-            self.web_app.update_response("delete", API_BASE_URL, f"/api/v1/orders", resp)
+            self.web_app.update_response("delete", API_BASE_URL, "/api/v1/orders", resp)
         [cancellation_results] = self.run_parallel(self.market_2.cancel_all(5))
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)

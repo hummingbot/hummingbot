@@ -3,7 +3,7 @@
 
 from typing import Iterator
 from libcpp.set cimport set
-from cython.operator cimport (
+from cython.operator cimport(
     postincrement as inc,
     dereference as deref,
     address as ref
@@ -130,7 +130,6 @@ cdef class CompositeOrderBook(OrderBook):
             inc(order_it)
 
         self._traded_order_book.c_apply_diffs(cpp_bids_changes, cpp_asks_changes, self._last_diff_uid)
-
 
     def ask_entries(self) -> Iterator[OrderBookRow]:
         cdef:

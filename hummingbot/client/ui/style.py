@@ -13,28 +13,27 @@ def load_style():
 
 
 default_ui_style = {
-    "output-field":               "bg:#171E2B #1CD085",
-    "input-field":                "bg:#000000 #FFFFFF",
-    "log-field":                  "bg:#171E2B #FFFFFF",
-    "title":                      "bg:#000000 #AAAAAA",
-    "search":                     "bg:#000000 #93C36D",
-    "search.current":             "bg:#000000 #1CD085",
-    "primary":                    "#1CD085",
-    "warning":                    "#93C36D",
-    "error":                      "#F5634A",
+    "output-field":               "bg:#171E2B #1CD085",  # noqa: E241
+    "input-field":                "bg:#000000 #FFFFFF",  # noqa: E241
+    "log-field":                  "bg:#171E2B #FFFFFF",  # noqa: E241
+    "title":                      "bg:#000000 #AAAAAA",  # noqa: E241
+    "search":                     "bg:#000000 #93C36D",  # noqa: E241
+    "search.current":             "bg:#000000 #1CD085",  # noqa: E241
+    "primary":                    "#1CD085",  # noqa: E241
+    "warning":                    "#93C36D",  # noqa: E241
+    "error":                      "#F5634A",  # noqa: E241
 }
 
 
 # Style for an older version of Windows consoles. They support only 16 colors,
 # so we choose a combination that displays nicely.
 win32_code_style = {
-    "output-field":               "#ansigreen",
-    "input-field":                "#ansiwhite",
-    "log-field":                  "#ansiwhite",
-    "search":                     "#ansigreen",
-    "search.current":             "#ansigreen",
-    "primary":                    "#ansigreen",
-    "warning":                    "#ansibrightyellow",
-    "error":                      "#ansired",
+    "output-field":               "#ansigreen",  # noqa: E241
+    "input-field":                "#ansiwhite",  # noqa: E241
+    "log-field":                  "#ansiwhite",  # noqa: E241
+    "search":                     "#ansigreen",  # noqa: E241
+    "search.current":             "#ansigreen",  # noqa: E241
+    "primary":                    "#ansigreen",  # noqa: E241
+    "warning":                    "#ansibrightyellow",  # noqa: E241
+    "error":                      "#ansired",  # noqa: E241
 }
-
