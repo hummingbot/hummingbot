@@ -37,7 +37,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
 
 !!! note "Campaign updates for the week starting September 15, 2020 12.00am UTC"
     **Native XZC rewards for Zcoin campaign**: We are rolling out [XZC native token payments](https://hummingbot.io/blog/2020-09-xzc-native-token-payment/) for the Zcoin liquidity mining campaign! Miners participating in the Zcoin liquidity mining campaign will start earning and be paid in XZC tokens.
-    > <em>**Tip:** Miners participating should enter their XZC wallet address in the Miner's app. <br/> **Note:** you can enter your Binance XZC deposit address to receive the XZC directly into Binance</em>
+    > <em>**Tip:** Miners participating should enter their XZC wallet address in the Miner's app. Click this [link](https://docs.hummingbot.io/faq/liquidity-mining/how-to-add-wallet-address) to learn how. <br/> **Note:** you can enter your [Binance XZC deposit address](https://docs.hummingbot.io/faq/liquidity-mining/get-ethereum-and-zcoin-deposit-address-from-binance) to receive the XZC directly into Binance</em>
 
 
 **Current reward period: September 15, 2020 12.00am UTC to September 22, 2020 12.00am UTC**
