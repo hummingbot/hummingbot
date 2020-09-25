@@ -1,5 +1,6 @@
 from hummingbot.core.utils.async_utils import safe_ensure_future
 import pandas as pd
+from hummingbot.core.event.events import PriceType
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -36,16 +37,12 @@ class TickerCommand:
         else:
             trading_pair, order_book = next(iter(market_connector.order_books.items()))
 
-        best_bid = order_book.snapshot[0][['price']].head(1)
-        best_ask = order_book.snapshot[1][['price']].head(1)
-        mid_price = (best_bid + best_ask) / 2
-        last_trade_price = [order_book.last_trade_price]
-
-        best_bid.rename(columns={'price': 'best_bid'}, inplace=True)
-        best_ask.rename(columns={'price': 'best_ask'}, inplace=True)
-        mid_price.rename(columns={'price': 'mid_price'}, inplace=True)
-        joined_df = pd.concat([mid_price, best_bid, best_ask], axis=1)
-        joined_df.insert(0, "last_trade_price", last_trade_price, True)
-        text_lines = ["    " + line for line in joined_df.to_string(index=False).split("\n")]
-        market_pair = f"  market: {market_connector.name} {trading_pair}\n\n"
-        self._notify(f"{market_pair}" + "\n".join(text_lines))
+        columns = ["Best Bid", "Best Ask", "Mid Price", "Last Trade"]
+        data = [[
+            float(market_connector.get_price_by_type(trading_pair, PriceType.BestBid)),
+            float(market_connector.get_price_by_type(trading_pair, PriceType.BestAsk)),
+            float(market_connector.get_price_by_type(trading_pair, PriceType.MidPrice)),
+            float(market_connector.get_price_by_type(trading_pair, PriceType.LastTrade))
+        ]]
+        df = pd.DataFrame(data=data, columns=columns).to_string(index=False)
+        self._notify(f"  market: {market_connector.name} {trading_pair}\n\n {df}")
