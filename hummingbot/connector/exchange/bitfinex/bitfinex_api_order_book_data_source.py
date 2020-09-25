@@ -578,7 +578,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 exc_info=True,
                                 app_warning_msg="Unexpected error with WebSocket connection. "
                                                 f"Retrying in {self.TIME_SLEEP_BETWEEN_REQUESTS} sec."
-                                                f"Check network connection."
+                                                "Check network connection."
                             )
                             await asyncio.sleep(self.TIME_SLEEP_BETWEEN_REQUESTS)
                     this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(
