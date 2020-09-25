@@ -5,7 +5,7 @@ from hummingbot.core.utils.tracking_nonce import get_tracking_nonce, get_trackin
 from . import crypto_com_constants as Constants
 
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import new_fee_config_var, using_exchange
+from hummingbot.client.config.config_methods import using_exchange
 
 
 CENTRALIZED = True
@@ -13,11 +13,6 @@ CENTRALIZED = True
 EXAMPLE_PAIR = "ETH-USDT"
 
 DEFAULT_FEES = [0.1, 0.1]
-
-FEE_OVERRIDE_MAP = {
-    "crypto_com_maker_fee": new_fee_config_var("crypto_com_maker_fee"),
-    "crypto_com_taker_fee": new_fee_config_var("crypto_com_taker_fee")
-}
 
 HBOT_BROKER_ID = "HBOT-"
 

@@ -74,14 +74,16 @@ def get_example_asset(pair=True):
     fetched_connectors = []
     all_connectors = get_exchanges_and_derivatives()
     for connector_type, connectors in all_connectors.items():
-        if connector_type != "connector":
-            for connector in connectors:
-                module_path = f"hummingbot.connector.{connector_type}.{connector}.{connector}_utils"
+        for connector in connectors:
+            module_path = f"hummingbot.connector.{connector_type}.{connector}.{connector}_utils"
+            try:
                 if pair:
                     pairs.append(getattr(importlib.import_module(module_path), "EXAMPLE_PAIR"))
                 else:
                     pairs.append(getattr(importlib.import_module(module_path), "EXAMPLE_PAIR").split("-")[0])
-                fetched_connectors.append(connector)
+            except Exception:
+                continue
+            fetched_connectors.append(connector)
     return dict(zip(fetched_connectors, pairs))
 
 

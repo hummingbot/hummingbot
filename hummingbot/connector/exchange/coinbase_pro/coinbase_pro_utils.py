@@ -1,16 +1,11 @@
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import new_fee_config_var, using_exchange
+from hummingbot.client.config.config_methods import using_exchange
 
 CENTRALIZED = True
 
 EXAMPLE_PAIR = "ETH-USDC"
 
 DEFAULT_FEES = [0.5, 0.5]
-
-FEE_OVERRIDE_MAP = {
-    "coinbase_pro_maker_fee": new_fee_config_var("coinbase_pro_maker_fee"),
-    "coinbase_pro_taker_fee": new_fee_config_var("coinbase_pro_taker_fee")
-}
 
 KEYS = {
     "coinbase_pro_api_key":

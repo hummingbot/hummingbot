@@ -1,22 +1,16 @@
-from os import scandir
-import importlib
+from hummingbot.client.settings import get_exchanges_and_derivatives, DEXES
+from hummingbot.client.config.config_methods import new_fee_config_var
 
 
 def fee_overrides_dict():
     all_dict = {}
-    invalid_names = ["__pycache__", "paper_trade"]
-    connector_types = ["exchange", "derivative"]
-    for connector_type in connector_types:
-        try:
-            connectors = [f.name for f in scandir(f'./hummingbot/connector/{connector_type}') if f.is_dir() and f.name not in invalid_names]
-        except Exception:
-            continue
+    all_connector_types = get_exchanges_and_derivatives()
+    for connector_type, connectors in all_connector_types.items():
         for connector in connectors:
-            try:
-                module_path = f"hummingbot.connector.{connector_type}.{connector}.{connector}_utils"
-                all_dict.update(getattr(importlib.import_module(module_path), "FEE_OVERRIDE_MAP"))
-            except Exception:
-                continue
+            maker_key = f"{connector}_maker_fee_amount" if connector in DEXES else f"{connector}_maker_fee"
+            taker_key = f"{connector}_taker_fee_amount" if connector in DEXES else f"{connector}_taker_fee"
+            all_dict.update({maker_key: new_fee_config_var(maker_key)})
+            all_dict.update({taker_key: new_fee_config_var(taker_key)})
     return all_dict
 
 

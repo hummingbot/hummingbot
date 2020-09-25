@@ -4,7 +4,7 @@ from typing import (
     Tuple)
 
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import new_fee_config_var, using_exchange
+from hummingbot.client.config.config_methods import using_exchange
 
 
 CENTRALIZED = True
@@ -14,11 +14,6 @@ EXAMPLE_PAIR = "ZRX-ETH"
 
 
 DEFAULT_FEES = [0.1, 0.1]
-
-FEE_OVERRIDE_MAP = {
-    "binance_maker_fee": new_fee_config_var("binance_maker_fee"),
-    "binance_taker_fee": new_fee_config_var("binance_taker_fee")
-}
 
 
 TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|DAI|XRP|USDT|USDC|USDS|TUSD|PAX|TRX|BUSD|NGN|RUB|TRY|EUR|IDRT|ZAR|UAH|GBP|BKRW|BIDR)$")
