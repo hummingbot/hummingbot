@@ -223,7 +223,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 msg = "Error getting active exchange information. Check network connection."
                 self._trading_pairs = []
                 self.logger().network(
-                    f"Error getting active exchange information.",
+                    "Error getting active exchange information.",
                     exc_info=True,
                     app_warning_msg=msg
                 )
@@ -482,7 +482,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception as err:
                 self.logger().error(err)
                 self.logger().network(
-                    f"Unexpected error with WebSocket connection.",
+                    "Unexpected error with WebSocket connection.",
                     exc_info=True,
                     app_warning_msg="Unexpected error with WebSocket connection. "
                                     f"Retrying in {int(self.MESSAGE_TIMEOUT)} seconds. "
@@ -528,11 +528,11 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         except Exception as err:
                             self.logger().error("Listening snapshots", err)
                             self.logger().network(
-                                f"Unexpected error with WebSocket connection.",
+                                "Unexpected error with WebSocket connection.",
                                 exc_info=True,
                                 app_warning_msg="Unexpected error with WebSocket connection. "
                                                 f"Retrying in {self.TIME_SLEEP_BETWEEN_REQUESTS} sec."
-                                                f"Check network connection."
+                                                "Check network connection."
                             )
                             await asyncio.sleep(self.TIME_SLEEP_BETWEEN_REQUESTS)
                     this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(

@@ -117,7 +117,7 @@ class ReportingProxyHandler(logging.Handler):
                     self.send_logs(self._log_queue)
                     self._log_queue = []
         except Exception:
-            self.logger().error(f"Error sending logs.", exc_info=True, extra={"do_not_send": True})
+            self.logger().error("Error sending logs.", exc_info=True, extra={"do_not_send": True})
         finally:
             self.release()
 
