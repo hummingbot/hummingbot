@@ -150,38 +150,43 @@ We are launching liquidity mining campaigns for our open beta partners Harmony a
     <th>Token Issuer</th>
     <th>Trading pair</th>
     <th>Exchange</th>
-    <th>Reward Pool</th>
-    <th>Reward Token</th>
+    <th>Weekly rewards</th>
+    <th>Reward token</th>
   </thead>
   <tbody>
     <tr>
       <td rowspan="2"><a href="https://www.harmony.one/">Harmony</a></td>
       <td>ONE/BTC</td>
       <td>KuCoin</td>
-      <td><b>USD 1500</b></td>
+      <td><b>USD 375</b></td>
       <td><b>ONE</b></td>
     </tr>
     <tr>
       <td>ONE/USDT</td>
       <td>KuCoin</td>
-      <td><b>USD 1500</b></td>
+      <td><b>USD 375</b></td>
       <td><b>ONE</b></td>
     </tr>
     <tr>
       <td rowspan="2"><a href="https://www.suku.world/">SUKU</a></td>
       <td>SUKU/BTC</td>
       <td>KuCoin</td>
-      <td><b>USDC 1500</b></td>
+      <td><b>USDC 375</b></td>
       <td><b>USDC</b></td>
     </tr>
     <tr>
       <td>SUKU/USDT</td>
       <td>KuCoin</td>
-      <td><b>USDC 1500</b></td>
+      <td><b>USDC 375</b></td>
       <td><b>USDC</b></td>
     </tr>
   </tbody>
 </table>
+
+Notes:
+
+1. The Harmony campaign will be paying out rewards in native ONE tokens. The actual amount of tokens will be set prior to campaign launched, based on the USD amounts indicated above.
+2. Terms subject to change prior to launch.
 
 ## Token Issuers
 
