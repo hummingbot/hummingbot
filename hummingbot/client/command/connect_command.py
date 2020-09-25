@@ -21,7 +21,8 @@ OPTIONS = {
     "ethereum",
     "eterbase",
     "celo",
-    "crypto_com"
+    "crypto_com",
+    "binance_us"
 }
 
 

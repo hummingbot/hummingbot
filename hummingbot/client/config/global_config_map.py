@@ -120,6 +120,18 @@ global_config_map = {
                   required_if=using_exchange("binance"),
                   is_secure=True,
                   is_connect_key=True),
+    "binance_us_api_key":
+        ConfigVar(key="binance_us_api_key",
+                  prompt="Enter your Binance.US API key >>> ",
+                  required_if=using_exchange("binance_us"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "binance_us_api_secret":
+        ConfigVar(key="binance_us_api_secret",
+                  prompt="Enter your Binance.US API secret >>> ",
+                  required_if=using_exchange("binance_us"),
+                  is_secure=True,
+                  is_connect_key=True),
     "coinbase_pro_api_key":
         ConfigVar(key="coinbase_pro_api_key",
                   prompt="Enter your Coinbase API key >>> ",

@@ -14,6 +14,7 @@ from .async_utils import safe_ensure_future
 from .ssl_client_request import SSLClientRequest
 
 BINANCE_ENDPOINT = "https://api.binance.com/api/v1/exchangeInfo"
+BINANCE_US_ENDPOINT = "https://api.binance.us/api/v1/exchangeInfo"
 RADAR_RELAY_ENDPOINT = "https://api.radarrelay.com/v3/markets"
 BAMBOO_RELAY_ENDPOINT = "https://rest.bamboorelay.com/main/0x/markets"
 COINBASE_PRO_ENDPOINT = "https://api.pro.coinbase.com/products/"
@@ -79,6 +80,30 @@ class TradingPairFetcher:
 
         except Exception:
             # Do nothing if the request fails -- there will be no autocomplete for binance trading pairs
+            pass
+
+        return []
+    
+    async def fetch_binance_us_trading_pairs(self) -> List[str]:
+        try:
+            from hummingbot.connector.exchange.binance_us.binance_us_utils import convert_from_exchange_trading_pair
+            client: aiohttp.ClientSession = self.http_client()
+            async with client.get(BINANCE_US_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    raw_trading_pairs = [d["symbol"] for d in data["symbols"] if d["status"] == "TRADING"]
+                    trading_pair_list: List[str] = []
+                    for raw_trading_pair in raw_trading_pairs:
+                        converted_trading_pair: Optional[str] = \
+                            convert_from_exchange_trading_pair(raw_trading_pair)
+                        if converted_trading_pair is not None:
+                            trading_pair_list.append(converted_trading_pair)
+                        else:
+                            self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
+                    return trading_pair_list
+
+        except Exception:
+            # Do nothing if the request fails -- there will be no autocomplete for binance.us trading pairs
             pass
 
         return []
@@ -335,7 +360,8 @@ class TradingPairFetcher:
                  self.fetch_kraken_trading_pairs(),
                  self.fetch_radar_relay_trading_pairs(),
                  self.fetch_eterbase_trading_pairs(),
-                 self.fetch_crypto_com_trading_pairs()]
+                 self.fetch_crypto_com_trading_pairs(),
+                 self.fetch_binance_us_trading_pairs()]
 
         # Radar Relay has not yet been migrated to a new version
         # Endpoint needs to be updated after migration
@@ -354,6 +380,7 @@ class TradingPairFetcher:
             "kraken": results[8],
             "radar_relay": results[9],
             "eterbase": results[10],
-            "crypto_com": results[11]
+            "crypto_com": results[11],
+            "binance_us": results[12]
         }
         self.ready = True

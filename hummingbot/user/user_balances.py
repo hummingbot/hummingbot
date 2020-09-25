@@ -1,4 +1,5 @@
 from hummingbot.connector.exchange.binance.binance_market import BinanceMarket
+from hummingbot.connector.exchange.binance_us.binance_us_market import BinanceUsMarket
 from hummingbot.connector.exchange.bittrex.bittrex_market import BittrexMarket
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.connector.exchange.huobi.huobi_market import HuobiMarket
@@ -26,6 +27,8 @@ class UserBalances:
         market = None
         if exchange == "binance":
             market = BinanceMarket(*api_details)
+        elif exchange == "binance_us":
+            market = BinanceUsMarket(*api_details)
         elif exchange == "bittrex":
             market = BittrexMarket(api_details[0], api_details[1])
         elif exchange == "coinbase_pro":

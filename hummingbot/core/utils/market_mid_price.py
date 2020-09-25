@@ -5,6 +5,7 @@ import cachetools.func
 
 
 BINANCE_PRICE_URL = "https://api.binance.com/api/v3/ticker/bookTicker"
+BINANCE_US_PRICE_URL = "https://api.binance.us/api/v3/ticker/bookTicker"
 KUCOIN_PRICE_URL = "https://api.kucoin.com/api/v1/market/allTickers"
 LIQUID_PRICE_URL = "https://api.liquid.com/products"
 BITTREX_PRICE_URL = "https://api.bittrex.com/api/v1.1/public/getmarketsummaries"
@@ -15,6 +16,8 @@ COINBASE_PRO_PRICE_URL = "https://api.pro.coinbase.com/products/TO_BE_REPLACED/t
 def get_mid_price(exchange: str, trading_pair: str) -> Optional[Decimal]:
     if exchange == "binance":
         return binance_mid_price(trading_pair)
+    elif exchange == "_us":
+        return binance_us_mid_price(trading_pair)
     elif exchange == "kucoin":
         return kucoin_mid_price(trading_pair)
     elif exchange == "liquid":
@@ -34,6 +37,21 @@ def binance_mid_price(trading_pair: str) -> Optional[Decimal]:
     from hummingbot.connector.exchange.binance.binance_utils import convert_from_exchange_trading_pair
 
     resp = requests.get(url=BINANCE_PRICE_URL)
+    records = resp.json()
+    result = None
+    for record in records:
+        pair = convert_from_exchange_trading_pair(record["symbol"])
+        if trading_pair == pair and record["bidPrice"] is not None and record["askPrice"] is not None:
+            result = (Decimal(record["bidPrice"]) + Decimal(record["askPrice"])) / Decimal("2")
+            break
+    return result
+
+
+@cachetools.func.ttl_cache(ttl=10)
+def binance_us_mid_price(trading_pair: str) -> Optional[Decimal]:
+    from hummingbot.connector.exchange.binance_us.binance_us_utils import convert_from_exchange_trading_pair
+
+    resp = requests.get(url=BINANCE_US_PRICE_URL)
     records = resp.json()
     result = None
     for record in records:

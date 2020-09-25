@@ -41,6 +41,11 @@ mock_api_enabled = os.getenv("MOCK_API_ENABLED")
 binance_api_key = os.getenv("BINANCE_API_KEY")
 binance_api_secret = os.getenv("BINANCE_API_SECRET")
 
+# Binance US Tests
+binance_us_api_key = os.getenv("BINANCE_US_API_KEY")
+binance_us_api_secret = os.getenv("BINANCE_US_API_SECRET")
+
+
 # Coinbase Pro Tests
 coinbase_pro_api_key = os.getenv("COINBASE_PRO_API_KEY")
 coinbase_pro_secret_key = os.getenv("COINBASE_PRO_SECRET_KEY")
@@ -114,6 +119,7 @@ except ModuleNotFoundError:
 
 try:
     from .binance_secret import *           # noqa: F401, F403
+    from .binance_us_secret import *           # noqa: F401, F403
 except ModuleNotFoundError:
     pass
 
