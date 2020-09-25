@@ -97,4 +97,10 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     order_book_parser.add_argument("--market", type=str, dest="market", help="The market (trading pair) of the order book")
     order_book_parser.set_defaults(func=hummingbot.order_book)
 
+    ticker_parser = subparsers.add_parser("ticker", help="Display current order book.")
+    ticker_parser.add_argument("--repeat", type=int, default=10, dest="repeat", help="Number of seconds between intervals")
+    ticker_parser.add_argument("--exchange", type=str, dest="exchange", help="The exchange of the market")
+    ticker_parser.add_argument("--market", type=str, dest="market", help="The market (trading pair) of the order book")
+    ticker_parser.set_defaults(func=hummingbot.ticker)
+
     return parser
