@@ -31,7 +31,8 @@ Liquidity mining sets forth an analytical framework for determining market maker
     <li>**Orders outstanding for more than 30 minutes not counted for rewards.** Work on removing this limit is in progress, you can read more about it in our [Reddit post](https://www.reddit.com/r/Hummingbot/comments/hz5xv3/tracking_rewards_for_orders_longer_than_30m/).
     > <em>**Tip**: To ensure that orders do not stay outstanding for longer than 30 minutes, Hummingbot users should disable [order refresh tolerance](https://docs.hummingbot.io/strategies/advanced-mm/order-refresh-tolerance/#how-it-works).</em>
 
-    <li>**Minimum reward payout amount**: due to the recent surge in Ethereum gas price, Hummingbot will impose a $50.00 minimum on the weekly payout, starting with the next scheduled payout on September 18th  (UTC). For miners who earn < $50 within one week, their rewards will be accrued and rolled over to the next period, read more [here](https://www.reddit.com/r/Hummingbot/comments/ip4mc3/announcement_raising_minimum_payment_to_50/).
+    <li>**Minimum reward payout amount**: due to the recent surge in Ethereum gas price, Hummingbot will impose a $50.00 minimum on the weekly payout `for payments on the Ethereum blockchain (currently USDC and RLC)`, starting with the next scheduled payout on September 18th (UTC).  For miners who earn < $50 within one week, their rewards will be accrued and rolled over to the next period, read more [here](https://www.reddit.com/r/Hummingbot/comments/ip4mc3/announcement_raising_minimum_payment_to_50/).<br/>
+    > <em>**Note:** `XZC payments are not subject to a minimum payout reward; all payouts will be made for each period.`</em>
 
 
 !!! note "Campaign updates for the week starting September 15, 2020 12.00am UTC"
@@ -39,7 +40,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
     > <em>**Tip:** Miners participating should enter their XZC wallet address in the Miner's app. <br/> **Note:** you can enter your Binance XZC deposit address to receive the XZC directly into Binance</em>
 
 
-**Current reward period: September 8, 2020 12.00am UTC to September 15, 2020 12.00am UTC**
+**Current reward period: September 22, 2020 12.00am UTC to September 29, 2020 12.00am UTC**
 
 <table>
   <thead>
@@ -123,14 +124,14 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 375</td>
+      <td><b>XZC 125</b></td>
     </tr>
     <tr>
       <td>XZC/USDT</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 375</td>
+      <td><b>XZC 125</b></td>
     </tr>
   </tbody>
 </table>
@@ -140,34 +141,52 @@ Liquidity mining sets forth an analytical framework for determining market maker
 
 
 ## Upcoming changes to campaign terms 
-This new reward amount will be effective from the weekly rewards period starting from September 15, 2020 12.00am UTC.
+We are launching liquidity mining campaigns for our open beta partners Harmony and Suku. For more details about the campaign, you can check our [blog post](https://hummingbot.io/blog/2020-09-launching-kucoin-liquidity-mining/).
+
+**Open beta period**: October 6, 2020 12.00am UTC to October 20, 2020 12.00am UTC
+
 <table>
   <thead>
     <th>Token Issuer</th>
     <th>Trading pair</th>
     <th>Exchange</th>
-    <th>Maximum spread</th>
-    <th>Spread factor *</th>
     <th>Weekly rewards</th>
+    <th>Reward token</th>
   </thead>
   <tbody>
-      <tr>
-      <td rowspan="3"><a href="#zcoin">Zcoin</a><br></td>
-      <td>XZC/BTC</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td><b>XZC 125</b></td>
+    <tr>
+      <td rowspan="2"><a href="https://www.harmony.one/">Harmony</a></td>
+      <td>ONE/BTC</td>
+      <td>KuCoin</td>
+      <td><b>USD 375</b></td>
+      <td><b>ONE</b></td>
     </tr>
     <tr>
-      <td>XZC/USDT</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td><b>XZC 125</b></td>
+      <td>ONE/USDT</td>
+      <td>KuCoin</td>
+      <td><b>USD 375</b></td>
+      <td><b>ONE</b></td>
     </tr>
- </tbody>
+    <tr>
+      <td rowspan="2"><a href="https://www.suku.world/">SUKU</a></td>
+      <td>SUKU/BTC</td>
+      <td>KuCoin</td>
+      <td><b>USDC 375</b></td>
+      <td><b>USDC</b></td>
+    </tr>
+    <tr>
+      <td>SUKU/USDT</td>
+      <td>KuCoin</td>
+      <td><b>USDC 375</b></td>
+      <td><b>USDC</b></td>
+    </tr>
+  </tbody>
 </table>
+
+Notes:
+
+1. The Harmony campaign will be paying out rewards in native ONE tokens. The actual amount of tokens will be set prior to campaign launched, based on the USD amounts indicated above.
+2. Terms subject to change prior to launch.
 
 ## Token Issuers
 
