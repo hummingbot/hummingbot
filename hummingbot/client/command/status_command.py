@@ -171,9 +171,9 @@ class StatusCommand:
                 loading_markets.append(market)
 
         if len(loading_markets) > 0:
-            self._notify(f"  - Connectors check:  Waiting for connectors " +
-                         ",".join([m.name.capitalize() for m in loading_markets]) + f" to get ready for trading. \n"
-                         f"                    Please keep the bot running and try to start again in a few minutes. \n")
+            self._notify("  - Connectors check:  Waiting for connectors " +
+                         ",".join([m.name.capitalize() for m in loading_markets]) + " to get ready for trading. \n"
+                         "                    Please keep the bot running and try to start again in a few minutes. \n")
 
             for market in loading_markets:
                 market_status_df = pd.DataFrame(data=market.status_dict.items(), columns=["description", "status"])
@@ -195,5 +195,5 @@ class StatusCommand:
                 self._notify(f"  - Connector check: {offline_market} is currently offline.")
             return False
         self.application_warning()
-        self._notify(f"  - All checks: Confirmed.")
+        self._notify("  - All checks: Confirmed.")
         return True

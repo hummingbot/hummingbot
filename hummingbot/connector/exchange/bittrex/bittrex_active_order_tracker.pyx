@@ -100,7 +100,7 @@ cdef class BittrexActiveOrderTracker:
         timestamp = message.timestamp
 
         for snapshot_orders, active_orders in [(message.content["bids"], self._active_bids),
-                                              (message.content["asks"], self.active_asks)]:
+                                               (message.content["asks"], self.active_asks)]:
 
             for order in snapshot_orders:
                 price = order["rate"]

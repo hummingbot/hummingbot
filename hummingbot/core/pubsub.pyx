@@ -1,12 +1,12 @@
 # distutils: language=c++
 # distutils: sources=hummingbot/core/cpp/PyRef.cpp
 
-from cpython cimport (
+from cpython cimport(
     PyObject,
     PyWeakref_NewRef,
     PyWeakref_GetObject
 )
-from cython.operator cimport (
+from cython.operator cimport(
     postincrement as inc,
     dereference as deref,
     address
