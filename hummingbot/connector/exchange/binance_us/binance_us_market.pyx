@@ -701,7 +701,7 @@ cdef class BinanceUsMarket(ExchangeBase):
             try:
                 await safe_gather(
                     self._update_trading_rules(),
-                    self._update_trade_fees()
+                    #self._update_trade_fees()
                 )
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
@@ -717,12 +717,13 @@ cdef class BinanceUsMarket(ExchangeBase):
         return {
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "trading_rule_initialized": len(self._trading_rules) > 0,
-            "trade_fees_initialized": len(self._trade_fees) > 0
+            "trading_rule_initialized": len(self._trading_rules) > 0
+            #"trade_fees_initialized": len(self._trade_fees) > 0
         }
 
     @property
     def ready(self) -> bool:
+        #self.logger().info(f"{self.status_dict.values()}")
         return all(self.status_dict.values())
 
     async def server_time(self) -> int:
