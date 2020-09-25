@@ -10,7 +10,9 @@ from hummingbot.client.command import __all__ as commands
 from hummingbot.core.clock import Clock
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
+
 from hummingbot.connector.exchange.binance.binance_market import BinanceMarket
+from hummingbot.connector.exchange.bitfinex.bitfinex_market import BitfinexMarket
 from hummingbot.connector.exchange.bittrex.bittrex_market import BittrexMarket
 from hummingbot.connector.exchange.kucoin.kucoin_market import KucoinMarket
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
@@ -22,6 +24,7 @@ from hummingbot.connector.exchange.radar_relay.radar_relay_market import RadarRe
 from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_market import BambooRelayMarket
 from hummingbot.connector.exchange.dolomite.dolomite_market import DolomiteMarket
 from hummingbot.connector.exchange.kraken.kraken_market import KrakenMarket
+
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
@@ -311,6 +314,13 @@ class HummingbotApplication(*commands):
                                       kucoin_secret_key,
                                       trading_pairs=trading_pairs,
                                       trading_required=self._trading_required)
+            elif market_name == "bitfinex":
+                bitfinex_api_key = global_config_map.get("bitfinex_api_key").value
+                bitfinex_secret_key = global_config_map.get("bitfinex_secret_key").value
+                market = BitfinexMarket(bitfinex_api_key,
+                                        bitfinex_secret_key,
+                                        trading_pairs=trading_pairs,
+                                        trading_required=self._trading_required)
             elif market_name == "eterbase":
                 eterbase_api_key = global_config_map.get("eterbase_api_key").value
                 eterbase_secret_key = global_config_map.get("eterbase_secret_key").value
