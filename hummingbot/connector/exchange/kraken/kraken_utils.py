@@ -4,7 +4,7 @@ from typing import (
     Tuple)
 
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import new_fee_config_var, using_exchange
+from hummingbot.client.config.config_methods import using_exchange
 
 
 CENTRALIZED = True
@@ -12,11 +12,6 @@ CENTRALIZED = True
 EXAMPLE_PAIR = "ETH-USDC"
 
 DEFAULT_FEES = [0.16, 0.26]
-
-FEE_OVERRIDE_MAP = {
-    "kraken_maker_fee": new_fee_config_var("kraken_maker_fee"),
-    "kraken_taker_fee": new_fee_config_var("kraken_taker_fee")
-}
 
 
 def split_trading_pair(trading_pair: str) -> Tuple[str, str]:

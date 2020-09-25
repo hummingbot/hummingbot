@@ -3,7 +3,7 @@ from typing import (
     Optional,
     Tuple)
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import new_fee_config_var, using_exchange
+from hummingbot.client.config.config_methods import using_exchange
 
 
 TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(usdt|husd|btc|eth|ht|trx)$")
@@ -13,11 +13,6 @@ CENTRALIZED = True
 EXAMPLE_PAIR = "ETH-USDT"
 
 DEFAULT_FEES = [0.2, 0.2]
-
-FEE_OVERRIDE_MAP = {
-    "huobi_maker_fee": new_fee_config_var("huobi_maker_fee"),
-    "huobi_taker_fee": new_fee_config_var("huobi_taker_fee")
-}
 
 
 def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:

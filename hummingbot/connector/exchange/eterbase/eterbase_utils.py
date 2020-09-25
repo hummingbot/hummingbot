@@ -4,7 +4,7 @@ import hummingbot.connector.exchange.eterbase.eterbase_constants as constants
 from hummingbot.connector.exchange.eterbase.eterbase_auth import EterbaseAuth
 
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import new_fee_config_var, using_exchange
+from hummingbot.client.config.config_methods import using_exchange
 import aiohttp
 import asyncio
 import json
@@ -23,11 +23,6 @@ CENTRALIZED = True
 EXAMPLE_PAIR = "EUR-ETH"
 
 DEFAULT_FEES = [0.35, 0.35]
-
-FEE_OVERRIDE_MAP = {
-    "eterbase_maker_fee": new_fee_config_var("eterbase_maker_fee"),
-    "eterbase_taker_fee": new_fee_config_var("eterbase_taker_fee")
-}
 
 
 async def _http_client(loop: Optional = None) -> aiohttp.ClientSession:
