@@ -1,5 +1,6 @@
 from hummingbot.connector.exchange.binance.binance_market import BinanceMarket
 from hummingbot.connector.exchange.bittrex.bittrex_market import BittrexMarket
+from hummingbot.connector.exchange.bitfinex.bitfinex_market import BitfinexMarket
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.connector.exchange.huobi.huobi_market import HuobiMarket
 from hummingbot.connector.exchange.kucoin.kucoin_market import KucoinMarket
@@ -38,6 +39,8 @@ class UserBalances:
             market = LiquidMarket(api_details[0], api_details[1])
         elif exchange == "kraken":
             market = KrakenMarket(api_details[0], api_details[1])
+        elif exchange == "bitfinex":
+            market = BitfinexMarket(api_details[0], api_details[1])
         elif exchange == "eterbase":
             market = EterbaseMarket(api_details[0], api_details[1], api_details[2])
         elif exchange == "crypto_com":

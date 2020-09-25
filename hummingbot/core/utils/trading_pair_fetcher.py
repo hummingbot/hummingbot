@@ -22,6 +22,7 @@ LIQUID_ENDPOINT = "https://api.liquid.com/products"
 BITTREX_ENDPOINT = "https://api.bittrex.com/v3/markets"
 KUCOIN_ENDPOINT = "https://api.kucoin.com/api/v1/symbols"
 DOLOMITE_ENDPOINT = "https://exchange-api.dolomite.io/v1/markets"
+BITFINEX_ENDPOINT = "https://api-pub.bitfinex.com/v2/conf/pub:list:pair:exchange"
 ETERBASE_ENDPOINT = "https://api.eterbase.exchange/api/markets"
 KRAKEN_ENDPOINT = "https://api.kraken.com/0/public/AssetPairs"
 CRYPTO_COM_ENDPOINT = "https://api.crypto.com/v2/public/get-ticker"
@@ -323,6 +324,37 @@ class TradingPairFetcher:
 
         return []
 
+    async def fetch_bitfinex_trading_pairs(self) -> List[str]:
+        try:
+            # To-DO: move pair conversion methods to utils file in bitfinix connector folder and uncomment the following lines
+            # from hummingbot.connector.exchange.bitfinex.utils import convert_from_exchange_trading_pair
+
+            from hummingbot.connector.exchange.bitfinex.bitfinex_market import BitfinexMarket
+
+            client: aiohttp.ClientSession = TradingPairFetcher.http_client()
+            async with client.get(BITFINEX_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    raw_trading_pairs: List[Dict[str, any]] = list((filter(
+                        lambda trading_pair: True if ":" not in trading_pair else False,
+                        data[0]
+                    )))
+                    trading_pair_list: List[str] = []
+                    for raw_trading_pair in raw_trading_pairs:
+                        # change the following line accordingly
+                        converted_trading_pair: Optional[str] = \
+                            BitfinexMarket.convert_from_exchange_trading_pair(raw_trading_pair)
+                        if converted_trading_pair is not None:
+                            trading_pair_list.append(converted_trading_pair)
+                        else:
+                            self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
+                    return trading_pair_list
+        except Exception:
+            # Do nothing if the request fails -- there will be no autocomplete available
+            pass
+
+        return []
+
     async def fetch_all(self):
         tasks = [self.fetch_binance_trading_pairs(),
                  self.fetch_bamboo_relay_trading_pairs(),
@@ -335,7 +367,8 @@ class TradingPairFetcher:
                  self.fetch_kraken_trading_pairs(),
                  self.fetch_radar_relay_trading_pairs(),
                  self.fetch_eterbase_trading_pairs(),
-                 self.fetch_crypto_com_trading_pairs()]
+                 self.fetch_crypto_com_trading_pairs(),
+                 self.fetch_bitfinex_trading_pairs()]
 
         # Radar Relay has not yet been migrated to a new version
         # Endpoint needs to be updated after migration
@@ -354,6 +387,7 @@ class TradingPairFetcher:
             "kraken": results[8],
             "radar_relay": results[9],
             "eterbase": results[10],
-            "crypto_com": results[11]
+            "crypto_com": results[11],
+            "bitfinex": results[12],
         }
         self.ready = True
