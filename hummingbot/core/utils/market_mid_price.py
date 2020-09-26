@@ -16,7 +16,7 @@ COINBASE_PRO_PRICE_URL = "https://api.pro.coinbase.com/products/TO_BE_REPLACED/t
 def get_mid_price(exchange: str, trading_pair: str) -> Optional[Decimal]:
     if exchange == "binance":
         return binance_mid_price(trading_pair)
-    elif exchange == "_us":
+    elif exchange == "binance_us":
         return binance_us_mid_price(trading_pair)
     elif exchange == "kucoin":
         return kucoin_mid_price(trading_pair)
