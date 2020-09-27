@@ -73,3 +73,7 @@ Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | D
 `stop` | None | None | Stops all tasks in `OrderBookTracker`.
 `_emit_trade_event_loop` | None | None | Attempts to retrieve trade_messages from the Queue `_order_book_trade_stream` and apply the trade onto the respective order book.
 
+## Debugging & Testing
+
+As part of the QA process, for each tasks(Task 1 through 3) you are **required** to include the unit test cases for the code review process to begin. Refer to [Option 1: Unit Test Cases](/developers/connectors/debug&test/#option-1-unit-test-cases) to build your unit tests.
+
