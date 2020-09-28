@@ -18,6 +18,7 @@ with open(os.path.join(os.path.dirname(__file__), "zero_ex_exchange_abi_v3.json"
 # 150,000 per order by gas
 PROTOCOL_FEE_MULTIPLIER = 150000
 
+
 class ZeroExExchange:
     def __init__(self,
                  w3: Web3,
