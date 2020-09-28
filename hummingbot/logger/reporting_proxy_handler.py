@@ -51,9 +51,7 @@ class ReportingProxyHandler(logging.Handler):
             return
         if not self.log_server_client.started:
             self.log_server_client.start()
-        log_type = record.__dict__.get("message_type", "log")
-        if not log_type == "event":
-            self.process_log(record)
+        self.process_log(record)
         self.flush()
 
     def formatException(self, ei):
