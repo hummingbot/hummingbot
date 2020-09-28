@@ -6,7 +6,7 @@
     }
 </style>
 
-During pure market making/cross-exchange market making strategy creation, you be prompted with one of the following parameters for order amount:
+During pure market making/cross-exchange market making strategy creation, you will be prompted with one of the following parameters for order amount:
 
 <div class="div-1"> <font color="#20a26a">What is the amount of ETH per order? (minimum 0.0703) >>></font></div>
 
