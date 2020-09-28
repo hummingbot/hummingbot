@@ -4,8 +4,8 @@ from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent, TradeType
-from hummingbot.market.binance.binance_order_book_tracker import BinanceOrderBookTracker
-from hummingbot.market.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
+from hummingbot.connector.exchange.binance.binance_order_book_tracker import BinanceOrderBookTracker
+from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 import asyncio
 import logging
 from typing import (
@@ -23,6 +23,7 @@ from hummingbot.core.utils.async_utils import (
 
 
 class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
+
     order_book_tracker: Optional[BinanceOrderBookTracker] = None
     events: List[OrderBookEvent] = [
         OrderBookEvent.TradeEvent
@@ -31,6 +32,7 @@ class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
         "BTCUSDT",
         "XRPUSDT"
     ]
+
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()

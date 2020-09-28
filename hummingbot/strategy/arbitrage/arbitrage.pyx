@@ -7,7 +7,8 @@ from typing import (
     Tuple,
 )
 
-from hummingbot.market.market_base cimport MarketBase
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.event.events import (
     TradeType,
     OrderType,
@@ -73,6 +74,7 @@ cdef class ArbitrageStrategy(StrategyBase):
         self._last_trade_timestamps = {}
         self._failed_order_tolerance = failed_order_tolerance
         self._cool_off_logged = False
+        self._current_profitability = ()
 
         self._secondary_to_primary_base_conversion_rate = secondary_to_primary_base_conversion_rate
         self._secondary_to_primary_quote_conversion_rate = secondary_to_primary_quote_conversion_rate
@@ -89,11 +91,11 @@ cdef class ArbitrageStrategy(StrategyBase):
         self.c_add_markets(list(all_markets))
 
     @property
-    def tracked_limit_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
+    def tracked_limit_orders(self) -> List[Tuple[ExchangeBase, LimitOrder]]:
         return self._sb_order_tracker.tracked_limit_orders
 
     @property
-    def tracked_market_orders(self) -> List[Tuple[MarketBase, MarketOrder]]:
+    def tracked_market_orders(self) -> List[Tuple[ExchangeBase, MarketOrder]]:
         return self._sb_order_tracker.tracked_market_orders
 
     @property
@@ -119,15 +121,12 @@ cdef class ArbitrageStrategy(StrategyBase):
             lines.extend(["", "  Assets:"] +
                          ["    " + line for line in str(assets_df).split("\n")])
 
-            profitability_buy_2_sell_1, profitability_buy_1_sell_2 = \
-                self.c_calculate_arbitrage_top_order_profitability(market_pair)
-
             lines.extend(
-                ["", "  Profitability:"] +
+                ["", "  Profitability(without fees):"] +
                 [f"    take bid on {market_pair.first.market.name}, "
-                 f"take ask on {market_pair.second.market.name}: {round(profitability_buy_2_sell_1 * 100, 4)} %"] +
+                 f"take ask on {market_pair.second.market.name}: {round(self._current_profitability[0] * 100, 4)} %"] +
                 [f"    take ask on {market_pair.first.market.name}, "
-                 f"take bid on {market_pair.second.market.name}: {round(profitability_buy_1_sell_2 * 100, 4)} %"])
+                 f"take bid on {market_pair.second.market.name}: {round(self._current_profitability[1] * 100, 4)} %"])
 
             # See if there're any pending limit orders.
             tracked_limit_orders_df = self.tracked_limit_orders_data_frame
@@ -312,14 +311,14 @@ cdef class ArbitrageStrategy(StrategyBase):
         if not self.c_ready_for_new_orders([market_pair.first, market_pair.second]):
             return
 
-        profitability_buy_2_sell_1, profitability_buy_1_sell_2 = \
+        self._current_profitability = \
             self.c_calculate_arbitrage_top_order_profitability(market_pair)
 
-        if (profitability_buy_1_sell_2 < self._min_profitability and
-                profitability_buy_2_sell_1 < self._min_profitability):
+        if (self._current_profitability[1] < self._min_profitability and
+                self._current_profitability[0] < self._min_profitability):
             return
 
-        if profitability_buy_1_sell_2 > profitability_buy_2_sell_1:
+        if self._current_profitability[1] > self._current_profitability[0]:
             # it is more profitable to buy on market_1 and sell on market_2
             self.c_process_market_pair_inner(market_pair.first, market_pair.second)
         else:
@@ -338,8 +337,8 @@ cdef class ArbitrageStrategy(StrategyBase):
             object quantized_order_amount
             object best_amount = s_decimal_0  # best profitable order amount
             object best_profitability = s_decimal_0  # best profitable order amount
-            MarketBase buy_market = buy_market_trading_pair_tuple.market
-            MarketBase sell_market = sell_market_trading_pair_tuple.market
+            ExchangeBase buy_market = buy_market_trading_pair_tuple.market
+            ExchangeBase sell_market = sell_market_trading_pair_tuple.market
 
         best_amount, best_profitability, buy_price, sell_price = self.c_find_best_profitable_amount(
             buy_market_trading_pair_tuple, sell_market_trading_pair_tuple
@@ -416,8 +415,8 @@ cdef class ArbitrageStrategy(StrategyBase):
             object net_buy_costs
             object buy_market_quote_balance
             object sell_market_base_balance
-            MarketBase buy_market = buy_market_trading_pair_tuple.market
-            MarketBase sell_market = sell_market_trading_pair_tuple.market
+            ExchangeBase buy_market = buy_market_trading_pair_tuple.market
+            ExchangeBase sell_market = sell_market_trading_pair_tuple.market
             OrderBook buy_order_book = buy_market_trading_pair_tuple.order_book
             OrderBook sell_order_book = sell_market_trading_pair_tuple.order_book
 

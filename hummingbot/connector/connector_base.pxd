@@ -6,14 +6,12 @@ cdef class ConnectorBase(NetworkIterator):
     cdef:
         EventReporter _event_reporter
         EventLogger _event_logger
-        dict _account_available_balances
-        dict _account_balances
-        dict _balance_limits
-        dict _fee_estimates
-        bint _trading_required
-        bint _real_time_balance_update
-        dict _in_flight_orders_snapshot
-        double _in_flight_orders_snapshot_timestamp
+        public bint _trading_required
+        public dict _account_available_balances
+        public dict _account_balances
+        public bint _real_time_balance_update
+        public dict _in_flight_orders_snapshot
+        public double _in_flight_orders_snapshot_timestamp
 
     cdef str c_buy(self, str trading_pair, object amount, object order_type=*, object price=*, dict kwargs=*)
     cdef str c_sell(self, str trading_pair, object amount, object order_type=*, object price=*, dict kwargs=*)

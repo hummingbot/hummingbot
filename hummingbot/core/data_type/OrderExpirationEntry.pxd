@@ -11,9 +11,8 @@ cdef extern from "../cpp/OrderExpirationEntry.h":
                              double expiration)
         OrderExpirationEntry(const OrderExpirationEntry &other)
         OrderExpirationEntry &operator=(const OrderExpirationEntry &other)
-        string getClientOrderID();
-        string getTradingPair();
-        double getTimestamp();
-        double getExpiration();
-        double getExpirationTimestamp();
-
+        string getClientOrderID()
+        string getTradingPair()
+        double getTimestamp()
+        double getExpiration()
+        double getExpirationTimestamp()

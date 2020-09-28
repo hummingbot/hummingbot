@@ -174,6 +174,20 @@ def _merge_dicts(*args: Dict[str, ConfigVar]) -> OrderedDict:
     return result
 
 
+def get_connector_class(connector_name: str) -> Callable:
+    connector_types = ["connector", "exchange", "derivative"]
+    for type in connector_types:
+        connector_module_name = f"{connector_name}_{type}"
+        connector_class_name = "".join([o.capitalize() for o in connector_module_name.split("_")])
+        try:
+            mod = __import__(f'hummingbot.connector.{type}.{connector_name}.{connector_module_name}',
+                             fromlist=[connector_class_name])
+            return getattr(mod, connector_class_name)
+        except Exception:
+            continue
+    raise Exception(f"Connector {connector_name} class not found")
+
+
 def get_strategy_config_map(strategy: str) -> Optional[Dict[str, ConfigVar]]:
     """
     Given the name of a strategy, find and load strategy-specific config map.
@@ -221,9 +235,9 @@ def validate_strategy_file(file_path: str) -> Optional[str]:
         return f"{file_path} file does not exist."
     strategy = strategy_name_from_file(file_path)
     if strategy is None:
-        return f"Invalid configuration file or 'strategy' field is missing."
+        return "Invalid configuration file or 'strategy' field is missing."
     if strategy not in get_strategy_list():
-        return f"Invalid strategy specified in the file."
+        return "Invalid strategy specified in the file."
     return None
 
 

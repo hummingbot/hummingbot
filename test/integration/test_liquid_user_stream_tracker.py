@@ -6,10 +6,9 @@ import unittest
 from os.path import join, realpath
 import sys
 
-from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.market.liquid.liquid_auth import LiquidAuth
-from hummingbot.market.liquid.liquid_user_stream_tracker import LiquidUserStreamTracker
+from hummingbot.connector.exchange.liquid.liquid_auth import LiquidAuth
+from hummingbot.connector.exchange.liquid.liquid_user_stream_tracker import LiquidUserStreamTracker
 
 sys.path.insert(0, realpath(join(__file__, "../../../")))
 logging.basicConfig(level=logging.DEBUG)
@@ -28,7 +27,6 @@ class LiquidOrderBookTrackerUnitTest(unittest.TestCase):
             secret_key=conf.liquid_secret_key)
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.user_stream_tracker: LiquidUserStreamTracker = LiquidUserStreamTracker(
-            data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
             liquid_auth=cls._liquid_auth,
             trading_pairs=cls.trading_pairs)
         cls.user_stream_tracker_task: asyncio.Task = safe_ensure_future(cls.user_stream_tracker.start())

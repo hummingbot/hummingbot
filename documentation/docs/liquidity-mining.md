@@ -31,16 +31,16 @@ Liquidity mining sets forth an analytical framework for determining market maker
     <li>**Orders outstanding for more than 30 minutes not counted for rewards.** Work on removing this limit is in progress, you can read more about it in our [Reddit post](https://www.reddit.com/r/Hummingbot/comments/hz5xv3/tracking_rewards_for_orders_longer_than_30m/).
     > <em>**Tip**: To ensure that orders do not stay outstanding for longer than 30 minutes, Hummingbot users should disable [order refresh tolerance](https://docs.hummingbot.io/strategies/advanced-mm/order-refresh-tolerance/#how-it-works).</em>
 
-    <li>**Minimum reward payout amount**: due to the recent surge in Ethereum gas price, Hummingbot will impose a $10.00 minimum on the weekly payout, starting with the next scheduled payout on August 21, 2020 (UTC). For miners who earn < $10 within one week, their rewards will be accrued and rolled over to the next period, read more [here](https://www.reddit.com/r/Hummingbot/comments/i9rh5g/announcement_a_10_minimum_to_liquidity_mining/).
+    <li>**Minimum reward payout amount**: due to the recent surge in Ethereum gas price, Hummingbot will impose a $50.00 minimum on the weekly payout `for payments on the Ethereum blockchain (currently USDC and RLC)`, starting with the next scheduled payout on September 18th (UTC).  For miners who earn < $50 within one week, their rewards will be accrued and rolled over to the next period, read more [here](https://www.reddit.com/r/Hummingbot/comments/ip4mc3/announcement_raising_minimum_payment_to_50/).<br/>
+    > <em>**Note:** `XZC payments are not subject to a minimum payout reward; all payouts will be made for each period.`</em>
 
 
-!!! note "Campaign updates for the week starting August 25, 2020 12.00am UTC"
-    **Native RLC rewards for iExec campaign**: we have rolled out [native token liquidity mining rewards](https://hummingbot.io/blog/2020-08-native-token-payments/)!  Since August 18, liquidity miners participating in RLC pairs have earned or will be earning RLC rewards.
+!!! note "Campaign updates for the week starting September 15, 2020 12.00am UTC"
+    **Native XZC rewards for Zcoin campaign**: We are rolling out [XZC native token payments](https://hummingbot.io/blog/2020-09-xzc-native-token-payment/) for the Zcoin liquidity mining campaign! Miners participating in the Zcoin liquidity mining campaign will start earning and be paid in XZC tokens.
+    > <em>**Tip:** Miners participating should enter their XZC wallet address in the Miner's app. <br/> **Note:** you can enter your Binance XZC deposit address to receive the XZC directly into Binance</em>
 
-    **Liquidiy mining reward increases for RLC market**: total reward **RLC 540/week**, you can read more about it on this [reddit post](https://www.reddit.com/r/Hummingbot/comments/ifswoj/update_to_rlc_liquidity_mining_rewards_rlc_540week/).
 
-
-**Current reward period: August 25, 2020 12.00am UTC to September 1, 2020 12.00am UTC**
+**Current reward period: September 22, 2020 12.00am UTC to September 29, 2020 12.00am UTC**
 
 <table>
   <thead>
@@ -102,21 +102,21 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td><b><em>RLC 180</em></b></td>
+      <td>RLC 180</td>
     </tr>
     <tr>
       <td>RLC/USDT</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td><b><em>RLC 180</em></b></td>
+      <td>RLC 180</td>
     </tr>
     <tr>
       <td>RLC/ETH</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td><b><em>RLC 180</em></b></td>
+      <td>RLC 180</td>
     </tr>
     <tr>
       <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
@@ -124,14 +124,14 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 375</td>
+      <td><b>XZC 125</b></td>
     </tr>
     <tr>
       <td>XZC/USDT</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 375</td>
+      <td><b>XZC 125</b></td>
     </tr>
   </tbody>
 </table>
@@ -140,9 +140,53 @@ Liquidity mining sets forth an analytical framework for determining market maker
 \* Spread density function constant is one of the factors that determines the relative weighting of orders by spread, i.e., the amount of additional rewards for orders with tighter spreads vs those with wider spreads. Refer to this [spreadsheet](https://docs.google.com/spreadsheets/d/1mUZsQoiqlMs5HjcL6AXSKIx1oaULsmuQStJaCc2wggQ/edit?ts=5f1e89bd#gid=18167917) for the spread weights and for a visual of the graph that shows the curve.
 
 
-## Upcoming changes to campaign terms
+## Upcoming changes to campaign terms 
+We are launching liquidity mining campaigns for our open beta partners Harmony and Suku. For more details about the campaign, you can check our [blog post](https://hummingbot.io/blog/2020-09-launching-kucoin-liquidity-mining/).
 
-No upcoming changes.
+**Open beta period**: October 6, 2020 12.00am UTC to October 20, 2020 12.00am UTC
+
+<table>
+  <thead>
+    <th>Token Issuer</th>
+    <th>Trading pair</th>
+    <th>Exchange</th>
+    <th>Weekly rewards</th>
+    <th>Reward token</th>
+  </thead>
+  <tbody>
+    <tr>
+      <td rowspan="2"><a href="https://www.harmony.one/">Harmony</a></td>
+      <td>ONE/BTC</td>
+      <td>KuCoin</td>
+      <td><b>USD 375</b></td>
+      <td><b>ONE</b></td>
+    </tr>
+    <tr>
+      <td>ONE/USDT</td>
+      <td>KuCoin</td>
+      <td><b>USD 375</b></td>
+      <td><b>ONE</b></td>
+    </tr>
+    <tr>
+      <td rowspan="2"><a href="https://www.suku.world/">SUKU</a></td>
+      <td>SUKU/BTC</td>
+      <td>KuCoin</td>
+      <td><b>USDC 375</b></td>
+      <td><b>USDC</b></td>
+    </tr>
+    <tr>
+      <td>SUKU/USDT</td>
+      <td>KuCoin</td>
+      <td><b>USDC 375</b></td>
+      <td><b>USDC</b></td>
+    </tr>
+  </tbody>
+</table>
+
+Notes:
+
+1. The Harmony campaign will be paying out rewards in native ONE tokens. The actual amount of tokens will be set prior to campaign launched, based on the USD amounts indicated above.
+2. Terms subject to change prior to launch.
 
 ## Token Issuers
 

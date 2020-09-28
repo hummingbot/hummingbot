@@ -17,7 +17,7 @@ from typing import (
     Optional,
     List
 )
-from hummingbot.market.radar_relay.radar_relay_order_book_tracker import RadarRelayOrderBookTracker
+from hummingbot.connector.exchange.radar_relay.radar_relay_order_book_tracker import RadarRelayOrderBookTracker
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
@@ -35,6 +35,7 @@ class RadarRelayOrderBookTrackerUnitTest(unittest.TestCase):
         "WETH-DAI",
         "USDC-WETH"
     ]
+
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()

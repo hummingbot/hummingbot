@@ -38,9 +38,9 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.market.kucoin.kucoin_market import KucoinMarket
-from hummingbot.market.market_base import OrderType
-from hummingbot.market.markets_recorder import MarketsRecorder
+from hummingbot.connector.exchange.kucoin.kucoin_market import KucoinMarket
+from hummingbot.core.event.events import OrderType
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import (
@@ -95,7 +95,8 @@ class KucoinMarketUnitTest(unittest.TestCase):
             cls._url_mock.side_effect = cls.web_app.reroute_local
             cls.web_app.update_response("get", API_BASE_URL, "/api/v1/accounts", FixtureKucoin.BALANCES)
 
-            cls._t_nonce_patcher = unittest.mock.patch("hummingbot.market.kucoin.kucoin_market.get_tracking_nonce")
+            cls._t_nonce_patcher = unittest.mock.patch(
+                "hummingbot.connector.exchange.kucoin.kucoin_market.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
             cls._exch_order_id = 20001
         cls.clock: Clock = Clock(ClockMode.REALTIME)
@@ -386,7 +387,7 @@ class KucoinMarketUnitTest(unittest.TestCase):
         if API_MOCK_ENABLED:
             resp = FixtureKucoin.ORDERS_BATCH_CANCELLED.copy()
             resp["data"]["cancelledOrderIds"] = [exch_order_id, exch_order_id2]
-            self.web_app.update_response("delete", API_BASE_URL, f"/api/v1/orders", resp)
+            self.web_app.update_response("delete", API_BASE_URL, "/api/v1/orders", resp)
         [cancellation_results] = self.run_parallel(self.market_2.cancel_all(5))
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
