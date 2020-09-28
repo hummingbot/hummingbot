@@ -13,9 +13,9 @@ class LogServerClient(NetworkBase):
     _lsc_shared_instance: "LogServerClient" = None
 
     @classmethod
-    def get_instance(cls) -> "LogServerClient":
+    def get_instance(cls, log_server_url: str = "https://api.coinalpha.com/reporting-proxy/") -> "LogServerClient":
         if cls._lsc_shared_instance is None:
-            cls._lsc_shared_instance = LogServerClient()
+            cls._lsc_shared_instance = LogServerClient(log_server_url=log_server_url)
         return cls._lsc_shared_instance
 
     @classmethod
@@ -24,10 +24,11 @@ class LogServerClient(NetworkBase):
             cls.lsc_logger = logging.getLogger(__name__)
         return cls.lsc_logger
 
-    def __init__(self):
+    def __init__(self, log_server_url: str = "https://api.coinalpha.com/reporting-proxy/"):
         super().__init__()
         self.queue = asyncio.Queue()
         self.consume_queue_task = None
+        self.log_server_url = log_server_url
 
     def request(self, req):
         if not self.started:
@@ -82,7 +83,7 @@ class LogServerClient(NetworkBase):
             loop = asyncio.get_event_loop()
             async with aiohttp.ClientSession(loop=loop,
                                              connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
-                async with session.get("https://api.coinalpha.com/reporting-proxy/") as resp:
+                async with session.get(self.log_server_url) as resp:
                     status_text = await resp.text()
                     if status_text != "OK":
                         raise Exception("Log proxy server is down.")
