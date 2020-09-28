@@ -70,7 +70,7 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     # start_parser.add_argument("--log-level", help="Level of logging")
     start_parser.set_defaults(func=hummingbot.start)
 
-    stop_parser = subparsers.add_parser('stop', help='Stop the current bot')
+    stop_parser = subparsers.add_parser('stop', help="Stop the current bot")
     stop_parser.set_defaults(func=hummingbot.stop)
 
     status_parser = subparsers.add_parser("status", help="Get the market status of the current bot")
@@ -88,17 +88,17 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     paper_trade_parser.set_defaults(func=hummingbot.paper_trade)
 
     export_parser = subparsers.add_parser("export", help="Export secure information")
-    export_parser.add_argument("option", nargs="?", choices=("keys", "trades"), help="Export choices.")
+    export_parser.add_argument("option", nargs="?", choices=("keys", "trades"), help="Export choices")
     export_parser.set_defaults(func=hummingbot.export)
 
-    order_book_parser = subparsers.add_parser("order_book", help="Display current order book.")
+    order_book_parser = subparsers.add_parser("order_book", help="Display current order book")
     order_book_parser.add_argument("--lines", type=int, default=5, dest="lines", help="Number of lines to display")
     order_book_parser.add_argument("--exchange", type=str, dest="exchange", help="The exchange of the market")
     order_book_parser.add_argument("--market", type=str, dest="market", help="The market (trading pair) of the order book")
     order_book_parser.set_defaults(func=hummingbot.order_book)
 
-    ticker_parser = subparsers.add_parser("ticker", help="Show market ticker of current order book.")
-    ticker_parser.add_argument("--repeat", type=int, default=10, dest="repeat", help="Number of seconds between intervals")
+    ticker_parser = subparsers.add_parser("ticker", help="Show market ticker of current order book")
+    ticker_parser.add_argument("--repeat", type=int, default=10, dest="repeat", help="Number of times to refresh the quotes")
     ticker_parser.add_argument("--exchange", type=str, dest="exchange", help="The exchange of the market")
     ticker_parser.add_argument("--market", type=str, dest="market", help="The market (trading pair) of the order book")
     ticker_parser.set_defaults(func=hummingbot.ticker)
