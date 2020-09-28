@@ -3,7 +3,7 @@
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
-from typing import List
+from typing import List, Optional
 from decimal import Decimal
 import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
@@ -18,7 +18,8 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
     OrderBookTradeEvent,
-    TradeType
+    TradeType,
+    PriceType,
 )
 from hummingbot.strategy.pure_market_making.pure_market_making import PureMarketMakingStrategy
 from hummingbot.strategy.pure_market_making.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
@@ -110,6 +111,21 @@ class PMMUnitTest(unittest.TestCase):
             minimum_spread=-1,
         )
 
+        self.order_override_strategy = PureMarketMakingStrategy(
+            self.market_info,
+            bid_spread=Decimal("0.01"),
+            ask_spread=Decimal("0.01"),
+            order_amount=Decimal("1"),
+            order_refresh_time=5.0,
+            filled_order_delay=5.0,
+            order_refresh_tolerance_pct=-1,
+            order_levels=3,
+            order_level_spread=Decimal("0.01"),
+            order_level_amount=Decimal("1"),
+            minimum_spread=-1,
+            order_override={"order_one": ["buy", 0.5, 0.7], "order_two": ["buy", 1.3, 1.1], "order_three": ["sell", 1.1, 2]},
+        )
+
         self.ext_market: BacktestMarket = BacktestMarket()
         self.ext_data: MockOrderBookLoader = MockOrderBookLoader(self.trading_pair, self.base_asset, self.quote_asset)
         self.ext_market_info: MarketTradingPairTuple = MarketTradingPairTuple(
@@ -120,8 +136,12 @@ class PMMUnitTest(unittest.TestCase):
         self.ext_market.add_data(self.ext_data)
         self.order_book_asset_del = OrderBookAssetPriceDelegate(self.ext_market, self.trading_pair)
 
-    def simulate_maker_market_trade(self, is_buy: bool, quantity: Decimal, price: Decimal):
-        order_book = self.market.get_order_book(self.trading_pair)
+    def simulate_maker_market_trade(
+            self, is_buy: bool, quantity: Decimal, price: Decimal, market: Optional[BacktestMarket] = None,
+    ):
+        if market is None:
+            market = self.market
+        order_book = market.get_order_book(self.trading_pair)
         trade_event = OrderBookTradeEvent(
             self.trading_pair,
             self.clock.current_timestamp,
@@ -162,6 +182,64 @@ class PMMUnitTest(unittest.TestCase):
         self.clock.backtest_til(self.start_timestamp + 14)
         self.assertEqual(1, len(strategy.active_buys))
         self.assertEqual(1, len(strategy.active_sells))
+
+    def test_basic_one_level_price_type(self):
+        strategies = []
+
+        for price_type in ["last_price", "best_bid", "best_ask"]:
+            strategy = PureMarketMakingStrategy(
+                self.market_info,
+                bid_spread=Decimal("0.01"),
+                ask_spread=Decimal("0.01"),
+                order_amount=Decimal("1"),
+                order_refresh_time=5.0,
+                filled_order_delay=5.0,
+                order_refresh_tolerance_pct=-1,
+                minimum_spread=-1,
+                price_type=price_type,
+            )
+            strategies.append(strategy)
+            self.clock.add_iterator(strategy)
+
+        last_strategy, bid_strategy, ask_strategy = strategies
+
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(1, len(last_strategy.active_buys))
+        self.assertEqual(1, len(last_strategy.active_sells))
+        buy_1 = last_strategy.active_buys[0]
+        self.assertEqual(99, buy_1.price)
+        self.assertEqual(1, buy_1.quantity)
+        sell_1 = last_strategy.active_sells[0]
+        self.assertEqual(101, sell_1.price)
+        self.assertEqual(1, sell_1.quantity)
+
+        # Simulate buy order filled
+        self.simulate_maker_market_trade(False, 100, 98.9)
+        self.assertEqual(0, len(last_strategy.active_buys))
+        self.assertEqual(1, len(last_strategy.active_sells))
+
+        # After filled_ore
+        self.clock.backtest_til(self.start_timestamp + 7)
+        buy_1 = last_strategy.active_buys[0]
+        self.assertEqual(Decimal('97.911'), buy_1.price)
+        self.assertEqual(1, buy_1.quantity)
+        sell_1 = last_strategy.active_sells[0]
+        self.assertEqual(Decimal('99.889'), sell_1.price)
+        self.assertEqual(1, sell_1.quantity)
+
+        buy_bid = bid_strategy.active_buys[0]
+        buy_target = self.market_info.get_price_by_type(PriceType.BestBid) * Decimal("0.99")
+        self.assertEqual(buy_target, buy_bid.price)
+        sell_bid = bid_strategy.active_sells[0]
+        sell_target = self.market_info.get_price_by_type(PriceType.BestBid) * Decimal("1.01")
+        self.assertEqual(sell_target, sell_bid.price)
+
+        buy_ask = ask_strategy.active_buys[0]
+        buy_target = self.market_info.get_price_by_type(PriceType.BestAsk) * Decimal("0.99")
+        self.assertEqual(buy_target, buy_ask.price)
+        sell_ask = ask_strategy.active_sells[0]
+        sell_target = self.market_info.get_price_by_type(PriceType.BestAsk) * Decimal("1.01")
+        self.assertEqual(sell_target, sell_ask.price)
 
     def test_basic_multiple_levels(self):
         strategy = self.multi_levels_strategy
@@ -620,6 +698,28 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual("50.0%", status_df.iloc[4, 1])
         self.assertEqual("150.0%", status_df.iloc[4, 2])
 
+    def test_order_book_asset_del(self):
+        strategy = self.one_level_strategy
+        strategy.asset_price_delegate = self.order_book_asset_del
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        self.simulate_maker_market_trade(
+            is_buy=True, quantity=Decimal("1"), price=Decimal("123"), market=self.ext_market,
+        )
+
+        bid = self.order_book_asset_del.get_price_by_type(PriceType.BestBid)
+        ask = self.order_book_asset_del.get_price_by_type(PriceType.BestAsk)
+        mid_price = self.order_book_asset_del.get_price_by_type(PriceType.MidPrice)
+        last_trade = self.order_book_asset_del.get_price_by_type(PriceType.LastTrade)
+
+        self.assertEqual((bid + ask) / 2, mid_price)
+        self.assertEqual(last_trade, Decimal("123"))
+        assert isinstance(bid, Decimal)
+        assert isinstance(ask, Decimal)
+        assert isinstance(mid_price, Decimal)
+        assert isinstance(last_trade, Decimal)
+
     def test_external_exchange_price_source(self):
         strategy = self.one_level_strategy
         strategy.asset_price_delegate = self.order_book_asset_del
@@ -728,6 +828,22 @@ class PMMUnitTest(unittest.TestCase):
         last_ask_order = strategy.active_sells[-1]
         self.assertAlmostEqual(Decimal("96"), last_bid_order.price, 2)
         self.assertAlmostEqual(Decimal("104"), last_ask_order.price, 2)
+
+    def test_order_override(self):
+        strategy = self.order_override_strategy
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+
+        buys = strategy.active_buys
+        sells = strategy.active_sells
+        self.assertEqual(2, len(buys))
+        self.assertEqual(1, len(sells))
+        self.assertEqual(Decimal("99.5"), buys[0].price)
+        self.assertEqual(Decimal("0.7"), buys[0].quantity)
+        self.assertEqual(Decimal("98.7"), buys[1].price)
+        self.assertEqual(Decimal("1.1"), buys[1].quantity)
+        self.assertEqual(Decimal("101.1"), sells[0].price)
+        self.assertEqual(Decimal("2"), sells[0].quantity)
 
 
 class PureMarketMakingMinimumSpreadUnitTest(unittest.TestCase):

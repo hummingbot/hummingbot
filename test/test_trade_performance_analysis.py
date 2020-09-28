@@ -9,13 +9,13 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.market.market_base import MarketBase
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
-class MockMarket1(MarketBase):
+class MockMarket1(ExchangeBase):
     def __init__(self):
         super().__init__()
         self.mock_mid_price: Dict[str, float] = {
@@ -30,7 +30,7 @@ class MockMarket1(MarketBase):
         return Decimal(repr(self.mock_mid_price[trading_pair]))
 
 
-class MockMarket2(MarketBase):
+class MockMarket2(ExchangeBase):
     def __init__(self):
         super().__init__()
         self.mock_mid_price: Dict[str, float] = {

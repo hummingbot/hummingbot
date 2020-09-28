@@ -15,8 +15,9 @@ from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.market.market_base import (
-    MarketBase,
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.exchange_base cimport ExchangeBase
+from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
@@ -113,15 +114,15 @@ cdef class Dev5TwapTradeStrategy(StrategyBase):
         self.c_add_markets(list(all_markets))
 
     @property
-    def active_bids(self) -> List[Tuple[MarketBase, LimitOrder]]:
+    def active_bids(self) -> List[Tuple[ExchangeBase, LimitOrder]]:
         return self._sb_order_tracker.active_bids
 
     @property
-    def active_asks(self) -> List[Tuple[MarketBase, LimitOrder]]:
+    def active_asks(self) -> List[Tuple[ExchangeBase, LimitOrder]]:
         return self._sb_order_tracker.active_asks
 
     @property
-    def active_limit_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
+    def active_limit_orders(self) -> List[Tuple[ExchangeBase, LimitOrder]]:
         return self._sb_order_tracker.active_limit_orders
 
     @property
@@ -146,7 +147,7 @@ cdef class Dev5TwapTradeStrategy(StrategyBase):
 
     def format_status(self) -> str:
         cdef:
-            MarketBase maker_market
+            ExchangeBase maker_market
             OrderBook maker_order_book
             str maker_symbol
             str maker_base
@@ -350,7 +351,7 @@ cdef class Dev5TwapTradeStrategy(StrategyBase):
         :param market_info: a market trading pair
         """
         cdef:
-            MarketBase market = market_info.market
+            ExchangeBase market = market_info.market
             curr_order_amount = min(self._order_amount / self._num_individual_orders, self._quantity_remaining)
             object quantized_amount = market.c_quantize_order_amount(market_info.trading_pair, Decimal(curr_order_amount))
             object quantized_price = market.c_quantize_order_price(market_info.trading_pair, Decimal(self._order_price))
@@ -415,7 +416,7 @@ cdef class Dev5TwapTradeStrategy(StrategyBase):
         :return: True if user has enough balance, False if not
         """
         cdef:
-            MarketBase market = market_info.market
+            ExchangeBase market = market_info.market
             double base_asset_balance = market.c_get_balance(market_info.base_asset)
             double quote_asset_balance = market.c_get_balance(market_info.quote_asset)
             OrderBook order_book = market_info.order_book
@@ -433,7 +434,7 @@ cdef class Dev5TwapTradeStrategy(StrategyBase):
         :param market_info: a market trading pair
         """
         cdef:
-            MarketBase maker_market = market_info.market
+            ExchangeBase maker_market = market_info.market
             set cancel_order_ids = set()
 
         if not self._is_vwap:  # TWAP

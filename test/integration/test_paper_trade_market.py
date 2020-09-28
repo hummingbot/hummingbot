@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import sys
 from hummingbot.core.data_type.order_book_row import OrderBookRow
-from hummingbot.market.binance.binance_market import BinanceMarket
+from hummingbot.connector.exchange.binance.binance_market import BinanceMarket
 import asyncio
 import contextlib
 import unittest
@@ -30,10 +30,10 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.market.binance.binance_order_book_tracker import BinanceOrderBookTracker
-from hummingbot.market.paper_trade.paper_trade_market import PaperTradeMarket, QueuedOrder
-from hummingbot.market.paper_trade.trading_pair import TradingPair
-from hummingbot.market.paper_trade.market_config import MarketConfig
+from hummingbot.connector.exchange.binance.binance_order_book_tracker import BinanceOrderBookTracker
+from hummingbot.connector.exchange.paper_trade.paper_trade_market import PaperTradeMarket, QueuedOrder
+from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
+from hummingbot.connector.exchange.paper_trade.market_config import MarketConfig
 import pandas as pd
 from typing import List, Iterator, NamedTuple, Dict
 import logging

@@ -2,14 +2,15 @@
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
-from hummingbot.market.kraken.kraken_order_book_tracker import KrakenOrderBookTracker
-from hummingbot.market.kraken.kraken_api_order_book_data_source import KrakenAPIOrderBookDataSource
+from hummingbot.connector.exchange.kraken.kraken_order_book_tracker import KrakenOrderBookTracker
+from hummingbot.connector.exchange.kraken.kraken_api_order_book_data_source import KrakenAPIOrderBookDataSource
 import asyncio
 import logging
 import unittest
 
 
 class KrakenOrderBookTrackerUnitTest(unittest.TestCase):
+
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
