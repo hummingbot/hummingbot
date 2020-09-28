@@ -38,9 +38,10 @@ class ReportingProxyHandler(logging.Handler):
         super().__init__()
         self.setLevel(level)
         self._log_queue: list = []
+        self._event_queue: list = []
         self.capacity: int = capacity
         self.proxy_url: str = proxy_url
-        self.log_server_client: LogServerClient = LogServerClient.get_instance()
+        self.log_server_client: LogServerClient = LogServerClient.get_instance(log_server_url=proxy_url)
 
     @property
     def client_id(self):
@@ -51,7 +52,11 @@ class ReportingProxyHandler(logging.Handler):
             return
         if not self.log_server_client.started:
             self.log_server_client.start()
-        self.process_log(record)
+        log_type = record.__dict__.get("message_type", "log")
+        if not log_type == "event":
+            self.process_log(record)
+        else:
+            self.process_event(record)
         self.flush()
 
     def formatException(self, ei):
@@ -87,9 +92,40 @@ class ReportingProxyHandler(logging.Handler):
             message["exception_msg"] = str(log.exc_info[1])
         self._log_queue.append(message)
 
+    def process_event(self, log):
+        message = {
+            "name": log.name,
+            "funcName": log.funcName,
+            "msg": log.getMessage(),
+            "created": log.created,
+            "level": log.levelname
+        }
+        if log.exc_info:
+            message["exc_info"] = self.formatException(log.exc_info)
+            message["exception_type"] = str(log.exc_info[0])
+            message["exception_msg"] = str(log.exc_info[1])
+        self._event_queue.append(message)
+
     def send_logs(self, logs):
         request_obj = {
             "url": f"{self.proxy_url}/logs",
+            "method": "POST",
+            "request_obj": {
+                "headers": {
+                    'Content-Type': "application/json"
+                },
+                "data": json.dumps(logs, default=log_encoder),
+                "params": {"ddtags": f"client_id:{self.client_id},"
+                                     f"client_version:{CLIENT_VERSION},"
+                                     f"type:log",
+                           "ddsource": "hummingbot-client"}
+            }
+        }
+        self.log_server_client.request(request_obj)
+
+    def send_event(self, logs):
+        request_obj = {
+            "url": f"{self.proxy_url}/order-event",
             "method": "POST",
             "request_obj": {
                 "headers": {
@@ -114,6 +150,9 @@ class ReportingProxyHandler(logging.Handler):
                 if len(self._log_queue) > min_send_capacity:
                     self.send_logs(self._log_queue)
                     self._log_queue = []
+            if len(self._event_queue) > min_send_capacity:
+                self.send_event(self._event_queue)
+                self._event_queue = []
         except Exception:
             self.logger().error("Error sending logs.", exc_info=True, extra={"do_not_send": True})
         finally:
