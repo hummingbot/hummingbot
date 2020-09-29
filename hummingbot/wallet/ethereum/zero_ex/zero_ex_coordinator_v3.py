@@ -35,14 +35,16 @@ with open(os.path.join(os.path.dirname(__file__), "zero_ex_coordinator_registry_
 # 150,000 per order by gas
 PROTOCOL_FEE_MULTIPLIER = 150000
 
-DEFAULT_APPROVAL_EXPIRATION_TIME_SECONDS = 90;
-DEFAULT_EXPIRATION_TIME_BUFFER_SECONDS = 30;
+DEFAULT_APPROVAL_EXPIRATION_TIME_SECONDS = 90
+DEFAULT_EXPIRATION_TIME_BUFFER_SECONDS = 30
+
 
 class ZeroExCoordinatorFailedException(Exception):
     def __init__(self, approvedOrders: [], cancellations: [], errors: []):
         self.approvedOrders = approvedOrders
         self.cancellations = cancellations
         self.errors = errors
+
 
 class ZeroExCoordinator:
     def __init__(self,
@@ -87,7 +89,7 @@ class ZeroExCoordinator:
             order_tuple,
             int(taker_asset_fill_amount),
             signature
-        ).buildTransaction({ 'gas': 1 })
+        ).buildTransaction({'gas': 1})
 
         data = fillOrderData['data']
 
@@ -101,14 +103,14 @@ class ZeroExCoordinator:
         order_tuples: List[Tuple] = [convert_order_to_tuple(order) for order in orders]
         signatures: List[bytes] = [self._w3.toBytes(hexstr=signature) for signature in signatures]
         taker_asset_fill_amounts: List[int] = [int(amount) for amount in taker_asset_fill_amounts]
-        
+
         # Set gas to 1, so it avoids estimateGas call in Web3, which will revert
         batchFillOrderData = self._exchange_contract.functions.batchFillOrders(
             order_tuples,
             taker_asset_fill_amounts,
             signatures
-        ).buildTransaction({ 'gas': 1 })
-        
+        ).buildTransaction({'gas': 1})
+
         data = batchFillOrderData['data']
 
         self._current_gas_price = self._wallet.gas_price + 10
@@ -123,7 +125,7 @@ class ZeroExCoordinator:
         # Set gas to 1, so it avoids estimateGas call in Web3, which will revert
         cancelOrderData = self._exchange_contract.functions.cancelOrder(
             order_tuple
-        ).buildTransaction({ 'gas': 1 })
+        ).buildTransaction({'gas': 1})
 
         data = cancelOrderData['data']
 
@@ -135,10 +137,10 @@ class ZeroExCoordinator:
             approvedOrders = []
             cancellations = []
             errors = {
-                **response, 
+                **response,
                 'orders': [order]
             }
-            
+
             raise ZeroExCoordinatorFailedException(
                 approvedOrders,
                 cancellations,
@@ -155,11 +157,11 @@ class ZeroExCoordinator:
         # Set gas to 1, so it avoids estimateGas call in Web3, which will revert
         batchCancelOrderData = self._exchange_contract.functions.batchCancelOrders(
             order_tuples
-        ).buildTransaction({ 'gas': 1 })
+        ).buildTransaction({'gas': 1})
 
         data = batchCancelOrderData['data']
 
-        serverEndpointsToOrders =  await self._map_server_endpoints_to_orders(orders)
+        serverEndpointsToOrders = await self._map_server_endpoints_to_orders(orders)
 
         errorResponses: [] = []
         successResponses: [] = []
@@ -197,7 +199,7 @@ class ZeroExCoordinator:
         # Set gas to 1, so it avoids estimateGas call in Web3, which will revert
         hardCancelOrderData = self._exchange_contract.functions.cancelOrder(
             order_tuple
-        ).buildTransaction({ 'gas': 1 })
+        ).buildTransaction({'gas': 1})
 
         data = hardCancelOrderData['data']
 
@@ -214,7 +216,7 @@ class ZeroExCoordinator:
         )
 
         return tx_hash
-    
+
     async def batch_hard_cancel_orders(self, orders: List[Order]) -> str:
         order_tuples: List[Tuple] = [convert_order_to_tuple(order) for order in orders]
 
@@ -223,7 +225,7 @@ class ZeroExCoordinator:
         # Set gas to 1, so it avoids estimateGas call in Web3, which will revert
         batchHardCancelOrderData = self._exchange_contract.functions.batchCancelOrders(
             order_tuples
-        ).buildTransaction({ 'gas': 1 })
+        ).buildTransaction({'gas': 1})
 
         data = batchHardCancelOrderData['data']
 
@@ -240,7 +242,7 @@ class ZeroExCoordinator:
         )
 
         return tx_hash
-    
+
     async def _handle_fills(self, data: str, takerAddress: str, signedOrders: List[Order]) -> Tuple[str, Decimal]:
         coordinatorOrders = [o for o in signedOrders if o['senderAddress'] == self._coordinator_address.lower()]
         serverEndpointsToOrders = await self._map_server_endpoints_to_orders(coordinatorOrders)
@@ -258,7 +260,7 @@ class ZeroExCoordinator:
                 approvalResponses.append(response)
 
         if len(errorResponses) == 0:
-            #concatenate all approval responses
+            # concatenate all approval responses
             allSignatures: List[str] = []
             allExpirationTimes: List[int] = []
 
@@ -287,7 +289,6 @@ class ZeroExCoordinator:
             for approval in approvalResponses:
                 approvedOrders = approvedOrders + serverEndpointsToOrders[approval['coordinatorOperator']]
 
-
             errorsWithOrders = []
 
             for errorResponse in errorResponses:
@@ -313,7 +314,7 @@ class ZeroExCoordinator:
             if feeRecipient not in feeRecipientsToOrders:
                 feeRecipientsToOrders[feeRecipient] = []
             feeRecipientsToOrders[feeRecipient].append(order)
-        
+
         serverEndpointsToOrders = {}
 
         for feeRecipient in feeRecipientsToOrders:
@@ -321,9 +322,9 @@ class ZeroExCoordinator:
             orders = feeRecipientsToOrders[feeRecipient]
             if endpoint not in serverEndpointsToOrders:
                 serverEndpointsToOrders[endpoint] = []
-            
+
             serverEndpointsToOrders[endpoint] = serverEndpointsToOrders[endpoint] + orders
-        
+
         return serverEndpointsToOrders
 
     async def _get_server_endpoint_or_throw(self, feeRecipientAddress: str) -> str:
@@ -339,7 +340,7 @@ class ZeroExCoordinator:
             raise Exception(
                 'No Coordinator server endpoint found in Coordinator Registry for feeRecipientAddress: ' + feeRecipient + '. Registry contract address: ' + self._registry_address
             )
-        
+
         return coordinatorOperatorEndpoint
 
     def _generate_signed_zero_ex_transaction(self, data: str, signerAddress: str, chainId: int) -> any:
@@ -361,15 +362,15 @@ class ZeroExCoordinator:
 
         signature = self._wallet.current_backend.sign_hash(hexstr=order_hash_hex)
         fixed_signature = fix_signature(self._provider,
-                                        signerAddress, 
-                                        order_hash_hex, 
+                                        signerAddress,
+                                        order_hash_hex,
                                         signature,
                                         chainId)
 
         transaction['signature'] = fixed_signature
 
         return transaction
-    
+
     async def _execute_server_request(self, signedTransaction: SignedZeroExTransaction, txOrigin: str, endpoint: str) -> bool:
         requestPayload = {
             "signedTransaction": signedTransaction,
@@ -417,7 +418,7 @@ class ZeroExCoordinator:
             'coordinatorOperator': endpoint,
         }
         return result
-    
+
     async def _post_request(self, url, data, timeout=10):
         async with aiohttp.ClientSession() as client:
             async with client.request('POST',
@@ -428,7 +429,7 @@ class ZeroExCoordinator:
                 try:
                     await response.json()
                     return response
-                except aiohttp.ContentTypeError as ex:
+                except aiohttp.ContentTypeError:
                     error = await response.text()
                     raise ValueError(error)
 

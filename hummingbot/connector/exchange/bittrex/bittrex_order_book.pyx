@@ -36,11 +36,11 @@ cdef class BittrexOrderBook(OrderBook):
             msg.update(metadata)
         return BittrexOrderBookMessage(
             OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": msg["marketSymbol"],
-            "update_id": int(msg["sequence"]),
-            "bids": msg["bid"],
-            "asks": msg["ask"]
-        }, timestamp=timestamp)
+                "trading_pair": msg["marketSymbol"],
+                "update_id": int(msg["sequence"]),
+                "bids": msg["bid"],
+                "asks": msg["ask"]
+            }, timestamp=timestamp)
 
     @classmethod
     def diff_message_from_exchange(cls,
@@ -51,11 +51,11 @@ cdef class BittrexOrderBook(OrderBook):
             msg.update(metadata)
         return BittrexOrderBookMessage(
             OrderBookMessageType.DIFF, {
-            "trading_pair": msg["marketSymbol"],
-            "update_id": int(msg["sequence"]),
-            "bids": msg["bidDeltas"],
-            "asks": msg["askDeltas"]
-        }, timestamp=timestamp)
+                "trading_pair": msg["marketSymbol"],
+                "update_id": int(msg["sequence"]),
+                "bids": msg["bidDeltas"],
+                "asks": msg["askDeltas"]
+            }, timestamp=timestamp)
 
     @classmethod
     def trade_message_from_exchange(cls,
@@ -66,14 +66,14 @@ cdef class BittrexOrderBook(OrderBook):
             msg.update(metadata)
         return BittrexOrderBookMessage(
             OrderBookMessageType.TRADE, {
-            "trading_pair": msg["trading_pair"],
-            "trade_type": float(TradeType.BUY.value) if msg["takerSide"] == "BUY"
-            else float(TradeType.SELL.value),
-            "trade_id": msg["id"],
-            "update_id": msg["sequence"],
-            "price": msg["rate"],
-            "amount": msg["quantity"]
-        }, timestamp=timestamp)
+                "trading_pair": msg["trading_pair"],
+                "trade_type": float(TradeType.BUY.value) if msg["takerSide"] == "BUY"
+                else float(TradeType.SELL.value),
+                "trade_id": msg["id"],
+                "update_id": msg["sequence"],
+                "price": msg["rate"],
+                "amount": msg["quantity"]
+            }, timestamp=timestamp)
 
     @classmethod
     def from_snapshot(cls, snapshot: OrderBookMessage):
