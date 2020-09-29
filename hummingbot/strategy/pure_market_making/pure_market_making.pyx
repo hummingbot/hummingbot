@@ -34,6 +34,7 @@ from .asset_price_delegate cimport AssetPriceDelegate
 from .asset_price_delegate import AssetPriceDelegate
 from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
 from .inventory_skew_calculator import calculate_total_order_size
+from .order_book_asset_price_delegate cimport OrderBookAssetPriceDelegate
 
 
 NaN = float("nan")
@@ -521,6 +522,31 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         return pd.DataFrame(data=data, columns=columns)
 
+    def market_status_data_frame(self, market_trading_pair_tuples: List[MarketTradingPairTuple]) -> pd.DataFrame:
+        markets_data = []
+        markets_columns = ["Exchange", "Market", "Best Bid", "Best Ask", f"Ref Price ({self._price_type.name})"]
+        if self._price_type is PriceType.LastOwnTrade and self._last_own_trade_price.is_nan():
+            markets_columns[-1] = "Ref Price (MidPrice)"
+        market_books = [(self._market_info.market, self._market_info.trading_pair)]
+        if self._asset_price_delegate is OrderBookAssetPriceDelegate:
+            market_books.append((self._asset_price_delegate.market, self._asset_price_delegate.trading_pair))
+        for market, trading_pair in market_books:
+            bid_price = market.get_price(trading_pair, False)
+            ask_price = market.get_price(trading_pair, True)
+            ref_price = float("nan")
+            if market == self._market_info.market and self._asset_price_delegate is None:
+                ref_price = self.get_price()
+            elif market == self._asset_price_delegate.market:
+                ref_price = self._asset_price_delegate.get_price_by_type(self._price_type)
+            markets_data.append([
+                market.display_name,
+                trading_pair,
+                float(bid_price),
+                float(ask_price),
+                float(ref_price)
+            ])
+        return pd.DataFrame(data=markets_data, columns=markets_columns)
+
     def format_status(self) -> str:
         if not self._all_markets_ready:
             return "Market connectors are not ready."
@@ -531,10 +557,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         warning_lines.extend(self.network_warning([self._market_info]))
 
         markets_df = self.market_status_data_frame([self._market_info])
-        if self._price_type is PriceType.LastTrade:
-            markets_df["Last Trade"] = [float(self.get_price())]
-        elif self._price_type is PriceType.LastOwnTrade:
-            markets_df["Last Own Trade"] = [float(self.get_price())]
         lines.extend(["", "  Markets:"] + ["    " + line for line in markets_df.to_string(index=False).split("\n")])
 
         assets_df = self.pure_mm_assets_df(not self._inventory_skew_enabled)
