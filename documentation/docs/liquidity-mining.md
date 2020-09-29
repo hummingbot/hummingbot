@@ -141,7 +141,110 @@ Liquidity mining sets forth an analytical framework for determining market maker
 
 
 ## Upcoming changes to campaign terms 
-No upcoming changes
+
+!!! warning "Important information regarding the upcoming change in campaign terms"
+    In our continual effort to improve the Hummingbot Miner platform and user experience, the following changes to the liquidity mining rewards payment terms will start on October 6, 2020 (for full details, you can check our recent blog post, [Migrating to TRC20 USDT for USD-based payments](https://hummingbot.io/blog/2020-09-migrating-to-trc20-usdt-payment/)):
+
+    <li><em>Starting from the rewards period beginning on October 6, 2020 12.00am UTC, all USD-based rewards will be accrued in USDT (not USDC)</em>
+    <li><em>After the October 9, 2020 12.00am UTC liquidity mining payment, ERC20 USDC payments will no longer be supported</em>
+    <li><em>Any USDC rewards earned and not yet paid out as of the October 9 payment date will automatically convert to USDT</em>
+    <li><em>The first TRC20 USDT pay out will be on the October 16 (UTC) payment date</em>
+    <li><em>Users must enter a Tron wallet address in Hummingbot Miners to receive reward payouts</em>
+    <li><em>TRC20 USDT rewards payments are not subject to any minimum reward payout amount</em>
+
+<table>
+  <thead>
+    <th>Token Issuer</th>
+    <th>Trading pair</th>
+    <th>Exchange</th>
+    <th>Maximum spread</th>
+    <th>Spread factor *</th>
+    <th>Weekly rewards</th>
+  </thead>
+  <tbody>
+      <tr>
+      <td rowspan="3"><a href="#coti">COTI</a><br></td>
+      <td>COTI/BTC</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>8</td>
+      <td><b>USDT-TRON 250</b></td>
+    </tr>
+    <tr>
+      <td>COTI/USDT</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>8</td>
+      <td><b>USDT-TRON 250</b></td>
+    </tr>
+    <tr>
+      <td>COTI/BNB</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>8</td>
+      <td><b>USDT-TRON 250</b></td>
+    </tr>        
+    <tr>
+      <td rowspan="3"><a href="#mainframe">Mainframe</a><br></td>
+      <td>MFT/USDT</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>8</td>
+      <td><b>USDT-TRON 200</b></td>
+    </tr>
+    <tr>
+      <td>MFT/ETH</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>8</td>
+      <td><b>USDT-TRON 275</b></td>
+    </tr>
+    <tr>
+      <td>MFT/BNB</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>8</td>
+      <td><b>USDT-TRON 275</b></td>
+    </tr>
+    <tr>
+      <td rowspan="3"><a href="#iexec">iExec</a><br></td>
+      <td>RLC/BTC</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>8</td>
+      <td>RLC 180</td>
+    </tr>
+    <tr>
+      <td>RLC/USDT</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>8</td>
+      <td>RLC 180</td>
+    </tr>
+    <tr>
+      <td>RLC/ETH</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>8</td>
+      <td>RLC 180</td>
+    </tr>
+    <tr>
+      <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
+      <td>XZC/BTC</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>8</td>
+      <td>XZC 125</td>
+    </tr>
+    <tr>
+      <td>XZC/USDT</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td>8</td>
+      <td>XZC 125</td>
+    </tr>
+  </tbody>
+</table>
 
 
 ## Token Issuers
