@@ -486,10 +486,6 @@ cdef class LoopringMarket(ExchangeBase):
         is_maker = order_type is OrderType.LIMIT
         return estimate_fee("loopring", is_maker)
 
-    cdef object c_get_price(self, str trading_pair, bint is_buy):
-        cdef OrderBook order_book = self.c_get_order_book(trading_pair)
-        return Decimal(order_book.c_get_price(is_buy))
-
     # ==========================================================
     # Runtime
     # ----------------------------------------------------------
