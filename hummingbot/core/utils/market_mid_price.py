@@ -2,7 +2,7 @@ import requests
 from decimal import Decimal
 from typing import Optional
 import cachetools.func
-from hummingbot.connector.exchange.bitfinex.bitfinex_market import BitfinexMarket
+from hummingbot.connector.exchange.bitfinex.bitfinex_utils import convert_to_exchange_trading_pair
 
 
 BINANCE_PRICE_URL = "https://api.binance.com/api/v3/ticker/bookTicker"
@@ -112,8 +112,8 @@ def coinbase_pro_mid_price(trading_pair: str) -> Optional[Decimal]:
 
 @cachetools.func.ttl_cache(ttl=10)
 def bitfinex_mid_price(trading_pair: str) -> Optional[Decimal]:
-    exchange_trading_pair = BitfinexMarket.convert_to_exchange_trading_pair(trading_pair)
-    resp = requests.get(url=f"{BITFINEX_PRICE_URL}/t{exchange_trading_pair}")
+    exchange_trading_pair = convert_to_exchange_trading_pair(trading_pair)
+    resp = requests.get(url=f"{BITFINEX_PRICE_URL}/{exchange_trading_pair}")
     record = resp.json()
     result = (Decimal(record[0]) + Decimal(record[2])) / Decimal("2")
     return result

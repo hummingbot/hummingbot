@@ -40,7 +40,6 @@ from hummingbot.connector.exchange.bitfinex import (
     BITFINEX_REST_URL,
     SubmitOrder,
     ContentEventType,
-    TRADING_PAIR_SPLITTER,
     TAKER_FEE,
     MAKER_FEE,
     OrderStatus,
@@ -276,50 +275,16 @@ cdef class BitfinexMarket(ExchangeBase):
             set asset_names_to_remove
 
         account_balances = await self._api_balance()
-        active_markets = await self.get_active_exchange_markets()
-        markets = active_markets.to_dict(orient='records')
 
         # push trading-pairs-info, that set in config
         for balance_entry in account_balances:
-            # TODO: need more info about other types: exchange, margin, funding.
-            #  Now work only with EXCHANGE
             if balance_entry.wallet_type != "exchange":
                 continue
 
             asset_name = balance_entry.currency
-
-            # find a pair we can use to retrieve available balance
-            valid_markets = list(
-                filter(
-                    lambda m: m["baseAsset"] == asset_name or m["quoteAsset"] == asset_name,
-                    markets
-                )
-            )
-            market = valid_markets[0] if valid_markets is not None and len(valid_markets) > 0 else None
-            trading_pair = {
-                "symbol": market["display_name"],
-                "dir": -1 if market["baseAsset"] == asset_name else 1
-            } if market is not None else None
-            exchange_symbol = convert_to_exchange_trading_pair(trading_pair['symbol'])
-
-            # bitfinex doesn't return 'BALANCE_AVAILABLE'
-            # we must use https://docs.bitfinex.com/reference#rest-auth-calc-order-avail
-            available_balance_result = await self._api_private(
-                "post",
-                path_url="auth/calc/order/avail",
-                data={
-                    "symbol": f"t{exchange_symbol}",
-                    "dir": trading_pair['dir'],
-                    "rate": 1,
-                    "type": "EXCHANGE"
-                }
-            ) if trading_pair is not None else None
-
             # None or 0
             self._account_balances[asset_name] = Decimal(balance_entry.balance or 0)
-            self._account_available_balances[asset_name] = Decimal(
-                abs(available_balance_result[0]) if available_balance_result is not None else 0
-            )
+            self._account_available_balances[asset_name] = Decimal(balance_entry.balance) - Decimal(balance_entry.unsettled_interest)
             remote_asset_names.add(asset_name)
 
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
@@ -345,10 +310,8 @@ cdef class BitfinexMarket(ExchangeBase):
         *required
         Async function used by NetworkBase class to handle when a single market goes online
         """
-        if self._order_tracker_task is not None:
-            self._stop_network()
         # when exchange is online start streams
-        self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
+        self._order_tracker_task = self._order_book_tracker.start()
         if self._trading_required:
             self._ws_task = safe_ensure_future(self._ws_message_listener())
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
@@ -670,7 +633,7 @@ cdef class BitfinexMarket(ExchangeBase):
                     OrderType.LIMIT.name: "EXCHANGE LIMIT",
                     OrderType.MARKET.name: "MARKET",
                 }[order_type.name],
-                "symbol": f't{exchange_trading_pair}',
+                "symbol": exchange_trading_pair,
                 "price": str(price),
                 "amount": str(amount),
                 "meta": {
@@ -950,18 +913,6 @@ cdef class BitfinexMarket(ExchangeBase):
         """
         safe_ensure_future(self.execute_cancel(trading_pair, order_id))
         return order_id
-
-    @staticmethod
-    def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
-        return split_trading_pair(trading_pair)
-
-    @staticmethod
-    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
-        return convert_from_exchange_trading_pair(exchange_trading_pair)
-
-    @staticmethod
-    def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-        return convert_to_exchange_trading_pair(hb_trading_pair)
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, Any]]:
         """

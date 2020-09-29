@@ -58,7 +58,7 @@ MAIN_FIAT = ("USD", "USDC", "USDS", "DAI", "PAX", "TUSD", "USDT")
 
 Ticker = namedtuple(
     "Ticker",
-    "tradingPair bid bid_size ask ask_size daily_change daily_change_percent last_price volume high low"
+    "bid bid_size ask ask_size daily_change daily_change_percent last_price volume high low"
 )
 BookStructure = namedtuple("Book", "order_id price amount")
 TradeStructure = namedtuple("Trade", "id mts amount price")
@@ -362,7 +362,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_last_traded_price(cls, trading_pair: str) -> float:
         async with aiohttp.ClientSession() as client:
             # https://api-pub.bitfinex.com/v2/ticker/tBTCUSD
-            ticker_url: str = join_paths(BITFINEX_REST_URL, convert_to_exchange_trading_pair(trading_pair))
+            ticker_url: str = join_paths(BITFINEX_REST_URL, f"ticker/{convert_to_exchange_trading_pair(trading_pair)}")
             resp = await client.get(ticker_url)
             resp_json = await resp.json()
             ticker = Ticker(*resp_json)
@@ -392,7 +392,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return self._trading_pairs
 
     async def get_snapshot(self, client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
-        request_url: str = f"{BITFINEX_REST_URL}/book/t{convert_to_exchange_trading_pair(trading_pair)}/R0"
+        request_url: str = f"{BITFINEX_REST_URL}/book/{convert_to_exchange_trading_pair(trading_pair)}/R0"
         # by default it's = 50, 25 asks + 25 bids.
         # set 100: 100 asks + 100 bids
         # Exchange only allow: 1, 25, 100 (((
@@ -411,7 +411,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         async with aiohttp.ClientSession() as client:
-            snapshot: Dict[str, any] = await self.get_snapshot(client, convert_to_exchange_trading_pair(trading_pair))
+            snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
             snapshot_timestamp: float = time.time()
             snapshot_msg: OrderBookMessage = BitfinexOrderBook.snapshot_message_from_exchange(
                 snapshot,
@@ -485,7 +485,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         payload: Dict[str, Any] = {
                             "event": "subscribe",
                             "channel": "trades",
-                            "symbol": f"t{trading_pair}",
+                            "symbol": convert_to_exchange_trading_pair(trading_pair),
                         }
                         await ws.send(ujson.dumps(payload))
                         await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)  # response
@@ -525,7 +525,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             "event": "subscribe",
                             "channel": "book",
                             "prec": "R0",
-                            "symbol": f"t{trading_pair}",
+                            "symbol": convert_to_exchange_trading_pair(trading_pair),
                         }
                         await ws.send(ujson.dumps(payload))
                         await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)  # response
@@ -574,9 +574,9 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         except Exception as err:
                             self.logger().error("Listening snapshots", err)
                             self.logger().network(
-                                "Unexpected error with WebSocket connection.",
+                                "Unexpected error with HTTP connection.",
                                 exc_info=True,
-                                app_warning_msg="Unexpected error with WebSocket connection. "
+                                app_warning_msg="Unexpected error with HTTP connection. "
                                                 f"Retrying in {self.TIME_SLEEP_BETWEEN_REQUESTS} sec."
                                                 "Check network connection."
                             )

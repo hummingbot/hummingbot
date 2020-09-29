@@ -1,4 +1,3 @@
-import re
 from decimal import Decimal
 
 BITFINEX_REST_URL_V1 = "https://api.bitfinex.com/v1"
@@ -6,8 +5,6 @@ BITFINEX_REST_URL = "https://api-pub.bitfinex.com/v2"
 BITFINEX_REST_AUTH_URL = "https://api.bitfinex.com/v2"
 BITFINEX_WS_URI = "wss://api-pub.bitfinex.com/ws/2"
 BITFINEX_WS_AUTH_URI = "wss://api.bitfinex.com/ws/2"
-
-TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(USD|EUR|GBP|JPY|BTC|ETH|EOS|XLM|DAI|USDt|XCHF|CNHt|UST|XCH)$")
 
 # this values ​​set by empirically way, because the bitfinex-market does not have
 # these values. maybe later it will be in market-api.

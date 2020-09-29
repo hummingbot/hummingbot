@@ -12,7 +12,6 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.connector.exchange.bitfinex import (
     OrderStatus,
-    TRADING_PAIR_SPLITTER,
 )
 from hummingbot.connector.exchange.bitfinex.bitfinex_utils import split_trading_pair
 from hummingbot.connector.exchange.bitfinex.bitfinex_market import BitfinexMarket
