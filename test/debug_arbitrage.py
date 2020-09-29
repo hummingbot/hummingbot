@@ -1,12 +1,8 @@
 #!/usr/bin/env python
 import faulthandler; faulthandler.enable()
-import sys, os
-sys.path.insert(0, os.path.realpath(os.path.join(__file__, "../../")))
-
-import logging
-logging.basicConfig(level=logging.INFO)
-
-
+import sys
+import os; sys.path.insert(0, os.path.realpath(os.path.join(__file__, "../../")))
+import logging; logging.basicConfig(level=logging.INFO)
 import pandas as pd
 import hummingsim
 from hummingsim.backtest.backtest_market import BacktestMarket
@@ -21,6 +17,10 @@ from hummingsim.backtest.market_config import (
     MarketConfig,
     AssetType
 )
+from hummingbot.strategy.arbitrage import (
+    ArbitrageStrategy,
+    ArbitrageMarketPair
+)
 
 # Define the data cache path.
 hummingsim.set_data_path(os.path.join(os.environ["PWD"], "data"))
@@ -31,11 +31,6 @@ end = pd.Timestamp("2019-12-24-00:43:00", tz="UTC")
 binance_trading_pair = ("ETHUSDT", "ETH", "USDT")
 ddex_trading_pair = ("WETH-DAI", "WETH", "DAI")
 
-
-from hummingbot.strategy.arbitrage import (
-    ArbitrageStrategy,
-    ArbitrageMarketPair
-)
 
 binance_market = BacktestMarket()
 ddex_market = BacktestMarket()
@@ -93,4 +88,3 @@ print(f"Profit DDEX {ddex_portfolio_value/start_ddex_portfolio_value}\n"
       f"Profit Binance {binance_portfolio_value/start_binance_portfolio_value}\n"
       f"Profit Total "
       f"{(ddex_portfolio_value + binance_portfolio_value)/(start_ddex_portfolio_value + start_binance_portfolio_value)}")
-

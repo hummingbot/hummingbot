@@ -40,7 +40,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
     > <em>**Tip:** Miners participating should enter their XZC wallet address in the Miner's app. <br/> **Note:** you can enter your Binance XZC deposit address to receive the XZC directly into Binance</em>
 
 
-**Current reward period: September 15, 2020 12.00am UTC to September 22, 2020 12.00am UTC**
+**Current reward period: September 29, 2020 12.00am UTC to October 6, 2020 12.00am UTC**
 
 <table>
   <thead>
@@ -142,6 +142,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
 
 ## Upcoming changes to campaign terms 
 No upcoming changes
+
 
 ## Token Issuers
 
