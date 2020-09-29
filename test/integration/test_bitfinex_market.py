@@ -35,7 +35,7 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.connector.exchange.bitfinex.bitfinex_market import BitfinexMarket
+from hummingbot.connector.exchange.bitfinex.bitfinex_exchange import BitfinexExchange
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
@@ -45,7 +45,7 @@ sys.path.insert(0, realpath(join(__file__, "../../../")))
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
-class BitfinexMarketUnitTest(unittest.TestCase):
+class BitfinexExchangeUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
         MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
@@ -59,14 +59,14 @@ class BitfinexMarketUnitTest(unittest.TestCase):
         MarketEvent.OrderCancelled,
     ]
 
-    market: BitfinexMarket
+    market: BitfinexExchange
     market_logger: EventLogger
     stack: contextlib.ExitStack
 
     @classmethod
     def setUpClass(cls):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.market: BitfinexMarket = BitfinexMarket(
+        cls.market: BitfinexExchange = BitfinexExchange(
             conf.bitfinex_api_key,
             conf.bitfinex_secret_key,
             trading_pairs=["ETHUSD"]
@@ -323,7 +323,7 @@ class BitfinexMarketUnitTest(unittest.TestCase):
             self.clock.remove_iterator(self.market)
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
-            self.market: BitfinexMarket = BitfinexMarket(
+            self.market: BitfinexExchange = BitfinexExchange(
                 conf.bitfinex_api_key,
                 conf.bitfinex_secret_key,
                 trading_pairs=[trading_pair]
