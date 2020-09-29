@@ -90,15 +90,15 @@ class CustomTextArea:
             buffer=self.buffer,
             lexer=DynamicLexer(lambda: self.lexer),
             input_processors=[
-                                 ConditionalProcessor(
-                                     AppendAutoSuggestion(),
-                                     has_focus(self.buffer) & ~is_done),
-                                 ConditionalProcessor(
-                                     processor=PasswordProcessor(),
-                                     filter=to_filter(password)
-                                 ),
-                                 BeforeInput(prompt, style='class:text-area.prompt'),
-                             ] + input_processors,
+                ConditionalProcessor(
+                    AppendAutoSuggestion(),
+                    has_focus(self.buffer) & ~is_done),
+                ConditionalProcessor(
+                    processor=PasswordProcessor(),
+                    filter=to_filter(password)
+                ),
+                BeforeInput(prompt, style='class:text-area.prompt'),
+            ] + input_processors,
             search_buffer_control=search_control,
             preview_search=preview_search,
             focusable=focusable,

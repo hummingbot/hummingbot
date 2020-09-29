@@ -201,6 +201,7 @@ cdef class PaperTradeMarket(ExchangeBase):
 
     def split_trading_pair(self, trading_pair: str) -> Tuple[str, str]:
         return self._target_market.split_trading_pair(trading_pair)
+
     #  <editor-fold desc="Property">
     @property
     def trading_pair(self) -> Dict[str, TradingPair]:
@@ -226,6 +227,8 @@ cdef class PaperTradeMarket(ExchangeBase):
 
     @property
     def ready(self):
+        if not self._order_book_tracker.ready:
+            return False
         if all(self.status_dict.values()):
             if not self._paper_trade_market_initialized:
                 self.init_paper_trade_market()
