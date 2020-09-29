@@ -57,11 +57,11 @@ class CeloCLI:
         output = command(["celocli", "account:balance", cls.address])
         lines = output.split("\n")
         raw_balances = {}
+        data_type = ["gold", "lockedGold", "usd", "pending"]
         for line in lines:
-            if ":" not in line:
-                continue
-            asset, value = line.split(":")
-            raw_balances[asset.strip()] = Decimal(value) / UNIT_MULTIPLIER
+            if ":" in line and [key for key in data_type if (key in line)]:
+                asset, value = line.split(":")
+                raw_balances[asset.strip()] = Decimal(value) / UNIT_MULTIPLIER
         balances[CELO_BASE] = CeloBalance(CELO_BASE, raw_balances["gold"], raw_balances["lockedGold"])
         balances[CELO_QUOTE] = CeloBalance(CELO_QUOTE, raw_balances["usd"], Decimal("0"))
         return balances
