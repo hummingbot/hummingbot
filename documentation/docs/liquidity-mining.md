@@ -143,7 +143,7 @@ Liquidity mining sets forth an analytical framework for determining market maker
 ## Upcoming changes to campaign terms 
 
 !!! warning "Important information regarding the upcoming change in campaign terms"
-    In our continual effort to improve the Hummingbot Miner platform and user experience, the following changes to the liquidity mining rewards payment terms will start on October 6, 2020 (for full details, you can check our recent blog post, [Migrating to TRC20 USDT for USD-based payments](https://hummingbot.io/blog/2020-09-migrating-to-trc20-usdt-payment/)):
+    In our continual effort to improve the Hummingbot Miner platform and user experience, the following changes to the liquidity mining rewards payment terms will start on October 6, 2020. For full details, you can check our recent blog post, [Migrating to TRC20 USDT for USD-based payments](https://hummingbot.io/blog/2020-09-migrating-to-trc20-usdt-payment/):
 
     <li><em>Starting from the rewards period beginning on October 6, 2020 12.00am UTC, all USD-based rewards will be accrued in USDT (not USDC)</em>
     <li><em>After the October 9, 2020 12.00am UTC liquidity mining payment, ERC20 USDC payments will no longer be supported</em>
