@@ -36,7 +36,6 @@ EXCHANGES = {
     "dolomite",
     "bittrex",
     "kucoin",
-    "bitfinex",
     "eterbase",
     "kraken",
     "crypto_com"
@@ -60,7 +59,6 @@ EXAMPLE_PAIRS = {
     "huobi": "ETH-USDT",
     "liquid": "ETH-USD",
     "radar_relay": "ZRX-WETH",
-    "bitfinex": "ETH-USD",
     "eterbase": "ETH-EUR",
     "kraken": "ETH-USDC",
     "crypto_com": "ETH-USDT"

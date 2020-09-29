@@ -4,6 +4,35 @@ from typing import Dict, List, Tuple, Optional
 from decimal import Decimal
 
 
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.config.config_methods import using_exchange
+
+
+CENTRALIZED = True
+
+
+EXAMPLE_PAIR = "ETH-USD"
+
+
+DEFAULT_FEES = [0.1, 0.2]
+
+
+KEYS = {
+    "bitfinex_api_key":
+        ConfigVar(key="bitfinex_api_key",
+                  prompt="Enter your Bitfinex API key >>> ",
+                  required_if=using_exchange("bitfinex"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "bitfinex_secret_key":
+        ConfigVar(key="bitfinex_secret_key",
+                  prompt="Enter your Bitfinex secret key >>> ",
+                  required_if=using_exchange("bitfinex"),
+                  is_secure=True,
+                  is_connect_key=True),
+}
+
+
 # deeply merge two dictionaries
 def merge_dicts(source: Dict, destination: Dict) -> Dict:
     for key, value in source.items():
