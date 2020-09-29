@@ -28,7 +28,8 @@ if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
-no_restart_pmm_keys = ["bid_spread", "ask_spread"]
+no_restart_pmm_keys_in_percentage = ["bid_spread", "ask_spread", "order_level_spread", "inventory_target_base_pct"]
+no_restart_pmm_keys = ["order_amount", "order_levels", "filled_order_delay", "inventory_skew_enabled", "inventory_range_multiplier"]
 global_configs_to_display = ["0x_active_cancels",
                              "kill_switch_enabled",
                              "kill_switch_rate",
@@ -67,7 +68,7 @@ class ConfigCommand:
         if self.strategy_name is not None:
             data = [[cv.key, cv.value] for cv in self.strategy_config_map.values() if not cv.is_secure]
             df = pd.DataFrame(data=data, columns=columns)
-            self._notify(f"\nStrategy Configurations:")
+            self._notify("\nStrategy Configurations:")
             lines = ["    " + line for line in df.to_string(index=False).split("\n")]
             self._notify("\n".join(lines))
 
@@ -94,11 +95,11 @@ class ConfigCommand:
     # Make this function static so unit testing can be performed.
     @staticmethod
     def update_running_pure_mm(pure_mm_strategy: PureMarketMakingStrategy, key: str, new_value: Any):
-        if key == "bid_spread":
-            pure_mm_strategy.bid_spread = new_value / Decimal("100")
+        if key in no_restart_pmm_keys_in_percentage:
+            setattr(pure_mm_strategy, key, new_value / Decimal("100"))
             return True
-        elif key == "ask_spread":
-            pure_mm_strategy.ask_spread = new_value / Decimal("100")
+        elif key in no_restart_pmm_keys:
+            setattr(pure_mm_strategy, key, new_value)
             return True
         return False
 
@@ -134,10 +135,10 @@ class ConfigCommand:
             await self.update_all_secure_configs()
             missings = missing_required_configs(config_map)
             if missings:
-                self._notify(f"\nThere are other configuration required, please follow the prompt to complete them.")
+                self._notify("\nThere are other configuration required, please follow the prompt to complete them.")
             missings = await self._prompt_missing_configs(config_map)
             save_to_yml(file_path, config_map)
-            self._notify(f"\nNew configuration saved:")
+            self._notify("\nNew configuration saved:")
             self._notify(f"{key}: {str(config_var.value)}")
             for config in missings:
                 self._notify(f"{config.key}: {str(config.value)}")
