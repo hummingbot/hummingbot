@@ -23,6 +23,7 @@ from hummingbot.core.utils.async_utils import (
 
 
 class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
+
     order_book_tracker: Optional[BinanceOrderBookTracker] = None
     events: List[OrderBookEvent] = [
         OrderBookEvent.TradeEvent
@@ -31,6 +32,7 @@ class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
         "BTCUSDT",
         "XRPUSDT"
     ]
+
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()

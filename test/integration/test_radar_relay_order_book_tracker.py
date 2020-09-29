@@ -35,6 +35,7 @@ class RadarRelayOrderBookTrackerUnitTest(unittest.TestCase):
         "WETH-DAI",
         "USDC-WETH"
     ]
+
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
