@@ -57,7 +57,7 @@ from hummingbot.connector.exchange.loopring.ethsnarks2.poseidon import poseidon_
 
 s_logger = None
 s_decimal_0 = Decimal(0)
-
+s_decimal_NaN = Decimal("nan")
 
 def num_d(amount):
     return abs(Decimal(amount).normalize().as_tuple().exponent)
@@ -448,13 +448,13 @@ cdef class LoopringMarket(ExchangeBase):
             }
 
             res = await self.api_request("DELETE", ORDER_CANCEL_ROUTE, params=cancellation_payload, secure=True)
-            if res['resultInfo']['code'] != 0:
+            if res['resultInfo']['code'] != 0 and res['resultInfo']['message'] != "order in status CANCELLED can't be cancelled":
                 raise Exception(f"Cancel order returned code {res['resultInfo']['code']} ({res['resultInfo']['message']})")
             return True
 
         except Exception as e:
-            self.logger().error(f"Failed to cancel order {client_order_id}")
-            self.logger().error(e)
+            self.logger().warning(f"Failed to cancel order {client_order_id}")
+            self.logger().info(e)
             return False
 
     cdef c_cancel(self, str trading_pair, str client_order_id):
@@ -898,7 +898,7 @@ cdef class LoopringMarket(ExchangeBase):
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)
 
-            def get_price(self, trading_pair: str, is_buy: bool) -> Decimal:
+    def get_price(self, trading_pair: str, is_buy: bool) -> Decimal:
         return self.c_get_price(trading_pair, is_buy)
 
     def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
