@@ -96,7 +96,7 @@ class HuobiExchangeUnitTest(unittest.TestCase):
             cls.web_app.update_response("get", API_BASE_URL, "/v1/account/accounts", FixtureHuobi.GET_ACCOUNTS)
             cls.web_app.update_response("get", API_BASE_URL, f"/v1/account/accounts/{mock_account_id}/balance",
                                         FixtureHuobi.BALANCES)
-            cls._t_nonce_patcher = unittest.mock.patch("hummingbot.connector.exchange.huobi.huobi_market.get_tracking_nonce")
+            cls._t_nonce_patcher = unittest.mock.patch("hummingbot.connector.exchange.huobi.huobi_exchange.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: HuobiExchange = HuobiExchange(

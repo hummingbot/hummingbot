@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
-OPTIONS = settings.EXCHANGES.union({"ethereum", "celo"})
+OPTIONS = settings.get_exchange_list().union({"ethereum", "celo"})
 
 
 class ConnectCommand:

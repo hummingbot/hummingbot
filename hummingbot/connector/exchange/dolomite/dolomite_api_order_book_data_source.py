@@ -101,7 +101,7 @@ class DolomiteAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
         try:
-            from hummingbot.connector.exchange.dolomite.dolomite_market import DolomiteMarket
+            from hummingbot.connector.exchange.dolomite.dolomite_utils import convert_from_exchange_trading_pair
             async with aiohttp.ClientSession() as client:
                 async with client.get("https://exchange-api.dolomite.io/v1/markets", timeout=10) as response:
                     if response.status == 200:
@@ -112,7 +112,7 @@ class DolomiteAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         trading_pair_list: List[str] = []
                         for raw_trading_pair in valid_trading_pairs:
                             converted_trading_pair: Optional[str] = \
-                                DolomiteMarket.convert_from_exchange_trading_pair(raw_trading_pair)
+                                convert_from_exchange_trading_pair(raw_trading_pair)
                             if converted_trading_pair is not None:
                                 trading_pair_list.append(converted_trading_pair)
                         return trading_pair_list

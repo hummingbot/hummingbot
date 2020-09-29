@@ -92,7 +92,7 @@ class LiquidExchangeUnitTest(unittest.TestCase):
                                         FixtureLiquid.CRYPTO_ACCOUNTS)
             cls.web_app.update_response("get", API_HOST, "/orders", FixtureLiquid.ORDERS_GET)
             cls._t_nonce_patcher = unittest.mock.patch(
-                "hummingbot.connector.exchange.liquid.liquid_market.get_tracking_nonce")
+                "hummingbot.connector.exchange.liquid.liquid_exchange.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: LiquidExchange = LiquidExchange(

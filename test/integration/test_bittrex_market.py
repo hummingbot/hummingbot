@@ -99,7 +99,7 @@ class BittrexExchangeUnitTest(unittest.TestCase):
             cls.web_app.update_response("get", API_BASE_URL, "/v3/balances", FixtureBittrex.BALANCES)
             cls.web_app.update_response("get", API_BASE_URL, "/v3/orders/open", FixtureBittrex.ORDERS_OPEN)
             cls._t_nonce_patcher = unittest.mock.patch(
-                "hummingbot.connector.exchange.bittrex.bittrex_market.get_tracking_nonce")
+                "hummingbot.connector.exchange.bittrex.bittrex_exchange.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
 
             cls._us_patcher = unittest.mock.patch(
