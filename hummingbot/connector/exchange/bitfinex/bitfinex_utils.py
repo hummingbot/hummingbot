@@ -2,7 +2,6 @@ import math
 
 from typing import Dict, List, Tuple, Optional
 from decimal import Decimal
-from hummingbot.connector.exchange.bitfinex import TRADING_PAIR_SPLITTER
 
 
 # deeply merge two dictionaries
@@ -38,21 +37,17 @@ def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
 
 
 def split_trading_pair_from_exchange(trading_pair: str) -> Tuple[str, str]:
-    try:
-        # sometimes the exchange returns trading pairs like tBTCUSD
-        isTradingPair = trading_pair[0].islower() and trading_pair[1].isupper()
+    # sometimes the exchange returns trading pairs like tBTCUSD
+    isTradingPair = trading_pair[0].islower() and trading_pair[1].isupper() and trading_pair[0] == "t"
+    pair = trading_pair[1:] if isTradingPair else trading_pair
 
-        m: Tuple[str, str] = (None, None)
-
-        if isTradingPair:
-            m = TRADING_PAIR_SPLITTER.match(trading_pair[1:])
-        else:
-            m = TRADING_PAIR_SPLITTER.match(trading_pair)
-
-        return m.group(1), m.group(2)
-    # exceptions are now logged as warnings in trading pair fetcher
-    except Exception as e:
-        raise e
+    if ":" in pair:
+        base, quote = pair.split(":")
+    elif len(pair) == 6:
+        base, quote = pair[:3], pair[3:]
+    else:
+        return None
+    return base, quote
 
 
 def valid_exchange_trading_pair(trading_pair: str) -> bool:
@@ -74,4 +69,4 @@ def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[s
 
 def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
     # exchange does not split BASEQUOTE (BTCUSDT)
-    return hb_trading_pair.replace("-", "")
+    return f't{hb_trading_pair.replace("-", "")}'
