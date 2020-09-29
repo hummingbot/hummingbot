@@ -55,8 +55,6 @@ class UserBalances:
             # Todo: Check first if _account_id is not already set, but the market objects need to expose this property.
             if isinstance(market, HuobiMarket):
                 await market._update_account_id()
-            elif isinstance(market, KucoinMarket):
-                await market._update_account_id()
             await market._update_balances()
         except Exception as e:
             return str(e)
