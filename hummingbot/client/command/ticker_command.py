@@ -1,12 +1,11 @@
+import pandas as pd
+import asyncio
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.event.events import PriceType
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
-
-import pandas as pd
-import asyncio
 
 
 class TickerCommand:
@@ -21,11 +20,11 @@ class TickerCommand:
                           exchange: str = None,
                           market: str = None):
         if len(self.markets.keys()) == 0:
-            self._notify("There is currently no active market.")
+            self._notify("\n This command can only be used while a strategy is running")
             return
         if exchange is not None:
             if exchange not in self.markets:
-                self._notify("Please select a valid exchange from the running strategy")
+                self._notify("\n Please select a valid exchange from the running strategy")
                 return
             market_connector = self.markets[exchange]
         else:
@@ -33,12 +32,12 @@ class TickerCommand:
         if market is not None:
             market = market.upper()
             if market not in market_connector.order_books:
-                self._notify("Please select a valid trading pair from the running strategy")
+                self._notify("\n Please select a valid trading pair from the running strategy")
                 return
             trading_pair, order_book = market, market_connector.order_books[market]
         else:
             trading_pair, order_book = next(iter(market_connector.order_books.items()))
-            self._notify(f"  market: {market_connector.name}\n")
+            self._notify(f"  market: {market_connector.name}")
 
         # Display market ticker x number of times based on repeat value
         for i in range(repeat):
@@ -50,5 +49,5 @@ class TickerCommand:
                 float(market_connector.get_price_by_type(trading_pair, PriceType.LastTrade))
             ]]
             ticker_df = pd.DataFrame(data=data, columns=columns).to_string(index=False)
-            self._notify(f" {ticker_df}\n")
+            self._notify(f"\n  {ticker_df}")
             await asyncio.sleep(1)
