@@ -3,7 +3,7 @@ from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 
 
-cdef class BitfinexMarket(ExchangeBase):
+cdef class BitfinexExchange(ExchangeBase):
     cdef:
         object _ev_loop
         object _poll_notifier

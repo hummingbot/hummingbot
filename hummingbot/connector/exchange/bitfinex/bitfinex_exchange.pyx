@@ -79,11 +79,11 @@ OrderRetrieved = collections.namedtuple(
 )  # 18
 
 
-cdef class BitfinexMarketTransactionTracker(TransactionTracker):
+cdef class BitfinexExchangeTransactionTracker(TransactionTracker):
     cdef:
-        BitfinexMarket _owner
+        BitfinexExchange _owner
 
-    def __init__(self, owner: BitfinexMarket):
+    def __init__(self, owner: BitfinexExchange):
         super().__init__()
         self._owner = owner
 
@@ -91,7 +91,7 @@ cdef class BitfinexMarketTransactionTracker(TransactionTracker):
         TransactionTracker.c_did_timeout_tx(self, tx_id)
         self._owner.c_did_timeout_tx(tx_id)
 
-cdef class BitfinexMarket(ExchangeBase):
+cdef class BitfinexExchange(ExchangeBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
@@ -130,7 +130,7 @@ cdef class BitfinexMarket(ExchangeBase):
         self._order_book_tracker = BitfinexOrderBookTracker(trading_pairs)
         self._user_stream_tracker = BitfinexUserStreamTracker(
             bitfinex_auth=self._bitfinex_auth, trading_pairs=trading_pairs)
-        self._tx_tracker = BitfinexMarketTransactionTracker(self)
+        self._tx_tracker = BitfinexExchangeTransactionTracker(self)
 
         self._last_timestamp = 0
         self._last_order_update_timestamp = 0

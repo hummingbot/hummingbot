@@ -12,7 +12,6 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
 
 from hummingbot.connector.exchange.binance.binance_market import BinanceMarket
-from hummingbot.connector.exchange.bitfinex.bitfinex_market import BitfinexMarket
 from hummingbot.connector.exchange.bittrex.bittrex_market import BittrexMarket
 from hummingbot.connector.exchange.kucoin.kucoin_market import KucoinMarket
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
@@ -314,13 +313,6 @@ class HummingbotApplication(*commands):
                                       kucoin_secret_key,
                                       trading_pairs=trading_pairs,
                                       trading_required=self._trading_required)
-            elif market_name == "bitfinex":
-                bitfinex_api_key = global_config_map.get("bitfinex_api_key").value
-                bitfinex_secret_key = global_config_map.get("bitfinex_secret_key").value
-                market = BitfinexMarket(bitfinex_api_key,
-                                        bitfinex_secret_key,
-                                        trading_pairs=trading_pairs,
-                                        trading_required=self._trading_required)
             elif market_name == "eterbase":
                 eterbase_api_key = global_config_map.get("eterbase_api_key").value
                 eterbase_secret_key = global_config_map.get("eterbase_secret_key").value

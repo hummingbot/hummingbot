@@ -19,7 +19,6 @@ OPTIONS = {
     "kucoin",
     "kraken",
     "ethereum",
-    "bitfinex",
     "eterbase",
     "celo",
     "crypto_com"
