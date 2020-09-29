@@ -12,6 +12,10 @@ bamboo_relay_pre_emptive_soft_cancels: false
 binance_api_key: null
 binance_api_secret: null
 
+bitstamp_client_id: null
+bitstamp_api_key: null
+bitstamp_api_secret: null
+
 bittrex_api_key: null
 bittrex_secret_key: null
 
