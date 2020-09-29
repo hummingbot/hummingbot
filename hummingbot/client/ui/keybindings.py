@@ -37,7 +37,7 @@ def load_key_bindings(hb) -> KeyBindings:
         hb.app.change_prompt(prompt=">>> ")
         hb.placeholder_mode = False
         hb.app.hide_input = False
-        
+
     @bindings.add("c-s")
     def status(event):
         hb.app.log("\n[CTRL + S] Status")
