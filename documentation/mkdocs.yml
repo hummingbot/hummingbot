@@ -123,6 +123,7 @@ nav:
         - paper_trade: operation/commands/paper-trade.md
         - export: operation/commands/export.md
         - order_book: operation/commands/order_book.md
+        - ticker: operation/commands/ticker.md
       - Keyboard Shortcuts: operation/keyboard-shortcuts.md
       - Docker Commands: operation/docker-commands.md
     - Strategies:
