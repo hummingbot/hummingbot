@@ -57,7 +57,7 @@ from hummingbot.connector.exchange.loopring.ethsnarks2.poseidon import poseidon_
 
 s_logger = None
 s_decimal_0 = Decimal(0)
-
+s_decimal_NaN = Decimal("nan")
 
 def num_d(amount):
     return abs(Decimal(amount).normalize().as_tuple().exponent)
@@ -87,7 +87,7 @@ ACCOUNT_INFO_ROUTE = "api/v2/account"
 MARKETS_INFO_ROUTE = "api/v2/exchange/markets"
 TOKENS_INFO_ROUTE = "api/v2/exchange/tokens"
 NEXT_ORDER_ID = "api/v2/orderId"
-ORDER_ROUTE = "api/v2/order"
+ORDER_ROUTE = "api/v3/order"
 ORDER_CANCEL_ROUTE = "api/v2/orders"
 MAXIMUM_FILL_COUNT = 16
 UNRECOGNIZED_ORDER_DEBOUCE = 20 #seconds
@@ -236,8 +236,8 @@ cdef class LoopringMarket(ExchangeBase):
             next_id = self._next_order_id
             if force_sync or self._next_order_id.get(token) is None:
                 try:
-                    temp = await self.api_request("GET", NEXT_ORDER_ID, params={"accountId":self._loopring_accountid, "tokenSId": token})
-                    next_id = temp["data"]
+                    response = await self.api_request("GET", NEXT_ORDER_ID, params={"accountId":self._loopring_accountid, "tokenSId": token})
+                    next_id = response["data"]
                     self._next_order_id[token] = next_id
                 except Exception as e:
                     self.logger().info(str(e))
@@ -354,7 +354,12 @@ cdef class LoopringMarket(ExchangeBase):
             # Verify the response from the exchange
             if "data" not in creation_response.keys():
                 raise Exception(creation_response['resultInfo']['message'])
-            loopring_order_hash = creation_response["data"]
+
+            status = creation_response["data"]["status"]
+            if status != 'NEW_ACTIVED':
+                raise Exception(status)
+
+            loopring_order_hash = creation_response["data"]["orderHash"]
             in_flight_order.update_exchange_order_id(loopring_order_hash)
 
             # Begin tracking order
@@ -443,13 +448,13 @@ cdef class LoopringMarket(ExchangeBase):
             }
 
             res = await self.api_request("DELETE", ORDER_CANCEL_ROUTE, params=cancellation_payload, secure=True)
-            if res['resultInfo']['code'] != 0:
+            if res['resultInfo']['code'] != 0 and res['resultInfo']['message'] != "order in status CANCELLED can't be cancelled":
                 raise Exception(f"Cancel order returned code {res['resultInfo']['code']} ({res['resultInfo']['message']})")
             return True
 
         except Exception as e:
-            self.logger().error(f"Failed to cancel order {client_order_id}")
-            self.logger().error(e)
+            self.logger().warning(f"Failed to cancel order {client_order_id}")
+            self.logger().info(e)
             return False
 
     cdef c_cancel(self, str trading_pair, str client_order_id):
@@ -481,10 +486,6 @@ cdef class LoopringMarket(ExchangeBase):
         is_maker = order_type is OrderType.LIMIT
         return estimate_fee("loopring", is_maker)
 
-    cdef object c_get_price(self, str trading_pair, bint is_buy):
-        cdef OrderBook order_book = self.c_get_order_book(trading_pair)
-        return Decimal(order_book.c_get_price(is_buy))
-
     # ==========================================================
     # Runtime
     # ----------------------------------------------------------
@@ -497,7 +498,13 @@ cdef class LoopringMarket(ExchangeBase):
         if self._trading_required:
             exchange_info = await self.api_request("GET", EXCHANGE_INFO_ROUTE)
             
-            for token in self._token_configuration.get_tokens():
+            tokens = set()
+            for pair in self._trading_pairs:
+                (base, quote) = self.split_trading_pair(pair)
+                tokens.add(self.token_configuration.get_tokenid(base))
+                tokens.add(self.token_configuration.get_tokenid(quote))
+
+            for token in tokens:
                 await self._get_next_order_id(token, force_sync = True)
 
         self._polling_update_task = safe_ensure_future(self._polling_update())
@@ -883,3 +890,29 @@ cdef class LoopringMarket(ExchangeBase):
                 raise IOError(f"Error fetching data from {full_url}. HTTP status is {response.status}.")
             data = await response.json()
             return data
+
+    def get_order_book(self, trading_pair: str) -> OrderBook:
+        return self.c_get_order_book(trading_pair)
+
+    def get_price(self, trading_pair: str, is_buy: bool) -> Decimal:
+        return self.c_get_price(trading_pair, is_buy)
+
+    def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+            price: Decimal = s_decimal_NaN, **kwargs) -> str:
+        return self.c_buy(trading_pair, amount, order_type, price, kwargs)
+
+    def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+             price: Decimal = s_decimal_NaN, **kwargs) -> str:
+        return self.c_sell(trading_pair, amount, order_type, price, kwargs)
+
+    def cancel(self, trading_pair: str, client_order_id: str):
+        return self.c_cancel(trading_pair, client_order_id)
+
+    def get_fee(self,
+                base_currency: str,
+                quote_currency: str,
+                order_type: OrderType,
+                order_side: TradeType,
+                amount: Decimal,
+                price: Decimal = s_decimal_NaN) -> TradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)

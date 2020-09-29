@@ -54,7 +54,7 @@ class LoopringMarketUnitTest(unittest.TestCase):
             conf.loopring_exchangeid,
             conf.loopring_private_key,
             conf.loopring_api_key,
-            trading_pairs=["LRC-ETH"],
+            trading_pairs=["ETH-USDT"],
         )
         print("Initializing Loopring market... ")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
@@ -110,16 +110,16 @@ class LoopringMarketUnitTest(unittest.TestCase):
     # ====================================================
 
     def test_get_fee(self):
-        limit_trade_fee: TradeFee = self.market.get_fee("LRC", "ETH", OrderType.LIMIT, TradeType.BUY, 10000, 1)
+        limit_trade_fee: TradeFee = self.market.get_fee("ETH", "USDT", OrderType.LIMIT, TradeType.SELL, 10000, 1)
         self.assertLess(limit_trade_fee.percent, 0.01)
 
     def test_get_balances(self):
         balances = self.market.get_all_balances()
-        self.assertGreaterEqual((balances["LRC"]), 0)
         self.assertGreaterEqual((balances["ETH"]), 0)
+        self.assertGreaterEqual((balances["USDT"]), 0)
 
     def test_get_available_balances(self):
-        balance = self.market.get_available_balance("LRC")
+        balance = self.market.get_available_balance("ETH")
         self.assertGreaterEqual(balance, 0)
 
     def test_limit_orders(self):
@@ -127,12 +127,13 @@ class LoopringMarketUnitTest(unittest.TestCase):
         self.assertGreaterEqual(len(orders), 0)
 
     def test_cancel_order(self):
-        trading_pair = "LRC-ETH"
-        bid_price: float = self.market.get_price(trading_pair, True)
-        amount = 100.0
+        self.assertGreater(self.market.get_balance("USDT"), 20)
+        trading_pair = "ETH-USDT"
+        bid_price: Decimal = self.market.get_price(trading_pair, True)
+        amount = 0.05
 
         # Intentionally setting price far away from best ask
-        client_order_id = self.market.sell(trading_pair, amount, OrderType.LIMIT, float(bid_price) * 1.5)
+        client_order_id = self.market.buy(trading_pair, amount, OrderType.LIMIT, bid_price * Decimal("0.5"))
         self.run_parallel(asyncio.sleep(1.0))
         self.market.cancel(trading_pair, client_order_id)
         [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
@@ -143,30 +144,22 @@ class LoopringMarketUnitTest(unittest.TestCase):
         self.assertEqual(client_order_id, order_cancelled_event.order_id)
 
     def test_place_limit_buy_and_sell(self):
-        self.assertGreater(self.market.get_balance("ETH"), 0.02)
+        self.assertGreater(self.market.get_balance("USDT"), 20)
 
-        # Try to buy 140 LRC from the exchange, and watch for creation event.
-        trading_pair = "LRC-ETH"
-        bid_price: float = self.market.get_price(trading_pair, True)
-        amount: float = 140.0
-        buy_order_id: str = self.market.buy(trading_pair, amount, OrderType.LIMIT, float(bid_price) * 0.5)
+        # Try to buy 0.05 ETH from the exchange, and watch for creation event.
+        trading_pair = "ETH-USDT"
+        ask_price: Decimal = self.market.get_price(trading_pair, False)
+        amount: Decimal = Decimal("0.05")
+        buy_order_id: str = self.market.buy(trading_pair, amount, OrderType.LIMIT, ask_price * Decimal("1.5"))
         [buy_order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         self.assertEqual(buy_order_id, buy_order_created_event.order_id)
-        self.market.cancel(trading_pair, buy_order_id)
-        [_] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
-        # Try to sell 140 LRC to the exchange, and watch for creation event.
-        ask_price: float = self.market.get_price(trading_pair, False)
-        sell_order_id: str = self.market.sell(trading_pair, amount, OrderType.LIMIT, float(ask_price) * 1.5)
+        # Try to sell 0.05 ETH to the exchange, and watch for creation event.
+        bid_price: Decimal = self.market.get_price(trading_pair, True)
+        sell_order_id: str = self.market.sell(trading_pair, amount, OrderType.LIMIT, bid_price * Decimal("0.5"))
         [sell_order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         self.assertEqual(sell_order_id, sell_order_created_event.order_id)
-        self.market.cancel(trading_pair, sell_order_id)
-        [_] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
-    @unittest.skipUnless(
-        any("test_place_market_buy_and_sell" in arg for arg in sys.argv),
-        "test_place_market_buy_and_sell test requires manual action.",
-    )
     def test_place_market_buy_and_sell(self):
         # Market orders not supported on Loopring
         pass
