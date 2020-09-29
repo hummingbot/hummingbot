@@ -160,7 +160,7 @@ class BalanceCommand:
             self.notify_balance_limit_set()
             return
 
-        self._notify(f"Balance Limits per exchange...")
+        self._notify("Balance Limits per exchange...")
 
         for exchange, asset_limit_config in exchange_limit_conf.items():
             if asset_limit_config is None:
