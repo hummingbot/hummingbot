@@ -35,6 +35,9 @@ When placing orders, if the size of the order determined by the order price and 
 
 Only a sell order will be created but no buy order.
 
+For more information, refer to [Minimum Order Size](/advanced/min-order)
+
+You can find more information about this for each [Connector](https://docs.hummingbot.io/connectors/) under Miscellaneous section.
 
 ## Basic and Advanced Configuration
 
