@@ -231,7 +231,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
 
     def test_both_sides_profitable(self):
         # Todo: This test failed due to update to HummingSim
-        return
+        # return
         self.clock.backtest_til(self.start_timestamp + 5)
         self.assertEqual(1, len(self.strategy.active_bids))
         self.assertEqual(1, len(self.strategy.active_asks))
