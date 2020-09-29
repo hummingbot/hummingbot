@@ -25,7 +25,7 @@ class TickerCommand:
             return
         if exchange is not None:
             if exchange not in self.markets:
-                self._notify("Invalid exchange")
+                self._notify("Please select a valid exchange from the running strategy")
                 return
             market_connector = self.markets[exchange]
         else:
@@ -33,13 +33,14 @@ class TickerCommand:
         if market is not None:
             market = market.upper()
             if market not in market_connector.order_books:
-                self._notify("Invalid market")
+                self._notify("Please select a valid trading pair from the running strategy")
                 return
             trading_pair, order_book = market, market_connector.order_books[market]
         else:
             trading_pair, order_book = next(iter(market_connector.order_books.items()))
             self._notify(f"  market: {market_connector.name}\n")
 
+        # Display market ticker x number of times based on repeat value
         for i in range(repeat):
             columns = ["Best Bid", "Best Ask", "Mid Price", "Last Trade"]
             data = [[
@@ -48,6 +49,6 @@ class TickerCommand:
                 float(market_connector.get_price_by_type(trading_pair, PriceType.MidPrice)),
                 float(market_connector.get_price_by_type(trading_pair, PriceType.LastTrade))
             ]]
-            df = pd.DataFrame(data=data, columns=columns).to_string(index=False)
-            self._notify(f" {df}\n")
+            ticker_df = pd.DataFrame(data=data, columns=columns).to_string(index=False)
+            self._notify(f" {ticker_df}\n")
             await asyncio.sleep(1)
