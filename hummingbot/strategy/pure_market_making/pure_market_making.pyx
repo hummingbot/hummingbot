@@ -1,6 +1,7 @@
 from decimal import Decimal
 import logging
 import pandas as pd
+import numpy as np
 from typing import (
     List,
     Dict,
@@ -528,7 +529,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         if self._price_type is PriceType.LastOwnTrade and self._last_own_trade_price.is_nan():
             markets_columns[-1] = "Ref Price (MidPrice)"
         market_books = [(self._market_info.market, self._market_info.trading_pair)]
-        if self._asset_price_delegate is OrderBookAssetPriceDelegate:
+        if type(self._asset_price_delegate) is OrderBookAssetPriceDelegate:
             market_books.append((self._asset_price_delegate.market, self._asset_price_delegate.trading_pair))
         for market, trading_pair in market_books:
             bid_price = market.get_price(trading_pair, False)
@@ -536,7 +537,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             ref_price = float("nan")
             if market == self._market_info.market and self._asset_price_delegate is None:
                 ref_price = self.get_price()
-            elif market == self._asset_price_delegate.market:
+            elif market == self._asset_price_delegate.market and self._price_type is not PriceType.LastOwnTrade:
                 ref_price = self._asset_price_delegate.get_price_by_type(self._price_type)
             markets_data.append([
                 market.display_name,
@@ -545,7 +546,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 float(ask_price),
                 float(ref_price)
             ])
-        return pd.DataFrame(data=markets_data, columns=markets_columns)
+        return pd.DataFrame(data=markets_data, columns=markets_columns).replace(np.nan, '', regex=True)
 
     def format_status(self) -> str:
         if not self._all_markets_ready:
