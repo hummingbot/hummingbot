@@ -127,7 +127,7 @@ class BinanceExchangeUnitTest(unittest.TestCase):
             cls._ws_mock.side_effect = HummingWsServerFactory.reroute_ws_connect
 
             cls._t_nonce_patcher = unittest.mock.patch(
-                "hummingbot.connector.exchange.binance.binance_market.get_tracking_nonce")
+                "hummingbot.connector.exchange.binance.binance_exchange.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: BinanceExchange = BinanceExchange(API_KEY, API_SECRET, ["LINK-ETH", "ZRX-ETH"], True)
