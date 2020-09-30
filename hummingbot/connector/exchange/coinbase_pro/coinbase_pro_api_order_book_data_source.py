@@ -11,10 +11,14 @@ from typing import (
     List,
     Optional,
 )
+from decimal import Decimal
 import time
 import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
+
+import requests
+import cachetools.func
 
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book import CoinbaseProOrderBook
@@ -61,6 +65,35 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
             resp = await client.get(ticker_url)
             resp_json = await resp.json()
             return float(resp_json["price"])
+
+    @staticmethod
+    @cachetools.func.ttl_cache(ttl=10)
+    def get_mid_price(trading_pair: str) -> Optional[Decimal]:
+        COINBASE_PRO_PRICE_URL = "https://api.pro.coinbase.com/products/TO_BE_REPLACED/ticker"
+        resp = requests.get(url=COINBASE_PRO_PRICE_URL.replace("TO_BE_REPLACED", trading_pair))
+        record = resp.json()
+        if "bid" in record and "ask" in record:
+            result = (Decimal(record["bid"]) + Decimal(record["ask"])) / Decimal("2")
+            return result
+
+    @staticmethod
+    async def fetch_trading_pairs() -> List[str]:
+        try:
+            async with aiohttp.ClientSession() as client:
+                async with client.get(f"{COINBASE_REST_URL}/products/", timeout=5) as response:
+                    if response.status == 200:
+                        markets = await response.json()
+                        raw_trading_pairs: List[str] = list(map(lambda details: details.get('id'), markets))
+                        trading_pair_list: List[str] = []
+                        for raw_trading_pair in raw_trading_pairs:
+                            trading_pair_list.append(raw_trading_pair)
+                        return trading_pair_list
+
+        except Exception:
+            # Do nothing if the request fails -- there will be no autocomplete for coinbase trading pairs
+            pass
+
+        return []
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, any]:
