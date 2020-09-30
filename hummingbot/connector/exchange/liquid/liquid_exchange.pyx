@@ -58,11 +58,11 @@ s_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_nan = Decimal("nan")
 
-cdef class LiquidMarketTransactionTracker(TransactionTracker):
+cdef class LiquidExchangeTransactionTracker(TransactionTracker):
     cdef:
-        LiquidMarket _owner
+        LiquidExchange _owner
 
-    def __init__(self, owner: LiquidMarket):
+    def __init__(self, owner: LiquidExchange):
         super().__init__()
         self._owner = owner
 
@@ -74,7 +74,7 @@ cdef class LiquidMarketTransactionTracker(TransactionTracker):
         return f"tx_hash='{self.tx_hash}', has_tx_receipt={self.has_tx_receipt})"
 
 
-cdef class LiquidMarket(ExchangeBase):
+cdef class LiquidExchange(ExchangeBase):
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
     MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
@@ -109,7 +109,7 @@ cdef class LiquidMarket(ExchangeBase):
         self._last_order_update_timestamp = 0
         self._poll_interval = poll_interval
         self._in_flight_orders = {}
-        self._tx_tracker = LiquidMarketTransactionTracker(self)
+        self._tx_tracker = LiquidExchangeTransactionTracker(self)
         self._trading_rules = {}
         self._status_polling_task = None
         self._user_stream_tracker_task = None

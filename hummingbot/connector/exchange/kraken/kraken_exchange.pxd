@@ -3,7 +3,7 @@ from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 from libc.stdint cimport int32_t
 
 
-cdef class KrakenMarket(ExchangeBase):
+cdef class KrakenExchange(ExchangeBase):
     cdef:
         object _user_stream_tracker
         object _ev_loop

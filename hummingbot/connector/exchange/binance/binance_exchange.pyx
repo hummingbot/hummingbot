@@ -80,11 +80,11 @@ cdef str get_client_order_id(str order_side, object trading_pair):
     return f"{BROKER_ID}-{order_side.upper()[0]}{base[0]}{base[-1]}{quote[0]}{quote[-1]}{nonce}"
 
 
-cdef class BinanceMarketTransactionTracker(TransactionTracker):
+cdef class BinanceExchangeTransactionTracker(TransactionTracker):
     cdef:
-        BinanceMarket _owner
+        BinanceExchange _owner
 
-    def __init__(self, owner: BinanceMarket):
+    def __init__(self, owner: BinanceExchange):
         super().__init__()
         self._owner = owner
 
@@ -93,7 +93,7 @@ cdef class BinanceMarketTransactionTracker(TransactionTracker):
         self._owner.c_did_timeout_tx(tx_id)
 
 
-cdef class BinanceMarket(ExchangeBase):
+cdef class BinanceExchange(ExchangeBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
@@ -124,7 +124,8 @@ cdef class BinanceMarket(ExchangeBase):
                  binance_api_key: str,
                  binance_api_secret: str,
                  trading_pairs: Optional[List[str]] = None,
-                 trading_required: bool = True
+                 trading_required: bool = True,
+                 **dummy
                  ):
 
         self.monkey_patch_binance_time()
@@ -138,7 +139,7 @@ cdef class BinanceMarket(ExchangeBase):
         self._last_timestamp = 0
         self._in_flight_orders = {}  # Dict[client_order_id:str, BinanceInFlightOrder]
         self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
-        self._tx_tracker = BinanceMarketTransactionTracker(self)
+        self._tx_tracker = BinanceExchangeTransactionTracker(self)
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
         self._trade_fees = {}  # Dict[trading_pair:str, (maker_fee_percent:Decimal, taken_fee_percent:Decimal)]
         self._last_update_trade_fees_timestamp = 0
@@ -474,7 +475,7 @@ cdef class BinanceMarket(ExchangeBase):
 
                 # Update order execution status
                 tracked_order.last_state = order_update["status"]
-                order_type = BinanceMarket.to_hb_order_type(order_update["type"])
+                order_type = BinanceExchange.to_hb_order_type(order_update["type"])
                 executed_amount_base = Decimal(order_update["executedQty"])
                 executed_amount_quote = Decimal(order_update["cummulativeQuoteQty"])
 
@@ -594,7 +595,7 @@ cdef class BinanceMarket(ExchangeBase):
                         order_filled_event = order_filled_event._replace(trade_fee=self.c_get_fee(
                             tracked_order.base_asset,
                             tracked_order.quote_asset,
-                            BinanceMarket.to_hb_order_type(event_message["o"]),
+                            BinanceExchange.to_hb_order_type(event_message["o"]),
                             TradeType.BUY if event_message["S"] == "BUY" else TradeType.SELL,
                             Decimal(event_message["l"]),
                             Decimal(event_message["L"])
@@ -822,7 +823,7 @@ cdef class BinanceMarket(ExchangeBase):
         order_result = None
         amount_str = f"{amount:f}"
         price_str = f"{price:f}"
-        type_str = BinanceMarket.binance_order_type(order_type)
+        type_str = BinanceExchange.binance_order_type(order_type)
         side_str = BinanceClient.SIDE_BUY if trade_type is TradeType.BUY else BinanceClient.SIDE_SELL
         api_params = {"symbol": convert_to_exchange_trading_pair(trading_pair),
                       "side": side_str,
