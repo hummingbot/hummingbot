@@ -39,11 +39,11 @@ s_decimal_0 = Decimal(0)
 s_decimal_NaN = Decimal("NaN")
 
 
-cdef class BittrexMarketTransactionTracker(TransactionTracker):
+cdef class BittrexExchangeTransactionTracker(TransactionTracker):
     cdef:
-        BittrexMarket _owner
+        BittrexExchange _owner
 
-    def __init__(self, owner: BittrexMarket):
+    def __init__(self, owner: BittrexExchange):
         super().__init__()
         self._owner = owner
 
@@ -51,7 +51,7 @@ cdef class BittrexMarketTransactionTracker(TransactionTracker):
         TransactionTracker.c_did_timeout_tx(self, tx_id)
         self._owner.c_did_timeout_tx(tx_id)
 
-cdef class BittrexMarket(ExchangeBase):
+cdef class BittrexExchange(ExchangeBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
@@ -99,7 +99,7 @@ cdef class BittrexMarket(ExchangeBase):
         self._trading_required = trading_required
         self._trading_rules = {}
         self._trading_rules_polling_task = None
-        self._tx_tracker = BittrexMarketTransactionTracker(self)
+        self._tx_tracker = BittrexExchangeTransactionTracker(self)
         self._user_stream_event_listener_task = None
         self._user_stream_tracker = BittrexUserStreamTracker(bittrex_auth=self._bittrex_auth,
                                                              trading_pairs=trading_pairs)

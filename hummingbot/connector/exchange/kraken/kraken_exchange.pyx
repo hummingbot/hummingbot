@@ -70,11 +70,11 @@ ASSET_PAIRS_URI = "https://api.kraken.com/0/public/AssetPairs"
 TIME_URL = "https://api.kraken.com/0/public/Time"
 
 
-cdef class KrakenMarketTransactionTracker(TransactionTracker):
+cdef class KrakenExchangeTransactionTracker(TransactionTracker):
     cdef:
-        KrakenMarket _owner
+        KrakenExchange _owner
 
-    def __init__(self, owner: KrakenMarket):
+    def __init__(self, owner: KrakenExchange):
         super().__init__()
         self._owner = owner
 
@@ -83,7 +83,7 @@ cdef class KrakenMarketTransactionTracker(TransactionTracker):
         self._owner.c_did_timeout_tx(tx_id)
 
 
-cdef class KrakenMarket(ExchangeBase):
+cdef class KrakenExchange(ExchangeBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
@@ -109,7 +109,7 @@ cdef class KrakenMarket(ExchangeBase):
 
     def __init__(self,
                  kraken_api_key: str,
-                 kraken_api_secret: str,
+                 kraken_secret_key: str,
                  poll_interval: float = 10.0,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
@@ -117,7 +117,7 @@ cdef class KrakenMarket(ExchangeBase):
         super().__init__()
         self._trading_required = trading_required
         self._order_book_tracker = KrakenOrderBookTracker(trading_pairs=trading_pairs)
-        self._kraken_auth = KrakenAuth(kraken_api_key, kraken_api_secret)
+        self._kraken_auth = KrakenAuth(kraken_api_key, kraken_secret_key)
         self._user_stream_tracker = KrakenUserStreamTracker(kraken_auth=self._kraken_auth)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
@@ -125,7 +125,7 @@ cdef class KrakenMarket(ExchangeBase):
         self._poll_interval = poll_interval
         self._in_flight_orders = {}  # Dict[client_order_id:str, KrakenInFlightOrder]
         self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
-        self._tx_tracker = KrakenMarketTransactionTracker(self)
+        self._tx_tracker = KrakenExchangeTransactionTracker(self)
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
         self._trade_fees = {}  # Dict[trading_pair:str, (maker_fee_percent:Decimal, taken_fee_percent:Decimal)]
         self._last_update_trade_fees_timestamp = 0

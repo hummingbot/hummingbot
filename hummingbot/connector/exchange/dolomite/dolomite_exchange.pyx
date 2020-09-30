@@ -108,11 +108,11 @@ GET_ORDER_ROUTE = "/v1/orders/:order_id"
 GET_ORDER_FILLS_ROUTE = "/v1/orders/:order_id/fills"
 MAXIMUM_FILL_COUNT = 16
 
-cdef class DolomiteMarketTransactionTracker(TransactionTracker):
+cdef class DolomiteExchangeTransactionTracker(TransactionTracker):
     cdef:
-        DolomiteMarket _owner
+        DolomiteExchange _owner
 
-    def __init__(self, owner: DolomiteMarket):
+    def __init__(self, owner: DolomiteExchange):
         super().__init__()
         self._owner = owner
 
@@ -120,7 +120,7 @@ cdef class DolomiteMarketTransactionTracker(TransactionTracker):
         TransactionTracker.c_did_timeout_tx(self, tx_id)
         self._owner.c_did_timeout_tx(tx_id)
 
-cdef class DolomiteMarket(ExchangeBase):
+cdef class DolomiteExchange(ExchangeBase):
     # This causes it to hang when starting network
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -147,7 +147,7 @@ cdef class DolomiteMarket(ExchangeBase):
             rest_api_url=self.API_REST_ENDPOINT,
             websocket_url=self.WS_ENDPOINT
         )
-        self._tx_tracker = DolomiteMarketTransactionTracker(self)
+        self._tx_tracker = DolomiteExchangeTransactionTracker(self)
         self._trading_required = trading_required
         self._wallet = wallet
         self._web3 = Web3(Web3.HTTPProvider(ethereum_rpc_url))

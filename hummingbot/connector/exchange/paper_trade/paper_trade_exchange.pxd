@@ -24,7 +24,7 @@ ctypedef cpp_set[CPPOrderExpirationEntry] LimitOrderExpirationSet
 ctypedef cpp_set[CPPOrderExpirationEntry].iterator LimitOrderExpirationSetIterator
 
 
-cdef class PaperTradeMarket(ExchangeBase):
+cdef class PaperTradeExchange(ExchangeBase):
     cdef:
         LimitOrders _bid_limit_orders
         LimitOrders _ask_limit_orders
