@@ -45,7 +45,7 @@ def connector_keys():
     connector_types = ["exchange", "derivative"]
     for connector_type in connector_types:
         try:
-            connectors = [f.name for f in scandir(f'./hummingbot/connector/{connector_type}') if f.is_dir() and f.name not in invalid_names]
+            connectors = [f.name for f in scandir(f'hummingbot/connector/{connector_type}') if f.is_dir() and f.name not in invalid_names]
         except Exception:
             continue
         for connector in connectors:

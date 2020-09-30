@@ -32,7 +32,7 @@ SCRIPTS_PATH = "scripts/"
 def get_exchange_list(cex=True):
     invalid_names = ["__pycache__", "paper_trade"]
     exchanges = set()
-    connectors = [f.name for f in scandir('./hummingbot/connector/exchange') if f.is_dir() and f.name not in invalid_names]
+    connectors = [f.name for f in scandir('hummingbot/connector/exchange') if f.is_dir() and f.name not in invalid_names]
     for connector in connectors:
         try:
             path = f"hummingbot.connector.exchange.{connector}.{connector}_utils"
@@ -50,7 +50,7 @@ def get_derivatives():
     invalid_names = ["__pycache__"]
     derivatives = set()
     try:
-        connectors = [f.name for f in scandir('./hummingbot/connector/derivative') if f.is_dir() and f.name not in invalid_names]
+        connectors = [f.name for f in scandir('hummingbot/connector/derivative') if f.is_dir() and f.name not in invalid_names]
         derivatives.update(connectors)
     except Exception:
         pass
@@ -63,7 +63,7 @@ def get_exchanges_and_derivatives():
     connector_types = ["exchange", "derivative"]
     for connector_type in connector_types:
         try:
-            all_connectors[connector_type] = [f.name for f in scandir(f'./hummingbot/connector/{connector_type}') if f.is_dir() and f.name not in invalid_names]
+            all_connectors[connector_type] = [f.name for f in scandir(f'hummingbot/connector/{connector_type}') if f.is_dir() and f.name not in invalid_names]
         except Exception:
             continue
     return all_connectors
