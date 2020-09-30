@@ -12,7 +12,7 @@ from hummingbot.core.data_type.order_book_message import (
 )
 from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.bitfinex.bitfinex_order_book_message import \
+from hummingbot.connector.exchange.bitfinex.bitfinex_order_book_message import \
     BitfinexOrderBookMessage
 
 _logger = None
@@ -87,7 +87,7 @@ cdef class BitfinexOrderBook(OrderBook):
 
         timestamp = msg["mts"]
         trade_type = TradeType.SELL if int(msg["amount"]) < 0 else TradeType.BUY
-        return OrderBookMessage(
+        return BitfinexOrderBookMessage(
             OrderBookMessageType.TRADE,
             {
                 "trading_pair": msg["symbol"],

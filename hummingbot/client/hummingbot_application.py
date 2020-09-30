@@ -10,7 +10,6 @@ from hummingbot.client.command import __all__ as commands
 from hummingbot.core.clock import Clock
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
-
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
 from hummingbot.connector.exchange.paper_trade import create_paper_trade_market

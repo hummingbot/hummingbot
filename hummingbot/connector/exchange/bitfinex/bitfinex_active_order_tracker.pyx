@@ -128,10 +128,9 @@ cdef class BitfinexActiveOrderTracker:
         # Refresh all order tracking.
         self._active_bids.clear()
         self._active_asks.clear()
-        for snapshot_orders, active_orders in [(message.content["bids"], self._active_bids),
-                                               (message.content["asks"], self._active_asks)]:
+        for snapshot_orders, active_orders in [(message.content.get("bids", 0), self._active_bids),
+                                               (message.content.get("asks", 0), self._active_asks)]:
             for order in snapshot_orders:
-                print("order from snapshot->", order)
                 price = Decimal(order[0])
                 order_id = order[2]
                 amount = order[1]
@@ -219,6 +218,16 @@ cdef class BitfinexActiveOrderTracker:
         :returns: Tuple(List[bids_row], List[asks_row])
         """
         np_bids, np_asks = self.c_convert_snapshot_message_to_np_arrays(message)
+        bids_row = [OrderBookRow(price, qty, update_id) for ts, price, qty, update_id in np_bids]
+        asks_row = [OrderBookRow(price, qty, update_id) for ts, price, qty, update_id in np_asks]
+        return bids_row, asks_row
+
+    def convert_diff_message_to_order_book_row(self, message):
+        """
+        Convert an incoming diff message to Tuple of np.arrays, and then convert to OrderBookRow
+        :returns: Tuple(List[bids_row], List[asks_row])
+        """
+        np_bids, np_asks = self.c_convert_diff_message_to_np_arrays(message)
         bids_row = [OrderBookRow(price, qty, update_id) for ts, price, qty, update_id in np_bids]
         asks_row = [OrderBookRow(price, qty, update_id) for ts, price, qty, update_id in np_asks]
         return bids_row, asks_row
