@@ -1,5 +1,5 @@
 from hummingbot.core.utils.market_mid_price import get_mid_price
-from hummingbot.client.settings import EXCHANGES, DEXES, DERIVATIVES
+from hummingbot.client.settings import CEXES, DEXES, DERIVATIVES, EXCHANGES
 from hummingbot.client.config.security import Security
 from hummingbot.client.config.config_helpers import get_connector_class
 from hummingbot.core.utils.async_utils import safe_gather
@@ -16,7 +16,7 @@ class UserBalances:
     @staticmethod
     def connect_market(exchange, **api_details):
         connector = None
-        if exchange in EXCHANGES or exchange in DERIVATIVES:
+        if exchange in CEXES or exchange in DERIVATIVES:
             connector_class = get_connector_class(exchange)
             connector = connector_class(**api_details)
 

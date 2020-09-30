@@ -6,6 +6,7 @@ from typing import (
 )
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
+from hummingbot.client.settings import ALL_CONNECTORS
 import logging
 
 from .async_utils import safe_ensure_future
@@ -33,11 +34,9 @@ class TradingPairFetcher:
         safe_ensure_future(self.fetch_all())
 
     async def fetch_all(self):
-        from hummingbot.client.config.config_helpers import get_all_connectors
         tasks = []
         fetched_connectors = []
-        all_connectors = get_all_connectors()
-        for connector_type, connectors in all_connectors.items():
+        for connector_type, connectors in ALL_CONNECTORS.items():
             if connector_type != "connector":
                 for connector in connectors:
                     module_name = f"{connector}_api_order_book_data_source"

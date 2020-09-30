@@ -1,7 +1,7 @@
 from decimal import Decimal
 from hummingbot.core.event.events import TradeFee
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
-from hummingbot.client.config.config_helpers import get_all_connectors
+from hummingbot.client.settings import ALL_CONNECTORS
 
 
 def estimate_fee(exchange: str, is_maker: bool) -> Decimal:
@@ -10,7 +10,7 @@ def estimate_fee(exchange: str, is_maker: bool) -> Decimal:
     s_decimal_0 = Decimal("0")
     s_decimal_100 = Decimal("100")
 
-    for connector_type, connectors in get_all_connectors().items():
+    for connector_type, connectors in ALL_CONNECTORS.items():
         if exchange in connectors:
             try:
                 path = f"hummingbot.connector.{connector_type}.{exchange}.{exchange}_utils"
