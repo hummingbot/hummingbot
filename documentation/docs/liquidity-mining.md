@@ -35,7 +35,7 @@ Qualified participants will be eligible to receive compensation in accordance wi
 ==Participants must enter a valid wallet address applicable for the campaign that they are participating in.== CoinAlpha does not take any responsibility and will not reimburse for any loss of funds due to a participant submitting an incorrect or invalid wallet address.
 
 
-**Orders outstanding for more than 30 minutes not counted for rewards.**
+**Orders outstanding for more than 30 minutes not counted for rewards**
 
 Work on removing this limit is in progress, you can read more about it in our [Reddit post](https://www.reddit.com/r/Hummingbot/comments/hz5xv3/tracking_rewards_for_orders_longer_than_30m/).
 
@@ -174,7 +174,7 @@ Miners can also choose to continuing receiving rewards to their Ethereum wallet,
 
 https://hummingbot.io/blog/2020-09-migrating-to-trc20-usdt-payment/
 
-Timetable
+Timetable:
 
 - Shortly/next few days: Tron wallet enabled on Hummingbot Miner
 
