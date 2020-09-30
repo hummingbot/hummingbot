@@ -168,21 +168,21 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td><b>USDT-TRON 250</b></td>
+      <td><b>USDT 250</b></td>
     </tr>
     <tr>
       <td>COTI/USDT</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td><b>USDT-TRON 250</b></td>
+      <td><b>USDT 250</b></td>
     </tr>
     <tr>
       <td>COTI/BNB</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td><b>USDT-TRON 250</b></td>
+      <td><b>USDT 250</b></td>
     </tr>        
     <tr>
       <td rowspan="3"><a href="#mainframe">Mainframe</a><br></td>
@@ -190,21 +190,21 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td><b>USDT-TRON 200</b></td>
+      <td><b>USDT 200</b></td>
     </tr>
     <tr>
       <td>MFT/ETH</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td><b>USDT-TRON 275</b></td>
+      <td><b>USDT 275</b></td>
     </tr>
     <tr>
       <td>MFT/BNB</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td><b>USDT-TRON 275</b></td>
+      <td><b>USDT 275</b></td>
     </tr>
     <tr>
       <td rowspan="3"><a href="#iexec">iExec</a><br></td>
