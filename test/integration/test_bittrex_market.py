@@ -34,7 +34,7 @@ from hummingbot.core.event.events import (
     TradeFee,
     TradeType,
 )
-from hummingbot.connector.exchange.bittrex.bittrex_market import BittrexMarket
+from hummingbot.connector.exchange.bittrex.bittrex_exchange import BittrexExchange
 from hummingbot.core.event.events import OrderType
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
@@ -64,7 +64,7 @@ def _transform_raw_message_patch(self, msg):
     return json.loads(msg)
 
 
-class BittrexMarketUnitTest(unittest.TestCase):
+class BittrexExchangeUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
         MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
@@ -78,7 +78,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
         MarketEvent.OrderFailure
     ]
 
-    market: BittrexMarket
+    market: BittrexExchange
     market_logger: EventLogger
     stack: contextlib.ExitStack
 
@@ -99,7 +99,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
             cls.web_app.update_response("get", API_BASE_URL, "/v3/balances", FixtureBittrex.BALANCES)
             cls.web_app.update_response("get", API_BASE_URL, "/v3/orders/open", FixtureBittrex.ORDERS_OPEN)
             cls._t_nonce_patcher = unittest.mock.patch(
-                "hummingbot.connector.exchange.bittrex.bittrex_market.get_tracking_nonce")
+                "hummingbot.connector.exchange.bittrex.bittrex_exchange.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
 
             cls._us_patcher = unittest.mock.patch(
@@ -124,7 +124,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
             ws_server.add_stock_response("queryExchangeState", FixtureBittrex.WS_ORDER_BOOK_SNAPSHOT.copy())
 
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.market: BittrexMarket = BittrexMarket(
+        cls.market: BittrexExchange = BittrexExchange(
             bittrex_api_key=API_KEY,
             bittrex_secret_key=API_SECRET,
             trading_pairs=["ETH-USDT"]
@@ -458,7 +458,7 @@ class BittrexMarketUnitTest(unittest.TestCase):
             self.clock.remove_iterator(self.market)
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
-            self.market: BittrexMarket = BittrexMarket(
+            self.market: BittrexExchange = BittrexExchange(
                 bittrex_api_key=API_KEY,
                 bittrex_secret_key=API_SECRET,
                 trading_pairs=["XRP-BTC"]
