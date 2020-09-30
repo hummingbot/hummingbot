@@ -8,6 +8,9 @@ import logging
 import pandas as pd
 import math
 
+import requests
+import cachetools.func
+
 from typing import AsyncIterable, Dict, List, Optional, Any
 
 import time
@@ -21,6 +24,7 @@ from hummingbot.connector.exchange.loopring.loopring_active_order_tracker import
 from hummingbot.connector.exchange.loopring.loopring_order_book import LoopringOrderBook
 from hummingbot.connector.exchange.loopring.loopring_order_book_tracker_entry import LoopringOrderBookTrackerEntry
 from hummingbot.connector.exchange.loopring.loopring_api_token_configuration_data_source import LoopringAPITokenConfigurationDataSource
+from hummingbot.connector.exchange.loopring.loopring_utils import convert_from_exchange_trading_pair
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
@@ -33,9 +37,7 @@ TICKER_URL = "/api/v2/ticker?market=:markets"
 SNAPSHOT_URL = "/api/v2/depth?market=:trading_pair"
 TOKEN_INFO_URL = "/api/v2/exchange/tokens"
 WS_URL = "wss://ws.loopring.io/v2/ws"
-#SNAPSHOT_WS_ROUTE = "/v1/orders/markets/-market-/depth/unmerged"
-#SNAPSHOT_WS_SUBSCRIBE_ACTION = "subscribe"
-#SNAPSHOT_WS_UPDATE_ACTION = "update"
+LOOPRING_PRICE_URL = "https://api.loopring.io/api/v2/ticker"
 
 class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
@@ -117,6 +119,39 @@ class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return
         finally:
             await ws.close()
+
+    @staticmethod
+    @cachetools.func.ttl_cache(ttl=10)
+    def get_mid_price(trading_pair: str) -> Optional[Decimal]:
+        resp = requests.get(url=LOOPRING_PRICE_URL, params={"market": trading_pair})
+        record = resp.json()
+        if record["resultInfo"]["code"] == 0:
+            data = record["data"]
+            mid_price = (Decimal(data[9]) + Decimal(data[10])) / 2
+    
+            return mid_price
+
+    @staticmethod
+    async def fetch_trading_pairs() -> List[str]:
+        try:
+            async with aiohttp.ClientSession() as client:
+                async with client.get(f"https://api.loopring.io{MARKETS_URL}", timeout=5) as response:
+                    if response.status == 200:
+                        all_trading_pairs: Dict[str, Any] = await response.json()
+                        valid_trading_pairs: list = []
+                        for item in all_trading_pairs["data"]:
+                            valid_trading_pairs.append(item["market"])
+                        trading_pair_list: List[str] = []
+                        for raw_trading_pair in valid_trading_pairs:
+                            converted_trading_pair: Optional[str] = convert_from_exchange_trading_pair(raw_trading_pair)
+                            if converted_trading_pair is not None:
+                                trading_pair_list.append(converted_trading_pair)
+                        return trading_pair_list
+        except Exception:
+            # Do nothing if the request fails -- there will be no autocomplete for loopring trading pairs
+            pass
+
+        return []
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
