@@ -4,9 +4,9 @@ from os.path import (
     realpath,
     join,
 )
-from typing import List
-
+from typing import List, Set
 from hummingbot import get_strategy_list
+from pathlib import Path
 
 # Global variables
 required_exchanges: List[str] = []
@@ -29,10 +29,12 @@ CONF_POSTFIX = "_strategy"
 SCRIPTS_PATH = "scripts/"
 
 
-def get_exchange_list(cex=True):
+def _get_exchanges(cex: bool = True) -> Set[str]:
     invalid_names = ["__pycache__", "paper_trade"]
     exchanges = set()
-    connectors = [f.name for f in scandir('hummingbot/connector/exchange') if f.is_dir() and f.name not in invalid_names]
+    package_dir = Path(__file__).resolve().parent.parent.parent
+    connectors = [f.name for f in scandir(f'{str(package_dir)}/hummingbot/connector/exchange') if
+                  f.is_dir() and f.name not in invalid_names]
     for connector in connectors:
         try:
             path = f"hummingbot.connector.exchange.{connector}.{connector}_utils"
@@ -46,34 +48,36 @@ def get_exchange_list(cex=True):
     return exchanges
 
 
-def get_derivatives():
+def _get_derivatives() -> Set[str]:
     invalid_names = ["__pycache__"]
     derivatives = set()
     try:
-        connectors = [f.name for f in scandir('hummingbot/connector/derivative') if f.is_dir() and f.name not in invalid_names]
+        package_dir = Path(__file__).resolve().parent.parent.parent
+        connectors = [f.name for f in scandir(f'{str(package_dir)}/hummingbot/connector/derivative')
+                      if f.is_dir() and f.name not in invalid_names]
         derivatives.update(connectors)
     except Exception:
         pass
     return derivatives
 
 
-def get_exchanges_and_derivatives():
-    invalid_names = ["__pycache__", "paper_trade"]
-    all_connectors = {}
-    connector_types = ["exchange", "derivative"]
-    for connector_type in connector_types:
-        try:
-            all_connectors[connector_type] = [f.name for f in scandir(f'hummingbot/connector/{connector_type}') if f.is_dir() and f.name not in invalid_names]
-        except Exception:
-            continue
-    return all_connectors
+def _get_other_connectors() -> Set[str]:
+    invalid_names = ["__pycache__"]
+    others = set()
+    try:
+        package_dir = Path(__file__).resolve().parent.parent.parent
+        connectors = [f.name for f in scandir(f'{str(package_dir)}/hummingbot/connector/connector')
+                      if f.is_dir() and f.name not in invalid_names]
+        others.update(connectors)
+    except Exception:
+        pass
+    return others
 
 
-def get_example_asset(pair=True):
+def _get_example_asset(pair=True):
     pairs = []
     fetched_connectors = []
-    all_connectors = get_exchanges_and_derivatives()
-    for connector_type, connectors in all_connectors.items():
+    for connector_type, connectors in ALL_CONNECTORS.items():
         for connector in connectors:
             module_path = f"hummingbot.connector.{connector_type}.{connector}.{connector}_utils"
             try:
@@ -87,19 +91,19 @@ def get_example_asset(pair=True):
     return dict(zip(fetched_connectors, pairs))
 
 
-DERIVATIVES = get_derivatives()
+DERIVATIVES = _get_derivatives()
+CEXES = _get_exchanges(True)
+DEXES = _get_exchanges(False)
+OTHER_CONNECTORS = _get_other_connectors()
 
-DEXES = get_exchange_list(False)
-
-# To-do: create CONNECTOR constant hold all types of connectors(i.e to replace EXCHANGES)
-# So EXCHANGES only hold the name of centralized exchanges
-EXCHANGES = DERIVATIVES.union(get_exchange_list()).union(DEXES)
+EXCHANGES = CEXES.union(DEXES)
+ALL_CONNECTORS = {"exchange": EXCHANGES, "connector": OTHER_CONNECTORS, "derivative": DERIVATIVES}
 
 STRATEGIES: List[str] = get_strategy_list()
 
-EXAMPLE_PAIRS = get_example_asset()
+EXAMPLE_PAIRS = _get_example_asset()
 
-EXAMPLE_ASSETS = get_example_asset(False)
+EXAMPLE_ASSETS = _get_example_asset(False)
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
 MAXIMUM_LOG_PANE_LINE_COUNT = 1000

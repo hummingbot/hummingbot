@@ -2,8 +2,7 @@ import logging
 from decimal import Decimal
 import ruamel.yaml
 from os import (
-    unlink,
-    scandir
+    unlink
 )
 from os.path import (
     join,
@@ -175,18 +174,6 @@ def _merge_dicts(*args: Dict[str, ConfigVar]) -> OrderedDict:
     for d in args:
         result.update(d)
     return result
-
-
-def get_all_connectors() -> Dict[str, List[str]]:
-    invalid_names = ["__pycache__", "paper_trade"]
-    all_connectors = {}
-    connector_types = ["connector", "exchange", "derivative"]
-    for connector_type in connector_types:
-        try:
-            all_connectors[connector_type] = [f.name for f in scandir(f'./hummingbot/connector/{connector_type}') if f.is_dir() and f.name not in invalid_names]
-        except Exception:
-            continue
-    return all_connectors
 
 
 def get_connector_class(connector_name: str) -> Callable:

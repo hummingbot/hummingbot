@@ -1,11 +1,11 @@
-from hummingbot.client.settings import get_exchanges_and_derivatives, DEXES
+from hummingbot.client.settings import ALL_CONNECTORS, DEXES
 from hummingbot.client.config.config_methods import new_fee_config_var
 
 
 def fee_overrides_dict():
     all_dict = {}
-    all_connector_types = get_exchanges_and_derivatives()
-    for connector_type, connectors in all_connector_types.items():
+    # all_connector_types = get_exchanges_and_derivatives()
+    for connector_type, connectors in ALL_CONNECTORS.items():
         for connector in connectors:
             maker_key = f"{connector}_maker_fee_amount" if connector in DEXES else f"{connector}_maker_fee"
             taker_key = f"{connector}_taker_fee_amount" if connector in DEXES else f"{connector}_taker_fee"
