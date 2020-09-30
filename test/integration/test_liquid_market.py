@@ -38,7 +38,7 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.connector.exchange.liquid.liquid_market import LiquidMarket, Constants
+from hummingbot.connector.exchange.liquid.liquid_exchange import LiquidExchange, Constants
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
@@ -59,7 +59,7 @@ API_SECRET = "YYY" if API_MOCK_ENABLED else conf.liquid_secret_key
 API_HOST = "api.liquid.com"
 
 
-class LiquidMarketUnitTest(unittest.TestCase):
+class LiquidExchangeUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
@@ -71,7 +71,7 @@ class LiquidMarketUnitTest(unittest.TestCase):
         MarketEvent.OrderFailure
     ]
 
-    market: LiquidMarket
+    market: LiquidExchange
     market_logger: EventLogger
     stack: contextlib.ExitStack
 
@@ -92,10 +92,10 @@ class LiquidMarketUnitTest(unittest.TestCase):
                                         FixtureLiquid.CRYPTO_ACCOUNTS)
             cls.web_app.update_response("get", API_HOST, "/orders", FixtureLiquid.ORDERS_GET)
             cls._t_nonce_patcher = unittest.mock.patch(
-                "hummingbot.connector.exchange.liquid.liquid_market.get_tracking_nonce")
+                "hummingbot.connector.exchange.liquid.liquid_exchange.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.market: LiquidMarket = LiquidMarket(
+        cls.market: LiquidExchange = LiquidExchange(
             API_KEY, API_SECRET,
             poll_interval=5,
             trading_pairs=['CEL-ETH'],
@@ -492,7 +492,7 @@ class LiquidMarketUnitTest(unittest.TestCase):
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
 
-            self.market: LiquidMarket = LiquidMarket(
+            self.market: LiquidExchange = LiquidExchange(
                 API_KEY, API_SECRET,
                 trading_pairs=['ETH-USD', 'CEL-ETH']
             )
