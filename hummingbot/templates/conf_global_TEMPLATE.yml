@@ -44,6 +44,9 @@ eterbase_api_key: null
 eterbase_secret_key: null
 eterbase_account: null
 
+bitfinex_api_key: null
+bitfinex_secret_key: null
+
 celo_address: null
 celo_password: null
 

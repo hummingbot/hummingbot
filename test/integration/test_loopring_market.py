@@ -23,14 +23,14 @@ from hummingbot.core.event.events import (
     TradeType,
     TradeFee,
 )
-from hummingbot.connector.exchange.loopring.loopring_market import LoopringMarket
+from hummingbot.connector.exchange.loopring.loopring_exchange import LoopringExchange
 from hummingbot.market.market_base import OrderType
 from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
 
 sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 
-class LoopringMarketUnitTest(unittest.TestCase):
+class LoopringExchangeUnitTest(unittest.TestCase):
     market_events: List[MarketEvent] = [
         MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
@@ -42,14 +42,14 @@ class LoopringMarketUnitTest(unittest.TestCase):
         MarketEvent.OrderCancelled,
     ]
 
-    market: LoopringMarket
+    market: LoopringExchange
     market_logger: EventLogger
     stack: contextlib.ExitStack
 
     @classmethod
     def setUpClass(cls):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.market: LoopringMarket = LoopringMarket(
+        cls.market: LoopringExchange = LoopringExchange(
             conf.loopring_accountid,
             conf.loopring_exchangeid,
             conf.loopring_private_key,
@@ -130,7 +130,7 @@ class LoopringMarketUnitTest(unittest.TestCase):
         self.assertGreater(self.market.get_balance("USDT"), 20)
         trading_pair = "ETH-USDT"
         bid_price: Decimal = self.market.get_price(trading_pair, True)
-        amount = 0.05
+        amount: Decimal = Decimal("0.05")
 
         # Intentionally setting price far away from best ask
         client_order_id = self.market.buy(trading_pair, amount, OrderType.LIMIT, bid_price * Decimal("0.5"))
