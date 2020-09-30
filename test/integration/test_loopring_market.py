@@ -130,7 +130,7 @@ class LoopringExchangeUnitTest(unittest.TestCase):
         self.assertGreater(self.market.get_balance("USDT"), 20)
         trading_pair = "ETH-USDT"
         bid_price: Decimal = self.market.get_price(trading_pair, True)
-        amount = 0.05
+        amount: Decimal = Decimal("0.05")
 
         # Intentionally setting price far away from best ask
         client_order_id = self.market.buy(trading_pair, amount, OrderType.LIMIT, bid_price * Decimal("0.5"))
