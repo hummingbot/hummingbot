@@ -21,7 +21,7 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_message import CoinbaseProOrderBookMessage
-from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_market import CoinbaseProMarket, CoinbaseProAuth
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_exchange import CoinbaseProExchange, CoinbaseProAuth
 from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_user_stream_tracker import CoinbaseProUserStreamTracker
 from hummingbot.core.event.events import OrderType
 
@@ -29,7 +29,7 @@ from hummingbot.core.event.events import OrderType
 class CoinbaseProUserStreamTrackerUnitTest(unittest.TestCase):
     user_stream_tracker: Optional[CoinbaseProUserStreamTracker] = None
 
-    market: CoinbaseProMarket
+    market: CoinbaseProExchange
     stack: contextlib.ExitStack
 
     @classmethod
@@ -44,7 +44,7 @@ class CoinbaseProUserStreamTrackerUnitTest(unittest.TestCase):
         cls.user_stream_tracker_task: asyncio.Task = safe_ensure_future(cls.user_stream_tracker.start())
 
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.market: CoinbaseProMarket = CoinbaseProMarket(
+        cls.market: CoinbaseProExchange = CoinbaseProExchange(
             conf.coinbase_pro_api_key,
             conf.coinbase_pro_secret_key,
             conf.coinbase_pro_passphrase,

@@ -28,3 +28,6 @@ kucoin_taker_fee:
 
 crypto_com_maker_fee:
 crypto_com_taker_fee:
+
+bitfinex_maker_fee:
+bitfinex_taker_fee:
