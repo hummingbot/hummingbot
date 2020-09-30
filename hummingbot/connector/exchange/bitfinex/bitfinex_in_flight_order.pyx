@@ -14,7 +14,6 @@ from hummingbot.connector.exchange.bitfinex import (
     OrderStatus,
 )
 from hummingbot.connector.exchange.bitfinex.bitfinex_utils import split_trading_pair
-from hummingbot.connector.exchange.bitfinex.bitfinex_market import BitfinexMarket
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 
 

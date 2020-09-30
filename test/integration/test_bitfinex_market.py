@@ -43,6 +43,11 @@ from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLCon
 
 sys.path.insert(0, realpath(join(__file__, "../../../")))
 logging.basicConfig(level=METRICS_LOG_LEVEL)
+API_KEY = conf.bitfinex_api_key
+API_SECRET = conf.bitfinex_secret_key
+trading_pair = "ETH-USD"
+base_asset = trading_pair.split("-")[0]
+quote_asset = trading_pair.split("-")[1]
 
 
 class BitfinexExchangeUnitTest(unittest.TestCase):
@@ -67,9 +72,9 @@ class BitfinexExchangeUnitTest(unittest.TestCase):
     def setUpClass(cls):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: BitfinexExchange = BitfinexExchange(
-            conf.bitfinex_api_key,
-            conf.bitfinex_secret_key,
-            trading_pairs=["ETHUSD"]
+            API_KEY,
+            API_SECRET,
+            trading_pairs=[trading_pair]
         )
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.market)
@@ -120,26 +125,25 @@ class BitfinexExchangeUnitTest(unittest.TestCase):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_get_fee(self):
-        limit_fee: TradeFee = self.market.get_fee("ETH", "USD", OrderType.LIMIT,
+        limit_fee: TradeFee = self.market.get_fee(base_asset, quote_asset, OrderType.LIMIT,
                                                   TradeType.BUY, 1, 1)
         self.assertGreater(limit_fee.percent, 0)
         self.assertEqual(len(limit_fee.flat_fees), 0)
-        market_fee: TradeFee = self.market.get_fee("ETH", "USD", OrderType.MARKET,
+        market_fee: TradeFee = self.market.get_fee(base_asset, quote_asset, OrderType.MARKET,
                                                    TradeType.BUY, 1)
         self.assertGreater(market_fee.percent, 0)
         self.assertEqual(len(market_fee.flat_fees), 0)
 
     def test_minimum_order_size(self):
         amount = Decimal("0.001")
-        quantized_amount = self.market.quantize_order_amount("ETHUSD", amount)
+        quantized_amount = self.market.quantize_order_amount(trading_pair, amount)
         self.assertEqual(quantized_amount, 0)
 
     def test_get_balance(self):
-        balance = self.market.get_balance("ETH")
-        self.assertGreater(balance, 0.04)
+        balance = self.market.get_balance(quote_asset)
+        self.assertGreater(balance, 10)
 
     def test_limit_buy(self):
-        trading_pair = "ETHUSD"
         amount: Decimal = Decimal("0.04")
         current_ask_price: Decimal = self.market.get_price(trading_pair, False)
         # no fill
@@ -169,8 +173,7 @@ class BitfinexExchangeUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_limit_sell(self):
-        trading_pair = "ETHUSD"
-        amount: Decimal = Decimal("-0.04")
+        amount: Decimal = Decimal("0.02")
         current_ask_price: Decimal = self.market.get_price(trading_pair, False)
         # for no fill
         ask_price: Decimal = Decimal("1.1") * current_ask_price
@@ -194,7 +197,6 @@ class BitfinexExchangeUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_execute_limit_buy(self):
-        trading_pair = "ETHUSD"
         amount: Decimal = Decimal("0.04")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair,
                                                                       amount)
@@ -225,8 +227,8 @@ class BitfinexExchangeUnitTest(unittest.TestCase):
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertAlmostEqual(quantized_amount,
                                order_completed_event.base_asset_amount)
-        self.assertEqual("ETH", order_completed_event.base_asset)
-        self.assertEqual("USD", order_completed_event.quote_asset)
+        self.assertEqual(base_asset, order_completed_event.base_asset)
+        self.assertEqual(quote_asset, order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded,
                                order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded,
@@ -237,8 +239,7 @@ class BitfinexExchangeUnitTest(unittest.TestCase):
         self.market_logger.clear()
 
     def test_execute_limit_sell(self):
-        trading_pair = "ETHUSD"
-        amount: Decimal = Decimal(0.04)
+        amount: Decimal = Decimal(0.02)
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair,
                                                                       amount)
         ask_entries = self.market.order_books[trading_pair].ask_entries()
@@ -266,8 +267,8 @@ class BitfinexExchangeUnitTest(unittest.TestCase):
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertAlmostEqual(quantized_amount,
                                order_completed_event.base_asset_amount)
-        self.assertEqual("ETH", order_completed_event.base_asset)
-        self.assertEqual("USD", order_completed_event.quote_asset)
+        self.assertEqual(base_asset, order_completed_event.base_asset)
+        self.assertEqual(quote_asset, order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded,
                                order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded,
@@ -284,7 +285,6 @@ class BitfinexExchangeUnitTest(unittest.TestCase):
 
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
-        trading_pair: str = "ETHUSD"
         sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
         order_id: Optional[str] = None
 
@@ -324,8 +324,8 @@ class BitfinexExchangeUnitTest(unittest.TestCase):
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
             self.market: BitfinexExchange = BitfinexExchange(
-                conf.bitfinex_api_key,
-                conf.bitfinex_secret_key,
+                API_KEY,
+                API_SECRET,
                 trading_pairs=[trading_pair]
             )
             for event_tag in self.events:
@@ -359,7 +359,6 @@ class BitfinexExchangeUnitTest(unittest.TestCase):
             self.setUpClass()
 
     def test_cancel_all(self):
-        trading_pair = "ETHUSD"
         bid_price: Decimal = self.market.get_price(trading_pair, True)
         ask_price: Decimal = self.market.get_price(trading_pair, False)
         amount: Decimal = Decimal("0.04")
