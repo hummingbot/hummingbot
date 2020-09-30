@@ -2,7 +2,6 @@
 from collections import namedtuple
 import logging
 import time
-
 import aiohttp
 import asyncio
 import ujson
@@ -102,7 +101,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return result
 
     @staticmethod
-    async def fetch_trading_pairs(self) -> List[str]:
+    async def fetch_trading_pairs() -> List[str]:
         try:
             async with aiohttp.ClientSession() as client:
                 async with client.get("https://api-pub.bitfinex.com/v2/conf/pub:list:pair:exchange", timeout=10) as response:
@@ -120,7 +119,8 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             if converted_trading_pair is not None:
                                 trading_pair_list.append(converted_trading_pair)
                             else:
-                                self.logger().debug(f"Could not parse the trading pair {raw_trading_pair}, skipping it...")
+                                logging.getLogger(__name__).info(f"Could not parse the trading pair "
+                                                                 f"{raw_trading_pair}, skipping it...")
                         return trading_pair_list
         except Exception:
             # Do nothing if the request fails -- there will be no autocomplete available
