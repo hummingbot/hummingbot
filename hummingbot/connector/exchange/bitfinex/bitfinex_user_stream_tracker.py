@@ -13,8 +13,8 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.market.bitfinex.bitfinex_api_user_stream_data_source import BitfinexAPIUserStreamDataSource
-from hummingbot.market.bitfinex.bitfinex_auth import BitfinexAuth
+from hummingbot.connector.exchange.bitfinex.bitfinex_api_user_stream_data_source import BitfinexAPIUserStreamDataSource
+from hummingbot.connector.exchange.bitfinex.bitfinex_auth import BitfinexAuth
 
 
 class BitfinexUserStreamTracker(UserStreamTracker):
