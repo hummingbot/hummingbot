@@ -69,9 +69,9 @@ RADAR_RELAY_REST_ENDPOINT = "https://api.radarrelay.com/v3"
 
 cdef class RadarRelayTransactionTracker(TransactionTracker):
     cdef:
-        RadarRelayMarket _owner
+        RadarRelayExchange _owner
 
-    def __init__(self, owner: RadarRelayMarket):
+    def __init__(self, owner: RadarRelayExchange):
         super().__init__()
         self._owner = owner
 
@@ -80,7 +80,7 @@ cdef class RadarRelayTransactionTracker(TransactionTracker):
         self._owner.c_did_timeout_tx(tx_id)
 
 
-cdef class RadarRelayMarket(ExchangeBase):
+cdef class RadarRelayExchange(ExchangeBase):
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
     MARKET_ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value

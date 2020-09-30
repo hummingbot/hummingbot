@@ -3,7 +3,7 @@ from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 
 
-cdef class RadarRelayMarket(ExchangeBase):
+cdef class RadarRelayExchange(ExchangeBase):
     cdef:
         str _wallet_spender_address
         object _wallet
