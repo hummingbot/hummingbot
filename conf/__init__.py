@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+from hummingbot.client.config.global_config_map import connector_keys
 
 import logging as _logging
 _logger = _logging.getLogger(__name__)
@@ -37,6 +38,11 @@ kafka_bootstrap_server = "***REMOVED***"
 # whether to enable api mocking in unit test cases
 mock_api_enabled = os.getenv("MOCK_API_ENABLED")
 
+# ALL TEST KEYS
+for key in connector_keys().keys():
+    locals()[key] = os.getenv(key.upper())
+
+"""
 # Binance Tests
 binance_api_key = os.getenv("BINANCE_API_KEY")
 binance_api_secret = os.getenv("BINANCE_API_SECRET")
@@ -64,10 +70,6 @@ loopring_private_key = os.getenv("LOOPRING_PRIVATE_KEY")
 # Bittrex Tests
 bittrex_api_key = os.getenv("BITTREX_API_KEY")
 bittrex_secret_key = os.getenv("BITTREX_SECRET_KEY")
-
-# Bitfinex
-bitfinex_api_key = os.getenv("BITFINEX_API_KEY")
-bitfinex_secret_key = os.getenv("BITFINEX_SECRET_KEY")
 
 # KuCoin Tests
 kucoin_api_key = os.getenv("KUCOIN_API_KEY")
@@ -101,6 +103,7 @@ web3_test_private_key_c = os.getenv("TEST_WALLET_PRIVATE_KEY_C")
 
 coinalpha_order_book_api_username = "***REMOVED***"
 coinalpha_order_book_api_password = "***REMOVED***"
+"""
 
 kafka_2 = {
     "bootstrap_servers": "***REMOVED***",

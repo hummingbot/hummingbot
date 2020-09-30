@@ -5,12 +5,12 @@ from typing import (Any, Dict, List, Tuple)
 from decimal import Decimal
 from hummingbot.connector.exchange.loopring.loopring_order_status import LoopringOrderStatus
 from hummingbot.connector.in_flight_order_base cimport InFlightOrderBase
-from hummingbot.connector.exchange.loopring.loopring_market cimport LoopringMarket
+from hummingbot.connector.exchange.loopring.loopring_exchange cimport LoopringExchange
 from hummingbot.core.event.events import (OrderFilledEvent, TradeType, OrderType, TradeFee, MarketEvent)
 
 cdef class LoopringInFlightOrder(InFlightOrderBase):
     def __init__(self, 
-                 market: LoopringMarket,
+                 market: LoopringExchange,
                  client_order_id: str,
                  exchange_order_id: str,
                  trading_pair: str,
@@ -96,7 +96,7 @@ cdef class LoopringInFlightOrder(InFlightOrderBase):
 
     @classmethod
     def from_loopring_order(cls, 
-                            market : LoopringMarket, 
+                            market : LoopringExchange, 
                             side : TradeType,
                             client_order_id : str, 
                             created_at : int, 
