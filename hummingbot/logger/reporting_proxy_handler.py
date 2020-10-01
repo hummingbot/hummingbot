@@ -39,9 +39,15 @@ class ReportingProxyHandler(logging.Handler):
         self.setLevel(level)
         self._log_queue: list = []
         self._event_queue: list = []
-        self.capacity: int = capacity
-        self.proxy_url: str = proxy_url
-        self.log_server_client: LogServerClient = LogServerClient.get_instance(log_server_url=proxy_url)
+        self._capacity: int = capacity
+        self._proxy_url: str = proxy_url
+        self._log_server_client: Optional[LogServerClient] = None
+
+    @property
+    def log_server_client(self):
+        if not self._log_server_client:
+            self._log_server_client = LogServerClient.get_instance(log_server_url=self._proxy_url)
+        return self._log_server_client
 
     @property
     def client_id(self):
@@ -90,6 +96,9 @@ class ReportingProxyHandler(logging.Handler):
             message["exc_info"] = self.formatException(log.exc_info)
             message["exception_type"] = str(log.exc_info[0])
             message["exception_msg"] = str(log.exc_info[1])
+
+        if not message.get("msg"):
+            return
         self._log_queue.append(message)
 
     def process_event(self, log):
@@ -104,11 +113,14 @@ class ReportingProxyHandler(logging.Handler):
             message["exc_info"] = self.formatException(log.exc_info)
             message["exception_type"] = str(log.exc_info[0])
             message["exception_msg"] = str(log.exc_info[1])
+
+        if not message.get("msg"):
+            return
         self._event_queue.append(message)
 
     def send_logs(self, logs):
         request_obj = {
-            "url": f"{self.proxy_url}/logs",
+            "url": f"{self._proxy_url}/logs",
             "method": "POST",
             "request_obj": {
                 "headers": {
@@ -123,9 +135,9 @@ class ReportingProxyHandler(logging.Handler):
         }
         self.log_server_client.request(request_obj)
 
-    def send_event(self, logs):
+    def send_events(self, logs):
         request_obj = {
-            "url": f"{self.proxy_url}/order-event",
+            "url": f"{self._proxy_url}/order-event",
             "method": "POST",
             "request_obj": {
                 "headers": {
@@ -142,16 +154,16 @@ class ReportingProxyHandler(logging.Handler):
 
     def flush(self, send_all=False):
         self.acquire()
-        min_send_capacity = self.capacity
+        min_send_capacity = self._capacity
         if send_all:
             min_send_capacity = 0
         try:
             if global_config_map["send_error_logs"].value:
-                if len(self._log_queue) > min_send_capacity:
+                if len(self._log_queue) > 0 and len(self._log_queue) >= min_send_capacity:
                     self.send_logs(self._log_queue)
                     self._log_queue = []
-            if len(self._event_queue) > min_send_capacity:
-                self.send_event(self._event_queue)
+            if len(self._event_queue) > 0 and len(self._event_queue) >= min_send_capacity:
+                self.send_events(self._event_queue)
                 self._event_queue = []
         except Exception:
             self.logger().error("Error sending logs.", exc_info=True, extra={"do_not_send": True})
