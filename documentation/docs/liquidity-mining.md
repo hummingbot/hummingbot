@@ -213,15 +213,3 @@ The [Mainframe (MFT)](https://mainframe.com/) Lending Protocol allows anyone to 
 
 [Whitepaper](https://zcoin.io/tech/) | [Twitter](https://twitter.com/zcoinofficial) | [Telegram](https://t.me/zcoinproject) | [Github](https://github.com/zcoinofficial) | [Explorer](https://chainz.cryptoid.info/xzc/) | [CoinMarketCap](https://coinmarketcap.com/currencies/zcoin) | [CoinGecko](https://www.coingecko.com/en/coins/zcoin)
 
-### SUKU
-
-[SUKU](https://www.suku.world/) Brings decentralized finance to supply chain participants through SUKU’s product offering. Supply chain participants such as farmers, manufacturers, and distributors who share information about their SUKU-traced products, get rewarded and may be able to take advantage of the many benefits of decentralized finance built on blockchain.
-
-[Whitepaper](https://resources.suku.world/suku_whitepaper.pdf) | [Telegram](https://t.me/SUKUecosystem) | [Github](https://github.com/SukuLab) | [Twitter](https://twitter.com/SUKUecosystem) | [Reddit](https://www.reddit.com/r/SUKUecosystem/) | [Youtube](https://www.youtube.com/channel/UCa2HBoUANI3H2EgD-feHDqQ)
-
-### Harmony
-
-[Harmony](https://www.harmony.one/) is a fast and secure blockchain for decentralized application. We use our Effective Proof-of-Stake or EPoS to reduce centralization while supporting stake delegation, reward compounding and double-sign slashing. Harmony aims to build an open network of nodes operated and governed by a large community.
-There are now 1,000 Harmony nodes – so far 640 of them run by the community – in line with thousands of Bitcoin and Ethereum nodes. Harmony consists of volunteers and validators from more than 100 countries and most of them have never run a node before.
-
-[Whitepaper](https://harmony.one/whitepaper.pdf) | [Telegram](https://t.me/harmony_one) | [Github](https://github.com/harmony-one) | [Discord](harmony.one/discord) | [Twitter](https://twitter.com/harmonyprotocol) | [Coinmarketcap](https://coinmarketcap.com/currencies/harmony/) | [Coingecko](https://www.coingecko.com/en/coins/harmony)
