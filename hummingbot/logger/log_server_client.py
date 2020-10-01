@@ -61,7 +61,6 @@ class LogServerClient(NetworkBase):
                 req = await self.queue.get()
                 self.logger().debug(f"Remote logging payload: {req}")
                 await self.send_log(session, req)
-                self.logger().error(f"logs send, queue: {self.queue.qsize()}")
             except asyncio.CancelledError:
                 raise
             except aiohttp.ClientError:
