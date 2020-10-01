@@ -11,6 +11,9 @@ template_version: 3
 binance_maker_fee:
 binance_taker_fee:
 
+binance_us_maker_fee:
+binance_us_taker_fee:
+
 coinbase_pro_maker_fee:
 coinbase_pro_taker_fee:
 

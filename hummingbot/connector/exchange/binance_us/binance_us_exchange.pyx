@@ -8,7 +8,7 @@ from aiokafka import (
 import asyncio
 from async_timeout import timeout
 from binance.client import Client as BinanceClient
-from binance import client as binance_client_module
+from binance import client as binance_us_client_module
 from binance.exceptions import BinanceAPIException
 from decimal import Decimal
 from functools import partial
@@ -82,11 +82,11 @@ cdef str get_client_order_id(str order_side, object trading_pair):
     return f"{BROKER_ID}-{order_side.upper()[0]}{base[0]}{base[-1]}{quote[0]}{quote[-1]}{nonce}"
 
 
-cdef class BinanceUsMarketTransactionTracker(TransactionTracker):
+cdef class BinanceUsExchangeTransactionTracker(TransactionTracker):
     cdef:
-        BinanceUsMarket _owner
+        BinanceUsExchange _owner
 
-    def __init__(self, owner: BinanceUsMarket):
+    def __init__(self, owner: BinanceUsExchange):
         super().__init__()
         self._owner = owner
 
@@ -95,7 +95,7 @@ cdef class BinanceUsMarketTransactionTracker(TransactionTracker):
         self._owner.c_did_timeout_tx(tx_id)
 
 
-cdef class BinanceUsMarket(ExchangeBase):
+cdef class BinanceUsExchange(ExchangeBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
@@ -110,8 +110,8 @@ cdef class BinanceUsMarket(ExchangeBase):
     SHORT_POLL_INTERVAL = 5.0
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
     LONG_POLL_INTERVAL = 120.0
-    BINANCE_TRADE_TOPIC_NAME = "binance-trade.serialized"
-    BINANCE_USER_STREAM_TOPIC_NAME = "binance-user-stream.serialized"
+    BINANCE_US_TRADE_TOPIC_NAME = "binance_us-trade.serialized"
+    BINANCE_US_USER_STREAM_TOPIC_NAME = "binance_us-user-stream.serialized"
 
     ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
 
@@ -126,28 +126,22 @@ cdef class BinanceUsMarket(ExchangeBase):
                  binance_us_api_key: str,
                  binance_us_api_secret: str,
                  trading_pairs: Optional[List[str]] = None,
-                 trading_required: bool = True
+                 trading_required: bool = True,
+                 **dummy
                  ):
 
         self.monkey_patch_binance_us_time()
         super().__init__()
         self._trading_required = trading_required
         self._order_book_tracker = BinanceUsOrderBookTracker(trading_pairs=trading_pairs)
-        
-        try:
-            # lets try to use the new tld parameter from python-binance==0.7.5, 
-            # if its not available or gives us an error because we are using the older version then we try again without the tld parameter.
-            self._binance_client = BinanceClient(binance_us_api_key, binance_us_api_secret, tld='us')
-        except:
-            self._binance_client = BinanceClient(binance_us_api_key, binance_us_api_secret)
-            
+        self._binance_client = BinanceClient(binance_us_api_key, binance_us_api_secret)
         self._user_stream_tracker = BinanceUsUserStreamTracker(binance_client=self._binance_client)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
         self._in_flight_orders = {}  # Dict[client_order_id:str, BinanceUsInFlightOrder]
         self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
-        self._tx_tracker = BinanceUsMarketTransactionTracker(self)
+        self._tx_tracker = BinanceUsExchangeTransactionTracker(self)
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
         self._trade_fees = {}  # Dict[trading_pair:str, (maker_fee_percent:Decimal, taken_fee_percent:Decimal)]
         self._last_update_trade_fees_timestamp = 0
@@ -210,8 +204,8 @@ cdef class BinanceUsMarket(ExchangeBase):
         return await BinanceUsAPIOrderBookDataSource.get_active_exchange_markets()
 
     def monkey_patch_binance_us_time(self):
-        if binance_client_module.time != BinanceUsTime.get_instance():
-            binance_client_module.time = BinanceUsTime.get_instance()
+        if binance_us_client_module.time != BinanceUsTime.get_instance():
+            binance_us_client_module.time = BinanceUsTime.get_instance()
             BinanceUsTime.get_instance().start()
 
     async def schedule_async_call(
@@ -306,10 +300,10 @@ cdef class BinanceUsMarket(ExchangeBase):
             object taker_trade_fee = Decimal("0.001")
             str trading_pair = base_currency + quote_currency
 
-        if order_type.is_limit_type() and fee_overrides_config_map["binance_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["binance_maker_fee"].value / Decimal("100"))
-        if order_type is OrderType.MARKET and fee_overrides_config_map["binance_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["binance_taker_fee"].value / Decimal("100"))
+        if order_type.is_limit_type() and fee_overrides_config_map["binance_us_maker_fee"].value is not None:
+            return TradeFee(percent=fee_overrides_config_map["binance_us_maker_fee"].value / Decimal("100"))
+        if order_type is OrderType.MARKET and fee_overrides_config_map["binance_us_taker_fee"].value is not None:
+            return TradeFee(percent=fee_overrides_config_map["binance_us_taker_fee"].value / Decimal("100"))
 
         if trading_pair not in self._trade_fees:
             # https://www.binance.us/en/fee/schedule
@@ -388,9 +382,9 @@ cdef class BinanceUsMarket(ExchangeBase):
     async def _update_order_fills_from_trades(self):
         cdef:
             # This is intended to be a backup measure to get filled events with trade ID for orders,
-            # in case Binance's user stream events are not working.
+            # in case Binance.US user stream events are not working.
             # This is separated from _update_order_status which only updates the order status without producing filled
-            # events, since Binance's get order endpoint does not return trade IDs.
+            # events, since Binance.US get order endpoint does not return trade IDs.
             # The minimum poll interval for order status is 10 seconds.
             int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
             int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
@@ -441,7 +435,7 @@ cdef class BinanceUsMarket(ExchangeBase):
 
     async def _update_order_status(self):
         cdef:
-            # This is intended to be a backup measure to close straggler orders, in case Binance's user stream events
+            # This is intended to be a backup measure to close straggler orders, in case Binance.US user stream events
             # are not working.
             # The minimum poll interval for order status is 10 seconds.
             int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
@@ -483,7 +477,7 @@ cdef class BinanceUsMarket(ExchangeBase):
 
                 # Update order execution status
                 tracked_order.last_state = order_update["status"]
-                order_type = BinanceUsMarket.to_hb_order_type(order_update["type"])
+                order_type = BinanceUsExchange.to_hb_order_type(order_update["type"])
                 executed_amount_base = Decimal(order_update["executedQty"])
                 executed_amount_quote = Decimal(order_update["cummulativeQuoteQty"])
 
@@ -579,7 +573,7 @@ cdef class BinanceUsMarket(ExchangeBase):
             try:
                 event_type = event_message.get("e")
                 # Refer to https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md
-                # As per the order update section in Binance the ID of the order being cancelled is under the "C" key
+                # As per the order update section in Binance.US the ID of the order being cancelled is under the "C" key
                 if event_type == "executionReport":
                     execution_type = event_message.get("x")
                     if execution_type != "CANCELED":
@@ -603,7 +597,7 @@ cdef class BinanceUsMarket(ExchangeBase):
                         order_filled_event = order_filled_event._replace(trade_fee=self.c_get_fee(
                             tracked_order.base_asset,
                             tracked_order.quote_asset,
-                            BinanceUsMarket.to_hb_order_type(event_message["o"]),
+                            BinanceUsExchange.to_hb_order_type(event_message["o"]),
                             TradeType.BUY if event_message["S"] == "BUY" else TradeType.SELL,
                             Decimal(event_message["l"]),
                             Decimal(event_message["L"])
@@ -700,7 +694,7 @@ cdef class BinanceUsMarket(ExchangeBase):
         while True:
             try:
                 await safe_gather(
-                    self._update_trading_rules(),
+                    self._update_trading_rules()
                     #self._update_trade_fees()
                 )
                 await asyncio.sleep(60)
@@ -805,12 +799,12 @@ cdef class BinanceUsMarket(ExchangeBase):
         return order_id
 
     @staticmethod
-    def binance_order_type(order_type: OrderType) -> str:
+    def binance_us_order_type(order_type: OrderType) -> str:
         return order_type.name.upper()
 
     @staticmethod
-    def to_hb_order_type(binance_type: str) -> OrderType:
-        return OrderType[binance_type]
+    def to_hb_order_type(binance_us_type: str) -> OrderType:
+        return OrderType[binance_us_type]
 
     def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
@@ -832,7 +826,7 @@ cdef class BinanceUsMarket(ExchangeBase):
         order_result = None
         amount_str = f"{amount:f}"
         price_str = f"{price:f}"
-        type_str = BinanceUsMarket.binance_order_type(order_type)
+        type_str = BinanceUsExchange.binance_us_order_type(order_type)
         side_str = BinanceClient.SIDE_BUY if trade_type is TradeType.BUY else BinanceClient.SIDE_SELL
         api_params = {"symbol": convert_to_exchange_trading_pair(trading_pair),
                       "side": side_str,
