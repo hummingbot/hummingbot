@@ -1,7 +1,9 @@
 import logging
 from decimal import Decimal
 import ruamel.yaml
-from os import unlink
+from os import (
+    unlink
+)
 from os.path import (
     join,
     isfile
