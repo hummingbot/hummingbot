@@ -144,7 +144,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
     @property
     def active_limit_orders(self) -> List[Tuple[ExchangeBase, LimitOrder]]:
-        # return self._sb_order_tracker.active_limit_orders
         return [(ex, order) for ex, order in self._sb_order_tracker.active_limit_orders
                 if order.client_order_id in self._maker_order_ids]
 
