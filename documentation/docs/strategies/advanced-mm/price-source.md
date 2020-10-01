@@ -4,7 +4,7 @@
 
 By default, Hummingbot uses the order book you're trading in to generate the **mid price** (between the top bid and the top ask) as a starting price to calculate maker order prices.
 
-With this feature, users have the option to choose a different price reference for your orders such as **last trade price**, **best bid price** and **best ask price**. Users can also use a different order book such as an external **exchange** supported by Hummingbot or a **custom API**.
+With this feature, users have the option to choose a different price reference for your orders such as **last trade price**, **last own trade price**, **best bid price** and **best ask price**. Users can also use a different order book such as an external **exchange** supported by Hummingbot or a **custom API**.
 
 
 ## How It Works
@@ -33,7 +33,7 @@ price_source_custom_api: None
 
 This means Hummingbot uses the mid price of the market's order book in the current exchange as reference e.g. if your bid/ask spread is set to 1, your orders will be created 1% away from the mid price.
 
-Run `config price_type` command to change the price reference to `last_price`, `best_bid`, and `best_ask`.
+Run `config price_type` command to change the price reference to `last_price`, `last_own_trade_price`, `best_bid`, and `best_ask`.
 
 
 ### Price Source: External Market
@@ -58,7 +58,7 @@ In the example below, we're trading on BTC-USDC pair in Binance while using the 
 price_source_custom_api: None
 ```
 
-Run `config price_type` command to change the price reference to `last_price`, `best_bid`, and `best_ask`. The parameter `take_if_crossed` is optional as this only allows users to take existing orders from the order book if there is an existing match.
+Run `config price_type` command to change the price reference to `last_price`, `last_own_trade_price`, `best_bid`, and `best_ask`. The parameter `take_if_crossed` is optional as this only allows users to take existing orders from the order book if there is an existing match.
 
 !!! note
     Currently, the external price source cannot be the same as the maker exchange (i.e. if the bot is trading on Binance, the `price_source_exchange` cannot be Binance).
@@ -109,7 +109,7 @@ In certain cases, this behavior may be desirable even if the fee is higher becau
 | Parameter | Prompt | Definition |
 |-----------|--------|------------|
 | **price_source** | `Which price source to use? (current_market/external_market/custom_api)` | Determines which market to be used as price reference when creating orders.
-| **price_type** | `Which price type to use? (mid_price/last_price/best_bid/best_ask)` | Price type to be used as price reference when creating orders.
+| **price_type** | `Which price type to use? (mid_price/last_price/last_own_trade_price/best_bid/best_ask)` | Price type to be used as price reference when creating orders.
 | **price_source_exchange** | `Enter external price source exchange name` | Name of exchange to be used for external pricing source. |
 | **price_source_market** | `Enter the token pair on [price_source_exchange]` | The trading pair for the price source exchange. |
 | **take_if_crossed** | `Do you want to take the best order if orders cross the orderbook? (Yes/No)` | Take order if they cross orderbook when external price source is enabled. |

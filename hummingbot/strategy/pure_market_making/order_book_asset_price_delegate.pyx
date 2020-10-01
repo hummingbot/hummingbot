@@ -19,3 +19,11 @@ cdef class OrderBookAssetPriceDelegate(AssetPriceDelegate):
 
     def get_price_by_type(self, price_type: PriceType) -> Decimal:
         return self._market.get_price_by_type(self._trading_pair, price_type)
+
+    @property
+    def market(self) -> ExchangeBase:
+        return self._market
+
+    @property
+    def trading_pair(self) -> str:
+        return self._trading_pair

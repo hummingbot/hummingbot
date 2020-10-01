@@ -39,7 +39,16 @@ Initially, we assume that the maker exchange is an Ethereum-based decentralized 
 
 ### Minimum Order Size
 
-When placing orders on the maker market and filling orders on the taker market, the order amount should meet the exchange's minimum order size and minimum trade size.
+When placing orders, if the size of the order determined by the order price and quantity is below the exchange's minimum order size, then the orders will not be created.
+
+**Example:**
+
+`bid order amount * bid price` < `exchange's minimum order size`<br/>
+`ask order amount * ask price` > `exchange's minimum order size`
+
+Only a sell order will be created but no buy order.
+
+For more information, refer to [Minimum Order Size](/advanced/min-order)
 
 You can find more information about this for each [Connector](https://docs.hummingbot.io/connectors/) under Miscellaneous section.
 
