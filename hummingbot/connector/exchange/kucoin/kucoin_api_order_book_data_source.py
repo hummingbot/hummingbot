@@ -12,6 +12,9 @@ from typing import (
     List,
     Optional
 )
+from decimal import Decimal
+import requests
+import cachetools.func
 import time
 import websockets
 from websockets.exceptions import ConnectionClosed
@@ -56,6 +59,32 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 resp_record = [o for o in resp_json["data"]["ticker"] if o["symbolName"] == trading_pair][0]
                 results[trading_pair] = float(resp_record["last"])
         return results
+
+    @staticmethod
+    @cachetools.func.ttl_cache(ttl=10)
+    def get_mid_price(trading_pair: str) -> Optional[Decimal]:
+        resp = requests.get(url=TICKER_PRICE_CHANGE_URL)
+        records = resp.json()
+        result = None
+        for record in records["data"]["ticker"]:
+            if trading_pair == record["symbolName"] and record["buy"] is not None and record["sell"] is not None:
+                result = (Decimal(record["buy"]) + Decimal(record["sell"])) / Decimal("2")
+                break
+        return result
+
+    @staticmethod
+    async def fetch_trading_pairs() -> List[str]:
+        async with aiohttp.ClientSession() as client:
+            async with client.get(EXCHANGE_INFO_URL, timeout=5) as response:
+                if response.status == 200:
+                    try:
+                        data: Dict[str, Any] = await response.json()
+                        all_trading_pairs = data.get("data", [])
+                        return [item["symbol"] for item in all_trading_pairs if item["enableTrading"] is True]
+                    except Exception:
+                        pass
+                        # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
+                return []
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
