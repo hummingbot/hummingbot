@@ -252,7 +252,8 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         timestamp = time.time()
         msg = {
             "symbol": symbol,
-            side: OrderBookRow(price, 0, timestamp)    # 0 amount will force the order to be deleted
+            side: OrderBookRow(price, 0, timestamp),    # 0 amount will force the order to be deleted
+            "update_id": timestamp  # Assume every update is incremental
         }
         return BitfinexOrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
@@ -264,7 +265,8 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         timestamp = time.time()
         msg = {
             "symbol": symbol,
-            side_key: OrderBookRow(price, abs(amount), timestamp)
+            side_key: OrderBookRow(price, abs(amount), timestamp),
+            "update_id": timestamp  # Assume every update is incremental
         }
         return BitfinexOrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
@@ -283,6 +285,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             order_id = content[0]
             price = content[1]
             amount = content[2]
+            update_id = time.time()
 
             os = self._get_tracked_order_by_id(order_id)
             order = os["order"]
@@ -294,12 +297,13 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     self._untrack_order(order_id)
                     return self._generate_delete_message(pair, order.price, side)
                 else:
-                    self._track_order(order_id, OrderBookRow(price, abs(amount), order.update_id), side)
-                    return None
+                    return self._generate_add_message(pair, price, amount)
             else:
                 # this is a new order unless the price is 0, just track it and create message that
                 # will add it to the order book
                 if price != 0:
+                    side = "bids" if amount > 0 else "asks"
+                    self._track_order(order_id, OrderBookRow(price, abs(amount), update_id), side)
                     return self._generate_add_message(pair, price, amount)
         return None
 
@@ -454,8 +458,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             snapshot_timestamp: float = time.time()
             snapshot_msg: OrderBookMessage = BitfinexOrderBook.snapshot_message_from_exchange(
                 snapshot,
-                snapshot_timestamp,
-                metadata={"symbol": trading_pair}
+                snapshot_timestamp
             )
             active_order_tracker: BitfinexActiveOrderTracker = BitfinexActiveOrderTracker()
             bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
@@ -476,8 +479,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     snapshot_timestamp: float = time.time()
                     snapshot_msg: OrderBookMessage = BitfinexOrderBook.snapshot_message_from_exchange(
                         snapshot,
-                        snapshot_timestamp,
-                        metadata={"symbol": trading_pair}
+                        snapshot_timestamp
                     )
 
                     order_book: OrderBook = self.order_book_create_function()
@@ -601,8 +603,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             snapshot_timestamp: float = time.time()
                             snapshot_msg: OrderBookMessage = BitfinexOrderBook.snapshot_message_from_exchange(
                                 snapshot,
-                                snapshot_timestamp,
-                                metadata={"product_id": trading_pair}
+                                snapshot_timestamp
                             )
                             output.put_nowait(snapshot_msg)
                             self.logger().debug(f"Saved order book snapshot for {trading_pair}")
