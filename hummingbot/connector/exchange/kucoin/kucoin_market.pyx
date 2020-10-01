@@ -845,7 +845,13 @@ cdef class KucoinMarket(ExchangeBase):
                 is_auth_required=True
             )
             for oid in cancel_all_results["data"]["cancelledOrderIds"]:
+                tracked_order = self._in_flight_orders.get(oid)
                 cancellation_results.append(CancellationResult(oid, True))
+                if tracked_order is not None:
+                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                         OrderCancelledEvent(self._current_timestamp,
+                                                             tracked_order.client_order_id,
+                                                             exchange_order_id=tracked_order.exchange_order_id))
         except Exception as e:
             self.logger().network(
                 f"Failed to cancel all orders.",
