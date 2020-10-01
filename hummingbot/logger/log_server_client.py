@@ -44,7 +44,6 @@ class LogServerClient(NetworkBase):
         if not self.started:
             self.start()
         self.queue.put_nowait(req)
-        self.logger().error(f"sending logs, queue: {self.queue.qsize()} \n {req}")
 
     @async_retry(retry_count=3, exception_types=[asyncio.TimeoutError, EnvironmentError], raise_exp=True)
     async def send_log(self, session: aiohttp.ClientSession, request_dict: Dict[str, Any]):
