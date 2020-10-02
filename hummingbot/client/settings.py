@@ -29,6 +29,7 @@ CONF_POSTFIX = "_strategy"
 SCRIPTS_PATH = "scripts/"
 
 
+
 def _get_exchanges(cex: bool = True) -> Set[str]:
     invalid_names = ["__pycache__", "paper_trade"]
     exchanges = set()
@@ -103,7 +104,9 @@ STRATEGIES: List[str] = get_strategy_list()
 
 EXAMPLE_PAIRS = _get_example_asset()
 
+
 EXAMPLE_ASSETS = _get_example_asset(False)
+
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
 MAXIMUM_LOG_PANE_LINE_COUNT = 1000
