@@ -1,5 +1,5 @@
 import sys
-from math import log2
+from math import log2  # noqa: F401
 
 from ..field import SNARK_SCALAR_FIELD
 
@@ -9,7 +9,7 @@ from .permutation import mimc_constants
 def mimc_contract_solidity(exponent, constants):
     # This means we can do 3 additions in sequence, before modulo reduction
     # Essentially replacing most of the `ADDMOD` instructions with `ADD`
-    assert (3*(SNARK_SCALAR_FIELD-1)) < ((1<<256)-1)
+    assert (3 * (SNARK_SCALAR_FIELD - 1)) < ((1 << 256) - 1)
 
     yield "pragma solidity ^0.5.0;"
     yield "library MiMCpe%d_generated {" % (exponent,)
@@ -37,7 +37,7 @@ def mimc_contract_solidity(exponent, constants):
     yield "}"
 
 
-def main(*args): 
+def main(*args):
     if len(args) < 2:
         print("Usage: %s <exponent> [outfile]" % (args[0],))
         return 1
