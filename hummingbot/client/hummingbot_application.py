@@ -42,6 +42,7 @@ from hummingbot.client.settings import CEXES, DEXES, DERIVATIVES
 
 s_logger = None
 
+
 class HummingbotApplication(*commands):
     KILL_TIMEOUT = 10.0
     APP_WARNING_EXPIRY_DURATION = 3600.0
@@ -230,7 +231,6 @@ class HummingbotApplication(*commands):
                 connector_class = get_connector_class(connector_name)
                 connector = connector_class(**keys, wallet=self.wallet, ethereum_rpc_url=ethereum_rpc_url, trading_pairs=trading_pairs, trading_required=self._trading_required)
                 # TO-DO for DEXes: rename all extra argument to match key in global_config_map
-
 
             else:
                 raise ValueError(f"Connector name {connector_name} is invalid.")
