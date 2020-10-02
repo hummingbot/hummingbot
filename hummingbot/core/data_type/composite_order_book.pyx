@@ -42,7 +42,7 @@ cdef class CompositeOrderBook(OrderBook):
             OrderBookEntry entry
 
         price = order_fill_event.price
-        amount = order_fill_event.amount
+        amount = float(order_fill_event.amount)
         timestamp = order_fill_event.timestamp
 
         if order_fill_event.trade_type is TradeType.BUY:
