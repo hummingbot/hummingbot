@@ -155,7 +155,7 @@ class BuyOrderCompletedEvent:
     quote_asset_amount: Decimal
     fee_amount: Decimal
     order_type: OrderType
-    exchange_order_id: Optional[str] = ""
+    exchange_order_id: Optional[str] = None
 
 
 @dataclass
@@ -169,14 +169,14 @@ class SellOrderCompletedEvent:
     quote_asset_amount: Decimal
     fee_amount: Decimal
     order_type: OrderType
-    exchange_order_id: Optional[str] = ""
+    exchange_order_id: Optional[str] = None
 
 
 @dataclass
 class OrderCancelledEvent:
     timestamp: float
     order_id: str
-    exchange_order_id: Optional[str] = ""
+    exchange_order_id: Optional[str] = None
 
 
 class OrderExpiredEvent(NamedTuple):
@@ -295,7 +295,7 @@ class BuyOrderCreatedEvent:
     amount: Decimal
     price: Decimal
     order_id: str
-    exchange_order_id: Optional[str] = ""
+    exchange_order_id: Optional[str] = None
 
 
 @dataclass
@@ -306,4 +306,4 @@ class SellOrderCreatedEvent:
     amount: Decimal
     price: Decimal
     order_id: str
-    exchange_order_id: Optional[str] = ""
+    exchange_order_id: Optional[str] = None
