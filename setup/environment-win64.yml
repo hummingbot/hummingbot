@@ -65,6 +65,7 @@ dependencies:
     - attrs==19.3.0
     - autobahn==20.3.1
     - automat==20.2.0
+    - bitstring    
     - base58==2.0.0
     - cachetools==4.0.0
     - cffi==1.14.0
@@ -112,6 +113,7 @@ dependencies:
     - protobuf==3.11.3
     - pyasn1==0.4.8
     - pyasn1-modules==0.2.8
+    - pyblake2    
     - pycodestyle==2.5.0
     - pycparser==2.20
     - pycryptodome==3.9.7
@@ -123,6 +125,7 @@ dependencies:
     - pyperclip==1.7.0
     - pypiwin32==223
     - pyrsistent==0.15.7
+    - pysha3    
     - python-binance==0.7.1
     - python-telegram-bot==12.4.2
     - pywin32==227
