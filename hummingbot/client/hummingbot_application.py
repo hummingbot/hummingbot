@@ -10,6 +10,7 @@ from hummingbot.client.command import __all__ as commands
 from hummingbot.core.clock import Clock
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
+
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
 from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
@@ -40,7 +41,6 @@ from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.client.settings import CEXES, DEXES, DERIVATIVES
 
 s_logger = None
-
 
 class HummingbotApplication(*commands):
     KILL_TIMEOUT = 10.0
@@ -230,6 +230,7 @@ class HummingbotApplication(*commands):
                 connector_class = get_connector_class(connector_name)
                 connector = connector_class(**keys, wallet=self.wallet, ethereum_rpc_url=ethereum_rpc_url, trading_pairs=trading_pairs, trading_required=self._trading_required)
                 # TO-DO for DEXes: rename all extra argument to match key in global_config_map
+
 
             else:
                 raise ValueError(f"Connector name {connector_name} is invalid.")
