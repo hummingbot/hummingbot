@@ -61,6 +61,12 @@ huobi_secret_key = os.getenv("HUOBI_SECRET_KEY")
 dolomite_test_web3_private_key = os.getenv("DOLOMITE_TEST_PK")
 dolomite_test_web3_address = os.getenv("DOLOMITE_TEST_ADDR")
 
+# Loopring Tests
+loopring_accountid = os.getenv("LOOPRING_ACCOUNTID")
+loopring_exchangeid = os.getenv("LOOPRING_EXCHANGEID")
+loopring_api_key = os.getenv("LOOPRING_API_KEY")
+loopring_private_key = os.getenv("LOOPRING_PRIVATE_KEY")
+
 # Bittrex Tests
 bittrex_api_key = os.getenv("BITTREX_API_KEY")
 bittrex_secret_key = os.getenv("BITTREX_SECRET_KEY")
