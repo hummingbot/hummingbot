@@ -36,8 +36,6 @@ cdef class BitfinexOrderBook(OrderBook):
                                        metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
-
-        msg.update(type=str(OrderBookMessageType.SNAPSHOT.value))
         return BitfinexOrderBookMessage(
             message_type=OrderBookMessageType.SNAPSHOT,
             content=msg,
