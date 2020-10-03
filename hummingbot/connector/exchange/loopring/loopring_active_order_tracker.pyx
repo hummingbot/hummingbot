@@ -19,7 +19,7 @@ cdef class LoopringActiveOrderTracker:
         super().__init__()
         self._token_config: LoopringAPITokenConfigurationDataSource = token_configuration
         self._active_asks = active_asks or {}
-        self._active_bids = active_bids or {} 
+        self._active_bids = active_bids or {}
 
     @classmethod
     def logger(cls) -> HummingbotLogger:

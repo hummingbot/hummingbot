@@ -27,7 +27,7 @@ def poseidon_params(p, t, nRoundsF, nRoundsP, seed, e, constants_C=None, constan
     assert nRoundsF % 2 == 0 and nRoundsF > 0
     assert nRoundsP > 0
     assert t >= 2
-    assert isinstance(seed, bytes)    
+    assert isinstance(seed, bytes)
 
     n = floor(log2(p))
     if security_target is None:
@@ -37,9 +37,9 @@ def poseidon_params(p, t, nRoundsF, nRoundsP, seed, e, constants_C=None, constan
     assert n >= M
 
     # Size of the state (in bits)
-    N = n * t
+    N = n * t  # noqa: F841
 
-    if p % 2 == 3:        
+    if p % 2 == 3:
         assert e == 3
         grobner_attack_ratio_rounds = 0.32
         grobner_attack_ratio_sboxes = 0.18
@@ -56,14 +56,14 @@ def poseidon_params(p, t, nRoundsF, nRoundsP, seed, e, constants_C=None, constan
     # Verify that the parameter choice exceeds the recommendations to prevent attacks
     # iacr.org/2019/458 § 3 Cryptanalysis Summary of Starkad and Poseidon Hashes (pg 10)
     # Figure 1
-    #print('(nRoundsF + nRoundsP)', (nRoundsF + nRoundsP))
-    #print('Interpolation Attackable Rounds', ((interpolation_attack_ratio * min(n, M)) + log2(t)))
+    # print('(nRoundsF + nRoundsP)', (nRoundsF + nRoundsP))
+    # print('Interpolation Attackable Rounds', ((interpolation_attack_ratio * min(n, M)) + log2(t)))
     assert (nRoundsF + nRoundsP) > ((interpolation_attack_ratio * min(n, M)) + log2(t))
     # Figure 3
-    #print('grobner_attack_ratio_rounds', ((2 + min(M, n)) * grobner_attack_ratio_rounds))
+    # print('grobner_attack_ratio_rounds', ((2 + min(M, n)) * grobner_attack_ratio_rounds))
     assert (nRoundsF + nRoundsP) > ((2 + min(M, n)) * grobner_attack_ratio_rounds)
     # Figure 4
-    #print('grobner_attack_ratio_sboxes', (M * grobner_attack_ratio_sboxes))
+    # print('grobner_attack_ratio_sboxes', (M * grobner_attack_ratio_sboxes))
     assert (nRoundsF + (t * nRoundsP)) > (M * grobner_attack_ratio_sboxes)
 
     # iacr.org/2019/458 § 4.1 Minimize "Number of S-Boxes"
@@ -86,7 +86,7 @@ def poseidon_params(p, t, nRoundsF, nRoundsP, seed, e, constants_C=None, constan
         n_constraints *= 3
     elif e == 3:
         n_constraints *= 2
-    #print('n_constraints', n_constraints)
+    # print('n_constraints', n_constraints)
 
     return PoseidonParamsType(p, t, nRoundsF, nRoundsP, seed, e, constants_C, constants_M)
 
@@ -110,10 +110,10 @@ def poseidon_matrix(p, seed, t):
     """
     iacr.org/2019/458 § 2.3 About the MDS Matrix (pg 8)
     Also:
-     - https://en.wikipedia.org/wiki/Cauchy_matrix     
+     - https://en.wikipedia.org/wiki/Cauchy_matrix
     """
     c = list(poseidon_constants(p, seed, t * 2))
-    return [[pow((c[i] - c[t+j]) % p, p - 2, p) for j in range(t)]
+    return [[pow((c[i] - c[t + j]) % p, p - 2, p) for j in range(t)]
             for i in range(t)]
 
 
@@ -143,8 +143,8 @@ def poseidon_mix(state, M, p):
     The mixing layer is a matrix vector product of the state with the mixing matrix
      - https://mathinsight.org/matrix_vector_multiplication
     """
-    return [ sum([M[i][j] * _ for j, _ in enumerate(state)]) % p 
-             for i in range(len(M)) ]
+    return [sum([M[i][j] * _ for j, _ in enumerate(state)]) % p
+            for i in range(len(M))]
 
 
 def poseidon(inputs, params=None, chained=False, trace=False):
