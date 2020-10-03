@@ -13,7 +13,6 @@ if TYPE_CHECKING:
 OPTIONS = settings.CEXES.union({"ethereum", "celo"})
 
 
-
 class ConnectCommand:
     def connect(self,  # type: HummingbotApplication
                 option: str):

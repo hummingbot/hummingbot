@@ -7,72 +7,85 @@
 from binascii import unhexlify
 from collections import defaultdict
 
+
 class _opcode(object):
-	extra = None
-	def __init__(self, code, extra=None):
-		self._code = code
-		if not isinstance(extra, (bytes, bytearray)):
-			assert extra is None
-		self.extra = extra
+    extra = None
 
-	def data(self):
-		extra = self.extra if self.extra is not None else b''
-		return bytes([self._code]) + extra
+    def __init__(self, code, extra=None):
+        self._code = code
+        if not isinstance(extra, (bytes, bytearray)):
+            assert extra is None
+        self.extra = extra
 
-	def __call__(self):
-		return self
+    def data(self):
+        extra = self.extra if self.extra is not None else b''
+        return bytes([self._code]) + extra
+
+    def __call__(self):
+        return self
+
 
 class LABEL(_opcode):
-	_code = 0x5b
-	def __init__(self, name):
-		assert isinstance(name, (str, bytes, bytearray))
-		self.name = name
+    _code = 0x5b
+
+    def __init__(self, name):
+        assert isinstance(name, (str, bytes, bytearray))
+        self.name = name
+
 
 def _encode_offset(offset):
-	return bytes([offset >> 16, (offset >> 8) & 0xFF, offset & 0xFF])
+    return bytes([offset >> 16, (offset >> 8) & 0xFF, offset & 0xFF])
+
 
 class PUSHLABEL(_opcode):
-	def __init__(self, target):
-		self.target = target
 
-	def data(self, offset):
-		assert offset >= 0 and offset < (1<<24)
-		return bytes([0x62]) + _encode_offset(offset)
+    def __init__(self, target):
+        self.target = target
+
+    def data(self, offset):
+        assert offset >= 0 and offset < (1 << 24)
+        return bytes([0x62]) + _encode_offset(offset)
+
 
 class JMP(PUSHLABEL):
-	_code = 0x56
+    _code = 0x56
 
-	def __init__(self, target=None):
-		super(JMP, self).__init__(target)
+    def __init__(self, target=None):
+        super(JMP, self).__init__(target)
 
-	def data(self, offset=None):
-		if offset is not None:
-			return super(JMP, self).data(offset) + bytes([self._code])
-		return bytes([self._code])
+    def data(self, offset=None):
+        if offset is not None:
+            return super(JMP, self).data(offset) + bytes([self._code])
+        return bytes([self._code])
+
 
 class JMPI(JMP):
-	_code = 0x57
+    _code = 0x57
+
 
 def DUP(n):
-	if n < 0 or n >= 16:
-		raise ValueError("DUP must be 0 to 16")
-	return _opcode(0x80 + n)
+    if n < 0 or n >= 16:
+        raise ValueError("DUP must be 0 to 16")
+    return _opcode(0x80 + n)
+
 
 def SWAP(n):
-	if n < 0 or n >= 16:
-		raise ValueError("SWAP must be 0 to 16")
-	return _opcode(0x8f + n)
+    if n < 0 or n >= 16:
+        raise ValueError("SWAP must be 0 to 16")
+    return _opcode(0x8f + n)
+
 
 def PUSH(data):
-	if isinstance(data, int):
-		if data < 0 or data >= ((1<<256)-1):
-			raise ValueError("Push value out of range: %r" % (data,))
-		hexdata = hex(data)[2:]
-		if (len(hexdata) % 2) != 0:
-			hexdata = '0' + hexdata
-		data = unhexlify(hexdata)
-	assert isinstance(data, (bytes, bytearray))
-	return _opcode(0x5F + len(data), data)
+    if isinstance(data, int):
+        if data < 0 or data >= ((1 << 256) - 1):
+            raise ValueError("Push value out of range: %r" % (data,))
+        hexdata = hex(data)[2:]
+        if (len(hexdata) % 2) != 0:
+            hexdata = '0' + hexdata
+        data = unhexlify(hexdata)
+    assert isinstance(data, (bytes, bytearray))
+    return _opcode(0x5F + len(data), data)
+
 
 STOP = _opcode(0x00)
 ADD = _opcode(0x01)
@@ -150,56 +163,57 @@ REVERT = _opcode(0xfd)
 INVALID = _opcode(0xfe)
 SELFDESTRUCT = _opcode(0xff)
 
+
 class Codegen(object):
-	def __init__(self, code=None):
-		self.code = bytearray()
-		self._labels = dict()
-		self._jumps = defaultdict(list)
-		if code is not None:
-			self.append(code)
+    def __init__(self, code=None):
+        self.code = bytearray()
+        self._labels = dict()
+        self._jumps = defaultdict(list)
+        if code is not None:
+            self.append(code)
 
-	def createTxData(self):
-		if len(self._jumps):
-			raise RuntimeError("Pending labels: " + ','.join(self._jumps.keys()))
+    def createTxData(self):
+        if len(self._jumps):
+            raise RuntimeError("Pending labels: " + ','.join(self._jumps.keys()))
 
-		return type(self)([
-			PUSH(len(self.code)),  # length of code being deployed
-			DUP(0),
-			DUP(0),
-			CODESIZE,              # total length
-			SUB,                   # codeOffset = (total_length - body_length)
-			PUSH(0),               # memOffset
-			CODECOPY,
-			PUSH(0),
-			RETURN
-		]).code + self.code
+        return type(self)([
+            PUSH(len(self.code)),  # length of code being deployed
+            DUP(0),
+            DUP(0),
+            CODESIZE,              # total length
+            SUB,                   # codeOffset = (total_length - body_length)
+            PUSH(0),               # memOffset
+            CODECOPY,
+            PUSH(0),
+            RETURN
+        ]).code + self.code
 
-	def append(self, *args):
-		for arg in args:
-			if isinstance(arg, (list, tuple)):
-				# Allow x.append([opcode, opcode, ...])
-				arg = self.append(*arg)
-				continue
-			if isinstance(arg, PUSHLABEL):
-				offset = None
-				if arg.target is not None:
-					if arg.target not in self._labels:
-						self._jumps[arg.target].append(len(self.code))
-						offset = 0   # jump destination filled-in later
-					else:
-						offset = self._labels[arg.target]
-				from binascii import hexlify
-				self.code += arg.data(offset)
-			elif isinstance(arg, LABEL):
-				if arg.name in self._labels:
-					raise RuntimeError("Cannot re-define label %r" % (arg.name,))
-				self._labels[arg.name] = len(self.code)
-				if arg.name in self._jumps:
-					for jump in self._jumps[arg.name]:
-						self.code[jump+1:jump+4] = _encode_offset(len(self.code))
-					del self._jumps[arg.name]
-					self.code += arg.data()
-			elif isinstance(arg, _opcode):
-				self.code += arg.data()
-			else:
-				raise RuntimeError("Unknown opcode %r" % (arg,))
+    def append(self, *args):
+        for arg in args:
+            if isinstance(arg, (list, tuple)):
+                # Allow x.append([opcode, opcode, ...])
+                arg = self.append(*arg)
+                continue
+            if isinstance(arg, PUSHLABEL):
+                offset = None
+                if arg.target is not None:
+                    if arg.target not in self._labels:
+                        self._jumps[arg.target].append(len(self.code))
+                        offset = 0   # jump destination filled-in later
+                    else:
+                        offset = self._labels[arg.target]
+                from binascii import hexlify  # noqa: F401
+                self.code += arg.data(offset)
+            elif isinstance(arg, LABEL):
+                if arg.name in self._labels:
+                    raise RuntimeError("Cannot re-define label %r" % (arg.name,))
+                self._labels[arg.name] = len(self.code)
+                if arg.name in self._jumps:
+                    for jump in self._jumps[arg.name]:
+                        self.code[jump + 1:jump + 4] = _encode_offset(len(self.code))
+                    del self._jumps[arg.name]
+                    self.code += arg.data()
+            elif isinstance(arg, _opcode):
+                self.code += arg.data()
+            else:
+                raise RuntimeError("Unknown opcode %r" % (arg,))

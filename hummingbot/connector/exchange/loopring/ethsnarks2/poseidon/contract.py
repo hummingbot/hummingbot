@@ -1,12 +1,31 @@
 # Copyright (c) 2018 Jordi Baylina
 # Copyright (c) 2019 Harry Roberts
-# License: LGPL-3.0+
+# License: LGPL - 3.0+
 
 
 import sys
 import json
 from binascii import hexlify
-from ..evmasm import *
+from ..evmasm import (
+    DUP,
+    ADDMOD,
+    MULMOD,
+    PUSH,
+    CALLDATALOAD,
+    MLOAD,
+    DIV,
+    POP,
+    EQ,
+    JMPI,
+    JMP,
+    INVALID,
+    RETURN,
+    LABEL,
+    PUSHLABEL,
+    SWAP,
+    MSTORE,
+    Codegen
+)
 from ..field import SNARK_SCALAR_FIELD
 from .permutation import DefaultParams
 
@@ -16,9 +35,9 @@ def _add_round_key(r, t, K):
     function ark(r) {
         C.push(toHex256(K[r])); // K, st, q
         for (let i=0; i<t; i++) {
-            C.dup(1+t); // q, K, st, q
+            C.dup(1 + t); // q, K, st, q
             C.dup(1);   // K, q, K, st, q
-            C.dup(3+i); // st[i], K, q, K, st, q
+            C.dup(3 + i); // st[i], K, q, K, st, q
             C.addmod(); // newSt[i], K, st, q
             C.swap(2 + i); // xx, K, st, q
             C.pop();
@@ -26,11 +45,11 @@ def _add_round_key(r, t, K):
         C.pop();
     }
     """
-    middle = [[DUP(1+t),
+    middle = [[DUP(1 + t),
                DUP(1),
-               DUP(3+i),
+               DUP(3 + i),
                ADDMOD,
-               SWAP(2+i),
+               SWAP(2 + i),
                POP] for i in range(t)]
     return [PUSH(K[r])] + middle + [POP]
 
@@ -40,7 +59,7 @@ def _sigma(p, t):
     function sigma(p) {
         // sq, q
         C.dup(t);   // q, st, q
-        C.dup(1+p); // st[p] , q , st, q
+        C.dup(1 + p); // st[p] , q , st, q
         C.dup(1);   // q, st[p] , q , st, q
         C.dup(0);   // q, q, st[p] , q , st, q
         C.dup(2);   // st[p] , q, q, st[p] , q , st, q
@@ -49,14 +68,14 @@ def _sigma(p, t):
         C.dup(0);   // st2[p], st2[p], q, st[p] , q , st, q
         C.mulmod(); // st4[p], st[p] , q , st, q
         C.mulmod(); // st5[p], st, q
-        C.swap(1+p);
+        C.swap(1 + p);
         C.pop();      // newst, q
     }
     """
     return [
         # sq, q
         DUP(t),         # q, st, q
-        DUP(1+p),       # st[p] , q , st, q
+        DUP(1 + p),       # st[p] , q , st, q
         DUP(1),         # q, st[p] , q , st, q
         DUP(0),         # q, q, st[p] , q , st, q
         DUP(2),         # st[p] , q, q, st[p] , q , st, q
@@ -65,7 +84,7 @@ def _sigma(p, t):
         DUP(0),         # st2[p], st2[p], q, st[p] , q , st, q
         MULMOD,         # st4[p], st[p] , q , st, q
         MULMOD,         # st5[p], st, q
-        SWAP(1+p),
+        SWAP(1 + p),
         POP             # newst, q
     ]
 
@@ -76,25 +95,25 @@ def _mix(params):
     for (let i=0; i<t; i++) {
         for (let j=0; j<t; j++) {
             if (j==0) {
-                C.dup(i+t);      // q, newSt, oldSt, q
-                C.push((1+i*t+j)*32);
+                C.dup(i + t);      // q, newSt, oldSt, q
+                C.push((1 + i * t + j) * 32);
                 C.mload();      // M, q, newSt, oldSt, q
-                C.dup(2+i+j);    // oldSt[j], M, q, newSt, oldSt, q
+                C.dup(2 + i + j);    // oldSt[j], M, q, newSt, oldSt, q
                 C.mulmod();      // acc, newSt, oldSt, q
             } else {
-                C.dup(1+i+t);    // q, acc, newSt, oldSt, q
-                C.push((1+i*t+j)*32);
+                C.dup(1 + i + t);    // q, acc, newSt, oldSt, q
+                C.push((1 + i * t + j) * 32);
                 C.mload();      // M, q, acc, newSt, oldSt, q
-                C.dup(3+i+j);    // oldSt[j], M, q, acc, newSt, oldSt, q
+                C.dup(3 + i + j);    // oldSt[j], M, q, acc, newSt, oldSt, q
                 C.mulmod();      // aux, acc, newSt, oldSt, q
-                C.dup(2+i+t);    // q, aux, acc, newSt, oldSt, q
+                C.dup(2 + i + t);    // q, aux, acc, newSt, oldSt, q
                 C.swap(2);       // acc, aux, q, newSt, oldSt, q
                 C.addmod();      // acc, newSt, oldSt, q
             }
         }
     }
     for (let i=0; i<t; i++) {
-        C.swap((t -i) + (t -i-1));
+        C.swap((t -i) + (t -i - 1));
         C.pop();
     }
     C.push(0);
@@ -108,20 +127,20 @@ def _mix(params):
         for j in range(t):
             if j == 0:
                 yield [
-                    DUP(i+t),           # q, newSt, oldSt, q
-                    PUSH((1+i*t+j)*32),
+                    DUP(i + t),           # q, newSt, oldSt, q
+                    PUSH((1 + i * t + j) * 32),
                     MLOAD,              # M, q, newSt, oldSt, q
-                    DUP(2+i+j),         # oldSt[j], M, q, newSt, oldSt, q
+                    DUP(2 + i + j),         # oldSt[j], M, q, newSt, oldSt, q
                     MULMOD,             # acc, newSt, oldSt, q
                 ]
             else:
                 yield [
-                    DUP(1+i+t),         # q, acc, newSt, oldSt, q
-                    PUSH((1+i*t+j)*32),
+                    DUP(1 + i + t),         # q, acc, newSt, oldSt, q
+                    PUSH((1 + i * t + j) * 32),
                     MLOAD,              # M, q, acc, newSt, oldSt, q
-                    DUP(3+i+j),         # oldSt[j], M, q, acc, newSt, oldSt, q
+                    DUP(3 + i + j),         # oldSt[j], M, q, acc, newSt, oldSt, q
                     MULMOD,             # aux, acc, newSt, oldSt, q
-                    DUP(2+i+t),         # q, aux, acc, newSt, oldSt, q
+                    DUP(2 + i + t),         # q, aux, acc, newSt, oldSt, q
                     SWAP(2),            # acc, aux, q, newSt, oldSt, q
                     ADDMOD              # acc, newSt, oldSt, q
                 ]
@@ -147,9 +166,9 @@ def poseidon_contract_opcodes(params=None):
     C.jmpi("start");
     C.invalid();
     C.label("start");
-    """    
+    """
     yield [
-        PUSH(1<<224),
+        PUSH(1 << 224),
         PUSH(0),
         CALLDATALOAD,
         DIV,
@@ -165,15 +184,15 @@ def poseidon_contract_opcodes(params=None):
         for (let i=0; i<t; i++) {
             for (let j=0; j<t; j++) {
                 C.push(toHex256(M[i][j]));
-                C.push((1+i*t+j)*32);
+                C.push((1 + i * t + j) * 32);
                 C.mstore();
             }
         }
     }
     """
     M = params.constants_M
-    yield [ [PUSH(M[i][j]), PUSH((1+i*params.t+j)*32), MSTORE]
-             for j in range(params.t)
+    yield [[PUSH(M[i][j]), PUSH((1 + i * params.t + j) * 32), MSTORE]
+           for j in range(params.t)
            for i in range(params.t)]
 
     yield PUSH(SNARK_SCALAR_FIELD)  # q
@@ -182,20 +201,20 @@ def poseidon_contract_opcodes(params=None):
     # The function has a single array param param
     # [Selector (4)] [Pointer (32)][Length (32)] [data1 (32)] ....
     # We ignore the pointer and the length and just load 6 values to the state
-    # (Stack positions 0-5) If the array is shorter, we just set zeros.
-    """    
+    # (Stack positions 0 - 5) If the array is shorter, we just set zeros.
+    """
     for (let i=0; i<t; i++) {
-        C.push(0x44+(0x20*(5-i)));
+        C.push(0x44 + (0x20 * (5 - i)));
         C.calldataload();
     }
     """
-    yield [[PUSH(0x44+(0x20*(5-i))), CALLDATALOAD]
+    yield [[PUSH(0x44 + (0x20 * (5 - i))), CALLDATALOAD]
            for i in range(params.t)]
 
     """
-    for (let i=0; i<nRoundsF+nRoundsP; i++) {
+    for (let i=0; i<nRoundsF + nRoundsP; i++) {
         ark(i);
-        if ((i<nRoundsF/2) || (i>=nRoundsP+nRoundsF/2)) {
+        if ((i<nRoundsF/2) || (i>=nRoundsP + nRoundsF/2)) {
             for (let j=0; j<t; j++) {
                 sigma(j);
             }
@@ -212,7 +231,7 @@ def poseidon_contract_opcodes(params=None):
     """
     for i in range(params.nRoundsF + params.nRoundsP):
         yield _add_round_key(i, params.t, params.constants_C)
-        if i < (params.nRoundsF//2) or i >= (params.nRoundsP+(params.nRoundsF//2)):
+        if i < (params.nRoundsF // 2) or i >= (params.nRoundsP + (params.nRoundsF // 2)):
             for j in range(params.t):
                 yield _sigma(j, params.t)
         else:
@@ -237,7 +256,7 @@ def poseidon_contract_opcodes(params=None):
     yield [PUSH(0),
            MSTORE,   # Save it to pos 0
            PUSH(0x20),
-           PUSH(0),           
+           PUSH(0),
            RETURN]
 
     for _ in _mix(params):
@@ -275,7 +294,7 @@ def poseidon_abi():
     ]
 
 
-def main(*args): 
+def main(*args):
     if len(args) < 2:
         print("Usage: %s <abi|contract> [outfile]" % (args[0],))
         return 1
@@ -288,7 +307,7 @@ def main(*args):
         return 0
     elif command == "contract":
         data = poseidon_contract()
-        if outfile == sys.stdout:            
+        if outfile == sys.stdout:
             data = '0x' + hexlify(data).decode('ascii')
         outfile.write(data)
         return 0
@@ -296,6 +315,7 @@ def main(*args):
         print("Error: unknown command", command)
     if outfile != sys.stdout:
         outfile.close()
+
 
 if __name__ == "__main__":
     sys.exit(main(*sys.argv))
