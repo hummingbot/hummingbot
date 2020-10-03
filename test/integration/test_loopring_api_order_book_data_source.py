@@ -3,7 +3,7 @@ from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 from hummingbot.connector.exchange.loopring.loopring_api_order_book_data_source import LoopringAPIOrderBookDataSource
-from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
+# from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 import asyncio
 import aiohttp
 import logging
@@ -11,12 +11,13 @@ from typing import (
     Dict,
     Optional,
     Any,
-    List,
+    # List,
 )
-import pandas as pd
+# import pandas as pd
 import unittest
 
 trading_pairs = ["ETH-USDT", "LRC-ETH", "LINK-ETH"]
+
 
 class LoopringAPIOrderBookDataSourceUnitTest(unittest.TestCase):
     @classmethod
@@ -40,6 +41,7 @@ class LoopringAPIOrderBookDataSourceUnitTest(unittest.TestCase):
         snapshot: Optional[Dict[str, Any]] = self.run_async(self.get_snapshot())
         self.assertIsNotNone(snapshot)
         self.assertIn(snapshot["market"], trading_pairs)
+
 
 def main():
     logging.basicConfig(level=logging.INFO)

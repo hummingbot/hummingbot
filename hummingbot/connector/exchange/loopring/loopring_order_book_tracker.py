@@ -1,21 +1,27 @@
 import asyncio
 import logging
-import sys
+# import sys
 from collections import deque, defaultdict
-from typing import Optional, Deque, List, Dict, Set
+from typing import (
+    Optional,
+    Deque,
+    List,
+    Dict,
+    # Set
+)
 from hummingbot.connector.exchange.loopring.loopring_active_order_tracker import LoopringActiveOrderTracker
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.connector.exchange.loopring.loopring_order_book import LoopringOrderBook
 from hummingbot.connector.exchange.loopring.loopring_order_book_message import LoopringOrderBookMessage
-from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.remote_api_order_book_data_source import RemoteAPIOrderBookDataSource
+# from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+# from hummingbot.core.data_type.remote_api_order_book_data_source import RemoteAPIOrderBookDataSource
 from hummingbot.connector.exchange.loopring.loopring_api_order_book_data_source import LoopringAPIOrderBookDataSource
-from hummingbot.connector.exchange.loopring.loopring_order_book_tracker_entry import LoopringOrderBookTrackerEntry
+# from hummingbot.connector.exchange.loopring.loopring_order_book_tracker_entry import LoopringOrderBookTrackerEntry
 from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
 from hummingbot.connector.exchange.loopring.loopring_api_token_configuration_data_source import LoopringAPITokenConfigurationDataSource
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
-from hummingbot.core.utils.async_utils import safe_ensure_future
+# from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class LoopringOrderBookTracker(OrderBookTracker):
@@ -37,11 +43,11 @@ class LoopringOrderBookTracker(OrderBookTracker):
     ):
         super().__init__(
             LoopringAPIOrderBookDataSource(
-                trading_pairs=trading_pairs, 
-                rest_api_url=rest_api_url, 
+                trading_pairs=trading_pairs,
+                rest_api_url=rest_api_url,
                 websocket_url=websocket_url,
                 token_configuration=token_configuration,
-            ), 
+            ),
             trading_pairs)
         self._order_books: Dict[str, LoopringOrderBook] = {}
         self._saved_message_queues: Dict[str, Deque[LoopringOrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
@@ -52,7 +58,7 @@ class LoopringOrderBookTracker(OrderBookTracker):
         self._loopring_auth = LoopringAuth(loopring_auth)
         self._token_configuration: LoopringAPITokenConfigurationDataSource = token_configuration
         self.token_configuration
-        self._active_order_trackers: Dict[str, LoopringActiveOrderTracker] = defaultdict(lambda : LoopringActiveOrderTracker(self._token_configuration))
+        self._active_order_trackers: Dict[str, LoopringActiveOrderTracker] = defaultdict(lambda: LoopringActiveOrderTracker(self._token_configuration))
 
     @property
     def token_configuration(self) -> LoopringAPITokenConfigurationDataSource:
@@ -78,7 +84,7 @@ class LoopringOrderBookTracker(OrderBookTracker):
                 else:
                     message = await message_queue.get()
 
-                if message.type is OrderBookMessageType.DIFF:              
+                if message.type is OrderBookMessageType.DIFF:
                     bids, asks = active_order_tracker.convert_diff_message_to_order_book_row(message)
                     order_book.apply_diffs(bids, asks, message.content["startVersion"])
 
@@ -93,6 +99,6 @@ class LoopringOrderBookTracker(OrderBookTracker):
                 self.logger().network(
                     f"Unexpected error tracking order book for {trading_pair}.",
                     exc_info=True,
-                    app_warning_msg=f"Unexpected error tracking order book. Retrying after 5 seconds.",
+                    app_warning_msg="Unexpected error tracking order book. Retrying after 5 seconds.",
                 )
                 await asyncio.sleep(5.0)

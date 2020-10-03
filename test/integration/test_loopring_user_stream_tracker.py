@@ -8,14 +8,15 @@ from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
 import asyncio
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
-    safe_gather,
+    # safe_gather,
 )
 import conf
-import json
+# import json
 import logging
 import unittest
 
 trading_pairs = ["ETH-USDT", "LRC-ETH", "LINK-ETH"]
+
 
 class LoopringAPIOrderBookDataSourceUnitTest(unittest.TestCase):
     @classmethod
@@ -44,8 +45,7 @@ class LoopringAPIOrderBookDataSourceUnitTest(unittest.TestCase):
             logging.info(event_message)
             if count > 5:
                 return
-            count+=1
-
+            count += 1
 
     def test_user_stream(self):
         safe_ensure_future(self.user_stream_tracker.start())

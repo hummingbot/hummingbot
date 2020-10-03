@@ -62,7 +62,7 @@ Ticker = namedtuple(
     "Ticker",
     "bid bid_size ask ask_size daily_change daily_change_percent last_price volume high low"
 )
-BookStructure = namedtuple("Book", "order_id price amount")
+BookStructure = namedtuple("Book", "price count amount")
 TradeStructure = namedtuple("Trade", "id mts amount price")
 # n0-n9 no documented, we dont' know, maybe later market write docs
 ConfStructure = namedtuple("Conf", "n0 n1 n2 min max n5 n6 n7 n8 n9")
@@ -179,19 +179,6 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         return prices
 
-    def _get_tracked_order_by_id(self, order_id: int):
-        if order_id in self._tracked_book_entries:
-            return self._tracked_book_entries[order_id]
-        else:
-            return {"order": None, "side": None}
-
-    def _track_order(self, order_id: int, order: OrderBookRow, side: str):
-        self._tracked_book_entries[order_id] = {"order": order, "side": side}
-
-    def _untrack_order(self, order_id):
-        if order_id in self._tracked_book_entries:
-            del self._tracked_book_entries[order_id]
-
     @staticmethod
     def _prepare_snapshot(pair: str, raw_snapshot: List[BookStructure]) -> Dict[str, Any]:
         """
@@ -200,20 +187,15 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             bids: List of OrderBookRow for bids
             asks: List of OrderBookRow for asks
         """
-        bids = [OrderBookRow(i.price, i.amount, i.order_id) for i in raw_snapshot if i.amount > 0]
-        asks = [OrderBookRow(i.price, abs(i.amount), i.order_id) for i in raw_snapshot if i.amount < 0]
+        update_id = time.time()
+        bids = [OrderBookRow(i.price, i.amount, update_id) for i in raw_snapshot if i.amount > 0]
+        asks = [OrderBookRow(i.price, abs(i.amount), update_id) for i in raw_snapshot if i.amount < 0]
 
         return {
             "symbol": pair,
             "bids": bids,
             "asks": asks,
         }
-
-    def _track_snapshot(self, snapshot: Dict[str, Any], update_id: int):
-        for o in snapshot["bids"]:
-            self._track_order(o.update_id, OrderBookRow(o.price, o.amount, update_id), "bids")
-        for o in snapshot["asks"]:
-            self._track_order(o.update_id, OrderBookRow(o.price, o.amount, update_id), "asks")
 
     def _prepare_trade(self, raw_response: str) -> Optional[Dict[str, Any]]:
         *_, content = ujson.loads(raw_response)
@@ -248,11 +230,13 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         finally:
             await ws.close()
 
-    def _generate_delete_message(self, symbol: str, price: float, side: str):
+    def _generate_delete_message(self, symbol: str, price: float, amount: str):
+        side_key = "bids" if amount == 1 else "asks"
         timestamp = time.time()
         msg = {
             "symbol": symbol,
-            side: OrderBookRow(price, 0, timestamp)    # 0 amount will force the order to be deleted
+            side_key: OrderBookRow(price, 0, timestamp),    # 0 amount will force the order to be deleted
+            "update_id": time.time()  # Assume every update is incremental
         }
         return BitfinexOrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
@@ -264,7 +248,8 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         timestamp = time.time()
         msg = {
             "symbol": symbol,
-            side_key: OrderBookRow(price, abs(amount), timestamp)
+            side_key: OrderBookRow(price, abs(amount), timestamp),
+            "update_id": timestamp  # Assume every update is incremental
         }
         return BitfinexOrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
@@ -280,27 +265,15 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         *_, content = ujson.loads(raw_response)
 
         if isinstance(content, list) and len(content) == 3:
-            order_id = content[0]
-            price = content[1]
+            price = content[0]
+            count = content[1]
             amount = content[2]
 
-            os = self._get_tracked_order_by_id(order_id)
-            order = os["order"]
-            side = os["side"]
-
-            if order is not None:
-                # this is not a new order. Either update it or delete it
-                if price == 0:
-                    self._untrack_order(order_id)
-                    return self._generate_delete_message(pair, order.price, side)
-                else:
-                    self._track_order(order_id, OrderBookRow(price, abs(amount), order.update_id), side)
-                    return None
+            if count > 0:
+                return self._generate_add_message(pair, price, amount)
             else:
-                # this is a new order unless the price is 0, just track it and create message that
-                # will add it to the order book
-                if price != 0:
-                    return self._generate_add_message(pair, price, amount)
+                return self._generate_delete_message(pair, price, amount)
+
         return None
 
     @classmethod
@@ -431,7 +404,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return self._trading_pairs
 
     async def get_snapshot(self, client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
-        request_url: str = f"{BITFINEX_REST_URL}/book/{convert_to_exchange_trading_pair(trading_pair)}/R0"
+        request_url: str = f"{BITFINEX_REST_URL}/book/{convert_to_exchange_trading_pair(trading_pair)}/P0"
         # by default it's = 50, 25 asks + 25 bids.
         # set 100: 100 asks + 100 bids
         # Exchange only allow: 1, 25, 100 (((
@@ -454,8 +427,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             snapshot_timestamp: float = time.time()
             snapshot_msg: OrderBookMessage = BitfinexOrderBook.snapshot_message_from_exchange(
                 snapshot,
-                snapshot_timestamp,
-                metadata={"symbol": trading_pair}
+                snapshot_timestamp
             )
             active_order_tracker: BitfinexActiveOrderTracker = BitfinexActiveOrderTracker()
             bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
@@ -476,8 +448,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     snapshot_timestamp: float = time.time()
                     snapshot_msg: OrderBookMessage = BitfinexOrderBook.snapshot_message_from_exchange(
                         snapshot,
-                        snapshot_timestamp,
-                        metadata={"symbol": trading_pair}
+                        snapshot_timestamp
                     )
 
                     order_book: OrderBook = self.order_book_create_function()
@@ -488,8 +459,6 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         snapshot_msg.update_id
                     )
 
-                    # Track added orders so that we can identify which orders are deleted in diff messages
-                    self._track_snapshot(snapshot, snapshot_msg.update_id)
                     result[trading_pair] = BitfinexOrderBookTrackerEntry(
                         trading_pair, snapshot_timestamp, order_book, active_order_tracker
                     )
@@ -563,13 +532,20 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         payload: Dict[str, Any] = {
                             "event": "subscribe",
                             "channel": "book",
-                            "prec": "R0",
+                            "prec": "P0",
                             "symbol": convert_to_exchange_trading_pair(trading_pair),
                         }
                         await ws.send(ujson.dumps(payload))
                         await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)  # response
                         await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)  # subscribe info
-                        await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)  # snapshot
+                        raw_snapshot = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)  # snapshot
+                        snapshot = self._prepare_snapshot(trading_pair, [BookStructure(*i) for i in ujson.loads(raw_snapshot)[1]])
+                        snapshot_timestamp: float = time.time()
+                        snapshot_msg: OrderBookMessage = BitfinexOrderBook.snapshot_message_from_exchange(
+                            snapshot,
+                            snapshot_timestamp
+                        )
+                        output.put_nowait(snapshot_msg)
 
                         async for raw_msg in self._get_response(ws):
                             msg = self._parse_raw_update(trading_pair, raw_msg)
@@ -601,8 +577,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             snapshot_timestamp: float = time.time()
                             snapshot_msg: OrderBookMessage = BitfinexOrderBook.snapshot_message_from_exchange(
                                 snapshot,
-                                snapshot_timestamp,
-                                metadata={"product_id": trading_pair}
+                                snapshot_timestamp
                             )
                             output.put_nowait(snapshot_msg)
                             self.logger().debug(f"Saved order book snapshot for {trading_pair}")
