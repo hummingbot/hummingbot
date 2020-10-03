@@ -149,27 +149,7 @@ Above steps are for new user, existing user can jump to step #5 after successful
     Though above example uses edge wallet, Zcoin doesn't endorse one wallet in particular.
     You may also refer to this step on [How to receive Zcoin with a mobile wallet](https://zcoin.io/how-to-receive-zcoin-with-a-mobile-wallet) 
     And also this step on [Installation and and getting started with your Zcoin wallet](https://youtu.be/8-HKyM3QrJU)   
-  
-  
-#### Get Harmony One deposit address from KuCoin  
-1. Go to [KuCoin](https://www.kucoin.com/) website.  
-2. Complete the sign up process.    
-3. Go to [KuCoin Deposit](https://www.kucoin.com/assets/coin/) page. From the dropdown list, search by scrolling for/typing [Harmony One](https://www.kucoin.com/assets/coin/ONE).  
-
-Above steps are for new user, existing user can jump to step #3 after successful login.  
-
-!!! note "Rewards for Suku campaign on KuCoin"  
-    Reward token for Suku campaign on KuCoin is USDC, if you want the rewards deposit directly to your KuCoin USDC address then on step #3 from the dropdown list, search by scrolling for/typing [USDC](https://www.kucoin.com/assets/coin/USDC).   
-
-#### Get Harmony One deposit address with Harmony One browser extension  
-1. Add Harmony One extension to your favorite browser.    
-2. Open Metamask and create an account - complete the sign up process.  
-3. On Harmony One dashboard make sure Network is set to Mainnet (One has been swapped to Mainnet coin).  
-4. Click **ACCOUNT**, Harmony One deposit address is located along with your name or by clicking the Deposit button.  
-5. You can copy the Harmony One deposit address by clicking your name or Copy to clipboard button.  
-    
-!!! note "Harmony One address starts with:  'one...'"
-    
+      
 
 !!! warning "Incorrect wallet address"
     Incorrect wallet address may result in a loss of funds.  
