@@ -14,14 +14,14 @@ application can still function.
 
 ## Create your own script
 1. Create a new script file, you can see examples in the Examples section below, and save it into `scripts` folder
-1. Configure your Hummingbot
+2. Configure your Hummingbot
    1. Inside Hummingbot run command `config script_enabled` and/or `config script_file_path`
-   1. Editing `conf_global.yml` file using a text editor.
+   2. Editing `conf_global.yml` file using a text editor.
    ```json
    script_enabled: true
    script_file_path: spreads_adjusted_on_volatility_script.py
    ```
-1. Start running a strategy
+3. Start running a strategy
 
 ## ScriptBase
 
@@ -138,22 +138,22 @@ volatility at a minute interval for the last 30 minutes
 ## Examples
 All below examples can be found in `scripts\` folder.
 
-1. **hello\_world\_script.py**
+- **hello\_world\_script.py**
 
    The most basic example only a few lines of code.
 
-1. **ping\_pong\_script.py**
+- **ping\_pong\_script.py**
 
    Replicates our current ping pong strategy using script.
 
-1. **price\_band\_script.py**
+- **price\_band\_script.py**
 
    Replicates our current price band strategy using script.
 
-1. **dynamic\_price\_band\_script.py**
+- **dynamic\_price\_band\_script.py**
 
    Demonstrates how to set the band around mid price moving average, the band moves as the average moves.
 
-1. **spreads\_adjusted\_on\_volatility\_script.py**
+- **spreads\_adjusted\_on\_volatility\_script.py**
 
    Demonstrates how to adjust bid and ask spreads dynamically based on price volatility.
