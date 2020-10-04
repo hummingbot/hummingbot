@@ -34,6 +34,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         object _taker_to_maker_base_conversion_rate
         object _taker_to_maker_quote_conversion_rate
         bint _hb_app_notification
+        list _maker_order_ids
 
     cdef c_process_market_pair(self,
                                object market_pair,
@@ -79,3 +80,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                                        object market_pair,
                                        bint has_active_bid,
                                        bint has_active_ask)
+    cdef str c_place_order(self,
+                           object market_pair,
+                           bint is_buy,
+                           bint is_maker,
+                           object amount,
+                           object price)
