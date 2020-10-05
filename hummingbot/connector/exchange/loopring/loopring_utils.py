@@ -1,3 +1,5 @@
+import aiohttp
+
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
 
@@ -6,6 +8,9 @@ CENTRALIZED = True
 EXAMPLE_PAIR = "LRC-ETH"
 
 DEFAULT_FEES = [0.0, 0.2]
+
+LOOPRING_ROOT_API = "https://api.loopring.io"
+LOOPRING_WS_KEY_PATH = "/v2/ws/key"
 
 KEYS = {
     "loopring_accountid":
@@ -43,3 +48,15 @@ def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
 def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
     # loopring expects trading pairs in the same format as hummingbot internally represents them
     return hb_trading_pair
+
+
+async def get_ws_api_key():
+    async with aiohttp.ClientSession() as client:
+        response: aiohttp.ClientResponse = await client.get(
+            f"{LOOPRING_ROOT_API}{LOOPRING_WS_KEY_PATH}"
+        )
+        if response.status != 200:
+            raise IOError(f"Error getting WS key. Server responded with status: {response.status}.")
+
+        response_dict : Dict[str, Any] = await response.json()
+        return response_dict['data']
