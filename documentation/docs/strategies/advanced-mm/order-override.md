@@ -9,7 +9,9 @@ Since this is a feature designed for advanced users, it is not configurable from
 
 1. Edit the strategy config file located in the Hummingbot `conf` folder using a text editor.</br>See [Where are my config and log files?](faq/troubleshooting/#where-are-my-config-and-log-files) in the FAQ page for more information.
 1. The input should be in a dictionary format and the key is user-defined.</br>Make sure there is a space between the colon ( : ) and open bracket ( [ ) as shown in the [Sample Configuration](#sample-configuration) then save your changes.
-1. If Hummingbot is running, run `exit` command and restart so the changes will take effect
+1. For the changes to take effect, perform any of the following:
+    - Run `stop` command, import the config file again, and then `start`
+    - Run `exit` command and restart Hummingbot
 
 While `order_override` is in effect, it supersedes existing values of `bid_spread`, `ask_spread`, `order_amount` and `order_levels`.
 
