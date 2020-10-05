@@ -29,7 +29,6 @@ CONF_POSTFIX = "_strategy"
 SCRIPTS_PATH = "scripts/"
 
 
-
 def _get_exchanges(cex: bool = True) -> Set[str]:
     invalid_names = ["__pycache__", "paper_trade"]
     exchanges = set()
