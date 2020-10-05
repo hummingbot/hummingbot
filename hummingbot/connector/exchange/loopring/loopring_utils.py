@@ -39,6 +39,7 @@ KEYS = {
                   is_connect_key=True)
 }
 
+
 def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
     # loopring returns trading pairs in the correct format natively
     return exchange_trading_pair

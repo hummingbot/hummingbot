@@ -35,7 +35,7 @@ class LoopringAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     def __init__(self, orderbook_tracker_data_source: LoopringAPIOrderBookDataSource, loopring_auth: LoopringAuth):
         self._loopring_auth: LoopringAuth = loopring_auth
-        self._orderbook_tracker_data_source : LoopringAPIOrderBookDataSource = orderbook_tracker_data_source
+        self._orderbook_tracker_data_source: LoopringAPIOrderBookDataSource = orderbook_tracker_data_source
         self._shared_client: Optional[aiohttp.ClientSession] = None
         self._last_recv_time: float = 0
         super().__init__()
@@ -55,7 +55,7 @@ class LoopringAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 async with websockets.connect(f"{LOOPRING_WS_URL}?wsApiKey={ws_key}") as ws:
                     ws: websockets.WebSocketClientProtocol = ws
 
-                    topics = [{"topic": "order", "market":m} for m in self._orderbook_tracker_data_source.trading_pairs]
+                    topics = [{"topic": "order", "market": m} for m in self._orderbook_tracker_data_source.trading_pairs]
                     topics.append({
                         "topic": "account"
                     })
@@ -73,7 +73,7 @@ class LoopringAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
                         diff_msg = ujson.loads(raw_msg)
                         if 'op' in diff_msg:
-                            continue # These messages are for control of the stream, so skip sending them to the market class
+                            continue  # These messages are for control of the stream, so skip sending them to the market class
                         output.put_nowait(diff_msg)
             except asyncio.CancelledError:
                 raise
@@ -92,12 +92,12 @@ class LoopringAPIUserStreamDataSource(UserStreamTrackerDataSource):
         # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
         try:
             while True:
-                msg: str = await asyncio.wait_for(ws.recv(), timeout=None)    #  This will throw the ConnectionClosed exception on disconnect
+                msg: str = await asyncio.wait_for(ws.recv(), timeout=None)    # This will throw the ConnectionClosed exception on disconnect
                 if msg == "ping":
-                    await ws.send("pong") # skip returning this and handle this protocol level message here
+                    await ws.send("pong")  # skip returning this and handle this protocol level message here
                 else:
                     yield msg
-        except websockets.exceptions.ConnectionClosed: 
+        except websockets.exceptions.ConnectionClosed:
             self.logger().warning("Loopring websocket connection closed. Reconnecting...")
             return
         finally:

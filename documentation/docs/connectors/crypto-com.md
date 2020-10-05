@@ -20,7 +20,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 ### Creating Crypto.com API keys
 
-This help article below shows step-by-step instructions on how to create API keys in Kraken exchange.
+This help article below shows step-by-step instructions on how to create API keys in Crypto.com exchange.
 
 * [How do I create an API key?](https://help.crypto.com/en/articles/3511410-how-do-i-create-an-api-key)
 

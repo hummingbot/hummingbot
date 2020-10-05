@@ -5,7 +5,7 @@ from .field import FQ
 
 
 def shamirs_poly(x, a):
-    assert isinstance(a, (list,tuple))
+    assert isinstance(a, (list, tuple))
     assert len(a) >= 2
     assert isinstance(x, FQ)
 
@@ -29,13 +29,14 @@ def lagrange(points, x):
         xi, yi = points[i]
         assert isinstance(xi, FQ)
         assert isinstance(yi, FQ)
+
         def g(i, n):
             tot_mul = 1
             for j in range(n):
                 if i == j:
                     continue
                 xj, yj = points[j]
-                tot_mul = tot_mul * ( (x - xj) // (xi - xj) )
+                tot_mul = tot_mul * ((x - xj) // (xi - xj))
             return tot_mul
         coefficient = g(i, n)
         total = total + (yi * coefficient)
@@ -48,5 +49,5 @@ def inverse_lagrange(points, y):
         for j, (x_j, y_j) in enumerate(points):
             if j != i:
                 x_i = x_i * (y - y_j) / (y_i - y_j)
-        x += x_i 
+        x += x_i
     return x
