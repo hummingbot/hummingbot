@@ -5,8 +5,8 @@ from decimal import Decimal
 
 import aiohttp
 import logging
-import pandas as pd
-import math
+# import pandas as pd
+# import math
 
 import requests
 import cachetools.func
@@ -18,18 +18,19 @@ import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-from hummingbot.core.utils import async_ttl_cache
-from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.connector.exchange.loopring.loopring_active_order_tracker import LoopringActiveOrderTracker
+# from hummingbot.core.utils import async_ttl_cache
+# from hummingbot.core.utils.async_utils import safe_gather
+# from hummingbot.connector.exchange.loopring.loopring_active_order_tracker import LoopringActiveOrderTracker
 from hummingbot.connector.exchange.loopring.loopring_order_book import LoopringOrderBook
-from hummingbot.connector.exchange.loopring.loopring_order_book_tracker_entry import LoopringOrderBookTrackerEntry
+# from hummingbot.connector.exchange.loopring.loopring_order_book_tracker_entry import LoopringOrderBookTrackerEntry
 from hummingbot.connector.exchange.loopring.loopring_api_token_configuration_data_source import LoopringAPITokenConfigurationDataSource
-from hummingbot.connector.exchange.loopring.loopring_utils import convert_from_exchange_trading_pair
+from hummingbot.connector.exchange.loopring.loopring_utils import convert_from_exchange_trading_pair, get_ws_api_key
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
-from hummingbot.connector.exchange.loopring.loopring_order_book_message import LoopringOrderBookMessage
+# from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
+# from hummingbot.connector.exchange.loopring.loopring_order_book_message import LoopringOrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_message import OrderBookMessage
 
 
 MARKETS_URL = "/api/v2/exchange/markets"
@@ -38,6 +39,7 @@ SNAPSHOT_URL = "/api/v2/depth?market=:trading_pair"
 TOKEN_INFO_URL = "/api/v2/exchange/tokens"
 WS_URL = "wss://ws.loopring.io/v2/ws"
 LOOPRING_PRICE_URL = "https://api.loopring.io/api/v2/ticker"
+
 
 class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
@@ -65,7 +67,7 @@ class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
         async with aiohttp.ClientSession() as client:
             resp = await client.get(f"https://api.loopring.io{TICKER_URL}".replace(":markets", ",".join(trading_pairs)))
             resp_json = await resp.json()
-            return { x[0]: float(x[7]) for x in resp_json.get("data", []) }
+            return {x[0]: float(x[7]) for x in resp_json.get("data", [])}
 
     @property
     def order_book_class(self) -> LoopringOrderBook:
@@ -128,7 +130,7 @@ class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
         if record["resultInfo"]["code"] == 0:
             data = record["data"]
             mid_price = (Decimal(data[9]) + Decimal(data[10])) / 2
-    
+
             return mid_price
 
     @staticmethod
@@ -158,10 +160,12 @@ class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 topics: List[dict] = [{"topic": "trade", "market": pair} for pair in self._trading_pairs]
                 subscribe_request: Dict[str, Any] = {
-                        "op": "sub",
-                        "topics": topics
-                    }
-                async with websockets.connect(WS_URL) as ws:
+                    "op": "sub",
+                    "topics": topics
+                }
+                    
+                ws_key: str = await get_ws_api_key()
+                async with websockets.connect(f"{WS_URL}?wsApiKey={ws_key}") as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     await ws.send(ujson.dumps(subscribe_request))
                     async for raw_msg in self._inner_messages(ws):
@@ -181,14 +185,15 @@ class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                async with websockets.connect(WS_URL) as ws:
+                ws_key: str = await get_ws_api_key()
+                async with websockets.connect(f"{WS_URL}?wsApiKey={ws_key}") as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     for pair in self._trading_pairs:
-                        topics: List[dict] = [{"topic": "orderbook", "market": pair, "level": 0 }]
+                        topics: List[dict] = [{"topic": "orderbook", "market": pair, "level": 0}]
                         subscribe_request: Dict[str, Any] = {
-                                "op": "sub",
-                                "topics": topics,
-                            }
+                            "op": "sub",
+                            "topics": topics,
+                        }
                         await ws.send(ujson.dumps(subscribe_request))
                     async for raw_msg in self._inner_messages(ws):
                         if len(raw_msg) > 4:
@@ -206,24 +211,25 @@ class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                async with websockets.connect(WS_URL) as ws:
+                ws_key: str = await get_ws_api_key()
+                async with websockets.connect(f"{WS_URL}?wsApiKey={ws_key}") as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     for pair in self._trading_pairs:
-                        topics: List[dict] = [{"topic": "orderbook", "market": pair, "level": 0, "count": 50, "snapshot": True }]
+                        topics: List[dict] = [{"topic": "orderbook", "market": pair, "level": 0, "count": 50, "snapshot": True}]
                         subscribe_request: Dict[str, Any] = {
-                                "op": "sub",
-                                "topics": topics,
-                            }
-                        
+                            "op": "sub",
+                            "topics": topics,
+                        }
+
                         await ws.send(ujson.dumps(subscribe_request))
-                        
+
                     async for raw_msg in self._inner_messages(ws):
                         if len(raw_msg) > 4:
                             msg = ujson.loads(raw_msg)
                             if ("topic" in msg.keys()):
-                                order_msg: OrderBookMessage = LoopringOrderBook.snapshot_message_from_exchange(msg,msg["ts"])
+                                order_msg: OrderBookMessage = LoopringOrderBook.snapshot_message_from_exchange(msg, msg["ts"])
                                 output.put_nowait(order_msg)
-            except asyncio.CancelledError:                                                                                                                                                                                                      
+            except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",

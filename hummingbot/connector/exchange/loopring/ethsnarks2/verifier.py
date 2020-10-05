@@ -13,10 +13,10 @@ from py_ecc.bn128 import pairing, FQ, FQ2, FQ12, neg, multiply, add
 
 
 _VerifyingKeyStruct = namedtuple('_VerifyingKeyStruct',
-    ('alpha', 'beta', 'gamma', 'delta', 'gammaABC'))
+                                 ('alpha', 'beta', 'gamma', 'delta', 'gammaABC'))
 
 _ProofStruct = namedtuple('_ProofStruct',
-    ('A', 'B', 'C', 'input'))
+                          ('A', 'B', 'C', 'input'))
 
 
 class CustomEncoder(json.JSONEncoder):

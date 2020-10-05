@@ -1,8 +1,8 @@
-import math
+# import math
 import bitstring
 from collections import namedtuple
 from hashlib import sha512
-import logging
+# import logging
 
 from .field import FQ, SNARK_SCALAR_FIELD
 from .jubjub import Point, JUBJUB_L, JUBJUB_Q, JUBJUB_E
@@ -47,6 +47,7 @@ P13N_EDDSA_VERIFY_RAM = 'EdDSA_Verify.RAM'
 
 class Signature(object):
     __slots__ = ('R', 's')
+
     def __init__(self, R, s):
         self.R = R if isinstance(R, Point) else Point(*R)
         self.s = s if isinstance(s, FQ) else FQ(s)
@@ -176,7 +177,7 @@ class _SignatureScheme(object):
         R = B * r                         # R = rB
 
         t = cls.hash_public(R, A, M)      # Bind the message to the nonce, public key and message
-        S = (r + (key.n*t)) % JUBJUB_E    # r + (H(R,A,M) * k)
+        S = (r + (key.n * t)) % JUBJUB_E    # r + (H(R,A,M) * k)
 
         return SignedMessage(A, Signature(R, S), msg)
 
@@ -232,6 +233,7 @@ class MiMCEdDSA(_SignatureScheme):
     @classmethod
     def hash_public(cls, *args, p13n=P13N_EDDSA_VERIFY_RAM):
         return mimc_hash(list(as_scalar(*args)), seed=p13n)
+
 
 class PoseidonEdDSA(_SignatureScheme):
     @classmethod

@@ -171,8 +171,8 @@ class MerkleTree(object):
             proof_items.remove(proof_items[index % self._width])
             if len(proof_items) == 1:
                 proof_items = proof_items[0]
-            address_bits.append( index % self._width )
-            merkle_proof.append( proof_items )
+            address_bits.append(index % self._width)
+            merkle_proof.append(proof_items)
             index = index // self._width
         return MerkleProof(leaf, address_bits, merkle_proof, self._hasher, self._width)
 
@@ -182,10 +182,10 @@ class MerkleTree(object):
             next_index = cur_index // self._width
             node_items = self._make_node(depth, cur_index)
             node = self._hasher.hash_node(depth, *node_items)
-            if len(self._leaves[depth+1]) == next_index:
-                self._leaves[depth+1].append(node)
+            if len(self._leaves[depth + 1]) == next_index:
+                self._leaves[depth + 1].append(node)
             else:
-                self._leaves[depth+1][next_index] = node
+                self._leaves[depth + 1][next_index] = node
             cur_index = next_index
 
     def leaf(self, depth, offset):
