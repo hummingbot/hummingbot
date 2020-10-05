@@ -654,22 +654,21 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             list buys = []
             list sells = []
 
-        # first to check if any advanced users provide an order override array. In this case, the orders will be
-        # generated per orverride array, otherwise the order will be generated according to buy/sell/order spread/amounts
-        # specificed by users through client interface
+        # First to check if a customized order override is configured, otherwise the proposal will be created according
+        # to order spread, amount, and levels setting.
         order_override = self._order_override
         if order_override is not None and len(order_override) > 0:
             for key, value in order_override.items():
                 if str(value[0]) in ["buy", "sell"]:
                     if str(value[0]) == "buy":
-                        price = self.c_get_mid_price() * (Decimal("1") - Decimal(str(value[1])) / Decimal("100"))
+                        price = self.get_price() * (Decimal("1") - Decimal(str(value[1])) / Decimal("100"))
                         price = market.c_quantize_order_price(self.trading_pair, price)
                         size = Decimal(str(value[2]))
                         size = market.c_quantize_order_amount(self.trading_pair, size)
                         if size > 0 and price > 0:
                             buys.append(PriceSize(price, size))
                     elif str(value[0]) == "sell":
-                        price = self.c_get_mid_price() * (Decimal("1") + Decimal(str(value[1])) / Decimal("100"))
+                        price = self.get_price() * (Decimal("1") + Decimal(str(value[1])) / Decimal("100"))
                         price = market.c_quantize_order_price(self.trading_pair, price)
                         size = Decimal(str(value[2]))
                         size = market.c_quantize_order_amount(self.trading_pair, size)
