@@ -16,7 +16,7 @@ from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
-    WalletEvent,
+    # WalletEvent,
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
     OrderCancelledEvent,
@@ -25,7 +25,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.connector.exchange.loopring.loopring_exchange import LoopringExchange
 from hummingbot.market.market_base import OrderType
-from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
+# from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
 
 sys.path.insert(0, realpath(join(__file__, "../../../")))
 
@@ -163,6 +163,7 @@ class LoopringExchangeUnitTest(unittest.TestCase):
     def test_place_market_buy_and_sell(self):
         # Market orders not supported on Loopring
         pass
+
 
 def main():
     logging.basicConfig(level=logging.ERROR)

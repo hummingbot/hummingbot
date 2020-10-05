@@ -8,7 +8,23 @@ import json
 from binascii import hexlify
 
 from ..sha3 import keccak_256
-from ..evmasm import *
+from ..evmasm import (
+    DUP,
+    ADDMOD,
+    MULMOD,
+    PUSH,
+    CALLDATACOPY,
+    MLOAD,
+    DIV,
+    EQ,
+    JMPI,
+    INVALID,
+    RETURN,
+    LABEL,
+    SWAP,
+    MSTORE,
+    Codegen
+)
 from ..field import SNARK_SCALAR_FIELD
 
 from .permutation import mimc_constants
@@ -63,7 +79,7 @@ def mimc_contract_opcodes(exponent):
            PUSH(0),     # callDataOffset
            PUSH(0),     # memoryOffset
            CALLDATACOPY,
-           PUSH(1<<224),
+           PUSH(1 << 224),
            PUSH(0),
            MLOAD,
            DIV,
@@ -75,11 +91,11 @@ def mimc_contract_opcodes(exponent):
     yield [LABEL('start'),
            PUSH(SNARK_SCALAR_FIELD),  # q
            PUSH(0x24),
-           MLOAD]           # k q
+           MLOAD]                     # k q
 
     yield [
-        PUSH(0x04), # 0x04 k q
-        MLOAD       # x k q
+        PUSH(0x04),  # 0x04 k q
+        MLOAD        # x k q
     ]
 
     for c_i in constants:
@@ -138,7 +154,7 @@ def mimc_contract(exponent):
     return gen.createTxData()
 
 
-def main(*args): 
+def main(*args):
     if len(args) < 3:
         print("Usage: %s <abi|contract> <exponent> [outfile]" % (args[0],))
         return 1
@@ -157,7 +173,7 @@ def main(*args):
         outfile.write(json.dumps(mimc_abi(exponent)) + "\n")
     elif command == "contract":
         data = mimc_contract(exponent)
-        if outfile == sys.stdout:            
+        if outfile == sys.stdout:
             data = '0x' + hexlify(data).decode('ascii')
         outfile.write(data)
     else:

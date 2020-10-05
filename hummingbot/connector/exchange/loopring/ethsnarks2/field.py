@@ -44,6 +44,8 @@ FR_ORDER = 218882428718392752222464057452572750886145117772685380736017252875875
 
 # A class for field elements in FQ. Wrap a number in this class,
 # and it becomes a field element.
+
+
 class FQ(object):
     _COUNTS = None
 
@@ -152,7 +154,7 @@ class FQ(object):
     def __div__(self, other):
         on = self._other_n(other)
         self._count('inv')
-        return FQ((self.n * pow(on, self.m-2, self.m)) % self.m, self.m)
+        return FQ((self.n * pow(on, self.m - 2, self.m)) % self.m, self.m)
 
     def __floordiv__(self, other):
         return self.__div__(other)
@@ -164,7 +166,7 @@ class FQ(object):
         on = self._other_n(other)
         self._count('inv')
         self._count('mul')
-        return FQ((pow(self.n, self.m-2, self.m) * on) % self.m, self.m)
+        return FQ((pow(self.n, self.m - 2, self.m) * on) % self.m, self.m)
 
     def __rtruediv__(self, other):
         return self.__rdiv__(other)
@@ -204,6 +206,7 @@ class FQ(object):
         if isinstance(modulus, FQ):
             modulus = modulus.m
         return FQ(0, modulus)
+
 
 class FR(FQ):
     def __init__(self, n, field_modulus=FR_ORDER):

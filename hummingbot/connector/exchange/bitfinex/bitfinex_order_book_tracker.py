@@ -197,7 +197,7 @@ class BitfinexOrderBookTracker(OrderBookTracker):
             except asyncio.CancelledError:
                 raise
             except Exception as err:
-                self.logger().error("track single book", err)
+                self.logger().error(err)
                 self.logger().network(
                     f"Unexpected error processing order book messages for {trading_pair}.",
                     exc_info=True,

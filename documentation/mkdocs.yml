@@ -212,7 +212,7 @@ nav:
           - Task 1 - Data Source & Order Book Tracker: developers/connectors/task1.md
           - Task 2 - User Stream Tracker : developers/connectors/task2.md
           - Task 3 - Market Connector: developers/connectors/task3.md
-          - Task 4 - Hummingbot Client: developers/connectors/task4.md
+          - Task 4 - Required Connector Configuration: developers/connectors/task4.md
           - Debug and Test: developers/connectors/debug&test.md
         - Miscellaneous: developers/connectors/miscellaneous.md
       - Tutorial (WIP):
