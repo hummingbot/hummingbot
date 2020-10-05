@@ -12,10 +12,11 @@ Building a new exchange connector requires conforming to the template code to th
 
 
 !!! note "Recommendation"
-    For new developers building a connector, we recommend to use Binance as a template to start and understand the functions and behaviors.
+    For new developers building a connector, we recommend to use Crypto.com as a template to start understanding the functions and behaviors.
 
 The following list some examples/templates that you can refer to when building the connector:
 
+- [Crypto.com](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/crypto_com) 
 - [Binance](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/binance) 
 - [Coinbase Pro](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/coinbase_pro) 
 - [Huobi](hhttps://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/huobi)
