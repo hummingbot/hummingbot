@@ -49,4 +49,7 @@ Function<div style="width:200px"/> | Input Parameter(s) | Expected Output(s)(s) 
 `data_source` | None | `UserStreamTrackerDataSource` | Initializes a user stream data source.
 `start` | None | None | Starts all listeners and tasks.
 `user_stream` | None | `asyncio.Queue` | Returns the message queue containing all the messages pertaining to user account balances and order statues.
- 
+
+## Debugging & Testing
+
+As part of the QA process, for each tasks(Task 1 through 3) you are **required** to include the unit test cases for the code review process to begin. Refer to [Option 1: Unit Test Cases](/developers/connectors/debug&test/#option-1-unit-test-cases) to build your unit tests. 
