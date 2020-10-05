@@ -1,228 +1,63 @@
-# Task 4. Configure Hummingbot Client
+# Task 4. Required Connector Configuration
 
-This section will define the necessary files that need to be modified to allow users configure Hummingbot to use the new exchange connector.
+This section explains the required steps for connector in order to work with Hummingbot.
 
-The following list displays the files that **require** to be modified.
+To do so:
 
-- __init_.py
-- global_config_map.py
-- fee_overrides_config_map.py
-- hummingbot_application.py
-- settings.py
-- user_balances.py
-- trading_pair_fetcher.py
-- market_mid_price.py
-- estimate_fee.py
+1. In `setup.py`, add your new connector package in `packages` variable as shown:
+```python
+    packages = [
+        "hummingbot",
+        .
+        .
+        "hummingbot.connector.exchange.kucoin",
+        "hummingbot.connector.exchange.[new_connector]",
+``` 
+2. Add the following **required** members and functions in the new connector's utils file. Directory: `hummingbot/connector/[connector type]/[connector name]/[connector name]_utils.py`
 
-The following displays where the files are located and the respective code changes that **require** to be modified.
+Function<div style="width:200px"/> | Type | Description
+---|---|---
+`CENTRALIZED` | `bool` | Return `True` if connector is for a decentralized exchange, otherwise return false.
+`EXAMPLE_PAIR` | `str` | Gives an example of a supported trading pair on the exchange in [BASE]-[QUOTE] format.
+`DEFAULT_FEES` | `List[Decimal]` | Return a list with the first index as the default maker fee and the second index as default taker fee.
+`KEYS` | `Dict[str, ConfigVar]` | Return a dictionary containing required keys for connecting to the exchange.
 
-## __init_.py
 
-Directory: `connector/__init_.py`
+### Sample Code — `[connector name]_utils_.py` 
 
 ```python
-new_market_api_key = os.getenv("NEW_MARKET_API_KEY")
-new_market_secret_key = os.getenv("NEW_MARKET_SECRET_KEY")
-```
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.config.config_methods import using_exchange
 
-## global_config_map.py
+CENTRALIZED = True  # True for centralized exchange and false for decentralized exchange
 
-Directory: `hummingbot/client/config/global_config_map.py`
+EXAMPLE_PAIR = "ZRX-ETH"  # Example of supported pair on exchange
 
-```python
-"new_market_api_key": ConfigVar(key="new_market_api_key",
-                             prompt="Enter your NewMarket API key >>> ",
-                             required_if=using_exchange("new_market"),
-                             is_secure=True),
-"new_market_secret_key": ConfigVar(key="new_market_secret_key",
-                                prompt="Enter your NewMarket secret key >>> ",
-                                required_if=using_exchange("new_market"),
-                                is_secure=True),
-```
+DEFAULT_FEES = [0.1, 0.1]  # [maker fee, taker fee]
 
-## fee_overrides_config_map.py
-
-Directory: `hummingbot/client/config/fee_overrides_config_map.py`
-
-
-```python
-fee_overrides_config_map = {
-    "binance_maker_fee": new_fee_config_var("binance_maker_fee"),
-    "binance_taker_fee": new_fee_config_var("binance_taker_fee"),
-    .
-    .
-    .
-    "new_exchange_maker_fee": new_fee_config_var("new_exchange_maker_fee"),
-    "new_exchange_taker_fee": new_fee_config_var("new_exchange_taker_fee"),
-```
-
-##  hummingbot_application.py
-
-Directory: `hummingbot/client/hummingbot_application.py`
-
-
-```python
-MARKET_CLASSES = {
-    .
-    .
-    .
-    "new_market": NewMarket
-}
-.
-.
-.
-  def _initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
+KEYS = {
+    "[connector name]_api_key":
+        ConfigVar(key="[connector name]_api_key",
+                  prompt="Enter your Binance API key >>> ",
+                  required_if=using_exchange("[connector name]"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "[connector name]_api_secret":
+        ConfigVar(key="[connector name]_api_secret",
+                  prompt="Enter your Binance API secret >>> ",
+                  required_if=using_exchange("[connector name]"),
+                  is_secure=True,
+                  is_connect_key=True),
     ...
-    ...
-       ...
-       elif market_name == "new_market":
-         new_market_api_key = global_config_map.get("new_market_api_key").value
-         new_market_secret_key = global_config_map.get("new_market_secret_key").value
-         new_market_passphrase = global_config_map.get("new_market_passphrase").value
-
-         market = NewMarket(new_market_api_key,
-                            new_market_secret_key,
-                            new_market_passphrase,
-                            symbols=symbols,
-                            trading_required=self._trading_required)
-```
-
-## settings.py
-
-Directory: `hummingbot/client/settings.py`
-
-```python
-EXCHANGES = {
-    "bamboo_relay",
-    .
-    .
-    .
-    "new_market",
-}	}
-
-DEXES = {
-    "bamboo_relay",
-    .
-    .
-    .
-    "new_market", # if it is a DEX
-}
-
-EXAMPLE_PAIRS = {
-    "binance": "ZRXETH",
-    .
-    .
-    .
-    "new_market": "EXAMPLE_PAIR",
-}
-
-EXAMPLE_ASSETS = {
-    "binance": "ZRX",
-    .
-    .
-    .
-    "new_market": "EXAMPLE_ASSET",
-}
-```
-- `hummingbot/client/command/connect_command.py`
-```python
-OPTIONS = {
-    "binance",
-    .
-    .
-    .
-    "new_exchange"
 }
 ```
 
-##  user_balances.py
+!!! note
+    If the exchange does not provide trading pairs in `[Base]-[Quote]` format, the following functions needs to be implemented in addition to the previous functions:
 
-Directory: `hummingbot/user/user_balances.py`
-
-
-```python
-    @staticmethod
-    def connect_market(exchange, *api_details):
-        market = None
-        if exchange == "binance":
-            market = BinanceMarket(api_details[0], api_details[1])
-        .
-        .
-        .
-        elif exchange == "new_exchange":
-            market = NewExchangeMarket(api_details[0], api_details[1])
-        return market
-```
-
-## trading_pair_fetcher.py
-
-Directory: `hummingbot/user/hummingbot/core/utils/trading_pair_fetcher.py`
-
-```python
-@staticmethod
-async def fetch_new_market_trading_pairs() -> List[str]:
-    # Returns a List of str, representing each active trading pair on the exchange.
-    async with aiohttp.ClientSession() as client:
-            async with client.get(NEW_MARKET_ENDPOINT, timeout=API_CALL_TIMEOUT) as response:
-                if response.status == 200:
-                    try:
-                        all_trading_pairs: List[Dict[str, any]] = await response.json()
-                        return [item["symbol"]
-                                for item in all_trading_pairs
-                                if item["status"] == "ONLINE"]  # Only returns active trading pairs
-                    except Exception:
-                        pass
-                        # Do nothing if the request fails -- there will be no autocomplete available
-                return []
-.
-.
-.
-
-async def fetch_all(self):
-    binance_trading_pairs = await self.fetch_binance_trading_pairs()
-    .
-    .
-    .
-    new_market_trading_pairs = await self.fetch_new_market_trading_pairs()
-    self.trading_pairs = {}
-        "binance": binance_trading_pairs,
-        .
-        .
-        .
-        "new_market": new_market_trading_pairs,
-```
-## market_mid_price.py
-
-Directory: `hummingbot/core/utils/market_mid_price.py`
+Function<div style="width:200px"/> | Input Parameter(s) | Expected Output(s) | Description
+---|---|---|---
+`convert_from_exchange_trading_pair` | exchange_trading_pair: `str` | `str` | Converts the exchange's trading pair to `[Base]-[Quote]` formats and return the output.
+`convert_to_exchange_trading_pair` | hb_trading_pair: `str` | `str` | Converts HB's `[Base]-[Quote]` trading pair format to the exchange's trading pair format and return the output.
 
 
-```python
-def get_mid_price(exchange: str, trading_pair: str) -> Optional[Decimal]:
-    .
-    .
-    elif exchange == "new_exchange":
-        return new_exchange_mid_price(trading_pair)
-        
-@cachetools.func.ttl_cache(ttl=10)
-def new_exchange_mid_price(trading_pair: str) -> Optional[Decimal]:
-    resp = requests.get(url=...)
-    records = resp.json()
-    result = None
-    for record in records:
-        pair = new_exchange.convert_from_exchange_trading_pair(record["symbol"])
-        .
-        .
-        .
-    return result
-```
-## estimate_fee.py
-
-Directory: `hummingbot/core/utils/estimate_fee.py`
-
-```python
-default_cex_estimate = {
-        .
-        .
-        "new_exchange": [maker_fee, taker_fee],
-        
-```

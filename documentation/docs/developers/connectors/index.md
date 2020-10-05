@@ -10,7 +10,6 @@ There are [existing connectors](https://github.com/CoinAlpha/hummingbot/tree/mas
 
 Building a new exchange connector requires conforming to the template code to the new exchange's APIs, identifying and handling any differences in functions/behaviors, and testing the new exchange connector on that exchange.
 
-
 !!! note "Recommendation"
     For new developers building a connector, we recommend to use Crypto.com as a template to start understanding the functions and behaviors.
 

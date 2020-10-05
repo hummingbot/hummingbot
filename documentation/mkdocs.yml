@@ -172,6 +172,7 @@ nav:
       - Autostart <sup>(BETA)</sup>: advanced/autostart.md
       - External Database <sup>(BETA)</sup>: advanced/db-config.md
       - Scripts: advanced/scripts.md
+      - Minimum Order Size: advanced/min-order.md
     - Community:
       - Overview: community/index.md  
       - Contributions: community/contributions.md
@@ -211,8 +212,8 @@ nav:
           - Task 1 - Data Source & Order Book Tracker: developers/connectors/task1.md
           - Task 2 - User Stream Tracker : developers/connectors/task2.md
           - Task 3 - Market Connector: developers/connectors/task3.md
-          - Task 4 - Hummingbot Client: developers/connectors/task4.md
-          - Debugging & Testing: developers/connectors/debug&test.md
+          - Task 4 - Required Connector Configuration: developers/connectors/task4.md
+          - Debug and Test: developers/connectors/debug&test.md
         - Miscellaneous: developers/connectors/miscellaneous.md
       - Tutorial (WIP):
         - Intro: developers/tutorial/index.md
