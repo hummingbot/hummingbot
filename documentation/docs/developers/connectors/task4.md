@@ -1,9 +1,11 @@
 # Task 4. Required Connector Configuration
 
-This section explains the required connector configuration in order to work with Hummingbot.
+This section explains the required steps for connector in order to work with Hummingbot.
 
-First, add your new connector package to `setup.py`, in `packages` variable add your package as below:
+To do so:
 
+1. Add your new connector package to `setup.py`.
+2. In `packages` variable, add in your package as shown:
 ```python
     packages = [
         "hummingbot",
@@ -12,12 +14,7 @@ First, add your new connector package to `setup.py`, in `packages` variable add 
         "hummingbot.connector.exchange.kucoin",
         "hummingbot.connector.exchange.[new_connector]",
 ``` 
-
-
-Then, add the following **required** members and functions in the new connector's utils file.
-
-Directory: `hummingbot/connector/[connector type]/[connector name]/[connector name]_utils.py`
-
+3. Add the following **required** members and functions in the new connector's utils file. Directory: `hummingbot/connector/[connector type]/[connector name]/[connector name]_utils.py`
 
 Function<div style="width:200px"/> | Type | Description
 ---|---|---
