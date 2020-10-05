@@ -26,11 +26,11 @@ The following list some examples/templates that you can refer to when building t
 
 ## Exchange connector requirements
 1. A set of exchange connector files as listed [above](#exchange-connector-files).
-2. Unit tests (see [existing unit tests](https://github.com/CoinAlpha/hummingbot/tree/master/test/integration)):
+2. Unit tests (see [existing unit tests](https://github.com/CoinAlpha/hummingbot/tree/master/test/connector/exchange/crypto_com)):
 
-    1. Exchange market test ([example](https://github.com/CoinAlpha/hummingbot/blob/master/test/integration/test_binance_market.py))
-    2. Order book tracker ([example](https://github.com/CoinAlpha/hummingbot/blob/master/test/integration/test_binance_order_book_tracker.py))
-    3. User stream tracker ([example](https://github.com/CoinAlpha/hummingbot/blob/master/test/integration/test_binance_user_stream_tracker.py))
+    1. Exchange market test ([example](https://github.com/CoinAlpha/hummingbot/blob/master/test/connector/exchange/crypto_com/test_crypto_com_exchange.py))
+    2. Order book tracker ([example](https://github.com/CoinAlpha/hummingbot/blob/master/test/connector/exchange/crypto_com/test_crypto_com_order_book_tracker.py))
+    3. User stream tracker ([example](https://github.com/CoinAlpha/hummingbot/blob/master/test/connector/exchange/crypto_com/test_crypto_com_user_stream_tracker.py))
 
 3. Documentation:
 
