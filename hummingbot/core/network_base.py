@@ -92,7 +92,7 @@ class NetworkBase:
             except asyncio.CancelledError:
                 raise
             except asyncio.TimeoutError:
-                self.logger().debug(f"Check network call has timed out. Network status is not connected.")
+                self.logger().debug("Check network call has timed out. Network status is not connected.")
                 new_status = NetworkStatus.NOT_CONNECTED
             except Exception:
                 self.logger().error("Unexpected error while checking for network status.", exc_info=True)

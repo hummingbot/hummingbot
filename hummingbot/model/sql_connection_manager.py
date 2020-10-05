@@ -66,8 +66,8 @@ class SQLConnectionManager:
         return cls._scm_trade_fills_instance
 
     @classmethod
-    def get_db_engine(cls, 
-                      dialect: str, 
+    def get_db_engine(cls,
+                      dialect: str,
                       params: dict) -> Engine:
         # Fallback to `sqlite` if dialect is None
         if dialect is None:
@@ -104,12 +104,12 @@ class SQLConnectionManager:
 
         if connection_type is SQLConnectionType.TRADE_FILLS:
             self._engine: Engine = self.get_db_engine(
-                                                engine_options.get("db_engine"),
-                                                engine_options)
+                engine_options.get("db_engine"),
+                engine_options)
             self._metadata: MetaData = self.get_declarative_base().metadata
             self._metadata.create_all(self._engine)
 
-            # SQLite does not enforce foreign key constraint, but for others engines, we need to drop it. 
+            # SQLite does not enforce foreign key constraint, but for others engines, we need to drop it.
             # See: `hummingbot/market/markets_recorder.py`, at line 213.
             with self._engine.begin() as conn:
                 inspector = inspect(conn)
