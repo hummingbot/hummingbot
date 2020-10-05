@@ -4,4 +4,4 @@ try:
 except ImportError:
     # pycryptodome
     from Crypto.Hash import keccak
-    keccak_256 = lambda *args: keccak.new(*args, digest_bits=256)
+    keccak_256 = lambda *args: keccak.new(*args, digest_bits=256)  # noqa: E731

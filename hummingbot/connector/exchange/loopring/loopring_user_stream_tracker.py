@@ -39,7 +39,7 @@ class LoopringUserStreamTracker(UserStreamTracker):
     @property
     def data_source(self) -> UserStreamTrackerDataSource:
         if not self._data_source:
-            self._data_source = LoopringAPIUserStreamDataSource(orderbook_tracker_data_source=self._orderbook_tracker_data_source, 
+            self._data_source = LoopringAPIUserStreamDataSource(orderbook_tracker_data_source=self._orderbook_tracker_data_source,
                                                                 loopring_auth=self._loopring_auth)
         return self._data_source
 

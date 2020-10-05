@@ -17,11 +17,11 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
 from hummingbot.connector.exchange.loopring.loopring_api_order_book_data_source import LoopringAPIOrderBookDataSource
 from hummingbot.connector.exchange.loopring.loopring_order_book import LoopringOrderBook
+from hummingbot.connector.exchange.loopring.loopring_utils import get_ws_api_key
 
 LOOPRING_WS_URL = "wss://ws.loopring.io/v2/ws"
 
 LOOPRING_ROOT_API = "https://api.loopring.io"
-
 
 class LoopringAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
@@ -35,7 +35,7 @@ class LoopringAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     def __init__(self, orderbook_tracker_data_source: LoopringAPIOrderBookDataSource, loopring_auth: LoopringAuth):
         self._loopring_auth: LoopringAuth = loopring_auth
-        self._orderbook_tracker_data_source : LoopringAPIOrderBookDataSource = orderbook_tracker_data_source
+        self._orderbook_tracker_data_source: LoopringAPIOrderBookDataSource = orderbook_tracker_data_source
         self._shared_client: Optional[aiohttp.ClientSession] = None
         self._last_recv_time: float = 0
         super().__init__()
@@ -51,10 +51,11 @@ class LoopringAPIUserStreamDataSource(UserStreamTrackerDataSource):
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                async with websockets.connect(LOOPRING_WS_URL) as ws:
+                ws_key: str = await get_ws_api_key()
+                async with websockets.connect(f"{LOOPRING_WS_URL}?wsApiKey={ws_key}") as ws:
                     ws: websockets.WebSocketClientProtocol = ws
 
-                    topics = [{"topic": "order", "market":m} for m in self._orderbook_tracker_data_source.trading_pairs]
+                    topics = [{"topic": "order", "market": m} for m in self._orderbook_tracker_data_source.trading_pairs]
                     topics.append({
                         "topic": "account"
                     })
@@ -72,7 +73,7 @@ class LoopringAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
                         diff_msg = ujson.loads(raw_msg)
                         if 'op' in diff_msg:
-                            continue # These messages are for control of the stream, so skip sending them to the market class
+                            continue  # These messages are for control of the stream, so skip sending them to the market class
                         output.put_nowait(diff_msg)
             except asyncio.CancelledError:
                 raise
@@ -80,11 +81,6 @@ class LoopringAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 self.logger().error("Unexpected error with Loopring WebSocket connection. "
                                     "Retrying after 30 seconds...", exc_info=True)
                 await asyncio.sleep(30.0)
-
-    async def _http_client(self) -> aiohttp.ClientSession:
-        if self._shared_client is None or self._shared_client.closed:
-            self._shared_client = aiohttp.ClientSession()
-        return self._shared_client
 
     async def _inner_messages(self,
                               ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
@@ -96,12 +92,12 @@ class LoopringAPIUserStreamDataSource(UserStreamTrackerDataSource):
         # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
         try:
             while True:
-                msg: str = await asyncio.wait_for(ws.recv(), timeout=None)    #  This will throw the ConnectionClosed exception on disconnect
+                msg: str = await asyncio.wait_for(ws.recv(), timeout=None)    # This will throw the ConnectionClosed exception on disconnect
                 if msg == "ping":
-                    await ws.send("pong") # skip returning this and handle this protocol level message here
+                    await ws.send("pong")  # skip returning this and handle this protocol level message here
                 else:
                     yield msg
-        except websockets.exceptions.ConnectionClosed: 
+        except websockets.exceptions.ConnectionClosed:
             self.logger().warning("Loopring websocket connection closed. Reconnecting...")
             return
         finally:

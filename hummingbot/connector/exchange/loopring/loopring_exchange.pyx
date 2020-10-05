@@ -59,8 +59,10 @@ s_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_NaN = Decimal("nan")
 
+
 def num_d(amount):
     return abs(Decimal(amount).normalize().as_tuple().exponent)
+
 
 def now():
     return int(time.time()) * 1000
@@ -90,7 +92,7 @@ NEXT_ORDER_ID = "api/v2/orderId"
 ORDER_ROUTE = "api/v3/order"
 ORDER_CANCEL_ROUTE = "api/v2/orders"
 MAXIMUM_FILL_COUNT = 16
-UNRECOGNIZED_ORDER_DEBOUCE = 20 #seconds
+UNRECOGNIZED_ORDER_DEBOUCE = 20  # seconds
 
 cdef class LoopringExchangeTransactionTracker(TransactionTracker):
     cdef:
@@ -136,7 +138,7 @@ cdef class LoopringExchange(ExchangeBase):
             rest_api_url=self.API_REST_ENDPOINT,
             websocket_url=self.WS_ENDPOINT,
             token_configuration = self._token_configuration
-        )        
+        )
         self._user_stream_tracker = LoopringUserStreamTracker(
             orderbook_tracker_data_source=self._order_book_tracker.data_source,
             loopring_auth=self._loopring_auth
@@ -236,18 +238,18 @@ cdef class LoopringExchange(ExchangeBase):
             next_id = self._next_order_id
             if force_sync or self._next_order_id.get(token) is None:
                 try:
-                    response = await self.api_request("GET", NEXT_ORDER_ID, params={"accountId":self._loopring_accountid, "tokenSId": token})
+                    response = await self.api_request("GET", NEXT_ORDER_ID, params={"accountId": self._loopring_accountid, "tokenSId": token})
                     next_id = response["data"]
                     self._next_order_id[token] = next_id
                 except Exception as e:
                     self.logger().info(str(e))
                     self.logger().info("Error getting the next order id from Loopring")
             else:
-                next_id = self._next_order_id[token] 
+                next_id = self._next_order_id[token]
                 self._next_order_id[token] = next_id + 1
 
         return next_id
-    
+
     async def _serialize_order(self, order):
         return [
             int(order["exchangeId"]),
@@ -261,7 +263,7 @@ cdef class LoopringExchange(ExchangeBase):
             int(order["validSince"]),
             int(order["validUntil"]),
             int(order["maxFeeBips"]),
-            int(order["buy"] == 'true'),            
+            int(order["buy"] == 'true'),
             int(order["label"])
         ]
 
@@ -275,25 +277,25 @@ cdef class LoopringExchange(ExchangeBase):
                           is_buy: bool,
                           order_type: OrderType,
                           price: Decimal) -> Dict[str, Any]:
-        order_side : TradeType = TradeType.BUY if is_buy else TradeType.SELL
+        order_side = TradeType.BUY if is_buy else TradeType.SELL
         base, quote = trading_pair.split('-')
         baseid, quoteid = self._token_configuration.get_tokenid(base), self._token_configuration.get_tokenid(quote)
 
         validSince = int(time.time()) - 3600
         order_details = self._token_configuration.sell_buy_amounts(baseid, quoteid, amount, price, order_side)
-        token_s_id : int = order_details["tokenSId"]
+        token_s_id = int(order_details["tokenSId"])
         order_id = await self._get_next_order_id(token_s_id)
         order = {
-            "exchangeId" : self._loopring_exchangeid,
-            "orderId" : order_id,
-            "accountId" : self._loopring_accountid,
-            "allOrNone" : "false",
-            "validSince" : validSince,
-            "validUntil" : validSince + (604800*5), # Until week later
-            "maxFeeBips" : 63,
-            "label" : 20,
-            "buy" : "true" if order_side is TradeType.BUY else "false",
-            "clientOrderId" : client_order_id,
+            "exchangeId": self._loopring_exchangeid,
+            "orderId": order_id,
+            "accountId": self._loopring_accountid,
+            "allOrNone": "false",
+            "validSince": validSince,
+            "validUntil": validSince + (604800*5),  # Until week later
+            "maxFeeBips": 63,
+            "label": 20,
+            "buy": "true" if order_side is TradeType.BUY else "false",
+            "clientOrderId": client_order_id,
             **order_details
         }
         if order_type is OrderType.LIMIT_MAKER:
@@ -306,20 +308,20 @@ cdef class LoopringExchange(ExchangeBase):
 
         # Update with signature
         order.update({
-            "hash"        : str(msgHash),
-            "signatureRx" : str(signed_message.sig.R.x),
-            "signatureRy" : str(signed_message.sig.R.y),
-            "signatureS"  : str(signed_message.sig.s)
+            "hash": str(msgHash),
+            "signatureRx": str(signed_message.sig.R.x),
+            "signatureRy": str(signed_message.sig.R.y),
+            "signatureS": str(signed_message.sig.s)
         })
 
         return await self.api_request("POST", ORDER_ROUTE, params=order, data=order)
 
     async def execute_order(self, order_side, client_order_id, trading_pair, amount, order_type, price):
         """
-        Completes the common tasks from execute_buy and execute_sell.  Quantizes the order's amount and price, and 
+        Completes the common tasks from execute_buy and execute_sell.  Quantizes the order's amount and price, and
         validates the order against the trading rules before placing this order.
         """
-        # Quantize order    
+        # Quantize order
         amount = self.c_quantize_order_amount(trading_pair, amount)
         price = self.c_quantize_order_price(trading_pair, price)
 
@@ -338,7 +340,7 @@ cdef class LoopringExchange(ExchangeBase):
             raise ValueError(f"Order notional value({str(amount*price)}) is less than the minimum allowable notional value for an order ({str(trading_rule.min_notional_size)})")
 
         try:
-            created_at : int = int(time.time())
+            created_at: int = int(time.time())
             in_flight_order = LoopringInFlightOrder.from_loopring_order(self, order_side, client_order_id, created_at, None, trading_pair, price, amount)
             self.start_tracking(in_flight_order)
 
@@ -350,7 +352,7 @@ cdef class LoopringExchange(ExchangeBase):
                 # Let's just issue a cancel order for now and hope for the best
                 if not self.cancel_order(client_order_id):
                     raise e
-            
+
             # Verify the response from the exchange
             if "data" not in creation_response.keys():
                 raise Exception(creation_response['resultInfo']['message'])
@@ -368,7 +370,7 @@ cdef class LoopringExchange(ExchangeBase):
 
         except Exception as e:
             self.logger().warning(f"Error submitting {order_side.name} {order_type.name} order to Loopring for "
-                               f"{amount} {trading_pair} at {price}.")
+                                  f"{amount} {trading_pair} at {price}.")
             self.logger().info(e)
             traceback.print_exc()
 
@@ -389,9 +391,9 @@ cdef class LoopringExchange(ExchangeBase):
                           price: Optional[Decimal] = Decimal('NaN')):
         try:
             await self.execute_order(TradeType.BUY, order_id, trading_pair, amount, order_type, price)
-        
-            self.c_trigger_event(BUY_ORDER_CREATED_EVENT, 
-                                BuyOrderCreatedEvent(now(), order_type, trading_pair, Decimal(amount), Decimal(price), order_id))
+
+            self.c_trigger_event(BUY_ORDER_CREATED_EVENT,
+                                 BuyOrderCreatedEvent(now(), order_type, trading_pair, Decimal(amount), Decimal(price), order_id))
         except ValueError as e:
             # Stop tracking this order
             self.stop_tracking(order_id)
@@ -399,15 +401,15 @@ cdef class LoopringExchange(ExchangeBase):
             raise e
 
     async def execute_sell(self,
-                          order_id: str,
-                          trading_pair: str,
-                          amount: Decimal,
-                          order_type: OrderType,
-                          price: Optional[Decimal] = Decimal('NaN')):
+                           order_id: str,
+                           trading_pair: str,
+                           amount: Decimal,
+                           order_type: OrderType,
+                           price: Optional[Decimal] = Decimal('NaN')):
         try:
             await self.execute_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price)
-            self.c_trigger_event(SELL_ORDER_CREATED_EVENT, 
-                                SellOrderCreatedEvent(now(), order_type, trading_pair, Decimal(amount), Decimal(price), order_id))
+            self.c_trigger_event(SELL_ORDER_CREATED_EVENT,
+                                 SellOrderCreatedEvent(now(), order_type, trading_pair, Decimal(amount), Decimal(price), order_id))
         except ValueError as e:
             # Stop tracking this order
             self.stop_tracking(order_id)
@@ -475,7 +477,6 @@ cdef class LoopringExchange(ExchangeBase):
                 results.append(CancellationResult(order_id=order_id, success=False))
         return results
 
-
     cdef object c_get_fee(self,
                           str base_currency,
                           str quote_currency,
@@ -497,7 +498,7 @@ cdef class LoopringExchange(ExchangeBase):
 
         if self._trading_required:
             exchange_info = await self.api_request("GET", EXCHANGE_INFO_ROUTE)
-            
+
             tokens = set()
             for pair in self._trading_pairs:
                 (base, quote) = self.split_trading_pair(pair)
@@ -543,7 +544,7 @@ cdef class LoopringExchange(ExchangeBase):
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         for order_id, in_flight_repr in saved_states.iteritems():
-            in_flight_json : Dict[Str, Any] = json.loads(in_flight_repr)
+            in_flight_json: Dict[Str, Any] = json.loads(in_flight_repr)
             self._in_flight_orders[order_id] = LoopringInFlightOrder.from_json(self, in_flight_json)
 
     def start_tracking(self, in_flight_order):
@@ -553,12 +554,11 @@ cdef class LoopringExchange(ExchangeBase):
         if client_order_id in self._in_flight_orders:
             del self._in_flight_orders[client_order_id]
 
-
     # ----------------------------------------
     # updates to orders and balances
 
-    def _update_inflight_order(self, tracked_order : LoopringInFlightOrder, event : Dict[str, Any]):
-        issuable_events : List[MarketEvent] = tracked_order.update(event)
+    def _update_inflight_order(self, tracked_order: LoopringInFlightOrder, event: Dict[str, Any]):
+        issuable_events: List[MarketEvent] = tracked_order.update(event)
 
         # Issue relevent events
         for (market_event, new_amount, new_price, new_fee) in issuable_events:
@@ -566,37 +566,37 @@ cdef class LoopringExchange(ExchangeBase):
                 self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}")
                 self.stop_tracking(tracked_order.client_order_id)
                 self.c_trigger_event(ORDER_CANCELLED_EVENT,
-                                OrderCancelledEvent(self._current_timestamp,
-                                                    tracked_order.client_order_id))
+                                     OrderCancelledEvent(self._current_timestamp,
+                                                         tracked_order.client_order_id))
             elif market_event == MarketEvent.OrderFilled:
                 self.c_trigger_event(ORDER_FILLED_EVENT,
-                                    OrderFilledEvent(self._current_timestamp,
-                                                    tracked_order.client_order_id,
-                                                    tracked_order.trading_pair,
-                                                    tracked_order.trade_type,
-                                                    tracked_order.order_type,
-                                                    new_price,
-                                                    new_amount,
-                                                    TradeFee(Decimal(0), [(tracked_order.quote_asset, new_fee)]),
-                                                    tracked_order.client_order_id))
+                                     OrderFilledEvent(self._current_timestamp,
+                                                      tracked_order.client_order_id,
+                                                      tracked_order.trading_pair,
+                                                      tracked_order.trade_type,
+                                                      tracked_order.order_type,
+                                                      new_price,
+                                                      new_amount,
+                                                      TradeFee(Decimal(0), [(tracked_order.quote_asset, new_fee)]),
+                                                      tracked_order.client_order_id))
             elif market_event == MarketEvent.OrderExpired:
                 self.c_trigger_event(ORDER_EXPIRED_EVENT,
-                                OrderExpiredEvent(self._current_timestamp,
-                                                    tracked_order.client_order_id))
+                                     OrderExpiredEvent(self._current_timestamp,
+                                                       tracked_order.client_order_id))
             elif market_event == MarketEvent.OrderFailure:
                 self.c_trigger_event(ORDER_FAILURE_EVENT,
-                                MarketOrderFailureEvent(self._current_timestamp,
-                                                    tracked_order.client_order_id,
-                                                    tracked_order.order_type))
+                                     MarketOrderFailureEvent(self._current_timestamp,
+                                                             tracked_order.client_order_id,
+                                                             tracked_order.order_type))
 
             # Complete the order if relevent
             if tracked_order.is_done:
                 if not tracked_order.is_failure:
                     if tracked_order.trade_type is TradeType.BUY:
                         self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
-                                            f"according to user stream.")
+                                           f"according to user stream.")
                         self.c_trigger_event(BUY_ORDER_COMPLETED_EVENT,
-                                                BuyOrderCompletedEvent(self._current_timestamp,
+                                             BuyOrderCompletedEvent(self._current_timestamp,
                                                                     tracked_order.client_order_id,
                                                                     tracked_order.base_asset,
                                                                     tracked_order.quote_asset,
@@ -608,18 +608,18 @@ cdef class LoopringExchange(ExchangeBase):
                                                                     tracked_order.order_type))
                     else:
                         self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
-                                            f"according to user stream.")
+                                           f"according to user stream.")
                         self.c_trigger_event(SELL_ORDER_COMPLETED_EVENT,
-                                                SellOrderCompletedEvent(self._current_timestamp,
-                                                                        tracked_order.client_order_id,
-                                                                        tracked_order.base_asset,
-                                                                        tracked_order.quote_asset,
-                                                                        (tracked_order.fee_asset
-                                                                        or tracked_order.quote_asset),
-                                                                        tracked_order.executed_amount_base,
-                                                                        tracked_order.executed_amount_quote,
-                                                                        tracked_order.fee_paid,
-                                                                        tracked_order.order_type))
+                                             SellOrderCompletedEvent(self._current_timestamp,
+                                                                     tracked_order.client_order_id,
+                                                                     tracked_order.base_asset,
+                                                                     tracked_order.quote_asset,
+                                                                     (tracked_order.fee_asset
+                                                                      or tracked_order.quote_asset),
+                                                                     tracked_order.executed_amount_base,
+                                                                     tracked_order.executed_amount_quote,
+                                                                     tracked_order.fee_paid,
+                                                                     tracked_order.order_type))
                 else:
                     # check if its a cancelled order
                     # if its a cancelled order, check in flight orders
@@ -629,7 +629,7 @@ cdef class LoopringExchange(ExchangeBase):
                             self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
                     else:
                         self.logger().info(f"The market order {tracked_order.client_order_id} has failed according to "
-                                            f"order status API.")
+                                           f"order status API.")
 
                 self.c_stop_tracking_order(tracked_order.client_order_id)
 
@@ -643,14 +643,14 @@ cdef class LoopringExchange(ExchangeBase):
             async with self._lock:
                 completed_tokens = set()
                 for data in updates:
-                    padded_total_amount : str = data['totalAmount']
-                    token_id : int = data['tokenId']
+                    padded_total_amount: str = data['totalAmount']
+                    token_id: int = data['tokenId']
                     completed_tokens.add(token_id)
-                    padded_amount_locked : string = data['amountLocked']
+                    padded_amount_locked: string = data['amountLocked']
 
-                    token_symbol : str = self._token_configuration.get_symbol(token_id) 
-                    total_amount : Decimal = self._token_configuration.unpad(padded_total_amount, token_id)
-                    amount_locked : Decimal = self._token_configuration.unpad(padded_amount_locked, token_id)
+                    token_symbol: str = self._token_configuration.get_symbol(token_id)
+                    total_amount: Decimal = self._token_configuration.unpad(padded_total_amount, token_id)
+                    amount_locked: Decimal = self._token_configuration.unpad(padded_amount_locked, token_id)
 
                     self._account_balances[token_symbol] = total_amount
                     self._account_available_balances[token_symbol] = total_amount - amount_locked
@@ -658,7 +658,7 @@ cdef class LoopringExchange(ExchangeBase):
                 if is_snapshot:
                     # Tokens with 0 balance aren't returned, so set any missing tokens to 0 balance
                     for token_id in tokens - completed_tokens:
-                        token_symbol : str = self._token_configuration.get_symbol(token_id) 
+                        token_symbol: str = self._token_configuration.get_symbol(token_id)
                         self._account_balances[token_symbol] = Decimal(0)
                         self._account_available_balances[token_symbol] = Decimal(0)
 
@@ -687,18 +687,18 @@ cdef class LoopringExchange(ExchangeBase):
             try:
                 event: Dict[str, Any] = event_message
                 topic: str = event['topic']['topic']
-                data : Dict[str, Any] = event['data']
+                data: Dict[str, Any] = event['data']
                 if topic == 'account':
                     await self._set_balances([data], is_snapshot=False)
                 elif topic == 'order':
-                    client_order_id : str = data['clientOrderId']
-                    tracked_order : LoopringInFlightOrder = self._in_flight_orders.get(client_order_id)
+                    client_order_id: str = data['clientOrderId']
+                    tracked_order: LoopringInFlightOrder = self._in_flight_orders.get(client_order_id)
 
                     if tracked_order is None:
                         self.logger().warning(f"Unrecognized order ID from user stream: {client_order_id}.")
                         self.logger().warning(f"Event: {event_message}")
                         continue
-                    
+
                     # update the tracked order
                     self._update_inflight_order(tracked_order, data)
                 elif topic == 'sub':
@@ -706,7 +706,7 @@ cdef class LoopringExchange(ExchangeBase):
                 elif topic == 'unsub':
                     pass
                 else:
-                    self.logger().debug(f"Unrecognized user stream event topic: {topic}.")                    
+                    self.logger().debug(f"Unrecognized user stream event topic: {topic}.")
 
             except asyncio.CancelledError:
                 raise
@@ -736,11 +736,11 @@ cdef class LoopringExchange(ExchangeBase):
 
     async def _update_balances(self):
         balances_response = await self.api_request("GET", BALANCES_INFO_ROUTE,
-                                                    params = {
-                                                        "accountId": self._loopring_accountid
-                                                    })
+                                                   params = {
+                                                       "accountId": self._loopring_accountid
+                                                   })
         await self._set_balances(balances_response["data"])
-    
+
     async def _update_trading_rules(self):
         markets_info, tokens_info = await asyncio.gather(
             self.api_request("GET", MARKETS_INFO_ROUTE),
@@ -751,12 +751,12 @@ cdef class LoopringExchange(ExchangeBase):
 
         markets_info = markets_info["data"]
         tokens_info = tokens_info["data"]
-        tokens_info = {t['tokenId']:t for t in tokens_info}
+        tokens_info = {t['tokenId']: t for t in tokens_info}
 
         for market in markets_info:
-            if market['enabled'] == True:
+            if market['enabled'] is True:
                 baseid, quoteid = market['baseTokenId'], market['quoteTokenId']
-                
+
                 try:
                     self._trading_rules[market["market"]] = TradingRule(
                         trading_pair=market["market"],
@@ -772,14 +772,14 @@ cdef class LoopringExchange(ExchangeBase):
                 except Exception as e:
                     self.logger().debug("Error updating trading rules")
                     self.logger().debug(str(e))
-                    
+
     async def _update_order_status(self):
         tracked_orders = self._in_flight_orders.copy()
 
         for client_order_id, tracked_order in tracked_orders.iteritems():
             loopring_order_id = tracked_order.exchange_order_id
             if loopring_order_id is None:
-                continue # This order is still pending acknowledgement from the exchange
+                continue  # This order is still pending acknowledgement from the exchange
 
             try:
                 loopring_order_request = await self.api_request("GET",
@@ -790,7 +790,7 @@ cdef class LoopringExchange(ExchangeBase):
                                                                 })
                 data = loopring_order_request["data"]
             except Exception:
-                self.logger().warning(f"Failed to fetch tracked Loopring order " \
+                self.logger().warning(f"Failed to fetch tracked Loopring order "
                                       f"{client_order_id }({tracked_order.exchange_order_id}) from api (code: {loopring_order_request['resultInfo']['code']})")
 
                 # check if this error is because the api cliams to be unaware of this order. If so, and this order
@@ -808,7 +808,6 @@ cdef class LoopringExchange(ExchangeBase):
             except Exception as e:
                 self.logger().error(f"Failed to update Loopring order {tracked_order.exchange_order_id}")
                 self.logger().error(e)
-
 
     # ==========================================================
     # Miscellaneous
@@ -852,14 +851,13 @@ cdef class LoopringExchange(ExchangeBase):
         data = urllib.parse.quote("&".join([f"{k}={str(v)}" for k, v in params.items()]), safe='')
         return "&".join([method, url, data])
 
-    async def api_request(
-        self, 
-        http_method: str, 
-        url: str, 
-        data: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = {},
-        secure: bool = False) -> Dict[str, Any]:
+    async def api_request(self,
+                          http_method: str,
+                          url: str,
+                          data: Optional[Dict[str, Any]] = None,
+                          params: Optional[Dict[str, Any]] = None,
+                          headers: Optional[Dict[str, str]] = {},
+                          secure: bool = False) -> Dict[str, Any]:
 
         if self._shared_client is None:
             self._shared_client = aiohttp.ClientSession()
@@ -882,8 +880,8 @@ cdef class LoopringExchange(ExchangeBase):
             headers.update({"X-API-SIG": signature})
 
         async with self._shared_client.request(http_method, url=full_url,
-                                            timeout=API_CALL_TIMEOUT,
-                                            data=data, params=params, headers=headers) as response:
+                                               timeout=API_CALL_TIMEOUT,
+                                               data=data, params=params, headers=headers) as response:
             if response.status != 200:
                 self.logger().info(f"Issue with Loopring API {http_method} to {url}, response: ")
                 self.logger().info(await response.text())
