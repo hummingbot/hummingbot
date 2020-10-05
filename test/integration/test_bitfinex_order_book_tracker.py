@@ -11,11 +11,8 @@ import logging
 from typing import Dict, Optional, List
 import unittest
 
-from hummingbot.market.bitfinex.bitfinex_order_book_tracker import BitfinexOrderBookTracker
+from hummingbot.connector.exchange.bitfinex.bitfinex_order_book_tracker import BitfinexOrderBookTracker
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_tracker import (
-    OrderBookTrackerDataSourceType
-)
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 sys.path.insert(0, realpath(join(__file__, "../../../")))
@@ -27,17 +24,16 @@ class BitfinexOrderBookTrackerUnitTest(unittest.TestCase):
         OrderBookEvent.TradeEvent
     ]
     trading_pairs: List[str] = [
-        "BTCUSD",
+        "BTC-USD",
     ]
-    integrity_test_max_volume = 10  # Max volume in asks and bids for the book to be ready for tests
-    daily_volume = 5000  # Approximate total daily volume in BTC for this exchange for sanity test
-    book_enties = 10  # Number of asks and bids (each) for the book to be ready for tests
+    integrity_test_max_volume = 5  # Max volume in asks and bids for the book to be ready for tests
+    daily_volume = 2500  # Approximate total daily volume in BTC for this exchange for sanity test
+    book_enties = 5  # Number of asks and bids (each) for the book to be ready for tests
 
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        cls.order_book_tracker: BitfinexOrderBookTracker = BitfinexOrderBookTracker(
-            OrderBookTrackerDataSourceType.EXCHANGE_API, trading_pairs=cls.trading_pairs)
+        cls.order_book_tracker: BitfinexOrderBookTracker = BitfinexOrderBookTracker(trading_pairs=cls.trading_pairs)
         cls.order_book_tracker_task: asyncio.Task = safe_ensure_future(cls.order_book_tracker.start())
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
 
@@ -95,7 +91,7 @@ class BitfinexOrderBookTrackerUnitTest(unittest.TestCase):
                 order_book.add_listener(event_tag, self.event_logger)
 
     def test_order_book_trade_event_emission(self):
-        """
+        """2
         Tests if the order book tracker is able to retrieve order book trade message from exchange
         and emit order book trade events after correctly parsing the trade messages
         """
@@ -115,8 +111,6 @@ class BitfinexOrderBookTrackerUnitTest(unittest.TestCase):
     def test_tracker_integrity(self):
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
         sut_book: OrderBook = order_books[self.trading_pairs[0]]
-        print("Book: ")
-        print(sut_book.snapshot)
 
         # # 1 - test that best bid is less than best ask
         # self.assertGreater(sut_book.get_price(False), sut_book.get_price(True))

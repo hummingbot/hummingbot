@@ -1,25 +1,30 @@
 #!/usr/bin/env python
 
 from typing import List
-from decimal import Decimal
 from mypy_extensions import TypedDict
 from eth_abi import encode_abi
 from eth_utils import keccak
 
+
 class EIP712DomainWithDefaultSchema(TypedDict):
+
     verifyingContract: str
     chainId: int
 
+
 class SignedZeroExTransaction(TypedDict):
+
     salt: str
     signerAddress: str
     data: str
     domain: EIP712DomainWithDefaultSchema
     expirationTimeSeconds: str
     gasPrice: str
-    signature: str    
+    signature: str
+
 
 class ZeroExTransaction(TypedDict):
+
     salt: str
     signerAddress: str
     data: str
@@ -27,11 +32,14 @@ class ZeroExTransaction(TypedDict):
     expirationTimeSeconds: str
     gasPrice: str
 
+
 class EIP712TypedData(TypedDict):
+
     types: any
     domain: any
     message: any
     primaryType: str
+
 
 def get_transaction_hash_hex(transaction: ZeroExTransaction) -> str:
     typedData: EIP712TypedData = create_zero_ex_transaction_typed_data(transaction)
@@ -70,12 +78,14 @@ def create_zero_ex_transaction_typed_data(zeroExTransaction: ZeroExTransaction) 
 
     return typedData
 
+
 def generate_typed_data_hash(typedData: EIP712TypedData) -> str:
     return '0x' + keccak(
         b"\x19\x01" +
         _struct_hash('EIP712Domain', typedData['domain'], typedData['types']) +
         _struct_hash(typedData['primaryType'], typedData['message'], typedData['types'])
     ).hex()
+
 
 def _find_dependencies(primaryType: str, types, found=None) -> List[str]:
     if found is None:
@@ -92,6 +102,7 @@ def _find_dependencies(primaryType: str, types, found=None) -> List[str]:
                 found.append(dep)
 
     return found
+
 
 def _encode_type(primaryType: str, types) -> str:
     deps = _find_dependencies(primaryType, types)

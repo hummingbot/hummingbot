@@ -38,7 +38,7 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.connector.exchange.huobi.huobi_market import HuobiMarket
+from hummingbot.connector.exchange.huobi.huobi_exchange import HuobiExchange
 from hummingbot.connector.exchange.huobi.huobi_utils import convert_to_exchange_trading_pair
 from hummingbot.core.event.events import OrderType
 from hummingbot.connector.markets_recorder import MarketsRecorder
@@ -62,7 +62,7 @@ EXCHANGE_ORDER_ID = 20001
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
-class HuobiMarketUnitTest(unittest.TestCase):
+class HuobiExchangeUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
         MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
@@ -76,7 +76,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
         MarketEvent.OrderFailure
     ]
 
-    market: HuobiMarket
+    market: HuobiExchange
     market_logger: EventLogger
     stack: contextlib.ExitStack
 
@@ -96,16 +96,16 @@ class HuobiMarketUnitTest(unittest.TestCase):
             cls.web_app.update_response("get", API_BASE_URL, "/v1/account/accounts", FixtureHuobi.GET_ACCOUNTS)
             cls.web_app.update_response("get", API_BASE_URL, f"/v1/account/accounts/{mock_account_id}/balance",
                                         FixtureHuobi.BALANCES)
-            cls._t_nonce_patcher = unittest.mock.patch("hummingbot.connector.exchange.huobi.huobi_market.get_tracking_nonce")
+            cls._t_nonce_patcher = unittest.mock.patch("hummingbot.connector.exchange.huobi.huobi_exchange.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.market: HuobiMarket = HuobiMarket(
+        cls.market: HuobiExchange = HuobiExchange(
             API_KEY,
             API_SECRET,
             trading_pairs=["ETH-USDT"]
         )
         # Need 2nd instance of market to prevent events mixing up across tests
-        cls.market_2: HuobiMarket = HuobiMarket(
+        cls.market_2: HuobiExchange = HuobiExchange(
             API_KEY,
             API_SECRET,
             trading_pairs=["ETH-USDT"]
@@ -444,7 +444,7 @@ class HuobiMarketUnitTest(unittest.TestCase):
             self.clock.remove_iterator(self.market)
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
-            self.market: HuobiMarket = HuobiMarket(
+            self.market: HuobiExchange = HuobiExchange(
                 huobi_api_key=API_KEY,
                 huobi_secret_key=API_SECRET,
                 trading_pairs=["ETH-USDT", "BTC-USDT"]

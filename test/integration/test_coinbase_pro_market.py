@@ -38,7 +38,7 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
+from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_exchange import CoinbaseProExchange
 from hummingbot.core.event.events import OrderType
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
@@ -65,7 +65,7 @@ WS_BASE_URL = "wss://ws-feed.pro.coinbase.com"
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
-class CoinbaseProMarketUnitTest(unittest.TestCase):
+class CoinbaseProExchangeUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
         MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
@@ -79,7 +79,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
         MarketEvent.OrderFailure
     ]
 
-    market: CoinbaseProMarket
+    market: CoinbaseProExchange
     market_logger: EventLogger
     stack: contextlib.ExitStack
 
@@ -105,10 +105,10 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             cls._ws_mock.side_effect = HummingWsServerFactory.reroute_ws_connect
 
             cls._t_nonce_patcher = unittest.mock.patch(
-                "hummingbot.connector.exchange.coinbase_pro.coinbase_pro_market.get_tracking_nonce")
+                "hummingbot.connector.exchange.coinbase_pro.coinbase_pro_exchange.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.market: CoinbaseProMarket = CoinbaseProMarket(
+        cls.market: CoinbaseProExchange = CoinbaseProExchange(
             API_KEY,
             API_SECRET,
             API_PASSPHRASE,
@@ -463,7 +463,7 @@ class CoinbaseProMarketUnitTest(unittest.TestCase):
             self.clock.remove_iterator(self.market)
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
-            self.market: CoinbaseProMarket = CoinbaseProMarket(
+            self.market: CoinbaseProExchange = CoinbaseProExchange(
                 coinbase_pro_api_key=API_KEY,
                 coinbase_pro_secret_key=API_SECRET,
                 coinbase_pro_passphrase=API_PASSPHRASE,
