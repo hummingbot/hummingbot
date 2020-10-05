@@ -44,7 +44,7 @@ from hummingbot.core.utils.async_utils import (
 from hummingbot.logger import NETWORK
 from hummingbot.core.event.events import OrderType
 from hummingbot.connector.markets_recorder import MarketsRecorder
-from hummingbot.connector.exchange.radar_relay.radar_relay_market import RadarRelayMarket
+from hummingbot.connector.exchange.radar_relay.radar_relay_exchange import RadarRelayExchange
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import (
@@ -58,7 +58,7 @@ from hummingbot.wallet.ethereum.web3_wallet_backend import EthereumChain
 s_decimal_0 = Decimal(0)
 
 
-class RadarRelayMarketUnitTest(unittest.TestCase):
+class RadarRelayExchangeUnitTest(unittest.TestCase):
     market_events: List[MarketEvent] = [
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
@@ -75,7 +75,7 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
     ]
 
     wallet: Web3Wallet
-    market: RadarRelayMarket
+    market: RadarRelayExchange
     market_logger: EventLogger
     wallet_logger: EventLogger
     stack: contextlib.ExitStack
@@ -87,7 +87,7 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
                                 backend_urls=conf.test_web3_provider_list,
                                 erc20_token_addresses=[conf.mn_zerox_token_address, conf.mn_weth_token_address],
                                 chain=EthereumChain.MAIN_NET)
-        cls.market = RadarRelayMarket(
+        cls.market = RadarRelayExchange(
             wallet=cls.wallet,
             ethereum_rpc_url=conf.test_web3_provider_list[0],
             trading_pairs=["ZRX-WETH"]
@@ -345,7 +345,7 @@ class RadarRelayMarketUnitTest(unittest.TestCase):
             self.clock.remove_iterator(self.market)
             for event_tag in self.market_events:
                 self.market.remove_listener(event_tag, self.market_logger)
-            self.market = RadarRelayMarket(
+            self.market = RadarRelayExchange(
                 wallet=self.wallet,
                 ethereum_rpc_url=conf.test_web3_provider_list[0],
                 trading_pairs=["ZRX-WETH"]

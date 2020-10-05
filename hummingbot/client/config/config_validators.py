@@ -1,10 +1,7 @@
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
-from hummingbot.client.settings import (
-    EXCHANGES,
-    STRATEGIES,
-)
 from decimal import Decimal
 from typing import Optional
+from hummingbot.client.settings import EXCHANGES, STRATEGIES
 
 
 # Validators
