@@ -64,7 +64,7 @@ Pairs on Bitfinex generally require a minimum order size equivalent to between $
 
 
 ```
-https://api-pub.bitfinex.com/v2/conf/pub:info:pair
+https://exchange-docs.crypto.com/#public-get-instruments
 ```
 
 You can use an application like [Postman](https://www.postman.com/) that gets REST API data or copy and paste the URL in your web browser.
