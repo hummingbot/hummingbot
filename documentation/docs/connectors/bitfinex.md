@@ -60,11 +60,11 @@ The API key and API secret key is required for using Hummingbot.
 
 ### Minimum Order Sizes
 
-Pairs on Bitfinex generally require a minimum order size equivalent to between $2.5 and more. You can access the minimum order size for a specific token pair using [Bitfinex's API](https://exchange-docs.crypto.com/#public-get-instruments) at the following URL:
+Pairs on Bitfinex generally require a minimum order size equivalent to between $2.5 and more. You can access the minimum order size for a specific token pair using [Bitfinex's API](https://api-pub.bitfinex.com/v2/conf/pub:info:pair) at the following URL:
 
 
 ```
-https://exchange-docs.crypto.com/#public-get-instruments
+https://api-pub.bitfinex.com/v2/conf/pub:info:pair
 ```
 
 You can use an application like [Postman](https://www.postman.com/) that gets REST API data or copy and paste the URL in your web browser.
