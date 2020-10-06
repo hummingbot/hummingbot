@@ -152,14 +152,14 @@ cdef class LoopringInFlightOrder(InFlightOrderBase):
             events.append((MarketEvent.OrderExpired, None, None, None))
 
         if not self.is_done and new_status == LoopringOrderStatus.failed:
-            events.append( (MarketEvent.OrderFailure, None, None, None) )
+            events.append((MarketEvent.OrderFailure, None, None, None))
 
         self.status = new_status
         self.last_state = str(new_status)
         self.executed_amount_base = new_executed_amount_base
         self.executed_amount_quote = new_executed_amount_quote
         self.fee_paid = new_fee_paid
-        
+
         if self.exchange_order_id is None:
             self.update_exchange_order_id(data.get('hash', None))
 
