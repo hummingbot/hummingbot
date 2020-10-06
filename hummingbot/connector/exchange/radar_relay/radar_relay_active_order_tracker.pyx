@@ -147,7 +147,7 @@ cdef class RadarRelayActiveOrderTracker:
                         if event["order"]["state"] == "FILLED":
                             del self._order_price_map[order_hash]
                             del self._active_bids[price][order_hash]
-                        else: # update the remaining amount of the order
+                        else:  # update the remaining amount of the order
                             self._active_bids[price][order_hash]["remainingBaseTokenAmount"] = remaining_base_amount
 
                         if len(self._active_bids[price]) < 1:
@@ -167,7 +167,7 @@ cdef class RadarRelayActiveOrderTracker:
                         if event["order"]["state"] == "FILLED":
                             del self._order_price_map[order_hash]
                             del self._active_asks[price][order_hash]
-                        else: # update the remaining amount of the order
+                        else:  # update the remaining amount of the order
                             self._active_asks[price][order_hash]["remainingBaseTokenAmount"] = remaining_base_amount
 
                         if len(self._active_asks[price]) < 1:
@@ -177,8 +177,8 @@ cdef class RadarRelayActiveOrderTracker:
                         else:
                             quantity = self.volume_for_ask_price(price)
                             return (s_empty_diff,
-                                np.array([[timestamp, float(price), quantity, message.update_id]],
-                                         dtype="float64"))
+                                    np.array([[timestamp, float(price), quantity, message.update_id]],
+                                             dtype="float64"))
 
                 # return empty diff if order or price is not found
                 return s_empty_diff, s_empty_diff
@@ -249,7 +249,6 @@ cdef class RadarRelayActiveOrderTracker:
 
         return np.array([message.timestamp, trade_type_value, float(price), float(filled_base_amount)],
                         dtype="float64")
-
 
     def convert_diff_message_to_order_book_row(self, message):
         np_bids, np_asks = self.c_convert_diff_message_to_np_arrays(message)

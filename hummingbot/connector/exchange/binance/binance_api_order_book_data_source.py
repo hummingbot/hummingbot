@@ -11,7 +11,10 @@ from typing import (
     List,
     Optional
 )
+from decimal import Decimal
 import re
+import requests
+import cachetools.func
 import time
 import ujson
 import websockets
@@ -62,6 +65,39 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             resp = await client.get(f"{TICKER_PRICE_CHANGE_URL}?symbol={convert_to_exchange_trading_pair(trading_pair)}")
             resp_json = await resp.json()
             return float(resp_json["lastPrice"])
+
+    @staticmethod
+    @cachetools.func.ttl_cache(ttl=10)
+    def get_mid_price(trading_pair: str) -> Optional[Decimal]:
+        from hummingbot.connector.exchange.binance.binance_utils import convert_to_exchange_trading_pair
+
+        resp = requests.get(url=f"{TICKER_PRICE_CHANGE_URL}?symbol={convert_to_exchange_trading_pair(trading_pair)}")
+        record = resp.json()
+        result = (Decimal(record.get("bidPrice", "0")) + Decimal(record.get("askPrice", "0"))) / Decimal("2")
+        return result if result else None
+
+    @staticmethod
+    async def fetch_trading_pairs() -> List[str]:
+        try:
+            from hummingbot.connector.exchange.binance.binance_utils import convert_from_exchange_trading_pair
+            async with aiohttp.ClientSession() as client:
+                async with client.get(EXCHANGE_INFO_URL, timeout=10) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        raw_trading_pairs = [d["symbol"] for d in data["symbols"] if d["status"] == "TRADING"]
+                        trading_pair_list: List[str] = []
+                        for raw_trading_pair in raw_trading_pairs:
+                            converted_trading_pair: Optional[str] = \
+                                convert_from_exchange_trading_pair(raw_trading_pair)
+                            if converted_trading_pair is not None:
+                                trading_pair_list.append(converted_trading_pair)
+                        return trading_pair_list
+
+        except Exception:
+            # Do nothing if the request fails -- there will be no autocomplete for binance trading pairs
+            pass
+
+        return []
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, limit: int = 1000) -> Dict[str, Any]:

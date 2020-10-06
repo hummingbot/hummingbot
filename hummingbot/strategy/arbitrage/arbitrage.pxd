@@ -26,6 +26,7 @@ cdef class ArbitrageStrategy(StrategyBase):
         object _secondary_to_primary_base_conversion_rate
         object _secondary_to_primary_quote_conversion_rate
         bint _hb_app_notification
+        tuple _current_profitability
 
     cdef tuple c_calculate_arbitrage_top_order_profitability(self, object market_pair)
     cdef c_process_market_pair(self, object market_pair)

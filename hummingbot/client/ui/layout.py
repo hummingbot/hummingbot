@@ -145,8 +145,8 @@ def get_paper_trade_status():
 def get_title_bar_right_text():
     copy_key = "CTRL + SHIFT" if is_windows() else "fn"
     return [
-        ("class:title", f"[Double Ctrl + C] QUIT      "),
-        ("class:title", f"[Ctrl + S] STATUS      "),
+        ("class:title", "[Double Ctrl + C] QUIT      "),
+        ("class:title", "[Ctrl + S] STATUS      "),
         ("class:title", f"Hold down \"{copy_key}\" for selecting and copying text"),
     ]
 
