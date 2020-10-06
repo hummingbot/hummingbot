@@ -4,7 +4,7 @@ from hummingbot.client.config.fee_overrides_config_map import fee_overrides_conf
 from hummingbot.client.settings import ALL_CONNECTORS
 
 
-def estimate_fee(exchange: str, is_maker: bool) -> Decimal:
+def estimate_fee(exchange: str, is_maker: bool) -> TradeFee:
     override_config_name_suffix = "_maker_fee" if is_maker else "_taker_fee"
     override_config_name = exchange + override_config_name_suffix
     s_decimal_0 = Decimal("0")
