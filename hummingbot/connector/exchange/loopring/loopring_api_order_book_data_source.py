@@ -163,7 +163,7 @@ class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "op": "sub",
                     "topics": topics
                 }
-                    
+
                 ws_key: str = await get_ws_api_key()
                 async with websockets.connect(f"{WS_URL}?wsApiKey={ws_key}") as ws:
                     ws: websockets.WebSocketClientProtocol = ws
