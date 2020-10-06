@@ -95,14 +95,15 @@ ORDER_CANCEL_ROUTE = "api/v2/orders"
 MAXIMUM_FILL_COUNT = 16
 UNRECOGNIZED_ORDER_DEBOUCE = 20  # seconds
 
+
 class LatchingEventResponder(EventListener):
-    def __init__(self, callback : any, num_expected : int):
+    def __init__(self, callback: any, num_expected: int):
         super().__init__()
         self._callback = callback
         self._completed = asyncio.Event()
         self._num_remaining = num_expected
 
-    def __call__(self, arg : any):
+    def __call__(self, arg: any):
         if self._callback(arg):
             self._reduce()
 
@@ -111,7 +112,7 @@ class LatchingEventResponder(EventListener):
         if self._num_remaining <= 0:
             self._completed.set()
 
-    async def wait_for_completion(self, timeout : float):
+    async def wait_for_completion(self, timeout: float):
         try:
             await asyncio.wait_for(self._completed.wait(), timeout=timeout)
         except asyncio.TimeoutError:
@@ -318,7 +319,7 @@ cdef class LoopringExchange(ExchangeBase):
             "accountId": self._loopring_accountid,
             "allOrNone": "false",
             "validSince": validSince,
-            "validUntil": validSince + (604800*5),  # Until week later
+            "validUntil": validSince + (604800 * 5),  # Until week later
             "maxFeeBips": 63,
             "label": 20,
             "buy": "true" if order_side is TradeType.BUY else "false",
@@ -363,7 +364,7 @@ cdef class LoopringExchange(ExchangeBase):
             raise ValueError(f"Order amount({str(amount)}) is less than the minimum allowable amount({str(trading_rule.min_order_size)})")
         if amount > trading_rule.max_order_size:
             raise ValueError(f"Order amount({str(amount)}) is greater than the maximum allowable amount({str(trading_rule.max_order_size)})")
-        if amount*price < trading_rule.min_notional_size:
+        if amount * price < trading_rule.min_notional_size:
             raise ValueError(f"Order notional value({str(amount*price)}) is less than the minimum allowable notional value for an order ({str(trading_rule.min_notional_size)})")
 
         try:
@@ -375,10 +376,10 @@ cdef class LoopringExchange(ExchangeBase):
                 creation_response = await self.place_order(client_order_id, trading_pair, amount, order_side is TradeType.BUY, order_type, price)
             except asyncio.exceptions.TimeoutError:
                 # We timed out while placing this order. We may have successfully submitted the order, or we may have had connection
-                # issues that prevented the submission from taking place. We'll assume that the order is live and let our order status 
-                # updates mark this as cancelled if it doesn't actually exist.             
+                # issues that prevented the submission from taking place. We'll assume that the order is live and let our order status
+                # updates mark this as cancelled if it doesn't actually exist.
                 return
-                
+
             # Verify the response from the exchange
             if "data" not in creation_response.keys():
                 raise Exception(creation_response['resultInfo']['message'])
@@ -480,10 +481,10 @@ cdef class LoopringExchange(ExchangeBase):
             message = res['resultInfo']['message']
             if code == 102117:
                 # Order didn't exist on exchange, mark this as canceled
-                self.c_trigger_event(ORDER_CANCELLED_EVENT,cancellation_event)
+                self.c_trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
             elif code != 0 and (code != 100001 or message != "order in status CANCELLED can't be cancelled"):
                 raise Exception(f"Cancel order returned code {res['resultInfo']['code']} ({res['resultInfo']['message']})")
-            
+
             return True
 
         except Exception as e:
@@ -506,30 +507,25 @@ cdef class LoopringExchange(ExchangeBase):
         order_status = {o.client_order_id: False for o in cancellation_queue.values()}
         for o, s in order_status.items():
             self.logger().info(o + ' ' + str(s))
-        
-        def set_cancellation_status(oce : OrderCancelledEvent):
+
+        def set_cancellation_status(oce: OrderCancelledEvent):
             if oce.order_id in order_status:
                 order_status[oce.order_id] = True
                 return True
             return False
-            
+
         cancel_verifier = LatchingEventResponder(set_cancellation_status, len(cancellation_queue))
         self.c_add_listener(ORDER_CANCELLED_EVENT, cancel_verifier)
 
         for order_id, in_flight in cancellation_queue.iteritems():
             try:
-                await self.cancel_order(order_id)
-                results.append(CancellationResult(order_id=order_id, success=True))
-            try:            
                 if not await self.cancel_order(order_id):
                     # this order did not exist on the exchange
                     cancel_verifier.cancel_one()
             except Exception:
-                results.append(CancellationResult(order_id=order_id, success=False))
-        return results
                 cancel_verifier.cancel_one()
-        
-        all_completed : bool = await cancel_verifier.wait_for_completion(timeout_seconds)
+
+        all_completed: bool = await cancel_verifier.wait_for_completion(timeout_seconds)
         self.c_remove_listener(ORDER_CANCELLED_EVENT, cancel_verifier)
 
         return [CancellationResult(order_id=order_id, success=success) for order_id, success in order_status.items()]
@@ -844,7 +840,7 @@ cdef class LoopringExchange(ExchangeBase):
                         self.cancel_order(client_order_id)
                     except Exception:
                         pass
-                continue 
+                continue
 
             try:
                 loopring_order_request = await self.api_request("GET",
