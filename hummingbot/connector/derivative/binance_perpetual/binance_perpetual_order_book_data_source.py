@@ -2,10 +2,13 @@ import asyncio
 import logging
 import time
 from typing import Dict, List, Optional, Any, AsyncIterable
+from decimal import Decimal
 
 import aiohttp
 import pandas as pd
 import ujson
+import requests
+import cachetools.func
 import websockets
 from websockets.exceptions import ConnectionClosed
 
@@ -20,6 +23,7 @@ from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils i
 DIFF_STREAM_URL = "wss://fstream.binance.com/stream"
 PERPETUAL_BASE_URL = "https://fapi.binance.com/fapi/v1"
 SNAPSHOT_REST_URL = PERPETUAL_BASE_URL + "/depth"
+TICKER_PRICE_URL = PERPETUAL_BASE_URL + "/ticker/bookTicker"
 TICKER_PRICE_CHANGE_URL = PERPETUAL_BASE_URL + "/ticker/24hr"
 EXCHANGE_INFO_URL = PERPETUAL_BASE_URL + "/exchangeInfo"
 RECENT_TRADES_URL = PERPETUAL_BASE_URL + "/trades"
@@ -68,6 +72,37 @@ class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
                 raise e
         return self._trading_pairs
     """
+
+    @staticmethod
+    @cachetools.func.ttl_cache(ttl=10)
+    def get_mid_price(trading_pair: str) -> Optional[Decimal]:
+        from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils import convert_to_exchange_trading_pair
+
+        resp = requests.get(url=f"{TICKER_PRICE_URL}?symbol={convert_to_exchange_trading_pair(trading_pair)}")
+        record = resp.json()
+        result = (Decimal(record["bidPrice"]) + Decimal(record["askPrice"])) / Decimal("2")
+        return result
+
+    @staticmethod
+    async def fetch_trading_pairs() -> List[str]:
+        try:
+            from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils import convert_from_exchange_trading_pair
+            async with aiohttp.ClientSession() as client:
+                async with client.get(EXCHANGE_INFO_URL, timeout=10) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        raw_trading_pairs = [d["symbol"] for d in data["symbols"] if d["status"] == "TRADING"]
+                        trading_pair_list: List[str] = []
+                        for raw_trading_pair in raw_trading_pairs:
+                            trading_pair = convert_from_exchange_trading_pair(raw_trading_pair)
+                            if trading_pair is not None:
+                                trading_pair_list.append(trading_pair)
+                            else:
+                                continue
+                        return trading_pair_list
+        except Exception:
+            pass
+        return []
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, limit: int = 1000) -> Dict[str, Any]:

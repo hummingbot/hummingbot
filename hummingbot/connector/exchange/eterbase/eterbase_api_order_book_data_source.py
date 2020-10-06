@@ -167,6 +167,28 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return tp_map_mid
 
     @staticmethod
+    async def fetch_trading_pairs() -> List[str]:
+        try:
+            from hummingbot.connector.exchange.eterbase.eterbase_utils import convert_from_exchange_trading_pair
+
+            async with aiohttp.ClientSession() as client:
+                async with client.get("https://api.eterbase.exchange/api/markets", timeout=10) as response:
+                    if response.status == 200:
+                        markets = await response.json()
+                        raw_trading_pairs: List[str] = list(map(lambda trading_market: trading_market.get('symbol'), filter(lambda details: details.get('state') == 'Trading', markets)))
+                        trading_pair_list: List[str] = []
+                        for raw_trading_pair in raw_trading_pairs:
+                            converted_trading_pair: Optional[str] = \
+                                convert_from_exchange_trading_pair(raw_trading_pair)
+                            if converted_trading_pair is not None:
+                                trading_pair_list.append(converted_trading_pair)
+                        return trading_pair_list
+        except Exception:
+            pass
+            # Do nothing if the request fails -- there will be no autocomplete for eterbase trading pairs
+        return []
+
+    @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, any]:
         """
         Fetches order book snapshot for a particular trading pair from the rest API

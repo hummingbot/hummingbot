@@ -17,9 +17,12 @@ prompt-toolkit==3.0.5
 eth-bloom==1.0.3
 pyperclip==1.8.0
 telegram==0.0.1
-jwt==1.0.0
+pyjwt==1.7.1
 mypy-extensions==0.4.3
 python-telegram-bot==12.8
 python-binance==0.7.5
 pandas==1.1.0
 aiohttp==3.6.2
+bitstring==3.1.7
+pyblake2==1.1.2
+pysha3==1.0.2

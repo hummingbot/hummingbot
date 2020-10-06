@@ -2,7 +2,7 @@
 ###       Pure market making strategy config         ###
 ########################################################
 
-template_version: 18
+template_version: 19
 strategy: null
 
 # Exchange and token parameters.
@@ -91,7 +91,7 @@ add_transaction_costs: null
 # The price source (current_market/external_market/custom_api).
 price_source: null
 
-# The price type (mid_price/last_price).
+# The price type (mid_price/last_price/last_own_trade_price/best_bid/best_ask).
 price_type: null
 
 # An external exchange name (for external exchange pricing source).
@@ -103,8 +103,18 @@ price_source_market: null
 # An external api that returns price (for custom_api pricing source).
 price_source_custom_api: null
 
-#Take order if they cross orderbook when external price source is enabled
+#Take order if they cross order book when external price source is enabled
 take_if_crossed: null
+
+# Use user provided orders to directly override the orders placed by order_amount and order_level_parameter
+# This is an advanced feature and user is expected to directly edit this field in config file
+# Below is an sample input, the format is a dictionary, the key is user-defined order name, the value is a list which includes buy/sell, order spread, and order amount
+# order_override:
+#   order_1: [buy, 0.5, 100]
+#   order_2: [buy, 0.75, 200]
+#   order_3: [sell, 0.1, 500]
+# Please make sure there is a space between : and [
+order_override: null
 
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/pure-market-making/#configuration-parameters

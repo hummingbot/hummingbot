@@ -38,7 +38,7 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.connector.exchange.eterbase.eterbase_market import EterbaseMarket
+from hummingbot.connector.exchange.eterbase.eterbase_exchange import EterbaseExchange
 from hummingbot.connector.exchange.eterbase.eterbase_utils import convert_to_exchange_trading_pair
 from hummingbot.core.event.events import OrderType
 from hummingbot.connector.markets_recorder import MarketsRecorder
@@ -54,7 +54,7 @@ from hummingbot.model.trade_fill import TradeFill
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
-class EterbaseMarketUnitTest(unittest.TestCase):
+class EterbaseExchangeUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
@@ -67,14 +67,14 @@ class EterbaseMarketUnitTest(unittest.TestCase):
         MarketEvent.OrderFailure
     ]
 
-    market: EterbaseMarket
+    market: EterbaseExchange
     market_logger: EventLogger
     stack: contextlib.ExitStack
 
     @classmethod
     def setUpClass(cls):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.market: EterbaseMarket = EterbaseMarket(
+        cls.market: EterbaseExchange = EterbaseExchange(
             conf.eterbase_api_key,
             conf.eterbase_secret_key,
             conf.eterbase_account,
@@ -361,7 +361,7 @@ class EterbaseMarketUnitTest(unittest.TestCase):
             self.clock.remove_iterator(self.market)
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
-            self.market: EterbaseMarket = EterbaseMarket(
+            self.market: EterbaseExchange = EterbaseExchange(
                 eterbase_api_key=conf.eterbase_api_key,
                 eterbase_secret_key=conf.eterbase_secret_key,
                 eterbase_account=conf.eterbase_account,
