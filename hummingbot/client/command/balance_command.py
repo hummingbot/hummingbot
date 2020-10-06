@@ -64,7 +64,7 @@ class BalanceCommand:
                     return
                 asset = args[0].upper()
                 amount = float(args[1])
-                paper_balances = dict(config_var.value)
+                paper_balances = dict(config_var.value) if config_var.value else {}
                 paper_balances[asset] = amount
                 config_var.value = paper_balances
                 self._notify(f"Paper balance for {asset} token set to {amount}")
@@ -160,7 +160,7 @@ class BalanceCommand:
             self.notify_balance_limit_set()
             return
 
-        self._notify(f"Balance Limits per exchange...")
+        self._notify("Balance Limits per exchange...")
 
         for exchange, asset_limit_config in exchange_limit_conf.items():
             if asset_limit_config is None:

@@ -25,6 +25,11 @@ huobi_secret_key: null
 liquid_api_key: null
 liquid_secret_key: null
 
+loopring_accountid: null
+loopring_exchangeid: null
+loopring_api_key: null
+loopring_private_key: null
+
 kucoin_api_key: null
 kucoin_secret_key: null
 kucoin_passphrase: null
@@ -38,6 +43,9 @@ crypto_com_secret_key: null
 eterbase_api_key: null
 eterbase_secret_key: null
 eterbase_account: null
+
+bitfinex_api_key: null
+bitfinex_secret_key: null
 
 celo_address: null
 celo_password: null
