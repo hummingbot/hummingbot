@@ -101,6 +101,37 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return {d["address"]: d for d in data}
 
     @staticmethod
+    async def fetch_trading_pairs() -> List[str]:
+        try:
+            trading_pairs = set()
+            page_count = 1
+            while True:
+                async with aiohttp.ClientSession() as client:
+                    async with client.get(f"https://rest.bamboorelay.com/main/0x/markets?perPage=1000&page={page_count}",
+                                          timeout=5) as response:
+                        if response.status == 200:
+
+                            markets = await response.json()
+                            new_trading_pairs = set(map(lambda details: details.get("id"), markets))
+                            if len(new_trading_pairs) == 0:
+                                break
+                            else:
+                                trading_pairs = trading_pairs.union(new_trading_pairs)
+                            page_count += 1
+                            trading_pair_list: List[str] = []
+                            for raw_trading_pair in trading_pairs:
+                                trading_pair_list.append(raw_trading_pair)
+                            return trading_pair_list
+                        else:
+                            break
+
+        except Exception:
+            # Do nothing if the request fails -- there will be no autocomplete for bamboo trading pairs
+            pass
+
+        return []
+
+    @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession,
                            trading_pair: str,
                            api_endpoint: str = "https://rest.bamboorelay.com/",

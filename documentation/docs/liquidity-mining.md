@@ -9,7 +9,7 @@ Liquidity mining is a community-based, data-driven approach to market making, in
 
 Liquidity mining sets forth an analytical framework for determining market maker compensation based on (1) time (order book consistency), (2) order spreads, and (3) order sizes, in order to create a fair model for compensation that aligns a miner's risk with rewards.
 
-## Getting started
+## Getting Started
 
 ### Read me first
 - [How it works](https://www.notion.so/hummingbot/What-is-liquidity-mining-c2eb7d68e28b42278e5efead9a247507)
@@ -23,24 +23,48 @@ Liquidity mining sets forth an analytical framework for determining market maker
 ### Support
 - [Get help on Discord](https://discord.hummingbot.io): Join the **#liquidity-mining** channel for 24/7 support
 
-## Current campaign terms
+## Current Campaign Terms
 
 !!! warning "Important information regarding campaign terms"
-    <li>**Terms subject to change**. Please check this page or the [Miner's app](https://miners.hummingbot.io) for the most up-to-date terms.<br/>We will notify participants of changes, if any, on our [Discord](https://discord.hummingbot.io) and [reddit](https://www.reddit.com/r/Hummingbot/).
+    **Terms are subject to change**. We will notify participants of changes, if any, on our [Discord](https://discord.hummingbot.io) and [Reddit](https://www.reddit.com/r/Hummingbot/). Participants can also check the latest news in the [Hummingbot Miner](https://miners.hummingbot.io/) app.
 
-    <li>**Orders outstanding for more than 30 minutes not counted for rewards.** Work on removing this limit is in progress, you can read more about it in our [Reddit post](https://www.reddit.com/r/Hummingbot/comments/hz5xv3/tracking_rewards_for_orders_longer_than_30m/).
-    > <em>**Tip**: To ensure that orders do not stay outstanding for longer than 30 minutes, Hummingbot users should disable [order refresh tolerance](https://docs.hummingbot.io/strategies/advanced-mm/order-refresh-tolerance/#how-it-works).</em>
+**Updated liquidity mining policy on payments**
 
-    <li>**Minimum reward payout amount**: due to the recent surge in Ethereum gas price, Hummingbot will impose a $10.00 minimum on the weekly payout, starting with the next scheduled payout on August 21, 2020 (UTC). For miners who earn < $10 within one week, their rewards will be accrued and rolled over to the next period, read more [here](https://www.reddit.com/r/Hummingbot/comments/i9rh5g/announcement_a_10_minimum_to_liquidity_mining/).
+Qualified participants will be eligible to receive compensation in accordance with each liquidity mining campaign’s schedule of Liquidity Mining Payments, which will be based on each participant’s trading activity (in particular, orders placed and their sizes and spreads) in the tokens subject to the liquidity mining campaign.
 
-
-!!! note "Campaign updates for the week starting August 25, 2020 12.00am UTC"
-    **Native RLC rewards for iExec campaign**: we have rolled out [native token liquidity mining rewards](https://hummingbot.io/blog/2020-08-native-token-payments/)!  Since August 18, liquidity miners participating in RLC pairs have earned or will be earning RLC rewards.
-
-    **Liquidiy mining reward increases for RLC market**: total reward **RLC 540/week**, you can read more about it on this [reddit post](https://www.reddit.com/r/Hummingbot/comments/ifswoj/update_to_rlc_liquidity_mining_rewards_rlc_540week/).
+==Participants must enter a valid wallet address applicable for the campaign that they are participating in.== CoinAlpha does not take any responsibility and will not reimburse for any loss of funds due to a participant submitting an incorrect or invalid wallet address.
 
 
-**Current reward period: August 25, 2020 12.00am UTC to September 1, 2020 12.00am UTC**
+**Orders outstanding for more than 30 minutes not counted for rewards**
+
+Work on removing this limit is in progress, you can read more about it in our [Reddit post](https://www.reddit.com/r/Hummingbot/comments/hz5xv3/tracking_rewards_for_orders_longer_than_30m/).
+
+!!! Tip
+    To ensure that orders do not stay outstanding for longer than 30 minutes, Hummingbot users should disable [order refresh tolerance](https://docs.hummingbot.io/strategies/advanced-mm/order-refresh-tolerance/#how-it-works).
+
+**Minimum reward payout amount**
+
+Due to the recent surge in Ethereum gas price, Hummingbot will impose a $50.00 minimum on the weekly payout ==for payments on the Ethereum blockchain (currently USDC and RLC)==, starting with the next scheduled payout on September 18th (UTC).
+
+For miners who earn < $50 within one week, their rewards will be accrued and rolled over to the next period, read more in this [Reddit post](https://www.reddit.com/r/Hummingbot/comments/ip4mc3/announcement_raising_minimum_payment_to_50/).
+
+!!! Note
+    XZC payments are not subject to a minimum payout reward; all payouts will be made for each period.
+
+
+**Native XZC rewards for Zcoin campaign**
+
+Starting September 15, 2020 UTC, we rolled out [XZC native token payments](https://hummingbot.io/blog/2020-09-xzc-native-token-payment/) for the Zcoin liquidity mining campaign! Miners participating in the Zcoin liquidity mining campaign will start earning and be paid in XZC tokens.
+
+Participating miners should enter their XZC wallet address in the miner app.
+
+!!! Note
+    You can use your Binance XZC deposit address and enter in the miner app to receive XZC directly into Binance.
+
+
+## Current Reward Period
+
+**September 29, 2020 12:00am UTC - October 6, 2020 12:00am UTC**
 
 <table>
   <thead>
@@ -102,21 +126,21 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td><b><em>RLC 180</em></b></td>
+      <td>RLC 180</td>
     </tr>
     <tr>
       <td>RLC/USDT</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td><b><em>RLC 180</em></b></td>
+      <td>RLC 180</td>
     </tr>
     <tr>
       <td>RLC/ETH</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td><b><em>RLC 180</em></b></td>
+      <td>RLC 180</td>
     </tr>
     <tr>
       <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
@@ -124,14 +148,14 @@ Liquidity mining sets forth an analytical framework for determining market maker
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 375</td>
+      <td><b>XZC 125</b></td>
     </tr>
     <tr>
       <td>XZC/USDT</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 375</td>
+      <td><b>XZC 125</b></td>
     </tr>
   </tbody>
 </table>
@@ -140,9 +164,29 @@ Liquidity mining sets forth an analytical framework for determining market maker
 \* Spread density function constant is one of the factors that determines the relative weighting of orders by spread, i.e., the amount of additional rewards for orders with tighter spreads vs those with wider spreads. Refer to this [spreadsheet](https://docs.google.com/spreadsheets/d/1mUZsQoiqlMs5HjcL6AXSKIx1oaULsmuQStJaCc2wggQ/edit?ts=5f1e89bd#gid=18167917) for the spread weights and for a visual of the graph that shows the curve.
 
 
-## Upcoming changes to campaign terms
+## Upcoming Changes to Terms 
 
-No upcoming changes.
+**Adding support for TRC20 USDT for USD-based liquidity mining payments**
+ 
+In response to rising Ethereum gas prices, we will be giving miners the option to receive USDT-TRON for USD-based liquidity mining rewards. Receiving USDT-TRON mining rewards will not be subject to any minimum amounts, and miners can have rewards paid directly into their exchange accounts.
+
+Miners can also choose to continuing receiving rewards to their Ethereum wallet, but still subject to minimum payment amounts.
+
+https://hummingbot.io/blog/2020-09-migrating-to-trc20-usdt-payment/
+
+Timetable:
+
+- Shortly/next few days: Tron wallet enabled on Hummingbot Miner
+
+- October 6, 2020 12:00am UTC: Campaigns with USDC reward pools will switch to USDT
+
+- October 16, 2020 UTC: First USDT-TRON payout
+
+!!! note
+    Users will be required to enter Tron wallet address in the Hummingbot Miners app to enable USDT-TRON payments.
+
+Binance.com (as well as many of the major exchanges) support TRC20-USDT, so you can use a USDT TRC20 deposit address to receive rewards directly into your exchange account.
+
 
 ## Token Issuers
 

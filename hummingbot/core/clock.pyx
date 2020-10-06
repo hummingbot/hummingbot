@@ -156,4 +156,3 @@ cdef class Clock:
 
     def backtest(self):
         self.backtest_til(self._end_time)
-

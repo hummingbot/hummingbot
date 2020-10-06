@@ -61,7 +61,7 @@ conda activate hummingbot
 **Step 3. Install the pip dependencies**
 
 ```
-pip install pandas cython cachetools aiohttp ruamel.yaml eth_account aiokafka sqlalchemy binance python-binance ujson websockets signalr-client-aio web3 prompt_toolkit 0x-order-utils 0x-contract-wrappers eth_bloom pyperclip telegram python-telegram-bot jwt numpy mypy_extensions
+pip install pandas cython cachetools aiohttp ruamel.yaml eth_account aiokafka sqlalchemy binance python-binance ujson websockets signalr-client-aio web3 prompt_toolkit 0x-order-utils 0x-contract-wrappers eth_bloom pyperclip telegram python-telegram-bot pyjwt numpy mypy_extensions bitstring pyblake2 pysha3
 ```
 
 ## Install, compile, and run Hummingbot

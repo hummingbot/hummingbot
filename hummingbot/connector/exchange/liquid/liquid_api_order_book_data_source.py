@@ -4,7 +4,10 @@ import logging
 import pandas as pd
 import time
 from typing import Any, AsyncIterable, Dict, List, Optional
+from decimal import Decimal
 import ujson
+import requests
+import cachetools.func
 import websockets
 from websockets.exceptions import ConnectionClosed
 
@@ -159,6 +162,40 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
             if item['disabled'] is False
         ]
 
+    @staticmethod
+    @cachetools.func.ttl_cache(ttl=10)
+    def get_mid_price(trading_pair: str) -> Optional[Decimal]:
+        resp = requests.get(url=Constants.GET_EXCHANGE_MARKETS_URL)
+        records = resp.json()
+        result = None
+        for record in records:
+            pair = f"{record['base_currency']}-{record['quoted_currency']}"
+            if trading_pair == pair and record["market_ask"] is not None and record["market_bid"] is not None:
+                result = (Decimal(record["market_ask"]) + Decimal(record["market_bid"])) / Decimal("2")
+                break
+        return result
+
+    @staticmethod
+    async def fetch_trading_pairs() -> List[str]:
+        try:
+            # Returns a List of str, representing each active trading pair on the exchange.
+            async with aiohttp.ClientSession() as client:
+                async with client.get(f"{Constants.BASE_URL}{Constants.PRODUCTS_URI}", timeout=10) as response:
+                    if response.status == 200:
+                        products: List[Dict[str, Any]] = await response.json()
+                        for data in products:
+                            data['trading_pair'] = '-'.join([data['base_currency'], data['quoted_currency']])
+                        return [
+                            product["trading_pair"] for product in products
+                            if product['disabled'] is False
+                        ]
+
+        except Exception:
+            # Do nothing if the request fails -- there will be no autocomplete available
+            pass
+
+        return []
+
     async def get_trading_pairs(self) -> List[str]:
         """
         Extract trading_pairs information from all_markets_df generated
@@ -181,9 +218,9 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         except Exception:
             self._trading_pairs = []
             self.logger().network(
-                f"Error getting active exchange information.",
+                "Error getting active exchange information.",
                 exe_info=True,
-                app_warning_msg=f"Error getting active exchange information. Check network connection."
+                app_warning_msg="Error getting active exchange information. Check network connection."
             )
 
         return self._trading_pairs
@@ -396,13 +433,12 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             await asyncio.sleep(5.0)
                         except asyncio.CancelledError:
                             raise
-                        except Exception as e:
-                            print(e)
+                        except Exception:
                             self.logger().network(
-                                f"Unexpected error with WebSocket connection.",
+                                "Unexpected error with WebSocket connection.",
                                 exc_info=True,
-                                app_warning_msg=f"Unexpected error with WebSocket connection. Retrying in 5 seconds. "
-                                                f"Check network connection."
+                                app_warning_msg="Unexpected error with WebSocket connection. Retrying in 5 seconds. "
+                                                "Check network connection."
                             )
                             await asyncio.sleep(5.0)
                     this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)

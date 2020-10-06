@@ -3,6 +3,8 @@ from typing import Dict, Any, Optional, Tuple, List
 import hummingbot.connector.exchange.eterbase.eterbase_constants as constants
 from hummingbot.connector.exchange.eterbase.eterbase_auth import EterbaseAuth
 
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.config.config_methods import using_exchange
 import aiohttp
 import asyncio
 import json
@@ -15,6 +17,12 @@ shared_client = None
 marketid_map = None
 
 API_CALL_TIMEOUT = 10.0
+
+CENTRALIZED = True
+
+EXAMPLE_PAIR = "EUR-ETH"
+
+DEFAULT_FEES = [0.35, 0.35]
 
 
 async def _http_client(loop: Optional = None) -> aiohttp.ClientSession:
@@ -146,3 +154,25 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
 def convert_from_exchange_trading_pair(trading_pair: str) -> str:
     base, quote = split_trading_pair(trading_pair)
     return f"{base}-{quote}"
+
+
+KEYS = {
+    "eterbase_api_key":
+        ConfigVar(key="eterbase_api_key",
+                  prompt="Enter your Eterbase API key >>> ",
+                  required_if=using_exchange("eterbase"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "eterbase_secret_key":
+        ConfigVar(key="eterbase_secret_key",
+                  prompt="Enter your Eterbase secret key >>> ",
+                  required_if=using_exchange("eterbase"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "eterbase_account":
+        ConfigVar(key="eterbase_account",
+                  prompt="Enter your Eterbase account >>> ",
+                  required_if=using_exchange("eterbase"),
+                  is_secure=True,
+                  is_connect_key=True),
+}
