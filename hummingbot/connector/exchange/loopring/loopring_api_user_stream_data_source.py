@@ -23,6 +23,7 @@ LOOPRING_WS_URL = "wss://ws.loopring.io/v2/ws"
 
 LOOPRING_ROOT_API = "https://api.loopring.io"
 
+
 class LoopringAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     _krausds_logger: Optional[HummingbotLogger] = None
