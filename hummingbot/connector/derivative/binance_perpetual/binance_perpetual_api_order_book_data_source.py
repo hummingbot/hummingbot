@@ -29,7 +29,7 @@ EXCHANGE_INFO_URL = PERPETUAL_BASE_URL + "/exchangeInfo"
 RECENT_TRADES_URL = PERPETUAL_BASE_URL + "/trades"
 
 
-class BinancePerpetualOrderBookDataSource(OrderBookTrackerDataSource):
+class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def __init__(self, trading_pairs: List[str] = None):
         super().__init__(trading_pairs)
         self._trading_pairs: List[str] = trading_pairs

@@ -8,8 +8,8 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_data_source import \
-    BinancePerpetualOrderBookDataSource
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import \
+    BinancePerpetualAPIOrderBookDataSource
 
 
 class BinancePerpetualOrderBookTracker(OrderBookTracker):
@@ -23,7 +23,7 @@ class BinancePerpetualOrderBookTracker(OrderBookTracker):
 
     def __init__(self,
                  trading_pairs: Optional[List[str]] = None):
-        super().__init__(data_source=BinancePerpetualOrderBookDataSource(trading_pairs=trading_pairs),
+        super().__init__(data_source=BinancePerpetualAPIOrderBookDataSource(trading_pairs=trading_pairs),
                          trading_pairs=trading_pairs)
 
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
@@ -40,7 +40,7 @@ class BinancePerpetualOrderBookTracker(OrderBookTracker):
             if self._data_source_type is OrderBookTrackerDataSourceType.REMOTE_API:
                 self._data_source = RemoteAPIOrderBookDataSource()
             elif self._data_source_type is OrderBookTrackerDataSourceType.EXCHANGE_API:
-                self._data_source = BinancePerpetualOrderBookDataSource(trading_pairs=self._trading_pairs)
+                self._data_source = BinancePerpetualAPIOrderBookDataSource(trading_pairs=self._trading_pairs)
             else:
                 raise ValueError(f"Data Source Type {self._data_source_type} is not supported.")
         return self._data_source

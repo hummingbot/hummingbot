@@ -15,8 +15,8 @@ from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_in_flight_order import BinancePerpetualsInFlightOrder
 
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_data_source import (
-    BinancePerpetualOrderBookDataSource
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import (
+    BinancePerpetualAPIOrderBookDataSource
 )
 
 import asyncio
@@ -934,4 +934,4 @@ class BinancePerpetualMarket(DerivativeBase):
 
     # DEPRECATED
     async def get_active_exchange_markets(self) -> pd.DataFrame:
-        return await BinancePerpetualOrderBookDataSource.get_active_exchange_markets()
+        return await BinancePerpetualAPIOrderBookDataSource.get_active_exchange_markets()
