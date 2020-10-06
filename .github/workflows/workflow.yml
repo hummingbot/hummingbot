@@ -5,10 +5,12 @@ on:
     branches: [ master, development ]
   pull_request:
     branches: [ master, development ]
+    types: [ready_for_review, opened, synchronize, reopened]
 
 jobs:
   build_hummingbot:
     name: build + stable tests
+    if: github.event.pull_request.draft == false
     runs-on: "ubuntu-latest"
 
     steps:
@@ -47,6 +49,7 @@ jobs:
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
         with:
           python-version: 3.x
+
       - name: Install Miniconda and nose
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
         shell: bash

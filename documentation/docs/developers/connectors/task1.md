@@ -19,10 +19,12 @@ Function<div style="width:200px"/> | Input Parameter(s) | Expected Output(s) | D
 ---|---|---|---
 `get_last_traded_prices` | trading_pairs: List[str] | `Dict[str, float]` | Performs the necessary API request(s) to get last traded price for the given markets (trading_pairs) and return a dictionary of trading_pair and last traded price.
 `get_snapshot` | client: `aiohttp.ClientSession`, trading_pair: `str` | `Dict[str, any]` | Fetches order book snapshot for a particular trading pair from the exchange REST API. <table><tbody><tr><td bgcolor="#ecf3ff">**Note**: Certain exchanges do not add a timestamp/nonce to the snapshot response. In this case, to maintain a real-time order book would require generating a timestamp for every order book snapshot and delta messages received and applying them accordingly.<br/><br/>In [Bittrex](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/bittrex/bittrex_api_order_book_data_source.py), this is performed by invoking the `queryExchangeState` topic on the SignalR WebSocket client.</td></tr></tbody></table>
-`get_new_order_book` | trading_pair: `str` | `OrderBook` | Create a new order book instance and populate its `bids` and `asks` by applying the order_book snapshot to the order book, you might need to involve `ActiveOrderTracker` below. 
+`get_new_order_book` | trading_pair: `str` | `OrderBook` | Creates a new order book instance and populate its `bids` and `asks` by applying the order_book snapshot to the order book, you might need to involve `ActiveOrderTracker` below.
 `listen_for_trades` | ev_loop: `asyncio.BaseEventLoop`, output: `asyncio.Queue` | None | Subscribes to the trade channel of the exchange. Adds incoming messages(of filled orders) to the `output` queue, to be processed by `OrderBookTracker` (in `_emit_trade_event_loop`)
 `listen_for_order_book_diffs` | ev_loop: `asyncio.BaseEventLoop`, output: `asyncio.Queue` | None | Fetches or Subscribes to the order book snapshots for each trading pair. Additionally, parses the incoming message into a `OrderBookMessage` and appends it into the `output` Queue.
 `listen_for_order_book_snapshots` | ev_loop: `asyncio.BaseEventLoop`, output: `asyncio.Queue` | None | Fetches or Subscribes to the order book deltas(diffs) for each trading pair. Additionally, parses the incoming message into a `OrderBookMessage` and appends it into the `output` Queue.
+`get_mid_price` | trading_pair: `str` | `Decimal` | Calculates and return the average of the best bid and best ask prices from the exchange's ticker endpoint i.e `(best_bid + best_ask) / 2`
+`fetch_trading_pairs` | None | `List[str]` | Return a list of supported trading pairs on the exchange. Note that pairs should be in `[Base]-[Quote]` format. And the conversion methods mentioned in Task 4 of this documentation should be used to convert pair if necessary.
 
 ## ActiveOrderTracker
 
@@ -72,4 +74,8 @@ Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | D
 `start` | None | None | Start listening on trade messages. <table><tbody><tr><td bgcolor="#ecf3ff">**Note**: This is to be overridden and called by running `super().start()` in the custom implementation of `start`.</td></tr></tbody></table>
 `stop` | None | None | Stops all tasks in `OrderBookTracker`.
 `_emit_trade_event_loop` | None | None | Attempts to retrieve trade_messages from the Queue `_order_book_trade_stream` and apply the trade onto the respective order book.
+
+## Debugging & Testing
+
+As part of the QA process, for each tasks(Task 1 through 3) you are **required** to include the unit test cases for the code review process to begin. Refer to [Option 1: Unit Test Cases](/developers/connectors/debug&test/#option-1-unit-test-cases) to build your unit tests.
 

@@ -19,7 +19,7 @@ if is_posix:
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20200909"
+    version = "20201006"
     packages = [
         "hummingbot",
         "hummingbot.client",
@@ -37,6 +37,7 @@ def main():
         "hummingbot.connector",
         "hummingbot.connector.exchange",
         "hummingbot.connector.exchange.binance",
+        "hummingbot.connector.exchange.bitfinex",
         "hummingbot.connector.exchange.bittrex",
         "hummingbot.connector.exchange.bamboo_relay",
         "hummingbot.connector.exchange.coinbase_pro",
@@ -45,6 +46,7 @@ def main():
         "hummingbot.connector.exchange.kraken",
         "hummingbot.connector.exchange.crypto_com",
         "hummingbot.connector.exchange.kucoin",
+        "hummingbot.connector.exchange.loopring",
         "hummingbot.script",
         "hummingbot.strategy",
         "hummingbot.strategy.arbitrage",

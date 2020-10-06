@@ -35,6 +35,7 @@ class KucoinOrderBookTrackerUnitTest(unittest.TestCase):
         "BTC-USDT",
         "XRP-USDT"
     ]
+
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
