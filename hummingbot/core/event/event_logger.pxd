@@ -8,4 +8,3 @@ cdef class EventLogger(EventListener):
         dict _waiting
         dict _wait_returns
     cdef c_call(self, object event_object)
-

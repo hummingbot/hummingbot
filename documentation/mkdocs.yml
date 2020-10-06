@@ -123,6 +123,7 @@ nav:
         - paper_trade: operation/commands/paper-trade.md
         - export: operation/commands/export.md
         - order_book: operation/commands/order_book.md
+        - ticker: operation/commands/ticker.md
       - Keyboard Shortcuts: operation/keyboard-shortcuts.md
       - Docker Commands: operation/docker-commands.md
     - Strategies:
@@ -141,6 +142,7 @@ nav:
         - Order Optimization: strategies/advanced-mm/order-optimization.md
         - Adding Transaction Costs: strategies/advanced-mm/add-transaction-costs.md
         - External Price Source: strategies/advanced-mm/price-source.md
+        - Order Override: strategies/advanced-mm/order-override.md
       - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
       - Arbitrage: strategies/arbitrage.md
       - Celo Arbitrage:
@@ -149,6 +151,7 @@ nav:
     - Connectors:
       - Overview: connectors/index.md
       - Binance: connectors/binance.md
+      - Bitfinex: connectors/bitfinex.md
       - Bittrex Global: connectors/bittrex.md
       - Coinbase Pro: connectors/coinbase.md
       - Crypto.com : connectors/crypto-com.md
@@ -157,6 +160,7 @@ nav:
       - KuCoin: connectors/kucoin.md
       - Kraken: connectors/kraken.md
       - Liquid: connectors/liquid.md
+      - Loopring: connectors/loopring.md
       - Radar Relay: connectors/radar-relay.md
       - Community Connectors:
         - Bamboo Relay: connectors/bamboo-relay.md
@@ -172,6 +176,7 @@ nav:
       - Autostart <sup>(BETA)</sup>: advanced/autostart.md
       - External Database <sup>(BETA)</sup>: advanced/db-config.md
       - Scripts: advanced/scripts.md
+      - Minimum Order Size: advanced/min-order.md
     - Community:
       - Overview: community/index.md  
       - Contributions: community/contributions.md
@@ -211,7 +216,8 @@ nav:
           - Task 1 - Data Source & Order Book Tracker: developers/connectors/task1.md
           - Task 2 - User Stream Tracker : developers/connectors/task2.md
           - Task 3 - Market Connector: developers/connectors/task3.md
-          - Task 4 - Hummingbot Client: developers/connectors/task4.md
+          - Task 4 - Required Connector Configuration: developers/connectors/task4.md
+          - Debug and Test: developers/connectors/debug&test.md
         - Miscellaneous: developers/connectors/miscellaneous.md
       - Tutorial (WIP):
         - Intro: developers/tutorial/index.md
@@ -221,6 +227,7 @@ nav:
       - Configuration: developers/config.md
   - Release Notes:
     - About Releases: release-notes/index.md
+    - 0.32.0: release-notes/0.32.0.md
     - 0.31.0: release-notes/0.31.0.md
     - 0.30.0: release-notes/0.30.0.md
     - 0.29.0: release-notes/0.29.0.md

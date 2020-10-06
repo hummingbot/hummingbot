@@ -63,7 +63,6 @@ Participating miners should enter their XZC wallet address in the miner app.
     Click this [link](https://docs.hummingbot.io/faq/liquidity-mining/how-to-add-wallet-address) to learn how you can enter your [Binance XZC deposit address](https://docs.hummingbot.io/faq/liquidity-mining/#get-ethereum-and-zcoin-deposit-address-from-binance).
 
 
-
 ## Current Reward Period
 
 **September 29, 2020 12:00am UTC - October 6, 2020 12:00am UTC**
