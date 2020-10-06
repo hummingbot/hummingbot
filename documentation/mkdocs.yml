@@ -97,6 +97,7 @@ nav:
         - Linux: installation/docker/linux.md
         - macOS: installation/docker/macOS.md
         - Windows: installation/docker/windows.md
+        - Raspberry Pi: installation/docker/raspberry-pi.md
       - Source:
         - Linux: installation/source/linux.md
         - macOS: installation/source/macOS.md
