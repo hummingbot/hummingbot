@@ -58,8 +58,6 @@ bamboo_relay_taker_fee_amount:
 radar_relay_maker_fee_amount:
 radar_relay_taker_fee_amount:
 
-loopring_maker_fee:
-loopring_taker_fee:
 ```
 
 !!! note
