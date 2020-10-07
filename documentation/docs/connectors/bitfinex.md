@@ -2,7 +2,7 @@
 
 ## About Bitfinex
 
-Bitfinex is a cryptocurrency exchange owned and operated by iFinex Inc., which is headquartered in Hong Kong and registered in the British Virgin Islands.   
+Bitfinex is a cryptocurrency exchange owned and operated by iFinex Inc., which is registered in the British Virgin Islands.   
 
 Bitfinex was founded in December 2012 as a peer-to-peer Bitcoin exchange, offering digital asset trading services to users around the world. Bitfinex initially started as a P2P margin lending platform for Bitcoin and later added support for more cryptocurrencies. 
 
