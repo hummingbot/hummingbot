@@ -15,7 +15,7 @@ from hummingbot.core.data_type.order_book_message import (
 )
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.okex.okex_api_order_book_data_source import OKExAPIOrderBookDataSource
+from hummingbot.market.okex.okex_api_order_book_data_source import OkexAPIOrderBookDataSource
 
 
 class OKExOrderBookTracker(OrderBookTracker):
@@ -29,7 +29,7 @@ class OKExOrderBookTracker(OrderBookTracker):
 
     def __init__(self,
                  trading_pairs: Optional[List[str]] = None):
-        super().__init__(OKExAPIOrderBookDataSource(trading_pairs), trading_pairs)
+        super().__init__(OkexAPIOrderBookDataSource(trading_pairs), trading_pairs)
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()

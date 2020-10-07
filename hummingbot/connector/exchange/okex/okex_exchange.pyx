@@ -50,7 +50,7 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.okex.okex_api_order_book_data_source import OKExAPIOrderBookDataSource
+from hummingbot.market.okex.okex_api_order_book_data_source import OkexAPIOrderBookDataSource
 from hummingbot.market.okex.okex_auth import OKExAuth
 from hummingbot.market.okex.okex_in_flight_order import OKExInFlightOrder
 from hummingbot.market.okex.okex_order_book_tracker import OKExOrderBookTracker
@@ -209,7 +209,7 @@ cdef class OKExExchange(ExchangeBase):
         self._shared_client = client
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
-        return await OKExAPIOrderBookDataSource.get_active_exchange_markets()
+        return await OkexAPIOrderBookDataSource.get_active_exchange_markets()
 
     cdef c_start(self, Clock clock, double timestamp):
         print("started")
