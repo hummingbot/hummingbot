@@ -9,7 +9,7 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.market.okex.okex_market import OKExMarket
+from hummingbot.market.okex.okex_exchange import OKExExchange
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 
 
@@ -25,7 +25,7 @@ cdef class OKExInFlightOrder(InFlightOrderBase):
                  initial_state: str = "submitted"):
 
         super().__init__(
-            OKExMarket,
+            OKExExchange,
             client_order_id,
             exchange_order_id,
             trading_pair,
