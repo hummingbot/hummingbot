@@ -44,8 +44,8 @@ ORDER_STATUSES = {
     0: 'open',
     1: 'partially filled',
     2: 'fullyfilled',
-    3:  'submitting',
-    4:  'canceling'
+    3: 'submitting',
+    4: 'canceling'
 }
 
 

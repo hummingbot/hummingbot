@@ -36,7 +36,7 @@ cdef class OKExOrderBook(OrderBook):
                                        metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
-        msg_ts = int(timestamp * 1e-3) # TODO is this required?
+        msg_ts = int(timestamp * 1e-3)  # TODO is this required?
         content = {
             "trading_pair": msg["trading_pair"],
             "update_id": msg_ts,
@@ -47,12 +47,12 @@ cdef class OKExOrderBook(OrderBook):
 
     @classmethod
     def trade_message_from_exchange(cls,
-                                   msg: Dict[str, Any],
-                                   timestamp: Optional[float] = None,
-                                   metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                    msg: Dict[str, Any],
+                                    timestamp: Optional[float] = None,
+                                    metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
-        msg_ts = int(timestamp * 1e-3) # TODO is this required?
+        msg_ts = int(timestamp * 1e-3)  # TODO is this required?
         content = {
             "trading_pair": msg["trading_pair"],
             "trade_type": float(TradeType.SELL.value) if msg["side"] == "buy" else float(TradeType.BUY.value),
@@ -70,13 +70,13 @@ cdef class OKExOrderBook(OrderBook):
                                    metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
-        
+
         msg_ts = int(timestamp * 1e-3)
-        
+
         content = {
             "trading_pair": msg["instrument_id"],
             "update_id": msg_ts,
-            "bids":msg["bids"],
+            "bids": msg["bids"],
             "asks": msg["asks"]
         }
         return OrderBookMessage(OrderBookMessageType.DIFF, content, timestamp or msg_ts)
@@ -145,7 +145,7 @@ cdef class OKExOrderBook(OrderBook):
         return OrderBookMessage(OrderBookMessageType.TRADE, {
             "trading_pair": msg["ch"].split(".")[1],
             "trade_type": float(TradeType.BUY.value) if data["direction"] == "sell"
-                            else float(TradeType.SELL.value),
+            else float(TradeType.SELL.value),
             "trade_id": ts,
             "update_id": ts,
             "price": data["price"],
