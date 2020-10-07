@@ -38,7 +38,7 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.market.okex.okex_exchange import OKExExchange
+from hummingbot.connector.exchange.okex.okex_exchange import OKExExchange
 from hummingbot.connector.exchange_base import OrderType
 from hummingbot.market.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
@@ -124,7 +124,7 @@ class OKExExchangeUnitTest(unittest.TestCase):
             # cls.web_app.update_response("get", OKEX_BASE_URL, f"/v1/account/accounts/{mock_account_id}/balance",
             #                             FixtureOKEx.GET_BALANCES)
 
-            cls._t_nonce_patcher = unittest.mock.patch("hummingbot.market.okex.okex_exchange.get_tracking_nonce")
+            cls._t_nonce_patcher = unittest.mock.patch("hummingbot.connector.exchange.okex.okex_exchange.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: OKExExchange = OKExExchange(

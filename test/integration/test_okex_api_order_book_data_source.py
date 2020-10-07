@@ -2,7 +2,7 @@
 
 import unittest
 
-from hummingbot.market.okex.okex_api_order_book_data_source import OkexAPIOrderBookDataSource
+from hummingbot.connector.exchange.okex.okex_api_order_book_data_source import OkexAPIOrderBookDataSource
 from unittest import mock
 import asyncio
 import aiohttp

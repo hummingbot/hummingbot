@@ -12,10 +12,10 @@ from typing import (
 
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.okex.okex_auth import OKExAuth
+from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
 
-from hummingbot.market.okex.okex_utils import inflate
-from hummingbot.market.okex.constants import OKCOIN_WS_URI
+from hummingbot.connector.exchange.okex.okex_utils import inflate
+from hummingbot.connector.exchange.okex.constants import OKCOIN_WS_URI
 
 import time
 
