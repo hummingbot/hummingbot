@@ -164,6 +164,7 @@ class HummingWebApp:
         :return: the rerouted url
         """
         a_url = URL(url)
+
         if a_url.host in HummingWebApp._hosts_to_mock and not any(x in a_url.path for x in
                                                                   HummingWebApp._hosts_to_mock[a_url.host]):
             host_path = f"/{a_url.host}{a_url.path}"
