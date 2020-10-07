@@ -38,8 +38,8 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.market.okex.okex_market import OKExMarket
-from hummingbot.market.market_base import OrderType
+from hummingbot.market.okex.okex_exchange import OKExExchange
+from hummingbot.connector.exchange_base import OrderType
 from hummingbot.market.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
@@ -52,11 +52,20 @@ from hummingbot.client.config.fee_overrides_config_map import fee_overrides_conf
 from test.integration.humming_web_app import HummingWebApp
 from test.integration.assets.mock_data.fixture_okex import FixtureOKEx
 from unittest import mock
+from hummingbot.connector.exchange.okex.constants import (
+    OKEX_BASE_URL,
+    OKEX_SERVER_TIME,
+    OKEX_INSTRUMENTS_URL,
+    OKEX_PLACE_ORDER,
+    OKEX_ORDER_DETAILS_URL,
+    OKEX_ORDER_CANCEL,
+    OKEX_BATCH_ORDER_CANCELL,
+    OKEX_BALANCE_URL
+)
 
 MOCK_API_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
 # MOCK_API_ENABLED = False
 
-from hummingbot.market.okex.constants import *
 
 API_KEY = "API_PASSPHRASE_MOCK" if MOCK_API_ENABLED else conf.okex_api_key
 API_SECRET = "API_SECRET_MOCK" if MOCK_API_ENABLED else conf.okex_secret_key
@@ -66,12 +75,10 @@ API_BASE_URL = OKEX_BASE_URL.replace("https://", "").replace("/", "")
 
 EXCHANGE_ORDER_ID = 20001
 
-
-
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
-class OKExMarketUnitTest(unittest.TestCase):
+class OKExExchangeUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
         MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
@@ -85,7 +92,7 @@ class OKExMarketUnitTest(unittest.TestCase):
         MarketEvent.OrderFailure
     ]
 
-    market: OKExMarket
+    market: OKExExchange
     market_logger: EventLogger
     stack: contextlib.ExitStack
 
@@ -94,44 +101,40 @@ class OKExMarketUnitTest(unittest.TestCase):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         if MOCK_API_ENABLED:
             cls.web_app = HummingWebApp.get_instance()
-            cls.web_app.add_host_to_mock(API_BASE_URL, [ 
-                                                        #OKEX_BALANCE_URL,
-                                                        # "/market/tickers", "/market/depth"
-                                                        ]
-                                                        )
+            cls.web_app.add_host_to_mock(API_BASE_URL, [])
             cls.web_app.start()
             cls.ev_loop.run_until_complete(cls.web_app.wait_til_started())
             cls._patcher = mock.patch("aiohttp.client.URL")
             cls._url_mock = cls._patcher.start()
             cls._url_mock.side_effect = cls.web_app.reroute_local
             # mock_account_id = FixtureOKEx.GET_ACCOUNTS["data"][0]["id"]
-            
+
             # warning: second parameter starts with /
             cls.web_app.update_response("get", API_BASE_URL, '/' + OKEX_SERVER_TIME, FixtureOKEx.TIMESTAMP)
-            
+
             cls.web_app.update_response("get", API_BASE_URL, '/' + OKEX_INSTRUMENTS_URL, FixtureOKEx.OKEX_INSTRUMENTS_URL)
             cls.web_app.update_response("get", API_BASE_URL, '/api/spot/v3/instruments/ticker', FixtureOKEx.INSTRUMENT_TICKER)
 
             cls.web_app.update_response("get", API_BASE_URL, '/api/spot/v3/instruments/ETH-USDT/book', FixtureOKEx.OKEX_ORDER_BOOK)
 
             cls.web_app.update_response("get", API_BASE_URL, '/' + OKEX_BALANCE_URL, FixtureOKEx.OKEX_BALANCE_URL)
-            
+
             # cls.web_app.update_response("POST", API_BASE_URL, '/' + OKEX_PLACE_ORDER, FixtureOKEx.ORDER_PLACE)
-            
+
             # cls.web_app.update_response("get", OKEX_BASE_URL, f"/v1/account/accounts/{mock_account_id}/balance",
             #                             FixtureOKEx.GET_BALANCES)
 
-            cls._t_nonce_patcher = unittest.mock.patch("hummingbot.market.okex.okex_market.get_tracking_nonce")
+            cls._t_nonce_patcher = unittest.mock.patch("hummingbot.market.okex.okex_exchange.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.market: OKExMarket = OKExMarket(
+        cls.market: OKExExchange = OKExExchange(
             API_KEY,
             API_SECRET,
             API_PASSPHRASE,
             trading_pairs=["ETH-USDT"]
         )
         # Need 2nd instance of market to prevent events mixing up across tests
-        cls.market_2: OKExMarket = OKExMarket(
+        cls.market_2: OKExExchange = OKExExchange(
             API_KEY,
             API_SECRET,
             API_PASSPHRASE,
@@ -293,7 +296,7 @@ class OKExMarketUnitTest(unittest.TestCase):
     def test_limit_makers_unfilled(self):
         if MOCK_API_ENABLED:
             return
-            
+
         trading_pair = "ETH-USDT"
 
         bid_price: Decimal = self.market.get_price(trading_pair, True) * Decimal("0.5")
@@ -306,17 +309,17 @@ class OKExMarketUnitTest(unittest.TestCase):
         quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price * Decimal("1.1"))
 
         order_id1, exch_order_id1 = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_bid_price,
-                                             10001, FixtureOKEx.ORDER_GET_LIMIT_BUY_UNFILLED)
+                                                     10001, FixtureOKEx.ORDER_GET_LIMIT_BUY_UNFILLED)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id1, order_created_event.order_id)
-        
+
         order_id2, exch_order_id2 = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_ask_price,
-                                             10002, FixtureOKEx.ORDER_GET_LIMIT_SELL_UNFILLED)
+                                                     10002, FixtureOKEx.ORDER_GET_LIMIT_SELL_UNFILLED)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id2, order_created_event.order_id)
-        
+
         self.run_parallel(asyncio.sleep(1))
         if MOCK_API_ENABLED:
             resp = FixtureOKEx.ORDERS_BATCH_CANCELLED.copy()
@@ -325,7 +328,7 @@ class OKExMarketUnitTest(unittest.TestCase):
         [cancellation_results] = self.run_parallel(self.market_2.cancel_all(5))
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
-            
+
         # Reset the logs
         self.market_logger.clear()
 
@@ -475,7 +478,7 @@ class OKExMarketUnitTest(unittest.TestCase):
             self.clock.remove_iterator(self.market)
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
-            self.market: OKExMarket = OKExMarket(
+            self.market: OKExExchange = OKExExchange(
                 okex_api_key=API_KEY,
                 okex_secret_key=API_SECRET,
                 trading_pairs=["ETH-USDT", "BTC-USDT"]

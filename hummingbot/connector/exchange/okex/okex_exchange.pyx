@@ -55,8 +55,8 @@ from hummingbot.market.okex.okex_auth import OKExAuth
 from hummingbot.market.okex.okex_in_flight_order import OKExInFlightOrder
 from hummingbot.market.okex.okex_order_book_tracker import OKExOrderBookTracker
 from hummingbot.market.trading_rule cimport TradingRule
-from hummingbot.market.market_base import (
-    MarketBase,
+from hummingbot.connector.exchange_base import (
+    ExchangeBase,
     NaN,
     s_decimal_NaN)
 from hummingbot.market.okex.okex_user_stream_tracker import OKExUserStreamTracker
@@ -78,11 +78,11 @@ class OKExAPIError(IOError):
         self.error_payload = error_payload
 
 
-cdef class OKExMarketTransactionTracker(TransactionTracker):
+cdef class OKExExchangeTransactionTracker(TransactionTracker):
     cdef:
-        OKExMarket _owner
+        OKExExchange _owner
 
-    def __init__(self, owner: OKExMarket):
+    def __init__(self, owner: OKExExchange):
         super().__init__()
         self._owner = owner
 
@@ -91,7 +91,7 @@ cdef class OKExMarketTransactionTracker(TransactionTracker):
         self._owner.c_did_timeout_tx(tx_id)
 
 
-cdef class OKExMarket(MarketBase):
+cdef class OKExExchange(ExchangeBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
@@ -140,7 +140,7 @@ cdef class OKExMarket(MarketBase):
         self._trading_required = trading_required
         self._trading_rules = {}
         self._trading_rules_polling_task = None
-        self._tx_tracker = OKExMarketTransactionTracker(self)
+        self._tx_tracker = OKExExchangeTransactionTracker(self)
 
         self._user_stream_event_listener_task = None
         self._user_stream_tracker = OKExUserStreamTracker(okex_auth=self._okex_auth,
@@ -214,10 +214,10 @@ cdef class OKExMarket(MarketBase):
     cdef c_start(self, Clock clock, double timestamp):
         print("started")
         self._tx_tracker.c_start(clock, timestamp)
-        MarketBase.c_start(self, clock, timestamp)
+        ExchangeBase.c_start(self, clock, timestamp)
 
     cdef c_stop(self, Clock clock):
-        MarketBase.c_stop(self, clock)
+        ExchangeBase.c_stop(self, clock)
         self._async_scheduler.stop()
 
     async def start_network(self):
@@ -260,7 +260,7 @@ cdef class OKExMarket(MarketBase):
             int64_t last_tick = <int64_t>(self._last_timestamp / self._poll_interval)
             int64_t current_tick = <int64_t>(timestamp / self._poll_interval)
 
-        MarketBase.c_tick(self, timestamp)
+        ExchangeBase.c_tick(self, timestamp)
         self._tx_tracker.c_tick(timestamp)
         if current_tick > last_tick:
             if not self._poll_notifier.is_set():
@@ -1034,7 +1034,7 @@ cdef class OKExMarket(MarketBase):
     cdef object c_quantize_order_amount(self, str trading_pair, object amount, object price=s_decimal_0):
         cdef:
             TradingRule trading_rule = self._trading_rules[trading_pair]
-            object quantized_amount = MarketBase.c_quantize_order_amount(self, trading_pair, amount)
+            object quantized_amount = ExchangeBase.c_quantize_order_amount(self, trading_pair, amount)
             object current_price = self.c_get_price(trading_pair, False)
             object notional_size
 
