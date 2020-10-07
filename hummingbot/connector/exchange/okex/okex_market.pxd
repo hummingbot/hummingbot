@@ -10,7 +10,7 @@ cdef class OKExMarket(MarketBase):
         object _async_scheduler
         object _data_source_type
         object _ev_loop
-        object _okex_auth # TODO
+        object _okex_auth  # TODO
         dict _in_flight_orders
         double _last_poll_timestamp
         double _last_timestamp

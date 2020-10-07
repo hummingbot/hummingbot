@@ -33,7 +33,7 @@ from hummingbot.market.okex.constants import (
     OKCOIN_WS_URI,
 )
 
-from hummingbot.market.okex.tools import inflate
+from hummingbot.market.okex.okex_utils import inflate
 
 from dateutil.parser import parse as dataparse
 

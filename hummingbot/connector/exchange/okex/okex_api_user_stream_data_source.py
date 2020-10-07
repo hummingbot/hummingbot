@@ -7,8 +7,6 @@ import logging
 from typing import (
     Optional,
     AsyncIterable,
-    Dict,
-    Any,
     List
 )
 
@@ -16,8 +14,8 @@ from hummingbot.core.data_type.user_stream_tracker_data_source import UserStream
 from hummingbot.logger import HummingbotLogger
 from hummingbot.market.okex.okex_auth import OKExAuth
 
-from hummingbot.market.okex.tools import inflate
-from hummingbot.market.okex.constants import *
+from hummingbot.market.okex.okex_utils import inflate
+from hummingbot.market.okex.constants import OKCOIN_WS_URI
 
 import time
 
@@ -59,8 +57,8 @@ class OKExAPIUserStreamDataSource(UserStreamTrackerDataSource):
         msg = resp.json()
         if msg["code"] != 200:
             self.logger().error(f"Error occurred authenticating to websocket API server. {msg}")
-        
-        self.logger().info(f"Successfully authenticated")
+
+        self.logger().info("Successfully authenticated")
 
     async def _subscribe_topic(self, topic: List[str]):
         subscribe_request = {
@@ -116,7 +114,7 @@ class OKExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         source, quote = trading_pair.split('-')
                         assets.add(source)
                         assets.add(quote)
-                    
+
                     # all assets
                     for asset in assets:
                         await self._subscribe_topic([f"spot/account:{asset}"])
