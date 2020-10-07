@@ -38,7 +38,7 @@ from hummingbot.market.okex.okex_utils import inflate
 from dateutil.parser import parse as dataparse
 
 
-class OKExAPIOrderBookDataSource(OrderBookTrackerDataSource):
+class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0

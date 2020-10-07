@@ -2,7 +2,7 @@
 
 import unittest
 
-from hummingbot.market.okex.okex_api_order_book_data_source import OKExAPIOrderBookDataSource
+from hummingbot.market.okex.okex_api_order_book_data_source import OkexAPIOrderBookDataSource
 from unittest import mock
 import asyncio
 import aiohttp
@@ -55,25 +55,26 @@ from typing import (
 
 trading_pairs = ['CELO-USDT', 'BTC-USDT']
 
+
 class AsyncMock(mock.MagicMock):
     async def __call__(self, *args, **kwargs):
         return super().__call__(*args, **kwargs)
 
 
-class TestOKExAPIOrderBookDataSource(unittest.TestCase):
+class TestOkexAPIOrderBookDataSource(unittest.TestCase):
     def setUp(self):
         self.mocked_trading_pairs = ["BTCUSDT", "ETHUSDT"]
-        self.order_book_data_source = OKExAPIOrderBookDataSource(self.mocked_trading_pairs)
+        self.order_book_data_source = OkexAPIOrderBookDataSource(self.mocked_trading_pairs)
 
     def test_example_market(self):
         ev_loop = asyncio.get_event_loop()
         # TODO this is currently executing the call, how to mock this?
-        restult = ev_loop.run_until_complete(OKExAPIOrderBookDataSource.get_active_exchange_markets())
-    
+        ev_loop.run_until_complete(OkexAPIOrderBookDataSource.get_active_exchange_markets())
+
     def test_get_snapshot(self):
         ev_loop = asyncio.get_event_loop()
         # TODO this is currently executing the call, how to mock this?
-        restult = ev_loop.run_until_complete(self.get_snapshot())
+        ev_loop.run_until_complete(self.get_snapshot())
 
     async def get_snapshot(self):
         async with aiohttp.ClientSession() as client:
@@ -82,7 +83,7 @@ class TestOKExAPIOrderBookDataSource(unittest.TestCase):
             return snapshot
 
     def test_get_tracking_pairs(self):
-        
+
         tracking_pairs = asyncio.get_event_loop().run_until_complete(self.order_book_data_source.get_tracking_pairs())
 
         # Validate the number of tracking pairs is equal to the number of trading pairs received
@@ -100,10 +101,9 @@ class TestOKExAPIOrderBookDataSource(unittest.TestCase):
         for trading_pair, order_book_tracker_entry in zip(self.mocked_trading_pairs, tracking_pairs.values()):
             self.assertEqual(order_book_tracker_entry.trading_pair, trading_pair)
 
-
     async def listen_for_trades(self):
         q = asyncio.Queue()
-        
+
         # mock to have only CELO
         async def mock_internal_get_trading_pairs():
             return ['BTC-USDT']
@@ -113,17 +113,17 @@ class TestOKExAPIOrderBookDataSource(unittest.TestCase):
 
         await asyncio.sleep(10)
         task.cancel()
-        
+
         self.assertFalse(q.empty())
 
     def test_listen_for_trades(self):
         # WARNING: this test will fail if there are no trades in 10s in the BTC-USDT pair
-        q = asyncio.Queue()
+        # q = asyncio.Queue()
         asyncio.get_event_loop().run_until_complete(self.listen_for_trades())
-        
+
     async def listen_for_order_book_diffs(self):
         q = asyncio.Queue()
-        
+
         # mock to have only CELO
         async def mock_internal_get_trading_pairs():
             return ['BTC-USDT']
@@ -133,17 +133,15 @@ class TestOKExAPIOrderBookDataSource(unittest.TestCase):
 
         await asyncio.sleep(10)
         task.cancel()
-        
+
         self.assertFalse(q.empty())
 
     def test_listen_for_order_book_diffs(self):
-        q = asyncio.Queue()
+        # q = asyncio.Queue()
         asyncio.get_event_loop().run_until_complete(self.listen_for_order_book_diffs())
-
 
     def test_get_last_traded_prices(self):
         out = asyncio.get_event_loop().run_until_complete(self.order_book_data_source.get_last_traded_prices(trading_pairs))
 
         self.assertTrue('CELO-USDT' in out)
         self.assertTrue(type(out['CELO-USDT']) is float)
-        
