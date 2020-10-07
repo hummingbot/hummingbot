@@ -65,7 +65,7 @@ Participating miners should enter their XZC wallet address in the miner app.
 
 ## Current Reward Period
 
-**September 29, 2020 12:00am UTC - October 6, 2020 12:00am UTC**
+**October 6, 2020 12:00am UTC - October 13, 2020 12:00am UTC**
 
 <table>
   <thead>
@@ -83,21 +83,21 @@ Participating miners should enter their XZC wallet address in the miner app.
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 250</td>
+      <td>USDT 250</td>
     </tr>
     <tr>
       <td>COTI/USDT</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 250</td>
+      <td>USDT 250</td>
     </tr>
     <tr>
       <td>COTI/BNB</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 250</td>
+      <td>USDT 250</td>
     </tr>        
     <tr>
       <td rowspan="3"><a href="#mainframe">Mainframe</a><br></td>
@@ -105,21 +105,21 @@ Participating miners should enter their XZC wallet address in the miner app.
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 200</td>
+      <td>USDT 200</td>
     </tr>
     <tr>
       <td>MFT/ETH</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 275</td>
+      <td>USDT 275</td>
     </tr>
     <tr>
       <td>MFT/BNB</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 275</td>
+      <td>USDT 275</td>
     </tr>
     <tr>
       <td rowspan="3"><a href="#iexec">iExec</a><br></td>
@@ -167,6 +167,42 @@ Participating miners should enter their XZC wallet address in the miner app.
 
 ## Upcoming Changes to Terms 
 
+**Liquidity mining campaign updates for COTI, XZC, and MFT for the upcoming week starting October 13**. 
+
+- **COTI campaign extended**
+
+- **Mainframe: campaign update**
+
+<table>
+  <thead>
+    <th></th>
+    <th>Previous reward</th>
+    <th>New reward</th>
+  </thead>
+  <tbody>
+      <tr>
+      <td>MFT/USDT</td>
+      <td>USDT 200 /week</td>
+      <td><b>USDT 250 / week</b></td>
+    </tr>
+    <tr>
+      <td>MFT/ETH</td>
+      <td>USDT 275 / week</td>
+      <td><b>USDT 250 / week</b></td>
+    </tr>
+    <tr>
+      <td>MFT/BNB</td>
+      <td>USDT 275 / week</td>
+      <td><b>USDT 250 / week</b></td>
+    </tr>        
+    <tr>
+  </tbody>
+</table>
+
+- **Zcoin: campaign being paused**
+
+You can read more about it on our [reddit post](https://www.reddit.com/r/Hummingbot/comments/j6dybq/liquidity_mining_campaign_updates_for_coti_xzc/).
+
 **Adding support for TRC20 USDT for USD-based liquidity mining payments**
  
 In response to rising Ethereum gas prices, we will be giving miners the option to receive USDT-TRON for USD-based liquidity mining rewards. Receiving USDT-TRON mining rewards will not be subject to any minimum amounts, and miners can have rewards paid directly into their exchange accounts.
@@ -174,12 +210,6 @@ In response to rising Ethereum gas prices, we will be giving miners the option t
 Miners can also choose to continuing receiving rewards to their Ethereum wallet, but still subject to minimum payment amounts.
 
 https://hummingbot.io/blog/2020-09-migrating-to-trc20-usdt-payment/
-
-Timetable:
-
-- Shortly/next few days: Tron wallet enabled on Hummingbot Miner
-
-- October 6, 2020 12:00am UTC: Campaigns with USDC reward pools will switch to USDT
 
 - October 16, 2020 UTC: First USDT-TRON payout
 
