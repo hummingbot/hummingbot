@@ -5,7 +5,7 @@ import unittest
 
 # import websockets
 
-from hummingbot.market.okex.okex_auth import OKExAuth
+from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
 from unittest import mock
 
 
@@ -23,7 +23,7 @@ class TestAuth(unittest.TestCase):
     def test_aut_withouth_params(self):
         headers = self.auth.add_auth_to_params('get', "/api/spot/v3/accounts", {})
 
-        self.assertEqual(headers["OK-ACCESS-KEY"],  "OKEX_API_KEY_mock")
-        self.assertEqual(headers["OK-ACCESS-SIGN"],  "UBDp0uGttC14Zwcu54+b/Vazs8AmqC/86JaNALefkQM=")
+        self.assertEqual(headers["OK-ACCESS-KEY"], "OKEX_API_KEY_mock")
+        self.assertEqual(headers["OK-ACCESS-SIGN"], "UBDp0uGttC14Zwcu54+b/Vazs8AmqC/86JaNALefkQM=")
         self.assertEqual(headers["OK-ACCESS-TIMESTAMP"], '2020-07-21T14:42:24.567Z')
-        self.assertEqual(headers["OK-ACCESS-PASSPHRASE"],  "OKEX_PASSPHRASE_mock")
+        self.assertEqual(headers["OK-ACCESS-PASSPHRASE"], "OKEX_PASSPHRASE_mock")

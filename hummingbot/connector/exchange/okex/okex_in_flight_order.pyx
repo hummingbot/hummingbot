@@ -9,7 +9,7 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
-from hummingbot.market.okex.okex_exchange import OKExExchange
+from hummingbot.connector.exchange.okex.okex_exchange import OKExExchange
 from hummingbot.market.in_flight_order_base import InFlightOrderBase
 
 

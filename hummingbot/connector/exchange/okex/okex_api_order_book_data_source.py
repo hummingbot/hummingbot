@@ -25,15 +25,15 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.okex.okex_order_book import OKExOrderBook
-from hummingbot.market.okex.constants import (
+from hummingbot.connector.exchange.okex.okex_order_book import OKExOrderBook
+from hummingbot.connector.exchange.okex.constants import (
     OKEX_SYMBOLS_URL,
     OKEX_PRICE_URL,
     OKEX_DEPTH_URL,
     OKCOIN_WS_URI,
 )
 
-from hummingbot.market.okex.okex_utils import inflate
+from hummingbot.connector.exchange.okex.okex_utils import inflate
 
 from dateutil.parser import parse as dataparse
 

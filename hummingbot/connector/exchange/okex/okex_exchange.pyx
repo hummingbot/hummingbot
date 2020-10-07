@@ -50,21 +50,21 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.okex.okex_api_order_book_data_source import OkexAPIOrderBookDataSource
-from hummingbot.market.okex.okex_auth import OKExAuth
-from hummingbot.market.okex.okex_in_flight_order import OKExInFlightOrder
-from hummingbot.market.okex.okex_order_book_tracker import OKExOrderBookTracker
+from hummingbot.connector.exchange.okex.okex_api_order_book_data_source import OkexAPIOrderBookDataSource
+from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
+from hummingbot.connector.exchange.okex.okex_in_flight_order import OKExInFlightOrder
+from hummingbot.connector.exchange.okex.okex_order_book_tracker import OKExOrderBookTracker
 from hummingbot.market.trading_rule cimport TradingRule
 from hummingbot.connector.exchange_base import (
     ExchangeBase,
     NaN,
     s_decimal_NaN)
-from hummingbot.market.okex.okex_user_stream_tracker import OKExUserStreamTracker
+from hummingbot.connector.exchange.okex.okex_user_stream_tracker import OKExUserStreamTracker
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.core.utils.estimate_fee import estimate_fee
 
-from hummingbot.market.okex.constants import *
+from hummingbot.connector.exchange.okex.constants import *
 
 
 hm_logger = None

@@ -13,8 +13,8 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.market.okex.okex_api_user_stream_data_source import OKExAPIUserStreamDataSource
-from hummingbot.market.okex.okex_auth import OKExAuth
+from hummingbot.connector.exchange.okex.okex_api_user_stream_data_source import OKExAPIUserStreamDataSource
+from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
 
 
 class OKExUserStreamTracker(UserStreamTracker):

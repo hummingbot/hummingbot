@@ -15,7 +15,7 @@ from hummingbot.core.data_type.order_book_message import (
 )
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.logger import HummingbotLogger
-from hummingbot.market.okex.okex_api_order_book_data_source import OkexAPIOrderBookDataSource
+from hummingbot.connector.exchange.okex.okex_api_order_book_data_source import OkexAPIOrderBookDataSource
 
 
 class OKExOrderBookTracker(OrderBookTracker):
