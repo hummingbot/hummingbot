@@ -54,4 +54,3 @@ By default, trading fees are 0% for market makers and 0.20% for takers on Loopri
 
 - [Fee Schedule](https://loopring.io/document/fees)
 
-For users who are on discounted fees (VIP level 1 and above) can override the default fees used in the Hummingbot client by following our guide for [Fee Overrides](/advanced/fee-overrides/).
