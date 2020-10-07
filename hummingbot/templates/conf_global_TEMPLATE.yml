@@ -47,6 +47,10 @@ eterbase_account: null
 bitfinex_api_key: null
 bitfinex_secret_key: null
 
+okex_api_key: null
+okex_secret_key: null
+okex_passphrase: null
+
 celo_address: null
 celo_password: null
 
@@ -128,4 +132,3 @@ script_file_path: null
 #     USDT: 1000
 balance_asset_limit:
   binance:
-
