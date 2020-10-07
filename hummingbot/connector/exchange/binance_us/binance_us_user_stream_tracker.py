@@ -17,6 +17,7 @@ from binance.client import Client as BinanceClient
 
 BinanceClient.API_URL = 'https://api.binance.us/api'
 
+
 class BinanceUsUserStreamTracker(UserStreamTracker):
     _bust_logger: Optional[HummingbotLogger] = None
 
