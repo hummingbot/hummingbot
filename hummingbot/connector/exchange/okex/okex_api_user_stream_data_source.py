@@ -20,7 +20,7 @@ from hummingbot.connector.exchange.okex.constants import OKCOIN_WS_URI
 import time
 
 
-class OKExAPIUserStreamDataSource(UserStreamTrackerDataSource):
+class OkexAPIUserStreamDataSource(UserStreamTrackerDataSource):
     _hausds_logger: Optional[HummingbotLogger] = None
 
     @classmethod

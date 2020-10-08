@@ -18,7 +18,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.okex.okex_api_order_book_data_source import OkexAPIOrderBookDataSource
 
 
-class OKExOrderBookTracker(OrderBookTracker):
+class OkexOrderBookTracker(OrderBookTracker):
     _hobt_logger: Optional[HummingbotLogger] = None
 
     @classmethod

@@ -1,4 +1,4 @@
-from hummingbot.market.in_flight_order_base cimport InFlightOrderBase
+from hummingbot.connector.in_flight_order_base cimport InFlightOrderBase
 
-cdef class OKExInFlightOrder(InFlightOrderBase):
+cdef class OkexInFlightOrder(InFlightOrderBase):
     pass

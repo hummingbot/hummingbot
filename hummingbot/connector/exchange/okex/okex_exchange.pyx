@@ -30,7 +30,6 @@ from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSou
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.events import (
     MarketEvent,
-    MarketWithdrawAssetEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
     OrderFilledEvent,
@@ -52,14 +51,14 @@ from hummingbot.core.utils.async_utils import (
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.okex.okex_api_order_book_data_source import OkexAPIOrderBookDataSource
 from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
-from hummingbot.connector.exchange.okex.okex_in_flight_order import OKExInFlightOrder
-from hummingbot.connector.exchange.okex.okex_order_book_tracker import OKExOrderBookTracker
-from hummingbot.market.trading_rule cimport TradingRule
+from hummingbot.connector.exchange.okex.okex_in_flight_order import OkexInFlightOrder
+from hummingbot.connector.exchange.okex.okex_order_book_tracker import OkexOrderBookTracker
+from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.connector.exchange_base import (
     ExchangeBase,
     NaN,
     s_decimal_NaN)
-from hummingbot.connector.exchange.okex.okex_user_stream_tracker import OKExUserStreamTracker
+from hummingbot.connector.exchange.okex.okex_user_stream_tracker import OkexUserStreamTracker
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.core.utils.estimate_fee import estimate_fee
@@ -78,11 +77,11 @@ class OKExAPIError(IOError):
         self.error_payload = error_payload
 
 
-cdef class OKExExchangeTransactionTracker(TransactionTracker):
+cdef class OkexExchangeTransactionTracker(TransactionTracker):
     cdef:
-        OKExExchange _owner
+        OkexExchange _owner
 
-    def __init__(self, owner: OKExExchange):
+    def __init__(self, owner: OkexExchange):
         super().__init__()
         self._owner = owner
 
@@ -91,7 +90,7 @@ cdef class OKExExchangeTransactionTracker(TransactionTracker):
         self._owner.c_did_timeout_tx(tx_id)
 
 
-cdef class OKExExchange(ExchangeBase):
+cdef class OkexExchange(ExchangeBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
@@ -130,7 +129,7 @@ cdef class OKExExchange(ExchangeBase):
         self._in_flight_orders = {}
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
-        self._order_book_tracker = OKExOrderBookTracker(
+        self._order_book_tracker = OkexOrderBookTracker(
             trading_pairs=trading_pairs
         )
         self._poll_notifier = asyncio.Event()
@@ -140,32 +139,18 @@ cdef class OKExExchange(ExchangeBase):
         self._trading_required = trading_required
         self._trading_rules = {}
         self._trading_rules_polling_task = None
-        self._tx_tracker = OKExExchangeTransactionTracker(self)
+        self._tx_tracker = OkexExchangeTransactionTracker(self)
 
         self._user_stream_event_listener_task = None
-        self._user_stream_tracker = OKExUserStreamTracker(okex_auth=self._okex_auth,
+        self._user_stream_tracker = OkexUserStreamTracker(okex_auth=self._okex_auth,
                                                           trading_pairs=trading_pairs)
-
-    # @staticmethod
-    # def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
-    #     print("trading_pair is", trading_pair)
-    #     return trading_pair.split(TRADING_PAIR_SPLITTER)
-
-    # OKEx uses format BTC-USDT
-    @staticmethod
-    def convert_from_exchange_trading_pair(trading_pair: str) -> Optional[str]:
-        return trading_pair
-
-    @staticmethod
-    def convert_to_exchange_trading_pair(trading_pair: str) -> str:
-        return hokex_trading_pair
 
     @property
     def name(self) -> str:
         return "okex"
 
     @property
-    def order_book_tracker(self) -> OKExOrderBookTracker:
+    def order_book_tracker(self) -> OkexOrderBookTracker:
         return self._order_book_tracker
 
     @property
@@ -177,7 +162,7 @@ cdef class OKExExchange(ExchangeBase):
         return self._trading_rules
 
     @property
-    def in_flight_orders(self) -> Dict[str, OKExInFlightOrder]:
+    def in_flight_orders(self) -> Dict[str, OkexInFlightOrder]:
         return self._in_flight_orders
 
     @property
@@ -196,7 +181,7 @@ cdef class OKExExchange(ExchangeBase):
 
     def restore_tracking_states(self, saved_states: Dict[str, Any]):
         self._in_flight_orders.update({
-            key: OKExInFlightOrder.from_json(value)
+            key: OkexInFlightOrder.from_json(value)
             for key, value in saved_states.items()
         })
 
@@ -212,7 +197,6 @@ cdef class OKExExchange(ExchangeBase):
         return await OkexAPIOrderBookDataSource.get_active_exchange_markets()
 
     cdef c_start(self, Clock clock, double timestamp):
-        print("started")
         self._tx_tracker.c_start(clock, timestamp)
         ExchangeBase.c_start(self, clock, timestamp)
 
@@ -221,14 +205,12 @@ cdef class OKExExchange(ExchangeBase):
         self._async_scheduler.stop()
 
     async def start_network(self):
-        print("NETWORK STARTED!")
         self._stop_network()
         self._order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
 
         if self._trading_required:
-            # await self._update_account_id() # Couldn't find this on OKEx Docs
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
 
     def _stop_network(self):
@@ -318,16 +300,6 @@ cdef class OKExExchange(ExchangeBase):
                 return parsed_response
             except Exception:
                 raise IOError(f"Error parsing data from {url}.")
-
-    # Couldn't find this on OKEx Docs
-    # async def _update_account_id(self) -> str:
-    #     accounts = await self._api_request("get", path_url="/account/accounts", is_auth_required=True)
-    #     try:
-    #         for account in accounts:
-    #             if account["state"] == "working" and account["type"] == "spot":
-    #                 self._account_id = str(account["id"])
-    #     except Exception as e:
-    #         raise ValueError(f"Unable to retrieve account id: {e}")
 
     async def _update_balances(self):
         cdef:
@@ -461,14 +433,7 @@ cdef class OKExExchange(ExchangeBase):
                 )
                 continue
 
-            # order_state = order_update
-            # possible order states are "submitted", "partial-filled", "filled", "canceled"
-
-            # if order_state not in ["submitted", "filled", "canceled"]:
-            #     self.logger().debug(f"Unrecognized order update response - {order_update}")
-
             # Calculate the newly executed amount for this update.
-            print("last_state is", order_update["state"])
             tracked_order.last_state = order_update["state"]
             new_confirmed_amount = Decimal(order_update["filled_size"])  # TODO filled_notional or filled_size?
             execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
@@ -496,10 +461,6 @@ cdef class OKExExchange(ExchangeBase):
                         execute_price,
                         execute_amount_diff,
                     ),
-                    # TODO check this for OKEx
-                    # Unique exchange trade ID not available in client order status
-                    # But can use validate an order using exchange order ID:
-                    # https://huobiapi.github.io/docs/spot/v1/en/#query-order-by-order-id
                     exchange_trade_id=exchange_order_id
                 )
                 self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
@@ -658,7 +619,7 @@ cdef class OKExExchange(ExchangeBase):
                         if order_status == "1":
                             tracked_order.last_state = order_status
                             if tracked_order.trade_type is TradeType.BUY:
-                                self.logger().info(f"The LIMIT_BUY order {tracked_order.client_order_id} has completed "
+                                self.logger().info(f"The BUY {tracked_order.order_type} order {tracked_order.client_order_id} has completed "
                                                    f"according to order delta websocket API.")
                                 self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
                                                      BuyOrderCompletedEvent(self._current_timestamp,
@@ -671,7 +632,7 @@ cdef class OKExExchange(ExchangeBase):
                                                                             tracked_order.fee_paid,
                                                                             tracked_order.order_type))
                             elif tracked_order.trade_type is TradeType.SELL:
-                                self.logger().info(f"The LIMIT_SELL order {tracked_order.client_order_id} has completed "
+                                self.logger().info(f"The SELL {tracked_order.order_type} order {tracked_order.client_order_id} has completed "
                                                    f"according to order delta websocket API.")
                                 self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
                                                      SellOrderCompletedEvent(self._current_timestamp,
@@ -688,6 +649,8 @@ cdef class OKExExchange(ExchangeBase):
 
                         if order_status == "-1":
                             tracked_order.last_state = order_status
+                            self.logger().info(f"Order {tracked_order.client_order_id} has been cancelled "
+                                               f"according to order delta websocket API.")
                             self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                                  OrderCancelledEvent(self._current_timestamp,
                                                                      tracked_order.client_order_id))
@@ -705,7 +668,6 @@ cdef class OKExExchange(ExchangeBase):
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {
-            # "account_id_initialized": self._account_id != "" if self._trading_required else True, # Couldn't find this on OKEx Docs
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0
@@ -726,22 +688,17 @@ cdef class OKExExchange(ExchangeBase):
                           order_type: OrderType,
                           price: Decimal) -> str:
 
-        # order_type_str = "limit" if order_type is OrderType.LIMIT else "market"
-
         params = {
             'client_oid': order_id,
-            'type': 'limit' if OrderType.LIMIT else 'market',  # what happens with OrderType.LIMIT_MAKER?
+            'type': 'limit',
             'side': "buy" if is_buy else "sell",
             'instrument_id': trading_pair,
-            'order_type': 0,  # TODO double check this
-            # order_type, from OKEx docs:
-            # Specify 0: Normal order (Unfilled and 0 imply normal limit order) 1: Post only 2: Fill or Kill 3: Immediate Or Cancel,
-            'size': amount
-
+            'size': amount,
+            'price': price
         }
 
-        if order_type != OrderType.MARKET:
-            params["price"] = f"{price:f}"
+        if order_type is OrderType.LIMIT_MAKER:
+            params["order_type"] = 1
 
         exchange_order_id = await self._api_request(
             "POST",
@@ -767,17 +724,12 @@ cdef class OKExExchange(ExchangeBase):
             str exchange_order_id
             object tracked_order
 
-        if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
-            quote_amount = self.c_get_quote_volume_for_base_amount(trading_pair, True, amount).result_volume
-            # Quantize according to price rules, not base token amount rules.
-            decimal_amount = self.c_quantize_order_price(trading_pair, Decimal(quote_amount))
-            decimal_price = s_decimal_0
-        else:
-            decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
-            decimal_price = self.c_quantize_order_price(trading_pair, price)
-            if decimal_amount < trading_rule.min_order_size:
-                raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
-                                 f"{trading_rule.min_order_size}.")
+        decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
+        decimal_price = self.c_quantize_order_price(trading_pair, price)
+        if decimal_amount < trading_rule.min_order_size:
+            raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
+                             f"{trading_rule.min_order_size}.")
+
         try:
             exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, True, order_type, decimal_price)
             self.c_start_tracking_order(
@@ -1007,7 +959,7 @@ cdef class OKExExchange(ExchangeBase):
                                 object trade_type,
                                 object price,
                                 object amount):
-        self._in_flight_orders[client_order_id] = OKExInFlightOrder(
+        self._in_flight_orders[client_order_id] = OkexInFlightOrder(
             client_order_id=client_order_id,
             exchange_order_id=exchange_order_id,
             trading_pair=trading_pair,

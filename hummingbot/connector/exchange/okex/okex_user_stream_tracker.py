@@ -13,11 +13,11 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.connector.exchange.okex.okex_api_user_stream_data_source import OKExAPIUserStreamDataSource
+from hummingbot.connector.exchange.okex.okex_api_user_stream_data_source import OkexAPIUserStreamDataSource
 from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
 
 
-class OKExUserStreamTracker(UserStreamTracker):
+class OkexUserStreamTracker(UserStreamTracker):
     _bust_logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -40,7 +40,7 @@ class OKExUserStreamTracker(UserStreamTracker):
     @property
     def data_source(self) -> UserStreamTrackerDataSource:
         if not self._data_source:
-            self._data_source = OKExAPIUserStreamDataSource(okex_auth=self._okex_auth)
+            self._data_source = OkexAPIUserStreamDataSource(okex_auth=self._okex_auth)
         return self._data_source
 
     @property

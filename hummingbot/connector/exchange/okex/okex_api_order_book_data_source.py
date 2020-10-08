@@ -16,7 +16,6 @@ from typing import (
 )
 from decimal import Decimal
 import requests
-import cachetools.func
 import websockets
 from websockets.exceptions import ConnectionClosed
 
@@ -25,7 +24,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.okex.okex_order_book import OKExOrderBook
+from hummingbot.connector.exchange.okex.okex_order_book import OkexOrderBook
 from hummingbot.connector.exchange.okex.constants import (
     OKEX_SYMBOLS_URL,
     OKEX_PRICE_URL,
@@ -84,7 +83,7 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 return all_markets
 
     @staticmethod
-    @cachetools.func.ttl_cache(ttl=10)
+    @async_ttl_cache(ttl=10, maxsize=1)
     def get_mid_price(trading_pair: str) -> Optional[Decimal]:
         resp = requests.get(url=OKEX_PRICE_URL.format(trading_pair=trading_pair))
         record = resp.json()
@@ -114,7 +113,7 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         async with aiohttp.ClientSession() as client:
             snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
 
-            snapshot_msg: OrderBookMessage = OKExOrderBook.snapshot_message_from_exchange(
+            snapshot_msg: OrderBookMessage = OkexOrderBook.snapshot_message_from_exchange(
                 snapshot,
                 trading_pair,
                 timestamp=snapshot['timestamp'],
@@ -206,7 +205,7 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                             for data in json.loads(decoded_msg)['data']:
                                 trading_pair = data['instrument_id']
-                                trade_message: OrderBookMessage = OKExOrderBook.trade_message_from_exchange(
+                                trade_message: OrderBookMessage = OkexOrderBook.trade_message_from_exchange(
                                     data, __class__.iso_to_timestamp(data['timestamp']), metadata={"trading_pair": trading_pair}
                                 )
                                 self.logger().debug(f"Putting msg in queue: {str(trade_message)}")
@@ -267,7 +266,7 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         elif '"action":"update"' in decoded_msg:
                             for data in json.loads(decoded_msg)['data']:
 
-                                order_book_message: OrderBookMessage = OKExOrderBook.diff_message_from_exchange(data, __class__.iso_to_timestamp(data['timestamp']))
+                                order_book_message: OrderBookMessage = OkexOrderBook.diff_message_from_exchange(data, __class__.iso_to_timestamp(data['timestamp']))
                                 output.put_nowait(order_book_message)
                         else:
                             self.logger().debug(f"Unrecognized message received from OKEx websocket: {decoded_msg}")
@@ -287,7 +286,7 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     for trading_pair in trading_pairs:
                         try:
                             snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
-                            snapshot_msg: OrderBookMessage = OKExOrderBook.snapshot_message_from_exchange(
+                            snapshot_msg: OrderBookMessage = OkexOrderBook.snapshot_message_from_exchange(
                                 snapshot,
                                 trading_pair,
                                 timestamp=snapshot['timestamp'],
