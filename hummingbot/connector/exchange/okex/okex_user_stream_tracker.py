@@ -18,13 +18,13 @@ from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
 
 
 class OkexUserStreamTracker(UserStreamTracker):
-    _bust_logger: Optional[HummingbotLogger] = None
+    _okexust_logger: Optional[HummingbotLogger] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._bust_logger is None:
-            cls._bust_logger = logging.getLogger(__name__)
-        return cls._bust_logger
+        if cls._okexust_logger is None:
+            cls._okexust_logger = logging.getLogger(__name__)
+        return cls._okexust_logger
 
     def __init__(self,
                  okex_auth: Optional[OKExAuth] = None,

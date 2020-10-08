@@ -17,16 +17,16 @@ from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
-_hob_logger = None
+_okexob_logger = None
 
 
 cdef class OkexOrderBook(OrderBook):
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global _hob_logger
-        if _hob_logger is None:
-            _hob_logger = logging.getLogger(__name__)
-        return _hob_logger
+        global _okexob_logger
+        if _okexob_logger is None:
+            _okexob_logger = logging.getLogger(__name__)
+        return _okexob_logger
 
     @classmethod
     def snapshot_message_from_exchange(cls,
