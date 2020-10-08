@@ -19,13 +19,13 @@ from hummingbot.connector.exchange.okex.okex_api_order_book_data_source import O
 
 
 class OkexOrderBookTracker(OrderBookTracker):
-    _hobt_logger: Optional[HummingbotLogger] = None
+    _okexobt_logger: Optional[HummingbotLogger] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._hobt_logger is None:
-            cls._hobt_logger = logging.getLogger(__name__)
-        return cls._hobt_logger
+        if cls._okexobt_logger is None:
+            cls._okexobt_logger = logging.getLogger(__name__)
+        return cls._okexobt_logger
 
     def __init__(self,
                  trading_pairs: Optional[List[str]] = None):

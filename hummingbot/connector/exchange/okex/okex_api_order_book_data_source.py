@@ -42,13 +42,13 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
 
-    _haobds_logger: Optional[HummingbotLogger] = None
+    _okexaobds_logger: Optional[HummingbotLogger] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._haobds_logger is None:
-            cls._haobds_logger = logging.getLogger(__name__)
-        return cls._haobds_logger
+        if cls._okexaobds_logger is None:
+            cls._okexaobds_logger = logging.getLogger(__name__)
+        return cls._okexaobds_logger
 
     def __init__(self, trading_pairs: List[str]):
         super().__init__(trading_pairs)

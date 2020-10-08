@@ -21,14 +21,14 @@ import time
 
 
 class OkexAPIUserStreamDataSource(UserStreamTrackerDataSource):
-    _hausds_logger: Optional[HummingbotLogger] = None
+    _okexausds_logger: Optional[HummingbotLogger] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._hausds_logger is None:
-            cls._hausds_logger = logging.getLogger(__name__)
+        if cls._okexausds_logger is None:
+            cls._okexausds_logger = logging.getLogger(__name__)
 
-        return cls._hausds_logger
+        return cls._okexausds_logger
 
     def __init__(self, okex_auth: OKExAuth, trading_pairs: Optional[List[str]] = []):
         self._current_listen_key = None
