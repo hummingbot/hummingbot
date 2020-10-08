@@ -38,9 +38,9 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.connector.exchange.okex.okex_exchange import OKExExchange
+from hummingbot.connector.exchange.okex.okex_exchange import OkexExchange
 from hummingbot.connector.exchange_base import OrderType
-from hummingbot.market.markets_recorder import MarketsRecorder
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import (
@@ -78,7 +78,7 @@ EXCHANGE_ORDER_ID = 20001
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
-class OKExExchangeUnitTest(unittest.TestCase):
+class OkexExchangeUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
         MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
@@ -92,7 +92,7 @@ class OKExExchangeUnitTest(unittest.TestCase):
         MarketEvent.OrderFailure
     ]
 
-    market: OKExExchange
+    market: OkexExchange
     market_logger: EventLogger
     stack: contextlib.ExitStack
 
@@ -127,14 +127,14 @@ class OKExExchangeUnitTest(unittest.TestCase):
             cls._t_nonce_patcher = unittest.mock.patch("hummingbot.connector.exchange.okex.okex_exchange.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.market: OKExExchange = OKExExchange(
+        cls.market: OkexExchange = OkexExchange(
             API_KEY,
             API_SECRET,
             API_PASSPHRASE,
             trading_pairs=["ETH-USDT"]
         )
         # Need 2nd instance of market to prevent events mixing up across tests
-        cls.market_2: OKExExchange = OKExExchange(
+        cls.market_2: OkexExchange = OkexExchange(
             API_KEY,
             API_SECRET,
             API_PASSPHRASE,
@@ -478,7 +478,7 @@ class OKExExchangeUnitTest(unittest.TestCase):
             self.clock.remove_iterator(self.market)
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
-            self.market: OKExExchange = OKExExchange(
+            self.market: OkexExchange = OkexExchange(
                 okex_api_key=API_KEY,
                 okex_secret_key=API_SECRET,
                 trading_pairs=["ETH-USDT", "BTC-USDT"]

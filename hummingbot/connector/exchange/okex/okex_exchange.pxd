@@ -4,7 +4,7 @@ from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.data_type.transaction_tracker cimport TransactionTracker
 
 
-cdef class OKExExchange(ExchangeBase):
+cdef class OkexExchange(ExchangeBase):
     cdef:
         str _account_id
         object _async_scheduler

@@ -20,7 +20,7 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage, Order
 _hob_logger = None
 
 
-cdef class OKExOrderBook(OrderBook):
+cdef class OkexOrderBook(OrderBook):
     @classmethod
     def logger(cls) -> HummingbotLogger:
         global _hob_logger
@@ -154,6 +154,6 @@ cdef class OKExOrderBook(OrderBook):
 
     @classmethod
     def from_snapshot(cls, msg: OrderBookMessage) -> "OrderBook":
-        retval = OKExOrderBook()
+        retval = OkexOrderBook()
         retval.apply_snapshot(msg.bids, msg.asks, msg.update_id)
         return retval
