@@ -21,6 +21,9 @@ class SillyCommands:
         elif command == "roger":
             safe_ensure_future(self.silly_roger())
             return True
+        elif command == "rein":
+            safe_ensure_future(self.silly_rein())
+            return True    
         else:
             return False
 
@@ -81,11 +84,33 @@ class SillyCommands:
         self.placeholder_mode = False
         self.app.hide_input = False
 
-    async def cls_n_display(self, lines, delay=0.5):
+    async def silly_rein(self,  # type: HummingbotApplication
+                          ):
+        last_output = "\n".join(self.app.output_field.document.lines)
+        self.placeholder_mode = True
+        self.app.hide_input = True
+        self.clear_output_field()
+        for _ in range(0, 2):
+            await self.cls_n_display(self.yield_alert("rein"))
+            await asyncio.sleep(0.4)
+            self.clear_output_field()    
+        rein_1 = open(f"{RESOURCES_PATH}rein_1.txt").readlines()
+        rein_2 = open(f"{RESOURCES_PATH}rein_2.txt").readlines()
+        rein_3 = open(f"{RESOURCES_PATH}rein_3.txt").readlines()
+        for _ in range(0, 2):
+                await self.cls_n_display(rein_1, 0.5)
+                await self.cls_n_display(rein_2, 0.5)
+                await self.cls_n_display(rein_3, 0.5)
+        await asyncio.sleep(0.3)
+        self.app.log(last_output)
+        self.placeholder_mode = False
+        self.app.hide_input = False
+
+    async def cls_n_display(self, lines, delay=0.5):    
         await asyncio.sleep(delay)
         self.clear_output_field()
         self.app.log("".join(lines))
-
+        
     def clear_output_field(self):
         self.app.log("\n" * 50)
 
