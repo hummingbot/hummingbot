@@ -16,6 +16,7 @@ from typing import (
 )
 from decimal import Decimal
 import requests
+import cachetools.func
 import websockets
 from websockets.exceptions import ConnectionClosed
 
@@ -83,7 +84,7 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 return all_markets
 
     @staticmethod
-    @async_ttl_cache(ttl=10, maxsize=1)
+    @cachetools.func.ttl_cache(ttl=10)
     def get_mid_price(trading_pair: str) -> Optional[Decimal]:
         resp = requests.get(url=OKEX_PRICE_URL.format(trading_pair=trading_pair))
         record = resp.json()
@@ -194,7 +195,7 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                     async for raw_msg in self._inner_messages(ws):
                         # OKEx compresses their ws data
-                        decoded_msg: str = inflate(raw_msg).decode('utf-8')
+                        decoded_msg: str = inflate(raw_msg)
 
                         self.logger().debug("decode menssage:" + decoded_msg)
 
@@ -259,7 +260,7 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                     async for raw_msg in self._inner_messages(ws):
                         # OKEx compresses their ws data
-                        decoded_msg: str = inflate(raw_msg).decode('utf-8')
+                        decoded_msg: str = inflate(raw_msg)
 
                         if '"event":"subscribe"' in decoded_msg:
                             self.logger().debug(f"Subscribed to channel, full message: {decoded_msg}")

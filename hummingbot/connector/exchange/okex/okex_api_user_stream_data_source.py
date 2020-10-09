@@ -1,6 +1,7 @@
 #!/usr/bin/env python
-import aiohttp
+import websockets
 import asyncio
+import json
 
 import logging
 
@@ -36,9 +37,8 @@ class OkexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._listen_for_user_steam_task = None
         self._last_recv_time: float = 0
         self._auth: OKExAuth = okex_auth
-        self._client_session: aiohttp.ClientSession = None
         self._trading_pairs = trading_pairs
-        self._websocket_connection: aiohttp.ClientWebSocketResponse = None
+        self._websocket_connection = None
         super().__init__()
 
     @property
@@ -51,11 +51,12 @@ class OkexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         Sends an Authentication request to OKEx's WebSocket API Server
         """
 
-        await self._websocket_connection.send_json(self._auth.generate_ws_auth())
+        await self._websocket_connection.send(json.dumps(self._auth.generate_ws_auth()))
 
-        resp: aiohttp.WSMessage = await self._websocket_connection.receive()
-        msg = resp.json()
-        if msg["code"] != 200:
+        resp = await self._websocket_connection.recv()
+        msg = json.loads(inflate(resp))
+
+        if msg["success"] is not True:
             self.logger().error(f"Error occurred authenticating to websocket API server. {msg}")
 
         self.logger().info("Successfully authenticated")
@@ -65,51 +66,60 @@ class OkexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             "op": "subscribe",
             "args": topic
         }
-        await self._websocket_connection.send_json(subscribe_request)
-        resp = await self._websocket_connection.receive()
-        msg = resp.json()
-        if msg["code"] != 200:
+        request = json.dumps(subscribe_request)
+        await self._websocket_connection.send(request)
+        resp = await self._websocket_connection.recv()
+        msg = json.loads(inflate(resp))
+        if msg["event"] != "subscribe":
             self.logger().error(f"Error occurred subscribing to topic. {topic}. {msg}")
         self.logger().info(f"Successfully subscribed to {topic}")
 
-    async def get_ws_connection(self) -> aiohttp.client._WSRequestContextManager:
-        if self._client_session is None:
-            self._client_session = aiohttp.ClientSession()
+    async def get_ws_connection(self):
 
         stream_url: str = f"{OKCOIN_WS_URI}"
-        return self._client_session.ws_connect(stream_url)
+        return websockets.connect(stream_url)
 
     async def _socket_user_stream(self) -> AsyncIterable[str]:
         """
         Main iterator that manages the websocket connection.
         """
         while True:
-            raw_msg = await self._websocket_connection.receive()
+            try:
+                raw_msg = await asyncio.wait_for(self._websocket_connection.recv(), timeout=20)
 
-            if raw_msg.type != aiohttp.WSMsgType.TEXT:
-                continue
-
-            message = raw_msg.json()
-
-            yield message
+                yield json.loads(inflate(raw_msg))
+            except asyncio.TimeoutError:
+                try:
+                    await self._websocket_connection.send('ping')
+                    await asyncio.wait_for(self._websocket_connection.recv(), timeout=5)
+                except asyncio.TimeoutError:
+                    self.logger().warning("WebSocket ping timed out. Going to reconnect...")
+                    return
+            except Exception:
+                return
 
     # TODO needs testing, paper mode is not connecting for some reason
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """Subscribe to user stream via web socket, and keep the connection open for incoming messages"""
         while True:
             try:
+                if self._websocket_connection is not None:
+                    await self._websocket_connection.close()
+                    self._websocket_connection = None
                 # Initialize Websocket Connection
                 async with (await self.get_ws_connection()) as ws:
                     self._websocket_connection = ws
 
                     # Authentication
                     await self._authenticate_client()
+                    subscription_list = []
 
                     assets = set()
                     # Subscribe to Topic(s)
                     for trading_pair in self._trading_pairs:
                         # orders
-                        await self._subscribe_topic([f"spot/order:{trading_pair}"])
+                        subscription_list.append(f"spot/order:{trading_pair}")
+
                         # balances
                         source, quote = trading_pair.split('-')
                         assets.add(source)
@@ -117,25 +127,25 @@ class OkexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
                     # all assets
                     for asset in assets:
-                        await self._subscribe_topic([f"spot/account:{asset}"])
+                        subscription_list.append(f"spot/account:{asset}")
+
+                    # subscribe to all channels
+                    await self._subscribe_topic(subscription_list)
 
                     # Listen to WebSocket Connection
                     async for message in self._socket_user_stream():
                         self._last_recv_time = time.time()
 
                         # handle all the messages in the queue
-                        output.put_nowait(inflate(message))
+                        output.put_nowait(message)
 
             except asyncio.CancelledError:
                 raise
             except IOError as e:
                 self.logger().error(e, exc_info=True)
             except Exception as e:
-                self.logger().error(f"Unexpected error occurred! {e} {message}", exc_info=True)
+                self.logger().error(f"Unexpected error occurred! {e}", exc_info=True)
             finally:
                 if self._websocket_connection is not None:
                     await self._websocket_connection.close()
                     self._websocket_connection = None
-                if self._client_session is not None:
-                    await self._client_session.close()
-                    self._client_session = None

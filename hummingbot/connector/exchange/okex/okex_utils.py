@@ -17,17 +17,20 @@ KEYS = {
         ConfigVar(key="okex_api_key",
                   prompt="Enter your OKEx API key >>> ",
                   required_if=using_exchange("okex"),
-                  is_secure=True),
+                  is_secure=True,
+                  is_connect_key=True),
     "okex_secret_key":
-        ConfigVar(key="new_market_secret_key",
+        ConfigVar(key="okex_secret_key",
                   prompt="Enter your OKEx secret key >>> ",
                   required_if=using_exchange("okex"),
-                  is_secure=True),
+                  is_secure=True,
+                  is_connect_key=True),
     "okex_passphrase":
         ConfigVar(key="okex_passphrase",
                   prompt="Enter your OKEx passphrase key >>> ",
                   required_if=using_exchange("okex"),
-                  is_secure=True),
+                  is_secure=True,
+                  is_connect_key=True),
 }
 
 
@@ -37,4 +40,4 @@ def inflate(data):
     decompress = zlib.decompressobj(-zlib.MAX_WBITS)
     inflated = decompress.decompress(data)
     inflated += decompress.flush()
-    return inflated
+    return inflated.decode('utf-8')

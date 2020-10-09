@@ -25,7 +25,6 @@ cdef class OkexInFlightOrder(InFlightOrderBase):
                  initial_state: str = "submitted"):
 
         super().__init__(
-            OkexExchange,
             client_order_id,
             exchange_order_id,
             trading_pair,
