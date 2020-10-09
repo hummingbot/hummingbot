@@ -1,4 +1,5 @@
 import aiohttp
+from typing import Dict, Any
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
@@ -58,5 +59,5 @@ async def get_ws_api_key():
         if response.status != 200:
             raise IOError(f"Error getting WS key. Server responded with status: {response.status}.")
 
-        response_dict : Dict[str, Any] = await response.json()
+        response_dict: Dict[str, Any] = await response.json()
         return response_dict['data']
