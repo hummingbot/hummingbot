@@ -67,6 +67,7 @@ Paper trade assets can be added in two ways:
 
 - Bamboo Relay
 - Binance
+- Bitfinex
 - Bittrex
 - Coinbase Pro
 - Crypto.com
@@ -75,4 +76,5 @@ Paper trade assets can be added in two ways:
 - KuCoin
 - Kraken
 - Liquid
+- Loopring
 - Radar Relay
