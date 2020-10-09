@@ -97,6 +97,7 @@ nav:
         - Linux: installation/docker/linux.md
         - macOS: installation/docker/macOS.md
         - Windows: installation/docker/windows.md
+        - Raspberry Pi: installation/docker/raspberry-pi.md
       - Source:
         - Linux: installation/source/linux.md
         - macOS: installation/source/macOS.md
@@ -227,6 +228,7 @@ nav:
       - Configuration: developers/config.md
   - Release Notes:
     - About Releases: release-notes/index.md
+    - 0.32.0: release-notes/0.32.0.md
     - 0.31.0: release-notes/0.31.0.md
     - 0.30.0: release-notes/0.30.0.md
     - 0.29.0: release-notes/0.29.0.md
