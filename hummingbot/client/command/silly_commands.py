@@ -24,6 +24,9 @@ class SillyCommands:
         elif command == "rein":
             safe_ensure_future(self.silly_rein())
             return True    
+        elif command == "dennis":
+            safe_ensure_future(self.silly_dennis())
+            return True
         else:
             return False
 
@@ -84,8 +87,9 @@ class SillyCommands:
         self.placeholder_mode = False
         self.app.hide_input = False
 
+
     async def silly_rein(self,  # type: HummingbotApplication
-                          ):
+                         ):
         last_output = "\n".join(self.app.output_field.document.lines)
         self.placeholder_mode = True
         self.app.hide_input = True
@@ -105,8 +109,38 @@ class SillyCommands:
         self.app.log(last_output)
         self.placeholder_mode = False
         self.app.hide_input = False
+        
+    async def silly_dennis(self,  # type: HummingbotApplication
+                           ):
+        last_output = "\n".join(self.app.output_field.document.lines)
+        self.placeholder_mode = True
+        self.app.hide_input = True
+        self.clear_output_field()
+        dennis_loading_1 = open(f"{RESOURCES_PATH}dennis_loading_1.txt").readlines()
+        dennis_loading_2 = open(f"{RESOURCES_PATH}dennis_loading_2.txt").readlines()
+        dennis_loading_3 = open(f"{RESOURCES_PATH}dennis_loading_3.txt").readlines()
+        dennis_loading_4 = open(f"{RESOURCES_PATH}dennis_loading_4.txt").readlines()
+        for _ in range(0, 1):
+            await self.cls_n_display(dennis_loading_1, 1)
+            await self.cls_n_display(dennis_loading_2, 1)
+            await self.cls_n_display(dennis_loading_3, 1)
+            await self.cls_n_display(dennis_loading_4, 1)
+            await asyncio.sleep(0.5)
+        dennis_1 = open(f"{RESOURCES_PATH}dennis_1.txt").readlines()
+        dennis_2 = open(f"{RESOURCES_PATH}dennis_2.txt").readlines()
+        dennis_3 = open(f"{RESOURCES_PATH}dennis_3.txt").readlines()
+        dennis_4 = open(f"{RESOURCES_PATH}dennis_4.txt").readlines()
+        for _ in range(0, 1):
+            await self.cls_n_display(dennis_1, 1)
+            await self.cls_n_display(dennis_2, 1)
+            await self.cls_n_display(dennis_3, 1)
+            await self.cls_n_display(dennis_4, 1)
+        await asyncio.sleep(4)
+        self.app.log(last_output)
+        self.placeholder_mode = False
+        self.app.hide_input = False
 
-    async def cls_n_display(self, lines, delay=0.5):    
+    async def cls_n_display(self, lines, delay=0.5):
         await asyncio.sleep(delay)
         self.clear_output_field()
         self.app.log("".join(lines))
