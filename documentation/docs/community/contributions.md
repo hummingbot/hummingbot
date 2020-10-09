@@ -11,7 +11,7 @@ We work with an extended team of developers all over the world to build these co
 | --- |:---:|:---:|:---:|
 | [KuCoin](https://kucoin.com) | [vic-en](https://github.com/vic-en)| 0.23.0 | Active | 
 | [Liquid](https://liquid.com) | [zeitgeistf](https://github.com/zeitgeistf)| 0.20.0 | Active |
-| [Bitfinex](https://bitfinex.com) | [nionis](https://github.com/nionis)  | N/A | [PR #1482](https://github.com/CoinAlpha/hummingbot/pull/1482) |  
+| [Bitfinex](https://bitfinex.com) | [nionis](https://github.com/nionis)  | 0.32.0 | [PR #1482](https://github.com/CoinAlpha/hummingbot/pull/1482) |  
 | [Kyber Network](https://kyber.network) | [rokso](https://github.com/rokso) | N/A | [PR #1224](https://github.com/CoinAlpha/hummingbot/pull/1224) |  
 | [HitBTC](https://hitbtc.com) | [fengkie](https://github.com/fengkiej) | N/A | [PR #1368](https://github.com/CoinAlpha/hummingbot/pull/1368) |  
 
