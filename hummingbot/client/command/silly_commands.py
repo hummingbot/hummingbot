@@ -26,6 +26,7 @@ class SillyCommands:
             return True
         elif command == "hodl":
             safe_ensure_future(self.silly_hodl())
+            return True
         elif command == "dennis":
             safe_ensure_future(self.silly_dennis())
             return True
@@ -136,7 +137,6 @@ class SillyCommands:
         self.placeholder_mode = False
         self.app.hide_input = False
 
-
     async def text_n_wait(self, text, delay):
         self.app.log(text)
         await asyncio.sleep(delay)
@@ -170,7 +170,6 @@ class SillyCommands:
         self.app.log(last_output)
         self.placeholder_mode = False
         self.app.hide_input = False
-
 
     async def cls_n_display(self, lines, delay=0.5):
         await asyncio.sleep(delay)
