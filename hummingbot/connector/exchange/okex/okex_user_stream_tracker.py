@@ -40,7 +40,7 @@ class OkexUserStreamTracker(UserStreamTracker):
     @property
     def data_source(self) -> UserStreamTrackerDataSource:
         if not self._data_source:
-            self._data_source = OkexAPIUserStreamDataSource(okex_auth=self._okex_auth)
+            self._data_source = OkexAPIUserStreamDataSource(okex_auth=self._okex_auth, trading_pairs=self._trading_pairs)
         return self._data_source
 
     @property

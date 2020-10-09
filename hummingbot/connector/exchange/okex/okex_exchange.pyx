@@ -1,6 +1,6 @@
 import aiohttp
-from aiohttp.test_utils import TestClient
 import asyncio
+from urllib.parse import urlencode
 from async_timeout import timeout
 import conf
 from datetime import datetime
@@ -103,6 +103,8 @@ cdef class OkexExchange(ExchangeBase):
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
     API_CALL_TIMEOUT = 10.0
     UPDATE_ORDERS_INTERVAL = 10.0
+    SHORT_POLL_INTERVAL = 5.0
+    LONG_POLL_INTERVAL = 120.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -140,8 +142,6 @@ cdef class OkexExchange(ExchangeBase):
         self._trading_rules = {}
         self._trading_rules_polling_task = None
         self._tx_tracker = OkexExchangeTransactionTracker(self)
-
-        self._user_stream_event_listener_task = None
         self._user_stream_tracker = OkexUserStreamTracker(okex_auth=self._okex_auth,
                                                           trading_pairs=trading_pairs)
 
@@ -189,6 +189,10 @@ cdef class OkexExchange(ExchangeBase):
     def shared_client(self) -> str:
         return self._shared_client
 
+    @property
+    def user_stream_tracker(self) -> OkexUserStreamTracker:
+        return self._user_stream_tracker
+
     @shared_client.setter
     def shared_client(self, client: aiohttp.ClientSession):
         self._shared_client = client
@@ -208,10 +212,12 @@ cdef class OkexExchange(ExchangeBase):
         self._stop_network()
         self._order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
-        self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
 
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
+            self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
+            self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
+            await self._update_balances()
 
     def _stop_network(self):
         self._order_book_tracker.stop()
@@ -221,16 +227,18 @@ cdef class OkexExchange(ExchangeBase):
         if self._trading_rules_polling_task is not None:
             self._trading_rules_polling_task.cancel()
             self._trading_rules_polling_task = None
+        if self._user_stream_tracker_task is not None:
+            self._user_stream_tracker_task.cancel()
+            self._user_stream_tracker_task = None
         if self._user_stream_event_listener_task is not None:
             self._user_stream_event_listener_task.cancel()
-            self._user_stream_event_listener_task = None
 
     async def stop_network(self):
         self._stop_network()
 
     async def check_network(self) -> NetworkStatus:
         try:
-            await self._api_request(method="get", path_url=OKEX_SERVER_TIME)
+            await self._api_request(method="GET", path_url=OKEX_SERVER_TIME)
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -239,8 +247,12 @@ cdef class OkexExchange(ExchangeBase):
 
     cdef c_tick(self, double timestamp):
         cdef:
-            int64_t last_tick = <int64_t>(self._last_timestamp / self._poll_interval)
-            int64_t current_tick = <int64_t>(timestamp / self._poll_interval)
+            double now = time.time()
+            double poll_interval = (self.SHORT_POLL_INTERVAL
+                                    if now - self.user_stream_tracker.last_recv_time > 60.0
+                                    else self.LONG_POLL_INTERVAL)
+            int64_t last_tick = <int64_t>(self._last_timestamp / poll_interval)
+            int64_t current_tick = <int64_t>(timestamp / poll_interval)
 
         ExchangeBase.c_tick(self, timestamp)
         self._tx_tracker.c_tick(timestamp)
@@ -261,40 +273,25 @@ cdef class OkexExchange(ExchangeBase):
                            data={},
                            is_auth_required: bool = False) -> Dict[str, Any]:
 
-        content_type = "application/json"  # if method.lower() == "post" else "application/x-www-form-urlencoded"
-        headers = {"Content-Type": content_type}
-
+        headers = {"Content-Type": "application/json"}
         url = urljoin(OKEX_BASE_URL, path_url)
-
         client = await self._http_client()
-        text_data = ujson.dumps(data)
+        text_data = ujson.dumps(data) if method.upper() == "POST" else None
 
         if is_auth_required:
             headers.update(self._okex_auth.add_auth_to_params(method, '/' + path_url, text_data))
 
-        # aiohttp TestClient requires path instead of url
-        if isinstance(client, TestClient):
-            response_coro = client.request(
-                method=method.upper(),
-                path=f"{path_url}",
-                headers=headers,
-                params=params,
-                data=text_data,
-                timeout=100
-            )
-        else:
-            response_coro = client.request(
-                method=method.upper(),
-                url=url,
-                headers=headers,
-                params=params if params else None,  # FIX THIS
-                data=text_data,  # FIX THIS
-                timeout=100
-            )
+        response_coro = client.request(
+            method=method.upper(),
+            url=url,
+            headers=headers,
+            params=params if params else None,
+            data=text_data
+        )
 
         async with response_coro as response:
             if response.status != 200:
-                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
+                raise IOError(f"Error fetching data from {url}. Response: {await response.json()}.")
             try:
                 parsed_response = await response.json()
                 return parsed_response
@@ -317,8 +314,8 @@ cdef class OkexExchange(ExchangeBase):
         self._account_balances.clear()
 
         for balance in balances:
-            self._account_balances['currency'] = Decimal(balance['balance'])
-            self._account_available_balances['currency'] = Decimal(balance['available'])
+            self._account_balances[balance['currency']] = Decimal(balance['balance'])
+            self._account_available_balances[balance['currency']] = Decimal(balance['available'])
 
     cdef object c_get_fee(self,
                           str base_currency,
@@ -367,7 +364,7 @@ cdef class OkexExchange(ExchangeBase):
                 self.logger().error(f"Error parsing the trading pair rule {info}. Skipping.", exc_info=True)
         return trading_rules
 
-    async def get_order_status(self, exchange_order_id: str) -> Dict[str, Any]:
+    async def get_order_status(self, exchange_order_id: str, trading_pair: str) -> Dict[str, Any]:
         """
         Example:
         {
@@ -395,8 +392,8 @@ cdef class OkexExchange(ExchangeBase):
             "type":"limit"
         }
         """
-        path_url = '/' + OKEX_ORDER_DETAILS_URL.format(exchange_order_id=exchange_order_id)
-        return await self._api_request("get", path_url=path_url, is_auth_required=True)
+        path_url = OKEX_ORDER_DETAILS_URL.format(exchange_order_id=exchange_order_id) + f"?instrument_id={trading_pair}"
+        return await self._api_request("GET", path_url=path_url, is_auth_required=True)
 
     async def _update_order_status(self):
         cdef:
@@ -408,7 +405,7 @@ cdef class OkexExchange(ExchangeBase):
         for tracked_order in tracked_orders:
             exchange_order_id = await tracked_order.get_exchange_order_id()
             try:
-                order_update = await self.get_order_status(exchange_order_id)
+                order_update = await self.get_order_status(exchange_order_id, tracked_order.trading_pair)
             except OKExAPIError as e:
                 err_code = e.error_payload.get("error").get("err-code")
                 self.c_stop_tracking_order(tracked_order.client_order_id)
@@ -586,13 +583,13 @@ cdef class OkexExchange(ExchangeBase):
 
                         execute_amount_diff = s_decimal_0
                         execute_price = Decimal(data["price"])
-                        remaining_amount = Decimal(data["filled_size"])
+                        # _amount = Decimal(data["filled_size"])
                         order_type = data["type"]
 
-                        new_confirmed_amount = Decimal(tracked_order.amount - remaining_amount)
+                        # new_confirmed_amount = Decimal(tracked_order.amount - remaining_amount)
 
-                        execute_amount_diff = Decimal(new_confirmed_amount - tracked_order.executed_amount_base)
-                        tracked_order.executed_amount_base = new_confirmed_amount
+                        execute_amount_diff = Decimal(data["filled_size"])
+                        tracked_order.executed_amount_base += execute_amount_diff
                         tracked_order.executed_amount_quote += Decimal(execute_amount_diff * execute_price)
 
                         if execute_amount_diff > s_decimal_0:
@@ -616,7 +613,7 @@ cdef class OkexExchange(ExchangeBase):
                                                                   ),
                                                                   exchange_trade_id=order_id))
 
-                        if order_status == "1":
+                        if order_status == "2":
                             tracked_order.last_state = order_status
                             if tracked_order.trade_type is TradeType.BUY:
                                 self.logger().info(f"The BUY {tracked_order.order_type} order {tracked_order.client_order_id} has completed "
@@ -707,7 +704,7 @@ cdef class OkexExchange(ExchangeBase):
             data=params,
             is_auth_required=True
         )
-        return str(exchange_order_id)
+        return str(exchange_order_id['order_id'])
 
     async def execute_buy(self,
                           order_id: str,
@@ -762,10 +759,10 @@ cdef class OkexExchange(ExchangeBase):
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to OKEx for "
                 f"{decimal_amount} {trading_pair} "
-                f"{decimal_price if order_type is OrderType.LIMIT else ''}.",
+                f"{decimal_price if order_type is OrderType.LIMIT else ''}."
                 f"{decimal_price}.",
                 exc_info=True,
-                app_warning_msg=f"Failed to submit buy order to OKEx. Check API key and network connection."
+                app_warning_msg="Failed to submit buy order to OKEx. Check API key and network connection."
             )
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
@@ -778,7 +775,7 @@ cdef class OkexExchange(ExchangeBase):
                    dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t> get_tracking_nonce()
-            str order_id = f"buy-{trading_pair}-{tracking_nonce}"
+            str order_id = f"buy{trading_pair.replace('-','')}{tracking_nonce}"  # OKEx doesn't permits special characters
 
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
         return order_id
@@ -849,7 +846,8 @@ cdef class OkexExchange(ExchangeBase):
                     dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t> get_tracking_nonce()
-            str order_id = f"sell-{trading_pair}-{tracking_nonce}"
+            str order_id = f"sell{trading_pair.replace('-','')}{tracking_nonce}"  # OKEx doesn't permits special characters
+
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id
 
@@ -859,8 +857,9 @@ cdef class OkexExchange(ExchangeBase):
             if tracked_order is None:
                 raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
 
-            path_url = '/' + OKEX_ORDER_CANCEL.format(exchange_order_id=order_id)
-            response = await self._api_request("post", path_url=path_url, is_auth_required=True)
+            path_url = OKEX_ORDER_CANCEL.format(exchange_order_id=order_id)
+            data = {"instrument_id": trading_pair}
+            response = await self._api_request("POST", path_url=path_url, data=data, is_auth_required=True)
 
             if not response['result']:
                 raise OKExAPIError("Order could not be canceled")
@@ -912,17 +911,16 @@ cdef class OkexExchange(ExchangeBase):
             self.logger().debug(f"cancel_order_ids {cancel_order_ids} orders_by_trading_pair[trading_pair]")
 
             # TODO order_ids or client_oids?
-            data = {'client_oids': cancel_order_ids,
-                    'instrument_id': trading_pair
-                    }
+            data = [{'order_ids': cancel_order_ids,
+                    'instrument_id': trading_pair}]
 
             # TODO, check that only a max of 4 orders can be included per trading pair
 
             cancellation_results = []
             try:
                 cancel_all_results = await self._api_request(
-                    "post",
-                    path_url='/' + OKEX_BATCH_ORDER_CANCELL,
+                    "POST",
+                    path_url=OKEX_BATCH_ORDER_CANCELL,
                     data=data,
                     is_auth_required=True
                 )
