@@ -42,9 +42,9 @@ class SillyCommands:
         await asyncio.sleep(1)
         await self.text_n_wait("Hi there,", 1)
         await self.text_n_wait("This is Jack.", 1)
-        await self.text_n_wait("I am the lead developer of the Hummingbot.", 1.5)
+        await self.text_n_wait("I am the lead developer of Hummingbot.", 1.5)
         await self.text_n_wait("If you are reading this.", 1.5)
-        await self.text_n_wait("I'm probably already dea...", 1.5)
+        await self.text_n_wait("I'm probably dea...", 1.5)
         for _ in range(3):
             await self.text_n_wait(".", 1)
         await self.text_n_wait("I'm kidding.", 1.5)
