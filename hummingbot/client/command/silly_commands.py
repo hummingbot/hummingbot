@@ -21,6 +21,9 @@ class SillyCommands:
         elif command == "roger":
             safe_ensure_future(self.silly_roger())
             return True
+        elif command == "fly":
+            safe_ensure_future(self.silly_victor())
+            return True
         elif command == "rein":
             safe_ensure_future(self.silly_rein())
             return True
@@ -136,6 +139,23 @@ class SillyCommands:
                 await self.cls_n_display(roger_1, 0.3)
                 await self.cls_n_display(roger_4, 0.2)
             await asyncio.sleep(0.15)
+        self.app.log(last_output)
+        self.placeholder_mode = False
+        self.app.hide_input = False
+
+    async def silly_victor(self,  # type: HummingbotApplication
+                           ):
+        last_output = "\n".join(self.app.output_field.document.lines)
+        self.placeholder_mode = True
+        self.app.hide_input = True
+        self.clear_output_field()
+        hb_with_flower_1 = open(f"{RESOURCES_PATH}money-fly_1.txt").readlines()
+        hb_with_flower_2 = open(f"{RESOURCES_PATH}money-fly_2.txt").readlines()
+        for _ in range(0, 5):
+            for _ in range(0, 5):
+                await self.cls_n_display(hb_with_flower_1, 0.125)
+                await self.cls_n_display(hb_with_flower_2, 0.125)
+        await asyncio.sleep(0.3)
         self.app.log(last_output)
         self.placeholder_mode = False
         self.app.hide_input = False
