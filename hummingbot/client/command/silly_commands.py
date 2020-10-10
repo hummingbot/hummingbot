@@ -143,7 +143,7 @@ class SillyCommands:
         self.app.hide_input = False
 
     async def silly_victor(self,  # type: HummingbotApplication
-                            ):
+                           ):
         last_output = "\n".join(self.app.output_field.document.lines)
         self.placeholder_mode = True
         self.app.hide_input = True
@@ -158,7 +158,7 @@ class SillyCommands:
         self.app.log(last_output)
         self.placeholder_mode = False
         self.app.hide_input = False
-        
+
     async def silly_rein(self,  # type: HummingbotApplication
                          ):
         last_output = "\n".join(self.app.output_field.document.lines)
