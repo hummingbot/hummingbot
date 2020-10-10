@@ -1006,3 +1006,29 @@ cdef class OkexExchange(ExchangeBase):
             return s_decimal_0
 
         return quantized_amount
+
+    def get_price(self, trading_pair: str, is_buy: bool) -> Decimal:
+        return self.c_get_price(trading_pair, is_buy)
+
+    def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+            price: Decimal = s_decimal_NaN, **kwargs) -> str:
+        return self.c_buy(trading_pair, amount, order_type, price, kwargs)
+
+    def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+             price: Decimal = s_decimal_NaN, **kwargs) -> str:
+        return self.c_sell(trading_pair, amount, order_type, price, kwargs)
+
+    def cancel(self, trading_pair: str, client_order_id: str):
+        return self.c_cancel(trading_pair, client_order_id)
+
+    def get_fee(self,
+                base_currency: str,
+                quote_currency: str,
+                order_type: OrderType,
+                order_side: TradeType,
+                amount: Decimal,
+                price: Decimal = s_decimal_NaN) -> TradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+
+    def get_order_book(self, trading_pair: str) -> OrderBook:
+        return self.c_get_order_book(trading_pair)
