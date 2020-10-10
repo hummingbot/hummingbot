@@ -23,6 +23,7 @@ class SillyCommands:
             return True
         elif command == "fly":
             safe_ensure_future(self.silly_victor())
+            return True
         elif command == "rein":
             safe_ensure_future(self.silly_rein())
             return True
