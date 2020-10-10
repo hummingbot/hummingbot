@@ -200,28 +200,28 @@ class OkexExchangeUnitTest(unittest.TestCase):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_get_fee(self):
-        limit_fee: TradeFee = self.market.c_get_fee("ETH", "USDT", OrderType.LIMIT_MAKER, TradeType.BUY, 1, 10)
+        limit_fee: TradeFee = self.market.get_fee("ETH", "USDT", OrderType.LIMIT_MAKER, TradeType.BUY, 1, 10)
         self.assertGreater(limit_fee.percent, 0)
         self.assertEqual(len(limit_fee.flat_fees), 0)
-        market_fee: TradeFee = self.market.c_get_fee("ETH", "USDT", OrderType.LIMIT, TradeType.BUY, 1)
+        market_fee: TradeFee = self.market.get_fee("ETH", "USDT", OrderType.LIMIT, TradeType.BUY, 1)
         self.assertGreater(market_fee.percent, 0)
         self.assertEqual(len(market_fee.flat_fees), 0)
-        sell_trade_fee: TradeFee = self.market.c_get_fee("ETH", "USDT", OrderType.LIMIT_MAKER, TradeType.SELL, 1, 10)
+        sell_trade_fee: TradeFee = self.market.get_fee("ETH", "USDT", OrderType.LIMIT_MAKER, TradeType.SELL, 1, 10)
         self.assertGreater(sell_trade_fee.percent, 0)
         self.assertEqual(len(sell_trade_fee.flat_fees), 0)
 
     def test_fee_overrides_config(self):
         fee_overrides_config_map["okex_taker_fee"].value = None
-        taker_fee: TradeFee = self.market.c_get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1), Decimal('0.1'))
+        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1), Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.0015"), taker_fee.percent)
         fee_overrides_config_map["okex_taker_fee"].value = Decimal('0.1')
-        taker_fee: TradeFee = self.market.c_get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1), Decimal('0.1'))
+        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1), Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.001"), taker_fee.percent)
         fee_overrides_config_map["okex_maker_fee"].value = None
-        maker_fee: TradeFee = self.market.c_get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1), Decimal('0.1'))
-        self.assertAlmostEqual(Decimal("0.0012"), maker_fee.percent)
+        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1), Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.001"), maker_fee.percent)
         fee_overrides_config_map["okex_maker_fee"].value = Decimal('0.5')
-        maker_fee: TradeFee = self.market.c_get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1), Decimal('0.1'))
+        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1), Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
 
     def place_order(self, is_buy, trading_pair, amount, order_type, price, nonce, get_resp, market_connector=None):
@@ -239,9 +239,9 @@ class OkexExchangeUnitTest(unittest.TestCase):
             self.web_app.update_response("post", API_BASE_URL, "/" + OKEX_PLACE_ORDER, resp)
         market = self.market if market_connector is None else market_connector
         if is_buy:
-            order_id = market.c_buy(trading_pair, amount, order_type, price)
+            order_id = market.buy(trading_pair, amount, order_type, price)
         else:
-            order_id = market.c_sell(trading_pair, amount, order_type, price)
+            order_id = market.sell(trading_pair, amount, order_type, price)
         if MOCK_API_ENABLED:
             resp = get_resp.copy()
             # resp is the response passed by parameter
@@ -257,7 +257,7 @@ class OkexExchangeUnitTest(unittest.TestCase):
             resp["order_id"] = exchange_order_id
             self.web_app.update_response("post", API_BASE_URL, '/' + OKEX_ORDER_CANCEL.format(exchange_order_id=order_id),
                                          resp)
-        self.market.c_cancel(trading_pair, order_id)
+        self.market.cancel(trading_pair, order_id)
         if MOCK_API_ENABLED:
             resp = get_resp.copy()
             resp["order_id"] = exchange_order_id
@@ -274,7 +274,7 @@ class OkexExchangeUnitTest(unittest.TestCase):
         price: Decimal = self.market.quantize_order_price(trading_pair, price)
         amount = self.market.quantize_order_amount(trading_pair, Decimal("0.06"))
 
-        order_id = self.market.c_buy(trading_pair, amount, OrderType.LIMIT_MAKER, price)
+        order_id = self.market.buy(trading_pair, amount, OrderType.LIMIT_MAKER, price)
         [order_failure_event] = self.run_parallel(self.market_logger.wait_for(MarketOrderFailureEvent))
         self.assertEqual(order_id, order_failure_event.order_id)
 
@@ -285,7 +285,7 @@ class OkexExchangeUnitTest(unittest.TestCase):
         price: Decimal = self.market.quantize_order_price(trading_pair, price)
         amount = self.market.quantize_order_amount(trading_pair, Decimal("0.06"))
 
-        order_id = self.market.c_sell(trading_pair, amount, OrderType.LIMIT_MAKER, price)
+        order_id = self.market.sell(trading_pair, amount, OrderType.LIMIT_MAKER, price)
         [order_failure_event] = self.run_parallel(self.market_logger.wait_for(MarketOrderFailureEvent))
         self.assertEqual(order_id, order_failure_event.order_id)
 
@@ -502,7 +502,7 @@ class OkexExchangeUnitTest(unittest.TestCase):
             self.assertEqual(0, len(saved_market_states.saved_state))
         finally:
             if order_id is not None:
-                self.market.c_cancel(trading_pair, order_id)
+                self.market.cancel(trading_pair, order_id)
                 self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
@@ -547,7 +547,7 @@ class OkexExchangeUnitTest(unittest.TestCase):
 
         finally:
             if order_id is not None:
-                self.market.c_cancel(trading_pair, order_id)
+                self.market.cancel(trading_pair, order_id)
                 self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
