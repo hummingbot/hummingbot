@@ -67,11 +67,3 @@ class OKExAuth:
                 self.get_signature(timestamp, "GET", "/users/self/verify", {})
             ]
         }
-
-# auth = OKExAuth(okex_api_key, okex_secret_key, okex_passphrase)
-# headers = auth.add_auth_to_params('get', "/api/spot/v3/instruments", {})
-# headers
-# import requests
-# r = requests.get("http://okex.com/api/spot/v3/instruments", headers=headers)
-# r = requests.get("https://okex.com/api/spot/v3/instruments", headers=headers)
-# r.status_code

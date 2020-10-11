@@ -267,8 +267,8 @@ cdef class OkexExchange(ExchangeBase):
         return self._shared_client
 
     async def _api_request(self,
-                           method,
-                           path_url,
+                           method: str,
+                           path_url: str,
                            params: Optional[Dict[str, Any]] = {},
                            data={},
                            is_auth_required: bool = False) -> Dict[str, Any]:
@@ -432,12 +432,12 @@ cdef class OkexExchange(ExchangeBase):
 
             # Calculate the newly executed amount for this update.
             tracked_order.last_state = order_update["state"]
-            new_confirmed_amount = Decimal(order_update["filled_size"])  # TODO filled_notional or filled_size?
-            execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
+            new_confirmed_amount = Decimal(order_update["filled_size"])
+            execute_amount_diff = new_confirmed_amount
 
             if execute_amount_diff > s_decimal_0:
                 tracked_order.executed_amount_base = new_confirmed_amount
-                tracked_order.executed_amount_quote = Decimal(order_update["filled_notional"])  # TODO filled_notional or filled_size?
+                tracked_order.executed_amount_quote = Decimal(order_update["filled_notional"])
 
                 tracked_order.fee_paid = Decimal(order_update["fee"])
                 execute_price = tracked_order.executed_amount_quote / new_confirmed_amount
