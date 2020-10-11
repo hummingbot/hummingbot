@@ -1,13 +1,18 @@
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from decimal import Decimal
 from typing import Optional
-from hummingbot.client.settings import EXCHANGES, STRATEGIES
+from hummingbot.client.settings import EXCHANGES, STRATEGIES, CONNECTORS_SET
 
 
 # Validators
 def validate_exchange(value: str) -> Optional[str]:
     if value not in EXCHANGES:
         return f"Invalid exchange, please choose value from {EXCHANGES}"
+
+
+def validate_connector(value: str) -> Optional[str]:
+    if value not in CONNECTORS_SET:
+        return f"Invalid connector, please choose value from {CONNECTORS_SET}"
 
 
 def validate_strategy(value: str) -> Optional[str]:
