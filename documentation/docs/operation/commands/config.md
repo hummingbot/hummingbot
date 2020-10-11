@@ -72,24 +72,18 @@ New configuration saved:
 order_refresh_time: 30.0
 ```
 
-## Configure spreads on the fly
+## Configure parameters on the fly
 
-The parameters `bid_spread` and `ask_spread` can be reconfigured without stopping the bot. The changes to spread will take effect in the next order refresh.
+Currently, only the following parameters can be reconfigured without stopping the bot. The changes will take effect in the next order refresh.
 
-```
->>>  config bid_spread 0.001
-Please follow the prompt to complete configurations:
+- `bid_spread`
+- `ask_spread`
+- `order_amount`
+- `order_levels`
+- `order_level_spread`
+- `inventory_skew_enabled`
+- `inventory_target_base_pct`
+- `inventory_range_multiplier`
+- `filled_order_delay`
 
-New configuration saved:
-bid_spread: 0.001
-
-The current pure_market_making strategy has been updated to reflect the new configuration.
-
->>>  config ask_spread 0.001
-Please follow the prompt to complete configurations:
-
-New configuration saved:
-ask_spread: 0.001
-
-The current pure_market_making strategy has been updated to reflect the new configuration.
-```
+Take note that reconfiguring `inventory_target_base_pct` for DEX connectors are not working at the moment.
