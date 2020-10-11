@@ -123,6 +123,3 @@ class OkexOrderBookTracker(OrderBookTracker):
                     app_warning_msg="Unexpected error tracking order book. Retrying after 5 seconds."
                 )
                 await asyncio.sleep(5.0)
-
-    # def start(self):
-    #     """Start all custom listeners and tasks in the OrderBookTracker component."""
