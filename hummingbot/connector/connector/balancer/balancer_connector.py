@@ -21,6 +21,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.connector.connector_base import ConnectorBase
 s_logger = None
+s_decimal_0 = Decimal("0")
 s_decimal_NaN = Decimal("nan")
 GATEWAY_API_URL = "http://localhost:5000"
 
@@ -58,10 +59,13 @@ class BalancerConnector(ConnectorBase):
         return "balancer"
 
     def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
-        if is_buy:
-            return self._buy_prices[trading_pair]
-        else:
-            return self._sell_prices[trading_pair]
+        base_asset, quote_asset = trading_pair.split("-")
+        token_in = quote_asset if is_buy else base_asset
+        token_out = quote_asset if not is_buy else base_asset
+        resp = self._request_get("balancer/price", {"tokenIn": token_in, "tokenOut": token_out, "amount": amount})
+        price = Decimal(str(resp["price"]))
+        if price > s_decimal_0:
+            return price
 
     def get_order_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
         return self.get_quote_price(trading_pair, is_buy, amount)
@@ -251,6 +255,6 @@ class BalancerConnector(ConnectorBase):
         print(f"RESPONSE: {parsed_response}")
         return parsed_response
 
-    def _get_requests(self, path_url: str, params: Dict[str, Any]):
+    def _request_get(self, path_url: str, params: Dict[str, Any]):
         resp = requests.get(url=f"{GATEWAY_API_URL}/{path_url}", params=params)
         return resp.json()

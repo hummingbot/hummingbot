@@ -97,6 +97,7 @@ DEXES = _get_exchanges(False)
 OTHER_CONNECTORS = _get_other_connectors()
 
 EXCHANGES = CEXES.union(DEXES)
+CONNECTORS_SET = EXCHANGES.union(DERIVATIVES).union(OTHER_CONNECTORS)
 ALL_CONNECTORS = {"exchange": EXCHANGES, "connector": OTHER_CONNECTORS, "derivative": DERIVATIVES}
 
 STRATEGIES: List[str] = get_strategy_list()
