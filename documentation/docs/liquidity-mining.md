@@ -167,11 +167,11 @@ Participating miners should enter their XZC wallet address in the miner app.
 
 ## Upcoming Changes to Terms 
 
-**Liquidity mining campaign updates for COTI, XZC, and MFT for the upcoming week starting October 13**. 
+**1) Liquidity mining campaign updates for COTI, XZC, and MFT for the upcoming week starting October 13**. 
 
-- **COTI campaign extended**
+  - **COTI campaign extended**
 
-- **Mainframe: campaign update**
+  - **Mainframe: campaign update**
 
 <table>
   <thead>
@@ -199,11 +199,11 @@ Participating miners should enter their XZC wallet address in the miner app.
   </tbody>
 </table>
 
-- **Zcoin: campaign being paused**
+  - **Zcoin: campaign being paused**
 
 You can read more about it on our [reddit post](https://www.reddit.com/r/Hummingbot/comments/j6dybq/liquidity_mining_campaign_updates_for_coti_xzc/).
 
-**Adding support for TRC20 USDT for USD-based liquidity mining payments**
+**2) Adding support for TRC20 USDT for USD-based liquidity mining payments**
  
 In response to rising Ethereum gas prices, we will be giving miners the option to receive USDT-TRON for USD-based liquidity mining rewards. Receiving USDT-TRON mining rewards will not be subject to any minimum amounts, and miners can have rewards paid directly into their exchange accounts.
 
@@ -211,13 +211,14 @@ Miners can also choose to continuing receiving rewards to their Ethereum wallet,
 
 https://hummingbot.io/blog/2020-09-migrating-to-trc20-usdt-payment/
 
-- October 16, 2020 UTC: First USDT-TRON payout
+  - October 16, 2020 UTC: First USDT-TRON payout
 
 !!! note
     Users will be required to enter Tron wallet address in the Hummingbot Miners app to enable USDT-TRON payments.
 
 Binance.com (as well as many of the major exchanges) support TRC20-USDT, so you can use a USDT TRC20 deposit address to receive rewards directly into your exchange account.
 
+**3) Liquidity mining campaign for NEM (XEM) going live on November 3, 2020!**
 
 ## Token Issuers
 
@@ -237,6 +238,13 @@ Binance.com (as well as many of the major exchanges) support TRC20-USDT, so you 
 The [Mainframe (MFT)](https://mainframe.com/) Lending Protocol allows anyone to borrow against their crypto. Mainframe uses a bond-like instrument, representing an on-chain obligation that settles on a specific future date. Buying and selling the tokenized debt enables fixed-rate lending and borrowing — something much needed in decentralized finance today.
 
 [Blog](https://blog.mainframe.com) | [Twitter](https://twitter.com/Mainframe_HQ) | [Discord](https://discord.gg/mhtSRz6) | [Github](https://github.com/MainframeHQ) | [CoinMarketCap](https://coinmarketcap.com/currencies/mainframe/) | [CoinGecko](https://www.coingecko.com/en/coins/mainframe)
+
+### NEM
+
+[NEM](https://nem.io) Group supports the development of Symbol from NEM, a trusted and secure enterprise blockchain that smooths business friction, increasing the flow of data and innovation to supercharge the creation, exchange and protection of assets. 
+NEM Group comprises three separate entities: NEM Software, NEM Trading, and NEM Ventures. NEM Group shapes the future of blockchain by nurturing a strong and healthy ecosystem that will contribute to the development of blockchain technology for generations to come.
+
+[Forum](https://forum.nem.io/) | [Twitter](https://twitter.com/nemofficial) | [Telegram](https://t.me/nemred) | [Github](https://github.com/NemProject) | [CoinMarketCap](https://coinmarketcap.com/currencies/nem/) | [CoinGecko](https://www.coingecko.com/en/coins/nem)
 
 ### Zcoin
 
