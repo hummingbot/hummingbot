@@ -593,8 +593,8 @@ cdef class OkexExchange(ExchangeBase):
                         tracked_order.executed_amount_quote += Decimal(execute_amount_diff * execute_price)
 
                         if execute_amount_diff > s_decimal_0:
-                            self.logger().info(f"Filed {execute_amount_diff} out of {tracked_order.amount} of order "
-                                               f"{order_type.upper()}-{client_order_id}")
+                            self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of "
+                                               f"{order_type.upper()} order {client_order_id}")
                             self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
                                                  OrderFilledEvent(self._current_timestamp,
                                                                   tracked_order.client_order_id,
@@ -740,7 +740,7 @@ cdef class OkexExchange(ExchangeBase):
             )
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
-                self.logger().info(f"Created {order_type} buy order {order_id} for {decimal_amount} {trading_pair}.")
+                self.logger().info(f"Created {order_type.name.upper()} buy order {order_id} for {decimal_amount} {trading_pair}.")
             self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
                                  BuyOrderCreatedEvent(
                                      self._current_timestamp,
@@ -813,7 +813,7 @@ cdef class OkexExchange(ExchangeBase):
             )
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
-                self.logger().info(f"Created {order_type} sell order {order_id} for {decimal_amount} {trading_pair}.")
+                self.logger().info(f"Created {order_type.name.upper()} sell order {order_id} for {decimal_amount} {trading_pair}.")
             self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
                                  SellOrderCreatedEvent(
                                      self._current_timestamp,
@@ -894,9 +894,8 @@ cdef class OkexExchange(ExchangeBase):
         orders_by_trading_pair = {}
 
         for order in self._in_flight_orders.values():
-            if order.is_open:
-                orders_by_trading_pair[order.trading_pair] = orders_by_trading_pair.get(order.trading_pair, [])
-                orders_by_trading_pair[order.trading_pair].append(order)
+            orders_by_trading_pair[order.trading_pair] = orders_by_trading_pair.get(order.trading_pair, [])
+            orders_by_trading_pair[order.trading_pair].append(order)
 
         if len(orders_by_trading_pair) == 0:
             # do nothing if there are not orders to cancel
@@ -927,7 +926,12 @@ cdef class OkexExchange(ExchangeBase):
 
                 for trading_pair in cancel_all_results:
                     for order in cancel_all_results[trading_pair]:
-                        cancellation_results.append(CancellationResult(order, order['result']))
+                        cancellation_results.append(CancellationResult(order["client_oid"], order["result"]))
+                        if order["result"] is True:
+                            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                                 OrderCancelledEvent(self._current_timestamp,
+                                                                     order["client_oid"],
+                                                                     exchange_order_id=order["order_id"]))
 
             except Exception as e:
                 self.logger().network(
