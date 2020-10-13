@@ -1,21 +1,25 @@
 # These are the libraries used by the script
-from decimal import Decimal # Python Library used to handle floating point variables
-from datetime import datetime # Python Library used to manipulate date and time
-import time
-from hummingbot.script.script_base import ScriptBase # Import the base functions of the script library.
-                                                     # This library is required for the script function to work
+from decimal import Decimal  # Python Library used to handle floating point variables
+from datetime import datetime  # Python Library used to manipulate date and time
+
+from hummingbot.core.event.events import (           # Import function related to filled order events
+    BuyOrderCompletedEvent,
+    SellOrderCompletedEvent
+)
+from hummingbot.script.script_base import ScriptBase  # Import the base functions of the script library.
+                                                      # This library is required for the script function to work
 
 # This section create a function to log script information. Can be removed if you don't want to create a log.
 # -------------------
 s_decimal_1 = Decimal("1")
-SCRIPT_LOG_FILE = "logs/logs_script.log" # Name of the log file
+SCRIPT_LOG_FILE = "logs/logs_script.log"  # Name of the log file
 
 
-def log_to_file(file_name, message): # log writing function
+def log_to_file(file_name, message):  # log writing function
     with open(file_name, "a+") as f:
         f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " - " + message + "\n")
 
-#-------------------
+#
 # Using the log function:
 #
 #       log_to_file(SCRIPT_LOG_FILE, #message you want to write on the log#)
@@ -25,14 +29,20 @@ def log_to_file(file_name, message): # log writing function
 #         if time.time() - self.last_stats_logged > #time between writing logs in seconds#:
 #             log_to_file(SCRIPT_LOG_FILE, #message you want to write on the log#)
 #             self.last_stats_logged = time.time()
+# ----------
 
-class Scriptname(ScriptBase):   # This is the main script object. All the actions you want to be performed by the script
-                                # must be created inside this class
+class Scriptname(ScriptBase):
+# ----------
+# This is the main script object. All the actions you want to be performed by the script
+# must be created inside this class
 
-    def __init__(self): # The init function can be used to declare the variables that will be used only by the script
-                        # Example:
-                        # self.original_bid_spread = None
-                        # This will create a variable named original_bid_spread
+    def __init__(self):
+        super().__init__()
+        # The init function can be used to declare the variables that will be used only by the script
+        # Example:
+        # self.original_bid_spread = None
+        # This will create a variable named original_bid_spread
+
 
 # Events
 #
@@ -41,13 +51,14 @@ class Scriptname(ScriptBase):   # This is the main script object. All the action
 # --------------
 
     def on_tick(self):
-    # The instructions here will be called when every tick, which is every second on normal HB configuration
+        # The instructions here will be called when every tick, which is every second on normal HB configuration
 
     def on_buy_order_completed(self, event: BuyOrderCompletedEvent):
-    # The instructions here will be called every time a buy order is filled
+        # The instructions here will be called every time a buy order is filled
 
     def on_sell_order_completed(self, event: SellOrderCompletedEvent):
-    # The instructions here will be called every time a sell order is filled
+        # The instructions here will be called every time a sell order is filled
 
     def on_status(self) -> str:
-    # The instructions here will be called every time the `status` command is executed on the Hummingbot application
+        # The instructions here will be called every time the `status` command is executed on the Hummingbot application
+#-------------
