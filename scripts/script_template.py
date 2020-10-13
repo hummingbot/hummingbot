@@ -43,23 +43,24 @@ class Scriptname(ScriptBase):
         # self.original_bid_spread = None
         # This will create a variable named original_bid_spread
 
-
     # Events
     #
     # The functions below are used to send instructions on specific events
     # Functions that won't be used can be deleted
     # --------------
 
-
     def on_tick(self):
         # The instructions here will be called when every tick, which is every second on normal HB configuration
+        return
 
     def on_buy_order_completed(self, event: BuyOrderCompletedEvent):
         # The instructions here will be called every time a buy order is filled
+        return
 
     def on_sell_order_completed(self, event: SellOrderCompletedEvent):
         # The instructions here will be called every time a sell order is filled
+        return
 
     def on_status(self) -> str:
         # The instructions here will be called every time the `status` command is executed on the Hummingbot application
-        # -------------
+        return
