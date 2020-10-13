@@ -6,8 +6,7 @@ from hummingbot.core.event.events import (           # Import function related t
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent
 )
-from hummingbot.script.script_base import ScriptBase  # Import the base functions of the script library.
-                                                      # This library is required for the script function to work
+from hummingbot.script.script_base import ScriptBase  # Import the base functions required to make scripts work
 
 # This section create a function to log script information. Can be removed if you don't want to create a log.
 # -------------------
@@ -31,10 +30,11 @@ def log_to_file(file_name, message):  # log writing function
 #             self.last_stats_logged = time.time()
 # ----------
 
+
 class Scriptname(ScriptBase):
-# ----------
-# This is the main script object. All the actions you want to be performed by the script
-# must be created inside this class
+    # ----------
+    # This is the main script object. All the actions you want to be performed by the script
+    # must be created inside this class
 
     def __init__(self):
         super().__init__()
@@ -44,11 +44,12 @@ class Scriptname(ScriptBase):
         # This will create a variable named original_bid_spread
 
 
-# Events
-#
-# The functions below are used to send instructions on specific events
-# Functions that won't be used can be deleted
-# --------------
+    # Events
+    #
+    # The functions below are used to send instructions on specific events
+    # Functions that won't be used can be deleted
+    # --------------
+
 
     def on_tick(self):
         # The instructions here will be called when every tick, which is every second on normal HB configuration
@@ -61,4 +62,4 @@ class Scriptname(ScriptBase):
 
     def on_status(self) -> str:
         # The instructions here will be called every time the `status` command is executed on the Hummingbot application
-#-------------
+        # -------------
