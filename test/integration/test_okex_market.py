@@ -63,8 +63,8 @@ from hummingbot.connector.exchange.okex.constants import (
     OKEX_BALANCE_URL
 )
 
-# MOCK_API_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
-MOCK_API_ENABLED = True
+MOCK_API_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
+# MOCK_API_ENABLED = True
 
 
 API_KEY = "API_PASSPHRASE_MOCK" if MOCK_API_ENABLED else conf.okex_api_key
