@@ -141,14 +141,6 @@ ZCoin is putting its campaign on pause and will continue to monitor and re-evalu
       <td>8</td>
       <td>RLC 180</td>
     </tr>
-    <tr>
-      <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
-      <td>XZC/BTC</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td><b>XZC 125</b></td>
-    </tr>
   </tbody>
 </table>
 
@@ -176,19 +168,19 @@ Total reward pool: XEM tokens with a current value of approximately $1,250 per w
       <td>XEM/BTC</td>
       <td>Binance.com</td>
       <td>2%</td>
-      <td><b>XEM 625</b></td>
+      <td><b>USD 625 *</b></td>
     </tr>
     <tr>
       <td>XEM/ETH</td>
       <td>Binance.com</td>
       <td>2%</td>
-      <td><b>XEM 625</b></td>
+      <td><b>USD 625 *</b></td>
     </tr>
   </tbody>
 </table>
 
 !!! note
-    The reward pool will be denominated in XEM tokens, with the final amount to be determined just prior to the campaign launch based on the indicated dollar amounts shown.
+    *The reward pool will be denominated in XEM tokens, with the final amount to be determined just prior to the campaign launch based on the indicated dollar amounts shown.
 
 **2) Adding support for TRC20 USDT for USD-based liquidity mining payments**
  
