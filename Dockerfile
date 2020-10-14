@@ -89,11 +89,12 @@ RUN useradd -m -s /bin/bash hummingbot && \
   ln -s /conf /home/hummingbot/conf && \
   ln -s /logs /home/hummingbot/logs && \
   ln -s /data /home/hummingbot/data && \
+  ln -s /cert /home/hummingbot/cert && \
   ln -s /scripts /home/hummingbot/scripts
 
 # Create mount points
-RUN mkdir /conf /logs /data /scripts && chown -R hummingbot:hummingbot /conf /logs /data /scripts
-VOLUME /conf /logs /data /scripts
+RUN mkdir /conf /logs /data /cert /scripts && chown -R hummingbot:hummingbot /conf /logs /data /cert /scripts
+VOLUME /conf /logs /data /cert /scripts
 
 # Pre-populate scripts/ volume with default scripts
 COPY --chown=hummingbot:hummingbot scripts/ scripts/

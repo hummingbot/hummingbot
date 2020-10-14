@@ -28,6 +28,7 @@ from hummingbot.client.ui import login_prompt
 from hummingbot.client.ui.stdout_redirection import patch_stdout
 from hummingbot.client.settings import STRATEGIES
 from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.utils.ssl_cert import create_self_sign_ca_certs
 from hummingbot.core.management.console import start_management_console
 from bin.hummingbot import (
     detect_available_port,
@@ -86,6 +87,7 @@ async def quick_start(args):
     await create_yml_files()
     init_logging("hummingbot_logs.yml")
     read_system_configs_from_yml()
+    await create_self_sign_ca_certs()
 
     hb = HummingbotApplication.main_application()
     # Todo: validate strategy and config_file_name before assinging

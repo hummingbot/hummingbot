@@ -23,8 +23,10 @@ import shutil
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
+from hummingbot.client.config.gateway_config_map import gateway_config_map
 from hummingbot.client.settings import (
     GLOBAL_CONFIG_PATH,
+    GATEWAY_CONFIG_PATH,
     TRADE_FEES_CONFIG_PATH,
     TEMPLATE_PATH,
     CONF_FILE_PATH,
@@ -314,9 +316,20 @@ def read_system_configs_from_yml():
     save_system_configs_to_yml()
 
 
+def read_gateway_configs_from_yml():
+    """
+    Read gateway api config yml fie and save the values to corresponding config map
+    If a yml file is outdated, it gets reformatted with the new template
+    """
+    load_yml_into_cm(GATEWAY_CONFIG_PATH, join(TEMPLATE_PATH, "conf_gateway_TEMPLATE.yml"), gateway_config_map)
+    # In case config maps get updated (due to default values)
+    save_to_yml(GATEWAY_CONFIG_PATH, gateway_config_map)
+
+
 def save_system_configs_to_yml():
     save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
     save_to_yml(TRADE_FEES_CONFIG_PATH, fee_overrides_config_map)
+    save_to_yml(GATEWAY_CONFIG_PATH, gateway_config_map)
 
 
 def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):

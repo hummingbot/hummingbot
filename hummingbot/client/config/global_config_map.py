@@ -269,6 +269,11 @@ main_config_map = {
                   required_if=lambda: False,
                   type_str="json",
                   default={exchange: None for exchange in settings.EXCHANGES}),
+    "gateway_api_port":
+        ConfigVar(key="gateway_api_port",
+                  prompt="Please enter your Gateway API port >>> ",
+                  type_str="str",
+                  default="5000"),
 }
 
 global_config_map = {**key_config_map, **main_config_map}
