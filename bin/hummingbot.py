@@ -23,6 +23,7 @@ from hummingbot import (
 from hummingbot.client.ui import login_prompt
 from hummingbot.client.ui.stdout_redirection import patch_stdout
 from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.utils.ssl_cert import create_self_sign_ca_certs
 
 
 def detect_available_port(starting_port: int) -> int:
@@ -46,6 +47,9 @@ async def main():
     init_logging("hummingbot_logs.yml")
 
     read_system_configs_from_yml()
+
+    # Create self sign certs
+    await create_self_sign_ca_certs()
 
     hb = HummingbotApplication.main_application()
 

@@ -27,6 +27,7 @@ logging.setLoggerClass(StructLogger)
 
 _shared_executor = None
 _data_path = None
+_cert_path = None
 
 
 def root_path() -> str:
@@ -75,6 +76,26 @@ def data_path() -> str:
 def set_data_path(path: str):
     global _data_path
     _data_path = path
+
+
+def cert_path() -> str:
+    global _cert_path
+    if _cert_path is None:
+        from os.path import (
+            realpath,
+            join
+        )
+        _cert_path = realpath(join(prefix_path(), "cert"))
+
+    import os
+    if not os.path.exists(_cert_path):
+        os.makedirs(_cert_path)
+    return _cert_path
+
+
+def set_cert_path(path: str):
+    global _cert_path
+    _cert_path = path
 
 
 _independent_package: Optional[bool] = None

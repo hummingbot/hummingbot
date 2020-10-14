@@ -61,3 +61,6 @@ debug.log
 
 # Documentation build dir
 /documentation/site/
+
+# CA Certs
+*.pem

@@ -17,6 +17,7 @@ KEYFILE_POSTFIX = ".json"
 ENCYPTED_CONF_PREFIX = "encrypted_"
 ENCYPTED_CONF_POSTFIX = ".json"
 GLOBAL_CONFIG_PATH = "conf/conf_global.yml"
+GATEWAY_CONFIG_PATH = "conf/conf_gateway.yml"
 TRADE_FEES_CONFIG_PATH = "conf/conf_fee_overrides.yml"
 TOKEN_ADDRESSES_FILE_PATH = realpath(join(__file__, "../../wallet/ethereum/erc20_tokens.json"))
 DEFAULT_KEY_FILE_PATH = "conf/"
@@ -105,6 +106,8 @@ EXAMPLE_PAIRS = _get_example_asset()
 
 
 EXAMPLE_ASSETS = _get_example_asset(False)
+
+GATEWAY_API = {"gateway_api_port": 5000}
 
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
