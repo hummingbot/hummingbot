@@ -52,20 +52,18 @@ For miners who earn < $50 within one week, their rewards will be accrued and rol
     XZC payments are not subject to a minimum payout reward; all payouts will be made for each period.
 
 
-**Native XZC rewards for Zcoin campaign**
+**Enabling USDT for USD-based payments**
 
-Starting September 15, 2020 UTC, we rolled out [XZC native token payments](https://hummingbot.io/blog/2020-09-xzc-native-token-payment/) for the Zcoin liquidity mining campaign! Miners participating in the Zcoin liquidity mining campaign will start earning and be paid in XZC tokens.
+Starting from the rewards period beginning on October 6, 2020 12.00am UTC, all USD-based rewards will be accrued in USDT.
 
-Participating miners should enter their XZC wallet address in the miner app.
+**ZCoin campaign paused**
 
-!!! Note
-    You can use your Binance XZC deposit address and enter in the miner app to receive XZC directly into Binance.
-    Click this [link](https://docs.hummingbot.io/faq/liquidity-mining/how-to-add-wallet-address) to learn how you can enter your [Binance XZC deposit address](https://docs.hummingbot.io/faq/liquidity-mining/#get-ethereum-and-zcoin-deposit-address-from-binance).
+ZCoin is putting its campaign on pause and will continue to monitor and re-evaluate the liquidity for its token. They are one of our original launch partners and we appreciate their support of our platform so far!
 
 
 ## Current Reward Period
 
-**October 6, 2020 12:00am UTC - October 13, 2020 12:00am UTC**
+**October 13, 2020 12:00am UTC - October 20, 2020 12:00am UTC**
 
 <table>
   <thead>
@@ -105,21 +103,21 @@ Participating miners should enter their XZC wallet address in the miner app.
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDT 200</td>
+      <td>USDT 250</td>
     </tr>
     <tr>
       <td>MFT/ETH</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDT 275</td>
+      <td>USDT 250</td>
     </tr>
     <tr>
       <td>MFT/BNB</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDT 275</td>
+      <td>USDT 250</td>
     </tr>
     <tr>
       <td rowspan="3"><a href="#iexec">iExec</a><br></td>
@@ -143,21 +141,6 @@ Participating miners should enter their XZC wallet address in the miner app.
       <td>8</td>
       <td>RLC 180</td>
     </tr>
-    <tr>
-      <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
-      <td>XZC/BTC</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td><b>XZC 125</b></td>
-    </tr>
-    <tr>
-      <td>XZC/USDT</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td><b>XZC 125</b></td>
-    </tr>
   </tbody>
 </table>
 
@@ -167,41 +150,37 @@ Participating miners should enter their XZC wallet address in the miner app.
 
 ## Upcoming Changes to Terms 
 
-**1) Liquidity mining campaign updates for COTI, XZC, and MFT for the upcoming week starting October 13**. 
+**1) Liquidity mining campaign for NEM (XEM) going live on November 3, 2020!**
 
-  - **COTI campaign extended**
-
-  - **Mainframe: campaign update**
+Total reward pool: XEM tokens with a current value of approximately $1,250 per week (total of $15,000 over 12 weeks). For more details, you can check our [blog post](https://hummingbot.io/blog/2020-10-nem-liquidity-mining/).
 
 <table>
   <thead>
-    <th></th>
-    <th>Previous reward</th>
-    <th>New reward</th>
+    <th>Token Issuer</th>
+    <th>Trading pair</th>
+    <th>Exchange</th>
+    <th>Maximum spread</th>
+    <th>Weekly rewards</th>
   </thead>
   <tbody>
       <tr>
-      <td>MFT/USDT</td>
-      <td>USDT 200 /week</td>
-      <td><b>USDT 250 / week</b></td>
+      <td rowspan="2"><a href="#nem">NEM</a></td>
+      <td>XEM/BTC</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td><b>USD 625 *</b></td>
     </tr>
     <tr>
-      <td>MFT/ETH</td>
-      <td>USDT 275 / week</td>
-      <td><b>USDT 250 / week</b></td>
+      <td>XEM/ETH</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td><b>USD 625 *</b></td>
     </tr>
-    <tr>
-      <td>MFT/BNB</td>
-      <td>USDT 275 / week</td>
-      <td><b>USDT 250 / week</b></td>
-    </tr>        
-    <tr>
   </tbody>
 </table>
 
-  - **Zcoin: campaign being paused**
-
-You can read more about it on our [reddit post](https://www.reddit.com/r/Hummingbot/comments/j6dybq/liquidity_mining_campaign_updates_for_coti_xzc/).
+!!! note
+    *The reward pool will be denominated in XEM tokens, with the final amount to be determined just prior to the campaign launch based on the indicated dollar amounts shown.
 
 **2) Adding support for TRC20 USDT for USD-based liquidity mining payments**
  
@@ -217,8 +196,6 @@ https://hummingbot.io/blog/2020-09-migrating-to-trc20-usdt-payment/
     Users will be required to enter Tron wallet address in the Hummingbot Miners app to enable USDT-TRON payments.
 
 Binance.com (as well as many of the major exchanges) support TRC20-USDT, so you can use a USDT TRC20 deposit address to receive rewards directly into your exchange account.
-
-**3) Liquidity mining campaign for NEM (XEM) going live on November 3, 2020!**
 
 ## Token Issuers
 
