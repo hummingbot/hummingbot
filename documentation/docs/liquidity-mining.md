@@ -52,20 +52,18 @@ For miners who earn < $50 within one week, their rewards will be accrued and rol
     XZC payments are not subject to a minimum payout reward; all payouts will be made for each period.
 
 
-**Native XZC rewards for Zcoin campaign**
+**Enabling USDT for USD-based payments**
 
-Starting September 15, 2020 UTC, we rolled out [XZC native token payments](https://hummingbot.io/blog/2020-09-xzc-native-token-payment/) for the Zcoin liquidity mining campaign! Miners participating in the Zcoin liquidity mining campaign will start earning and be paid in XZC tokens.
+Starting from the rewards period beginning on October 6, 2020 12.00am UTC, all USD-based rewards will be accrued in USDT.
 
-Participating miners should enter their XZC wallet address in the miner app.
+**ZCoin campaign paused**
 
-!!! Note
-    You can use your Binance XZC deposit address and enter in the miner app to receive XZC directly into Binance.
-    Click this [link](https://docs.hummingbot.io/faq/liquidity-mining/how-to-add-wallet-address) to learn how you can enter your [Binance XZC deposit address](https://docs.hummingbot.io/faq/liquidity-mining/#get-ethereum-and-zcoin-deposit-address-from-binance).
+ZCoin is putting its campaign on pause and will continue to monitor and re-evaluate the liquidity for its token. They are one of our original launch partners and we appreciate their support of our platform so far!
 
 
 ## Current Reward Period
 
-**October 6, 2020 12:00am UTC - October 13, 2020 12:00am UTC**
+**October 13, 2020 12:00am UTC - October 20, 2020 12:00am UTC**
 
 <table>
   <thead>
@@ -105,21 +103,21 @@ Participating miners should enter their XZC wallet address in the miner app.
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDT 200</td>
+      <td>USDT 250</td>
     </tr>
     <tr>
       <td>MFT/ETH</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDT 275</td>
+      <td>USDT 250</td>
     </tr>
     <tr>
       <td>MFT/BNB</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDT 275</td>
+      <td>USDT 250</td>
     </tr>
     <tr>
       <td rowspan="3"><a href="#iexec">iExec</a><br></td>
@@ -143,21 +141,6 @@ Participating miners should enter their XZC wallet address in the miner app.
       <td>8</td>
       <td>RLC 180</td>
     </tr>
-    <tr>
-      <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
-      <td>XZC/BTC</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td><b>XZC 125</b></td>
-    </tr>
-    <tr>
-      <td>XZC/USDT</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td><b>XZC 125</b></td>
-    </tr>
   </tbody>
 </table>
 
@@ -167,43 +150,39 @@ Participating miners should enter their XZC wallet address in the miner app.
 
 ## Upcoming Changes to Terms 
 
-**Liquidity mining campaign updates for COTI, XZC, and MFT for the upcoming week starting October 13**. 
+**1) Liquidity mining campaign for NEM (XEM) going live on November 3, 2020!**
 
-- **COTI campaign extended**
-
-- **Mainframe: campaign update**
+Total reward pool: XEM tokens with a current value of approximately $1,250 per week (total of $15,000 over 12 weeks). For more details, you can check our [blog post](https://hummingbot.io/blog/2020-10-nem-liquidity-mining/).
 
 <table>
   <thead>
-    <th></th>
-    <th>Previous reward</th>
-    <th>New reward</th>
+    <th>Token Issuer</th>
+    <th>Trading pair</th>
+    <th>Exchange</th>
+    <th>Maximum spread</th>
+    <th>Weekly rewards</th>
   </thead>
   <tbody>
       <tr>
-      <td>MFT/USDT</td>
-      <td>USDT 200 /week</td>
-      <td><b>USDT 250 / week</b></td>
+      <td rowspan="2"><a href="#nem">NEM</a></td>
+      <td>XEM/BTC</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td><b>USD 625 *</b></td>
     </tr>
     <tr>
-      <td>MFT/ETH</td>
-      <td>USDT 275 / week</td>
-      <td><b>USDT 250 / week</b></td>
+      <td>XEM/ETH</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td><b>USD 625 *</b></td>
     </tr>
-    <tr>
-      <td>MFT/BNB</td>
-      <td>USDT 275 / week</td>
-      <td><b>USDT 250 / week</b></td>
-    </tr>        
-    <tr>
   </tbody>
 </table>
 
-- **Zcoin: campaign being paused**
+!!! note
+    *The reward pool will be denominated in XEM tokens, with the final amount to be determined just prior to the campaign launch based on the indicated dollar amounts shown.
 
-You can read more about it on our [reddit post](https://www.reddit.com/r/Hummingbot/comments/j6dybq/liquidity_mining_campaign_updates_for_coti_xzc/).
-
-**Adding support for TRC20 USDT for USD-based liquidity mining payments**
+**2) Adding support for TRC20 USDT for USD-based liquidity mining payments**
  
 In response to rising Ethereum gas prices, we will be giving miners the option to receive USDT-TRON for USD-based liquidity mining rewards. Receiving USDT-TRON mining rewards will not be subject to any minimum amounts, and miners can have rewards paid directly into their exchange accounts.
 
@@ -211,13 +190,12 @@ Miners can also choose to continuing receiving rewards to their Ethereum wallet,
 
 https://hummingbot.io/blog/2020-09-migrating-to-trc20-usdt-payment/
 
-- October 16, 2020 UTC: First USDT-TRON payout
+  - October 16, 2020 UTC: First USDT-TRON payout
 
 !!! note
     Users will be required to enter Tron wallet address in the Hummingbot Miners app to enable USDT-TRON payments.
 
 Binance.com (as well as many of the major exchanges) support TRC20-USDT, so you can use a USDT TRC20 deposit address to receive rewards directly into your exchange account.
-
 
 ## Token Issuers
 
@@ -237,6 +215,13 @@ Binance.com (as well as many of the major exchanges) support TRC20-USDT, so you 
 The [Mainframe (MFT)](https://mainframe.com/) Lending Protocol allows anyone to borrow against their crypto. Mainframe uses a bond-like instrument, representing an on-chain obligation that settles on a specific future date. Buying and selling the tokenized debt enables fixed-rate lending and borrowing — something much needed in decentralized finance today.
 
 [Blog](https://blog.mainframe.com) | [Twitter](https://twitter.com/Mainframe_HQ) | [Discord](https://discord.gg/mhtSRz6) | [Github](https://github.com/MainframeHQ) | [CoinMarketCap](https://coinmarketcap.com/currencies/mainframe/) | [CoinGecko](https://www.coingecko.com/en/coins/mainframe)
+
+### NEM
+
+[NEM](https://nem.io) Group supports the development of Symbol from NEM, a trusted and secure enterprise blockchain that smooths business friction, increasing the flow of data and innovation to supercharge the creation, exchange and protection of assets. 
+NEM Group comprises three separate entities: NEM Software, NEM Trading, and NEM Ventures. NEM Group shapes the future of blockchain by nurturing a strong and healthy ecosystem that will contribute to the development of blockchain technology for generations to come.
+
+[Forum](https://forum.nem.io/) | [Twitter](https://twitter.com/nemofficial) | [Telegram](https://t.me/nemred) | [Github](https://github.com/NemProject) | [CoinMarketCap](https://coinmarketcap.com/currencies/nem/) | [CoinGecko](https://www.coingecko.com/en/coins/nem)
 
 ### Zcoin
 
