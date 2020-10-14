@@ -52,15 +52,13 @@ For miners who earn < $50 within one week, their rewards will be accrued and rol
     XZC payments are not subject to a minimum payout reward; all payouts will be made for each period.
 
 
-**Native XZC rewards for Zcoin campaign**
+**Enabling USDT for USD-based payments**
 
-Starting September 15, 2020 UTC, we rolled out [XZC native token payments](https://hummingbot.io/blog/2020-09-xzc-native-token-payment/) for the Zcoin liquidity mining campaign! Miners participating in the Zcoin liquidity mining campaign will start earning and be paid in XZC tokens.
+Starting from the rewards period beginning on October 6, 2020 12.00am UTC, all USD-based rewards will be accrued in USDT.
 
-Participating miners should enter their XZC wallet address in the miner app.
+**ZCoin campaign paused**
 
-!!! Note
-    You can use your Binance XZC deposit address and enter in the miner app to receive XZC directly into Binance.
-    Click this [link](https://docs.hummingbot.io/faq/liquidity-mining/how-to-add-wallet-address) to learn how you can enter your [Binance XZC deposit address](https://docs.hummingbot.io/faq/liquidity-mining/#get-ethereum-and-zcoin-deposit-address-from-binance).
+ZCoin is putting its campaign on pause and will continue to monitor and re-evaluate the liquidity for its token. They are one of our original launch partners and we appreciate their support of our platform so far!
 
 
 ## Current Reward Period
@@ -105,21 +103,21 @@ Participating miners should enter their XZC wallet address in the miner app.
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDT 200</td>
+      <td>USDT 250</td>
     </tr>
     <tr>
       <td>MFT/ETH</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDT 275</td>
+      <td>USDT 250</td>
     </tr>
     <tr>
       <td>MFT/BNB</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDT 275</td>
+      <td>USDT 250</td>
     </tr>
     <tr>
       <td rowspan="3"><a href="#iexec">iExec</a><br></td>
@@ -142,21 +140,6 @@ Participating miners should enter their XZC wallet address in the miner app.
       <td>2%</td>
       <td>8</td>
       <td>RLC 180</td>
-    </tr>
-    <tr>
-      <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
-      <td>XZC/BTC</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td><b>XZC 125</b></td>
-    </tr>
-    <tr>
-      <td>XZC/USDT</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td><b>XZC 125</b></td>
     </tr>
   </tbody>
 </table>
@@ -185,19 +168,19 @@ Total reward pool: XEM tokens with a current value of approximately $1,250 per w
       <td>XEM/BTC</td>
       <td>Binance.com</td>
       <td>2%</td>
-      <td><b>XEM 625</b></td>
+      <td><b>USD 625 *</b></td>
     </tr>
     <tr>
       <td>XEM/ETH</td>
       <td>Binance.com</td>
       <td>2%</td>
-      <td><b>XEM 625</b></td>
+      <td><b>USD 625 *</b></td>
     </tr>
   </tbody>
 </table>
 
 !!! note
-    The reward pool will be denominated in XEM tokens, with the final amount to be determined just prior to the campaign launch based on the indicated dollar amounts shown.
+    *The reward pool will be denominated in XEM tokens, with the final amount to be determined just prior to the campaign launch based on the indicated dollar amounts shown.
 
 **2) Adding support for TRC20 USDT for USD-based liquidity mining payments**
  
