@@ -150,7 +150,39 @@ ZCoin is putting its campaign on pause and will continue to monitor and re-evalu
 
 ## Upcoming Changes to Terms 
 
-**1) Liquidity mining campaign for NEM (XEM) going live on November 3, 2020!**
+**1) Liquidity mining for ALGO going live on October 27, 2020!**
+
+The campaign will initially be a 24-week campaign with a reward pool of $30,000 in ALGO and USDT ASA (Algorand Standard Asset) tokens. For more detais, you can check our [blog post](https://hummingbot.io/blog/2020-10-algorand/).
+
+<table>
+  <thead>
+    <th>Token Issuer</th>
+    <th>Trading pair</th>
+    <th>Exchange</th>
+    <th>Maximum spread</th>
+    <th>Weekly rewards</th>
+  </thead>
+  <tbody>
+      <tr>
+      <td rowspan="2"><a href="#algorand">Algorand</a></td>
+      <td>Algo/BTC</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td><b>USD 625 *</b></td>
+    </tr>
+    <tr>
+      <td>Algo/USDT</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td><b>USD 625 *</b></td>
+    </tr>
+  </tbody>
+</table>
+
+!!! note
+    *50% of the reward pool will be denominated in Algo tokens, with the final amount to be determined just prior to the campaign launch based on the indicated dollar amounts shown.
+
+**2) Liquidity mining campaign for NEM (XEM) going live on November 3, 2020!**
 
 Total reward pool: XEM tokens with a current value of approximately $1,250 per week (total of $15,000 over 12 weeks). For more details, you can check our [blog post](https://hummingbot.io/blog/2020-10-nem-liquidity-mining/).
 
@@ -182,22 +214,12 @@ Total reward pool: XEM tokens with a current value of approximately $1,250 per w
 !!! note
     *The reward pool will be denominated in XEM tokens, with the final amount to be determined just prior to the campaign launch based on the indicated dollar amounts shown.
 
-**2) Adding support for TRC20 USDT for USD-based liquidity mining payments**
- 
-In response to rising Ethereum gas prices, we will be giving miners the option to receive USDT-TRON for USD-based liquidity mining rewards. Receiving USDT-TRON mining rewards will not be subject to any minimum amounts, and miners can have rewards paid directly into their exchange accounts.
-
-Miners can also choose to continuing receiving rewards to their Ethereum wallet, but still subject to minimum payment amounts.
-
-https://hummingbot.io/blog/2020-09-migrating-to-trc20-usdt-payment/
-
-  - October 16, 2020 UTC: First USDT-TRON payout
-
-!!! note
-    Users will be required to enter Tron wallet address in the Hummingbot Miners app to enable USDT-TRON payments.
-
-Binance.com (as well as many of the major exchanges) support TRC20-USDT, so you can use a USDT TRC20 deposit address to receive rewards directly into your exchange account.
-
 ## Token Issuers
+
+### Algorand
+[Algorand Inc.](https://www.algorand.com/) built the world’s first open source, permissionless, pure proof-of-stake blockchain protocol for the next generation of financial products. This blockchain, the Algorand protocol, is the brainchild of Turing Award-winning cryptographer Silvio Micali. A technology company dedicated to removing friction from financial exchange, Algorand Inc. is powering the DeFi evolution by enabling the creation and exchange of value, building new financial tools and services, bringing assets on-chain and providing responsible privacy models.
+
+[Whitepaper](https://www.algorand.com/resources/white-papers) | [Twitter](https://twitter.com/Algorand) | [Telegram](https://t.me/algorand) | [Discord](https://discord.gg/YgPTCVk) | [CoinMarketCap](https://coinmarketcap.com/currencies/algorand/) | [CoinGecko](https://www.coingecko.com/en/coins/algorand)
 
 ### COTI
 [COTI](https://coti.io/) is a fully encompassing “finance on the blockchain” ecosystem that is designed specifically to meet the challenges of traditional finance (fees, latency, global inclusion and risk) by introducing a new type of DAG based base protocol and infrastructure that is scalable, fast, private, inclusive, low cost and is optimized for real time payments. The ecosystem includes a [DAG based Blockchain](https://www.youtube.com/watch?v=kSdRxqHDKe8), a [Proof of Trust Consensus Algorithm](https://coti.io/files/COTI-technical-whitepaper.pdf), a [multiDAG](https://medium.com/cotinetwork%27/coti-is-launching-multidag-a-protocol-to-issue-tokens-on-a-dag-infrastructure-5c6282e5c3d1) a [Global Trust System](https://medium.com/cotinetwork/introducing-cotis-global-trust-system-gts-an-advanced-layer-of-trust-for-any-blockchain-7e44587b8bda), a [Universal Payment Solution](https://medium.com/cotinetwork/coti-universal-payment-system-ups-8614e149ee76), a [Payment Gateway](https://medium.com/cotinetwork/announcing-the-first-release-of-the-coti-payment-gateway-4a9f3e515b86), as well as consumer (COTI Pay) and merchant (COTI Pay Business) applications.
