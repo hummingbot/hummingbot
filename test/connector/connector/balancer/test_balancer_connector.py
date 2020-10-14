@@ -11,14 +11,10 @@ from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.connector.connector.balancer.balancer_connector import BalancerConnector
 from hummingbot.core.event.events import (
-    # BuyOrderCompletedEvent,
-    BuyOrderCreatedEvent,
+    BuyOrderCompletedEvent,
     MarketEvent,
-    # OrderFilledEvent,
     OrderType,
     SellOrderCompletedEvent,
-    SellOrderCreatedEvent,
-    # OrderCancelledEvent
 )
 from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
@@ -94,24 +90,45 @@ class BalancerConnectorUnitTest(unittest.TestCase):
     def test_get_quote_price(self):
         balancer = self.connector
         buy_price = balancer.get_quote_price(trading_pair, True, Decimal("1"))
-        self.assertTrue(buy_price is None)
+        self.assertTrue(buy_price > 0)
+        print(f"buy_price: {buy_price}")
         sell_price = balancer.get_quote_price(trading_pair, False, Decimal("1"))
         self.assertTrue(sell_price > 0)
+        print(f"sell_price: {sell_price}")
         self.assertTrue(buy_price != sell_price)
 
     def test_buy(self):
         balancer = self.connector
-        balancer.buy("WETH-DAI", Decimal("0.1"), OrderType.LIMIT, Decimal("1"))
-        order_completed_event = self.ev_loop.run_until_complete(self.event_logger.wait_for(BuyOrderCreatedEvent))
-        self.assertTrue(order_completed_event.order_id is not None)
-        print(order_completed_event.order_id)
+        amount = Decimal("0.1")
+        price = Decimal("1")
+        order_id = balancer.buy(trading_pair, amount, OrderType.LIMIT, price)
+        event = self.ev_loop.run_until_complete(self.event_logger.wait_for(BuyOrderCompletedEvent))
+        self.assertTrue(event.order_id is not None)
+        self.assertEqual(order_id, event.order_id)
+        self.assertEqual(event.base_asset_amount, amount)
+        print(event.order_id)
 
     def test_sell(self):
         balancer = self.connector
-        balancer.sell("WETH-DAI", Decimal("0.01"), OrderType.LIMIT, Decimal("1"))
-        order_completed_event = self.ev_loop.run_until_complete(self.event_logger.wait_for(SellOrderCreatedEvent))
-        self.assertTrue(order_completed_event.order_id is not None)
-        print(order_completed_event.order_id)
+        amount = Decimal("0.1")
+        price = Decimal("1")
+        order_id = balancer.sell(trading_pair, amount, OrderType.LIMIT, price)
+        event = self.ev_loop.run_until_complete(self.event_logger.wait_for(SellOrderCompletedEvent))
+        self.assertTrue(event.order_id is not None)
+        self.assertEqual(order_id, event.order_id)
+        self.assertEqual(event.base_asset_amount, amount)
+        print(event.order_id)
+
+    def test_sell_failure(self):
+        # Todo: This doesn't work atm as the Gateway API doesn't handle this well enough
+        return
+        # balancer = self.connector
+        # # Since we don't have 1000 WETH, this should trigger order failure
+        # amount = Decimal("1000")
+        # price = Decimal("1")
+        # order_id = balancer.sell(trading_pair, amount, OrderType.LIMIT, price)
+        # event = self.ev_loop.run_until_complete(self.event_logger.wait_for(MarketOrderFailureEvent))
+        # self.assertEqual(order_id, event.order_id)
 
     def test_filled_orders_recorded(self):
         config_path = "test_config"
@@ -123,27 +140,40 @@ class BalancerConnectorUnitTest(unittest.TestCase):
             self.connector._in_flight_orders.clear()
             self.assertEqual(0, len(self.connector.tracking_states))
 
-            # Try to put limit buy order for 0.02 ETH worth of ZRX, and watch for order creation event.
-            # quote_price: Decimal = self.connector.get_quote_price(trading_pair, False, Decimal("1"))
             price: Decimal = Decimal("1")  # quote_price * Decimal("0.8")
             price = self.connector.quantize_order_price(trading_pair, price)
 
-            amount: Decimal = Decimal("0.01")
+            amount: Decimal = Decimal("0.1")
             amount = self.connector.quantize_order_amount(trading_pair, amount)
 
-            cl_order_id = self.connector.sell(trading_pair, amount, OrderType.LIMIT, price)
-            order_created_event = self.ev_loop.run_until_complete(self.event_logger.wait_for(SellOrderCreatedEvent))
-            self.assertEqual(cl_order_id, order_created_event.order_id)
+            sell_order_id = self.connector.sell(trading_pair, amount, OrderType.LIMIT, price)
             self.ev_loop.run_until_complete(self.event_logger.wait_for(SellOrderCompletedEvent))
+            self.ev_loop.run_until_complete(asyncio.sleep(1))
+
+            buy_order_id = self.connector.buy(trading_pair, amount, OrderType.LIMIT, price)
+            self.ev_loop.run_until_complete(self.event_logger.wait_for(BuyOrderCompletedEvent))
             self.ev_loop.run_until_complete(asyncio.sleep(1))
 
             # Query the persisted trade logs
             trade_fills: List[TradeFill] = recorder.get_trades_for_config(config_path)
             # self.assertGreaterEqual(len(trade_fills), 2)
-            # buy_fills: List[TradeFill] = [t for t in trade_fills if t.trade_type == "BUY"]
-            sell_fills: List[TradeFill] = [t for t in trade_fills if t.trade_type == "SELL"]
-            # self.assertGreaterEqual(len(buy_fills), 1)
-            self.assertGreaterEqual(len(sell_fills), 1)
+            fills: List[TradeFill] = [t for t in trade_fills if t.trade_type == "SELL"]
+            self.assertGreaterEqual(len(fills), 1)
+            self.assertEqual(amount, Decimal(str(fills[0].amount)))
+            self.assertEqual(price, Decimal(str(fills[0].price)))
+            self.assertEqual(base, fills[0].base_asset)
+            self.assertEqual(quote, fills[0].quote_asset)
+            self.assertEqual(sell_order_id, fills[0].order_id)
+            self.assertEqual(trading_pair, fills[0].symbol)
+            fills: List[TradeFill] = [t for t in trade_fills if t.trade_type == "BUY"]
+            self.assertGreaterEqual(len(fills), 1)
+            self.assertEqual(amount, Decimal(str(fills[0].amount)))
+            self.assertEqual(price, Decimal(str(fills[0].price)))
+            self.assertEqual(base, fills[0].base_asset)
+            self.assertEqual(quote, fills[0].quote_asset)
+            self.assertEqual(buy_order_id, fills[0].order_id)
+            self.assertEqual(trading_pair, fills[0].symbol)
+
         finally:
             recorder.stop()
             os.unlink(self.db_path)

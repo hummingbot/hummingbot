@@ -15,6 +15,8 @@ from hummingbot.core.event.events import (
     MarketEvent,
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
+    BuyOrderCompletedEvent,
+    SellOrderCompletedEvent,
     MarketOrderFailureEvent,
     OrderFilledEvent,
     OrderType,
@@ -64,7 +66,7 @@ class BalancerConnector(ConnectorBase):
     def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
         base, quote = trading_pair.split("-")
         side = "buy" if is_buy else "sell"
-        resp = self._request_get("balancer/price", {"base": base, "quote": quote, "side": side, "amount": amount})
+        resp = self._request_get(f"balancer/{side}-price", {"base": base, "quote": quote, "amount": amount})
         if resp["price"] is not None:
             return Decimal(str(resp["price"]))
 
@@ -101,40 +103,62 @@ class BalancerConnector(ConnectorBase):
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
         base, quote = trading_pair.split("-")
-        side = trade_type.name.lower()
         gas = Decimal("10")  # Todo: use estimate_fee for this
         api_params = {"base": base,
                       "quote": quote,
                       "amount": str(amount),
-                      "side": side,
                       "maxPrice": str(price),
                       "gasPrice": str(gas),
                       }
         self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount)
         try:
-            order_result = await self._api_request("get", "balancer/trade", api_params)
-            hash = order_result["txHash"]["hash"]
+            order_result = await self._api_request("get", f"balancer/{trade_type.name.lower()}", api_params)
+            hash = order_result["txHash"]
+            status = order_result["status"]
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {trade_type.name} order {order_id} for {amount} {trading_pair}.")
                 tracked_order.exchange_order_id = hash
+            if int(status) == 1:
+                tracked_order.fee_asset = "ETH"
+                tracked_order.executed_amount_base = amount
+                tracked_order.executed_amount_quote = amount * price
+                tracked_order.fee_paid = gas
+                event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
+                event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
+                self.trigger_event(event_tag, event_class(self.current_timestamp, OrderType.LIMIT, trading_pair, amount,
+                                                          price, order_id))
+                self.trigger_event(MarketEvent.OrderFilled,
+                                   OrderFilledEvent(
+                                       self.current_timestamp,
+                                       tracked_order.client_order_id,
+                                       tracked_order.trading_pair,
+                                       tracked_order.trade_type,
+                                       tracked_order.order_type,
+                                       price,
+                                       amount,
+                                       TradeFee(0.0, [("ETH", gas)]),
+                                       hash
+                                   ))
 
-            event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
-            event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
-            self.trigger_event(event_tag, event_class(self.current_timestamp, OrderType.LIMIT, trading_pair, amount,
-                                                      price, order_id))
-            self.trigger_event(MarketEvent.OrderFilled,
-                               OrderFilledEvent(
-                                   self.current_timestamp,
-                                   tracked_order.client_order_id,
-                                   tracked_order.trading_pair,
-                                   tracked_order.trade_type,
-                                   tracked_order.order_type,
-                                   price,
-                                   amount,
-                                   TradeFee(0.0, [("ETH", gas)]),
-                                   hash
-                               ))
+                event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY \
+                    else MarketEvent.SellOrderCompleted
+                event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY \
+                    else SellOrderCompletedEvent
+                self.trigger_event(event_tag,
+                                   event_class(self.current_timestamp,
+                                               tracked_order.client_order_id,
+                                               tracked_order.base_asset,
+                                               tracked_order.quote_asset,
+                                               tracked_order.fee_asset,
+                                               tracked_order.executed_amount_base,
+                                               tracked_order.executed_amount_quote,
+                                               tracked_order.fee_paid,
+                                               tracked_order.order_type))
+                self.stop_tracking_order(tracked_order.client_order_id)
+            else:
+                self.trigger_event(MarketEvent.OrderFailure,
+                                   MarketOrderFailureEvent(self.current_timestamp, order_id, OrderType.LIMIT))
         except asyncio.CancelledError:
             raise
         except Exception as e:
