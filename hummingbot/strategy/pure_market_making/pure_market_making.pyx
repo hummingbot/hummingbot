@@ -795,9 +795,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             if quote_balance < quote_size_total + quote_size:
                 adjusted_amount = quote_balance / (buy.price * (Decimal("1") + buy_fee.percent))
                 adjusted_amount = market.c_quantize_order_amount(self.trading_pair, adjusted_amount)
-                self.logger().info(f"Quote balance is lower than specified order amount."
-                                   f"Buy order (Price: {buy.price}, Size: {buy.size},"
-                                   f"Adjusted Size: {adjusted_amount}).")
                 quote_size = adjusted_amount
                 buy.size = adjusted_amount
             quote_size_total += quote_size
@@ -806,9 +803,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             base_size = sell.size
             if base_balance < base_size_total + base_size:
                 adjusted_amount = market.c_quantize_order_amount(self.trading_pair, base_balance)
-                self.logger().info(f"Base balance is lower than specified order amount."
-                                   f"Sell order (Price: {sell.price}, Size: {sell.size},"
-                                   f"Adjusted Size: {adjusted_amount}).")
                 base_size = adjusted_amount
                 sell.size = adjusted_amount
             base_size_total += base_size
