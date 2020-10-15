@@ -45,6 +45,7 @@ def main():
         "hummingbot.connector.exchange.radar_relay",
         "hummingbot.connector.exchange.kraken",
         "hummingbot.connector.exchange.crypto_com",
+        "hummingbot.connector.exchange.probit",
         "hummingbot.connector.exchange.kucoin",
         "hummingbot.connector.exchange.loopring",
         "hummingbot.script",
