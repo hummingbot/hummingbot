@@ -784,25 +784,33 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             object base_size
             object quote_size_total = Decimal("0")
             object base_size_total = Decimal("0")
+            object adjusted_amount
 
         base_balance, quote_balance = self.c_get_adjusted_available_balance(self.active_non_hanging_orders)
 
         for buy in proposal.buys:
-            buy_fees = market.c_get_fee(self.base_asset, self.quote_asset, OrderType.LIMIT, TradeType.BUY,
-                                        buy.size, buy.price)
-            quote_size = buy.size * buy.price * (Decimal(1) + buy_fees.percent)
+            buy_fee = market.c_get_fee(self.base_asset, self.quote_asset, OrderType.LIMIT, TradeType.BUY,
+                                       buy.size, buy.price)
+            quote_size = buy.size * buy.price * (Decimal(1) + buy_fee.percent)
             if quote_balance < quote_size_total + quote_size:
-                self.logger().info(f"Insufficient balance: Buy order (price: {buy.price}, size: {buy.size}) is omitted, {self.quote_asset} available balance: {quote_balance - quote_size_total}.")
-                quote_size = s_decimal_zero
-                buy.size = s_decimal_zero
+                adjusted_amount = quote_balance / (buy.price * (Decimal("1") + buy_fee.percent))
+                adjusted_amount = market.c_quantize_order_amount(self.trading_pair, adjusted_amount)
+                self.logger().info(f"Quote balance is lower than specified order amount."
+                                   f"Buy order (Price: {buy.price}, Size: {buy.size},"
+                                   f"Adjusted Size: {adjusted_amount}).")
+                quote_size = adjusted_amount
+                buy.size = adjusted_amount
             quote_size_total += quote_size
         proposal.buys = [o for o in proposal.buys if o.size > 0]
         for sell in proposal.sells:
             base_size = sell.size
             if base_balance < base_size_total + base_size:
-                self.logger().info(f"Insufficient balance: Sell order (price: {sell.price}, size: {sell.size}) is omitted, {self.base_asset} available balance: {base_balance - base_size_total}.")
-                base_size = s_decimal_zero
-                sell.size = s_decimal_zero
+                adjusted_amount = market.c_quantize_order_amount(self.trading_pair, base_balance)
+                self.logger().info(f"Base balance is lower than specified order amount."
+                                   f"Sell order (Price: {sell.price}, Size: {sell.size},"
+                                   f"Adjusted Size: {adjusted_amount}).")
+                base_size = adjusted_amount
+                sell.size = adjusted_amount
             base_size_total += base_size
         proposal.sells = [o for o in proposal.sells if o.size > 0]
 
