@@ -5,14 +5,13 @@ import logging
 import websockets
 import ujson
 import hummingbot.connector.exchange.probit.probit_constants as constants
-from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
-from typing import Optional, AsyncIterable, Any, List
+from typing import Optional, AsyncIterable, Any
 from websockets.exceptions import ConnectionClosed
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.probit.probit_auth import ProbitAuth
-from hummingbot.connector.exchange.probit.probit_utils import RequestId, get_ms_timestamp
+from hummingbot.connector.exchange.probit.probit_utils import RequestId
 
 # reusable websocket class
 
@@ -31,7 +30,7 @@ class ProbitWebsocket(RequestId):
     def __init__(self, auth: Optional[ProbitAuth] = None):
         self._auth: Optional[ProbitAuth] = auth
         self._isPrivate = True if self._auth is not None else False
-        self._WS_URL = constants.WSS_PRIVATE_URL if self._isPrivate else constants.WSS_PUBLIC_URL
+        self._WS_URL = constants.WSS_URL
         self._client: Optional[websockets.WebSocketClientProtocol] = None
 
     # connect to exchange
@@ -42,7 +41,9 @@ class ProbitWebsocket(RequestId):
             # if auth class was passed into websocket class
             # we need to emit authenticated requests
             if self._isPrivate:
-                await self._emit("public/auth", None)
+                auth_dict = await self._auth.generate_auth_dict()
+                data = {"token": auth_dict["access_token"]}
+                await self._emit("authorization", data)
                 # TODO: wait for response
                 await asyncio.sleep(1)
 
@@ -64,9 +65,6 @@ class ProbitWebsocket(RequestId):
                 try:
                     raw_msg_str: str = await asyncio.wait_for(self._client.recv(), timeout=self.MESSAGE_TIMEOUT)
                     raw_msg = ujson.loads(raw_msg_str)
-                    if "method" in raw_msg and raw_msg["method"] == "public/heartbeat":
-                        payload = {"id": raw_msg["id"], "method": "public/respond-heartbeat"}
-                        safe_ensure_future(self._client.send(ujson.dumps(payload)))
                     yield raw_msg
                 except asyncio.TimeoutError:
                     await asyncio.wait_for(self._client.ping(), timeout=self.PING_TIMEOUT)
@@ -79,46 +77,25 @@ class ProbitWebsocket(RequestId):
             await self.disconnect()
 
     # emit messages
-    async def _emit(self, method: str, data: Optional[Any] = {}) -> int:
-        id = self.generate_request_id()
-        nonce = get_ms_timestamp()
-
-        payload = {
-            "id": id,
-            "method": method,
-            "nonce": nonce,
-            "params": copy.deepcopy(data),
-        }
-
-        if self._isPrivate:
-            auth = self._auth.generate_auth_dict(
-                method,
-                request_id=id,
-                nonce=nonce,
-                data=data,
-            )
-
-            payload["sig"] = auth["sig"]
-            payload["api_key"] = auth["api_key"]
-
+    async def _emit(self, method: str, data: Optional[Any] = {}) -> None:
+        payload = copy.deepcopy(data)
+        payload["type"] = method
         await self._client.send(ujson.dumps(payload))
 
-        return id
-
     # request via websocket
-    async def request(self, method: str, data: Optional[Any] = {}) -> int:
+    async def request(self, method: str, data: Optional[Any] = {}) -> None:
         return await self._emit(method, data)
 
     # subscribe to a method
-    async def subscribe(self, channels: List[str]) -> int:
+    async def subscribe(self, channel: str) -> None:
         return await self.request("subscribe", {
-            "channels": channels
+            "channel": channel
         })
 
     # unsubscribe to a method
-    async def unsubscribe(self, channels: List[str]) -> int:
+    async def unsubscribe(self, channel: str) -> None:
         return await self.request("unsubscribe", {
-            "channels": channels
+            "channel": channel
         })
 
     # listen to messages by method

@@ -21,15 +21,16 @@ class TestAuth(unittest.TestCase):
 
     async def con_auth(self):
         await self.ws.connect()
-        await self.ws.subscribe(["user.balance"])
+        await self.ws.subscribe("balance")
 
         async for response in self.ws.on_message():
-            if (response.get("method") == "subscribe"):
+            if (response.get("channel") == "balance"):
                 return response
 
     def test_auth(self):
         result: List[str] = self.ev_loop.run_until_complete(self.con_auth())
-        assert result["code"] == 0
+        assert result["data"] != None
+        print(result["data"])
 
 
 if __name__ == '__main__':

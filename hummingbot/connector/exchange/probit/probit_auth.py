@@ -1,6 +1,9 @@
-import hmac
-import hashlib
+import base64
 from typing import Dict, Any
+
+import aiohttp
+import ujson
+import time
 
 
 class ProbitAuth():
@@ -11,48 +14,53 @@ class ProbitAuth():
     def __init__(self, api_key: str, secret_key: str):
         self.api_key = api_key
         self.secret_key = secret_key
+        self.access_token = ""
+        self.expire_at = 0
 
-    def generate_auth_dict(
+    async def generate_auth_dict(
         self,
-        path_url: str,
-        request_id: int,
-        nonce: int,
         data: Dict[str, Any] = None
     ):
         """
-        Generates authentication signature and return it in a dictionary along with other inputs
-        :return: a dictionary of request info including the request signature
+        Generates access token and return it in a dictionary along with other inputs
+        :return: a dictionary of request info including the access_token
         """
 
         data = data or {}
-        data['method'] = path_url
-        data.update({'nonce': nonce, 'api_key': self.api_key, 'id': request_id})
 
-        data_params = data.get('params', {})
-        if not data_params:
-            data['params'] = {}
-        params = ''.join(
-            f'{key}{data_params[key]}'
-            for key in sorted(data_params)
-        )
+        if self.expire_at < time.time():
+            key_string = self.api_key + ":" + self.secret_key
+            auth_header = 'Basic ' + base64.b64encode(key_string.encode('ASCII')).decode('utf8')
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': auth_header
+            }
+            body = {
+                'grant_type': 'client_credentials'
+            }
 
-        payload = f"{path_url}{data['id']}" \
-            f"{self.api_key}{params}{data['nonce']}"
+            client = aiohttp.ClientSession()
+            async with client.request("POST", url="https://accounts.probit.com/token", headers=headers, params=None, data=ujson.dumps(body)) as response:
+                if response.status == 200:
+                    try:
+                        resp: Dict[str, Any] = await response.json()
+                        self.access_token = resp.get("access_token", "")
+                        self.expire_at = time.time() + (resp.get("expires_in", 0) * 9 / 10)
+                    except Exception:
+                        pass
+                        # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
 
-        data['sig'] = hmac.new(
-            self.secret_key.encode('utf-8'),
-            payload.encode('utf-8'),
-            hashlib.sha256
-        ).hexdigest()
-
+        data["access_token"] = self.access_token
         return data
 
-    def get_headers(self) -> Dict[str, Any]:
+    async def get_headers(self) -> Dict[str, Any]:
         """
         Generates authentication headers required by probit
         :return: a dictionary of auth headers
         """
 
+        auth_dict = await self.generate_auth_dict()
         return {
-            "Content-Type": 'application/json',
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + auth_dict["access_token"]
         }
