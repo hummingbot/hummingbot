@@ -2,7 +2,7 @@
 
 
 EXCHANGE_NAME = "probit"
-REST_URL = "https://api.crypto.com/v2"
+REST_URL = "https://api.probit.com/api/exchange/v1"
 # WSS_PRIVATE_URL = "wss://stream.crypto.com/v2/user"
 WSS_PRIVATE_URL = "wss://d289dek49b4wqs.cloudfront.net/v2/user"
 # WSS_PUBLIC_URL = "wss://stream.crypto.com/v2/market"

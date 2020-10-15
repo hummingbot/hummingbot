@@ -5,11 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: Hummingbot",
+            "type": "python",
+            "request": "launch",
+            "program": "bin/hummingbot.py",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",
-            // "program": "${file}",
-            "program": "bin/hummingbot.py",
+            "program": "${file}",
             "console": "integratedTerminal"
         }
     ]

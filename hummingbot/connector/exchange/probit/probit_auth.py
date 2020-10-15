@@ -6,7 +6,7 @@ from typing import Dict, Any
 class ProbitAuth():
     """
     Auth class required by probit API
-    Learn more at https://exchange-docs.crypto.com/#digital-signature
+    Learn more at https://docs-en.probit.com/docs/authorization-1
     """
     def __init__(self, api_key: str, secret_key: str):
         self.api_key = api_key
@@ -49,7 +49,7 @@ class ProbitAuth():
 
     def get_headers(self) -> Dict[str, Any]:
         """
-        Generates authentication headers required by crypto.com
+        Generates authentication headers required by probit
         :return: a dictionary of auth headers
         """
 
