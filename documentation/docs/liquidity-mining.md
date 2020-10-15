@@ -44,7 +44,7 @@ Work on removing this limit is in progress, you can read more about it in our [R
 
 **Minimum reward payout amount**
 
-Due to the recent surge in Ethereum gas price, Hummingbot will impose a $50.00 minimum on the weekly payout ==for payments on the Ethereum blockchain (currently USDC and RLC)==, starting with the next scheduled payout on September 18th (UTC).
+Due to the recent surge in Ethereum gas price, Hummingbot will impose a $50.00 minimum on the weekly payout ==for payments on the Ethereum blockchain (currently USDT and RLC)==, starting with the next scheduled payout on September 18th (UTC).
 
 For miners who earn < $50 within one week, their rewards will be accrued and rolled over to the next period, read more in this [Reddit post](https://www.reddit.com/r/Hummingbot/comments/ip4mc3/announcement_raising_minimum_payment_to_50/).
 
