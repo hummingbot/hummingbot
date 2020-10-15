@@ -38,6 +38,12 @@ def validate_script_file_path(file_path: str) -> Optional[bool]:
     if not os.path.isfile(file_path):
         return f"{file_path} file does not exist."
 
+# def connector_keys():
+#     all_keys = {}
+#     for connector_setting in settings.CONNECTOR_SETTINGS:
+#         all_keys.update(connector_setting.config_keys)
+#     return all_keys
+
 
 def connector_keys():
     all_keys = {}
