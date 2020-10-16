@@ -1,44 +1,24 @@
 from decimal import Decimal
 from hummingbot.core.event.events import TradeFee
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
-from hummingbot.client.settings import ALL_CONNECTORS
+from hummingbot.client.settings import CONNECTOR_SETTINGS, ConnectorFeeType
 
 
-def estimate_fee(exchange: str, is_maker: bool) -> Decimal:
-    override_config_name_suffix = "_maker_fee" if is_maker else "_taker_fee"
-    override_config_name = exchange + override_config_name_suffix
-    s_decimal_0 = Decimal("0")
-    s_decimal_100 = Decimal("100")
-
-    for connector_type, connectors in ALL_CONNECTORS.items():
-        if exchange in connectors:
-            try:
-                path = f"hummingbot.connector.{connector_type}.{exchange}.{exchange}_utils"
-                is_cex = getattr(__import__(path, fromlist=["CENTRALIZED"]), "CENTRALIZED")
-                fee = getattr(__import__(path, fromlist=["DEFAULT_FEES"]), "DEFAULT_FEES")
-            except Exception:
-                pass
-            if is_maker:
-                if is_cex:
-                    if fee_overrides_config_map[override_config_name].value is not None:
-                        return TradeFee(percent=fee_overrides_config_map[override_config_name].value / s_decimal_100)
-                    else:
-                        return TradeFee(percent=Decimal(fee[0]) / s_decimal_100)
-                else:
-                    override_config_name += "_amount"
-                    if fee_overrides_config_map[override_config_name].value is not None:
-                        return TradeFee(percent=s_decimal_0, flat_fees=[("ETH", fee_overrides_config_map[override_config_name].value)])
-                    else:
-                        return TradeFee(percent=s_decimal_0, flat_fees=[("ETH", Decimal(fee[0]))])
-            else:
-                if is_cex:
-                    if fee_overrides_config_map[override_config_name].value is not None:
-                        return TradeFee(percent=fee_overrides_config_map[override_config_name].value / s_decimal_100)
-                    else:
-                        return TradeFee(percent=Decimal(fee[1]) / s_decimal_100)
-                else:
-                    override_config_name += "_amount"
-                    if fee_overrides_config_map[override_config_name].value is not None:
-                        return TradeFee(percent=s_decimal_0, flat_fees=[("ETH", fee_overrides_config_map[override_config_name].value)])
-                    else:
-                        return TradeFee(percent=s_decimal_0, flat_fees=[("ETH", Decimal(fee[1]))])
+def estimate_fee(exchange: str, is_maker: bool) -> TradeFee:
+    if exchange not in CONNECTOR_SETTINGS:
+        raise Exception(f"Invalid connector. {exchange} does not exist in CONNECTOR_SETTINGS")
+    fee_type = CONNECTOR_SETTINGS[exchange].fee_type
+    fee_token = CONNECTOR_SETTINGS[exchange].fee_token
+    default_fees = CONNECTOR_SETTINGS[exchange].default_fees
+    fee_side = "maker" if is_maker else "taker"
+    fee_configs = [f for f in fee_overrides_config_map.keys() if exchange in f and fee_side in f]
+    if len(fee_configs) > 1:
+        raise Exception(f"Invalid fee override config map, there are multiple {exchange} {fee_side} fees settings.")
+    fee = default_fees[0] if is_maker else default_fees[1]
+    if len(fee_configs) == 1 and fee_overrides_config_map[fee_configs[0]].value is not None:
+        fee = fee_overrides_config_map[fee_configs[0]].value
+    fee = Decimal(str(fee))
+    if fee_type is ConnectorFeeType.Percent:
+        return TradeFee(percent=fee / Decimal("100"))
+    elif fee_type is ConnectorFeeType.FlatFee:
+        return TradeFee(flat_fees=[(fee_token, fee)])
