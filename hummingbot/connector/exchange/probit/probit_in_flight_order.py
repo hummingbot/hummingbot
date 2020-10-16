@@ -84,16 +84,16 @@ class ProbitInFlightOrder(InFlightOrderBase):
         Updates the in flight order with trade update (from private/get-order-detail end point)
         return: True if the order gets updated otherwise False
         """
-        trade_id = trade_update["trade_id"]
+        trade_id = trade_update["id"]
         # trade_update["orderId"] is type int
         if str(trade_update["order_id"]) != self.exchange_order_id or trade_id in self.trade_id_set:
             # trade already recorded
             return False
         self.trade_id_set.add(trade_id)
-        self.executed_amount_base += Decimal(str(trade_update["traded_quantity"]))
-        self.fee_paid += Decimal(str(trade_update["fee"]))
-        self.executed_amount_quote += (Decimal(str(trade_update["traded_price"])) *
-                                       Decimal(str(trade_update["traded_quantity"])))
+        self.executed_amount_base += Decimal(str(trade_update["quantity"]))
+        self.fee_paid += Decimal(str(trade_update["fee_amount"]))
+        self.executed_amount_quote += (Decimal(str(trade_update["price"])) *
+                                       Decimal(str(trade_update["quantity"])))
         if not self.fee_asset:
-            self.fee_asset = trade_update["fee_currency"]
+            self.fee_asset = trade_update["fee_currency_id"]
         return True

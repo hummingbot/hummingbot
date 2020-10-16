@@ -48,12 +48,11 @@ class ProbitOrderBookMessage(OrderBookMessage):
     def trading_pair(self) -> str:
         if "trading_pair" in self.content:
             return self.content["trading_pair"]
-        elif "instrument_name" in self.content:
-            return self.content["instrument_name"]
 
     @property
     def asks(self) -> List[OrderBookRow]:
-        asks = map(self.content["asks"], lambda ask: {"price": ask[0], "amount": ask[1]})
+        asks_only = filter(lambda item: item["side"] == "sell", self.content)
+        asks = map(asks_only, lambda ask: {"price": ask["price"], "amount": ask["quantity"]})
 
         return [
             OrderBookRow(float(price), float(amount), self.update_id) for price, amount in asks
@@ -61,7 +60,8 @@ class ProbitOrderBookMessage(OrderBookMessage):
 
     @property
     def bids(self) -> List[OrderBookRow]:
-        bids = map(self.content["bids"], lambda bid: {"price": bid[0], "amount": bid[1]})
+        bids_only = filter(lambda item: item["side"] == "sell", self.content)
+        bids = map(bids_only, lambda bid: {"price": bid["price"], "amount": bid["quantity"]})
 
         return [
             OrderBookRow(float(price), float(amount), self.update_id) for price, amount in bids

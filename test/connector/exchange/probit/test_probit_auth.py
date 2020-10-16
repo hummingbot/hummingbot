@@ -21,7 +21,7 @@ class TestAuth(unittest.TestCase):
 
     async def con_auth(self):
         await self.ws.connect()
-        await self.ws.subscribe("balance")
+        await self.ws.subscribe(channel="balance")
 
         async for response in self.ws.on_message():
             if (response.get("channel") == "balance"):

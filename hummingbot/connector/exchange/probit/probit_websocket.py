@@ -87,16 +87,16 @@ class ProbitWebsocket(RequestId):
         return await self._emit(method, data)
 
     # subscribe to a method
-    async def subscribe(self, channel: str) -> None:
-        return await self.request("subscribe", {
-            "channel": channel
-        })
+    async def subscribe(self, channel: str, data: Optional[Any] = {}) -> None:
+        payload = copy.deepcopy(data)
+        payload["channel"] = channel
+        return await self.request("subscribe", payload)
 
     # unsubscribe to a method
-    async def unsubscribe(self, channel: str) -> None:
-        return await self.request("unsubscribe", {
-            "channel": channel
-        })
+    async def unsubscribe(self, channel: str, data: Optional[Any] = {}) -> None:
+        payload = copy.deepcopy(data)
+        payload["channel"] = channel
+        return await self.request("unsubscribe", payload)
 
     # listen to messages by method
     async def on_message(self) -> AsyncIterable[Any]:

@@ -42,12 +42,13 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
         try:
             ws = ProbitWebsocket(self._probit_auth)
             await ws.connect()
-            await ws.subscribe(["user.order", "user.trade", "user.balance"])
+            for channel in ["order_history", "trade_history", "balance"]:
+                await ws.subscribe(channel=channel)
             async for msg in ws.on_message():
                 # print(f"WS_SOCKET: {msg}")
                 yield msg
                 self._last_recv_time = time.time()
-                if (msg.get("result") is None):
+                if (msg.get("result") is None and msg.get("result") is None):
                     continue
         except Exception as e:
             raise e

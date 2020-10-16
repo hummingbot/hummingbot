@@ -218,7 +218,7 @@ class ProbitExchange(ExchangeBase):
         """
         try:
             # since there is no ping endpoint, the lowest rate call is to get BTC-USDT ticker
-            await self._api_request("get", "public/get-ticker?instrument_name=BTC_USDT")
+            await self._api_request("get", "time")
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -251,46 +251,41 @@ class ProbitExchange(ExchangeBase):
                 await asyncio.sleep(0.5)
 
     async def _update_trading_rules(self):
-        instruments_info = await self._api_request("get", path_url="public/get-instruments")
+        market_info = await self._api_request("get", path_url="market")
         self._trading_rules.clear()
-        self._trading_rules = self._format_trading_rules(instruments_info)
+        self._trading_rules = self._format_trading_rules(market_info)
 
-    def _format_trading_rules(self, instruments_info: Dict[str, Any]) -> Dict[str, TradingRule]:
+    def _format_trading_rules(self, market_info: Dict[str, Any]) -> Dict[str, TradingRule]:
         """
         Converts json API response into a dictionary of trading rules.
-        :param instruments_info: The json API response
+        :param market_info: The json API response
         :return A dictionary of trading rules.
         Response Example:
         {
-            "id": 11,
-            "method": "public/get-instruments",
-            "code": 0,
-            "result": {
-                "instruments": [
-                      {
-                        "instrument_name": "ETH_CRO",
-                        "quote_currency": "CRO",
-                        "base_currency": "ETH",
-                        "price_decimals": 2,
-                        "quantity_decimals": 2
-                      },
-                      {
-                        "instrument_name": "CRO_BTC",
-                        "quote_currency": "BTC",
-                        "base_currency": "CRO",
-                        "price_decimals": 8,
-                        "quantity_decimals": 2
-                      }
-                    ]
-              }
+            data: [
+                {
+                "id":"BCH-BTC",
+                "base_currency_id":"BCH",
+                "quote_currency_id":"BTC",
+                "min_price":"0.00000001",
+                "max_price":"9999999999999999",
+                "price_increment":"0.00000001",
+                "min_quantity":"0.00000001",
+                "max_quantity":"9999999999999999",
+                "quantity_precision":8,
+                "min_cost":"0",
+                "max_cost":"9999999999999999",
+                "cost_precision": 8
+                }
+            ]
         }
         """
         result = {}
-        for rule in instruments_info["result"]["instruments"]:
+        for rule in market_info["data"]:
             try:
-                trading_pair = probit_utils.convert_from_exchange_trading_pair(rule["instrument_name"])
-                price_decimals = Decimal(str(rule["price_decimals"]))
-                quantity_decimals = Decimal(str(rule["quantity_decimals"]))
+                trading_pair = probit_utils.convert_from_exchange_trading_pair(rule["id"])
+                price_decimals = Decimal(str(rule["cost_precision"]))
+                quantity_decimals = Decimal(str(rule["quantity_precision"]))
                 # E.g. a price decimal of 2 means 0.01 incremental.
                 price_step = Decimal("1") / Decimal(str(math.pow(10, price_decimals)))
                 quantity_step = Decimal("1") / Decimal(str(math.pow(10, quantity_decimals)))
@@ -317,9 +312,6 @@ class ProbitExchange(ExchangeBase):
         url = f"{Constants.REST_URL}/{path_url}"
         client = await self._http_client()
         if is_auth_required:
-            request_id = probit_utils.RequestId.generate_request_id()
-            data = {"params": params}
-            params = self._probit_auth.generate_auth_dict(path_url, request_id, probit_utils.get_ms_timestamp(), data)
             headers = self._probit_auth.get_headers()
         else:
             headers = {"Content-Type": "application/json"}
@@ -427,15 +419,14 @@ class ProbitExchange(ExchangeBase):
         if amount < trading_rule.min_order_size:
             raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
-        api_params = {"instrument_name": probit_utils.convert_to_exchange_trading_pair(trading_pair),
+        api_params = {"market_id": probit_utils.convert_to_exchange_trading_pair(trading_pair),
                       "side": trade_type.name,
-                      "type": "LIMIT",
-                      "price": f"{price:f}",
+                      "type": "limit",
+                      "time_in_force": "gtc",
+                      "limit_price": f"{price:f}",
                       "quantity": f"{amount:f}",
-                      "client_oid": order_id
+                      "client_order_id": order_id
                       }
-        if order_type is OrderType.LIMIT_MAKER:
-            api_params["exec_inst"] = "POST_ONLY"
         self.start_tracking_order(order_id,
                                   None,
                                   trading_pair,
@@ -445,8 +436,8 @@ class ProbitExchange(ExchangeBase):
                                   order_type
                                   )
         try:
-            order_result = await self._api_request("post", "private/create-order", api_params, True)
-            exchange_order_id = str(order_result["result"]["order_id"])
+            order_result = await self._api_request("post", "new_order", api_params, True)
+            exchange_order_id = str(order_result["data"]["id"])
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
@@ -524,12 +515,12 @@ class ProbitExchange(ExchangeBase):
             ex_order_id = tracked_order.exchange_order_id
             result = await self._api_request(
                 "post",
-                "private/cancel-order",
-                {"instrument_name": probit_utils.convert_to_exchange_trading_pair(trading_pair),
+                "cancel_order",
+                {"market_id": probit_utils.convert_to_exchange_trading_pair(trading_pair),
                  "order_id": ex_order_id},
                 True
             )
-            if result["code"] == 0:
+            if result.get("data") is not None:
                 if wait_for_status:
                     from hummingbot.core.utils.async_utils import wait_til
                     await wait_til(lambda: tracked_order.is_cancelled)
@@ -574,11 +565,11 @@ class ProbitExchange(ExchangeBase):
         """
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
-        account_info = await self._api_request("post", "private/get-account-summary", {}, True)
-        for account in account_info["result"]["accounts"]:
-            asset_name = account["currency"]
-            self._account_available_balances[asset_name] = Decimal(str(account["available"]))
-            self._account_balances[asset_name] = Decimal(str(account["balance"]))
+        balance_info = await self._api_request("get", "balance", {}, True)
+        for balance in balance_info["data"]:
+            asset_name = balance["currency_id"]
+            self._account_available_balances[asset_name] = Decimal(str(balance["available"]))
+            self._account_balances[asset_name] = Decimal(str(balance["total"]))
             remote_asset_names.add(asset_name)
 
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
@@ -598,21 +589,22 @@ class ProbitExchange(ExchangeBase):
             tasks = []
             for tracked_order in tracked_orders:
                 order_id = await tracked_order.get_exchange_order_id()
-                tasks.append(self._api_request("post",
-                                               "private/get-order-detail",
-                                               {"order_id": order_id},
-                                               True))
+                param = {
+                    "market_id": probit_utils.convert_to_exchange_trading_pair(tracked_order.trading_pair),
+                    "order_id": order_id
+                }
+                tasks.append(self._api_request("get", "order", param, True))
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
             update_results = await safe_gather(*tasks, return_exceptions=True)
             for update_result in update_results:
                 if isinstance(update_result, Exception):
                     raise update_result
-                if "result" not in update_result:
-                    self.logger().info(f"_update_order_status result not in resp: {update_result}")
+                if "data" not in update_result:
+                    self.logger().info(f"_update_order_status data not in resp: {update_result}")
                     continue
-                for trade_msg in update_result["result"]["trade_list"]:
-                    await self._process_trade_message(trade_msg)
-                self._process_order_message(update_result["result"]["order_info"])
+                # for trade_msg in update_result["result"]["trade_list"]:
+                #     await self._process_trade_message(trade_msg)
+                self._process_order_message(update_result["data"][0])
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
@@ -666,9 +658,9 @@ class ProbitExchange(ExchangeBase):
                 tracked_order.trading_pair,
                 tracked_order.trade_type,
                 tracked_order.order_type,
-                Decimal(str(trade_msg["traded_price"])),
-                Decimal(str(trade_msg["traded_quantity"])),
-                TradeFee(0.0, [(trade_msg["fee_currency"], Decimal(str(trade_msg["fee"])))]),
+                Decimal(str(trade_msg["price"])),
+                Decimal(str(trade_msg["quantity"])),
+                TradeFee(0.0, [(trade_msg["fee_currency_id"], Decimal(str(trade_msg["fee_amount"])))]),
                 exchange_trade_id=trade_msg["order_id"]
             )
         )
@@ -775,20 +767,22 @@ class ProbitExchange(ExchangeBase):
         """
         async for event_message in self._iter_user_event_queue():
             try:
-                if "result" not in event_message or "channel" not in event_message["result"]:
+                if "channel" not in event_message:
                     continue
-                channel = event_message["result"]["channel"]
-                if "user.trade" in channel:
-                    for trade_msg in event_message["result"]["data"]:
+                if "data" not in event_message and "result" not in event_message:
+                    continue
+                channel = event_message["channel"]
+                if channel == "trade_history":
+                    for trade_msg in event_message["result"]:
                         await self._process_trade_message(trade_msg)
-                elif "user.order" in channel:
-                    for order_msg in event_message["result"]["data"]:
+                elif channel == "order_history":
+                    for order_msg in event_message["result"]:
                         self._process_order_message(order_msg)
-                elif channel == "user.balance":
-                    balances = event_message["result"]["data"]
-                    for balance_entry in balances:
-                        asset_name = balance_entry["currency"]
-                        self._account_balances[asset_name] = Decimal(str(balance_entry["balance"]))
+                elif channel == "balance":
+                    balances = event_message["data"]
+                    for asset_name in balances.keys():
+                        balance_entry = balances[asset_name]
+                        self._account_balances[asset_name] = Decimal(str(balance_entry["total"]))
                         self._account_available_balances[asset_name] = Decimal(str(balance_entry["available"]))
             except asyncio.CancelledError:
                 raise

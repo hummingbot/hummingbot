@@ -27,8 +27,9 @@ class ProbitAuth():
         """
 
         data = data or {}
+        now = time.time()
 
-        if self.expire_at < time.time():
+        if self.expire_at < now:
             key_string = self.api_key + ":" + self.secret_key
             auth_header = 'Basic ' + base64.b64encode(key_string.encode('ASCII')).decode('utf8')
             headers = {
@@ -45,7 +46,7 @@ class ProbitAuth():
                     try:
                         resp: Dict[str, Any] = await response.json()
                         self.access_token = resp.get("access_token", "")
-                        self.expire_at = time.time() + (resp.get("expires_in", 0) * 9 / 10)
+                        self.expire_at = now + (resp.get("expires_in", 0) * 9 / 10)
                     except Exception:
                         pass
                         # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
