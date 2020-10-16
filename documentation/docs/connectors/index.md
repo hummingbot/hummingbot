@@ -26,13 +26,3 @@ Connectors are packages of code that link Hummingbot's internal trading algorith
 * [Kraken](/connectors/kraken)
 * [KuCoin](/connectors/kucoin)
 * [Radar Relay](/connectors/radar-relay)
-
-### Exchange Connector Specific Support
-
-Please contact the support contact listed in the above table for support questions that are specific for that exchange.
-
-### Reporting an Issue with a Community-Contributed Connector
-
-1. Create a Github issue and tag the Github contact to inform them of the issue.
-1. Report the issue to the exchange connector support contact.
-1. Send a message through Discord in [#community-connectors](https://discordapp.com/channels/530578568154054663/642099307922718730) channel.
