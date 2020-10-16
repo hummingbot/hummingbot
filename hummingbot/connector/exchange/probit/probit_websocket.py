@@ -78,7 +78,7 @@ class ProbitWebsocket(RequestId):
 
     # emit messages
     async def _emit(self, method: str, data: Optional[Any] = {}) -> None:
-        payload = copy.deepcopy(data)
+        payload = copy.deepcopy(data) if data is not None else {}
         payload["type"] = method
         await self._client.send(ujson.dumps(payload))
 
@@ -88,13 +88,13 @@ class ProbitWebsocket(RequestId):
 
     # subscribe to a method
     async def subscribe(self, channel: str, data: Optional[Any] = {}) -> None:
-        payload = copy.deepcopy(data)
+        payload = copy.deepcopy(data) if data is not None else {}
         payload["channel"] = channel
         return await self.request("subscribe", payload)
 
     # unsubscribe to a method
     async def unsubscribe(self, channel: str, data: Optional[Any] = {}) -> None:
-        payload = copy.deepcopy(data)
+        payload = copy.deepcopy(data) if data is not None else {}
         payload["channel"] = channel
         return await self.request("unsubscribe", payload)
 

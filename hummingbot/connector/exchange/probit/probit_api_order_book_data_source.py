@@ -40,7 +40,7 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
         result = {}
         async with aiohttp.ClientSession() as client:
-            querystring = {"market_ids": trading_pairs}
+            querystring = {"market_ids": ",".join(pair for pair in trading_pairs)}
             resp = await client.request("GET", url=f"{constants.REST_URL}/ticker", params=querystring)
 
             resp_json = await resp.json()

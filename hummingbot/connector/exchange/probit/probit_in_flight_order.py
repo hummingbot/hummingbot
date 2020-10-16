@@ -37,7 +37,7 @@ class ProbitInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"FILLED", "CANCELED", "REJECTED", "EXPIRED"}
+        return self.last_state in {"FILLED", "CANCELLED", "REJECTED", "EXPIRED"}
 
     @property
     def is_failure(self) -> bool:
@@ -45,7 +45,7 @@ class ProbitInFlightOrder(InFlightOrderBase):
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state in {"CANCELED", "EXPIRED"}
+        return self.last_state in {"CANCELLED", "EXPIRED"}
 
     # @property
     # def order_type_description(self) -> str:

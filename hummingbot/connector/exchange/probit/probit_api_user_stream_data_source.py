@@ -48,7 +48,7 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 # print(f"WS_SOCKET: {msg}")
                 yield msg
                 self._last_recv_time = time.time()
-                if (msg.get("result") is None and msg.get("result") is None):
+                if (msg.get("result") is None and msg.get("data") is None):
                     continue
         except Exception as e:
             raise e

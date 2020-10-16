@@ -284,10 +284,9 @@ class ProbitExchange(ExchangeBase):
         for rule in market_info["data"]:
             try:
                 trading_pair = probit_utils.convert_from_exchange_trading_pair(rule["id"])
-                price_decimals = Decimal(str(rule["cost_precision"]))
                 quantity_decimals = Decimal(str(rule["quantity_precision"]))
                 # E.g. a price decimal of 2 means 0.01 incremental.
-                price_step = Decimal("1") / Decimal(str(math.pow(10, price_decimals)))
+                price_step = Decimal(str(rule["price_increment"]))
                 quantity_step = Decimal("1") / Decimal(str(math.pow(10, quantity_decimals)))
                 result[trading_pair] = TradingRule(trading_pair,
                                                    min_price_increment=price_step,
@@ -328,9 +327,11 @@ class ProbitExchange(ExchangeBase):
             parsed_response = json.loads(await response.text())
         except Exception as e:
             raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
+        if response.status == 400:
+            params["error"] = f"Error fetching data from {url}. HTTP status is {response.status}. Message: {parsed_response}"
+            raise FileNotFoundError(params)
         if response.status != 200:
-            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. "
-                          f"Message: {parsed_response}")
+            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. Message: {parsed_response}")
         # print(f"REQUEST: {method} {path_url} {params}")
         # print(f"RESPONSE: {parsed_response}")
         return parsed_response
@@ -420,7 +421,7 @@ class ProbitExchange(ExchangeBase):
             raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
         api_params = {"market_id": probit_utils.convert_to_exchange_trading_pair(trading_pair),
-                      "side": trade_type.name,
+                      "side": trade_type.name.lower(),
                       "type": "limit",
                       "time_in_force": "gtc",
                       "limit_price": f"{price:f}",
@@ -517,11 +518,16 @@ class ProbitExchange(ExchangeBase):
                 "post",
                 "cancel_order",
                 {"market_id": probit_utils.convert_to_exchange_trading_pair(trading_pair),
-                 "order_id": ex_order_id},
+                 "order_id": ex_order_id,
+                 "client_order_id": order_id},
                 True
             )
             if result.get("data") is not None:
-                if wait_for_status:
+                data = result.get("data")
+                if data.get("status") == "cancelled":
+                    data["client_order_id"] = order_id
+                    self._process_order_message(data)
+                elif wait_for_status:
                     from hummingbot.core.utils.async_utils import wait_til
                     await wait_til(lambda: tracked_order.is_cancelled)
                 return order_id
@@ -591,12 +597,19 @@ class ProbitExchange(ExchangeBase):
                 order_id = await tracked_order.get_exchange_order_id()
                 param = {
                     "market_id": probit_utils.convert_to_exchange_trading_pair(tracked_order.trading_pair),
-                    "order_id": order_id
+                    "order_id": order_id,
+                    "client_order_id": tracked_order.client_order_id,
                 }
                 tasks.append(self._api_request("get", "order", param, True))
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
             update_results = await safe_gather(*tasks, return_exceptions=True)
             for update_result in update_results:
+                if isinstance(update_result, FileNotFoundError) and update_result.args is not None and update_result.args[0] is not None:
+                    self._process_order_message({
+                        "client_order_id": update_result.args[0]["client_order_id"],
+                        "status": "cancelled"
+                    })
+                    continue
                 if isinstance(update_result, Exception):
                     raise update_result
                 if "data" not in update_result:
@@ -611,12 +624,12 @@ class ProbitExchange(ExchangeBase):
         Updates in-flight order and triggers cancellation or failure event if needed.
         :param order_msg: The order response from either REST or web socket API (they are of the same format)
         """
-        client_order_id = order_msg["client_oid"]
+        client_order_id = order_msg["client_order_id"]
         if client_order_id not in self._in_flight_orders:
             return
         tracked_order = self._in_flight_orders[client_order_id]
         # Update order execution status
-        tracked_order.last_state = order_msg["status"]
+        tracked_order.last_state = order_msg["status"].upper()
         if tracked_order.is_cancelled:
             self.logger().info(f"Successfully cancelled order {client_order_id}.")
             self.trigger_event(MarketEvent.OrderCancelled,
