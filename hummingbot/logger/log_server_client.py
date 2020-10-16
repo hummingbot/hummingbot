@@ -24,8 +24,6 @@ class LogServerClient(NetworkBase):
     def get_instance(cls, log_server_url: str = "https://api.coinalpha.com/reporting-proxy/") -> "LogServerClient":
         if cls._lsc_shared_instance is None:
             cls._lsc_shared_instance = LogServerClient(log_server_url=log_server_url)
-        if not cls._lsc_shared_instance.started:
-            cls._lsc_shared_instance.start()
         return cls._lsc_shared_instance
 
     @classmethod
