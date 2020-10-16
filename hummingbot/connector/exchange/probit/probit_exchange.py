@@ -312,7 +312,7 @@ class ProbitExchange(ExchangeBase):
         url = f"{Constants.REST_URL}/{path_url}"
         client = await self._http_client()
         if is_auth_required:
-            headers = self._probit_auth.get_headers()
+            headers = await self._probit_auth.get_headers()
         else:
             headers = {"Content-Type": "application/json"}
 
@@ -626,8 +626,7 @@ class ProbitExchange(ExchangeBase):
             tracked_order.cancelled_event.set()
             self.stop_tracking_order(client_order_id)
         elif tracked_order.is_failure:
-            self.logger().info(f"The market order {client_order_id} has failed according to order status API. "
-                               f"Reason: {probit_utils.get_api_reason(order_msg['reason'])}")
+            self.logger().info(f"The market order {client_order_id} has failed according to order status API.")
             self.trigger_event(MarketEvent.OrderFailure,
                                MarketOrderFailureEvent(
                                    self.current_timestamp,

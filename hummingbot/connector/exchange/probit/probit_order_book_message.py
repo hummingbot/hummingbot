@@ -2,11 +2,9 @@
 
 from typing import (
     Dict,
-    List,
     Optional,
 )
 
-from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType,
@@ -26,6 +24,19 @@ class ProbitOrderBookMessage(OrderBookMessage):
             if message_type is OrderBookMessageType.SNAPSHOT:
                 raise ValueError("timestamp must not be None when initializing snapshot messages.")
             timestamp = content["timestamp"]
+
+        asks = []
+        bids = []
+        if content.get("data") is not None:
+            for item in content["data"]:
+                item["amount"] = item["quantity"]
+                if item["side"] == "sell":
+                    asks.append(item)
+                elif item["side"] == "buy":
+                    bids.append(item)
+
+        content["asks"] = sorted(asks, key=lambda ask: float(ask["price"]))
+        content["bids"] = sorted(bids, key=lambda bid: float(bid["price"]), reverse=True)
 
         return super(ProbitOrderBookMessage, cls).__new__(
             cls, message_type, content, timestamp=timestamp, *args, **kwargs
@@ -48,24 +59,6 @@ class ProbitOrderBookMessage(OrderBookMessage):
     def trading_pair(self) -> str:
         if "trading_pair" in self.content:
             return self.content["trading_pair"]
-
-    @property
-    def asks(self) -> List[OrderBookRow]:
-        asks_only = filter(lambda item: item["side"] == "sell", self.content)
-        asks = map(asks_only, lambda ask: {"price": ask["price"], "amount": ask["quantity"]})
-
-        return [
-            OrderBookRow(float(price), float(amount), self.update_id) for price, amount in asks
-        ]
-
-    @property
-    def bids(self) -> List[OrderBookRow]:
-        bids_only = filter(lambda item: item["side"] == "sell", self.content)
-        bids = map(bids_only, lambda bid: {"price": bid["price"], "amount": bid["quantity"]})
-
-        return [
-            OrderBookRow(float(price), float(amount), self.update_id) for price, amount in bids
-        ]
 
     def __eq__(self, other) -> bool:
         return self.type == other.type and self.timestamp == other.timestamp

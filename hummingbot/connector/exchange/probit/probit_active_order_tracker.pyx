@@ -46,7 +46,7 @@ cdef class ProbitActiveOrderTracker:
 
     def get_rates_and_quantities(self, entry) -> tuple:
         # price, quantity
-        return float(entry[0]), float(entry[1])
+        return float(entry["price"]), float(entry["amount"])
 
     cdef tuple c_convert_diff_message_to_np_arrays(self, object message):
         cdef:

@@ -16,7 +16,6 @@ from . import probit_utils
 from .probit_active_order_tracker import ProbitActiveOrderTracker
 from .probit_order_book import ProbitOrderBook
 from .probit_websocket import ProbitWebsocket
-from .probit_utils import ms_timestamp_to_s
 
 
 class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -83,7 +82,7 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 )
 
             orderbook_data: List[Dict[str, Any]] = await safe_gather(orderbook_response.json())
-            orderbook_data = orderbook_data["data"]
+            orderbook_data = orderbook_data[0]
 
         return orderbook_data
 
@@ -123,7 +122,7 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                     for trade in response["recent_trades"]:
                         trade: Dict[Any] = trade
-                        trade_timestamp: int = ms_timestamp_to_s(trade["time"])
+                        trade_timestamp: int = pd.Timestamp(trade["time"]).timestamp()
                         trade_msg: OrderBookMessage = ProbitOrderBook.trade_message_from_exchange(
                             trade,
                             trade_timestamp,
@@ -152,20 +151,20 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     await ws.subscribe(channel="marketdata", data={
                         "market_id": probit_utils.convert_to_exchange_trading_pair(trading_pair),
                         "interval": 100,
-                        "filter": ["order_books_l4"]
+                        "filter": ["order_books"]
                     })
 
                 async for response in ws.on_message():
-                    if response.get("order_books_l4") is None:
+                    if response.get("order_books") is None:
                         continue
 
-                    order_book_data = response["order_books_l4"]
+                    order_book_data = response["order_books"]
                     timestamp: int = time.time()
                     # data in this channel is not order book diff but the entire order book (up to depth 150).
                     # so we need to convert it into a order book snapshot.
                     # Probit does not offer order book diff ws updates.
                     orderbook_msg: OrderBookMessage = ProbitOrderBook.snapshot_message_from_exchange(
-                        order_book_data,
+                        {"data": order_book_data},
                         timestamp,
                         metadata={"trading_pair": probit_utils.convert_from_exchange_trading_pair(response["market_id"])}
                     )
