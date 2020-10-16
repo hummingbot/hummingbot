@@ -27,16 +27,6 @@ Connectors are packages of code that link Hummingbot's internal trading algorith
 * [KuCoin](/connectors/kucoin)
 * [Radar Relay](/connectors/radar-relay)
 
-## Community-Contributed Exchange Connectors
-
-| Exchange | Github Contact | Support Contact | Last Version Tested | Last Updated | Status | Known Issues |
-| --- |:---:|:---:|:---:|:---:|:---:|:---:|
-| Bamboo Relay | [Arctek](https://github.com/Arctek) | [Online Chat](https://bamboorelay.com/) | 0.21.0 | 0.21.0 | <span style="color:green; font-size:25px">⬤</span> |  |
-| Dolomite | [zrubenst](https://github.com/zrubenst) | [Telegram](https://t.me/dolomite_official) | 0.20.0 | 0.21.0 | <span style="color:green; font-size:25px"> ⬤</span> |  |
-
-* Last Version Tested - Last reported Hummingbot version that the exchange connector maintainer has confirmed has been tested and is operational.
-* Last Updated - Last Hummingbot release which included an update to the exchange connector code.
-
 ### Exchange Connector Specific Support
 
 Please contact the support contact listed in the above table for support questions that are specific for that exchange.
