@@ -93,7 +93,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                  order_override: Dict[str, List[str]] = {},
                  ):
 
-        if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
+        if price_ceiling != s_decimal_neg_one and float(price_ceiling) < float(price_floor):
             raise ValueError("Parameter price_ceiling cannot be lower than price_floor.")
 
         super().__init__()
@@ -416,18 +416,18 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         total_order_size = calculate_total_order_size(self._order_amount, self._order_level_amount, self._order_levels)
 
         base_asset_value = base_asset_amount * price
-        quote_asset_value = quote_asset_amount / price if price > s_decimal_zero else s_decimal_zero
+        quote_asset_value = quote_asset_amount / price if float(price) > float(s_decimal_zero) else s_decimal_zero
         total_value = base_asset_amount + quote_asset_value
         total_value_in_quote = (base_asset_amount * price) + quote_asset_amount
 
         base_asset_ratio = (base_asset_amount / total_value
-                            if total_value > s_decimal_zero
+                            if float(total_value) > float(s_decimal_zero)
                             else s_decimal_zero)
-        quote_asset_ratio = Decimal("1") - base_asset_ratio if total_value > 0 else 0
+        quote_asset_ratio = Decimal("1") - base_asset_ratio if float(total_value) > 0 else 0
         target_base_ratio = self._inventory_target_base_pct
         inventory_range_multiplier = self._inventory_range_multiplier
         target_base_amount = (total_value * target_base_ratio
-                              if price > s_decimal_zero
+                              if float(price) > float(s_decimal_zero)
                               else s_decimal_zero)
         target_base_amount_in_quote = target_base_ratio * total_value_in_quote
         target_quote_amount = (1 - target_base_ratio) * total_value_in_quote
@@ -437,14 +437,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         high_water_mark = target_base_amount + base_asset_range
         low_water_mark = max(target_base_amount - base_asset_range, s_decimal_zero)
         low_water_mark_ratio = (low_water_mark / total_value
-                                if total_value > s_decimal_zero
+                                if float(total_value) > float(s_decimal_zero)
                                 else s_decimal_zero)
         high_water_mark_ratio = (high_water_mark / total_value
-                                 if total_value > s_decimal_zero
+                                 if float(total_value) > float(s_decimal_zero)
                                  else s_decimal_zero)
         high_water_mark_ratio = min(1.0, high_water_mark_ratio)
         total_order_size_ratio = (self._order_amount * Decimal("2") / total_value
-                                  if total_value > s_decimal_zero
+                                  if float(total_value) > float(s_decimal_zero)
                                   else s_decimal_zero)
         bid_ask_ratios = c_calculate_bid_ask_ratios_from_base_asset_ratio(
             float(base_asset_amount),
@@ -473,8 +473,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         available_quote_balance = float(market.get_available_balance(quote_asset))
         base_value = base_balance * float(price)
         total_in_quote = base_value + quote_balance
-        base_ratio = base_value / total_in_quote if total_in_quote > 0 else 0
-        quote_ratio = quote_balance / total_in_quote if total_in_quote > 0 else 0
+        base_ratio = base_value / total_in_quote if float(total_in_quote) > 0 else 0
+        quote_ratio = quote_balance / total_in_quote if float(total_in_quote) > 0 else 0
         data=[
             ["", base_asset, quote_asset],
             ["Total Balance", round(base_balance, 4), round(quote_balance, 4)],
@@ -604,7 +604,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         cdef:
             int64_t current_tick = <int64_t>(timestamp // self._status_report_interval)
             int64_t last_tick = <int64_t>(self._last_timestamp // self._status_report_interval)
-            bint should_report_warnings = ((current_tick > last_tick) and
+            bint should_report_warnings = ((float(current_tick) > float(last_tick)) and
                                            (self._logging_options & self.OPTION_LOG_STATUS_REPORT))
             cdef object proposal
         try:
@@ -665,14 +665,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                         price = market.c_quantize_order_price(self.trading_pair, price)
                         size = Decimal(str(value[2]))
                         size = market.c_quantize_order_amount(self.trading_pair, size)
-                        if size > 0 and price > 0:
+                        if float(size) > 0 and float(price) > 0:
                             buys.append(PriceSize(price, size))
                     elif str(value[0]) == "sell":
                         price = self.get_price() * (Decimal("1") + Decimal(str(value[1])) / Decimal("100"))
                         price = market.c_quantize_order_price(self.trading_pair, price)
                         size = Decimal(str(value[2]))
                         size = market.c_quantize_order_amount(self.trading_pair, size)
-                        if size > 0 and price > 0:
+                        if float(size) > 0 and float(price) > 0:
                             sells.append(PriceSize(price, size))
         else:
             for level in range(0, self._buy_levels):
@@ -680,14 +680,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 price = market.c_quantize_order_price(self.trading_pair, price)
                 size = self._order_amount + (self._order_level_amount * level)
                 size = market.c_quantize_order_amount(self.trading_pair, size)
-                if size > 0:
+                if float(size) > 0:
                     buys.append(PriceSize(price, size))
             for level in range(0, self._sell_levels):
                 price = self.get_price() * (Decimal("1") + self._ask_spread + (level * self._order_level_spread))
                 price = market.c_quantize_order_price(self.trading_pair, price)
                 size = self._order_amount + (self._order_level_amount * level)
                 size = market.c_quantize_order_amount(self.trading_pair, size)
-                if size > 0:
+                if float(size) > 0:
                     sells.append(PriceSize(price, size))
 
         return Proposal(buys, sells)
@@ -716,21 +716,21 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             self.c_apply_ping_pong(proposal)
 
     cdef c_apply_price_band(self, proposal):
-        if self._price_ceiling > 0 and self.get_price() >= self._price_ceiling:
+        if float(self._price_ceiling) > 0 and float(self.get_price()) >= float(self._price_ceiling):
             proposal.buys = []
-        if self._price_floor > 0 and self.get_price() <= self._price_floor:
+        if float(self._price_floor) > 0 and float(self.get_price()) <= float(self._price_floor):
             proposal.sells = []
 
     cdef c_apply_ping_pong(self, object proposal):
         self._ping_pong_warning_lines = []
         if self._filled_buys_balance == self._filled_sells_balance:
             self._filled_buys_balance = self._filled_sells_balance = 0
-        if self._filled_buys_balance > 0:
+        if float(self._filled_buys_balance) > 0:
             proposal.buys = proposal.buys[self._filled_buys_balance:]
             self._ping_pong_warning_lines.extend(
                 [f"  Ping-pong removed {self._filled_buys_balance} buy orders."]
             )
-        if self._filled_sells_balance > 0:
+        if float(self._filled_sells_balance) > 0:
             proposal.sells = proposal.sells[self._filled_sells_balance:]
             self._ping_pong_warning_lines.extend(
                 [f"  Ping-pong removed {self._filled_sells_balance} sell orders."]
@@ -796,15 +796,15 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 quote_size = s_decimal_zero
                 buy.size = s_decimal_zero
             quote_size_total += quote_size
-        proposal.buys = [o for o in proposal.buys if o.size > 0]
+        proposal.buys = [o for o in proposal.buys if float(o.size) > 0]
         for sell in proposal.sells:
             base_size = sell.size
-            if base_balance < base_size_total + base_size:
+            if float(base_balance) < float(base_size_total + base_size):
                 self.logger().info(f"Insufficient balance: Sell order (price: {sell.price}, size: {sell.size}) is omitted, {self.base_asset} available balance: {base_balance - base_size_total}.")
                 base_size = s_decimal_zero
                 sell.size = s_decimal_zero
             base_size_total += base_size
-        proposal.sells = [o for o in proposal.sells if o.size > 0]
+        proposal.sells = [o for o in proposal.sells if float(o.size) > 0]
 
     cdef c_filter_out_takers(self, object proposal):
         cdef:
@@ -816,7 +816,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             proposal.buys = [buy for buy in proposal.buys if float(buy.price) < float(top_ask)]
         top_bid = market.c_get_price(self.trading_pair, False)
         if not top_bid.is_nan():
-            proposal.sells = [sell for sell in proposal.sells if sell.price > top_bid]
+            proposal.sells = [sell for sell in proposal.sells if float(sell.price) > float(top_bid)]
 
     # Compare the market price with the top bid and top ask price
     cdef c_apply_order_optimization(self, object proposal):
@@ -826,7 +826,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             object own_sell_size = s_decimal_zero
 
         # If there are multiple orders, do not jump prices
-        if self._order_levels > 1:
+        if float(self._order_levels) > 1:
             return
 
         for order in self.active_orders:
@@ -1023,7 +1023,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             bint to_defer_canceling = False
         if len(active_orders) == 0:
             return
-        if proposal is not None and self._order_refresh_tolerance_pct >= 0:
+        if proposal is not None and float(self._order_refresh_tolerance_pct) >= 0:
 
             active_buy_prices = [Decimal(str(o.price)) for o in active_orders if o.is_buy]
             active_sell_prices = [Decimal(str(o.price)) for o in active_orders if not o.is_buy]
@@ -1055,9 +1055,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             LimitOrder order
         for h_order_id in self._hanging_order_ids:
             orders = [o for o in active_orders if o.client_order_id == h_order_id]
-            if orders and price > 0:
+            if orders and float(price) > 0:
                 order = orders[0]
-                if abs(order.price - price)/price >= self._hanging_orders_cancel_pct:
+                if float(abs(order.price - price)/price) >= float(self._hanging_orders_cancel_pct):
                     self.c_cancel_order(self._market_info, order.client_order_id)
 
     # Cancel Non-Hanging, Active Orders if Spreads are below minimum_spread
