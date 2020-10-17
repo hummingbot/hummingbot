@@ -779,16 +779,14 @@ class ProbitExchange(ExchangeBase):
         """
         async for event_message in self._iter_user_event_queue():
             try:
-                if "channel" not in event_message:
-                    continue
-                if "data" not in event_message and "result" not in event_message:
+                if "channel" not in event_message or "data" not in event_message:
                     continue
                 channel = event_message["channel"]
                 if channel == "trade_history":
-                    for trade_msg in event_message["result"]:
+                    for trade_msg in event_message["data"]:
                         await self._process_trade_message(trade_msg)
                 elif channel == "order_history":
-                    for order_msg in event_message["result"]:
+                    for order_msg in event_message["data"]:
                         self._process_order_message(order_msg)
                 elif channel == "balance":
                     balances = event_message["data"]

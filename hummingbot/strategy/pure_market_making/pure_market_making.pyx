@@ -791,7 +791,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             buy_fees = market.c_get_fee(self.base_asset, self.quote_asset, OrderType.LIMIT, TradeType.BUY,
                                         buy.size, buy.price)
             quote_size = buy.size * buy.price * (Decimal(1) + buy_fees.percent)
-            if quote_balance < quote_size_total + quote_size:
+            if float(quote_balance) < float(quote_size_total + quote_size):
                 self.logger().info(f"Insufficient balance: Buy order (price: {buy.price}, size: {buy.size}) is omitted, {self.quote_asset} available balance: {quote_balance - quote_size_total}.")
                 quote_size = s_decimal_zero
                 buy.size = s_decimal_zero
@@ -813,7 +813,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             list new_sells = []
         top_ask = market.c_get_price(self.trading_pair, True)
         if not top_ask.is_nan():
-            proposal.buys = [buy for buy in proposal.buys if buy.price < top_ask]
+            proposal.buys = [buy for buy in proposal.buys if float(buy.price) < float(top_ask)]
         top_bid = market.c_get_price(self.trading_pair, False)
         if not top_bid.is_nan():
             proposal.sells = [sell for sell in proposal.sells if sell.price > top_bid]
@@ -1002,7 +1002,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         proposal_prices = sorted(proposal_prices)
         for current, proposal in zip(current_prices, proposal_prices):
             # if spread diff is more than the tolerance or order quantities are different, return false.
-            if abs(proposal - current)/current > self._order_refresh_tolerance_pct:
+            if float(abs(proposal - current)/current) > float(self._order_refresh_tolerance_pct):
                 return False
         return True
 
@@ -1069,7 +1069,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                          if order.client_order_id not in self._hanging_order_ids]
         for order in active_orders:
             negation = -1 if order.is_buy else 1
-            if (negation * (order.price - price) / price) < self._minimum_spread:
+            if float(negation * (order.price - price) / price) < float(self._minimum_spread):
                 self.logger().info(f"Order is below minimum spread ({self._minimum_spread})."
                                    f" Cancelling Order: ({'Buy' if order.is_buy else 'Sell'}) "
                                    f"ID - {order.client_order_id}")
