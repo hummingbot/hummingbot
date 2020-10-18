@@ -534,6 +534,11 @@ class ProbitExchange(ExchangeBase):
         except asyncio.CancelledError:
             raise
         except Exception as e:
+            if isinstance(e, FileNotFoundError):
+                self._process_order_message({
+                    "client_order_id": order_id,
+                    "status": "cancelled"
+                })
             self.logger().network(
                 f"Failed to cancel order {order_id}: {str(e)}",
                 exc_info=True,
