@@ -29,7 +29,8 @@ class ProbitOrderBookMessage(OrderBookMessage):
         bids = []
         if content.get("data") is not None:
             for item in content["data"]:
-                item["amount"] = item["quantity"]
+                item["price"] = float(item["price"])
+                item["amount"] = float(item["quantity"])
                 if item["side"] == "sell":
                     asks.append(item)
                 elif item["side"] == "buy":

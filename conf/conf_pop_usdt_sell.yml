@@ -21,7 +21,7 @@ bid_spread: 50
 # Spread of 1 = 1% away from mid price at that time.
 # Example if mid price is 100 and ask_spread is 1.
 # Your bid is placed at 101.
-ask_spread: 0.5
+ask_spread: 0
 
 # Minimum Spread
 # How far away from the mid price to cancel active orders
@@ -36,7 +36,7 @@ order_refresh_time: 3.0
 order_refresh_tolerance_pct: 0.0
 
 # Size of your bid and ask order.
-order_amount: 1028
+order_amount: 1128
 
 # Price band ceiling.
 price_ceiling: -1.0
@@ -67,7 +67,7 @@ order_level_amount: 14
 order_level_spread: 1
 
 # How long to wait before placing the next order in case your order gets filled.
-filled_order_delay: 60
+filled_order_delay: 540
 
 # Whether to stop cancellations of orders on the other side (of the order book),
 # when one side is filled (hanging orders feature) (true/false).
@@ -104,7 +104,7 @@ price_source_market:
 price_source_custom_api:
 
 #Take order if they cross order book when external price source is enabled
-take_if_crossed:
+take_if_crossed: True
 
 # Use user provided orders to directly override the orders placed by order_amount and order_level_parameter
 # This is an advanced feature and user is expected to directly edit this field in config file

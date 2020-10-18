@@ -653,8 +653,9 @@ class ProbitExchange(ExchangeBase):
         Updates in-flight order and trigger order filled event for trade message received. Triggers order completed
         event if the total executed amount equals to the specified order amount.
         """
-        for order in self._in_flight_orders.values():
-            await order.get_exchange_order_id()
+        # I'm not sure why it's needed.
+        # for order in self._in_flight_orders.values():
+        #     await order.get_exchange_order_id()
         track_order = [o for o in self._in_flight_orders.values() if trade_msg["order_id"] == o.exchange_order_id]
         if not track_order:
             return

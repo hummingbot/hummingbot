@@ -48,7 +48,7 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 last_trade = [o["last"] for o in resp_json["data"] if o["market_id"] ==
                               probit_utils.convert_to_exchange_trading_pair(t_pair)]
                 if last_trade and last_trade[0] is not None:
-                    result[t_pair] = last_trade[0]
+                    result[t_pair] = float(last_trade[0])
         return result
 
     @staticmethod
@@ -159,16 +159,22 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         continue
 
                     order_book_data = response["order_books"]
+                    reset = response["reset"] if response.get("reset") is not None else False
                     timestamp: int = time.time()
-                    # data in this channel is not order book diff but the entire order book (up to depth 150).
-                    # so we need to convert it into a order book snapshot.
-                    # Probit does not offer order book diff ws updates.
-                    orderbook_msg: OrderBookMessage = ProbitOrderBook.snapshot_message_from_exchange(
-                        {"data": order_book_data},
-                        timestamp,
-                        metadata={"trading_pair": probit_utils.convert_from_exchange_trading_pair(response["market_id"])}
-                    )
-                    output.put_nowait(orderbook_msg)
+                    if reset:
+                        orderbook_msg: OrderBookMessage = ProbitOrderBook.snapshot_message_from_exchange(
+                            {"data": order_book_data},
+                            timestamp,
+                            metadata={"trading_pair": probit_utils.convert_from_exchange_trading_pair(response["market_id"])}
+                        )
+                        output.put_nowait(orderbook_msg)
+                    else:
+                        orderbook_msg: OrderBookMessage = ProbitOrderBook.diff_message_from_exchange(
+                            {"data": order_book_data},
+                            timestamp,
+                            metadata={"trading_pair": probit_utils.convert_from_exchange_trading_pair(response["market_id"])}
+                        )
+                        output.put_nowait(orderbook_msg)
 
             except asyncio.CancelledError:
                 raise
