@@ -43,7 +43,7 @@ order_refresh_time: 3.0
 order_refresh_tolerance_pct: 0.0
 
 # Size of your bid and ask order.
-order_amount: 1928
+order_amount: 19280
 
 # Delta of order_amount.
 order_amount_delta: 1000
