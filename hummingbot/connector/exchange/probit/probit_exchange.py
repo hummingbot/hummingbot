@@ -535,16 +535,18 @@ class ProbitExchange(ExchangeBase):
             raise
         except Exception as e:
             if isinstance(e, FileNotFoundError):
+                self.logger().info(f"{order_id} already cancelled")
                 self._process_order_message({
                     "client_order_id": order_id,
                     "status": "cancelled"
                 })
-            self.logger().network(
-                f"Failed to cancel order {order_id}: {str(e)}",
-                exc_info=True,
-                app_warning_msg=f"Failed to cancel the order {order_id} on Probit. "
-                                f"Check API key and network connection."
-            )
+            else:
+                self.logger().network(
+                    f"Failed to cancel order {order_id}: {str(e)}",
+                    exc_info=True,
+                    app_warning_msg=f"Failed to cancel the order {order_id} on Probit. "
+                                    f"Check API key and network connection."
+                )
 
     async def _status_polling_loop(self):
         """
@@ -610,8 +612,10 @@ class ProbitExchange(ExchangeBase):
             update_results = await safe_gather(*tasks, return_exceptions=True)
             for update_result in update_results:
                 if isinstance(update_result, FileNotFoundError) and update_result.args is not None and update_result.args[0] is not None:
+                    client_order_id = update_result.args[0]["client_order_id"]
+                    self.logger().info(f"{client_order_id} already cancelled")
                     self._process_order_message({
-                        "client_order_id": update_result.args[0]["client_order_id"],
+                        "client_order_id": client_order_id,
                         "status": "cancelled"
                     })
                     continue
