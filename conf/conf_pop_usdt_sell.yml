@@ -43,10 +43,10 @@ order_refresh_time: 3.0
 order_refresh_tolerance_pct: 0.0
 
 # Size of your bid and ask order.
-order_amount: 19280
+order_amount: 3000
 
 # Delta of order_amount.
-order_amount_delta: 1000
+order_amount_delta: 4000
 
 # Price band ceiling.
 price_ceiling: -1.0
@@ -77,7 +77,7 @@ order_level_amount: 14
 order_level_spread: 1
 
 # How long to wait before placing the next order in case your order gets filled.
-filled_order_delay: 540
+filled_order_delay: 740
 
 # Whether to stop cancellations of orders on the other side (of the order book),
 # when one side is filled (hanging orders feature) (true/false).
