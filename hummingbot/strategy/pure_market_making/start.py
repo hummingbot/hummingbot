@@ -18,6 +18,7 @@ from decimal import Decimal
 def start(self):
     try:
         order_amount = c_map.get("order_amount").value
+        order_amount_delta = c_map.get("order_amount_delta").value
         order_refresh_time = c_map.get("order_refresh_time").value
         bid_spread = c_map.get("bid_spread").value / Decimal('100')
         ask_spread = c_map.get("ask_spread").value / Decimal('100')
@@ -75,6 +76,7 @@ def start(self):
             ask_spread=ask_spread,
             order_levels=order_levels,
             order_amount=order_amount,
+            order_amount_delta=order_amount_delta,
             order_level_spread=order_level_spread,
             order_level_amount=order_level_amount,
             inventory_skew_enabled=inventory_skew_enabled,

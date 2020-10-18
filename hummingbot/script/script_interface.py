@@ -46,6 +46,7 @@ class PMMParameters:
         self._bid_spread = None
         self._ask_spread = None
         self._order_amount = None
+        self._order_amount_delta = None
         self._order_level_spread = None
         self._order_level_amount = None
         self._order_refresh_time = None
@@ -74,6 +75,7 @@ class PMMParameters:
     bid_spread = StrategyParameter("bid_spread")
     ask_spread = StrategyParameter("ask_spread")
     order_amount = StrategyParameter("order_amount")
+    order_amount_data = StrategyParameter("order_amount_delta")
     order_level_spread = StrategyParameter("order_level_spread")
     order_level_amount = StrategyParameter("order_level_amount")
     order_refresh_time = StrategyParameter("order_refresh_time")

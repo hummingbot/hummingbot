@@ -11,6 +11,7 @@ from math import (
     floor,
     ceil
 )
+import random
 import time
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.event.events import TradeType, PriceType
@@ -65,6 +66,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                  bid_spread: Decimal,
                  ask_spread: Decimal,
                  order_amount: Decimal,
+                 order_amount_delta: Decimal = s_decimal_zero,
                  order_levels: int = 1,
                  order_level_spread: Decimal = s_decimal_zero,
                  order_level_amount: Decimal = s_decimal_zero,
@@ -103,6 +105,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._ask_spread = ask_spread
         self._minimum_spread = minimum_spread
         self._order_amount = order_amount
+        self._order_amount_delta = order_amount_delta
         self._order_levels = order_levels
         self._buy_levels = order_levels
         self._sell_levels = order_levels
@@ -164,6 +167,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @order_amount.setter
     def order_amount(self, value: Decimal):
         self._order_amount = value
+
+    @property
+    def order_amount_delta(self) -> Decimal:
+        return self._order_amount_delta
+
+    @order_amount_delta.setter
+    def order_amount_delta(self, value: Decimal):
+        self._order_amount_delta = value
 
     @property
     def order_levels(self) -> int:
@@ -678,14 +689,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             for level in range(0, self._buy_levels):
                 price = self.get_price() * (Decimal("1") - self._bid_spread - (level * self._order_level_spread))
                 price = market.c_quantize_order_price(self.trading_pair, price)
-                size = self._order_amount + (self._order_level_amount * level)
+                size = self._order_amount + random.randint(0, self._order_amount_delta) + (self._order_level_amount * level)
                 size = market.c_quantize_order_amount(self.trading_pair, size)
                 if float(size) > 0:
                     buys.append(PriceSize(price, size))
             for level in range(0, self._sell_levels):
                 price = self.get_price() * (Decimal("1") + self._ask_spread + (level * self._order_level_spread))
                 price = market.c_quantize_order_price(self.trading_pair, price)
-                size = self._order_amount + (self._order_level_amount * level)
+                size = self._order_amount + random.randint(0, self._order_amount_delta) + (self._order_level_amount * level)
                 size = market.c_quantize_order_amount(self.trading_pair, size)
                 if float(size) > 0:
                     sells.append(PriceSize(price, size))

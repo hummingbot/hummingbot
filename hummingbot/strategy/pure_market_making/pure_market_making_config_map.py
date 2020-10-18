@@ -174,6 +174,13 @@ pure_market_making_config_map = {
                   type_str="decimal",
                   validator=validate_order_amount,
                   prompt_on_new=True),
+    "order_amount_delta":
+        ConfigVar(key="order_amount_delta",
+                  prompt="Enter the delta value of amount of orders will be placed "
+                         "(Enter 0 to deactivate this feature) >>> ",
+                  type_str="decimal",
+                  default=Decimal("0"),
+                  validator=lambda v: validate_decimal(v, min_value=0, inclusive=True)),
     "price_ceiling":
         ConfigVar(key="price_ceiling",
                   prompt="Enter the price point above which only sell orders will be placed "

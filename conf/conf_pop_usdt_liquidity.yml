@@ -38,6 +38,9 @@ order_refresh_tolerance_pct: 0.0
 # Size of your bid and ask order.
 order_amount: 29108
 
+# Delta of order_amount.
+order_amount_delta: 1000
+
 # Price band ceiling.
 price_ceiling: -1.0
 

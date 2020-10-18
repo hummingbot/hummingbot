@@ -38,6 +38,9 @@ order_refresh_tolerance_pct: null
 # Size of your bid and ask order.
 order_amount: null
 
+# Delta of order_amount.
+order_amount_delta: null
+
 # Price band ceiling.
 price_ceiling: null
 
