@@ -15,17 +15,24 @@ market: POP-USDT
 # Spread of 1 = 1% away from mid price at that time.
 # Example if mid price is 100 and bid_spread is 1.
 # Your bid is placed at 99.
+#
+# NOTE: This value has been set with greater value than minimum_spread.
+# This aimed to cancel the buy order.
+# Otherwise even though sell order has been executed, no sell order placed again because there is a buy order.
 bid_spread: 50
 
 # How far away from mid price to place the ask order.
 # Spread of 1 = 1% away from mid price at that time.
 # Example if mid price is 100 and ask_spread is 1.
 # Your bid is placed at 101.
+#
+# NOTE: some codes has been updated so that it's allowed the spread with value 0.
+# This aimed to make trade for selling
 ask_spread: 0
 
 # Minimum Spread
 # How far away from the mid price to cancel active orders
-minimum_spread: -100.0
+minimum_spread: 10.0
 
 # Time in seconds before cancelling and placing new orders.
 # If the value is 60, the bot cancels active orders and placing new ones after a minute.
@@ -36,7 +43,7 @@ order_refresh_time: 3.0
 order_refresh_tolerance_pct: 0.0
 
 # Size of your bid and ask order.
-order_amount: 1128
+order_amount: 1928
 
 # Price band ceiling.
 price_ceiling: -1.0
@@ -55,7 +62,7 @@ inventory_target_base_pct: 50.0
 
 # The range around the inventory target base percent to maintain, expressed in multiples of total order size (for
 # inventory skew feature).
-inventory_range_multiplier: 2
+inventory_range_multiplier: 1
 
 # Number of levels of orders to place on each side of the order book.
 order_levels: 1
@@ -104,6 +111,8 @@ price_source_market:
 price_source_custom_api:
 
 #Take order if they cross order book when external price source is enabled
+#
+# NOTE: Even though price_type is best_bid, if this value is false, no order placed
 take_if_crossed: True
 
 # Use user provided orders to directly override the orders placed by order_amount and order_level_parameter
