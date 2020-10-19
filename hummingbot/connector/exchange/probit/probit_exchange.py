@@ -672,6 +672,12 @@ class ProbitExchange(ExchangeBase):
         updated = tracked_order.update_with_trade_update(trade_msg)
         if not updated:
             return
+
+        quantity = trade_msg["quantity"] if trade_msg.get("quantity") is not None else "0"
+        price = trade_msg["price"] if trade_msg.get("price") is not None else "0"
+        fee_amount = trade_msg["fee_amount"] if trade_msg.get("fee_amount") is not None else "0"
+        fee_amount = "0" if not fee_amount else fee_amount
+
         self.trigger_event(
             MarketEvent.OrderFilled,
             OrderFilledEvent(
@@ -680,9 +686,9 @@ class ProbitExchange(ExchangeBase):
                 tracked_order.trading_pair,
                 tracked_order.trade_type,
                 tracked_order.order_type,
-                Decimal(str(trade_msg["price"])),
-                Decimal(str(trade_msg["quantity"])),
-                TradeFee(0.0, [(trade_msg["fee_currency_id"], Decimal(str(trade_msg["fee_amount"])))]),
+                Decimal(price),
+                Decimal(quantity),
+                TradeFee(0.0, [(trade_msg["fee_currency_id"], Decimal(fee_amount))]),
                 exchange_trade_id=trade_msg["order_id"]
             )
         )

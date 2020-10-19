@@ -90,10 +90,15 @@ class ProbitInFlightOrder(InFlightOrderBase):
             # trade already recorded
             return False
         self.trade_id_set.add(trade_id)
-        self.executed_amount_base += Decimal(str(trade_update["quantity"]))
-        self.fee_paid += Decimal(str(trade_update["fee_amount"]))
-        self.executed_amount_quote += (Decimal(str(trade_update["price"])) *
-                                       Decimal(str(trade_update["quantity"])))
+
+        quantity = trade_update["quantity"] if trade_update.get("quantity") is not None else "0"
+        price = trade_update["price"] if trade_update.get("price") is not None else "0"
+        fee_amount = trade_update["fee_amount"] if trade_update.get("fee_amount") is not None else "0"
+        fee_amount = "0" if not fee_amount else fee_amount
+
+        self.executed_amount_base += Decimal(quantity)
+        self.fee_paid += Decimal(fee_amount)
+        self.executed_amount_quote += (Decimal(price) * Decimal(quantity))
         if not self.fee_asset:
-            self.fee_asset = trade_update["fee_currency_id"]
+            self.fee_asset = trade_update["fee_currency_id"] if trade_update.get("fee_currency_id") is not None else ""
         return True
