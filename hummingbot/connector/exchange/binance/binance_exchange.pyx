@@ -125,14 +125,15 @@ cdef class BinanceExchange(ExchangeBase):
                  binance_api_secret: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True,
-                 **dummy
+                 domain="com"
                  ):
 
         self.monkey_patch_binance_time()
         super().__init__()
         self._trading_required = trading_required
         self._order_book_tracker = BinanceOrderBookTracker(trading_pairs=trading_pairs)
-        self._binance_client = BinanceClient(binance_api_key, binance_api_secret)
+        self._domain = domain
+        self._binance_client = BinanceClient(binance_api_key, binance_api_secret, tld=domain)
         self._user_stream_tracker = BinanceUserStreamTracker(binance_client=self._binance_client)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
@@ -152,7 +153,10 @@ cdef class BinanceExchange(ExchangeBase):
 
     @property
     def name(self) -> str:
-        return "binance"
+        if self._domain == "com":
+            return "binance"
+        else:
+            return f"binance_{self._domain}"
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
