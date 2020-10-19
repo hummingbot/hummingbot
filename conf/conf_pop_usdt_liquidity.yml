@@ -15,13 +15,13 @@ market: POP-USDT
 # Spread of 1 = 1% away from mid price at that time.
 # Example if mid price is 100 and bid_spread is 1.
 # Your bid is placed at 99.
-bid_spread: 3
+bid_spread: 4
 
 # How far away from mid price to place the ask order.
 # Spread of 1 = 1% away from mid price at that time.
 # Example if mid price is 100 and ask_spread is 1.
 # Your bid is placed at 101.
-ask_spread: 3
+ask_spread: 4
 
 # Minimum Spread
 # How far away from the mid price to cancel active orders
@@ -74,7 +74,7 @@ filled_order_delay: 5
 
 # Whether to stop cancellations of orders on the other side (of the order book),
 # when one side is filled (hanging orders feature) (true/false).
-hanging_orders_enabled: true
+hanging_orders_enabled: false
 
 # Spread (from mid price, in percentage) hanging orders will be canceled (Enter 1 to indicate 1%)
 hanging_orders_cancel_pct: 10.0
