@@ -48,7 +48,7 @@ class ConnectorSetting(NamedTuple):
     fee_type: TradeFeeType
     fee_token: str
     default_fees: List[Decimal]
-    config_keys: List[ConfigVar]
+    config_keys: Dict[str, ConfigVar]
 
 
 def _create_connector_settings() -> Dict[str, ConnectorSetting]:
@@ -82,7 +82,7 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
                 fee_type=fee_type,
                 fee_token=getattr(util_module, "FEE_TOKEN", ""),
                 default_fees=getattr(util_module, "DEFAULT_FEES", []),
-                config_keys=getattr(util_module, "KEYS", [])
+                config_keys=getattr(util_module, "KEYS", {})
             )
     return connector_settings
 
