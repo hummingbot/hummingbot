@@ -228,7 +228,8 @@ class HummingbotApplication(*commands):
                 # TO-DO for DEXes: rename all extra argument to match key in global_config_map
 
             elif connector_name in CONNECTOR_SETTINGS:
-                keys = dict((key, value.value) for key, value in dict(filter(lambda item: connector_name in item[0], global_config_map.items())).items())
+                keys = {key: config.value for key, config in global_config_map.items()
+                        if key in CONNECTOR_SETTINGS[connector_name].config_keys}
                 connector_class = get_connector_class(connector_name)
                 connector = connector_class(**keys, trading_pairs=trading_pairs, trading_required=self._trading_required)
 
