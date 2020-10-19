@@ -213,6 +213,11 @@ class TokenApprovedEvent(NamedTuple):
     raw_amount: int
 
 
+class TradeFeeType(Enum):
+    Percent = 1
+    FlatFee = 2
+
+
 class TradeFee(NamedTuple):
     percent: Decimal  # 0.1 = 10%
     flat_fees: List[Tuple[str, Decimal]] = []  # list of (asset, amount) ie: ("ETH", 0.05)

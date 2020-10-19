@@ -1,7 +1,7 @@
 from decimal import Decimal
-from hummingbot.core.event.events import TradeFee
+from hummingbot.core.event.events import TradeFee, TradeFeeType
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
-from hummingbot.client.settings import CONNECTOR_SETTINGS, ConnectorFeeType
+from hummingbot.client.settings import CONNECTOR_SETTINGS
 
 
 def estimate_fee(exchange: str, is_maker: bool) -> TradeFee:
@@ -18,7 +18,7 @@ def estimate_fee(exchange: str, is_maker: bool) -> TradeFee:
     if len(fee_configs) == 1 and fee_overrides_config_map[fee_configs[0]].value is not None:
         fee = fee_overrides_config_map[fee_configs[0]].value
     fee = Decimal(str(fee))
-    if fee_type is ConnectorFeeType.Percent:
+    if fee_type is TradeFeeType.Percent:
         return TradeFee(percent=fee / Decimal("100"))
-    elif fee_type is ConnectorFeeType.FlatFee:
+    elif fee_type is TradeFeeType.FlatFee:
         return TradeFee(flat_fees=[(fee_token, fee)])

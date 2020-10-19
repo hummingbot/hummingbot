@@ -10,6 +10,7 @@ from typing import List, NamedTuple, Dict
 from hummingbot import get_strategy_list
 from pathlib import Path
 from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.core.event.events import TradeFeeType
 
 # Global variables
 required_exchanges: List[str] = []
@@ -38,18 +39,13 @@ class ConnectorType(Enum):
     Derivative = 3
 
 
-class ConnectorFeeType(Enum):
-    Percent = 1
-    FlatFee = 2
-
-
 class ConnectorSetting(NamedTuple):
     name: str
     type: ConnectorType
     example_pair: str
     centralised: bool
     use_ethereum_wallet: bool
-    fee_type: ConnectorFeeType
+    fee_type: TradeFeeType
     fee_token: str
     default_fees: List[Decimal]
     config_keys: List[ConfigVar]
@@ -73,10 +69,10 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
             util_module = importlib.import_module(path)
             if util_module is None:
                 raise Exception(f"{path} does not exist.")
-            fee_type = ConnectorFeeType.Percent
+            fee_type = TradeFeeType.Percent
             fee_type_setting = getattr(util_module, "FEE_TYPE", None)
             if fee_type_setting is not None:
-                fee_type = ConnectorFeeType[fee_type_setting]
+                fee_type = TradeFeeType[fee_type_setting]
             connector_settings[connector_dir.name] = ConnectorSetting(
                 name=connector_dir.name,
                 type=ConnectorType[type_dir.name.capitalize()],
