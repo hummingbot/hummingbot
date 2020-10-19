@@ -40,8 +40,8 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.connector.exchange.binance.binance_market import (
-    BinanceMarket,
+from hummingbot.connector.exchange.binance.binance_exchange import (
+    BinanceExchange,
     BinanceTime,
     binance_client_module
 )
@@ -69,7 +69,7 @@ API_KEY = "XXX" if API_MOCK_ENABLED else conf.binance_api_key
 API_SECRET = "YYY" if API_MOCK_ENABLED else conf.binance_api_secret
 
 
-class BinanceMarketUnitTest(unittest.TestCase):
+class BinanceExchangeUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
         MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
@@ -82,7 +82,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
         MarketEvent.OrderFailure
     ]
 
-    market: BinanceMarket
+    market: BinanceExchange
     market_logger: EventLogger
     stack: contextlib.ExitStack
     base_api_url = "api.binance.com"
@@ -127,10 +127,10 @@ class BinanceMarketUnitTest(unittest.TestCase):
             cls._ws_mock.side_effect = HummingWsServerFactory.reroute_ws_connect
 
             cls._t_nonce_patcher = unittest.mock.patch(
-                "hummingbot.connector.exchange.binance.binance_market.get_tracking_nonce")
+                "hummingbot.connector.exchange.binance.binance_exchange.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.market: BinanceMarket = BinanceMarket(API_KEY, API_SECRET, ["LINK-ETH", "ZRX-ETH"], True)
+        cls.market: BinanceExchange = BinanceExchange(API_KEY, API_SECRET, ["LINK-ETH", "ZRX-ETH"], True)
         print("Initializing Binance market... this will take about a minute.")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.market)
@@ -552,7 +552,7 @@ class BinanceMarketUnitTest(unittest.TestCase):
             self.clock.remove_iterator(self.market)
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
-            self.market: BinanceMarket = BinanceMarket(API_KEY, API_SECRET, ["LINK-ETH", "ZRX-ETH"], True)
+            self.market: BinanceExchange = BinanceExchange(API_KEY, API_SECRET, ["LINK-ETH", "ZRX-ETH"], True)
             for event_tag in self.events:
                 self.market.add_listener(event_tag, self.market_logger)
             recorder.stop()

@@ -17,7 +17,7 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.config.security import Security
 from hummingbot.user.user_balances import UserBalances
-from hummingbot.client.settings import required_exchanges, DEXES
+from hummingbot.client.settings import required_exchanges, ethereum_wallet_required
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 from typing import TYPE_CHECKING
@@ -93,7 +93,7 @@ class StatusCommand:
             connections = await UserBalances.instance().update_exchanges(exchanges=required_exchanges)
             invalid_conns.update({ex: err_msg for ex, err_msg in connections.items()
                                   if ex in required_exchanges and err_msg is not None})
-            if any(ex in DEXES for ex in required_exchanges):
+            if ethereum_wallet_required():
                 err_msg = UserBalances.validate_ethereum_wallet()
                 if err_msg is not None:
                     invalid_conns["ethereum"] = err_msg
@@ -171,9 +171,9 @@ class StatusCommand:
                 loading_markets.append(market)
 
         if len(loading_markets) > 0:
-            self._notify(f"  - Connectors check:  Waiting for connectors " +
-                         ",".join([m.name.capitalize() for m in loading_markets]) + f" to get ready for trading. \n"
-                         f"                    Please keep the bot running and try to start again in a few minutes. \n")
+            self._notify("  - Connectors check:  Waiting for connectors " +
+                         ",".join([m.name.capitalize() for m in loading_markets]) + " to get ready for trading. \n"
+                         "                    Please keep the bot running and try to start again in a few minutes. \n")
 
             for market in loading_markets:
                 market_status_df = pd.DataFrame(data=market.status_dict.items(), columns=["description", "status"])
@@ -195,5 +195,5 @@ class StatusCommand:
                 self._notify(f"  - Connector check: {offline_market} is currently offline.")
             return False
         self.application_warning()
-        self._notify(f"  - All checks: Confirmed.")
+        self._notify("  - All checks: Confirmed.")
         return True

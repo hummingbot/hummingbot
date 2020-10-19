@@ -11,14 +11,14 @@ import logging
 import unittest
 from typing import List
 
-from hummingbot.market.bitfinex.bitfinex_api_order_book_data_source import (
+from hummingbot.connector.exchange.bitfinex.bitfinex_api_order_book_data_source import (
     BitfinexAPIOrderBookDataSource,
 )
 
 
 class BitfinexAPIOrderBookDataSourceUnitTest(unittest.TestCase):
     trading_pairs: List[str] = [
-        "tBTCUSD",
+        "BTC-USD",
     ]
 
     @classmethod
@@ -35,12 +35,12 @@ class BitfinexAPIOrderBookDataSourceUnitTest(unittest.TestCase):
         self.assertIsInstance(result, list)
         self.assertGreater(len(result), 0)
         self.assertIsInstance(result[0], str)
-        self.assertEqual(result[0], "tBTCUSD")
+        self.assertEqual(result[0], "BTC-USD")
 
     def test_size_snapshot(self):
         async def run_session_for_fetch_snaphot():
             async with aiohttp.ClientSession() as client:
-                result = await self.data_source.get_snapshot(client, "ETHUSD")
+                result = await self.data_source.get_snapshot(client, "BTC-USD")
                 assert len(result["bids"]) == self.data_source.SNAPSHOT_LIMIT_SIZE
                 assert len(result["asks"]) == self.data_source.SNAPSHOT_LIMIT_SIZE
 

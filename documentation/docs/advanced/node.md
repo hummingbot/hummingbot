@@ -10,7 +10,9 @@ Which Ethereum node would you like your client to connect to? >>>
 
 Below, we list different ways that you can access an Ethereum node.
 
-## Option 1. Infura
+## Option 1. Hosted Node
+
+### a. Infura
 
 [Infura](https://infura.io/) provides free and the most widely used Ethereum nodes.
 
@@ -23,6 +25,31 @@ Below, we list different ways that you can access an Ethereum node.
 ![](/assets/img/infura3.png)
 5. The websocket address is below the Ethereum node that starts with `wss://`
 
+### b. QuikNode
+
+[QuikNode](https://www.quiknode.io/) is a popular and high-performance node service.
+
+1. Sign up for an account on QuikNode.io
+![](/assets/img/QuikNode1.png)
+2. Click on **CREATE NODE** after verifying your e-mail address.
+![](/assets/img/QuikNode2.png)
+3. Select **LAUNCH** plan as it'll give you free trial (you can upgrade later according to your needs), then choose **ETH** as chain, select **Mainnet** as network, click on **CONTINUE TO BILLING** and complete the billing process.
+![](/assets/img/QuikNode3.png)
+4. Under the **Nodes** section you'll find your new node, click on the node and open the node dashboard.
+5. In **Get Started** option from left-vertical menu you can find websocket address under **WSS Provider** starting with `wss://`, you can simply copy and use it.
+
+### c. Alchemy
+
+[Alchemy](https://alchemyapi.io/) Supernode is the most widely used Ethereum API.
+
+1. Sign up for an account on Alchemyapi.io after clicking on **Get started for free**.
+![](/assets/img/Alchemy1.png)
+2. Enter your Team name and App name then select **Mainnet** and click on **Create App**.
+![](/assets/img/Alchemy2.png)
+3. Select the plan according to your need and complete the billing process.
+4. Now you'll see the dashboard of your app.
+![](/assets/img/Alchemy3.png)
+5. The websocket address starting with `wss://` is below the http address in the **Update Configuration** section.
 
 ## Option 2. Run your own local node
 
