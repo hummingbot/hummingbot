@@ -77,11 +77,11 @@ order_level_amount: 14
 order_level_spread: 1
 
 # How long to wait before placing the next order in case your order gets filled.
-filled_order_delay: 680
+filled_order_delay: 390
 
 # Whether to stop cancellations of orders on the other side (of the order book),
 # when one side is filled (hanging orders feature) (true/false).
-hanging_orders_enabled: true
+hanging_orders_enabled: false
 
 # Spread (from mid price, in percentage) hanging orders will be canceled (Enter 1 to indicate 1%)
 hanging_orders_cancel_pct: 10.0
