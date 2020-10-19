@@ -96,13 +96,63 @@ The Hummingbot Miners app uses your Ethereum wallet address to:
 
 1. Navigate to the [Sign up](https://miners.hummingbot.io/signup) page.
 2. Simply enter your email address and click **Agree to terms and conditions**, and click **Create Account**. You should see a popup window that instructs you to check your email.
-3. Once you confirm your email address. You should already be logged in to Hummingbot Miner. You can then proceed to complete the rest of the onboarding process, following the steps on the [Settings](https://miners.hummingbot.io/settings) page.
+3. Once you confirm your email address. You should already be logged in to Hummingbot Miner. 
+4. Navigate to the [Settings](https://miners.hummingbot.io/settings) page and connect your Binace API key.
+5. Connect wallets by adding your preferred Ethereum address and Ethereum wallet addresses for ERC20 token payments.
 
-!!! tip
-    You may edit the Ethereum address to receive payouts in a different wallet, or on Binance directly [How to get your ETH deposit address on Binance](https://academy.binance.com/tutorials/how-to-deposit#deposit).
+### How to add wallet address?  
+  
+1. Log in to https://miners.hummingbot.io  
+2. Click **Settings**.  
+3. Scroll down to **Connect Wallet**, and click down arrow (on the right) to expand the section. The wallet option is displayed.   
+4. Choose the wallet you would like to connect base on the campaign you're participating.  
+5. For miners participating in the Binance - Zcoin campaign, choose **`Zcoin`** row (background is highlighted in gray when mouse over), enter your Zcoin deposit address.    
+6. For miners participating in the KuCoin - Harmony One campaing, choose **`Harmony`** row (background is highlighted in gray when mouse over), enter your Harmony One deposit address.  
+7. For miners participating in other campaings on Binance beside Zcoin, choose **`Ethereum`** row (background is highlighted in gray when mouse over), enter your Ethereum deposit address.  
+  
+!!! info "Wallet address not used for trading"
+    Wallet address are use for receiving payouts only, you do not need deposit assets into or trade using this wallet.
 
-!!! note "Ethereum Wallet address not used for trading"
-    Since it is only used for the purposes mentioned above, you do not need deposit assets into or trade using this wallet.
+#### Get Ethereum deposit address with Metamask browser extension  
+1. Add Metamask extension to your favorite browser.  
+2. Open Metamask and create an account - complete the sign up process.  
+3. On Metamask dashboard make sure Network is set to Main Ethereum Network (the default network for Ether transaction is Main Net).  
+4. The Ethereum address is located Below Main Ethereum Network along with your name.  
+5. You can copy the Ethereum address by clicking your name.  
+
+Above steps are for new user, existing user can jump to step #3 after successful login.
+<br />  
+
+#### Get Ethereum and Zcoin deposit address from Binance  
+1. Go to [Binance](https://www.binance.com/) website.  
+2. Complete the sign up process.  
+3. Navigate to Spot wallet, click the **Deposit** button and choose **XZC** to display the Zcoin deposit address or choose **ETH** to display the Ethereum deposit address. 
+
+Above steps are for new user, existing user can jump to step #3 after successful login.  
+
+!!! Note "Note"  
+    You may also refer to this step on [How to get your deposit address on Binance](https://academy.binance.com/tutorials/how-to-deposit#deposit).  
+    You can also check your ZCoin wallet on https://explorer.zcoin.io/  
+    Zcoin address start with:  "a..." or "Z..." or "3..." for multi-sig wallets.  
+
+  
+#### Get Zcoin deposit address with mobile wallet  
+1. Download edge Wallet from Apple Store or Google Play.  
+2. Open the app and create an account - complete the sign up process.  
+3. Click the plus sign next to My **Wallets** to add a Zcoin wallet. Type **Zcoin** or select it from the list.  
+4. Choose your desired fiat pair, then name you wallet and confirm by clicking "Create Wallet".  
+5. Zcoin wallet will appear on the main screen, click Zcoin wallet then click **Request**. This generates an address with a correspoind QR code which you can copy and share to receive your coin.  
+
+Above steps are for new user, existing user can jump to step #5 after successful login.
+
+!!! note "Note"
+    Though above example uses edge wallet, Zcoin doesn't endorse one wallet in particular.
+    You may also refer to this step on [How to receive Zcoin with a mobile wallet](https://zcoin.io/how-to-receive-zcoin-with-a-mobile-wallet) 
+    And also this step on [Installation and and getting started with your Zcoin wallet](https://youtu.be/8-HKyM3QrJU)   
+      
+
+!!! warning "Incorrect wallet address"
+    Incorrect wallet address may result in a loss of funds.  
 
 
 ### How do I see how my rewards are calculated?
@@ -139,7 +189,7 @@ Your weekly payout email receipts contains links to the blockchain transaction c
 
 ### I don't see my earnings on my metamask and on etherscan link from my email weekly reward.
 
-Click the etherscan link provided on email and navigate to `Erc20 Token Txns` as shown on image below, Or you may just need to add USDC token to MetaMask so you can view them. Please follow the instructions in this URL: [adding ERC20 Tokens](https://metamask.zendesk.com/hc/en-us/articles/360015489031-How-to-View-Your-Tokens)
+Click the etherscan link provided on email and navigate to `Erc20 Token Txns` as shown on image below, Or you may just need to add USDT token to MetaMask so you can view them. Please follow the instructions in this URL: [adding ERC20 Tokens](https://metamask.zendesk.com/hc/en-us/articles/360015489031-How-to-View-Your-Tokens)
 
 ![](../assets/img/erc20token.png)
 

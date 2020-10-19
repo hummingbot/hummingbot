@@ -17,10 +17,10 @@ cdef extern from "../cpp/LimitOrder.h":
                    PyObject *quantity)
         LimitOrder(const LimitOrder &other)
         LimitOrder &operator=(const LimitOrder &other)
-        string getClientOrderID();
-        string getTradingPair();
-        bool getIsBuy();
-        string getBaseCurrency();
-        string getQuoteCurrency();
-        PyObject *getPrice();
-        PyObject *getQuantity();
+        string getClientOrderID()
+        string getTradingPair()
+        bool getIsBuy()
+        string getBaseCurrency()
+        string getQuoteCurrency()
+        PyObject *getPrice()
+        PyObject *getQuantity()

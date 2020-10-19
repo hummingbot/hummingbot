@@ -76,7 +76,7 @@ class HuobiAPIUserStreamDataSource(UserStreamTrackerDataSource):
         msg = resp.json()
         if msg["code"] != 200:
             self.logger().error(f"Error occurred authenticating to websocket API server. {msg}")
-        self.logger().info(f"Successfully authenticated")
+        self.logger().info("Successfully authenticated")
 
     async def _subscribe_topic(self, topic: str):
         subscribe_request = {

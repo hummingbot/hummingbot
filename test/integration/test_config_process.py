@@ -135,7 +135,7 @@ class ConfigProcessTest(unittest.TestCase):
 
         self.assertEqual(pure_market_making_config_map["mode"].value,
                          pure_market_making_config_map["mode"].default)
-        await wait_til(lambda: f"Config process complete." in self.hb.app.output_field.document.text)
+        await wait_til(lambda: "Config process complete." in self.hb.app.output_field.document.text)
 
     def test_pure_mm_basic_til_start(self):
         self.ev_loop.run_until_complete(self._test_pure_mm_basic_til_start())
@@ -158,7 +158,7 @@ class ConfigProcessTest(unittest.TestCase):
         # advanced_mode should be prompted here as its file value not valid.
         await self.check_prompt_and_input(pure_market_making_config_map["bid_place_threshold"].prompt, "0.01")
         await self.check_prompt_and_input(pure_market_making_config_map["advanced_mode"].prompt, "no")
-        await wait_til(lambda: f"Config process complete." in self.hb.app.output_field.document.text)
+        await wait_til(lambda: "Config process complete." in self.hb.app.output_field.document.text)
 
     def test_pure_mm_basic_import_config_file(self):
         self.ev_loop.run_until_complete(self._test_pure_mm_basic_import_config_file())
@@ -167,7 +167,7 @@ class ConfigProcessTest(unittest.TestCase):
         await self.check_prompt_and_input(">>> ", "config bid_place_threshold")
         # try inputting invalid value
         await self.check_prompt_and_input(pure_market_making_config_map["bid_place_threshold"].prompt, "-0.01")
-        self.assertEqual(self.hb.app.output_field.document.lines[-1], f"-0.01 is not a valid bid_place_threshold value")
+        self.assertEqual(self.hb.app.output_field.document.lines[-1], "-0.01 is not a valid bid_place_threshold value")
         await self.check_prompt_and_input(pure_market_making_config_map["bid_place_threshold"].prompt, "0.01")
 
     def test_single_configs(self):
