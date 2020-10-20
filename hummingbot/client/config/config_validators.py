@@ -10,8 +10,9 @@ def validate_exchange(value: str) -> Optional[str]:
 
 
 def validate_connector(value: str) -> Optional[str]:
-    if value not in CONNECTORS_SET:
-        return f"Invalid connector, please choose value from {CONNECTORS_SET}"
+    from hummingbot.client.settings import CONNECTOR_SETTINGS
+    if value not in CONNECTOR_SETTINGS:
+        return f"Invalid connector, please choose value from {CONNECTOR_SETTINGS.keys()}"
 
 
 def validate_strategy(value: str) -> Optional[str]:

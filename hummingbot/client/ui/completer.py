@@ -9,7 +9,7 @@ from prompt_toolkit.document import Document
 from os import listdir
 from os.path import isfile, join
 from hummingbot.client.settings import (
-    CONNECTORS_SET,
+    CONNECTOR_SETTINGS,
     EXCHANGES,
     STRATEGIES,
     CONF_FILE_PATH,
@@ -31,7 +31,7 @@ class HummingbotCompleter(Completer):
         self.hummingbot_application = hummingbot_application
         self._path_completer = WordCompleter(file_name_list(CONF_FILE_PATH, "yml"))
         self._command_completer = WordCompleter(self.parser.commands, ignore_case=True)
-        self._connector_completer = WordCompleter(CONNECTORS_SET, ignore_case=True)
+        self._connector_completer = WordCompleter(CONNECTOR_SETTINGS.keys(), ignore_case=True)
         self._exchange_completer = WordCompleter(EXCHANGES, ignore_case=True)
         self._connect_option_completer = WordCompleter(CONNECT_OPTIONS, ignore_case=True)
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
@@ -55,7 +55,7 @@ class HummingbotCompleter(Completer):
     def _trading_pair_completer(self) -> Completer:
         trading_pair_fetcher = TradingPairFetcher.get_instance()
         market = None
-        for exchange in CONNECTORS_SET:
+        for exchange in CONNECTOR_SETTINGS:
             if exchange in self.prompt_text:
                 market = exchange
                 break
