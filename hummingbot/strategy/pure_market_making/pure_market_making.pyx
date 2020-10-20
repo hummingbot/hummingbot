@@ -782,8 +782,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             ExchangeBase market = self._market_info.market
             object quote_size
             object base_size
-            object quote_size_total = Decimal("0")
-            object base_size_total = Decimal("0")
             object adjusted_amount
 
         base_balance, quote_balance = self.c_get_adjusted_available_balance(self.active_non_hanging_orders)
@@ -799,15 +797,12 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 adjusted_amount = market.c_quantize_order_amount(self.trading_pair, adjusted_amount)
                 self.logger().info(f"Not enough balance for buy order ({buy}), "
                                    f"order_amount is adjusted to {adjusted_amount}")
-                quote_size = adjusted_amount
                 buy.size = adjusted_amount
                 quote_balance = s_decimal_zero
             elif quote_balance == s_decimal_zero:
-                quote_size = s_decimal_zero
                 buy.size = s_decimal_zero
             else:
                 quote_balance -= quote_size
-            quote_size_total += quote_size
 
         proposal.buys = [o for o in proposal.buys if o.size > 0]
 
@@ -817,15 +812,12 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 adjusted_amount = market.c_quantize_order_amount(self.trading_pair, base_balance)
                 self.logger().info(f"Not enough balance for sell order ({sell}), "
                                    f"order_amount is adjusted to {adjusted_amount}")
-                base_size = adjusted_amount
                 sell.size = adjusted_amount
                 base_balance = s_decimal_zero
             elif base_balance == s_decimal_zero:
-                base_size = s_decimal_zero
                 sell.size = s_decimal_zero
             else:
                 base_balance -= base_size
-            base_size_total += base_size
 
         proposal.sells = [o for o in proposal.sells if o.size > 0]
 
