@@ -137,7 +137,7 @@ class Security:
     @classmethod
     async def api_keys(cls, exchange):
         await cls.wait_til_decryption_done()
-        exchange_configs = [c for c in global_config_map.values() if
-                            c.key in CONNECTOR_SETTINGS[exchange].config_keys and
+        exchange_configs = [c for c in global_config_map.values()
+                            if c.key in CONNECTOR_SETTINGS[exchange].config_keys and
                             c.key in cls._secure_configs]
         return {c.key: cls.decrypted_value(c.key) for c in exchange_configs}

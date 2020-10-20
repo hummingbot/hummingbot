@@ -214,13 +214,6 @@ class HummingbotApplication(*commands):
                 for asset, balance in paper_trade_account_balance.items():
                     connector.set_balance(asset, balance)
 
-            # elif connector_name in ETH_WALLET_CONNECTORS:
-            #     assert self.wallet is not None
-            #     keys = dict((key, value.value) for key, value in dict(filter(lambda item: connector_name in item[0], global_config_map.items())).items())
-            #     connector_class = get_connector_class(connector_name)
-            #     connector = connector_class(**keys, wallet=self.wallet, ethereum_rpc_url=ethereum_rpc_url, trading_pairs=trading_pairs, trading_required=self._trading_required)
-            #     # TO-DO for DEXes: rename all extra argument to match key in global_config_map
-
             elif connector_name in CONNECTOR_SETTINGS:
                 conn_setting = CONNECTOR_SETTINGS[connector_name]
                 keys = {key: config.value for key, config in global_config_map.items()
