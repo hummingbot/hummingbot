@@ -131,10 +131,10 @@ cdef class BinanceExchange(ExchangeBase):
         self.monkey_patch_binance_time()
         super().__init__()
         self._trading_required = trading_required
-        self._order_book_tracker = BinanceOrderBookTracker(trading_pairs=trading_pairs)
+        self._order_book_tracker = BinanceOrderBookTracker(trading_pairs=trading_pairs, domain=domain)
         self._domain = domain
         self._binance_client = BinanceClient(binance_api_key, binance_api_secret, tld=domain)
-        self._user_stream_tracker = BinanceUserStreamTracker(binance_client=self._binance_client)
+        self._user_stream_tracker = BinanceUserStreamTracker(binance_client=self._binance_client, domain=domain)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
@@ -315,7 +315,7 @@ cdef class BinanceExchange(ExchangeBase):
         return TradeFee(percent=maker_trade_fee if order_type.is_limit_type() else taker_trade_fee)
         """
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return estimate_fee("binance", is_maker)
+        return estimate_fee(self.name, is_maker)
 
     async def _update_trading_rules(self):
         cdef:
@@ -697,7 +697,7 @@ cdef class BinanceExchange(ExchangeBase):
             try:
                 await safe_gather(
                     self._update_trading_rules(),
-                    self._update_trade_fees()
+                    # self._update_trade_fees()
                 )
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
@@ -714,7 +714,7 @@ cdef class BinanceExchange(ExchangeBase):
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
-            "trade_fees_initialized": len(self._trade_fees) > 0
+            # "trade_fees_initialized": len(self._trade_fees) > 0
         }
 
     @property

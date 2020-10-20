@@ -37,11 +37,11 @@ class TradingPairFetcher:
         tasks = []
         fetched_connectors = []
         for conn_setting in CONNECTOR_SETTINGS.values():
-            module_name = f"{conn_setting.class_name()}_api_order_book_data_source"
-            class_name = "".join([o.capitalize() for o in conn_setting.class_name().split("_")]) + \
+            module_name = f"{conn_setting.base_name()}_api_order_book_data_source"
+            class_name = "".join([o.capitalize() for o in conn_setting.base_name().split("_")]) + \
                          "APIOrderBookDataSource"
             module_path = f"hummingbot.connector.{conn_setting.type.name.lower()}." \
-                          f"{conn_setting.class_name()}.{module_name}"
+                          f"{conn_setting.base_name()}.{module_name}"
             module = getattr(importlib.import_module(module_path), class_name)
             if conn_setting.is_sub_domain:
                 tasks.append(module.fetch_trading_pairs(domain=conn_setting.domain_parameter))

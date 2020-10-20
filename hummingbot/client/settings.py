@@ -6,7 +6,7 @@ from os.path import (
 )
 from enum import Enum
 from decimal import Decimal
-from typing import List, NamedTuple, Dict
+from typing import List, NamedTuple, Dict, Any
 from hummingbot import get_strategy_list
 from pathlib import Path
 from hummingbot.client.config.config_var import ConfigVar
@@ -53,7 +53,27 @@ class ConnectorSetting(NamedTuple):
     parent_name: str
     domain_parameter: str
 
-    def class_name(self):
+    def module_name(self) -> str:
+        # returns connector module name, e.g. binance_exchange
+        return f'{self.base_name()}_{self.type.name.lower()}'
+
+    def module_path(self) -> str:
+        # return connector full path name, e.g. hummingbot.connector.exchange.binance.binance_exchange
+        return f'hummingbot.connector.{self.type.name.lower()}.{self.base_name()}.{self.module_name()}'
+
+    def class_name(self) -> str:
+        # return connector class name, e.g. BinanceExchange
+        return "".join([o.capitalize() for o in self.module_name().split("_")])
+
+    def conn_init_parameters(self, api_keys: Dict[str, Any]) -> Dict[str, Any]:
+        if not self.is_sub_domain:
+            return api_keys
+        else:
+            params = {k.replace(self.name, self.parent_name): v for k, v in api_keys.items()}
+            params["domain"] = self.domain_parameter
+            return params
+
+    def base_name(self) -> str:
         if self.is_sub_domain:
             return self.parent_name
         else:
