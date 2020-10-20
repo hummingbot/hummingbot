@@ -10,11 +10,8 @@ from hummingbot.client.command import __all__ as commands
 from hummingbot.core.clock import Clock
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
-
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
-
 from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
-
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.client.ui.keybindings import load_key_bindings
@@ -26,7 +23,6 @@ from hummingbot.client.config.global_config_map import global_config_map, using_
 from hummingbot.client.config.config_helpers import get_erc20_token_addresses, get_strategy_config_map, get_connector_class
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
-
 from hummingbot.core.utils.kill_switch import KillSwitch
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.notifier.notifier_base import NotifierBase
@@ -34,11 +30,9 @@ from hummingbot.notifier.telegram_notifier import TelegramNotifier
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.client.config.security import Security
-
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
-
-from hummingbot.client.settings import ETH_WALLET_CONNECTORS, CONNECTOR_SETTINGS
+from hummingbot.client.settings import CONNECTOR_SETTINGS
 
 s_logger = None
 
@@ -220,18 +214,24 @@ class HummingbotApplication(*commands):
                 for asset, balance in paper_trade_account_balance.items():
                     connector.set_balance(asset, balance)
 
-            elif connector_name in ETH_WALLET_CONNECTORS:
-                assert self.wallet is not None
-                keys = dict((key, value.value) for key, value in dict(filter(lambda item: connector_name in item[0], global_config_map.items())).items())
-                connector_class = get_connector_class(connector_name)
-                connector = connector_class(**keys, wallet=self.wallet, ethereum_rpc_url=ethereum_rpc_url, trading_pairs=trading_pairs, trading_required=self._trading_required)
-                # TO-DO for DEXes: rename all extra argument to match key in global_config_map
+            # elif connector_name in ETH_WALLET_CONNECTORS:
+            #     assert self.wallet is not None
+            #     keys = dict((key, value.value) for key, value in dict(filter(lambda item: connector_name in item[0], global_config_map.items())).items())
+            #     connector_class = get_connector_class(connector_name)
+            #     connector = connector_class(**keys, wallet=self.wallet, ethereum_rpc_url=ethereum_rpc_url, trading_pairs=trading_pairs, trading_required=self._trading_required)
+            #     # TO-DO for DEXes: rename all extra argument to match key in global_config_map
 
             elif connector_name in CONNECTOR_SETTINGS:
+                conn_setting = CONNECTOR_SETTINGS[connector_name]
                 keys = {key: config.value for key, config in global_config_map.items()
-                        if key in CONNECTOR_SETTINGS[connector_name].config_keys}
+                        if key in conn_setting.config_keys}
+                init_params = conn_setting.conn_init_parameters(keys)
+                init_params.update(trading_pairs=trading_pairs, trading_required=self._trading_required)
+                if conn_setting.use_ethereum_wallet:
+                    assert self.wallet is not None
+                    init_params.update(wallet=self.wallet, ethereum_rpc_url=ethereum_rpc_url)
                 connector_class = get_connector_class(connector_name)
-                connector = connector_class(**keys, trading_pairs=trading_pairs, trading_required=self._trading_required)
+                connector = connector_class(**init_params)
 
             else:
                 raise ValueError(f"Connector name {connector_name} is invalid.")
