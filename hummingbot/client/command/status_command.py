@@ -17,7 +17,7 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.config.security import Security
 from hummingbot.user.user_balances import UserBalances
-from hummingbot.client.settings import required_exchanges, DEXES
+from hummingbot.client.settings import required_exchanges, ethereum_wallet_required
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 from typing import TYPE_CHECKING
@@ -93,7 +93,7 @@ class StatusCommand:
             connections = await UserBalances.instance().update_exchanges(exchanges=required_exchanges)
             invalid_conns.update({ex: err_msg for ex, err_msg in connections.items()
                                   if ex in required_exchanges and err_msg is not None})
-            if any(ex in DEXES for ex in required_exchanges):
+            if ethereum_wallet_required():
                 err_msg = UserBalances.validate_ethereum_wallet()
                 if err_msg is not None:
                     invalid_conns["ethereum"] = err_msg
