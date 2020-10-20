@@ -792,19 +792,25 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             buy_fee = market.c_get_fee(self.base_asset, self.quote_asset, OrderType.LIMIT, TradeType.BUY,
                                        buy.size, buy.price)
             quote_size = buy.size * buy.price * (Decimal(1) + buy_fee.percent)
+
+            # Adjust order size to use remaining balance if less than the order amount
             if quote_balance < quote_size_total + quote_size:
                 adjusted_amount = quote_balance / (buy.price * (Decimal("1") + buy_fee.percent))
                 adjusted_amount = market.c_quantize_order_amount(self.trading_pair, adjusted_amount)
                 quote_size = adjusted_amount
                 buy.size = adjusted_amount
             quote_size_total += quote_size
-            if quote_balance < quote_size_total:
+
+            # Set order amount to 0 on multiple order levels if balance is insufficient
+            if quote_balance / buy.price < adjusted_amount:
                 self.logger().info(f"Not enough balance to create all buy orders: "
                                    f"order_levels is set to {self._order_levels}")
                 quote_size = s_decimal_zero
                 buy.size = s_decimal_zero
             quote_size_total += quote_size
+
         proposal.buys = [o for o in proposal.buys if o.size > 0]
+
         for sell in proposal.sells:
             base_size = sell.size
             if base_balance < base_size_total + base_size:
@@ -812,6 +818,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 base_size = adjusted_amount
                 sell.size = adjusted_amount
             base_size_total += base_size
+
             if base_balance < base_size_total:
                 self.logger().info(f"Not enough balance to create all sell orders: "
                                    f"order_levels is set to {self._order_levels}")
