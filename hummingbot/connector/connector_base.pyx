@@ -120,7 +120,7 @@ cdef class ConnectorBase(NetworkIterator):
 
     def order_filled_balances(self, starting_timestamp = 0) -> Dict[str, Decimal]:
         """
-        Calculates total asset balance changes from filled orders since the time stamp
+        Calculates total asset balance changes from filled orders since the timestamp
         For BUY filled order, the quote balance goes down while the base balance goes up, and for SELL order, it's the
         opposite. This does not account for fee.
         :param starting_timestamp: The starting timestamp to include filter order filled events

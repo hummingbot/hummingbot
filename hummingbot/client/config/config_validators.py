@@ -1,11 +1,10 @@
-from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from decimal import Decimal
 from typing import Optional
-from hummingbot.client.settings import EXCHANGES, STRATEGIES, CONNECTORS_SET
 
 
 # Validators
 def validate_exchange(value: str) -> Optional[str]:
+    from hummingbot.client.settings import EXCHANGES
     if value not in EXCHANGES:
         return f"Invalid exchange, please choose value from {EXCHANGES}"
 
@@ -16,6 +15,7 @@ def validate_connector(value: str) -> Optional[str]:
 
 
 def validate_strategy(value: str) -> Optional[str]:
+    from hummingbot.client.settings import STRATEGIES
     if value not in STRATEGIES:
         return f"Invalid strategy, please choose value from {STRATEGIES}"
 
@@ -46,6 +46,7 @@ def validate_decimal(value: str, min_value: Decimal = None, max_value: Decimal =
 def validate_market_trading_pair(market: str, value: str) -> Optional[str]:
     # Since trading pair validation and autocomplete are UI optimizations that do not impact bot performances,
     # in case of network issues or slow wifi, this check returns true and does not prevent users from proceeding,
+    from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
     trading_pair_fetcher: TradingPairFetcher = TradingPairFetcher.get_instance()
     if trading_pair_fetcher.ready:
         trading_pairs = trading_pair_fetcher.trading_pairs.get(market, [])

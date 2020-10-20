@@ -45,7 +45,6 @@ cdef class LoopringInFlightOrder(InFlightOrderBase):
 
     @property
     def is_cancelled(self) -> bool:
-        # TODO: should this represent marked for cancelation, or fully canceled in hummingbot?
         return self.status == LoopringOrderStatus.cancelled
 
     @property
