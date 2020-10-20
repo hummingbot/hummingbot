@@ -794,37 +794,39 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             quote_size = buy.size * buy.price * (Decimal(1) + buy_fee.percent)
 
             # Adjust order size to use remaining balance if less than the order amount
-            if quote_balance < quote_size_total + quote_size:
+            if quote_balance < quote_size:
                 adjusted_amount = quote_balance / (buy.price * (Decimal("1") + buy_fee.percent))
                 adjusted_amount = market.c_quantize_order_amount(self.trading_pair, adjusted_amount)
+                self.logger().info(f"Not enough balance for buy order ({buy}), "
+                                   f"order_amount is adjusted to {adjusted_amount}")
                 quote_size = adjusted_amount
                 buy.size = adjusted_amount
-            quote_size_total += quote_size
-
-            # Set order amount to 0 on multiple order levels if balance is insufficient
-            if quote_balance / buy.price < adjusted_amount:
-                self.logger().info(f"Not enough balance to create all buy orders: "
-                                   f"order_levels is set to {self._order_levels}")
+                quote_balance = s_decimal_zero
+            elif quote_balance == s_decimal_zero:
                 quote_size = s_decimal_zero
                 buy.size = s_decimal_zero
+            else:
+                quote_balance -= quote_size
             quote_size_total += quote_size
 
         proposal.buys = [o for o in proposal.buys if o.size > 0]
 
         for sell in proposal.sells:
             base_size = sell.size
-            if base_balance < base_size_total + base_size:
+            if base_balance < base_size:
                 adjusted_amount = market.c_quantize_order_amount(self.trading_pair, base_balance)
+                self.logger().info(f"Not enough balance for sell order ({sell}), "
+                                   f"order_amount is adjusted to {adjusted_amount}")
                 base_size = adjusted_amount
                 sell.size = adjusted_amount
-            base_size_total += base_size
-
-            if base_balance < base_size_total:
-                self.logger().info(f"Not enough balance to create all sell orders: "
-                                   f"order_levels is set to {self._order_levels}")
+                base_balance = s_decimal_zero
+            elif base_balance == s_decimal_zero:
                 base_size = s_decimal_zero
                 sell.size = s_decimal_zero
+            else:
+                base_balance -= base_size
             base_size_total += base_size
+
         proposal.sells = [o for o in proposal.sells if o.size > 0]
 
     cdef c_filter_out_takers(self, object proposal):
