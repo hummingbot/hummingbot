@@ -791,11 +791,11 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                                        buy.size, buy.price)
             quote_size = buy.size * buy.price * (Decimal(1) + buy_fee.percent)
 
-            # Adjust order size to use remaining balance if less than the order amount
+            # Adjust buy order size to use remaining balance if less than the order amount
             if quote_balance < quote_size:
                 adjusted_amount = quote_balance / (buy.price * (Decimal("1") + buy_fee.percent))
                 adjusted_amount = market.c_quantize_order_amount(self.trading_pair, adjusted_amount)
-                self.logger().info(f"Not enough balance for buy order ({buy}), "
+                self.logger().info(f"Not enough balance for buy order (Size: {buy.size.normalize()}, Price: {buy.price.normalize()}), "
                                    f"order_amount is adjusted to {adjusted_amount}")
                 buy.size = adjusted_amount
                 quote_balance = s_decimal_zero
@@ -808,9 +808,11 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         for sell in proposal.sells:
             base_size = sell.size
+
+            # Adjust sell order size to use remaining balance if less than the order amount
             if base_balance < base_size:
                 adjusted_amount = market.c_quantize_order_amount(self.trading_pair, base_balance)
-                self.logger().info(f"Not enough balance for sell order ({sell}), "
+                self.logger().info(f"Not enough balance for sell order (Size: {sell.size.normalize()}, Price: {sell.price.normalize()}), "
                                    f"order_amount is adjusted to {adjusted_amount}")
                 sell.size = adjusted_amount
                 base_balance = s_decimal_zero
