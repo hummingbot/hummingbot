@@ -7,6 +7,10 @@ EXAMPLE_PAIR = "ZRX-WETH"
 
 DEFAULT_FEES = [0, 0.00001]
 
+USE_ETHEREUM_WALLET = True
+FEE_TYPE = "FlatFee"
+FEE_TOKEN = "ETH"
+
 KEYS = {
     "bamboo_relay_use_coordinator":
         ConfigVar(key="bamboo_relay_use_coordinator",
