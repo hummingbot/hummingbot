@@ -169,9 +169,7 @@ perpetual_market_making_config_map = {
                   prompt="How far away from the position entry price do you want to set the "
                          "activation price for position exit trailing stop order? (Enter 1 to indicate 1%) >>> ",
                   type_str="decimal",
-                  validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
-                  prompt_on_new=True),
-
+                  validator=lambda v: validate_decimal(v, 0, 100, inclusive=False)),
     "minimum_spread":
         ConfigVar(key="minimum_spread",
                   prompt="At what minimum spread should the bot automatically cancel orders? (Enter 1 for 1%) >>> ",
