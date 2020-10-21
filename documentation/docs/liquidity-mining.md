@@ -63,7 +63,7 @@ ZCoin is putting its campaign on pause and will continue to monitor and re-evalu
 
 ## Current Reward Period
 
-**October 13, 2020 12:00am UTC - October 20, 2020 12:00am UTC**
+**October 20, 2020 12:00am UTC - October 27, 2020 12:00am UTC**
 
 <table>
   <thead>
@@ -180,7 +180,7 @@ The campaign will initially be a 24-week campaign with a reward pool of $30,000 
 </table>
 
 !!! note
-    *50% of the reward pool will be denominated in Algo tokens, with the final amount to be determined just prior to the campaign launch based on the indicated dollar amounts shown.
+    \* 50% of the reward pool will be denominated in Algo tokens, with the final amount to be determined just prior to the campaign launch based on the indicated dollar amounts shown.
 
 **2) Liquidity mining campaign for NEM (XEM) going live on November 3, 2020!**
 
@@ -212,7 +212,7 @@ Total reward pool: XEM tokens with a current value of approximately $1,250 per w
 </table>
 
 !!! note
-    *The reward pool will be denominated in XEM tokens, with the final amount to be determined just prior to the campaign launch based on the indicated dollar amounts shown.
+    \* The reward pool will be denominated in XEM tokens, with the final amount to be determined just prior to the campaign launch based on the indicated dollar amounts shown.
 
 ## Token Issuers
 
