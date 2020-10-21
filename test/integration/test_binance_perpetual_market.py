@@ -20,7 +20,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_market import BinancePerpetualMarket
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import BinancePerpetualDerivative
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from .assets.test_keys import Keys
 
@@ -40,7 +40,7 @@ class BinancePerpetualMarketUnitTest(unittest.TestCase):
         MarketEvent.OrderFailure
     ]
 
-    market: BinancePerpetualMarket
+    market: BinancePerpetualDerivative
     market_logger: EventLogger
     stack: contextlib.ExitStack
 
@@ -48,7 +48,7 @@ class BinancePerpetualMarketUnitTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls._ev_loop = asyncio.get_event_loop()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.market: BinancePerpetualMarket = BinancePerpetualMarket(
+        cls.market: BinancePerpetualDerivative = BinancePerpetualDerivative(
             api_key=Keys.get_binance_futures_api_key(),
             api_secret=Keys.get_binance_futures_api_secret(),
             order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,

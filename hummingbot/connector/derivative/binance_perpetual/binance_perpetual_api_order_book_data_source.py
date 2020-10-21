@@ -16,24 +16,33 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book import BinancePerpetualOrderBook
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils import convert_to_exchange_trading_pair
 
-DIFF_STREAM_URL = "wss://fstream.binance.com/stream"
-PERPETUAL_BASE_URL = "https://fapi.binance.com/fapi/v1"
-SNAPSHOT_REST_URL = PERPETUAL_BASE_URL + "/depth"
-TICKER_PRICE_URL = PERPETUAL_BASE_URL + "/ticker/bookTicker"
-TICKER_PRICE_CHANGE_URL = PERPETUAL_BASE_URL + "/ticker/24hr"
-EXCHANGE_INFO_URL = PERPETUAL_BASE_URL + "/exchangeInfo"
-RECENT_TRADES_URL = PERPETUAL_BASE_URL + "/trades"
+from hummingbot.connector.derivative.binance_perpetual.constants import (
+    PERPETUAL_BASE_URL,
+    TESTNET_BASE_URL
+)
+
+BASE_URL = TESTNET_BASE_URL if global_config_map.get("paper_trade_enabled").value else PERPETUAL_BASE_URL
+
+# API OrderBook Endpoints
+SNAPSHOT_REST_URL = BASE_URL + "/fapi/v1/depth"
+TICKER_PRICE_URL = BASE_URL + "/fapi/v1/ticker/bookTicker"
+TICKER_PRICE_CHANGE_URL = BASE_URL + "/fapi/v1/ticker/24hr"
+EXCHANGE_INFO_URL = BASE_URL + "/fapi/v1/exchangeInfo"
+RECENT_TRADES_URL = BASE_URL + "/fapi/v1/trades"
 
 
 class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
-    def __init__(self, trading_pairs: List[str] = None):
+    def __init__(self, base_url: str, stream_url: str, trading_pairs: List[str] = None):
         super().__init__(trading_pairs)
         self._trading_pairs: List[str] = trading_pairs
         self._order_book_create_function = lambda: OrderBook()
+        self._base_url = base_url
+        self._stream_url = stream_url + "/stream"
 
     _bpobds_logger: Optional[HummingbotLogger] = None
 
@@ -183,7 +192,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 # trading_pairs: List[str] = await self.get_trading_pairs()
                 ws_subscription_path: str = "/".join([f"{convert_to_exchange_trading_pair(trading_pair).lower()}@depth"
                                                       for trading_pair in self._trading_pairs])
-                stream_url: str = f"{DIFF_STREAM_URL}?streams={ws_subscription_path}"
+                stream_url: str = f"{self._stream_url}?streams={ws_subscription_path}"
                 async with websockets.connect(stream_url) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     async for raw_msg in self.ws_messages(ws):
@@ -210,7 +219,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 # trading_pairs: List[str] = await self.get_trading_pairs()
                 ws_subscription_path: str = "/".join([f"{convert_to_exchange_trading_pair(trading_pair).lower()}@aggTrade"
                                                       for trading_pair in self._trading_pairs])
-                stream_url = f"{DIFF_STREAM_URL}?streams={ws_subscription_path}"
+                stream_url = f"{self._stream_url}?streams={ws_subscription_path}"
                 async with websockets.connect(stream_url) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     async for raw_msg in self.ws_messages(ws):

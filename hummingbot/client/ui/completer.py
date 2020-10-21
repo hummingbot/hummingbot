@@ -10,6 +10,7 @@ from os import listdir
 from os.path import isfile, join
 from hummingbot.client.settings import (
     EXCHANGES,
+    DERIVATIVES,
     STRATEGIES,
     CONF_FILE_PATH,
     SCRIPTS_PATH
@@ -31,6 +32,7 @@ class HummingbotCompleter(Completer):
         self._path_completer = WordCompleter(file_name_list(CONF_FILE_PATH, "yml"))
         self._command_completer = WordCompleter(self.parser.commands, ignore_case=True)
         self._exchange_completer = WordCompleter(EXCHANGES, ignore_case=True)
+        self._derivative_completer = WordCompleter(DERIVATIVES, ignore_case=True)
         self._connect_exchange_completer = WordCompleter(CONNECT_EXCHANGES, ignore_case=True)
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
@@ -54,9 +56,16 @@ class HummingbotCompleter(Completer):
         trading_pair_fetcher = TradingPairFetcher.get_instance()
         market = None
         for exchange in EXCHANGES:
-            if exchange in self.prompt_text:
+            exchange_variant = exchange + "_"
+            if exchange in self.prompt_text and exchange_variant not in self.prompt_text:
                 market = exchange
                 break
+        if market is None:
+            for exchange in DERIVATIVES:
+                exchange_variant = exchange + "_"
+                if exchange in self.prompt_text and exchange_variant not in self.prompt_text:
+                    market = exchange
+                    break
         trading_pairs = trading_pair_fetcher.trading_pairs.get(market, []) if trading_pair_fetcher.ready else []
         return WordCompleter(trading_pairs, ignore_case=True, sentence=True)
 
@@ -93,8 +102,14 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return "-e" in text_before_cursor or \
                "--exchange" in text_before_cursor or \
-               "connect" in text_before_cursor or \
                any(x for x in ("exchange name", "name of exchange", "name of the exchange")
+                   if x in self.prompt_text.lower())
+
+    def _complete_derivatives(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return "--exchange" in text_before_cursor or \
+               "perpetual" in text_before_cursor or \
+               any(x for x in ("derivative name", "name of derivative", "name of the derivative")
                    if x in self.prompt_text.lower())
 
     def _complete_connect_exchanges(self, document: Document) -> bool:
@@ -174,6 +189,10 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_exchanges(document):
             for c in self._exchange_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_derivatives(document):
+            for c in self._derivative_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_trading_pairs(document):
