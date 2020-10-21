@@ -6,8 +6,8 @@ from typing import (
     List,
     Dict,
     NamedTuple,
-)
-
+    Optional)
+from dataclasses import dataclass
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 
 
@@ -158,7 +158,8 @@ class MarketReceivedAssetEvent(NamedTuple):
     amount_received: float
 
 
-class BuyOrderCompletedEvent(NamedTuple):
+@dataclass
+class BuyOrderCompletedEvent:
     timestamp: float
     order_id: str
     base_asset: str
@@ -168,9 +169,11 @@ class BuyOrderCompletedEvent(NamedTuple):
     quote_asset_amount: Decimal
     fee_amount: Decimal
     order_type: OrderType
+    exchange_order_id: Optional[str] = None
 
 
-class SellOrderCompletedEvent(NamedTuple):
+@dataclass
+class SellOrderCompletedEvent:
     timestamp: float
     order_id: str
     base_asset: str
@@ -180,11 +183,14 @@ class SellOrderCompletedEvent(NamedTuple):
     quote_asset_amount: Decimal
     fee_amount: Decimal
     order_type: OrderType
+    exchange_order_id: Optional[str] = None
 
 
-class OrderCancelledEvent(NamedTuple):
+@dataclass
+class OrderCancelledEvent:
     timestamp: float
     order_id: str
+    exchange_order_id: Optional[str] = None
 
 
 class OrderExpiredEvent(NamedTuple):
@@ -219,6 +225,11 @@ class TokenApprovedEvent(NamedTuple):
     asset_name: str
     amount: float
     raw_amount: int
+
+
+class TradeFeeType(Enum):
+    Percent = 1
+    FlatFee = 2
 
 
 class TradeFee(NamedTuple):
@@ -295,19 +306,23 @@ class OrderFilledEvent(NamedTuple):
         )
 
 
-class BuyOrderCreatedEvent(NamedTuple):
+@dataclass
+class BuyOrderCreatedEvent:
     timestamp: float
     type: OrderType
     trading_pair: str
     amount: Decimal
     price: Decimal
     order_id: str
+    exchange_order_id: Optional[str] = None
 
 
-class SellOrderCreatedEvent(NamedTuple):
+@dataclass
+class SellOrderCreatedEvent:
     timestamp: float
     type: OrderType
     trading_pair: str
     amount: Decimal
     price: Decimal
     order_id: str
+    exchange_order_id: Optional[str] = None

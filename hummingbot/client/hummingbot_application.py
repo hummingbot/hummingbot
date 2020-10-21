@@ -38,7 +38,7 @@ from hummingbot.client.config.security import Security
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 
-from hummingbot.client.settings import CEXES, DEXES, DERIVATIVES
+from hummingbot.client.settings import ETH_WALLET_CONNECTORS, CONNECTOR_SETTINGS, DERIVATIVES
 
 s_logger = None
 
@@ -227,17 +227,17 @@ class HummingbotApplication(*commands):
                     connector_class = get_connector_class(connector_name)
                     connector = connector_class(**keys, trading_pairs=trading_pairs, trading_required=True)
 
-            elif connector_name in CEXES or connector_name in DERIVATIVES:
-                keys = dict((key, value.value) for key, value in dict(filter(lambda item: connector_name in item[0], global_config_map.items())).items())
-                connector_class = get_connector_class(connector_name)
-                connector = connector_class(**keys, trading_pairs=trading_pairs, trading_required=self._trading_required)
-
-            elif connector_name in DEXES:
+            elif connector_name in ETH_WALLET_CONNECTORS:
                 assert self.wallet is not None
                 keys = dict((key, value.value) for key, value in dict(filter(lambda item: connector_name in item[0], global_config_map.items())).items())
                 connector_class = get_connector_class(connector_name)
                 connector = connector_class(**keys, wallet=self.wallet, ethereum_rpc_url=ethereum_rpc_url, trading_pairs=trading_pairs, trading_required=self._trading_required)
                 # TO-DO for DEXes: rename all extra argument to match key in global_config_map
+
+            elif connector_name in CONNECTOR_SETTINGS:
+                keys = dict((key, value.value) for key, value in dict(filter(lambda item: connector_name in item[0], global_config_map.items())).items())
+                connector_class = get_connector_class(connector_name)
+                connector = connector_class(**keys, trading_pairs=trading_pairs, trading_required=self._trading_required)
 
             else:
                 raise ValueError(f"Connector name {connector_name} is invalid.")

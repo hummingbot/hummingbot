@@ -3,18 +3,19 @@
 # =============================================
 # SCRIPT COMMANDS
 echo
-echo "** Load Hummingbot instance **"
+echo "===============  START HUMMINGBOT INSTANCE ==============="
 echo
-echo "=> List of docker instances:"
+echo "List of all docker instances:"
+echo
 docker ps -a
 echo
-echo "➡️  Enter the name for the Hummingbot instance to connect to:"
-echo "   (Press enter for default value: hummingbot-instance)"
-read INSTANCE_NAME
-if [ "$INSTANCE_NAME" == "" ];
+echo
+read -p "   Enter the NAME of the Hummingbot instance to start or connect to (default = \"hummingbot-instance\") >>> " INSTANCE_NAME
+if [ "$INSTANCE_NAME" == "" ]
 then
   INSTANCE_NAME="hummingbot-instance"
 fi
+echo
 # =============================================
 # EXECUTE SCRIPT
 docker start $INSTANCE_NAME && docker attach $INSTANCE_NAME

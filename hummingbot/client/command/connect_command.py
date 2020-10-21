@@ -10,8 +10,10 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
+
 DERIVATIVES = settings.DERIVATIVES
-OPTIONS = settings.CEXES.union({"ethereum", "celo"}).union(DERIVATIVES)
+OPTIONS = {cs.name for cs in settings.CONNECTOR_SETTINGS.values()
+           if not cs.use_ethereum_wallet}.union({"ethereum", "celo"})
 
 
 class ConnectCommand:
