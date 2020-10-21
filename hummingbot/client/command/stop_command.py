@@ -1,3 +1,4 @@
+import asyncio
 import platform
 import threading
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -35,6 +36,8 @@ class StopCommand:
             if self.clock:
                 self.clock.remove_iterator(self.strategy)
             success = await self._cancel_outstanding_orders()
+            # Give some time for cancellation events to trigger
+            await asyncio.sleep(0.5)
             if success:
                 # Only erase markets when cancellation has been successful
                 self.markets = {}
