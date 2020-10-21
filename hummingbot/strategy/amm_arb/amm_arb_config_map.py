@@ -1,6 +1,6 @@
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
-    validate_exchange,
+    validate_connector,
     validate_market_trading_pair,
     validate_decimal,
     validate_bool
@@ -43,9 +43,9 @@ amm_arb_config_map = {
         default="amm_arb"),
     "connector_1": ConfigVar(
         key="connector_1",
-        prompt="Enter your first exchange name >>> ",
+        prompt="Enter your first connector (exchange/AMM) >>> ",
         prompt_on_new=True,
-        validator=validate_exchange,
+        validator=validate_connector,
         on_validated=exchange_on_validated),
     "market_1": ConfigVar(
         key="market_1",
@@ -54,9 +54,9 @@ amm_arb_config_map = {
         validator=lambda x: validate_market_trading_pair(amm_arb_config_map["connector_1"].value, x)),
     "connector_2": ConfigVar(
         key="connector_2",
-        prompt="Enter your second exchange name >>> ",
+        prompt="Enter your second connector (exchange/AMM) >>> ",
         prompt_on_new=True,
-        validator=validate_exchange,
+        validator=validate_connector,
         on_validated=exchange_on_validated),
     "market_2": ConfigVar(
         key="market_2",

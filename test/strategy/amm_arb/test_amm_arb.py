@@ -1,6 +1,7 @@
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../../")))
 import unittest
+import unittest.mock
 from decimal import Decimal
 import logging
 import asyncio
@@ -15,7 +16,6 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (MarketEvent, OrderType, BuyOrderCreatedEvent, BuyOrderCompletedEvent,
                                           SellOrderCreatedEvent, SellOrderCompletedEvent)
-from hummingbot.core.utils.estimate_fee import default_cex_estimate
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.amm_arb.amm_arb import AmmArbStrategy
@@ -82,6 +82,9 @@ class MockAMM(ConnectorBase):
     def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
         return Decimal("0.01")
 
+    def estimate_fee_pct(self, is_maker: bool):
+        return Decimal("0")
+
     def ready(self):
         return True
 
@@ -95,8 +98,6 @@ class AmmArbUnitTest(unittest.TestCase):
     def setUpClass(cls):
         cls.ev_loop = asyncio.get_event_loop()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        default_cex_estimate["onion"] = [0., 0.]
-        default_cex_estimate["garlic"] = [0., 0.]
         cls.stack: contextlib.ExitStack = contextlib.ExitStack()
         cls._clock = cls.stack.enter_context(cls.clock)
 
