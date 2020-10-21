@@ -1,10 +1,60 @@
 # Task 4. Required Connector Configuration
 
-This section explains the required steps for connector in order to work with Hummingbot.
+This section explains the required steps to integrate your connector with Hummingbot.
 
-To do so:
+## \[new_connector]_utils.py ##
 
-1. In `setup.py`, add your new connector package in `packages` variable as shown:
+You will need to create this utils file (in your connector folder).
+
+1. Add the following **required** members in the new utils file. 
+
+Member<div style="width:200px"/> | Type | Description
+---|---|---
+`CENTRALIZED` | `bool` | `True` if connector is for a centralized exchange, otherwise return false.
+`EXAMPLE_PAIR` | `str` | An example of a supported trading pair on the exchange in [BASE]-[QUOTE] format.
+`DEFAULT_FEES` | `List[Decimal]` | A list trading fees with the first index as the default maker fee and the second index as default taker fee.
+`KEYS` | `Dict[str, ConfigVar]` | A dictionary containing required keys for connecting to the exchange.
+
+See `hummingbot/connector/exchange/binance/binance_utils.py` for examples.
+
+2. Trading pair conversion functions.
+
+If the exchange does not provide trading pairs in `[Base]-[Quote]` format, you will need to provide these below conversion functions:
+
+Function<div style="width:200px"/> | Input Parameter(s) | Expected Output(s) | Description
+---|---|---|---
+`convert_from_exchange_trading_pair` | exchange_trading_pair: `str` | `str` | Converts the exchange's trading pair to `[Base]-[Quote]` formats and return the output.
+`convert_to_exchange_trading_pair` | hb_trading_pair: `str` | `str` | Converts HB's `[Base]-[Quote]` trading pair format to the exchange's trading pair format and return the output.
+
+3. Add optional members for Ethereum type connector.
+
+Member<div style="width:200px"/> | Type | Description
+---|---|---
+`USE_ETHEREUM_WALLET` | `bool` | `True` if connector requires user's Ethereum wallet, which the user can set it up using `connect` command.
+`FEE_TYPE` | `str` | Set this to FlatFee if trading fee is fixed flat fee per transaction, the `DEFAULT_FEES` will then be in flat fee unit.
+`FEE_TOKEN` | `str` | Token name in FlatFee fee type, e.g. `ETH`. 
+
+4. Add optional other domains settings.
+
+These are optional settings for when your connector can connects to different domains by simply changing API URLs, e.g. Binance.com -> Binance.us. 
+This is also useful for when your exchange/protocol supports `testnet` environment.
+  
+Member<div style="width:200px"/> | Type | Description
+---|---|---
+`OTHER_DOMAINS` | `List[str]` | A list of other domain connector names, these will appear to users as new connectors they can choose.
+`OTHER_DOMAINS_PARAMETER` | `Dict[str, str]` | A dictionary of additional `domain` parameter for each `OTHER_DOMAIN`, this parameter (string) is passed in during connector, and order book tracker `__init__`.   
+`OTHER_DOMAINS_EXAMPLE_PAIR` | `Dict[str, str]` | An example of a supported trading pair for each domain.
+`OTHER_DOMAINS_DEFAULT_FEES` | `Dict[str, List[Decimal]]` | A dictionary of default trading fees \[maker fee and taker fee] for each domain.
+`OTHER_DOMAINS_KEYS` | `Dict[str, Dict[str, ConfigVar]]` | A dictionary of required keys for each domain.
+
+!!! note
+    If you use these domain settings, you will need to make sure your connector uses the `domain` parameter to update base API URLs, 
+and make sure to set exchange name correctly. Refer to `Binance` connector on how to achieve this.  
+
+## Changes in Hummingbot ##
+
+* In `setup.py`, add your new connector package in `packages` variable as shown:
+
 ```python
     packages = [
         "hummingbot",
@@ -13,51 +63,23 @@ To do so:
         "hummingbot.connector.exchange.kucoin",
         "hummingbot.connector.exchange.[new_connector]",
 ``` 
-2. Add the following **required** members and functions in the new connector's utils file. Directory: `hummingbot/connector/[connector type]/[connector name]/[connector name]_utils.py`
 
-Function<div style="width:200px"/> | Type | Description
----|---|---
-`CENTRALIZED` | `bool` | Return `True` if connector is for a decentralized exchange, otherwise return false.
-`EXAMPLE_PAIR` | `str` | Gives an example of a supported trading pair on the exchange in [BASE]-[QUOTE] format.
-`DEFAULT_FEES` | `List[Decimal]` | Return a list with the first index as the default maker fee and the second index as default taker fee.
-`KEYS` | `Dict[str, ConfigVar]` | Return a dictionary containing required keys for connecting to the exchange.
-
-
-### Sample Code — `[connector name]_utils_.py` 
+* In `hummingbot/templates/conf_global_TEMPLATE.yml`, add entries (with null value) for each key in your utils KEYS. 
+You will also need to increment `template_version` by one. For example:
 
 ```python
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import using_exchange
+template_version: [+1] 
 
-CENTRALIZED = True  # True for centralized exchange and false for decentralized exchange
+[new_connector]_api_key: null
+[new_connector]_secret_key: null
+``` 
 
-EXAMPLE_PAIR = "ZRX-ETH"  # Example of supported pair on exchange
+* In `hummingbot/templates/conf_fee_overrides_TEMPLATE.yml`, add maker and taker fee entries (use fee_amount when your FEE_TYPE is FlatFee). 
+You will also need to increment `template_version` by one. For example:
 
-DEFAULT_FEES = [0.1, 0.1]  # [maker fee, taker fee]
+```python
+template_version: [+1] 
 
-KEYS = {
-    "[connector name]_api_key":
-        ConfigVar(key="[connector name]_api_key",
-                  prompt="Enter your Binance API key >>> ",
-                  required_if=using_exchange("[connector name]"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "[connector name]_api_secret":
-        ConfigVar(key="[connector name]_api_secret",
-                  prompt="Enter your Binance API secret >>> ",
-                  required_if=using_exchange("[connector name]"),
-                  is_secure=True,
-                  is_connect_key=True),
-    ...
-}
-```
-
-!!! note
-    If the exchange does not provide trading pairs in `[Base]-[Quote]` format, the following functions needs to be implemented in addition to the previous functions:
-
-Function<div style="width:200px"/> | Input Parameter(s) | Expected Output(s) | Description
----|---|---|---
-`convert_from_exchange_trading_pair` | exchange_trading_pair: `str` | `str` | Converts the exchange's trading pair to `[Base]-[Quote]` formats and return the output.
-`convert_to_exchange_trading_pair` | hb_trading_pair: `str` | `str` | Converts HB's `[Base]-[Quote]` trading pair format to the exchange's trading pair format and return the output.
-
-
+[new_connector]_maker_fee:
+[new_connector]_taker_fee:
+``` 
