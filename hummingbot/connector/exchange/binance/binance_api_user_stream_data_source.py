@@ -53,7 +53,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                                    headers={"X-MBX-APIKEY": self._binance_client.API_KEY}) as response:
                 response: aiohttp.ClientResponse = response
                 if response.status != 200:
-                    raise IOError(f"Error fetching Binance user stream listen key. HTTP status is {response.status}.")
+                    raise IOError(f"Error fetching user stream listen key. HTTP status is {response.status}.")
                 data: Dict[str, str] = await response.json()
                 return data["listenKey"]
 

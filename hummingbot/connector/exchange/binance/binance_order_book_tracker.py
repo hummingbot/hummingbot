@@ -37,6 +37,7 @@ class BinanceOrderBookTracker(OrderBookTracker):
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
+        self._domain = domain
         self._saved_message_queues: Dict[str, Deque[OrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
 
     @property
