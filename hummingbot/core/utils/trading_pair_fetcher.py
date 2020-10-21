@@ -45,6 +45,13 @@ class TradingPairFetcher:
                     module = getattr(importlib.import_module(module_path), class_name)
                     tasks.append(module.fetch_trading_pairs())
                     fetched_connectors.append(connector)
+            else:
+                for connector in connectors:
+                    module_name = f"{connector}_utils"
+                    module_path = f"hummingbot.connector.{connector_type}.{connector}.{module_name}"
+                    module = importlib.import_module(module_path)
+                    tasks.append(module.fetch_trading_pairs())
+                    fetched_connectors.append(connector)
 
         results = await safe_gather(*tasks, return_exceptions=True)
         self.trading_pairs = dict(zip(fetched_connectors, results))
