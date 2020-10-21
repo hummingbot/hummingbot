@@ -10,7 +10,8 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
-OPTIONS = settings.CEXES.union({"ethereum", "celo"})
+DERIVATIVES = settings.DERIVATIVES
+OPTIONS = settings.CEXES.union({"ethereum", "celo"}).union(DERIVATIVES)
 
 
 class ConnectCommand:
@@ -30,15 +31,22 @@ class ConnectCommand:
         self.app.clear_input()
         self.placeholder_mode = True
         self.app.hide_input = True
+        paper_trade = "testnet" if global_config_map.get("paper_trade_enabled").value else None
         if exchange == "kraken":
             self._notify("Reminder: Please ensure your Kraken API Key Nonce Window is at least 10.")
-        exchange_configs = [c for c in global_config_map.values() if exchange in c.key and c.is_connect_key]
+        if paper_trade and exchange in DERIVATIVES:
+            self._notify("\nTo connect or change mainnet keys, turn off paper mode.")
+            exchange_configs = [c for c in global_config_map.values() if exchange in c.key and c.is_connect_key and paper_trade in c.key]
+        else:
+            self._notify("\nTo connect or change testnet keys, turn on paper mode.")
+            exchange_configs = [c for c in global_config_map.values() if exchange in c.key and c.is_connect_key]
         to_connect = True
         if Security.encrypted_file_exists(exchange_configs[0].key):
             await Security.wait_til_decryption_done()
+
             api_key_config = [c for c in exchange_configs if "api_key" in c.key][0]
             api_key = Security.decrypted_value(api_key_config.key)
-            answer = await self.app.prompt(prompt=f"Would you like to replace your existing {exchange} API key "
+            answer = await self.app.prompt(prompt=f"Would you like to replace your existing {exchange} {paper_trade} API key "
                                                   f"{api_key} (Yes/No)? >>> ")
             if self.app.to_stop_config:
                 self.app.to_stop_config = False
@@ -46,18 +54,19 @@ class ConnectCommand:
             if answer.lower() not in ("yes", "y"):
                 to_connect = False
         if to_connect:
+            api_keys = {}
             for config in exchange_configs:
                 await self.prompt_a_config(config)
                 if self.app.to_stop_config:
                     self.app.to_stop_config = False
                     return
                 Security.update_secure_config(config.key, config.value)
-            api_keys = await Security.api_keys(exchange)
+                api_keys[config.key] = config.value
             err_msg = await UserBalances.instance().add_exchange(exchange, **api_keys)
             if err_msg is None:
-                self._notify(f"\nYou are now connected to {exchange}.")
+                self._notify(f"\nYou are now connected to {exchange} {paper_trade}.")
             else:
-                self._notify(f"\nError: {err_msg}")
+                self._notify(f"\n{paper_trade.capitalize()} Error: {err_msg}")
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
@@ -91,6 +100,7 @@ class ConnectCommand:
                         failed_msgs[option] = err_msg
                     else:
                         keys_confirmed = 'Yes'
+                data.append([option, keys_added, keys_confirmed])
             elif option == "celo":
                 celo_address = global_config_map["celo_address"].value
                 if celo_address is not None and Security.encrypted_file_exists("celo_password"):
@@ -100,6 +110,31 @@ class ConnectCommand:
                         failed_msgs[option] = err_msg
                     else:
                         keys_confirmed = 'Yes'
+                data.append([option, keys_added, keys_confirmed])
+            elif option in DERIVATIVES:
+                # check keys for main and testnet derivative keys_added
+                api_keys = (await Security.api_keys(option)).keys()
+                testnet_checked = False
+                mainet_checked = False
+                for api_key in api_keys:
+                    if "testnet" in api_key and testnet_checked is False:
+                        testnet_checked = True
+                        keys_added = "Yes"
+                        err_msg = err_msgs.get(option + "testnet")
+                        if err_msg is not None:
+                            failed_msgs[option] = err_msg
+                        else:
+                            keys_confirmed = 'Yes'
+                        data.append([option + "(testnet)", keys_added, keys_confirmed])
+                    elif "testnet" not in api_key and mainet_checked is False:
+                        mainet_checked = True
+                        keys_added = "Yes"
+                        err_msg = err_msgs.get(option)
+                        if err_msg is not None:
+                            failed_msgs[option] = err_msg
+                        else:
+                            keys_confirmed = 'Yes'
+                        data.append([option + "(mainnet)", keys_added, keys_confirmed])
             else:
                 api_keys = (await Security.api_keys(option)).values()
                 if len(api_keys) > 0:
@@ -109,7 +144,7 @@ class ConnectCommand:
                         failed_msgs[option] = err_msg
                     else:
                         keys_confirmed = 'Yes'
-            data.append([option, keys_added, keys_confirmed])
+                data.append([option, keys_added, keys_confirmed])
         return pd.DataFrame(data=data, columns=columns), failed_msgs
 
     async def connect_ethereum(self,  # type: HummingbotApplication

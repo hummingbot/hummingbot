@@ -21,9 +21,11 @@ class BinancePerpetualUserStreamTracker(UserStreamTracker):
             cls._bust_logger = logging.getLogger(__name__)
         return cls._bust_logger
 
-    def __init__(self, api_key):
+    def __init__(self, base_url: str, stream_url: str, api_key: str):
         super().__init__()
         self._api_key: str = api_key
+        self._base_url = base_url
+        self._stream_url = stream_url
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[UserStreamTrackerDataSource] = None
         self._user_stream_tracking_task: Optional[asyncio.Task] = None
@@ -35,7 +37,7 @@ class BinancePerpetualUserStreamTracker(UserStreamTracker):
     @property
     def data_source(self) -> UserStreamTrackerDataSource:
         if self._data_source is None:
-            self._data_source = BinancePerpetualUserStreamDataSource(api_key=self._api_key)
+            self._data_source = BinancePerpetualUserStreamDataSource(base_url=self._base_url, stream_url=self._stream_url, api_key=self._api_key)
         return self._data_source
 
     async def start(self):

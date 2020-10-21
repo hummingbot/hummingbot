@@ -11,7 +11,7 @@ from hummingbot.core.data_type.user_stream_tracker_data_source import UserStream
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 
-BINANCE_USER_STREAM_ENDPOINT = "https://fapi.binance.com/fapi/v1/listenKey"
+BINANCE_USER_STREAM_ENDPOINT = "/fapi/v1/listenKey"
 
 
 class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
@@ -27,16 +27,18 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
     def last_recv_time(self) -> float:
         return self._last_recv_time
 
-    def __init__(self, api_key: str):
+    def __init__(self, base_url: str, stream_url: str, api_key: str):
         super().__init__()
         self._api_key: str = api_key
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
         self._last_recv_time: float = 0
+        self._http_stream_url = base_url + BINANCE_USER_STREAM_ENDPOINT
+        self._wss_stream_url = stream_url + "/ws/"
 
     async def get_listen_key(self):
         async with aiohttp.ClientSession() as client:
-            async with client.post(BINANCE_USER_STREAM_ENDPOINT,
+            async with client.post(self._http_stream_url,
                                    headers={"X-MBX-APIKEY": self._api_key}) as response:
                 response: aiohttp.ClientResponse = response
                 if response.status != 200:
@@ -47,7 +49,7 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def ping_listen_key(self, listen_key: str) -> bool:
         async with aiohttp.ClientSession() as client:
-            async with client.put(BINANCE_USER_STREAM_ENDPOINT,
+            async with client.put(self._http_stream_url,
                                   headers={"X-MBX-APIKEY": self._api_key},
                                   params={"listenKey": listen_key}) as response:
                 data: [str, any] = await response.json()
@@ -79,7 +81,7 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
     async def log_user_stream(self, output: asyncio.Queue):
         while True:
             try:
-                stream_url: str = f"wss://fstream.binance.com/ws/{self._current_listen_key}"
+                stream_url: str = f"{self._wss_stream_url}{self._current_listen_key}"
                 async with websockets.connect(stream_url) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     async for raw_msg in self.ws_messages(ws):

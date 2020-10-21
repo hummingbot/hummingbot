@@ -11,7 +11,7 @@ CENTRALIZED = True
 EXAMPLE_PAIR = "BTC-USDT"
 
 
-DEFAULT_FEES = [0.1, 0.1]
+DEFAULT_FEES = [0.02, 0.04]
 
 
 TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|USDS|TUSD|PAX|TRX|BUSD|NGN|RUB|TRY|EUR|IDRT|ZAR|UAH|GBP|BKRW|BIDR)$")
@@ -38,16 +38,29 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
 
 
 KEYS = {
-    "binance_perpetuals_api_key":
-        ConfigVar(key="binance_perpetuals_api_key",
-                  prompt="Enter your Binance Perpetuals API key >>> ",
+    "binance_perpetual_api_key":
+        ConfigVar(key="binance_perpetual_api_key",
+                  prompt="Enter your Binance Perpetual API key >>> ",
                   required_if=using_exchange("binance_perpetuals"),
                   is_secure=True,
                   is_connect_key=True),
-    "binance_perpetuals_api_secret":
-        ConfigVar(key="binance_perpetuals_api_secret",
-                  prompt="Enter your Binance Perpetuals API secret >>> ",
-                  required_if=using_exchange("binance"),
+    "binance_perpetual_api_secret":
+        ConfigVar(key="binance_perpetual_api_secret",
+                  prompt="Enter your Binance Perpetual API secret >>> ",
+                  required_if=using_exchange("binance_perpetuals"),
+                  is_secure=True,
+                  is_connect_key=True),
+    # add keys for testnet
+    "binance_perpetual_testnet_api_key":
+        ConfigVar(key="binance_perpetual_testnet_api_key",
+                  prompt="Enter your Binance Perpetual testnet API key >>> ",
+                  required_if=using_exchange("binance_perpetual"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "binance_perpetual_testnet_api_secret":
+        ConfigVar(key="binance_perpetual_testnet_api_secret",
+                  prompt="Enter your Binance Perpetual testnet API secret >>> ",
+                  required_if=using_exchange("binance_perpetual"),
                   is_secure=True,
                   is_connect_key=True),
 }

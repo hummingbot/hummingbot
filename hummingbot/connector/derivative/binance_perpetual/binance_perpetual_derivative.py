@@ -12,19 +12,16 @@ from async_timeout import timeout
 
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_in_flight_order import BinancePerpetualsInFlightOrder
 
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import (
-    BinancePerpetualAPIOrderBookDataSource
-)
 
 import asyncio
 import hashlib
 import hmac
 import time
 import logging
-import pandas as pd
 from decimal import Decimal
 from typing import Optional, List, Dict, Any, AsyncIterable
 from urllib.parse import urlencode
@@ -50,6 +47,12 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_tracker import BinancePerpetualOrderBookTracker
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_tracker import BinancePerpetualUserStreamTracker
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils import convert_from_exchange_trading_pair, convert_to_exchange_trading_pair
+from hummingbot.connector.derivative.binance_perpetual.constants import (
+    PERPETUAL_BASE_URL,
+    TESTNET_BASE_URL,
+    DIFF_STREAM_URL,
+    TESTNET_STREAM_URL
+)
 from hummingbot.connector.derivative_base import DerivativeBase, s_decimal_NaN
 from hummingbot.connector.trading_rule import TradingRule
 
@@ -75,7 +78,7 @@ def get_client_order_id(order_side: str, trading_pair: object):
     return f"{BROKER_ID}-{order_side.upper()[0]}{base[0]}{base[-1]}{quote[0]}{quote[-1]}{nonce}"
 
 
-class BinancePerpetualMarket(DerivativeBase):
+class BinancePerpetualDerivative(DerivativeBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset
     MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted
     MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted
@@ -100,19 +103,23 @@ class BinancePerpetualMarket(DerivativeBase):
         return bpm_logger
 
     def __init__(self,
-                 api_key: str,
-                 api_secret: str,
+                 binance_perpetual_api_key: str = None,
+                 binance_perpetual_api_secret: str = None,
                  trading_pairs: Optional[List[str]] = None,
-                 trading_required: bool = True):
+                 trading_required: bool = True,
+                 **other_keys):
         super().__init__()
-        self._api_key = api_key
-        self._api_secret = api_secret
+        self._testnet = global_config_map.get("paper_trade_enabled").value
+        self._api_key = binance_perpetual_api_key if self._testnet is False else other_keys["binance_perpetual_testnet_api_key"]
+        self._api_secret = binance_perpetual_api_secret if self._testnet is False else other_keys["binance_perpetual_testnet_api_secret"]
         self._trading_required = trading_required
         # self._account_balances = {}
         # self._account_available_balances = {}
 
-        self._user_stream_tracker = BinancePerpetualUserStreamTracker(api_key=self._api_key)
-        self._order_book_tracker = BinancePerpetualOrderBookTracker(trading_pairs=trading_pairs)
+        self._base_url = PERPETUAL_BASE_URL if self._testnet is False else TESTNET_BASE_URL
+        self._stream_url = DIFF_STREAM_URL if self._testnet is False else TESTNET_STREAM_URL
+        self._user_stream_tracker = BinancePerpetualUserStreamTracker(base_url=self._base_url, stream_url=self._stream_url, api_key=self._api_key)
+        self._order_book_tracker = BinancePerpetualOrderBookTracker(base_url=self._base_url, stream_url=self._stream_url, trading_pairs=trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._in_flight_orders = {}
@@ -127,13 +134,13 @@ class BinancePerpetualMarket(DerivativeBase):
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._last_poll_timestamp = 0
         self._throttler = Throttler((10.0, 1.0))
-
-        # TODO: Add this to DerivativeBase (Perhaps create abstraction of MarketBase called DerivitivesMarketBase)
+        self._funding_rate = 0
         self._account_positions = {}
+        self._position_mode = None
 
     @property
     def name(self) -> str:
-        return "binance_perpetuals"
+        return "binance_perpetual"
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -239,6 +246,12 @@ class BinancePerpetualMarket(DerivativeBase):
             api_params["price"] = f"{price}"
         if order_type == OrderType.LIMIT:
             api_params["timeInForce"] = "GTC"
+        if order_type == OrderType.TRAILING_STOP:
+            api_params["type"] = "TRAILING_STOP_MARKET"
+            api_params["callbackRate"] = f"{price}"
+
+        if self._position_mode == PositionMode.HEDGE:
+            api_params["positionSide"] = "LONG" if trade_type is TradeType.BUY else "SHORT"
 
         self.start_tracking_order(order_id, "", trading_pair, trade_type, price, amount, order_type)
 
@@ -507,7 +520,7 @@ class BinancePerpetualMarket(DerivativeBase):
                                 event_tag = self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG
                                 event_class = SellOrderCompletedEvent
                             self.logger().info(f"The market {trade_type} order {client_order_id} has completed "
-                                               f"according to order status API.")
+                                               f"according to websocket delta.")
                             self.trigger_event(event_tag,
                                                event_class(self.current_timestamp,
                                                            client_order_id,
@@ -521,29 +534,45 @@ class BinancePerpetualMarket(DerivativeBase):
                         else:
                             if tracked_order.is_cancelled:
                                 if tracked_order.client_order_id in self._in_flight_orders:
-                                    self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
+                                    self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id} according to websocket delta.")
                                     self.trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                                        OrderCancelledEvent(self.current_timestamp,
                                                                            tracked_order.client_order_id))
                                 else:
                                     self.logger().info(f"The market order {tracked_order.client_order_id} has failed "
-                                                       f"according to order status API.")
+                                                       f"according to websocket delta.")
                                     self.trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                                        MarketOrderFailureEvent(self.current_timestamp,
                                                                                tracked_order.client_order_id,
                                                                                tracked_order.order_type))
                         self.stop_tracking_order(tracked_order.client_order_id)
-                        await self._update_positions()
                 elif event_type == "ACCOUNT_UPDATE":
-                    self.logger().info("Account updates pushed to client.")
-                    await self._update_balances()
-                    await self._update_positions()
+                    update_data = event_message.get("a", {})
+                    # update balances
+                    for asset in update_data.get("B", []):
+                        asset_name = asset["a"]
+                        self._account_balances[asset_name] = Decimal(asset["wb"])
+                        self._account_available_balances[asset_name] = Decimal(asset["cw"])
+
+                    # update position
+                    for asset in update_data.get("P", []):
+                        position = self._account_positions.get(f"{asset['s']}{asset['ps']}", None)
+                        if position is not None:
+                            position.update_position(position_side=PositionSide[asset["ps"]],
+                                                     unrealized_pnl = Decimal(asset["up"]),
+                                                     entry_price = Decimal(asset["ep"]),
+                                                     amount = Decimal(asset["pa"]))
                 elif event_type == "MARGIN_CALL":
-                    positions = event_message.get("p")
+                    positions = event_message.get("p", [])
                     total_maint_margin_required = 0
                     # total_pnl = 0
                     negative_pnls_msg = ""
                     for position in positions:
+                        existing_position = self._account_positions.get(f"{asset['s']}{asset['ps']}", None)
+                        if existing_position is not None:
+                            existing_position.update_position(position_side=PositionSide[asset["ps"]],
+                                                              unrealized_pnl = Decimal(asset["up"]),
+                                                              amount = Decimal(asset["pa"]))
                         total_maint_margin_required += position.get("mm", 0)
                         if position.get("up", 0) < 1:
                             negative_pnls_msg += f"{position.get('s')}: {position.get('up')}, "
@@ -577,7 +606,7 @@ class BinancePerpetualMarket(DerivativeBase):
     def get_fee(self, base_currency: str, quote_currency: str, order_type: object, order_side: object,
                 amount: object, price: object):
         is_maker = order_type is OrderType.LIMIT
-        return estimate_fee("binance_perpetuals", is_maker)
+        return estimate_fee("binance_perpetual", is_maker)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         order_books: dict = self._order_book_tracker.order_books
@@ -608,7 +637,7 @@ class BinancePerpetualMarket(DerivativeBase):
                 step_size = Decimal(filt_dict.get("LOT_SIZE").get("stepSize"))
                 tick_size = Decimal(filt_dict.get("PRICE_FILTER").get("tickSize"))
 
-                # TODO: BINANCE PERPETUALS DOES NOT HAVE A MIN NOTIONAL VALUE, NEED TO CREATE NEW DERIVITIVES INFRASTRUCTURE
+                # TODO: BINANCE PERPETUALS DOES NOT HAVE A MIN NOTIONAL VALUE, NEED TO CREATE NEW DERIVATIVES INFRASTRUCTURE
                 # min_notional = 0
 
                 return_val.append(
@@ -694,8 +723,8 @@ class BinancePerpetualMarket(DerivativeBase):
             amount = Decimal(position.get("positionAmt"))
             leverage = Decimal(position.get("leverage"))
             if amount > 0:
-                self._account_positions[trading_pair] = Position(
-                    trading_pair=convert_to_exchange_trading_pair(trading_pair),
+                self._account_positions[trading_pair + position_side.name] = Position(
+                    trading_pair=convert_from_exchange_trading_pair(trading_pair),
                     position_side=position_side,
                     unrealized_pnl=unrealized_pnl,
                     entry_price=entry_price,
@@ -798,8 +827,8 @@ class BinancePerpetualMarket(DerivativeBase):
 
                 tracked_order.last_state = order_update.get("status")
                 order_type = OrderType.LIMIT if order_update.get("type") == "LIMIT" else OrderType.MARKET
-                executed_amount_base = Decimal(order_update.get("executedQty"))
-                executed_amount_quote = Decimal(order_update.get("cumQuote"))
+                executed_amount_base = Decimal(order_update.get("executedQty", "0"))
+                executed_amount_quote = Decimal(order_update.get("cumQuote", "0"))
 
                 if tracked_order.is_done:
                     if not tracked_order.is_failure:
@@ -826,7 +855,7 @@ class BinancePerpetualMarket(DerivativeBase):
                                                        order_type))
                     else:
                         if tracked_order.is_cancelled:
-                            self.logger().info(f"Successfully cancelled order {client_order_id}.")
+                            self.logger().info(f"Successfully cancelled order {client_order_id} according to order status API.")
                             self.trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                                OrderCancelledEvent(self.current_timestamp,
                                                                    client_order_id))
@@ -839,99 +868,104 @@ class BinancePerpetualMarket(DerivativeBase):
                                                                        order_type))
                     self.stop_tracking_order(client_order_id)
 
-    # TODO: QUESTION: What do I do about trading fees
-    # async def _update_trade_fees(self):
-    #     cdef:
-    #         double current_timestamp = self.current_timestamp
-    #     if current_timestamp - self._last_update_trade_fees_timestamp > 60.0 * 60.0 or len(self._trade_fees) < 1:
-    #         try:
-    #             response = await self.request(
-    #
-    #             )
-    #             for fee in response["tradeFee"]:
-    #                 self._trade_fees[fee["symbol"]] = (Decimal(fee["maker"]), Decimal(fee["taker"]))
-    #             self._last_update_trade_fees_timestamp = current_timestamp
-    #         except asyncio.CancelledError:
-    #             raise
-    #         except Exception:
-    #             self.logger().network("Error fetching Binance trade fees.", exc_info=True,
-    #                                   app_warning_msg=f"Could not fetch Binance trading fees. "
-    #                                                   f"Check network connection.")
-    #             raise
-
-    async def set_margin(self, trading_pair: str, leverage: int = 1):
+    async def _set_margin(self, trading_pair: str, leverage: int = 1):
         params = {
             "symbol": convert_to_exchange_trading_pair(trading_pair),
             "leverage": leverage
         }
-        return await self.request(
+        set_leverage = await self.request(
             path="/fapi/v1/leverage",
             params=params,
             method=MethodType.POST,
             add_timestamp=True,
             is_signed=True
         )
+        if set_leverage["leverage"] == leverage:
+            self.logger().info(f"Leverage Successfully set to {leverage}.")
+        else:
+            self.logger().error("Unable to set leverage.")
+        return leverage
 
+    def set_margin(self, trading_pair: str, leverage: int = 1):
+        safe_ensure_future(self._set_margin(trading_pair, leverage))
+
+    """
     async def get_position_pnl(self, trading_pair: str):
         await self._update_positions()
         return self._account_positions.get(trading_pair)
+    """
 
-    async def get_funding_rate(self, trading_pair):
+    async def _get_funding_rate(self, trading_pair):
         # TODO: Note --- the "premiumIndex" endpoint can get markPrice, indexPrice, and nextFundingTime as well
         prem_index = await self.request("/fapi/v1/premiumIndex", params={"symbol": convert_to_exchange_trading_pair(trading_pair)})
-        return Decimal(prem_index.get("lastFundingRate"), "NaN")
+        self._funding_rate = Decimal(prem_index.get("lastFundingRate", "0"))
 
-    async def set_hedge_mode(self, position_mode: PositionMode):
-        params = {
-            "dualSidePosition": position_mode.value
-        }
-        await self.request(
-            path="/fapi/v1/positionSide/dual",
-            params=params,
-            method=MethodType.POST,
-            add_timestamp=True,
-            is_signed=True
-        )
+    def get_funding_rate(self, trading_pair):
+        safe_ensure_future(self._get_funding_rate(trading_pair))
+        return self._funding_rate
+
+    async def _set_hedge_mode(self, position_mode: PositionMode):
+        initial_mode = await self._get_hedge_mode()
+        if initial_mode != position_mode:
+            params = {
+                "dualSidePosition": position_mode.value
+            }
+            mode = await self.request(
+                path="/fapi/v1/positionSide/dual",
+                params=params,
+                method=MethodType.POST,
+                add_timestamp=True,
+                is_signed=True
+            )
+            if mode["msg"] == "success" and mode["code"] == 200:
+                self.logger().info(f"Using {position_mode.name} position mode.")
+            else:
+                self.logger().error(f"Unable to set postion mode to {position_mode.name}.")
+        else:
+            self.logger().info(f"Using {position_mode.name} position mode.")
+
+    async def _get_hedge_mode(self):
+        if self._position_mode is None:
+            mode = await self.request(
+                path="/fapi/v1/positionSide/dual",
+                method=MethodType.GET,
+                add_timestamp=True,
+                is_signed=True
+            )
+            self._position_mode = PositionMode.HEDGE if mode["dualSidePosition"] else PositionMode.ONEWAY
+
+        return self._position_mode
+
+    def set_hedge_mode(self, position_mode: PositionMode):
+        safe_ensure_future(self._set_hedge_mode(position_mode))
 
     async def request(self, path: str, params: Dict[str, Any] = {}, method: MethodType = MethodType.GET,
                       add_timestamp: bool = False, is_signed: bool = False, request_weight: int = 1, return_err: bool = False):
         async with self._throttler.weighted_task(request_weight):
             try:
                 # TODO: QUESTION --- SHOULD I ADD AN ASYNC TIMEOUT? (aync with timeout(API_CALL_TIMEOUT)
-                async with aiohttp.ClientSession() as client:
-                    if add_timestamp:
-                        params["timestamp"] = f"{int(time.time()) * 1000}"
-                    query = urlencode(sorted(params.items()))
-                    if is_signed:
-                        secret = bytes(self._api_secret.encode("utf-8"))
-                        signature = hmac.new(secret, query.encode("utf-8"), hashlib.sha256).hexdigest()
-                        query += f"&signature={signature}"
-                    async with client.request(
-                            method=method.value,
-                            url="https://fapi.binance.com" + path + "?" + query,
-                            headers={"X-MBX-APIKEY": self._api_key}) as response:
-                        if response.status != 200:
-                            error_response = await response.json()
-                            if return_err:
-                                return error_response
-                            else:
-                                raise IOError(f"Error fetching data from {path}. HTTP status is {response.status}. "
-                                              f"Request Error: {error_response}")
-                        return await response.json()
+                # async with aiohttp.ClientSession() as client:
+                if add_timestamp:
+                    params["timestamp"] = f"{int(time.time()) * 1000}"
+                query = urlencode(sorted(params.items()))
+                if is_signed:
+                    secret = bytes(self._api_secret.encode("utf-8"))
+                    signature = hmac.new(secret, query.encode("utf-8"), hashlib.sha256).hexdigest()
+                    query += f"&signature={signature}"
+
+                async with aiohttp.request(
+                        method=method.value,
+                        url=self._base_url + path + "?" + query,
+                        headers={"X-MBX-APIKEY": self._api_key}) as response:
+                    if response.status != 200:
+                        error_response = await response.json()
+                        if return_err:
+                            return error_response
+                        else:
+                            raise IOError(f"Error fetching data from {path}. HTTP status is {response.status}. "
+                                          f"Request Error: {error_response}")
+                    return await response.json()
             except Exception as e:
-                self.logger().warning(f"Error fetching {path}")
+                self.logger().error(f"Error fetching {path}", exc_info=True)
+                self.logger().warning(f"{e}")
                 raise e
-
-    # Not Needed ---
-    def did_timout_tx(self, tracking_id: str):
-        pass
-
-    def withdraw(self, address: str, currency: str, amount: object):
-        pass
-
-    async def get_deposit_info(self, asset: str):
-        pass
-
-    # DEPRECATED
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        return await BinancePerpetualAPIOrderBookDataSource.get_active_exchange_markets()

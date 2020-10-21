@@ -212,13 +212,20 @@ class HummingbotApplication(*commands):
 
         for connector_name, trading_pairs in market_trading_pairs_map.items():
             if global_config_map.get("paper_trade_enabled").value:
-                try:
-                    connector = create_paper_trade_market(market_name, trading_pairs)
-                except Exception:
-                    raise
-                paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
-                for asset, balance in paper_trade_account_balance.items():
-                    connector.set_balance(asset, balance)
+                if connector_name not in DERIVATIVES:
+                    try:
+                        connector = create_paper_trade_market(market_name, trading_pairs)
+                    except Exception:
+                        raise
+                    paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
+                    for asset, balance in paper_trade_account_balance.items():
+                        connector.set_balance(asset, balance)
+                else:
+                    # connect to Derivative testnet
+                    Security.update_config_map(global_config_map)  # necessary for cases the bot is started in paper trade mode
+                    keys = dict((key, value.value) for key, value in dict(filter(lambda item: "_" in item[0], global_config_map.items())).items())
+                    connector_class = get_connector_class(connector_name)
+                    connector = connector_class(**keys, trading_pairs=trading_pairs, trading_required=True)
 
             elif connector_name in CEXES or connector_name in DERIVATIVES:
                 keys = dict((key, value.value) for key, value in dict(filter(lambda item: connector_name in item[0], global_config_map.items())).items())

@@ -22,8 +22,9 @@ class BinancePerpetualOrderBookTracker(OrderBookTracker):
         return cls._bpobt_logger
 
     def __init__(self,
+                 base_url: str, stream_url: str,
                  trading_pairs: Optional[List[str]] = None):
-        super().__init__(data_source=BinancePerpetualAPIOrderBookDataSource(trading_pairs=trading_pairs),
+        super().__init__(data_source=BinancePerpetualAPIOrderBookDataSource(base_url=base_url, stream_url=stream_url, trading_pairs=trading_pairs),
                          trading_pairs=trading_pairs)
 
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
