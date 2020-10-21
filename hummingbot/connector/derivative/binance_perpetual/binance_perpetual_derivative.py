@@ -12,7 +12,6 @@ from async_timeout import timeout
 
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_in_flight_order import BinancePerpetualsInFlightOrder
 
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
@@ -107,11 +106,11 @@ class BinancePerpetualDerivative(DerivativeBase):
                  binance_perpetual_api_secret: str = None,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True,
-                 **other_keys):
+                 **domain):
         super().__init__()
-        self._testnet = global_config_map.get("paper_trade_enabled").value
-        self._api_key = binance_perpetual_api_key if self._testnet is False else other_keys["binance_perpetual_testnet_api_key"]
-        self._api_secret = binance_perpetual_api_secret if self._testnet is False else other_keys["binance_perpetual_testnet_api_secret"]
+        self._testnet = True if len(domain) > 0 else False
+        self._api_key = binance_perpetual_api_key
+        self._api_secret = binance_perpetual_api_secret
         self._trading_required = trading_required
         # self._account_balances = {}
         # self._account_available_balances = {}
@@ -947,6 +946,7 @@ class BinancePerpetualDerivative(DerivativeBase):
                 # async with aiohttp.ClientSession() as client:
                 if add_timestamp:
                     params["timestamp"] = f"{int(time.time()) * 1000}"
+                    params["recvWindow"] = f"{20000}"
                 query = urlencode(sorted(params.items()))
                 if is_signed:
                     secret = bytes(self._api_secret.encode("utf-8"))
