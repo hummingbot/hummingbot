@@ -130,3 +130,7 @@ order_override:
 
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/pure-market-making/#configuration-parameters
+
+# Bot type for admin API.
+# One of 'liqudity', 'buy', 'sell' and empty string. If this is empty string, it means that admin control deactivated
+admin_control_type: sell

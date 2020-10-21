@@ -38,6 +38,7 @@ from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_ass
 from .inventory_skew_calculator import calculate_total_order_size
 from .order_book_asset_price_delegate cimport OrderBookAssetPriceDelegate
 
+from hummingbot.core.management.admin_api import AdminApi
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -93,6 +94,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                  minimum_spread: Decimal = Decimal(0),
                  hb_app_notification: bool = False,
                  order_override: Dict[str, List[str]] = {},
+                 admin_api_url: str = "http://localhost:3000",
+                 admin_control_type: str = "",
                  ):
 
         if price_ceiling != s_decimal_neg_one and float(price_ceiling) < float(price_floor):
@@ -132,6 +135,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._ping_pong_warning_lines = []
         self._hb_app_notification = hb_app_notification
         self._order_override = order_override
+
+        self._admin_api = AdminApi(admin_api_url, admin_control_type, order_amount, order_amount_delta, filled_order_delay)
 
         self._cancel_timestamp = 0
         self._create_timestamp = 0
@@ -633,6 +638,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 if not all([market.network_status is NetworkStatus.CONNECTED for market in self._sb_markets]):
                     self.logger().warning(f"WARNING: Some markets are not connected or are down at the moment. Market "
                                           f"making may be dangerous when markets or networks are unstable.")
+
+            self._update_params_from_admin()
 
             proposal = None
             asset_mid_price = Decimal("0")
@@ -1165,3 +1172,13 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             return PriceType.LastOwnTrade
         else:
             raise ValueError(f"Unrecognized price type string {price_type_str}.")
+
+    def _update_params_from_admin(self):
+        data = self._admin_api.get_updated_params(self._current_timestamp)
+        self._order_amount = data["order_amount"]
+        self._order_amount_delta = data["order_amount_delta"]
+        self._filled_order_delay = data["filled_order_delay"]
+
+        self.logger().info(f"===TEMP _order_amount updated as {self._order_amount}")
+        self.logger().info(f"===TEMP _order_amount_delta updated as {self._order_amount_delta}")
+        self.logger().info(f"===TEMP _filled_order_delay updated as {self._filled_order_delay}")

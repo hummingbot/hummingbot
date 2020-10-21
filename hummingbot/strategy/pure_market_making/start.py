@@ -9,6 +9,7 @@ from hummingbot.strategy.pure_market_making import (
     OrderBookAssetPriceDelegate,
     APIAssetPriceDelegate
 )
+from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map as c_map
 from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
 from hummingbot.connector.exchange_base import ExchangeBase
@@ -49,6 +50,8 @@ def start(self):
         price_source_custom_api = c_map.get("price_source_custom_api").value
         order_refresh_tolerance_pct = c_map.get("order_refresh_tolerance_pct").value / Decimal('100')
         order_override = c_map.get("order_override").value
+        admin_api_url = global_config_map.get("admin_api_url").value
+        admin_control_type = c_map.get("admin_control_type").value
 
         trading_pair: str = raw_trading_pair
         maker_assets: Tuple[str, str] = self._initialize_market_assets(exchange, [trading_pair])[0]
@@ -101,6 +104,8 @@ def start(self):
             minimum_spread=minimum_spread,
             hb_app_notification=True,
             order_override=order_override,
+            admin_api_url = admin_api_url,
+            admin_control_type = admin_control_type,
         )
     except Exception as e:
         self._notify(str(e))

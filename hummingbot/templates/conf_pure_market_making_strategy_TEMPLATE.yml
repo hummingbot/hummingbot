@@ -120,4 +120,8 @@ take_if_crossed: null
 order_override: null
 
 # For more detailed information, see:
-# https://docs.hummingbot.io/strategies/pure-market-making/#configuration-parameters
+# https://docs.hummingbot.io/strategies/pure-market-making/#configuration-parametersz
+
+# Bot type for admin API.
+# One of 'liqudity', 'buy', 'sell' and empty string. If this is empty string, it means that admin control deactivated
+admin_control_type: null

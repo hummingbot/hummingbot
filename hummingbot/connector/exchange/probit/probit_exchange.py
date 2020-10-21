@@ -602,12 +602,14 @@ class ProbitExchange(ExchangeBase):
             tasks = []
             for tracked_order in tracked_orders:
                 order_id = await tracked_order.get_exchange_order_id()
+                market_id = probit_utils.convert_to_exchange_trading_pair(tracked_order.trading_pair)
                 param = {
-                    "market_id": probit_utils.convert_to_exchange_trading_pair(tracked_order.trading_pair),
+                    "market_id": market_id,
                     "order_id": order_id,
                     "client_order_id": tracked_order.client_order_id,
                 }
-                tasks.append(self._api_request("get", "order", param, True))
+                url = "order?market_id=" + market_id + "&order_id=" + order_id
+                tasks.append(self._api_request("get", url, param, True))
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
             update_results = await safe_gather(*tasks, return_exceptions=True)
             for update_result in update_results:

@@ -269,6 +269,11 @@ main_config_map = {
                   required_if=lambda: False,
                   type_str="json",
                   default={exchange: None for exchange in settings.EXCHANGES}),
+    "admin_api_url":
+        ConfigVar(key="admin_api_url",
+                  prompt="Please enter url of admin api >>> ",
+                  type_str="str",
+                  default="http://localhost:3000"),
 }
 
 global_config_map = {**key_config_map, **main_config_map}

@@ -129,3 +129,5 @@ script_file_path: null
 balance_asset_limit:
   binance:
 
+#url of admin api
+admin_api_url: null

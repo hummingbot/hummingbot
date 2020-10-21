@@ -115,6 +115,11 @@ def exchange_on_validated(value: str):
     required_exchanges.append(value)
 
 
+def validate_admin_control_type(value: str) -> Optional[str]:
+    if value != "" and value != "liqudity" and value != "buy" and value != "sell":
+        return "It must be one of 'liqudity', 'buy', 'sell' and empty string"
+
+
 pure_market_making_config_map = {
     "strategy":
         ConfigVar(key="strategy",
@@ -346,4 +351,9 @@ pure_market_making_config_map = {
                   required_if=lambda: False,
                   default=None,
                   type_str="json"),
+    "admin_control_type":
+        ConfigVar(key="admin_control_type",
+                  prompt="Bot type for admin API "
+                         "One of 'liqudity', 'buy', 'sell' and empty string >>> ",
+                  validator=validate_admin_control_type),
 }
