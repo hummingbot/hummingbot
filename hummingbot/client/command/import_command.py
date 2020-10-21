@@ -11,6 +11,7 @@ from hummingbot.client.settings import CONF_FILE_PATH, CONF_PREFIX, required_exc
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
+from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
 
 class ImportCommand:
@@ -36,6 +37,8 @@ class ImportCommand:
         strategy_path = os.path.join(CONF_FILE_PATH, file_name)
         strategy = update_strategy_config_map_from_file(strategy_path)
         self.strategy_file_name = file_name
+        db_name = file_name.split(".")[0]
+        self.trade_fill_db = SQLConnectionManager.get_trade_fills_instance(db_name=db_name)
         self.strategy_name = strategy
         self._notify(f"Configuration from {self.strategy_file_name} file is imported.")
         self.placeholder_mode = False

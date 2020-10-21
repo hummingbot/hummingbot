@@ -93,7 +93,7 @@ class HummingbotApplication(*commands):
         self._app_warnings: Deque[ApplicationWarning] = deque()
         self._trading_required: bool = True
 
-        self.trade_fill_db: SQLConnectionManager = SQLConnectionManager.get_trade_fills_instance()
+        self.trade_fill_db: Optional[SQLConnectionManager] = None
         self.markets_recorder: Optional[MarketsRecorder] = None
         self._script_iterator = None
         # This is to start fetching trading pairs for auto-complete
