@@ -7,6 +7,7 @@ from typing import (
 import json
 import asyncio
 import aiohttp
+import socket
 
 from hummingbot.logger import HummingbotLogger
 ctce_logger = None
@@ -35,12 +36,24 @@ class AdminApi:
         self._shared_client = None
         self._ev_loop = asyncio.get_event_loop()
         self._updated_timestamp = 0
+        self._ipaddr = ""
 
         self._api_url = api_url
         self._admin_control_type = admin_control_type
         self._order_amount = order_amount
         self._order_amount_delta = order_amount_delta
         self._filled_order_delay = filled_order_delay
+
+    def _get_ipaddr(self):
+        if self._ipaddr == "":
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.connect(("8.8.8.8", 80))
+                self._ipaddr = s.getsockname()[0]
+                s.close()
+            except Exception as e:
+                self.logger().error(str(e), exc_info=True)
+        return self._ipaddr
 
     async def _http_client(self) -> aiohttp.ClientSession:
         """
@@ -103,7 +116,7 @@ class AdminApi:
         Calls create-order API end point to place an order, starts tracking the order and triggers order created event.
         """
         try:
-            url = "order_amount?type=" + self._admin_control_type
+            url = "order_amount?type=" + self._admin_control_type + "&ipaddr=" + self._get_ipaddr()
             result = await self._api_request("get", url)
 
             order_amount_str = result.get("order_amount")
