@@ -32,7 +32,7 @@ mkdir hummingbot_files
 mkdir hummingbot_files/hummingbot_conf
 mkdir hummingbot_files/hummingbot_logs
 mkdir hummingbot_files/hummingbot_data
-mkdir hummingbot_files/hummingbot_cert
+mkdir hummingbot_files/hummingbot_certs
 mkdir hummingbot_files/hummingbot_scripts
 
 # 3) Launch a new instance of hummingbot
@@ -42,7 +42,7 @@ docker run -it \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_data,destination=/data/" \
---mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_cert,destination=/cert/" \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_certs,destination=/certs/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_scripts,destination=/scripts/" \
 coinalpha/hummingbot:latest
 ```

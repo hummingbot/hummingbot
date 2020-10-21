@@ -85,7 +85,7 @@ def cert_path() -> str:
             realpath,
             join
         )
-        _cert_path = realpath(join(prefix_path(), "cert"))
+        _cert_path = realpath(join(prefix_path(), "certs"))
 
     import os
     if not os.path.exists(_cert_path):
@@ -133,6 +133,7 @@ def chdir_to_data_directory():
     os.makedirs(os.path.join(app_data_dir, "logs"), 0o711, exist_ok=True)
     os.makedirs(os.path.join(app_data_dir, "conf"), 0o711, exist_ok=True)
     os.makedirs(os.path.join(app_data_dir, "scripts"), 0o711, exist_ok=True)
+    os.makedirs(os.path.join(app_data_dir, "certs"), 0o711, exist_ok=True)
     os.chdir(app_data_dir)
     set_prefix_path(app_data_dir)
 

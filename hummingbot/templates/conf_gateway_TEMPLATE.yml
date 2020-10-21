@@ -6,4 +6,4 @@
 template_version: 1
 
 # Gateway API Configurations
-gateway_api_port: 5000
+gateway_api_port: null
