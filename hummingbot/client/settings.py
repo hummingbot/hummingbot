@@ -73,6 +73,13 @@ class ConnectorSetting(NamedTuple):
             params["domain"] = self.domain_parameter
             return params
 
+    def add_domain_parameter(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        if not self.is_sub_domain:
+            return params
+        else:
+            params["domain"] = self.domain_parameter
+            return params
+
     def base_name(self) -> str:
         if self.is_sub_domain:
             return self.parent_name

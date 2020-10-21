@@ -110,7 +110,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         async with client.get(url, params=params) as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
-                raise IOError(f"Error fetching Binance market snapshot for {trading_pair}. "
+                raise IOError(f"Error fetching market snapshot for {trading_pair}. "
                               f"HTTP status is {response.status}.")
             data: Dict[str, Any] = await response.json()
 
