@@ -16,7 +16,6 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book import BinancePerpetualOrderBook
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils import convert_to_exchange_trading_pair
@@ -26,14 +25,12 @@ from hummingbot.connector.derivative.binance_perpetual.constants import (
     TESTNET_BASE_URL
 )
 
-BASE_URL = TESTNET_BASE_URL if global_config_map.get("paper_trade_enabled").value else PERPETUAL_BASE_URL
-
 # API OrderBook Endpoints
-SNAPSHOT_REST_URL = BASE_URL + "/fapi/v1/depth"
-TICKER_PRICE_URL = BASE_URL + "/fapi/v1/ticker/bookTicker"
-TICKER_PRICE_CHANGE_URL = BASE_URL + "/fapi/v1/ticker/24hr"
-EXCHANGE_INFO_URL = BASE_URL + "/fapi/v1/exchangeInfo"
-RECENT_TRADES_URL = BASE_URL + "/fapi/v1/trades"
+SNAPSHOT_REST_URL = "{}/fapi/v1/depth"
+TICKER_PRICE_URL = "{}/fapi/v1/ticker/bookTicker"
+TICKER_PRICE_CHANGE_URL = "{}/fapi/v1/ticker/24hr"
+EXCHANGE_INFO_URL = "{}/fapi/v1/exchangeInfo"
+RECENT_TRADES_URL = "{}/fapi/v1/trades"
 
 
 class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -61,7 +58,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @classmethod
     async def get_last_traded_price(cls, trading_pair: str) -> float:
         async with aiohttp.ClientSession() as client:
-            resp = await client.get(f"{TICKER_PRICE_CHANGE_URL}?symbol={convert_to_exchange_trading_pair(trading_pair)}")
+            resp = await client.get(f"{TICKER_PRICE_CHANGE_URL.format(cls._base_url)}?symbol={convert_to_exchange_trading_pair(trading_pair)}")
             resp_json = await resp.json()
             return float(resp_json["lastPrice"])
 
@@ -84,20 +81,22 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @staticmethod
     @cachetools.func.ttl_cache(ttl=10)
-    def get_mid_price(trading_pair: str) -> Optional[Decimal]:
+    def get_mid_price(trading_pair: str, domain=False) -> Optional[Decimal]:
         from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils import convert_to_exchange_trading_pair
 
-        resp = requests.get(url=f"{TICKER_PRICE_URL}?symbol={convert_to_exchange_trading_pair(trading_pair)}")
+        BASE_URL = TESTNET_BASE_URL if domain is True else PERPETUAL_BASE_URL
+        resp = requests.get(url=f"{TICKER_PRICE_URL.format(BASE_URL)}?symbol={convert_to_exchange_trading_pair(trading_pair)}")
         record = resp.json()
         result = (Decimal(record["bidPrice"]) + Decimal(record["askPrice"])) / Decimal("2")
         return result
 
     @staticmethod
-    async def fetch_trading_pairs() -> List[str]:
+    async def fetch_trading_pairs(domain=False) -> List[str]:
         try:
             from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils import convert_from_exchange_trading_pair
+            BASE_URL = TESTNET_BASE_URL if domain is True else PERPETUAL_BASE_URL
             async with aiohttp.ClientSession() as client:
-                async with client.get(EXCHANGE_INFO_URL, timeout=10) as response:
+                async with client.get(EXCHANGE_INFO_URL.format(BASE_URL), timeout=10) as response:
                     if response.status == 200:
                         data = await response.json()
                         raw_trading_pairs = [d["symbol"] for d in data["symbols"] if d["status"] == "TRADING"]
@@ -114,10 +113,11 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return []
 
     @staticmethod
-    async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, limit: int = 1000) -> Dict[str, Any]:
+    async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, limit: int = 1000, domain=False) -> Dict[str, Any]:
+        BASE_URL = TESTNET_BASE_URL if domain is True else PERPETUAL_BASE_URL
         params: Dict = {"limit": str(limit), "symbol": convert_to_exchange_trading_pair(trading_pair)} if limit != 0 \
             else {"symbol": convert_to_exchange_trading_pair(trading_pair)}
-        async with client.get(SNAPSHOT_REST_URL, params=params) as response:
+        async with client.get(SNAPSHOT_REST_URL.format(BASE_URL), params=params) as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
                 raise IOError(f"Error fetching Binance market snapshot for {trading_pair}. "
@@ -127,7 +127,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         async with aiohttp.ClientSession() as client:
-            snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, 1000)
+            snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, 1000, self._base_url)
             snapshot_timestamp: float = time.time()
             snapshot_msg: OrderBookMessage = BinancePerpetualOrderBook.snapshot_message_from_exchange(
                 snapshot,
@@ -243,7 +243,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 async with aiohttp.ClientSession() as client:
                     for trading_pair in self._trading_pairs:
                         try:
-                            snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
+                            snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, domain=self._base_url)
                             snapshot_timestamp: float = time.time()
                             snapshot_msg: OrderBookMessage = BinancePerpetualOrderBook.snapshot_message_from_exchange(
                                 snapshot,

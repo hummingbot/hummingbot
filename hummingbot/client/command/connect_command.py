@@ -36,12 +36,8 @@ class ConnectCommand:
         paper_trade = "testnet" if global_config_map.get("paper_trade_enabled").value else None
         if exchange == "kraken":
             self._notify("Reminder: Please ensure your Kraken API Key Nonce Window is at least 10.")
-        if paper_trade and exchange in DERIVATIVES:
-            self._notify("\nTo connect or change mainnet keys, turn off paper mode.")
-            exchange_configs = [c for c in global_config_map.values() if exchange in c.key and c.is_connect_key and paper_trade in c.key]
-        else:
-            self._notify("\nTo connect or change testnet keys, turn on paper mode.")
-            exchange_configs = [c for c in global_config_map.values() if exchange in c.key and c.is_connect_key]
+        exchange_configs = [c for c in global_config_map.values()
+                            if c.key in settings.CONNECTOR_SETTINGS[exchange].config_keys and c.is_connect_key]
         to_connect = True
         if Security.encrypted_file_exists(exchange_configs[0].key):
             await Security.wait_til_decryption_done()
@@ -113,30 +109,32 @@ class ConnectCommand:
                     else:
                         keys_confirmed = 'Yes'
                 data.append([option, keys_added, keys_confirmed])
-            elif option in DERIVATIVES:
-                # check keys for main and testnet derivative keys_added
-                api_keys = (await Security.api_keys(option)).keys()
-                testnet_checked = False
-                mainet_checked = False
-                for api_key in api_keys:
-                    if "testnet" in api_key and testnet_checked is False:
-                        testnet_checked = True
-                        keys_added = "Yes"
-                        err_msg = err_msgs.get(option + "testnet")
-                        if err_msg is not None:
-                            failed_msgs[option] = err_msg
-                        else:
-                            keys_confirmed = 'Yes'
-                        data.append([option + "(testnet)", keys_added, keys_confirmed])
-                    elif "testnet" not in api_key and mainet_checked is False:
-                        mainet_checked = True
-                        keys_added = "Yes"
-                        err_msg = err_msgs.get(option)
-                        if err_msg is not None:
-                            failed_msgs[option] = err_msg
-                        else:
-                            keys_confirmed = 'Yes'
-                        data.append([option + "(mainnet)", keys_added, keys_confirmed])
+                """
+                elif option in DERIVATIVES:
+                    # check keys for main and testnet derivative keys_added
+                    api_keys = (await Security.api_keys(option)).keys()
+                    testnet_checked = False
+                    mainet_checked = False
+                    for api_key in api_keys:
+                        if "testnet" in api_key and testnet_checked is False:
+                            testnet_checked = True
+                            keys_added = "Yes"
+                            err_msg = err_msgs.get(option + "testnet")
+                            if err_msg is not None:
+                                failed_msgs[option] = err_msg
+                            else:
+                                keys_confirmed = 'Yes'
+                            data.append([option + "(testnet)", keys_added, keys_confirmed])
+                        elif "testnet" not in api_key and mainet_checked is False:
+                            mainet_checked = True
+                            keys_added = "Yes"
+                            err_msg = err_msgs.get(option)
+                            if err_msg is not None:
+                                failed_msgs[option] = err_msg
+                            else:
+                                keys_confirmed = 'Yes'
+                            data.append([option + "(mainnet)", keys_added, keys_confirmed])
+                """
             else:
                 api_keys = (await Security.api_keys(option)).values()
                 if len(api_keys) > 0:

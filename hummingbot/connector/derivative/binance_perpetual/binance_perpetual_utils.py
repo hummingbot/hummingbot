@@ -50,17 +50,25 @@ KEYS = {
                   required_if=using_exchange("binance_perpetuals"),
                   is_secure=True,
                   is_connect_key=True),
+
+}
+
+OTHER_DOMAINS = ["binance_perpetual_testnet"]
+OTHER_DOMAINS_PARAMETER = {"binance_perpetual_testnet": "binance_perpetual_testnet"}
+OTHER_DOMAINS_EXAMPLE_PAIR = {"binance_perpetual_testnet": "BTC-USDT"}
+OTHER_DOMAINS_DEFAULT_FEES = {"binance_perpetual_testnet": [0.02, 0.04]}
+OTHER_DOMAINS_KEYS = {"binance_perpetual_testnet": {
     # add keys for testnet
     "binance_perpetual_testnet_api_key":
         ConfigVar(key="binance_perpetual_testnet_api_key",
                   prompt="Enter your Binance Perpetual testnet API key >>> ",
-                  required_if=using_exchange("binance_perpetual"),
+                  required_if=using_exchange("binance_perpetual_testnet"),
                   is_secure=True,
                   is_connect_key=True),
     "binance_perpetual_testnet_api_secret":
         ConfigVar(key="binance_perpetual_testnet_api_secret",
                   prompt="Enter your Binance Perpetual testnet API secret >>> ",
-                  required_if=using_exchange("binance_perpetual"),
+                  required_if=using_exchange("binance_perpetual_testnet"),
                   is_secure=True,
                   is_connect_key=True),
-}
+}}
