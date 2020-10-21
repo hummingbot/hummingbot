@@ -1,6 +1,6 @@
 import logging
 from typing import Optional
-
+import dataclasses
 from hummingbot.core.event.event_listener cimport EventListener
 
 er_logger = None
@@ -22,7 +22,11 @@ cdef class EventReporter(EventListener):
 
     cdef c_call(self, object event_object):
         try:
-            event_dict = event_object._asdict()
+            if dataclasses.is_dataclass(event_object):
+                event_dict = dataclasses.asdict(event_object)
+            else:
+                event_dict = event_object._asdict()
+
             event_dict.update({"event_name": event_object.__class__.__name__,
                                "event_source": self.event_source})
             self.logger().event_log(event_dict)

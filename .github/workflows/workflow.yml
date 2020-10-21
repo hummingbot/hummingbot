@@ -59,6 +59,14 @@ jobs:
           bash ${MINICONDA_FILENAME} -b -f -p $HOME/miniconda3
           source /usr/share/miniconda/etc/profile.d/conda.sh
           conda install -c anaconda nose
+
+      # Install pre_commit if code has changed
+      - name: Install pre_commit
+        if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          source /usr/share/miniconda/etc/profile.d/conda.sh
+          conda install -c conda-forge pre_commit
         
       # Install hummingbot env if environment-linux.yml has changed
       - name: Install Hummingbot
@@ -69,6 +77,13 @@ jobs:
           ./install
 
       # Compile and run tests if code has changed
+      - name: Run Flake8
+        shell: bash
+        if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
+        run: |
+          source /usr/share/miniconda/etc/profile.d/conda.sh
+          conda activate hummingbot
+          pre-commit run --all-files 
       - name: Compile Hummingbot
         shell: bash
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'

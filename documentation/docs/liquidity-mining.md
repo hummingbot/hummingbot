@@ -44,7 +44,7 @@ Work on removing this limit is in progress, you can read more about it in our [R
 
 **Minimum reward payout amount**
 
-Due to the recent surge in Ethereum gas price, Hummingbot will impose a $50.00 minimum on the weekly payout ==for payments on the Ethereum blockchain (currently USDC and RLC)==, starting with the next scheduled payout on September 18th (UTC).
+Due to the recent surge in Ethereum gas price, Hummingbot will impose a $50.00 minimum on the weekly payout ==for payments on the Ethereum blockchain (currently USDT and RLC)==, starting with the next scheduled payout on September 18th (UTC).
 
 For miners who earn < $50 within one week, their rewards will be accrued and rolled over to the next period, read more in this [Reddit post](https://www.reddit.com/r/Hummingbot/comments/ip4mc3/announcement_raising_minimum_payment_to_50/).
 
@@ -52,19 +52,18 @@ For miners who earn < $50 within one week, their rewards will be accrued and rol
     XZC payments are not subject to a minimum payout reward; all payouts will be made for each period.
 
 
-**Native XZC rewards for Zcoin campaign**
+**Enabling USDT for USD-based payments**
 
-Starting September 15, 2020 UTC, we rolled out [XZC native token payments](https://hummingbot.io/blog/2020-09-xzc-native-token-payment/) for the Zcoin liquidity mining campaign! Miners participating in the Zcoin liquidity mining campaign will start earning and be paid in XZC tokens.
+Starting from the rewards period beginning on October 6, 2020 12.00am UTC, all USD-based rewards will be accrued in USDT.
 
-Participating miners should enter their XZC wallet address in the miner app.
+**ZCoin campaign paused**
 
-!!! Note
-    You can use your Binance XZC deposit address and enter in the miner app to receive XZC directly into Binance.
+ZCoin is putting its campaign on pause and will continue to monitor and re-evaluate the liquidity for its token. They are one of our original launch partners and we appreciate their support of our platform so far!
 
 
 ## Current Reward Period
 
-**September 29, 2020 12:00am UTC - October 6, 2020 12:00am UTC**
+**October 20, 2020 12:00am UTC - October 27, 2020 12:00am UTC**
 
 <table>
   <thead>
@@ -82,21 +81,21 @@ Participating miners should enter their XZC wallet address in the miner app.
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 250</td>
+      <td>USDT 250</td>
     </tr>
     <tr>
       <td>COTI/USDT</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 250</td>
+      <td>USDT 250</td>
     </tr>
     <tr>
       <td>COTI/BNB</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 250</td>
+      <td>USDT 250</td>
     </tr>        
     <tr>
       <td rowspan="3"><a href="#mainframe">Mainframe</a><br></td>
@@ -104,21 +103,21 @@ Participating miners should enter their XZC wallet address in the miner app.
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 200</td>
+      <td>USDT 250</td>
     </tr>
     <tr>
       <td>MFT/ETH</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 275</td>
+      <td>USDT 250</td>
     </tr>
     <tr>
       <td>MFT/BNB</td>
       <td>Binance.com</td>
       <td>2%</td>
       <td>8</td>
-      <td>USDC 275</td>
+      <td>USDT 250</td>
     </tr>
     <tr>
       <td rowspan="3"><a href="#iexec">iExec</a><br></td>
@@ -142,21 +141,6 @@ Participating miners should enter their XZC wallet address in the miner app.
       <td>8</td>
       <td>RLC 180</td>
     </tr>
-    <tr>
-      <td rowspan="2"><a href="#zcoin">Zcoin</a></td>
-      <td>XZC/BTC</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td><b>XZC 125</b></td>
-    </tr>
-    <tr>
-      <td>XZC/USDT</td>
-      <td>Binance.com</td>
-      <td>2%</td>
-      <td>8</td>
-      <td><b>XZC 125</b></td>
-    </tr>
   </tbody>
 </table>
 
@@ -166,29 +150,76 @@ Participating miners should enter their XZC wallet address in the miner app.
 
 ## Upcoming Changes to Terms 
 
-**Adding support for TRC20 USDT for USD-based liquidity mining payments**
- 
-In response to rising Ethereum gas prices, we will be giving miners the option to receive USDT-TRON for USD-based liquidity mining rewards. Receiving USDT-TRON mining rewards will not be subject to any minimum amounts, and miners can have rewards paid directly into their exchange accounts.
+**1) Liquidity mining for ALGO going live on October 27, 2020!**
 
-Miners can also choose to continuing receiving rewards to their Ethereum wallet, but still subject to minimum payment amounts.
+The campaign will initially be a 24-week campaign with a reward pool of $30,000 in ALGO and USDT ASA (Algorand Standard Asset) tokens. For more detais, you can check our [blog post](https://hummingbot.io/blog/2020-10-algorand/).
 
-https://hummingbot.io/blog/2020-09-migrating-to-trc20-usdt-payment/
-
-Timetable:
-
-- Shortly/next few days: Tron wallet enabled on Hummingbot Miner
-
-- October 6, 2020 12:00am UTC: Campaigns with USDC reward pools will switch to USDT
-
-- October 16, 2020 UTC: First USDT-TRON payout
+<table>
+  <thead>
+    <th>Token Issuer</th>
+    <th>Trading pair</th>
+    <th>Exchange</th>
+    <th>Maximum spread</th>
+    <th>Weekly rewards</th>
+  </thead>
+  <tbody>
+      <tr>
+      <td rowspan="2"><a href="#algorand">Algorand</a></td>
+      <td>Algo/BTC</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td><b>USD 625 *</b></td>
+    </tr>
+    <tr>
+      <td>Algo/USDT</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td><b>USD 625 *</b></td>
+    </tr>
+  </tbody>
+</table>
 
 !!! note
-    Users will be required to enter Tron wallet address in the Hummingbot Miners app to enable USDT-TRON payments.
+    \* 50% of the reward pool will be denominated in Algo tokens, with the final amount to be determined just prior to the campaign launch based on the indicated dollar amounts shown.
 
-Binance.com (as well as many of the major exchanges) support TRC20-USDT, so you can use a USDT TRC20 deposit address to receive rewards directly into your exchange account.
+**2) Liquidity mining campaign for NEM (XEM) going live on November 3, 2020!**
 
+Total reward pool: XEM tokens with a current value of approximately $1,250 per week (total of $15,000 over 12 weeks). For more details, you can check our [blog post](https://hummingbot.io/blog/2020-10-nem-liquidity-mining/).
+
+<table>
+  <thead>
+    <th>Token Issuer</th>
+    <th>Trading pair</th>
+    <th>Exchange</th>
+    <th>Maximum spread</th>
+    <th>Weekly rewards</th>
+  </thead>
+  <tbody>
+      <tr>
+      <td rowspan="2"><a href="#nem">NEM</a></td>
+      <td>XEM/BTC</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td><b>USD 625 *</b></td>
+    </tr>
+    <tr>
+      <td>XEM/ETH</td>
+      <td>Binance.com</td>
+      <td>2%</td>
+      <td><b>USD 625 *</b></td>
+    </tr>
+  </tbody>
+</table>
+
+!!! note
+    \* The reward pool will be denominated in XEM tokens, with the final amount to be determined just prior to the campaign launch based on the indicated dollar amounts shown.
 
 ## Token Issuers
+
+### Algorand
+[Algorand Inc.](https://www.algorand.com/) built the world’s first open source, permissionless, pure proof-of-stake blockchain protocol for the next generation of financial products. This blockchain, the Algorand protocol, is the brainchild of Turing Award-winning cryptographer Silvio Micali. A technology company dedicated to removing friction from financial exchange, Algorand Inc. is powering the DeFi evolution by enabling the creation and exchange of value, building new financial tools and services, bringing assets on-chain and providing responsible privacy models.
+
+[Whitepaper](https://www.algorand.com/resources/white-papers) | [Twitter](https://twitter.com/Algorand) | [Telegram](https://t.me/algorand) | [Discord](https://discord.gg/YgPTCVk) | [CoinMarketCap](https://coinmarketcap.com/currencies/algorand/) | [CoinGecko](https://www.coingecko.com/en/coins/algorand)
 
 ### COTI
 [COTI](https://coti.io/) is a fully encompassing “finance on the blockchain” ecosystem that is designed specifically to meet the challenges of traditional finance (fees, latency, global inclusion and risk) by introducing a new type of DAG based base protocol and infrastructure that is scalable, fast, private, inclusive, low cost and is optimized for real time payments. The ecosystem includes a [DAG based Blockchain](https://www.youtube.com/watch?v=kSdRxqHDKe8), a [Proof of Trust Consensus Algorithm](https://coti.io/files/COTI-technical-whitepaper.pdf), a [multiDAG](https://medium.com/cotinetwork%27/coti-is-launching-multidag-a-protocol-to-issue-tokens-on-a-dag-infrastructure-5c6282e5c3d1) a [Global Trust System](https://medium.com/cotinetwork/introducing-cotis-global-trust-system-gts-an-advanced-layer-of-trust-for-any-blockchain-7e44587b8bda), a [Universal Payment Solution](https://medium.com/cotinetwork/coti-universal-payment-system-ups-8614e149ee76), a [Payment Gateway](https://medium.com/cotinetwork/announcing-the-first-release-of-the-coti-payment-gateway-4a9f3e515b86), as well as consumer (COTI Pay) and merchant (COTI Pay Business) applications.
@@ -207,9 +238,15 @@ The [Mainframe (MFT)](https://mainframe.com/) Lending Protocol allows anyone to 
 
 [Blog](https://blog.mainframe.com) | [Twitter](https://twitter.com/Mainframe_HQ) | [Discord](https://discord.gg/mhtSRz6) | [Github](https://github.com/MainframeHQ) | [CoinMarketCap](https://coinmarketcap.com/currencies/mainframe/) | [CoinGecko](https://www.coingecko.com/en/coins/mainframe)
 
+### NEM
+
+[NEM](https://nem.io) Group supports the development of Symbol from NEM, a trusted and secure enterprise blockchain that smooths business friction, increasing the flow of data and innovation to supercharge the creation, exchange and protection of assets. 
+NEM Group comprises three separate entities: NEM Software, NEM Trading, and NEM Ventures. NEM Group shapes the future of blockchain by nurturing a strong and healthy ecosystem that will contribute to the development of blockchain technology for generations to come.
+
+[Forum](https://forum.nem.io/) | [Twitter](https://twitter.com/nemofficial) | [Telegram](https://t.me/nemred) | [Github](https://github.com/NemProject) | [CoinMarketCap](https://coinmarketcap.com/currencies/nem/) | [CoinGecko](https://www.coingecko.com/en/coins/nem)
+
 ### Zcoin
 
 [ZCoin (XZC)](https://zcoin.io/) is an open-source privacy-focused cryptocurrency token that launched in Sep 2016. Zcoin originally pioneered the use of Zerocoin to enable privacy but has since transitioned to a scheme called Sigma which is based on a paper by Jens Groth and Markulf Kohlweiss that reportedly allows greater scalability and removes the need for trusted setup in Zerocoin. With Zcoin’s Sigma feature, only the sender and receiver would be able to ascertain the exchange of funds in a given transaction, as no transaction histories are linked to the actual coins. Zcoin is also the creator of the Lelantus privacy protocol which improves Sigma's privacy and functionality. Its ZC token has been listed on Binance, Huobi Global, Bittrex, etc. 
 
 [Whitepaper](https://zcoin.io/tech/) | [Twitter](https://twitter.com/zcoinofficial) | [Telegram](https://t.me/zcoinproject) | [Github](https://github.com/zcoinofficial) | [Explorer](https://chainz.cryptoid.info/xzc/) | [CoinMarketCap](https://coinmarketcap.com/currencies/zcoin) | [CoinGecko](https://www.coingecko.com/en/coins/zcoin)
-
