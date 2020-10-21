@@ -348,6 +348,43 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("103"), strategy.active_sells[-1].price)
         self.assertEqual(Decimal("3"), strategy.active_sells[-1].quantity)
 
+    def test_order_quantity_available_balance(self):
+        """
+        When balance is below the specified order amount, checks if orders created
+        use the remaining available balance for the order size.
+        """
+        strategy = PureMarketMakingStrategy(
+            self.market_info,
+            bid_spread=Decimal("0.01"),
+            ask_spread=Decimal("0.01"),
+            order_refresh_time=5,
+            order_amount=Decimal("100"),
+            order_levels=3
+        )
+
+        self.clock.add_iterator(strategy)
+        self.market.set_balance("HBOT", Decimal("10"))
+        self.market.set_balance("ETH", Decimal("1000"))
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        # Check if order size on both sides is equal to the remaining balance
+        self.assertEqual(Decimal("10.1010"), strategy.active_buys[0].quantity)
+        self.assertEqual(Decimal("10"), strategy.active_sells[0].quantity)
+
+        # Order levels created
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+
+        strategy.cancel_order(strategy.active_buys[0].client_order_id)
+        strategy.cancel_order(strategy.active_sells[0].client_order_id)
+
+        # Do not create order on side with 0 balance
+        self.market.set_balance("HBOT", 0)
+        self.market.set_balance("ETH", Decimal("1000"))
+        self.clock.backtest_til(self.start_timestamp + 7)
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(0, len(strategy.active_sells))
+
     def test_market_become_wider(self):
         strategy = self.one_level_strategy
         self.clock.add_iterator(strategy)
