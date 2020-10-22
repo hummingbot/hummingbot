@@ -150,6 +150,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         return all([market.ready for market in self._sb_markets])
 
     @property
+    def market_info(self) -> MarketTradingPairTuple:
+        return self._market_info
+
+    @property
     def order_refresh_tolerance_pct(self) -> Decimal:
         return self._order_refresh_tolerance_pct
 
@@ -330,6 +334,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @property
     def trading_pair(self):
         return self._market_info.trading_pair
+
+    @property
+    def order_override(self):
+        return self._order_override
+
+    @order_override.setter
+    def order_override(self, value: Dict[str, List[str]]):
+        self._order_override = value
 
     def get_price(self) -> float:
         if self._asset_price_delegate is not None:
