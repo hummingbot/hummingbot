@@ -76,8 +76,8 @@ cdef class ScriptIterator(TimeIterator):
         for market in self._markets:
             for event_pair in self._event_pairs:
                 market.add_listener(event_pair[0], event_pair[1])
-        # self._parent_queue.put(PmmMarketInfo(self._strategy.market_info.market.name,
-        #                                      self._strategy.trading_pair))
+        self._parent_queue.put(PmmMarketInfo(self._strategy.market_info.market.name,
+                                             self._strategy.trading_pair))
 
     cdef c_stop(self, Clock clock):
         TimeIterator.c_stop(self, clock)

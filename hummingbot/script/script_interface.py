@@ -60,6 +60,7 @@ class PMMParameters:
         self._inventory_target_base_pct = None
         self._inventory_range_multiplier = None
         self._order_override = None
+
         # self._order_optimization_enabled = None
         # self._ask_order_optimization_depth = None
         # self._bid_order_optimization_depth = None
@@ -87,6 +88,7 @@ class PMMParameters:
     inventory_target_base_pct = StrategyParameter("inventory_target_base_pct")
     inventory_range_multiplier = StrategyParameter("inventory_range_multiplier")
     order_override = StrategyParameter("order_override")
+
     # order_optimization_enabled = PMMParameter("order_optimization_enabled")
     # ask_order_optimization_depth = PMMParameter("ask_order_optimization_depth")
     # bid_order_optimization_depth = PMMParameter("bid_order_optimization_depth")
