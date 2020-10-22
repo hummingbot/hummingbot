@@ -32,8 +32,14 @@ Liquidity mining sets forth an analytical framework for determining market maker
 
 Qualified participants will be eligible to receive compensation in accordance with each liquidity mining campaign’s schedule of Liquidity Mining Payments, which will be based on each participant’s trading activity (in particular, orders placed and their sizes and spreads) in the tokens subject to the liquidity mining campaign.
 
-==Participants must enter a valid wallet address applicable for the campaign that they are participating in.== CoinAlpha does not take any responsibility and will not reimburse for any loss of funds due to a participant submitting an incorrect or invalid wallet address.
+**Wallet address** 
 
+==Participants must enter a valid wallet address applicable for the campaign that they are participating in.== Wallet address are use for receiving payouts only, you do not need to deposit assets into or trade using this wallet.
+
+For more details on how to obtain wallet address and its requiremets, please refer to our docs on [Liquidity Mining FAQs](https://docs.hummingbot.io/faq/liquidity-mining/#how-to-add-wallet-address)
+
+!!! warning "Warning: Use of invalid wallet address"
+    **CoinAlpha does not take any responsibility and will not reimburse for any loss of funds due to a participant submitting an incorrect or invalid wallet address.**
 
 **Orders outstanding for more than 30 minutes not counted for rewards**
 
