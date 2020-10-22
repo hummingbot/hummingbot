@@ -52,6 +52,7 @@ class PMMParameters:
         self._order_refresh_time = None
         self._order_refresh_tolerance_pct = None
         self._filled_order_delay = None
+        self._filled_order_delay_delta = None
         self._hanging_orders_enabled = None
         self._hanging_orders_cancel_pct = None
 
@@ -81,6 +82,7 @@ class PMMParameters:
     order_refresh_time = StrategyParameter("order_refresh_time")
     order_refresh_tolerance_pct = StrategyParameter("order_refresh_tolerance_pct")
     filled_order_delay = StrategyParameter("filled_order_delay")
+    filled_order_delay_delta = StrategyParameter("filled_order_delay_delta")
     hanging_orders_enabled = StrategyParameter("hanging_orders_enabled")
     hanging_orders_cancel_pct = StrategyParameter("hanging_orders_cancel_pct")
 

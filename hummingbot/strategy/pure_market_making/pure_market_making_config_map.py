@@ -116,8 +116,8 @@ def exchange_on_validated(value: str):
 
 
 def validate_admin_control_type(value: str) -> Optional[str]:
-    if value != "" and value != "liqudity" and value != "buy" and value != "sell":
-        return "It must be one of 'liqudity', 'buy', 'sell' and empty string"
+    if value != "" and value != "liquidity" and value != "buy" and value != "sell":
+        return "It must be one of 'liquidity', 'buy', 'sell' and empty string"
 
 
 pure_market_making_config_map = {
@@ -257,6 +257,13 @@ pure_market_making_config_map = {
                   type_str="float",
                   validator=lambda v: validate_decimal(v, min_value=0, inclusive=False),
                   default=60),
+    "filled_order_delay_delta":
+        ConfigVar(key="filled_order_delay_delta",
+                  prompt="Enter the delta value of filled_order_delay "
+                         "(Enter 0 to deactivate this feature) >>> ",
+                  type_str="float",
+                  default=0,
+                  validator=lambda v: validate_decimal(v, min_value=0, inclusive=True)),
     "hanging_orders_enabled":
         ConfigVar(key="hanging_orders_enabled",
                   prompt="Do you want to enable hanging orders? (Yes/No) >>> ",
@@ -354,6 +361,6 @@ pure_market_making_config_map = {
     "admin_control_type":
         ConfigVar(key="admin_control_type",
                   prompt="Bot type for admin API "
-                         "One of 'liqudity', 'buy', 'sell' and empty string >>> ",
+                         "One of 'liquidity', 'buy', 'sell' and empty string >>> ",
                   validator=validate_admin_control_type),
 }

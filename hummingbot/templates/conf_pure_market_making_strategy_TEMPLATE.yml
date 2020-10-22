@@ -72,6 +72,9 @@ order_level_spread: null
 # How long to wait before placing the next order in case your order gets filled.
 filled_order_delay: null
 
+# Delta of filled_order_delay.
+filled_order_delay_delta: null
+
 # Whether to stop cancellations of orders on the other side (of the order book),
 # when one side is filled (hanging orders feature) (true/false).
 hanging_orders_enabled: null
@@ -123,5 +126,5 @@ order_override: null
 # https://docs.hummingbot.io/strategies/pure-market-making/#configuration-parametersz
 
 # Bot type for admin API.
-# One of 'liqudity', 'buy', 'sell' and empty string. If this is empty string, it means that admin control deactivated
+# One of 'liquidity', 'buy', 'sell' and empty string. If this is empty string, it means that admin control deactivated
 admin_control_type: null

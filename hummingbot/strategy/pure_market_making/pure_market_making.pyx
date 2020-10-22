@@ -74,6 +74,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                  order_refresh_time: float = 30.0,
                  order_refresh_tolerance_pct: Decimal = s_decimal_neg_one,
                  filled_order_delay: float = 60.0,
+                 filled_order_delay_delta: float = 0.0,
                  inventory_skew_enabled: bool = False,
                  inventory_target_base_pct: Decimal = s_decimal_zero,
                  inventory_range_multiplier: Decimal = s_decimal_zero,
@@ -117,6 +118,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._order_refresh_time = order_refresh_time
         self._order_refresh_tolerance_pct = order_refresh_tolerance_pct
         self._filled_order_delay = filled_order_delay
+        self._filled_order_delay_delta = filled_order_delay_delta
         self._inventory_skew_enabled = inventory_skew_enabled
         self._inventory_target_base_pct = inventory_target_base_pct
         self._inventory_range_multiplier = inventory_range_multiplier
@@ -136,7 +138,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._hb_app_notification = hb_app_notification
         self._order_override = order_override
 
-        self._admin_api = AdminApi(admin_api_url, admin_control_type, order_amount, order_amount_delta, filled_order_delay)
+        self._admin_api = AdminApi(admin_api_url, admin_control_type, order_amount, order_amount_delta, filled_order_delay, filled_order_delay_delta)
 
         self._cancel_timestamp = 0
         self._create_timestamp = 0
@@ -172,14 +174,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @order_amount.setter
     def order_amount(self, value: Decimal):
         self._order_amount = value
-
-    @property
-    def order_amount_delta(self) -> Decimal:
-        return self._order_amount_delta
-
-    @order_amount_delta.setter
-    def order_amount_delta(self, value: Decimal):
-        self._order_amount_delta = value
 
     @property
     def order_levels(self) -> int:
@@ -948,7 +942,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 return
 
         # delay order creation by filled_order_dalay (in seconds)
-        self._create_timestamp = self._current_timestamp + self._filled_order_delay
+        self._create_timestamp = self._current_timestamp + self._filled_order_delay + random.randint(0, self._filled_order_delay_delta)
         self._cancel_timestamp = min(self._cancel_timestamp, self._create_timestamp)
 
         if self._hanging_orders_enabled:
@@ -992,7 +986,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 return
 
         # delay order creation by filled_order_dalay (in seconds)
-        self._create_timestamp = self._current_timestamp + self._filled_order_delay
+        self._create_timestamp = self._current_timestamp + self._filled_order_delay + random.randint(0, self._filled_order_delay_delta)
         self._cancel_timestamp = min(self._cancel_timestamp, self._create_timestamp)
 
         if self._hanging_orders_enabled:
@@ -1178,7 +1172,4 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._order_amount = data["order_amount"]
         self._order_amount_delta = data["order_amount_delta"]
         self._filled_order_delay = data["filled_order_delay"]
-
-        self.logger().info(f"===TEMP _order_amount updated as {self._order_amount}")
-        self.logger().info(f"===TEMP _order_amount_delta updated as {self._order_amount_delta}")
-        self.logger().info(f"===TEMP _filled_order_delay updated as {self._filled_order_delay}")
+        self._filled_order_delay_delta = data["filled_order_delay_delta"]
