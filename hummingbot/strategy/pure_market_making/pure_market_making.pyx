@@ -229,7 +229,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     @property
     def inventory_range_multiplier(self) -> Decimal:
-        return self.inventory_range_multiplier
+        return self._inventory_range_multiplier
 
     @inventory_range_multiplier.setter
     def inventory_range_multiplier(self, value: Decimal):
