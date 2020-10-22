@@ -26,6 +26,8 @@ from hummingbot.core.utils.kill_switch import KillSwitch
 from typing import TYPE_CHECKING
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.script.script_iterator import ScriptIterator
+from hummingbot.connector.connector_status import get_connector_status
+from hummingbot.client.config.config_helpers import get_strategy_config_map
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -76,6 +78,13 @@ class StartCommand:
         self._notify(f"\nStatus check complete. Starting '{self.strategy_name}' strategy...")
         if global_config_map.get("paper_trade_enabled").value:
             self._notify("\nPaper Trading ON: All orders are simulated, and no real orders are placed.")
+
+        # Show warning message if the exchange connector has outstanding bugs or not working
+        if get_connector_status(get_strategy_config_map(self.strategy_name).get("exchange").value) == "Warning":
+            self._notify("\nWARNING: This connector has one or more outstanding issues.\n"
+                         "         Please refer to our GitHub issues page for more information.")
+        elif get_connector_status(get_strategy_config_map(self.strategy_name).get("exchange").value) == "Unavailable":
+            self._notify("\nWARNING: This exchange connector is currently not usable.")
         await self.start_market_making(self.strategy_name)
 
     async def start_market_making(self,  # type: HummingbotApplication
