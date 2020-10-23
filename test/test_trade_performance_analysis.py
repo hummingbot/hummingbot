@@ -141,6 +141,7 @@ class TestTradePerformanceAnalysis(unittest.TestCase):
         )
 
         expected_trade_performance_stats = {
+            'no_of_trades': 4,
             'portfolio_acquired_quote_value': Decimal('430.6500'),
             'portfolio_spent_quote_value': Decimal('428.50'),
             'portfolio_delta': Decimal('2.1500'),
@@ -213,6 +214,7 @@ class TestTradePerformanceAnalysis(unittest.TestCase):
         )
 
         expected_trade_performance_stats = {
+            'no_of_trades': 4,
             'portfolio_acquired_quote_value': Decimal('501.4350'),
             'portfolio_spent_quote_value': Decimal('471.00'),
             'portfolio_delta': Decimal('30.4350'),
@@ -275,6 +277,7 @@ class TestTradePerformanceAnalysis(unittest.TestCase):
         )
 
         expected_trade_performance_stats = {
+            'no_of_trades': 8,
             'portfolio_acquired_quote_value': Decimal('919.7100'),
             'portfolio_spent_quote_value': Decimal('890.00'),
             'portfolio_delta': Decimal('29.7100'),
