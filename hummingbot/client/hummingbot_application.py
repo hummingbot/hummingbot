@@ -73,7 +73,7 @@ class HummingbotApplication(*commands):
         self.markets: Dict[str, ExchangeBase] = {}
         self.wallet: Optional[Web3Wallet] = None
         # strategy file name and name get assigned value after import or create command
-        self.strategy_file_name: str = None
+        self._strategy_file_name: str = None
         self.strategy_name: str = None
         self.strategy_task: Optional[asyncio.Task] = None
         self.strategy: Optional[StrategyBase] = None
@@ -93,11 +93,21 @@ class HummingbotApplication(*commands):
         self._app_warnings: Deque[ApplicationWarning] = deque()
         self._trading_required: bool = True
 
-        self.trade_fill_db: SQLConnectionManager = SQLConnectionManager.get_trade_fills_instance()
+        self.trade_fill_db: Optional[SQLConnectionManager] = None
         self.markets_recorder: Optional[MarketsRecorder] = None
         self._script_iterator = None
         # This is to start fetching trading pairs for auto-complete
         TradingPairFetcher.get_instance()
+
+    @property
+    def strategy_file_name(self) -> str:
+        return self._strategy_file_name
+
+    @strategy_file_name.setter
+    def strategy_file_name(self, value: str):
+        self._strategy_file_name = value
+        db_name = value.split(".")[0]
+        self.trade_fill_db = SQLConnectionManager.get_trade_fills_instance(db_name=db_name)
 
     @property
     def strategy_config_map(self):
