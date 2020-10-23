@@ -29,21 +29,120 @@ if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
+def get_timestamp(days_ago: float = 0.) -> float:
+    return time.time() - (60. * 60. * 24. * days_ago)
+
+
 class HistoryCommand:
     def history(self,  # type: HummingbotApplication
+                days: float = 0,
+                verbose: bool = False,
                 ):
+        days = 10.
+        verbose = True
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.history)
             return
 
-        if not all(market.ready for market in self.markets.values()):
-            self._notify("\n  History stats are not available before Markets are ready.")
+        if self.strategy_file_name is None:
+            self._notify("\n  Please first import a strategy config file of which to show historical performance.")
             return
         if global_config_map.get("paper_trade_enabled").value:
             self._notify("\n  Paper Trading ON: All orders are simulated, and no real orders are placed.")
-        self.list_trades()
+        if verbose:
+            self.list_trades(days=days)
         if self.strategy_name != "celo_arb":
-            self.trade_performance_report()
+            self.history_report(days=days)
+
+    def history_report(self,  # type: HummingbotApplication
+                       days: float = 0.0):
+        try:
+            lines = []
+            start_time = get_timestamp(days)
+            current_time = get_timestamp()
+            lines.extend(
+                [f"    Start Time: {datetime.fromtimestamp(start_time).strftime('%Y-%m-%d %H:%M:%S')}"] +
+                [f"    Curent Time: {datetime.fromtimestamp(current_time).strftime('%Y-%m-%d %H:%M:%S')}"] +
+                [f"    Duration: {pd.Timedelta(seconds=int(current_time - start_time))}"]
+            )
+            # trades: List[TradeFill] = self._get_trades_from_session(int(start_time * 1e3),
+            #                                                         config_file_path=self.strategy_file_name)
+
+            trades_columns = ["", "buy", "sell", "total"]
+            trades_data = [
+                ["Number of trades          ", 0, 0, 0],
+                ["Total trade volume (base) ", 0, 0, 0],
+                ["Total trade volume (quote)", 0, 0, 0],
+                ["Avg price                 ", 0, 0, 0],
+            ]
+            trades_df: pd.DataFrame = pd.DataFrame(data=trades_data, columns=trades_columns)
+            lines.extend(["", "  Trades:"] + ["    " + line for line in trades_df.to_string(index=False).split("\n")])
+
+            assets_columns = ["", "start", "current", "change"]
+            assets_data = [
+                ["MFT            ", 0, 0, 0],
+                ["BNB            ", 0, 0, 0],
+                ["MFT-BNB price  ", 0, 0, 0],
+                ["Base asset %   ", 0, 0, 0],
+            ]
+            assets_df: pd.DataFrame = pd.DataFrame(data=assets_data, columns=assets_columns)
+            lines.extend(["", "  Assets:"] + ["    " + line for line in assets_df.to_string(index=False).split("\n")])
+
+            perf_data = [
+                ["Hold portfolio value    ", 0],
+                ["Current portfolio value ", 0],
+                ["Trade P&L               ", 0],
+                ["Fees paid               ", 0],
+                ["Total P&L               ", 0],
+                ["Return %                ", 0],
+            ]
+            perf_df: pd.DataFrame = pd.DataFrame(data=perf_data)
+            lines.extend(["", "  Performance:"] +
+                         ["    " + line for line in perf_df.to_string(index=False, header=False).split("\n")])
+
+            self._notify("\n".join(lines))
+            return
+
+            trade_performance_stats, market_trading_pair_stats = self._calculate_trade_performance()
+            primary_quote_asset: str = self.market_trading_pair_tuples[0].quote_asset.upper()
+
+            trade_performance_status_line = []
+            market_df_data: Set[Tuple[str, str, Decimal, Decimal, str, str]] = set()
+            market_df_columns = ["Market", "Pair", "Start Price", "End Price",
+                                 "Trades", "Trade Value Delta"]
+
+            for market_trading_pair_tuple, trading_pair_stats in market_trading_pair_stats.items():
+                market_df_data.add((
+                    market_trading_pair_tuple.market.display_name,
+                    market_trading_pair_tuple.trading_pair.upper(),
+                    trading_pair_stats["starting_quote_rate"],
+                    trading_pair_stats["end_quote_rate"],
+                    trading_pair_stats["trade_count"],
+                    f"{trading_pair_stats['trading_pair_delta']:.8f} {primary_quote_asset}"
+                ))
+
+            inventory_df: pd.DataFrame = self.balance_comparison_data_frame(market_trading_pair_stats)
+            market_df: pd.DataFrame = pd.DataFrame(data=list(market_df_data), columns=market_df_columns)
+            portfolio_delta: Decimal = trade_performance_stats["portfolio_delta"]
+            portfolio_delta_percentage: Decimal = trade_performance_stats["portfolio_delta_percentage"]
+
+            trade_performance_status_line.extend(["", "  Inventory:"] +
+                                                 ["    " + line for line in inventory_df.to_string().split("\n")])
+            trade_performance_status_line.extend(["", "  Markets:"] +
+                                                 ["    " + line for line in market_df.to_string().split("\n")])
+
+            trade_performance_status_line.extend(
+                ["", "  Performance:"] +
+                [f"    Started: {datetime.fromtimestamp(self.start_time//1e3)}"] +
+                [f"    Duration: {pd.Timedelta(seconds=abs(int(time.time() - self.start_time/1e3)))}"] +
+                [f"    Total Trade Value Delta: {portfolio_delta:.7g} {primary_quote_asset}"] +
+                [f"    Return %: {portfolio_delta_percentage:.4f} %"])
+
+            self._notify("\n".join(trade_performance_status_line))
+
+        except Exception:
+            self.logger().error("Unexpected error running performance analysis.", exc_info=True)
+            self._notify("Error running performance analysis.")
 
     def balance_snapshot(self,  # type: HummingbotApplication
                          ) -> Dict[str, Dict[str, Decimal]]:
@@ -161,34 +260,32 @@ class HistoryCommand:
             self._notify("Error running performance analysis.")
 
     def list_trades(self,  # type: HummingbotApplication
-                    ):
+                    days: float = 0.0):
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.list_trades)
             return
 
         lines = []
-        if self.strategy is None:
-            self._notify("Bot not started. No past trades.")
-        else:
-            # Query for maximum number of trades to display + 1
-            queried_trades: List[TradeFill] = self._get_trades_from_session(self.init_time,
-                                                                            MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT + 1,
-                                                                            self.strategy_file_name)
-            if self.strategy_name == "celo_arb":
-                celo_trades = self.strategy.celo_orders_to_trade_fills()
-                queried_trades = queried_trades + celo_trades
-            df: pd.DataFrame = TradeFill.to_pandas(queried_trades)
+        start_timestamp = get_timestamp(days)
+        start_timestamp = int(start_timestamp * 1e3)
+        queried_trades: List[TradeFill] = self._get_trades_from_session(start_timestamp,
+                                                                        MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT + 1,
+                                                                        self.strategy_file_name)
+        if self.strategy_name == "celo_arb":
+            celo_trades = self.strategy.celo_orders_to_trade_fills()
+            queried_trades = queried_trades + celo_trades
+        df: pd.DataFrame = TradeFill.to_pandas(queried_trades)
 
-            if len(df) > 0:
-                # Check if number of trades exceed maximum number of trades to display
-                if len(df) > MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT:
-                    df_lines = str(df[:MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT]).split("\n")
-                    self._notify(
-                        f"\n  Showing last {MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT} trades in the current session.")
-                else:
-                    df_lines = str(df).split("\n")
-                lines.extend(["", "  Recent trades:"] +
-                             ["    " + line for line in df_lines])
+        if len(df) > 0:
+            # Check if number of trades exceed maximum number of trades to display
+            if len(df) > MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT:
+                df_lines = str(df[:MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT]).split("\n")
+                self._notify(
+                    f"\n  Showing last {MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT} trades in the current session.")
             else:
-                lines.extend(["\n  No past trades in this session."])
-            self._notify("\n".join(lines))
+                df_lines = str(df).split("\n")
+            lines.extend(["", "  Recent trades:"] +
+                         ["    " + line for line in df_lines])
+        else:
+            lines.extend(["\n  No past trades in this session."])
+        self._notify("\n".join(lines))
