@@ -37,8 +37,8 @@ def start(self):
         return
 
     try:
-        maker_trading_pair: str = self._convert_to_exchange_trading_pair(maker_market, [raw_maker_trading_pair])[0]
-        taker_trading_pair: str = self._convert_to_exchange_trading_pair(taker_market, [raw_taker_trading_pair])[0]
+        maker_trading_pair: str = raw_maker_trading_pair
+        taker_trading_pair: str = raw_taker_trading_pair
         maker_assets: Tuple[str, str] = self._initialize_market_assets(maker_market, [maker_trading_pair])[0]
         taker_assets: Tuple[str, str] = self._initialize_market_assets(taker_market, [taker_trading_pair])[0]
     except ValueError as e:

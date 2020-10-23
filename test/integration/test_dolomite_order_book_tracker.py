@@ -8,7 +8,7 @@ import logging
 import unittest
 from typing import Dict, Optional
 
-from hummingbot.market.dolomite.dolomite_order_book_tracker import DolomiteOrderBookTracker
+from hummingbot.connector.exchange.dolomite.dolomite_order_book_tracker import DolomiteOrderBookTracker
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
 

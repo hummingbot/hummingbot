@@ -1,7 +1,9 @@
 import logging
 from decimal import Decimal
 import ruamel.yaml
-from os import unlink
+from os import (
+    unlink
+)
 from os.path import (
     join,
     isfile
@@ -61,9 +63,10 @@ def parse_cvar_value(cvar: ConfigVar, value: Any) -> Any:
     elif cvar.type == 'json':
         if isinstance(value, str):
             value_json = value.replace("'", '"')  # replace single quotes with double quotes for valid JSON
-            return json.loads(value_json)
+            cvar_value = json.loads(value_json)
         else:
-            return value
+            cvar_value = value
+        return cvar_json_migration(cvar, cvar_value)
     elif cvar.type == 'float':
         try:
             return float(value)
@@ -91,6 +94,19 @@ def parse_cvar_value(cvar: ConfigVar, value: Any) -> Any:
             return value
     else:
         raise TypeError
+
+
+def cvar_json_migration(cvar: ConfigVar, cvar_value: Any) -> Any:
+    """
+    A special function to migrate json config variable when its json type changes, for paper_trade_account_balance
+    and min_quote_order_amount, they were List but change to Dict.
+    """
+    if cvar.key in ("paper_trade_account_balance", "min_quote_order_amount") and isinstance(cvar_value, List):
+        results = {}
+        for item in cvar_value:
+            results[item[0]] = item[1]
+        return results
+    return cvar_value
 
 
 def parse_cvar_default_value_prompt(cvar: ConfigVar) -> str:
@@ -160,6 +176,20 @@ def _merge_dicts(*args: Dict[str, ConfigVar]) -> OrderedDict:
     return result
 
 
+def get_connector_class(connector_name: str) -> Callable:
+    connector_types = ["connector", "exchange", "derivative"]
+    for type in connector_types:
+        connector_module_name = f"{connector_name}_{type}"
+        connector_class_name = "".join([o.capitalize() for o in connector_module_name.split("_")])
+        try:
+            mod = __import__(f'hummingbot.connector.{type}.{connector_name}.{connector_module_name}',
+                             fromlist=[connector_class_name])
+            return getattr(mod, connector_class_name)
+        except Exception:
+            continue
+    raise Exception(f"Connector {connector_name} class not found")
+
+
 def get_strategy_config_map(strategy: str) -> Optional[Dict[str, ConfigVar]]:
     """
     Given the name of a strategy, find and load strategy-specific config map.
@@ -207,9 +237,9 @@ def validate_strategy_file(file_path: str) -> Optional[str]:
         return f"{file_path} file does not exist."
     strategy = strategy_name_from_file(file_path)
     if strategy is None:
-        return f"Invalid configuration file or 'strategy' field is missing."
+        return "Invalid configuration file or 'strategy' field is missing."
     if strategy not in get_strategy_list():
-        return f"Invalid strategy specified in the file."
+        return "Invalid strategy specified in the file."
     return None
 
 
@@ -348,14 +378,11 @@ async def create_yml_files():
 
 
 def default_min_quote(quote_asset: str) -> (str, Decimal):
-    global_quote_amount = []
-    if global_config_map["min_quote_order_amount"].value is not None:
-        global_quote_amount = [[b, Decimal(str(m))] for b, m in
-                               global_config_map["min_quote_order_amount"].value if b == quote_asset]
-    default_quote_asset, default_amount = "USD", Decimal("11")
-    if len(global_quote_amount) > 0:
-        default_quote_asset, default_amount = global_quote_amount[0]
-    return default_quote_asset, default_amount
+    result_quote, result_amount = "USD", Decimal("11")
+    min_quote_config = global_config_map["min_quote_order_amount"].value
+    if min_quote_config is not None and quote_asset in min_quote_config:
+        result_quote, result_amount = quote_asset, Decimal(str(min_quote_config[quote_asset]))
+    return result_quote, result_amount
 
 
 def minimum_order_amount(exchange: str, trading_pair: str) -> Decimal:

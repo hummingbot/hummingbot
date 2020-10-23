@@ -76,7 +76,7 @@ Helpful Links:
 Useful Commands:
 - connect     List available exchanges and add API keys to them
 - create      Create a new bot
-- import      Import a existing bot by loading the configuration file
+- import      Import an existing bot by loading the configuration file
 - help        List available commands
 
 """
@@ -145,8 +145,8 @@ def get_paper_trade_status():
 def get_title_bar_right_text():
     copy_key = "CTRL + SHIFT" if is_windows() else "fn"
     return [
-        ("class:title", f"[Double Ctrl + C] QUIT      "),
-        ("class:title", f"[Ctrl + S] STATUS      "),
+        ("class:title", "[Double Ctrl + C] QUIT      "),
+        ("class:title", "[Ctrl + S] STATUS      "),
         ("class:title", f"Hold down \"{copy_key}\" for selecting and copying text"),
     ]
 

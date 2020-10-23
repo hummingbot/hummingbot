@@ -3,25 +3,15 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.user.user_balances import UserBalances
 from hummingbot.client.config.config_helpers import save_to_yml
-from hummingbot.client.settings import GLOBAL_CONFIG_PATH
+import hummingbot.client.settings as settings
 from hummingbot.market.celo.celo_cli import CeloCLI
 import pandas as pd
 from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
-OPTIONS = {
-    "binance",
-    "coinbase_pro",
-    "huobi",
-    "liquid",
-    "bittrex",
-    "kucoin",
-    "kraken",
-    "ethereum",
-    "eterbase",
-    "celo"
-}
+OPTIONS = {cs.name for cs in settings.CONNECTOR_SETTINGS.values()
+           if not cs.use_ethereum_wallet}.union({"ethereum", "celo"})
 
 
 class ConnectCommand:
@@ -63,8 +53,8 @@ class ConnectCommand:
                     self.app.to_stop_config = False
                     return
                 Security.update_secure_config(config.key, config.value)
-            api_keys = (await Security.api_keys(exchange)).values()
-            err_msg = await UserBalances.instance().add_exchange(exchange, *api_keys)
+            api_keys = await Security.api_keys(exchange)
+            err_msg = await UserBalances.instance().add_exchange(exchange, **api_keys)
             if err_msg is None:
                 self._notify(f"\nYou are now connected to {exchange}.")
             else:
@@ -141,12 +131,14 @@ class ConnectCommand:
             private_key = await self.app.prompt(prompt="Enter your wallet private key >>> ", is_password=True)
             public_address = Security.add_private_key(private_key)
             global_config_map["ethereum_wallet"].value = public_address
-            await self.prompt_a_config(global_config_map["ethereum_rpc_url"])
-            await self.prompt_a_config(global_config_map["ethereum_rpc_ws_url"])
+            if global_config_map["ethereum_rpc_url"].value is None:
+                await self.prompt_a_config(global_config_map["ethereum_rpc_url"])
+            if global_config_map["ethereum_rpc_ws_url"].value is None:
+                await self.prompt_a_config(global_config_map["ethereum_rpc_ws_url"])
             if self.app.to_stop_config:
                 self.app.to_stop_config = False
                 return
-            save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
+            save_to_yml(settings.GLOBAL_CONFIG_PATH, global_config_map)
             err_msg = UserBalances.validate_ethereum_wallet()
             if err_msg is None:
                 self._notify(f"Wallet {public_address} connected to hummingbot.")
@@ -170,7 +162,7 @@ class ConnectCommand:
         if to_connect:
             await self.prompt_a_config(global_config_map["celo_address"])
             await self.prompt_a_config(global_config_map["celo_password"])
-            save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
+            save_to_yml(settings.GLOBAL_CONFIG_PATH, global_config_map)
 
             err_msg = await self.validate_n_connect_celo(True,
                                                          global_config_map["celo_address"].value,

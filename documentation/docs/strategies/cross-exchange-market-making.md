@@ -39,7 +39,16 @@ Initially, we assume that the maker exchange is an Ethereum-based decentralized 
 
 ### Minimum Order Size
 
-When placing orders on the maker market and filling orders on the taker market, the order amount should meet the exchange's minimum order size and minimum trade size.
+When placing orders, if the size of the order determined by the order price and quantity is below the exchange's minimum order size, then the orders will not be created.
+
+**Example:**
+
+`bid order amount * bid price` < `exchange's minimum order size`<br/>
+`ask order amount * ask price` > `exchange's minimum order size`
+
+Only a sell order will be created but no buy order.
+
+For more information, refer to [Minimum Order Size](/advanced/min-order)
 
 You can find more information about this for each [Connector](https://docs.hummingbot.io/connectors/) under Miscellaneous section.
 
@@ -92,3 +101,41 @@ The following parameters are fields in Hummingbot configuration files (located i
 | **order_size_taker_volume_factor** | Specifies the percentage of hedge-able volume on taker side which will be considered for calculating the market making price.
 | **order_size_taker_balance_factor** | Specifies the percentage of asset balance to be used for hedging the trade on taker side.
 | **order_size_portfolio_ratio_limit** | Specifies the ratio of total portfolio value on both maker and taker markets to be used for calculating the order size if order_amount is not specified.
+| **taker_to_maker_base_conversion_rate** | Specifies conversion rate for taker base asset value to maker base asset value.
+| **taker_to_maker_quote_conversion_rate** | Specifies conversion rate for taker quote asset value to maker quote asset value.
+
+
+### Exchange Rate Conversion
+
+From past versions of Hummingbot it uses [CoinGecko](https://www.coingecko.com/en/api) and [CoinCap](https://docs.coincap.io/?version=latest) public APIs to fetch asset prices. However, this dependency caused issues for users when those APIs were unavailable. Starting on version [0.28.0](/release-notes/0.28.0/#removed-dependency-on-external-data-feeds), Hummingbot uses exchange order books to perform necessary conversions rather than data feeds.
+
+When you run strategies on multiple exchanges, there may be instances where you need to utilize an exchange rate to convert between assets.
+
+In particular, you may need to convert the value of one stablecoin to another when you use different stablecoins in multi-legged strategy like [cross-exchange market making](/strategies/cross-exchange-market-making/).
+
+For example, if you make a market in the WETH/DAI pair on a decentralized exchange, you may want to hedge filled orders using the ETH-USDT pair on Binance. Using exchange rates for USDT and DAI against ETH allows Hummingbot to take into account differences in prices.
+
+
+```
+maker_market: bamboo_relay
+taker_market: binance
+maker_market_trading_pair: WETH-DAI
+taker_market_trading_pair: ETH-USDT
+taker_to_maker_base_conversion_rate: 1
+taker_to_maker_quote_conversion_rate: 1
+```
+
+
+By default, taker to maker base conversion rate and taker to maker quote conversion rate value are both `1`. 
+
+Our maker base asset is WETH and taker is ETH. 1 WETH is worth 0.99 ETH (1 / 0.99) so we will set the `taker_to_maker_base_conversion_rate` value to 1.01.
+
+While our maker quote asset is DAI, taker is USDT and 1 DAI is worth 1.01 USDT (1 / 1.01). similar to the calculation we did for the base asset. In this case, we will set the `taker_to_maker_quote_conversion_rate` to 0.99.
+
+To configure a parameter value without going through the prompts, input command as `config [ key ] [ value ]`. These can be reconfigured without stopping the bot however, it will only take effect after restarting the strategy. 
+
+
+```
+config taker_to_maker_base_conversion_rate 1.01
+config taker_to_maker_quote_conversion_rate 0.99
+```

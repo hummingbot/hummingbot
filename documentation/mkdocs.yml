@@ -97,10 +97,12 @@ nav:
         - Linux: installation/docker/linux.md
         - macOS: installation/docker/macOS.md
         - Windows: installation/docker/windows.md
+        - Raspberry Pi: installation/docker/raspberry-pi.md
       - Source:
         - Linux: installation/source/linux.md
         - macOS: installation/source/macOS.md
         - Windows: installation/source/windows.md
+        - Raspberry Pi: installation/source/raspberry-pi.md
       - Cloud Server Guide: installation/cloud.md
       - Updating Hummingbot: installation/updating.md
     - Operation:
@@ -121,6 +123,8 @@ nav:
         - exit: operation/commands/exit.md
         - paper_trade: operation/commands/paper-trade.md
         - export: operation/commands/export.md
+        - order_book: operation/commands/order_book.md
+        - ticker: operation/commands/ticker.md
       - Keyboard Shortcuts: operation/keyboard-shortcuts.md
       - Docker Commands: operation/docker-commands.md
     - Strategies:
@@ -139,6 +143,7 @@ nav:
         - Order Optimization: strategies/advanced-mm/order-optimization.md
         - Adding Transaction Costs: strategies/advanced-mm/add-transaction-costs.md
         - External Price Source: strategies/advanced-mm/price-source.md
+        - Order Override: strategies/advanced-mm/order-override.md
       - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
       - Arbitrage: strategies/arbitrage.md
       - Celo Arbitrage:
@@ -147,13 +152,16 @@ nav:
     - Connectors:
       - Overview: connectors/index.md
       - Binance: connectors/binance.md
+      - Bitfinex: connectors/bitfinex.md
       - Bittrex Global: connectors/bittrex.md
       - Coinbase Pro: connectors/coinbase.md
+      - Crypto.com : connectors/crypto-com.md
       - Eterbase: connectors/eterbase.md
       - Huobi Global: connectors/huobi.md
       - KuCoin: connectors/kucoin.md
       - Kraken: connectors/kraken.md
       - Liquid: connectors/liquid.md
+      - Loopring: connectors/loopring.md
       - Radar Relay: connectors/radar-relay.md
       - Community Connectors:
         - Bamboo Relay: connectors/bamboo-relay.md
@@ -163,13 +171,13 @@ nav:
       - Kill Switch: advanced/kill-switch.md
       - Fee Overrides: advanced/fee-overrides.md
       - Logs and Logging: advanced/logging.md
-      - Exchange Rates: advanced/exchange-rates.md
       - Ethereum Wallet: advanced/wallet.md
       - Ethereum Node: advanced/node.md
       - Telegram: advanced/telegram.md
-      - Docker Autostart <sup>(BETA)</sup>: advanced/autostart.md
+      - Autostart <sup>(BETA)</sup>: advanced/autostart.md
       - External Database <sup>(BETA)</sup>: advanced/db-config.md
       - Scripts: advanced/scripts.md
+      - Minimum Order Size: advanced/min-order.md
     - Community:
       - Overview: community/index.md  
       - Contributions: community/contributions.md
@@ -204,8 +212,13 @@ nav:
       - Connectors:
         - Intro: developers/connectors/index.md
         - Architecture: developers/connectors/architecture.md
-        - Order Lifecycle: developers/connectors/order-lifecycle.md
-        - Building Connectors: developers/connectors/tutorial.md
+        - Building Connectors: 
+          - Overview: developers/connectors/tutorial.md
+          - Task 1 - Data Source & Order Book Tracker: developers/connectors/task1.md
+          - Task 2 - User Stream Tracker : developers/connectors/task2.md
+          - Task 3 - Market Connector: developers/connectors/task3.md
+          - Task 4 - Required Connector Configuration: developers/connectors/task4.md
+          - Debug and Test: developers/connectors/debug&test.md
         - Miscellaneous: developers/connectors/miscellaneous.md
       - Tutorial (WIP):
         - Intro: developers/tutorial/index.md
@@ -215,6 +228,9 @@ nav:
       - Configuration: developers/config.md
   - Release Notes:
     - About Releases: release-notes/index.md
+    - 0.32.0: release-notes/0.32.0.md
+    - 0.31.0: release-notes/0.31.0.md
+    - 0.30.0: release-notes/0.30.0.md
     - 0.29.0: release-notes/0.29.0.md
     - 0.28.1: release-notes/0.28.1.md
     - 0.28.0: release-notes/0.28.0.md
