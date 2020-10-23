@@ -100,18 +100,21 @@ The Hummingbot Miners app uses your Ethereum wallet address to:
 4. Navigate to the [Settings](https://miners.hummingbot.io/settings) page and connect your Binace API key.
 5. Connect wallets by adding your preferred Ethereum address and Ethereum wallet addresses for ERC20 token payments.
 
-### How to add wallet address?
+### How do I add my wallet address?
+
+!!! note
+    - Each liquidity mining campaign has its own rewards payments terms, which may include paying out tokens to wallets on that issuer's blockchain.  To ensure you receive all of the rewards earned, make sure to enter the relevant wallet details for campaigns that you are participating in.
+    
+    - If you have earned rewards for a campaign for which you have not yet provided a wallet, the rewards will accumulate and only be paid out once you have provided a wallet address.
+
+    - Wallet address are use for receiving payouts only, you do not need to deposit assets into or trade using this wallet.
 
 1. Log in to https://miners.hummingbot.io
 2. Click **Settings**.
 3. Scroll down to **Connect Wallet**, and click down arrow (on the right) to expand the section. The wallet option is displayed.
 4. Choose the wallet you would like to connect base on the campaign you're participating.
-5. For miners participating in the Binance - Zcoin campaign, choose **`Zcoin`** row (background is highlighted in gray when mouse over), enter your Zcoin deposit address.
-6. For miners participating in the KuCoin - Harmony One campaing, choose **`Harmony`** row (background is highlighted in gray when mouse over), enter your Harmony One deposit address.
-7. For miners participating in other campaings on Binance beside Zcoin, choose **`Ethereum`** row (background is highlighted in gray when mouse over), enter your Ethereum deposit address.
-
-!!! note 
-    Wallet address not used for trading. Wallet address are use for receiving payouts only, you do not need to deposit assets into or trade using this wallet.
+5. For miners participating in the KuCoin - Harmony One campaign, choose **`Harmony`** row (background is highlighted in gray when mouse over), enter your Harmony One deposit address.
+6. For miners participating in other campaigns on Binance such as RLC, choose **`Ethereum`** row (background is highlighted in gray when mouse over), enter your Ethereum deposit address.
 
 ### Get Ethereum deposit address with Metamask browser extension
 
@@ -123,43 +126,52 @@ The Hummingbot Miners app uses your Ethereum wallet address to:
 
 Above steps are for new user, existing user can jump to step #3 after successful login.
 
-### Get Ethereum and Zcoin deposit address from Binance
+### Get asset deposit address from Binance
 
-1. Go to [Binance](https://www.binance.com/) website.
-2. Complete the sign up process.
-3. Navigate to Spot wallet, click the **Deposit** button and choose **XZC** to display the Zcoin deposit address or choose **ETH** to display the Ethereum deposit address.
-
-Above steps are for new user, existing user can jump to step #3 after successful login.
+In most cases and for most assets, you can use a Binance deposit address to receive your rewards directly into your account.
 
 !!! note
-    - You may also refer to this step on [How to get your deposit address on Binance](https://academy.binance.com/tutorials/how-to-deposit#deposit). 
-    - You can also check your ZCoin wallet on https://explorer.zcoin.io/
-    - `Zcoin address start with:  "a..." or "Z..." or "3..." for multi-sig wallets.`
+    There are exceptions where the rewards assets may not be supported by a Binance deposit address. Make sure to review the terms of each campaign carefully.
 
-### Get Zcoin deposit address with mobile wallet
+    For example, the USDT ASA rewards asset for the Algorand is not currently supported on Binance.
 
-1. Download edge Wallet from Apple Store or Google Play.
-2. Open the app and create an account - complete the sign up process.
-3. Click the plus sign next to My **Wallets** to add a Zcoin wallet. Type **Zcoin** or select it from the list.
-4. Choose your desired fiat pair, then name you wallet and confirm by clicking "Create Wallet".
-5. Zcoin wallet address will appear on the main screen, click Zcoin wallet then click **Request**. This generates an address with a correspoind QR code which you can copy and share to receive your coin.
+1. Navigate to Binance Spot wallet
+2. Click the **Deposit** button and choose the token you want to get the address. 
+3. On the right pane of your Binance window, the token deposit address will be displayed. Copy the address and connect it [Hummingbot miners](https://miners.hummingbot.io/). 
 
-Above steps are for new user, existing user can jump to step #5 after successful login.
+![](../assets/img/deposit.png)
 
-!!! note
-    Though above example uses edge wallet, Zcoin doesn't endorse one wallet in particular.
-
-    - You may also refer to this step on [How to receive Zcoin with a mobile wallet](https://zcoin.io/how-to-receive-zcoin-with-a-mobile-wallet)
-    - And also this step on [Installation and and getting started with your Zcoin wallet](https://youtu.be/8-HKyM3QrJU)
+<table>
+  <thead>
+    <th>Asset</th>
+    <th>Comment</th>
+  </thead>
+  <tbody>
+      <tr>
+      <td>NEM</td>
+      <td>NEM wallets also require you to specify a "<b>NEM MEMO</b>" field in addition to wallet address</td>
+    </tr>
+    <tr>
+      <td>ALGO/USDT ASA</td>
+      <td>USDT ASA is currently not supported by Binance.com. Please enter an alternative ALGO wallet address (see here) and do not use a Binance deposit address.</td>
+    </tr>
+  </tbody>
+</table>
 
 ### Get NEM deposit address
 
+You can use a Binance.com NEM wallet address (and memo) to receive NEM directly into your Binance account, see step <a href="#get-asset-deposit-address-from-binance">above</a>.
+
+![](../assets/img/xem-address.png)
+
+Alternatively, you can create a separate NEM wallet:
+
 1. Go to [NEM Wallet](https://nemplatform.com/wallets/).
-2. Choose the option that is supported by your OS.
+2. Download and extract the Universal desktop client.
 3. Launch the wallet.
-4. Create an account - complete the sign up process.
+4. Create an account and complete the sign up process.
 5. Login to your newly created wallet.
-6. NEM wallet address will appear on the main screen, under Account Information.
+6. NEM wallet address will appear on the main screen, under **Account Information**.
 
 You may also refer to this step on [how to create NEM wallet](https://youtu.be/itEcOd6ABrA).
 
@@ -170,7 +182,7 @@ You may also refer to this step on [how to create NEM wallet](https://youtu.be/i
 3. Make sure to save the mnemonic phrase. You need this to recover your wallet.
 4. Your wallet address will appear on the main screen, below your wallet name.
 
-### Adding Tether USDT to your Algorand wallet in Algorand Web Wallet
+### Enabling Tether USDT to your Algorand wallet in Algorand Web Wallet
 
 1. Access your Algorand wallet through [My Algo](https://myalgo.com/).
 2. From your wallet dashboard, go to the drop-down menu in the top right corner.
@@ -184,8 +196,8 @@ You may also refer to this step on [adding tether USDT to algorand wallet](https
 
 Now you are set. Your account will now be able to receive USDT. If you want to know more about USDT please follow this [link](https://tron.network/usdt).
 
-!!! note
-    Algo require you to enable USDT. You can not use Binance deposit address because Binance does not yet support USDT ASA
+!!! note "Important note"
+    You must enable USDT on the Algo wallet in order to be able to receive USDT ASA. Enabling USDT will also require you to have some amount of ALGO tokens in the wallet in order to call the function to enable USDT.
 
 !!! warning "Incorrect wallet address"
     **CoinAlpha does not take any responsibility and will not reimburse for any loss of funds due to a participant submitting an incorrect or invalid wallet address.**
