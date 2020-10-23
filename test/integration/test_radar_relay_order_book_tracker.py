@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import math
-import time
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
@@ -18,11 +17,8 @@ from typing import (
     Optional,
     List
 )
-from hummingbot.market.radar_relay.radar_relay_order_book_tracker import RadarRelayOrderBookTracker
+from hummingbot.connector.exchange.radar_relay.radar_relay_order_book_tracker import RadarRelayOrderBookTracker
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_tracker import (
-    OrderBookTrackerDataSourceType
-)
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
@@ -39,11 +35,11 @@ class RadarRelayOrderBookTrackerUnitTest(unittest.TestCase):
         "WETH-DAI",
         "USDC-WETH"
     ]
+
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.order_book_tracker: RadarRelayOrderBookTracker = RadarRelayOrderBookTracker(
-            data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
             trading_pairs=cls.trading_pairs
         )
         cls.order_book_tracker_task: asyncio.Task = safe_ensure_future(cls.order_book_tracker.start())
@@ -64,8 +60,8 @@ class RadarRelayOrderBookTrackerUnitTest(unittest.TestCase):
             if timeout and timer > timeout:
                 raise Exception("Time out running parallel async task in tests.")
             timer += 1
-            now = time.time()
-            next_iteration = now // 1.0 + 1
+            # now = time.time()
+            # next_iteration = now // 1.0 + 1
             await asyncio.sleep(1.0)
         return future.result()
 

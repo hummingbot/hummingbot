@@ -4,8 +4,9 @@ from os import unlink
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
-from hummingbot.market.kraken.kraken_market import KrakenMarket
-from hummingbot.market.markets_recorder import MarketsRecorder
+from hummingbot.connector.exchange.kraken.kraken_exchange import KrakenExchange
+from hummingbot.connector.exchange.kraken.kraken_utils import convert_to_exchange_trading_pair
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
     SQLConnectionType
@@ -44,17 +45,16 @@ from decimal import Decimal
 import unittest
 import conf
 
-PAIR = "ETHUSDC"
+PAIR = "ETH-USDC"
 BASE = "ETH"
 QUOTE = "USDC"
 
 
-class KrakenMarketUnitTest(unittest.TestCase):
+class KrakenExchangeUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
         MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
-        MarketEvent.WithdrawAsset,
         MarketEvent.OrderFilled,
         MarketEvent.OrderCancelled,
         MarketEvent.TransactionFailure,
@@ -63,7 +63,7 @@ class KrakenMarketUnitTest(unittest.TestCase):
         MarketEvent.OrderCancelled
     ]
 
-    market: KrakenMarket
+    market: KrakenExchange
     market_logger: EventLogger
     stack: contextlib.ExitStack
 
@@ -72,7 +72,7 @@ class KrakenMarketUnitTest(unittest.TestCase):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
 
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.market: KrakenMarket = KrakenMarket(
+        cls.market: KrakenExchange = KrakenExchange(
             conf.kraken_api_key,
             conf.kraken_secret_key,
             trading_pairs=[PAIR]
@@ -137,57 +137,48 @@ class KrakenMarketUnitTest(unittest.TestCase):
         self.run_parallel(asyncio.sleep(t))
 
     def test_get_fee(self):
-        limit_fee: TradeFee = self.market.get_fee(BASE, QUOTE, OrderType.LIMIT, TradeType.BUY, 1, 1)
+        limit_fee: TradeFee = self.market.get_fee(BASE, QUOTE, OrderType.LIMIT_MAKER, TradeType.BUY, 1, 1)
         self.assertGreater(limit_fee.percent, 0)
         self.assertEqual(len(limit_fee.flat_fees), 0)
-        market_fee: TradeFee = self.market.get_fee(BASE, QUOTE, OrderType.MARKET, TradeType.BUY, 1)
+        market_fee: TradeFee = self.market.get_fee(BASE, QUOTE, OrderType.LIMIT, TradeType.BUY, 1)
         self.assertGreater(market_fee.percent, 0)
         self.assertEqual(len(market_fee.flat_fees), 0)
 
     def test_fee_overrides_config(self):
         fee_overrides_config_map["kraken_taker_fee"].value = None
-        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
+        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.0026"), taker_fee.percent)
         fee_overrides_config_map["kraken_taker_fee"].value = Decimal('0.2')
-        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.MARKET, TradeType.BUY, Decimal(1),
+        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.002"), taker_fee.percent)
         fee_overrides_config_map["kraken_maker_fee"].value = None
-        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.0016"), maker_fee.percent)
         fee_overrides_config_map["kraken_maker_fee"].value = Decimal('0.5')
-        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
 
     def place_order(self, is_buy, trading_pair, amount, order_type, price):
         order_id = None
         if is_buy:
-            if order_type is OrderType.LIMIT:
-                order_id = self.market.buy(trading_pair, amount, order_type, price)
-            else:
-                order_id = self.market.buy(trading_pair, amount)
+            order_id = self.market.buy(trading_pair, amount, order_type, price)
         else:
-            if order_type is OrderType.LIMIT:
-                order_id = self.market.sell(trading_pair, amount, order_type, price)
-            else:
-                order_id = self.market.sell(trading_pair, amount)
+            order_id = self.market.sell(trading_pair, amount, order_type, price)
         return order_id
 
     def cancel_order(self, trading_pair, order_id):
         self.market.cancel(trading_pair, order_id)
 
-    def test_limit_buy(self):
+    def test_limit_taker_buy(self):
         self.assertGreater(self.market.get_balance(QUOTE), 6)
         trading_pair = PAIR
 
         self.sleep(3)
-        current_bid_price: Decimal = self.market.get_price(trading_pair, True)
-        bid_price: Decimal = current_bid_price * Decimal('1.005')
-        quantized_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
-
+        price: Decimal = self.market.get_price(trading_pair, True)
         amount: Decimal = Decimal("0.02")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
@@ -196,7 +187,7 @@ class KrakenMarketUnitTest(unittest.TestCase):
             trading_pair,
             quantized_amount,
             OrderType.LIMIT,
-            quantized_bid_price
+            price
         )
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
@@ -221,10 +212,8 @@ class KrakenMarketUnitTest(unittest.TestCase):
         self.assertGreater(self.market.get_balance(BASE), 0.02)
         trading_pair = PAIR
 
-        current_ask_price: Decimal = self.market.get_price(trading_pair, False)
-        ask_price: Decimal = current_ask_price - Decimal('0.005') * current_ask_price
-        quantized_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price)
-
+        self.sleep(3)
+        price: Decimal = self.market.get_price(trading_pair, False)
         amount: Decimal = Decimal("0.02")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
@@ -233,84 +222,16 @@ class KrakenMarketUnitTest(unittest.TestCase):
             trading_pair,
             quantized_amount,
             OrderType.LIMIT,
-            quantized_ask_price
+            price
         )
-
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
-        trade_events = [t for t in self.market_logger.event_log if isinstance(t, OrderFilledEvent) and t.amount is not None]
-        base_amount_traded = sum(t.amount for t in trade_events)
-        quote_amount_traded = sum(t.amount * t.price for t in trade_events)
+        trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
+                                                if isinstance(t, OrderFilledEvent) and t.amount is not None]
+        base_amount_traded: Decimal = sum(t.amount for t in trade_events)
+        quote_amount_traded: Decimal = sum(t.amount * t.price for t in trade_events)
 
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
-        self.assertEqual(order_id, order_completed_event.order_id)
-        self.assertAlmostEqual(quantized_amount, order_completed_event.base_asset_amount)
-        self.assertEqual(BASE, order_completed_event.base_asset)
-        self.assertEqual(QUOTE, order_completed_event.quote_asset)
-        self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
-        self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
-        self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == order_id
-                             for event in self.market_logger.event_log]))
-        # Reset the logs
-        self.market_logger.clear()
-
-    def test_market_buy(self):
-        self.assertGreater(self.market.get_balance(QUOTE), 6)
-        trading_pair = PAIR
-
-        self.sleep(3)
-        amount: Decimal = Decimal("0.02")
-        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
-
-        order_id = self.place_order(
-            True,
-            trading_pair,
-            quantized_amount,
-            OrderType.MARKET,
-            Decimal("nan")
-        )
-        [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
-        order_completed_event: BuyOrderCompletedEvent = order_completed_event
-        trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
-                                                if isinstance(t, OrderFilledEvent) and t.amount is not None]
-        base_amount_traded: Decimal = sum(t.amount for t in trade_events)
-        quote_amount_traded: Decimal = sum(t.amount * t.price for t in trade_events)
-
-        self.assertTrue([evt.order_type == OrderType.MARKET for evt in trade_events])
-        self.assertEqual(order_id, order_completed_event.order_id)
-        self.assertAlmostEqual(quantized_amount, order_completed_event.base_asset_amount)
-        self.assertEqual(BASE, order_completed_event.base_asset)
-        self.assertEqual(QUOTE, order_completed_event.quote_asset)
-        self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
-        self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
-        self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
-                             for event in self.market_logger.event_log]))
-        # Reset the logs
-        self.market_logger.clear()
-
-    def test_market_sell(self):
-        self.assertGreater(self.market.get_balance(BASE), 0.02)
-        trading_pair = PAIR
-
-        self.sleep(3)
-        amount: Decimal = Decimal("0.02")
-        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
-
-        order_id = self.place_order(
-            False,
-            trading_pair,
-            quantized_amount,
-            OrderType.MARKET,
-            Decimal("nan")
-        )
-        [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
-        order_completed_event: SellOrderCompletedEvent = order_completed_event
-        trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
-                                                if isinstance(t, OrderFilledEvent) and t.amount is not None]
-        base_amount_traded: Decimal = sum(t.amount for t in trade_events)
-        quote_amount_traded: Decimal = sum(t.amount * t.price for t in trade_events)
-
-        self.assertTrue([evt.order_type == OrderType.MARKET for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertAlmostEqual(quantized_amount, order_completed_event.base_asset_amount)
         self.assertEqual(BASE, order_completed_event.base_asset)
@@ -337,7 +258,7 @@ class KrakenMarketUnitTest(unittest.TestCase):
             True,
             trading_pair,
             quantized_amount,
-            OrderType.LIMIT,
+            OrderType.LIMIT_MAKER,
             quantized_bid_price
         )
 
@@ -403,7 +324,7 @@ class KrakenMarketUnitTest(unittest.TestCase):
             self.clock.remove_iterator(self.market)
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
-            self.market: KrakenMarket = KrakenMarket(
+            self.market: KrakenExchange = KrakenExchange(
                 conf.kraken_api_key,
                 conf.kraken_secret_key,
                 trading_pairs=[PAIR]
@@ -447,14 +368,15 @@ class KrakenMarketUnitTest(unittest.TestCase):
 
         try:
             # Try to buy 0.02 ETH from the exchange, and watch for completion event.
+            price: Decimal = self.market.get_price(PAIR, True)
             amount: Decimal = Decimal("0.02")
             quantized_amount: Decimal = self.market.quantize_order_amount(PAIR, amount)
             order_id = self.place_order(
                 True,
                 PAIR,
                 quantized_amount,
-                OrderType.MARKET,
-                Decimal("nan")
+                OrderType.LIMIT,
+                price
             )
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
@@ -462,14 +384,15 @@ class KrakenMarketUnitTest(unittest.TestCase):
             self.market_logger.clear()
 
             # Try to sell back the same amount of ETH to the exchange, and watch for completion event.
+            price: Decimal = self.market.get_price(PAIR, False)
             amount = buy_order_completed_event.base_asset_amount
             quantized_amount: Decimal = self.market.quantize_order_amount(PAIR, amount)
             order_id = self.place_order(
                 False,
                 PAIR,
                 quantized_amount,
-                OrderType.MARKET,
-                Decimal("nan")
+                OrderType.LIMIT,
+                price
             )
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 
@@ -490,6 +413,11 @@ class KrakenMarketUnitTest(unittest.TestCase):
 
             recorder.stop()
             unlink(self.db_path)
+
+    def test_pair_convesion(self):
+        for pair in self.market.trading_rules:
+            exchange_pair = convert_to_exchange_trading_pair(pair)
+            self.assertTrue(exchange_pair in self.market.order_books)
 
 
 def main():

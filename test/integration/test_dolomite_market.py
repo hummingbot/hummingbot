@@ -23,20 +23,18 @@ from hummingbot.core.event.events import (
     TradeType,
     TradeFee,
 )
-from hummingbot.market.dolomite.dolomite_market import DolomiteMarket
-from hummingbot.market.market_base import OrderType
+from hummingbot.connector.exchange.dolomite.dolomite_exchange import DolomiteExchange
+from hummingbot.core.event.events import OrderType
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 
 sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 
-class DolomiteMarketUnitTest(unittest.TestCase):
+class DolomiteExchangeUnitTest(unittest.TestCase):
     market_events: List[MarketEvent] = [
-        MarketEvent.ReceivedAsset,
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
-        MarketEvent.WithdrawAsset,
         MarketEvent.OrderFilled,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
@@ -46,7 +44,7 @@ class DolomiteMarketUnitTest(unittest.TestCase):
     wallet_events: List[WalletEvent] = [WalletEvent.WrappedEth, WalletEvent.UnwrappedEth]
 
     wallet: Web3Wallet
-    market: DolomiteMarket
+    market: DolomiteExchange
     market_logger: EventLogger
     wallet_logger: EventLogger
     stack: contextlib.ExitStack
@@ -60,7 +58,7 @@ class DolomiteMarketUnitTest(unittest.TestCase):
             erc20_token_addresses=[conf.dolomite_test_web3_address],
             chain=EthereumChain.MAIN_NET,
         )
-        cls.market: DolomiteMarket = DolomiteMarket(
+        cls.market: DolomiteExchange = DolomiteExchange(
             wallet=cls.wallet,
             ethereum_rpc_url=conf.test_web3_provider_list[0],
             order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,

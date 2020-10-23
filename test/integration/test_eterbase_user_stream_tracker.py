@@ -20,16 +20,16 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.market.eterbase.eterbase_order_book_message import EterbaseOrderBookMessage
-from hummingbot.market.eterbase.eterbase_market import EterbaseMarket, EterbaseAuth
-from hummingbot.market.eterbase.eterbase_user_stream_tracker import EterbaseUserStreamTracker
-from hummingbot.market.market_base import OrderType
+from hummingbot.connector.exchange.eterbase.eterbase_order_book_message import EterbaseOrderBookMessage
+from hummingbot.connector.exchange.eterbase.eterbase_exchange import EterbaseExchange, EterbaseAuth
+from hummingbot.connector.exchange.eterbase.eterbase_user_stream_tracker import EterbaseUserStreamTracker
+from hummingbot.core.event.events import OrderType
 
 
 class EterbaseUserStreamTrackerUnitTest(unittest.TestCase):
     user_stream_tracker: Optional[EterbaseUserStreamTracker] = None
 
-    market: EterbaseMarket
+    market: EterbaseExchange
     stack: contextlib.ExitStack
 
     @classmethod
@@ -43,7 +43,7 @@ class EterbaseUserStreamTrackerUnitTest(unittest.TestCase):
         cls.user_stream_tracker_task: asyncio.Task = safe_ensure_future(cls.user_stream_tracker.start())
 
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.market: EterbaseMarket = EterbaseMarket(
+        cls.market: EterbaseExchange = EterbaseExchange(
             conf.eterbase_api_key,
             conf.eterbase_secret_key,
             conf.eterbase_account,

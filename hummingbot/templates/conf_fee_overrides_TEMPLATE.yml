@@ -3,7 +3,7 @@
 ########################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 2
+template_version: 3
 
 # Exchange trading fees, the values are in percentage value, e.g. 0.1 for 0.1%.
 # If the value is left blank, the default value (from corresponding market connector) will be used.
@@ -25,3 +25,9 @@ bittrex_taker_fee:
 
 kucoin_maker_fee:
 kucoin_taker_fee:
+
+crypto_com_maker_fee:
+crypto_com_taker_fee:
+
+bitfinex_maker_fee:
+bitfinex_taker_fee:
