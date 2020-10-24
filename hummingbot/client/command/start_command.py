@@ -81,8 +81,8 @@ class StartCommand:
 
         # Show warning message if the exchange connector has outstanding bugs or not working
         if get_connector_status(get_strategy_config_map(self.strategy_name).get("exchange").value) == "Warning":
-            self._notify("\nWARNING: This connector has one or more outstanding issues.\n"
-                         "         Please refer to our GitHub issues page for more information.")
+            self._notify("\nThis connector has one or more outstanding issues, please use with caution.\n"
+                         "Refer to our GitHub issues page for more information.")
         elif get_connector_status(get_strategy_config_map(self.strategy_name).get("exchange").value) == "Unavailable":
             self._notify("\nWARNING: This exchange connector is currently not usable.")
         await self.start_market_making(self.strategy_name)

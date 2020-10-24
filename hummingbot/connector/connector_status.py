@@ -1,18 +1,18 @@
 #!/usr/bin/env python
 
 connector_status = {
-    'binance': 'unavailable',
-    'bitfinex': 'unavailable',
+    'binance': 'ok',
+    'bitfinex': 'ok',
     'bittrex': 'warning',
     'celo': 'ok',
-    'coinbase_pro': 'unavailable',
-    'crypto_com': 'ok',
-    'eterbase': 'ok',
-    'ethereum': 'ok',
-    'huobi': 'unavailable',
+    'coinbase_pro': 'ok',
+    'crypto_com': 'warning',
+    'eterbase': 'unavailable',
+    'ethereum': 'unavailable',
+    'huobi': 'ok',
     'kraken': 'warning',
-    'kucoin': 'unavailable',
-    'liquid': 'warning',
+    'kucoin': 'ok',
+    'liquid': 'ok',
     'loopring': 'ok'
 }
 
