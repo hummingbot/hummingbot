@@ -23,6 +23,7 @@ from hummingbot.model.trade_fill import TradeFill
 from hummingbot.client.config.config_helpers import secondary_market_conversion_rate
 
 s_float_0 = float(0)
+s_decimal_0 = Decimal("0")
 
 
 if TYPE_CHECKING:
@@ -31,6 +32,20 @@ if TYPE_CHECKING:
 
 def get_timestamp(days_ago: float = 0.) -> float:
     return time.time() - (60. * 60. * 24. * days_ago)
+
+
+def smart_round(value: Decimal) -> Decimal:
+    if abs(value) > 100:
+        step = Decimal("0.1")
+    elif 100 > abs(value) > 0:
+        step = Decimal("0.01")
+    elif 0 > abs(value) > Decimal("0.01"):
+        step = Decimal("0.001")
+    elif Decimal("0.01") > abs(value) > Decimal("0.0001"):
+        step = Decimal("0.00001")
+    else:
+        step = Decimal("0.000001")
+    return (value // step) * step
 
 
 class HistoryCommand:
@@ -56,93 +71,130 @@ class HistoryCommand:
 
     def history_report(self,  # type: HummingbotApplication
                        days: float = 0.0):
-        try:
-            lines = []
-            start_time = get_timestamp(days)
-            current_time = get_timestamp()
-            lines.extend(
-                [f"    Start Time: {datetime.fromtimestamp(start_time).strftime('%Y-%m-%d %H:%M:%S')}"] +
-                [f"    Curent Time: {datetime.fromtimestamp(current_time).strftime('%Y-%m-%d %H:%M:%S')}"] +
-                [f"    Duration: {pd.Timedelta(seconds=int(current_time - start_time))}"]
-            )
-            # trades: List[TradeFill] = self._get_trades_from_session(int(start_time * 1e3),
-            #                                                         config_file_path=self.strategy_file_name)
+        start_time = get_timestamp(days)
+        current_balances = self.balance_snapshot()
+        trades: List[TradeFill] = self._get_trades_from_session(int(start_time * 1e3),
+                                                                config_file_path=self.strategy_file_name)
+        market_info: Set[Tuple[str, str]] = set((t.market, t.symbol) for t in trades)
+        for market, symbol in market_info:
+            cur_trades = [t for t in trades if t.market == market and t.symbol == symbol]
+            self.history_report_by_market(start_time, market, symbol, cur_trades, current_balances)
 
-            trades_columns = ["", "buy", "sell", "total"]
-            trades_data = [
-                ["Number of trades          ", 0, 0, 0],
-                ["Total trade volume (base) ", 0, 0, 0],
-                ["Total trade volume (quote)", 0, 0, 0],
-                ["Avg price                 ", 0, 0, 0],
-            ]
-            trades_df: pd.DataFrame = pd.DataFrame(data=trades_data, columns=trades_columns)
-            lines.extend(["", "  Trades:"] + ["    " + line for line in trades_df.to_string(index=False).split("\n")])
+    def history_report_by_market(self,  # type: HummingbotApplication
+                                 start_time: float,
+                                 market: str,
+                                 trading_pair: str,
+                                 trades: List[TradeFill],
+                                 current_balances: Dict[str, Dict[str, Decimal]]):
+        lines = []
+        base, quote = trading_pair.split("-")
+        current_time = get_timestamp()
+        lines.extend(
+            [f"    Start Time: {datetime.fromtimestamp(start_time).strftime('%Y-%m-%d %H:%M:%S')}"] +
+            [f"    Curent Time: {datetime.fromtimestamp(current_time).strftime('%Y-%m-%d %H:%M:%S')}"] +
+            [f"    Duration: {pd.Timedelta(seconds=int(current_time - start_time))}"]
+        )
 
-            assets_columns = ["", "start", "current", "change"]
-            assets_data = [
-                ["MFT            ", 0, 0, 0],
-                ["BNB            ", 0, 0, 0],
-                ["MFT-BNB price  ", 0, 0, 0],
-                ["Base asset %   ", 0, 0, 0],
-            ]
-            assets_df: pd.DataFrame = pd.DataFrame(data=assets_data, columns=assets_columns)
-            lines.extend(["", "  Assets:"] + ["    " + line for line in assets_df.to_string(index=False).split("\n")])
+        buys = [t for t in trades if t.trade_type.upper() == "BUY"]
+        sells = [t for t in trades if t.trade_type.upper() == "SELL"]
+        b_vol_base = Decimal(str(sum(b.amount for b in buys)))
+        s_vol_base = Decimal(str(sum(s.amount for s in sells))) * Decimal("-1")
+        tot_vol_base = b_vol_base + s_vol_base
+        b_vol_quote = Decimal(str(sum(b.amount * b.price for b in buys))) * Decimal("-1")
+        s_vol_quote = Decimal(str(sum(s.amount * s.price for s in sells)))
+        tot_vol_quote = b_vol_quote + s_vol_quote
+        avg_b_price = b_vol_quote / b_vol_base if b_vol_base != s_decimal_0 else s_decimal_0
+        avg_s_price = s_vol_quote / s_vol_base if s_vol_base != s_decimal_0 else s_decimal_0
+        avg_tot_price = tot_vol_quote / tot_vol_base if tot_vol_base != s_decimal_0 else s_decimal_0
+        avg_b_price = abs(avg_b_price)
+        avg_s_price = abs(avg_s_price)
+        avg_tot_price = abs(avg_tot_price)
 
-            perf_data = [
-                ["Hold portfolio value    ", 0],
-                ["Current portfolio value ", 0],
-                ["Trade P&L               ", 0],
-                ["Fees paid               ", 0],
-                ["Total P&L               ", 0],
-                ["Return %                ", 0],
-            ]
-            perf_df: pd.DataFrame = pd.DataFrame(data=perf_data)
-            lines.extend(["", "  Performance:"] +
-                         ["    " + line for line in perf_df.to_string(index=False, header=False).split("\n")])
+        trades_columns = ["", "buy", "sell", "total"]
+        trades_data = [
+            [f"{'Number of trades':<27}", len(buys), len(sells), len(trades)],
+            [f"{f'Total trade volume ({base})':<27}",
+             smart_round(b_vol_base),
+             smart_round(s_vol_base),
+             smart_round(tot_vol_base)],
+            [f"{f'Total trade volume ({quote})':<27}",
+             smart_round(b_vol_quote),
+             smart_round(s_vol_quote),
+             smart_round(tot_vol_quote)],
+            [f"{'Avg price':<27}",
+             smart_round(avg_b_price),
+             smart_round(avg_s_price),
+             smart_round(avg_tot_price)],
+        ]
+        trades_df: pd.DataFrame = pd.DataFrame(data=trades_data, columns=trades_columns)
+        lines.extend(["", "  Trades:"] + ["    " + line for line in trades_df.to_string(index=False).split("\n")])
 
-            self._notify("\n".join(lines))
-            return
+        base_balance = current_balances[market].get(base, s_decimal_0)
+        quote_balance = current_balances[market].get(quote, s_decimal_0)
+        start_base = base_balance - tot_vol_base
+        start_quote = quote_balance - tot_vol_quote
+        start_price = trades[0].price
+        assets_columns = ["", "start", "current", "change"]
+        assets_data = [
+            [f"{base:<17}", smart_round(start_base), smart_round(base_balance), smart_round(tot_vol_base)],
+            [f"{quote:<17}", smart_round(start_quote), smart_round(quote_balance), smart_round(tot_vol_quote)],
+            [f"{trading_pair + ' price':<17}", start_price, 0, 0],
+            [f"{'Base asset %':<17}", 0, 0, 0],
+        ]
+        assets_df: pd.DataFrame = pd.DataFrame(data=assets_data, columns=assets_columns)
+        lines.extend(["", "  Assets:"] + ["    " + line for line in assets_df.to_string(index=False).split("\n")])
 
-            trade_performance_stats, market_trading_pair_stats = self._calculate_trade_performance()
-            primary_quote_asset: str = self.market_trading_pair_tuples[0].quote_asset.upper()
+        perf_data = [
+            ["Hold portfolio value    ", 0],
+            ["Current portfolio value ", 0],
+            ["Trade P&L               ", 0],
+            ["Fees paid               ", 0],
+            ["Total P&L               ", 0],
+            ["Return %                ", 0],
+        ]
+        perf_df: pd.DataFrame = pd.DataFrame(data=perf_data)
+        lines.extend(["", "  Performance:"] +
+                     ["    " + line for line in perf_df.to_string(index=False, header=False).split("\n")])
 
-            trade_performance_status_line = []
-            market_df_data: Set[Tuple[str, str, Decimal, Decimal, str, str]] = set()
-            market_df_columns = ["Market", "Pair", "Start Price", "End Price",
-                                 "Trades", "Trade Value Delta"]
+        self._notify("\n".join(lines))
+        return
 
-            for market_trading_pair_tuple, trading_pair_stats in market_trading_pair_stats.items():
-                market_df_data.add((
-                    market_trading_pair_tuple.market.display_name,
-                    market_trading_pair_tuple.trading_pair.upper(),
-                    trading_pair_stats["starting_quote_rate"],
-                    trading_pair_stats["end_quote_rate"],
-                    trading_pair_stats["trade_count"],
-                    f"{trading_pair_stats['trading_pair_delta']:.8f} {primary_quote_asset}"
-                ))
+        trade_performance_stats, market_trading_pair_stats = self._calculate_trade_performance()
+        primary_quote_asset: str = self.market_trading_pair_tuples[0].quote_asset.upper()
 
-            inventory_df: pd.DataFrame = self.balance_comparison_data_frame(market_trading_pair_stats)
-            market_df: pd.DataFrame = pd.DataFrame(data=list(market_df_data), columns=market_df_columns)
-            portfolio_delta: Decimal = trade_performance_stats["portfolio_delta"]
-            portfolio_delta_percentage: Decimal = trade_performance_stats["portfolio_delta_percentage"]
+        trade_performance_status_line = []
+        market_df_data: Set[Tuple[str, str, Decimal, Decimal, str, str]] = set()
+        market_df_columns = ["Market", "Pair", "Start Price", "End Price",
+                             "Trades", "Trade Value Delta"]
 
-            trade_performance_status_line.extend(["", "  Inventory:"] +
-                                                 ["    " + line for line in inventory_df.to_string().split("\n")])
-            trade_performance_status_line.extend(["", "  Markets:"] +
-                                                 ["    " + line for line in market_df.to_string().split("\n")])
+        for market_trading_pair_tuple, trading_pair_stats in market_trading_pair_stats.items():
+            market_df_data.add((
+                market_trading_pair_tuple.market.display_name,
+                market_trading_pair_tuple.trading_pair.upper(),
+                trading_pair_stats["starting_quote_rate"],
+                trading_pair_stats["end_quote_rate"],
+                trading_pair_stats["trade_count"],
+                f"{trading_pair_stats['trading_pair_delta']:.8f} {primary_quote_asset}"
+            ))
 
-            trade_performance_status_line.extend(
-                ["", "  Performance:"] +
-                [f"    Started: {datetime.fromtimestamp(self.start_time//1e3)}"] +
-                [f"    Duration: {pd.Timedelta(seconds=abs(int(time.time() - self.start_time/1e3)))}"] +
-                [f"    Total Trade Value Delta: {portfolio_delta:.7g} {primary_quote_asset}"] +
-                [f"    Return %: {portfolio_delta_percentage:.4f} %"])
+        inventory_df: pd.DataFrame = self.balance_comparison_data_frame(market_trading_pair_stats)
+        market_df: pd.DataFrame = pd.DataFrame(data=list(market_df_data), columns=market_df_columns)
+        portfolio_delta: Decimal = trade_performance_stats["portfolio_delta"]
+        portfolio_delta_percentage: Decimal = trade_performance_stats["portfolio_delta_percentage"]
 
-            self._notify("\n".join(trade_performance_status_line))
+        trade_performance_status_line.extend(["", "  Inventory:"] +
+                                             ["    " + line for line in inventory_df.to_string().split("\n")])
+        trade_performance_status_line.extend(["", "  Markets:"] +
+                                             ["    " + line for line in market_df.to_string().split("\n")])
 
-        except Exception:
-            self.logger().error("Unexpected error running performance analysis.", exc_info=True)
-            self._notify("Error running performance analysis.")
+        trade_performance_status_line.extend(
+            ["", "  Performance:"] +
+            [f"    Started: {datetime.fromtimestamp(self.start_time//1e3)}"] +
+            [f"    Duration: {pd.Timedelta(seconds=abs(int(time.time() - self.start_time/1e3)))}"] +
+            [f"    Total Trade Value Delta: {portfolio_delta:.7g} {primary_quote_asset}"] +
+            [f"    Return %: {portfolio_delta_percentage:.4f} %"])
+
+        self._notify("\n".join(trade_performance_status_line))
 
     def balance_snapshot(self,  # type: HummingbotApplication
                          ) -> Dict[str, Dict[str, Decimal]]:
