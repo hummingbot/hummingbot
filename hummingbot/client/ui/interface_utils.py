@@ -28,7 +28,7 @@ async def start_process_monitor(process_monitor):
             threads = hb_process.num_threads()
             process_monitor.log("CPU: {:>5}%, ".format(hb_process.cpu_percent()) +
                                 "Mem: {:>10}, ".format(format_bytes(hb_process.memory_info()[1] / threads)) +
-                                "Threads: {:>3}".format(threads)
+                                "Threads: {:>3}, ".format(threads)
                                 )
         await asyncio.sleep(1)
 
@@ -41,5 +41,5 @@ async def start_trade_monitor(trade_monitor):
         if hb.strategy_task is not None and not hb.strategy_task.done():
             if all(market.ready for market in hb.markets.values()):
                 performance, _ = hb._calculate_trade_performance()
-                trade_monitor.log(f"Trades: {performance['no_of_trades']}, Performance: {performance['portfolio_delta_percentage']}%")
+                trade_monitor.log(f"Trades: {performance['no_of_trades']}, Performance: {round(performance['portfolio_delta_percentage'], 2)}%")
         await asyncio.sleep(3)  # sleeping for longer to manage resources

@@ -184,7 +184,8 @@ def get_active_markets():
     from hummingbot.client.hummingbot_application import HummingbotApplication
     hb = HummingbotApplication.main_application()
     style = "class:primary"
-    markets = "None" if len(hb.markets) == 0 else ''.join(key.capitalize() + ', ' for key in hb.markets.keys())[:-2]
+    markets = "None" if len(hb.market_trading_pairs_map) == 0 \
+              else eval(str(hb.market_trading_pairs_map))
     return [(style, f"Market(s): {markets}")]
 
 
@@ -209,7 +210,6 @@ def generate_layout(input_field: TextArea,
             Window(FormattedTextControl(get_active_strategy), style="class:title"),
             Window(FormattedTextControl(get_active_markets), style="class:title"),
             Window(FormattedTextControl(get_script_file), style="class:title"),
-            timer,
         ], height=1),
         VSplit([
             FloatContainer(
@@ -237,6 +237,7 @@ def generate_layout(input_field: TextArea,
         VSplit([
             trade_monitor,
             process_monitor,
+            timer,
         ], height=1),
 
     ])
