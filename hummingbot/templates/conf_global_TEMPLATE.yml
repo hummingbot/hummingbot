@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 11
+template_version: 12
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -129,3 +129,8 @@ script_file_path: null
 balance_asset_limit:
   binance:
 
+# Gateway API Configurations
+# default host to only use localhost IP 127.0.0.1
+# Port need to match the final installation port for Gateway
+gateway_api_host: 127.0.0.1
+gateway_api_port: null
