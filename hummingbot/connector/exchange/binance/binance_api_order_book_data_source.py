@@ -54,13 +54,14 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._order_book_create_function = lambda: OrderBook()
         self._domain = domain
 
-    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
-        tasks = [self.get_last_traded_price(t_pair, self._domain) for t_pair in trading_pairs]
+    @classmethod
+    async def get_last_traded_prices(cls, trading_pairs: List[str], domain: str = "com") -> Dict[str, float]:
+        tasks = [cls.get_last_traded_price(t_pair, domain) for t_pair in trading_pairs]
         results = await safe_gather(*tasks)
         return {t_pair: result for t_pair, result in zip(trading_pairs, results)}
 
     @classmethod
-    async def get_last_traded_price(cls, trading_pair: str, domain="com") -> float:
+    async def get_last_traded_price(cls, trading_pair: str, domain: str = "com") -> float:
         async with aiohttp.ClientSession() as client:
             url = TICKER_PRICE_CHANGE_URL.format(domain)
             resp = await client.get(f"{url}?symbol={convert_to_exchange_trading_pair(trading_pair)}")
