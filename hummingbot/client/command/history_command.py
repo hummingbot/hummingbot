@@ -21,6 +21,9 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.settings import MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.client.config.config_helpers import secondary_market_conversion_rate
+from hummingbot.core.utils.market_mid_price import get_mid_price
+from hummingbot.user.user_balances import UserBalances
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 s_float_0 = float(0)
 s_decimal_0 = Decimal("0")
@@ -35,15 +38,14 @@ def get_timestamp(days_ago: float = 0.) -> float:
 
 
 def smart_round(value: Decimal) -> Decimal:
-    if abs(value) > 100:
+    step = Decimal("1")
+    if 100 > abs(value) > Decimal("1"):
         step = Decimal("0.1")
-    elif 100 > abs(value) > 0:
-        step = Decimal("0.01")
-    elif 0 > abs(value) > Decimal("0.01"):
+    elif Decimal("1") > abs(value) > Decimal("0.01"):
         step = Decimal("0.001")
     elif Decimal("0.01") > abs(value) > Decimal("0.0001"):
         step = Decimal("0.00001")
-    else:
+    elif abs(value) > s_decimal_0:
         step = Decimal("0.000001")
     return (value // step) * step
 
@@ -53,8 +55,6 @@ class HistoryCommand:
                 days: float = 0,
                 verbose: bool = False,
                 ):
-        days = 10.
-        verbose = True
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.history)
             return
@@ -64,35 +64,56 @@ class HistoryCommand:
             return
         if global_config_map.get("paper_trade_enabled").value:
             self._notify("\n  Paper Trading ON: All orders are simulated, and no real orders are placed.")
+        start_time = get_timestamp(days)
+        trades: List[TradeFill] = self._get_trades_from_session(int(start_time * 1e3),
+                                                                config_file_path=self.strategy_file_name)
+        if not trades:
+            self._notify("\n  No past trades to report.")
+            return
         if verbose:
             self.list_trades(days=days)
         if self.strategy_name != "celo_arb":
-            self.history_report(days=days)
+            safe_ensure_future(self.history_report(start_time, trades))
 
-    def history_report(self,  # type: HummingbotApplication
-                       days: float = 0.0):
-        start_time = get_timestamp(days)
-        current_balances = self.balance_snapshot()
-        trades: List[TradeFill] = self._get_trades_from_session(int(start_time * 1e3),
-                                                                config_file_path=self.strategy_file_name)
+    async def history_report(self,  # type: HummingbotApplication
+                             start_time: float,
+                             trades: List[TradeFill]):
         market_info: Set[Tuple[str, str]] = set((t.market, t.symbol) for t in trades)
         for market, symbol in market_info:
             cur_trades = [t for t in trades if t.market == market and t.symbol == symbol]
-            self.history_report_by_market(start_time, market, symbol, cur_trades, current_balances)
+            await self.history_report_by_market(start_time, market, symbol, cur_trades)
 
-    def history_report_by_market(self,  # type: HummingbotApplication
-                                 start_time: float,
-                                 market: str,
-                                 trading_pair: str,
-                                 trades: List[TradeFill],
-                                 current_balances: Dict[str, Dict[str, Decimal]]):
+    async def get_current_balances(self,
+                                   market: str):
+        if market in self.markets and self.markets[market].ready:
+            return self.markets[market].get_all_balances()
+        elif "Paper" in market:
+            paper_balances = global_config_map["paper_trade_account_balance"].value
+            return {token: Decimal(str(bal)) for token, bal in paper_balances.items()}
+        else:
+            await UserBalances.instance().update_exchange_balance(market)
+            return UserBalances.instance().all_balances(market)
+
+    async def history_report_by_market(self,  # type: HummingbotApplication
+                                       start_time: float,
+                                       market: str,
+                                       trading_pair: str,
+                                       trades: List[TradeFill]):
+
+        def divide(value, divisor):
+            value = Decimal(str(value))
+            divisor = Decimal(str(divisor))
+            if divisor == s_decimal_0:
+                return s_decimal_0
+            return value / divisor
+
         lines = []
         base, quote = trading_pair.split("-")
         current_time = get_timestamp()
         lines.extend(
-            [f"    Start Time: {datetime.fromtimestamp(start_time).strftime('%Y-%m-%d %H:%M:%S')}"] +
-            [f"    Curent Time: {datetime.fromtimestamp(current_time).strftime('%Y-%m-%d %H:%M:%S')}"] +
-            [f"    Duration: {pd.Timedelta(seconds=int(current_time - start_time))}"]
+            [f"\n  Start Time: {datetime.fromtimestamp(start_time).strftime('%Y-%m-%d %H:%M:%S')}"] +
+            [f"  Curent Time: {datetime.fromtimestamp(current_time).strftime('%Y-%m-%d %H:%M:%S')}"] +
+            [f"  Duration: {pd.Timedelta(seconds=int(current_time - start_time))}"]
         )
 
         buys = [t for t in trades if t.trade_type.upper() == "BUY"]
@@ -103,9 +124,9 @@ class HistoryCommand:
         b_vol_quote = Decimal(str(sum(b.amount * b.price for b in buys))) * Decimal("-1")
         s_vol_quote = Decimal(str(sum(s.amount * s.price for s in sells)))
         tot_vol_quote = b_vol_quote + s_vol_quote
-        avg_b_price = b_vol_quote / b_vol_base if b_vol_base != s_decimal_0 else s_decimal_0
-        avg_s_price = s_vol_quote / s_vol_base if s_vol_base != s_decimal_0 else s_decimal_0
-        avg_tot_price = tot_vol_quote / tot_vol_base if tot_vol_base != s_decimal_0 else s_decimal_0
+        avg_b_price = divide(b_vol_quote, b_vol_base)
+        avg_s_price = divide(s_vol_quote, s_vol_base)
+        avg_tot_price = divide(tot_vol_quote, tot_vol_base)
         avg_b_price = abs(avg_b_price)
         avg_s_price = abs(avg_s_price)
         avg_tot_price = abs(avg_tot_price)
@@ -129,28 +150,50 @@ class HistoryCommand:
         trades_df: pd.DataFrame = pd.DataFrame(data=trades_data, columns=trades_columns)
         lines.extend(["", "  Trades:"] + ["    " + line for line in trades_df.to_string(index=False).split("\n")])
 
-        base_balance = current_balances[market].get(base, s_decimal_0)
-        quote_balance = current_balances[market].get(quote, s_decimal_0)
+        current_balances = await self.get_current_balances(market)
+        base_balance = current_balances.get(base, 0)
+        quote_balance = current_balances.get(quote, 0)
         start_base = base_balance - tot_vol_base
         start_quote = quote_balance - tot_vol_quote
-        start_price = trades[0].price
+        start_price = Decimal(str(trades[0].price))
+        cur_price = get_mid_price(market, trading_pair)
+        start_base_ratio_pct = divide(start_base * start_price, (start_base * start_price) + start_quote)
+        cur_base_ratio_pct = divide(base_balance * cur_price, (base_balance * cur_price) + quote_balance)
+        if cur_price is None:
+            cur_price = Decimal(str(trades[-1].price))
         assets_columns = ["", "start", "current", "change"]
         assets_data = [
             [f"{base:<17}", smart_round(start_base), smart_round(base_balance), smart_round(tot_vol_base)],
             [f"{quote:<17}", smart_round(start_quote), smart_round(quote_balance), smart_round(tot_vol_quote)],
-            [f"{trading_pair + ' price':<17}", start_price, 0, 0],
-            [f"{'Base asset %':<17}", 0, 0, 0],
+            [f"{trading_pair + ' price':<17}", start_price, cur_price, cur_price - start_price],
+            [f"{'Base asset %':<17}",
+             f"{start_base_ratio_pct:.2%}",
+             f"{cur_base_ratio_pct:.2%}",
+             f"{cur_base_ratio_pct - start_base_ratio_pct:.2%}"],
         ]
         assets_df: pd.DataFrame = pd.DataFrame(data=assets_data, columns=assets_columns)
         lines.extend(["", "  Assets:"] + ["    " + line for line in assets_df.to_string(index=False).split("\n")])
 
+        hold_value = (start_base * cur_price) + start_quote
+        cur_value = (base_balance * cur_price) + quote_balance
+        trade_pnl = cur_value - hold_value
+        fee_paid = 0  # sum(t.trade_fee for t in trades)
+        fee_token = quote
+        if trades[0].trade_fee.get("percent", None) is not None and trades[0].trade_fee["percent"] > 0:
+            fee_paid = sum(t.price * t.amount * t.trade_fee["percent"] for t in trades)
+        elif trades[0].trade_fee.get("flat_fees", []):
+            fee_token = trades[0].trade_fee["flat_fees"][0]["asset"]
+            fee_paid = sum(f["amount"] for t in trades for f in t.trade_fee.get("flat_fees", []))
+        fee_paid = Decimal(str(fee_paid))
+        total_pnl = trade_pnl + fee_paid if fee_token == quote else trade_pnl
+        return_pct = divide(total_pnl, hold_value)
         perf_data = [
-            ["Hold portfolio value    ", 0],
-            ["Current portfolio value ", 0],
-            ["Trade P&L               ", 0],
-            ["Fees paid               ", 0],
-            ["Total P&L               ", 0],
-            ["Return %                ", 0],
+            ["Hold portfolio value    ", f"{smart_round(hold_value)} {quote}"],
+            ["Current portfolio value ", f"{smart_round(cur_value)} {quote}"],
+            ["Trade P&L               ", f"{smart_round(trade_pnl)} {quote}"],
+            ["Fees paid               ", f"{smart_round(fee_paid)} {fee_token}"],
+            ["Total P&L               ", f"{smart_round(total_pnl)} {quote}"],
+            ["Return %                ", f"{return_pct:.2%}"],
         ]
         perf_df: pd.DataFrame = pd.DataFrame(data=perf_data)
         lines.extend(["", "  Performance:"] +
