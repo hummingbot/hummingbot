@@ -260,7 +260,7 @@ main_config_map = {
         ConfigVar(key="gateway_api_port",
                   prompt="Please enter your Gateway API port >>> ",
                   type_str="str",
-                  required_if=lambda: True,
+                  required_if=lambda: False,
                   default="5000"),
 }
 

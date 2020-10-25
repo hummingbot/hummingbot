@@ -1,9 +1,0 @@
-#################################
-###   Gateway configurations   ###
-#################################
-
-# For more detailed information: https://docs.hummingbot.io
-template_version: 1
-
-# Gateway API Configurations
-gateway_api_port: null
