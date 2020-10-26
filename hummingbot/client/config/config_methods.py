@@ -5,7 +5,7 @@ from typing import Callable
 def new_fee_config_var(key):
     return ConfigVar(key=key,
                      prompt=None,
-                     required_if=lambda x: x is not None,
+                     required_if=lambda: False,
                      type_str="decimal")
 
 
