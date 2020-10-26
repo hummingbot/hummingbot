@@ -240,10 +240,11 @@ class ConfigCommand:
             await self.prompt_a_config(cvar)
             config_map[key].value = cvar.value
             session: Session = self.trade_fill_db.get_shared_session()
-            InventoryCost.update_or_create(
+            InventoryCost.add_volume(
                 session,
                 base_asset=base_asset,
                 quote_asset=quote_asset,
                 base_volume=balances[base_asset],
                 quote_volume=balances[base_asset] * cvar.value,
+                overwrite=True,
             )

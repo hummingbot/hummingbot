@@ -63,6 +63,6 @@ class InventoryCostPriceDelegate:
                 base_volume = Decimal("0")
                 quote_volume = Decimal("0")
 
-        InventoryCost.update_or_create(
+        InventoryCost.add_volume(
             self._session, base_asset, quote_asset, base_volume, quote_volume
         )
