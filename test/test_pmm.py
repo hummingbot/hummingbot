@@ -21,8 +21,13 @@ from hummingbot.core.event.events import (
     TradeType,
     PriceType,
 )
+from hummingbot.model.sql_connection_manager import (
+    SQLConnectionManager,
+    SQLConnectionType,
+)
 from hummingbot.strategy.pure_market_making.pure_market_making import PureMarketMakingStrategy
 from hummingbot.strategy.pure_market_making.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
+from hummingbot.strategy.pure_market_making.inventory_cost_price_delegate import InventoryCostPriceDelegate
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.client.command.config_command import ConfigCommand
@@ -135,6 +140,10 @@ class PMMUnitTest(unittest.TestCase):
                                               volume_step_size=10)
         self.ext_market.add_data(self.ext_data)
         self.order_book_asset_del = OrderBookAssetPriceDelegate(self.ext_market, self.trading_pair)
+        trade_fill_sql = SQLConnectionManager(
+            SQLConnectionType.TRADE_FILLS, db_path=""
+        )
+        self.inventory_cost_price_del = InventoryCostPriceDelegate(trade_fill_sql, self.trading_pair)
 
     def simulate_maker_market_trade(
             self, is_buy: bool, quantity: Decimal, price: Decimal, market: Optional[BacktestMarket] = None,
@@ -772,6 +781,25 @@ class PMMUnitTest(unittest.TestCase):
         status_df: pd.DataFrame = strategy.inventory_skew_stats_data_frame()
         self.assertEqual("50.0%", status_df.iloc[4, 1])
         self.assertEqual("150.0%", status_df.iloc[4, 2])
+
+    def test_inventory_cost_price_del(self):
+        strategy = self.one_level_strategy
+        strategy.inventory_cost_price_delegate = self.inventory_cost_price_del
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        # Expecting to have orders set according to mid_price as there is no inventory cost data yet
+        first_bid_order = strategy.active_buys[0]
+        first_ask_order = strategy.active_sells[0]
+        self.assertEqual(Decimal("99"), first_bid_order.price)
+        self.assertEqual(Decimal("101"), first_ask_order.price)
+
+        self.simulate_maker_market_trade(
+            is_buy=False, quantity=Decimal("10"), price=Decimal("98.9"),
+        )
+        self.clock.backtest_til(self.start_timestamp + 7)
+        first_bid_order = strategy.active_buys[0]
+        self.assertEqual(Decimal("98.01"), first_bid_order.price)
 
     def test_order_book_asset_del(self):
         strategy = self.one_level_strategy

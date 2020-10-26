@@ -6,12 +6,13 @@ from typing import (
 from decimal import Decimal
 import pandas as pd
 from os.path import join
+from sqlalchemy.orm import Session
 from hummingbot.client.settings import (
     GLOBAL_CONFIG_PATH,
     CONF_FILE_PATH,
 )
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.config_validators import validate_bool
+from hummingbot.client.config.config_validators import validate_bool, validate_decimal
 from hummingbot.client.config.config_helpers import (
     missing_required_configs,
     save_to_yml
@@ -19,6 +20,7 @@ from hummingbot.client.config.config_helpers import (
 from hummingbot.client.config.security import Security
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.model.inventory_cost import InventoryCost
 from hummingbot.strategy.pure_market_making import (
     PureMarketMakingStrategy
 )
@@ -127,6 +129,8 @@ class ConfigCommand:
                 self._notify("Please follow the prompt to complete configurations: ")
             if config_var.key == "inventory_target_base_pct":
                 await self.asset_ratio_maintenance_prompt(config_map, input_value)
+            elif config_var.key == "inventory_price":
+                await self.inventory_price_prompt(config_map, input_value)
             else:
                 await self.prompt_a_config(config_var, input_value=input_value, assign_default=False)
             if self.app.to_stop_config:
@@ -204,3 +208,42 @@ class ConfigCommand:
                     self.app.to_stop_config = False
                     return
                 await self.prompt_a_config(config_map["inventory_target_base_pct"])
+
+    async def inventory_price_prompt(
+        self,  # type: HummingbotApplication
+        config_map,
+        input_value=None,
+    ):
+        key = "inventory_price"
+        if input_value:
+            config_map[key].value = Decimal(input_value)
+        else:
+            exchange = config_map["exchange"].value
+            market = config_map["market"].value
+            base_asset, quote_asset = market.split("-")
+            balances = await UserBalances.instance().balances(
+                exchange, base_asset, quote_asset
+            )
+            if balances.get(base_asset) is None:
+                return
+
+            cvar = ConfigVar(
+                key="temp_config",
+                prompt=f"On {exchange}, you have {balances[base_asset]:.4f} {base_asset}. "
+                f"What was the price for this amount in {quote_asset}?  >>> ",
+                required_if=lambda: True,
+                type_str="decimal",
+                validator=lambda v: validate_decimal(
+                    v, min_value=Decimal("0"), inclusive=True
+                ),
+            )
+            await self.prompt_a_config(cvar)
+            config_map[key].value = cvar.value
+            session: Session = self.trade_fill_db.get_shared_session()
+            InventoryCost.update_or_create(
+                session,
+                base_asset=base_asset,
+                quote_asset=quote_asset,
+                base_volume=balances[base_asset],
+                quote_volume=balances[base_asset] * cvar.value,
+            )
