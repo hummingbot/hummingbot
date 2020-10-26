@@ -31,6 +31,7 @@ from hummingbot.client.settings import (
     CONF_POSTFIX,
     CONF_PREFIX,
     TOKEN_ADDRESSES_FILE_PATH,
+    CONNECTOR_SETTINGS
 )
 from hummingbot.client.config.security import Security
 from hummingbot.core.utils.market_mid_price import get_mid_price
@@ -177,17 +178,10 @@ def _merge_dicts(*args: Dict[str, ConfigVar]) -> OrderedDict:
 
 
 def get_connector_class(connector_name: str) -> Callable:
-    connector_types = ["connector", "exchange", "derivative"]
-    for type in connector_types:
-        connector_module_name = f"{connector_name}_{type}"
-        connector_class_name = "".join([o.capitalize() for o in connector_module_name.split("_")])
-        try:
-            mod = __import__(f'hummingbot.connector.{type}.{connector_name}.{connector_module_name}',
-                             fromlist=[connector_class_name])
-            return getattr(mod, connector_class_name)
-        except Exception:
-            continue
-    raise Exception(f"Connector {connector_name} class not found")
+    conn_setting = CONNECTOR_SETTINGS[connector_name]
+    mod = __import__(conn_setting.module_path(),
+                     fromlist=[conn_setting.class_name()])
+    return getattr(mod, conn_setting.class_name())
 
 
 def get_strategy_config_map(strategy: str) -> Optional[Dict[str, ConfigVar]]:
