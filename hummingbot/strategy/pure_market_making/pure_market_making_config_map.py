@@ -238,6 +238,12 @@ pure_market_making_config_map = {
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, min_value=0, inclusive=False),
                   default=Decimal("1")),
+    "inventory_price":
+        ConfigVar(key="inventory_price",
+                  prompt="What is the price of your base asset inventory? ",
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, min_value=Decimal("0"), inclusive=True),
+                  ),
     "filled_order_delay":
         ConfigVar(key="filled_order_delay",
                   prompt="How long do you want to wait before placing the next order "
@@ -298,7 +304,8 @@ pure_market_making_config_map = {
                   on_validated=on_validate_price_source),
     "price_type":
         ConfigVar(key="price_type",
-                  prompt="Which price type to use? (mid_price/last_price/last_own_trade_price/best_bid/best_ask) >>> ",
+                  prompt="Which price type to use? ("
+                         "mid_price/last_price/last_own_trade_price/best_bid/best_ask/inventory_cost) >>> ",
                   type_str="str",
                   required_if=lambda: pure_market_making_config_map.get("price_source").value != "custom_api",
                   default="mid_price",
@@ -306,7 +313,9 @@ pure_market_making_config_map = {
                                                     "last_price",
                                                     "last_own_trade_price",
                                                     "best_bid",
-                                                    "best_ask"} else
+                                                    "best_ask",
+                                                    "inventory_cost",
+                                                    } else
                   "Invalid price type."),
     "price_source_exchange":
         ConfigVar(key="price_source_exchange",

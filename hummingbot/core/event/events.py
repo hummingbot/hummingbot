@@ -77,6 +77,7 @@ class PriceType(Enum):
     BestAsk = 3
     LastTrade = 4
     LastOwnTrade = 5
+    InventoryCost = 6
 
 
 class MarketTransactionFailureEvent(NamedTuple):
