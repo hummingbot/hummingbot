@@ -6,7 +6,7 @@ from os.path import (
 )
 from enum import Enum
 from decimal import Decimal
-from typing import List, NamedTuple, Dict
+from typing import List, NamedTuple, Dict, Any
 from hummingbot import get_strategy_list
 from pathlib import Path
 from hummingbot.client.config.config_var import ConfigVar
@@ -49,6 +49,42 @@ class ConnectorSetting(NamedTuple):
     fee_token: str
     default_fees: List[Decimal]
     config_keys: Dict[str, ConfigVar]
+    is_sub_domain: bool
+    parent_name: str
+    domain_parameter: str
+
+    def module_name(self) -> str:
+        # returns connector module name, e.g. binance_exchange
+        return f'{self.base_name()}_{self.type.name.lower()}'
+
+    def module_path(self) -> str:
+        # return connector full path name, e.g. hummingbot.connector.exchange.binance.binance_exchange
+        return f'hummingbot.connector.{self.type.name.lower()}.{self.base_name()}.{self.module_name()}'
+
+    def class_name(self) -> str:
+        # return connector class name, e.g. BinanceExchange
+        return "".join([o.capitalize() for o in self.module_name().split("_")])
+
+    def conn_init_parameters(self, api_keys: Dict[str, Any]) -> Dict[str, Any]:
+        if not self.is_sub_domain:
+            return api_keys
+        else:
+            params = {k.replace(self.name, self.parent_name): v for k, v in api_keys.items()}
+            params["domain"] = self.domain_parameter
+            return params
+
+    def add_domain_parameter(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        if not self.is_sub_domain:
+            return params
+        else:
+            params["domain"] = self.domain_parameter
+            return params
+
+    def base_name(self) -> str:
+        if self.is_sub_domain:
+            return self.parent_name
+        else:
+            return self.name
 
 
 def _create_connector_settings() -> Dict[str, ConnectorSetting]:
@@ -82,8 +118,28 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
                 fee_type=fee_type,
                 fee_token=getattr(util_module, "FEE_TOKEN", ""),
                 default_fees=getattr(util_module, "DEFAULT_FEES", []),
-                config_keys=getattr(util_module, "KEYS", {})
+                config_keys=getattr(util_module, "KEYS", {}),
+                is_sub_domain=False,
+                parent_name=None,
+                domain_parameter=None
             )
+            other_domains = getattr(util_module, "OTHER_DOMAINS", [])
+            for domain in other_domains:
+                parent = connector_settings[connector_dir.name]
+                connector_settings[domain] = ConnectorSetting(
+                    name=domain,
+                    type=parent.type,
+                    centralised=parent.centralised,
+                    example_pair=getattr(util_module, "OTHER_DOMAINS_EXAMPLE_PAIR")[domain],
+                    use_ethereum_wallet=parent.use_ethereum_wallet,
+                    fee_type=parent.fee_type,
+                    fee_token=parent.fee_token,
+                    default_fees=getattr(util_module, "OTHER_DOMAINS_DEFAULT_FEES")[domain],
+                    config_keys=getattr(util_module, "OTHER_DOMAINS_KEYS")[domain],
+                    is_sub_domain=True,
+                    parent_name=parent.name,
+                    domain_parameter=getattr(util_module, "OTHER_DOMAINS_PARAMETER")[domain]
+                )
     return connector_settings
 
 

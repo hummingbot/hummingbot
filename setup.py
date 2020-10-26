@@ -107,7 +107,7 @@ def main():
         "pandas",
         "pytz",
         "pyyaml",
-        "python-binance==0.7.1",
+        "python-binance==0.7.5",
         "sqlalchemy",
         "ujson",
         "yarl",
