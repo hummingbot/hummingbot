@@ -36,22 +36,30 @@ class InventoryCost(HummingbotBase):
         )
 
     @classmethod
-    def update_or_create(
+    def add_volume(
         cls,
         sql_session: Session,
         base_asset: str,
         quote_asset: str,
         base_volume: Decimal,
         quote_volume: Decimal,
+        overwrite: bool = False,
     ) -> None:
-        rows_updated: int = sql_session.query(cls).filter(
-            cls.base_asset == base_asset, cls.quote_asset == quote_asset
-        ).update(
-            {
+        if overwrite:
+            update = {
+                "base_volume": base_volume,
+                "quote_volume": quote_volume,
+            }
+        else:
+            update = {
                 "base_volume": cls.base_volume + base_volume,
                 "quote_volume": cls.quote_volume + quote_volume,
             }
-        )
+
+        rows_updated: int = sql_session.query(cls).filter(
+            cls.base_asset == base_asset, cls.quote_asset == quote_asset
+        ).update(update)
+
         if not rows_updated:
             record = InventoryCost(
                 base_asset=base_asset,
@@ -60,7 +68,8 @@ class InventoryCost(HummingbotBase):
                 quote_volume=float(quote_volume),
             )
             sql_session.add(record)
-            try:
-                sql_session.commit()
-            except Exception:
-                sql_session.rollback()
+
+        try:
+            sql_session.commit()
+        except Exception:
+            sql_session.rollback()
