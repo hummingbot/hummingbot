@@ -131,7 +131,7 @@ dependencies:
     - pyperclip==1.7.0
     - pyrsistent==0.15.7
     - pysha3
-    - python-binance==0.7.1
+    - python-binance==0.7.5
     - python-telegram-bot==12.4.2
     - pyyaml==5.3
     - regex==2020.2.20

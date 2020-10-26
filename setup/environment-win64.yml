@@ -127,7 +127,7 @@ dependencies:
     - pypiwin32==223
     - pyrsistent==0.15.7
     - pysha3
-    - python-binance==0.7.1
+    - python-binance==0.7.5
     - python-telegram-bot==12.4.2
     - pywin32==227
     - pywin32-ctypes==0.2.0
