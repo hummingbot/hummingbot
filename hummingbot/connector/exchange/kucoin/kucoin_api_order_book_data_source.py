@@ -194,7 +194,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._stop_update_tasks(stream_type)
         market_assignments = await self.get_markets_per_ws_connection()
 
-        task_dict: dict = {}
+        task_dict: Dict[int, Dict[str, Any]] = {}
         for task_index, market_subset in enumerate(market_assignments):
             task_dict[task_index] = {"markets": set(market_subset.split(',')),
                                      "task": safe_ensure_future(self._outer_messages(stream_type,
@@ -371,10 +371,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         except Exception:
                             self.logger().error("Unexpected error.", exc_info=True)
                             await asyncio.sleep(5.0)
-                    this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
-                    next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
-                    delta: float = next_hour.timestamp() - time.time()
-                    await asyncio.sleep(delta)
+                    await asyncio.sleep(secs_until_next_oclock())
             except asyncio.CancelledError:
                 raise
             except Exception:
