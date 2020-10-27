@@ -52,9 +52,9 @@ from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
-from hummingbot.connector.exchange.loopring.ethsnarks2.eddsa import PureEdDSA, PoseidonEdDSA
-from hummingbot.connector.exchange.loopring.ethsnarks2.field import FQ, SNARK_SCALAR_FIELD
-from hummingbot.connector.exchange.loopring.ethsnarks2.poseidon import poseidon_params, poseidon
+from ethsnarks_loopring import PoseidonEdDSA
+from ethsnarks_loopring import FQ, SNARK_SCALAR_FIELD
+from ethsnarks_loopring import poseidon_params, poseidon
 
 s_logger = None
 s_decimal_0 = Decimal(0)
