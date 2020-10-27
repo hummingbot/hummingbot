@@ -136,7 +136,7 @@ cdef class LoopringInFlightOrder(InFlightOrderBase):
         new_status: LoopringOrderStatus = LoopringOrderStatus[data["status"]]
         new_executed_amount_base: Decimal = self.market.token_configuration.unpad(data["filledSize"], base_id)
         new_executed_amount_quote: Decimal = self.market.token_configuration.unpad(data["filledVolume"], quote_id)
-        new_fee_paid: Decimal = self.market.token_configuration.unpad(Decimal(data["filledFee"], fee_currency_id)
+        new_fee_paid: Decimal = self.market.token_configuration.unpad(data["filledFee"], fee_currency_id)
 
         if new_executed_amount_base > self.executed_amount_base or new_executed_amount_quote > self.executed_amount_quote:
             diff_base: Decimal = new_executed_amount_base - self.executed_amount_base
