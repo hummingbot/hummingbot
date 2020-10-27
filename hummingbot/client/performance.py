@@ -76,10 +76,10 @@ def calculate_performance_metrics(trading_pair: str,
 
     perf.avg_b_price = divide(perf.b_vol_quote, perf.b_vol_base)
     perf.avg_s_price = divide(perf.s_vol_quote, perf.s_vol_base)
-    perf.avg_tot_price = divide(perf.tot_vol_quote, perf.tot_vol_base)
+    perf.avg_tot_price = divide(abs(perf.b_vol_quote) + abs(perf.s_vol_quote),
+                                abs(perf.b_vol_base) + abs(perf.s_vol_base))
     perf.avg_b_price = abs(perf.avg_b_price)
     perf.avg_s_price = abs(perf.avg_s_price)
-    perf.avg_tot_price = abs(perf.avg_tot_price)
 
     perf.cur_base_bal = current_balances.get(base, 0)
     perf.cur_quote_bal = current_balances.get(quote, 0)
