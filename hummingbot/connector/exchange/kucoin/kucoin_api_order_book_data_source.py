@@ -25,6 +25,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.kucoin.kucoin_order_book import KucoinOrderBook
 from hummingbot.connector.exchange.kucoin.kucoin_active_order_tracker import KucoinActiveOrderTracker
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 SNAPSHOT_REST_URL = "https://api.kucoin.com/api/v2/market/orderbook/level2"
 DIFF_STREAM_URL = ""
@@ -196,9 +197,9 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
         task_dict: dict = {}
         for task_index, market_subset in enumerate(market_assignments):
             task_dict[task_index] = {"markets": set(market_subset.split(',')),
-                                     "task": asyncio.ensure_future(self._outer_messages(stream_type,
-                                                                                        task_index,
-                                                                                        output))}
+                                     "task": safe_ensure_future(self._outer_messages(stream_type,
+                                                                                     task_index,
+                                                                                     output))}
         self._tasks[stream_type] = task_dict
 
     async def _refresh_subscriptions(self, stream_type: StreamType):
@@ -247,8 +248,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 market_set: set = self._tasks[stream_type][task_index]["markets"]
                 async with websockets.connect(kucoin_ws_uri) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
-                    ping_task: asyncio.Task = \
-                        asyncio.ensure_future(self._send_ping(KucoinAPIOrderBookDataSource.PING_INTERVAL, ws))
+                    ping_task = safe_ensure_future(self._send_ping(KucoinAPIOrderBookDataSource.PING_INTERVAL, ws))
 
                     # initial market list for this connection
                     market_string = ','.join(str(s) for s in market_set)
