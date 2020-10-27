@@ -242,6 +242,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
         websocket_data: Dict[str, Any] = await self.ws_connect_data()
         kucoin_ws_uri: str = websocket_data["data"]["instanceServers"][0]["endpoint"] + "?token=" + \
             websocket_data["data"]["token"] + "&acceptUserMessage=true"
+        ping_task: Optional[asyncio.Task] = None
         # connects and writes data to the output queue
         while True:
             try:
@@ -284,8 +285,6 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             await self._subscribe(ws, stream_type, market)
                         market_set |= markets_to_subscribe
 
-                    ping_task.cancel()
-
             except asyncio.CancelledError:
                 self.logger().info("Task Cancelled")
                 raise
@@ -297,7 +296,8 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await self._start_update_tasks(StreamType.Trade, output)
                 continue
             finally:
-                ping_task.cancel()
+                if ping_task is not None and not ping_task.done():
+                    ping_task.cancel()
 
     async def _update_subscription(self, ws: websockets.WebSocketClientProtocol, stream_type: StreamType, market: str,
                                    subscribe: bool):
