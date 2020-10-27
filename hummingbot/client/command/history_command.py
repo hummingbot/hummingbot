@@ -65,7 +65,7 @@ class HistoryCommand:
             self._notify("\n  No past trades to report.")
             return
         if verbose:
-            self.list_trades(days=days)
+            self.list_trades(start_time)
         if self.strategy_name != "celo_arb":
             safe_ensure_future(self.history_report(start_time, trades))
 
@@ -196,15 +196,13 @@ class HistoryCommand:
         return avg_return
 
     def list_trades(self,  # type: HummingbotApplication
-                    days: float = 0.0):
+                    start_time: float):
         if threading.current_thread() != threading.main_thread():
-            self.ev_loop.call_soon_threadsafe(self.list_trades)
+            self.ev_loop.call_soon_threadsafe(self.list_trades, start_time)
             return
 
         lines = []
-        start_timestamp = get_timestamp(days)
-        start_timestamp = int(start_timestamp * 1e3)
-        queried_trades: List[TradeFill] = self._get_trades_from_session(start_timestamp,
+        queried_trades: List[TradeFill] = self._get_trades_from_session(int(start_time * 1e3),
                                                                         MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT + 1,
                                                                         self.strategy_file_name)
         if self.strategy_name == "celo_arb":
