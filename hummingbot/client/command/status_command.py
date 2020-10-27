@@ -68,19 +68,24 @@ class StatusCommand:
         return "\n".join(lines)
 
     def strategy_status(self):
-        if global_config_map.get("paper_trade_enabled").value:
-            self._notify("\n  Paper Trading ON: All orders are simulated, and no real orders are placed.")
-        self._notify(self.strategy.format_status() + "\n")
-        self.application_warning()
+        paper_trade = "\n  Paper Trading ON: All orders are simulated, and no real orders are placed." if global_config_map.get("paper_trade_enabled").value \
+            else ""
+        app_warning = self.application_warning()
+        app_warning = "" if app_warning is None else app_warning
+        status = paper_trade + "\n" + self.strategy.format_status() + "\n" + app_warning
         if self._script_iterator is not None:
             self._script_iterator.request_status()
-        return True
+            status += '\n Status from script would noy appear here. Simply run the status command without "--live" to see script status.'
+        status += "\n\n Press escape key to stop update."
+        return status
 
     def application_warning(self):
         # Application warnings.
         self._expire_old_application_warnings()
         if check_dev_mode() and len(self._app_warnings) > 0:
-            self._notify(self._format_application_warnings())
+            app_warning = self._format_application_warnings()
+            self._notify(app_warning)
+            return app_warning
 
     async def validate_required_connections(self) -> Dict[str, str]:
         invalid_conns = {}
@@ -105,14 +110,22 @@ class StatusCommand:
         return missing_globals + missing_configs
 
     def status(self,  # type: HummingbotApplication
-               ):
-        safe_ensure_future(self.status_check_all(), loop=self.ev_loop)
+               live: bool = False):
+        safe_ensure_future(self.status_check_all(live=live), loop=self.ev_loop)
 
     async def status_check_all(self,  # type: HummingbotApplication
-                               notify_success=True) -> bool:
+                               notify_success=True,
+                               live=False) -> bool:
 
         if self.strategy is not None:
-            return self.strategy_status()
+            if live:
+                self.app.live_updates = True
+                while self.app.live_updates:
+                    await self.cls_display_delay(self.strategy_status(), 1)
+                self._notify("Stopped live status display update.")
+            else:
+                self._notify(self.strategy_status())
+            return True
 
         # Preliminary checks.
         self._notify("\nPreliminary checks:")
