@@ -4,7 +4,7 @@ from typing import List, Optional, Dict, Any, Callable
 from decimal import Decimal
 from statistics import mean, median
 from operator import itemgetter
-from .script_interface import OnTick, OnStatus, PMMParameters, CallNotify, CallLog
+from .script_interface import OnTick, OnStatus, PMMParameters, CallNotify, CallLog, PmmMarketInfo
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent
@@ -22,9 +22,12 @@ class ScriptBase:
         self._queue_check_interval: float = 0.0
         self.mid_prices: List[Decimal] = []
         self.pmm_parameters: PMMParameters = None
+        self.pmm_market_info: PmmMarketInfo = None
         # all_total_balances stores balances in {exchange: {token: balance}} format
         # for example {"binance": {"BTC": Decimal("0.1"), "ETH": Decimal("20"}}
         self.all_total_balances: Dict[str, Dict[str, Decimal]] = None
+        # all_available_balances has the same data structure as all_total_balances
+        self.all_available_balances: Dict[str, Dict[str, Decimal]] = None
 
     def assign_init(self, parent_queue: Queue, child_queue: Queue, queue_check_interval: float):
         self._parent_queue = parent_queue
@@ -56,6 +59,7 @@ class ScriptBase:
                 self.mid_prices.append(item.mid_price)
                 self.pmm_parameters = item.pmm_parameters
                 self.all_total_balances = item.all_total_balances
+                self.all_available_balances = item.all_available_balances
                 self.on_tick()
             elif isinstance(item, BuyOrderCompletedEvent):
                 self.on_buy_order_completed(item)
@@ -64,6 +68,8 @@ class ScriptBase:
             elif isinstance(item, OnStatus):
                 status_msg = self.on_status()
                 self.notify(f"Script status: {status_msg}")
+            elif isinstance(item, PmmMarketInfo):
+                self.pmm_market_info = item
 
     def notify(self, msg: str):
         """
