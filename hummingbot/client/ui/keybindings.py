@@ -93,4 +93,8 @@ def load_key_bindings(hb) -> KeyBindings:
         event.app.layout.current_window = hb.app.input_field.window
         event.app.layout.focus = hb.app.input_field.buffer
 
+    @bindings.add("escape")
+    def stop_live_update(event):
+        hb.app.live_updates = False
+
     return bindings
