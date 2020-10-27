@@ -2,9 +2,7 @@
 
 ## About Bitfinex
 
-Bitfinex is a cryptocurrency exchange owned and operated by iFinex Inc., which is headquartered in Hong Kong and registered in the British Virgin Islands.   
-
-Bitfinex was founded in December 2012 as a peer-to-peer Bitcoin exchange, offering digital asset trading services to users around the world. Bitfinex initially started as a P2P margin lending platform for Bitcoin and later added support for more cryptocurrencies. 
+Bitfinex is a cryptocurrency exchange owned and operated by iFinex Inc. It was founded in December 2012 as a peer-to-peer Bitcoin exchange, offering digital asset trading services to users around the world. Bitfinex initially started as a P2P margin lending platform for Bitcoin and later added support for more cryptocurrencies. 
 
 ## Using the Connector
 
@@ -60,7 +58,7 @@ The API key and API secret key is required for using Hummingbot.
 
 ### Minimum Order Sizes
 
-Pairs on Bitfinex generally require a minimum order size equivalent to between $2.5 and more. You can access the minimum order size for a specific token pair using [Crypto.com's API](https://exchange-docs.crypto.com/#public-get-instruments) at the following URL:
+Pairs on Bitfinex generally require a minimum order size equivalent to between $2.5 and more. You can access the minimum order size for a specific token pair using [Bitfinex's API](https://api-pub.bitfinex.com/v2/conf/pub:info:pair) at the following URL:
 
 
 ```

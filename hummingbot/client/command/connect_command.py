@@ -10,7 +10,8 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
-OPTIONS = settings.CEXES.union({"ethereum", "celo"})
+OPTIONS = {cs.name for cs in settings.CONNECTOR_SETTINGS.values()
+           if not cs.use_ethereum_wallet}.union({"ethereum", "celo"})
 
 
 class ConnectCommand:
@@ -32,7 +33,8 @@ class ConnectCommand:
         self.app.hide_input = True
         if exchange == "kraken":
             self._notify("Reminder: Please ensure your Kraken API Key Nonce Window is at least 10.")
-        exchange_configs = [c for c in global_config_map.values() if exchange in c.key and c.is_connect_key]
+        exchange_configs = [c for c in global_config_map.values()
+                            if c.key in settings.CONNECTOR_SETTINGS[exchange].config_keys and c.is_connect_key]
         to_connect = True
         if Security.encrypted_file_exists(exchange_configs[0].key):
             await Security.wait_til_decryption_done()

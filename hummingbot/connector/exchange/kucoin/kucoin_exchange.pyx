@@ -342,7 +342,8 @@ cdef class KucoinExchange(ExchangeBase):
                                                                     tracked_order.executed_amount_base,
                                                                     tracked_order.executed_amount_quote,
                                                                     tracked_order.fee_paid,
-                                                                    tracked_order.order_type))
+                                                                    tracked_order.order_type,
+                                                                    exchange_order_id=tracked_order.exchange_order_id))
                     else:
                         self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
                                            f"according to KuCoin user stream.")
@@ -356,13 +357,15 @@ cdef class KucoinExchange(ExchangeBase):
                                                                      tracked_order.executed_amount_base,
                                                                      tracked_order.executed_amount_quote,
                                                                      tracked_order.fee_paid,
-                                                                     tracked_order.order_type))
+                                                                     tracked_order.order_type,
+                                                                     exchange_order_id=tracked_order.exchange_order_id))
                     self.c_stop_tracking_order(tracked_order.client_order_id)
                 elif execution_status == "done" and execution_type == "canceled":
                     self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
                     self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                          OrderCancelledEvent(self._current_timestamp,
-                                                             tracked_order.client_order_id))
+                                                             tracked_order.client_order_id,
+                                                             exchange_order_id=tracked_order.exchange_order_id))
                     self.c_stop_tracking_order(tracked_order.client_order_id)
             except asyncio.CancelledError:
                 raise
@@ -562,7 +565,8 @@ cdef class KucoinExchange(ExchangeBase):
                                                                     float(tracked_order.executed_amount_base),
                                                                     float(tracked_order.executed_amount_quote),
                                                                     float(tracked_order.fee_paid),
-                                                                    tracked_order.order_type))
+                                                                    tracked_order.order_type,
+                                                                    exchange_order_id=tracked_order.exchange_order_id))
                     else:
                         self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
                                            f"according to order status API.")
@@ -575,7 +579,8 @@ cdef class KucoinExchange(ExchangeBase):
                                                                      float(tracked_order.executed_amount_base),
                                                                      float(tracked_order.executed_amount_quote),
                                                                      float(tracked_order.fee_paid),
-                                                                     tracked_order.order_type))
+                                                                     tracked_order.order_type,
+                                                                     exchange_order_id=tracked_order.exchange_order_id))
 
                 if order_state is False and order_update["data"]["cancelExist"] is True:
                     self.c_stop_tracking_order(tracked_order.client_order_id)
@@ -583,7 +588,8 @@ cdef class KucoinExchange(ExchangeBase):
                                        f" to order status API.")
                     self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                          OrderCancelledEvent(self._current_timestamp,
-                                                             tracked_order.client_order_id))
+                                                             tracked_order.client_order_id,
+                                                             exchange_order_id=tracked_order.exchange_order_id))
 
     async def _status_polling_loop(self):
         while True:
@@ -709,7 +715,8 @@ cdef class KucoinExchange(ExchangeBase):
                                      trading_pair,
                                      float(decimal_amount),
                                      float(decimal_price),
-                                     order_id
+                                     order_id,
+                                     exchange_order_id=tracked_order.exchange_order_id
                                  ))
         except asyncio.CancelledError:
             raise
@@ -780,7 +787,8 @@ cdef class KucoinExchange(ExchangeBase):
                                      trading_pair,
                                      float(decimal_amount),
                                      float(decimal_price),
-                                     order_id
+                                     order_id,
+                                     exchange_order_id=exchange_order_id
                                  ))
         except asyncio.CancelledError:
             raise
@@ -838,7 +846,13 @@ cdef class KucoinExchange(ExchangeBase):
                 is_auth_required=True
             )
             for oid in cancel_all_results["data"]["cancelledOrderIds"]:
+                tracked_order = self._in_flight_orders.get(oid)
                 cancellation_results.append(CancellationResult(oid, True))
+                if tracked_order is not None:
+                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                         OrderCancelledEvent(self._current_timestamp,
+                                                             tracked_order.client_order_id,
+                                                             exchange_order_id=tracked_order.exchange_order_id))
         except Exception as e:
             self.logger().network(
                 f"Failed to cancel all orders.",
