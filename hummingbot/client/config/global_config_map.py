@@ -1,9 +1,7 @@
-import importlib
 import random
 from typing import Callable, Optional
 from decimal import Decimal
 import os.path
-from os import scandir
 from hummingbot.client.config.config_var import ConfigVar
 import hummingbot.client.settings as settings
 from hummingbot.client.config.config_methods import paper_trade_disabled, using_exchange as using_exchange_pointer
@@ -28,7 +26,7 @@ def using_bamboo_coordinator_mode() -> bool:
 
 
 def using_wallet() -> bool:
-    return paper_trade_disabled() and any([e in settings.DEXES for e in settings.required_exchanges])
+    return paper_trade_disabled() and settings.ethereum_wallet_required()
 
 
 def validate_script_file_path(file_path: str) -> Optional[bool]:
@@ -41,19 +39,8 @@ def validate_script_file_path(file_path: str) -> Optional[bool]:
 
 def connector_keys():
     all_keys = {}
-    invalid_names = ["__pycache__", "paper_trade"]
-    connector_types = ["exchange", "derivative"]
-    for connector_type in connector_types:
-        try:
-            connectors = [f.name for f in scandir(f'hummingbot/connector/{connector_type}') if f.is_dir() and f.name not in invalid_names]
-        except Exception:
-            continue
-        for connector in connectors:
-            try:
-                module_path = f"hummingbot.connector.{connector_type}.{connector}.{connector}_utils"
-                all_keys.update(getattr(importlib.import_module(module_path), "KEYS"))
-            except Exception:
-                continue
+    for connector_setting in settings.CONNECTOR_SETTINGS.values():
+        all_keys.update(connector_setting.config_keys)
     return all_keys
 
 

@@ -1,10 +1,10 @@
 from hummingbot.core.utils.market_mid_price import get_mid_price
-from hummingbot.client.settings import CEXES, DEXES, DERIVATIVES, EXCHANGES
+from hummingbot.client.settings import CONNECTOR_SETTINGS
 from hummingbot.client.config.security import Security
 from hummingbot.client.config.config_helpers import get_connector_class
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.client.config.global_config_map import global_config_map
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from decimal import Decimal
 
 from web3 import Web3
@@ -16,10 +16,11 @@ class UserBalances:
     @staticmethod
     def connect_market(exchange, **api_details):
         connector = None
-        if exchange in CEXES or exchange in DERIVATIVES:
+        conn_setting = CONNECTOR_SETTINGS[exchange]
+        if not conn_setting.use_ethereum_wallet:
             connector_class = get_connector_class(exchange)
-            connector = connector_class(**api_details)
-
+            init_params = conn_setting.conn_init_parameters(api_details)
+            connector = connector_class(**init_params)
         return connector
 
     # return error message if the _update_balances fails
@@ -68,10 +69,12 @@ class UserBalances:
                 return "API keys have not been added."
 
     # returns error message for each exchange
-    async def update_exchanges(self, reconnect=False, exchanges=EXCHANGES) -> Dict[str, Optional[str]]:
+    async def update_exchanges(self, reconnect: bool = False,
+                               exchanges: List[str] = []) -> Dict[str, Optional[str]]:
         tasks = []
-        # We can only update user exchange balances on CEXes, for DEX we'll need to implement web3 wallet query later.
-        exchanges = [ex for ex in exchanges if ex not in DEXES]
+        # Update user balances, except connectors that use Ethereum wallet.
+        if len(exchanges) == 0:
+            exchanges = [cs.name for cs in CONNECTOR_SETTINGS.values() if not cs.use_ethereum_wallet]
         if reconnect:
             self._markets.clear()
         for exchange in exchanges:

@@ -100,14 +100,110 @@ The Hummingbot Miners app uses your Ethereum wallet address to:
 4. Navigate to the [Settings](https://miners.hummingbot.io/settings) page and connect your Binace API key.
 5. Connect wallets by adding your preferred Ethereum address and Ethereum wallet addresses for ERC20 token payments.
 
-!!! tip
-    To get your XZC wallet address:<br />
-    1. Go to your Binance account and navigate to Spot wallet.<br />
-    2. Click the `Deposit` button and choose `XZC` to display the deposit address. You may also refer to this step on [How to get your deposit address on Binance](https://academy.binance.com/tutorials/how-to-deposit#deposit).
-    
-!!! note "Wallet address not used for trading"
-    Wallet address are use for receiving payouts only, you do not need deposit assets into or trade using this wallet.
+### How do I add my wallet address?
 
+!!! note
+    - Each liquidity mining campaign has its own rewards payments terms, which may include paying out tokens to wallets on that issuer's blockchain.  To ensure you receive all of the rewards earned, make sure to enter the relevant wallet details for campaigns that you are participating in.
+    
+    - If you have earned rewards for a campaign for which you have not yet provided a wallet, the rewards will accumulate and only be paid out once you have provided a wallet address.
+
+    - Wallet address are use for receiving payouts only, you do not need to deposit assets into or trade using this wallet.
+
+1. Log in to https://miners.hummingbot.io
+2. Click **Settings**.
+3. Scroll down to **Connect Wallet**, and click down arrow (on the right) to expand the section. The wallet option is displayed.
+4. Choose the wallet you would like to connect base on the campaign you're participating.
+5. For miners participating in the KuCoin - Harmony One campaign, choose **`Harmony`** row (background is highlighted in gray when mouse over), enter your Harmony One deposit address.
+6. For miners participating in other campaigns on Binance such as RLC, choose **`Ethereum`** row (background is highlighted in gray when mouse over), enter your Ethereum deposit address.
+
+### Get Ethereum deposit address with Metamask browser extension
+
+1. Add Metamask extension to your favorite browser.
+2. Open Metamask and create an account - complete the sign up process.
+3. On Metamask dashboard make sure Network is set to Main Ethereum Network (the default network for Ether transaction is Main Net).
+4. The Ethereum address is located Below Main Ethereum Network along with your name.
+5. You can copy the Ethereum address by clicking your name.
+
+Above steps are for new user, existing user can jump to step #3 after successful login.
+
+### Get asset deposit address from Binance
+
+In most cases and for most assets, you can use a Binance deposit address to receive your rewards directly into your account.
+
+!!! note
+    There are exceptions where the rewards assets may not be supported by a Binance deposit address. Make sure to review the terms of each campaign carefully.
+
+    For example, the USDT ASA rewards asset for the Algorand is not currently supported on Binance.
+
+1. Navigate to Binance Spot wallet
+2. Click the **Deposit** button and choose the token you want to get the address. 
+3. On the right pane of your Binance window, the token deposit address will be displayed. Copy the address and connect it [Hummingbot miners](https://miners.hummingbot.io/). 
+
+![](../assets/img/deposit.png)
+
+<table>
+  <thead>
+    <th>Asset</th>
+    <th>Comment</th>
+  </thead>
+  <tbody>
+      <tr>
+      <td>NEM</td>
+      <td>NEM wallets also require you to specify a "<b>NEM MEMO</b>" field in addition to wallet address</td>
+    </tr>
+    <tr>
+      <td>ALGO/USDT ASA</td>
+      <td>USDT ASA is currently not supported by Binance.com. Please enter an alternative ALGO wallet address (see here) and do not use a Binance deposit address.</td>
+    </tr>
+  </tbody>
+</table>
+
+### Get NEM deposit address
+
+You can use a Binance.com NEM wallet address (and memo) to receive NEM directly into your Binance account, see step <a href="#get-asset-deposit-address-from-binance">above</a>.
+
+![](../assets/img/xem-address.png)
+
+Alternatively, you can create a separate NEM wallet:
+
+1. Go to [NEM Wallet](https://nemplatform.com/wallets/).
+2. Download and extract the Universal desktop client.
+3. Launch the wallet.
+4. Create an account and complete the sign up process.
+5. Login to your newly created wallet.
+6. NEM wallet address will appear on the main screen, under **Account Information**.
+
+You may also refer to this step on [how to create NEM wallet](https://youtu.be/itEcOd6ABrA).
+
+### Get Algorand deposit address from Algorand Web Wallet
+
+1. Go to [Algorand Web Wallet](https://myalgo.com/).
+2. Create an account - complete the sign up process.
+3. Make sure to save the mnemonic phrase. You need this to recover your wallet.
+4. Your wallet address will appear on the main screen, below your wallet name.
+
+### Enabling Tether USDT to your Algorand wallet in Algorand Web Wallet
+
+1. Access your Algorand wallet through [My Algo](https://myalgo.com/).
+2. From your wallet dashboard, go to the drop-down menu in the top right corner.
+3. Click on Add Asset.
+4. Search for Tether USDt ASA #312769 . Make sure to select the one with a verified check mark.
+5. Click Continue.
+6. Click on Asset opt-in.
+7. Input your password and click on Send to sign and broadcast your opt-in transaction to USDT.
+
+You may also refer to this step on [adding tether USDT to algorand wallet](https://youtu.be/CDfay97RQmI).
+
+Now you are set. Your account will now be able to receive USDT. If you want to know more about USDT please follow this [link](https://tron.network/usdt).
+
+!!! note "Important note"
+    You must enable USDT on the Algo wallet in order to be able to receive USDT ASA. Enabling USDT will also require you to have some amount of ALGO tokens in the wallet in order to call the function to enable USDT.
+
+!!! tip
+    You can swap USDT ASA to USDT ETH/Tron/Omni which are all supported by Binance, you can check this [app](https://swaptether.io/) to swap between different implementations of tether.
+
+!!! warning "Incorrect wallet address"
+    **CoinAlpha does not take any responsibility and will not reimburse for any loss of funds due to a participant submitting an incorrect or invalid wallet address.**
 
 ### How do I see how my rewards are calculated?
 
@@ -143,7 +239,7 @@ Your weekly payout email receipts contains links to the blockchain transaction c
 
 ### I don't see my earnings on my metamask and on etherscan link from my email weekly reward.
 
-Click the etherscan link provided on email and navigate to `Erc20 Token Txns` as shown on image below, Or you may just need to add USDC token to MetaMask so you can view them. Please follow the instructions in this URL: [adding ERC20 Tokens](https://metamask.zendesk.com/hc/en-us/articles/360015489031-How-to-View-Your-Tokens)
+Click the etherscan link provided on email and navigate to `Erc20 Token Txns` as shown on image below, Or you may just need to add USDT token to MetaMask so you can view them. Please follow the instructions in this URL: [adding ERC20 Tokens](https://metamask.zendesk.com/hc/en-us/articles/360015489031-How-to-View-Your-Tokens)
 
 ![](../assets/img/erc20token.png)
 

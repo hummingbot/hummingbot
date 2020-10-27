@@ -15,3 +15,4 @@ Below are the available commands in the current Hummingbot release.
 | [exit](./exit) | Exit and cancel all outstanding orders |
 | [paper_trade](./paper-trade) | Toggle paper trading mode |
 | [export](./export) | Export your bot's trades or private keys |
+| [ticker](./ticker) | Displays market ticker prices such as best bid, best ask, mid price and last trade price |
