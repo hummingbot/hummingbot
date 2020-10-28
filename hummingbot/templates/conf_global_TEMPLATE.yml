@@ -148,4 +148,4 @@ ethgasstation_refresh_time:
 gateway_enabled: false
 gateway_cert_passphrase: null
 gateway_api_host: localhost
-gateway_api_port: null
+gateway_api_port: 5000

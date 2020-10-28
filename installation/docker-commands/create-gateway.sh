@@ -25,7 +25,7 @@ fi
 
 # Ask the user for the hummingobt data folder location
 prompt_hummingbot_data_path () {
-read -p "   Enter the full location path where your Hummingbot files are saved  >>> " FOLDER
+read -p "   Enter the full location path where your Hummingbot cert files are located  >>> " FOLDER
 if [ "$FOLDER" == "" ]
 then
   prompt_hummingbot_data_path
