@@ -106,6 +106,6 @@ def calculate_performance_metrics(trading_pair: str,
         perf.fee_token = trades[0].trade_fee["flat_fees"][0]["asset"]
         fee_paid = sum(f["amount"] for t in trades for f in t.trade_fee.get("flat_fees", []))
     perf.fee_paid = Decimal(str(fee_paid))
-    perf.total_pnl = perf.trade_pnl + perf.fee_paid if perf.fee_token == quote else perf.trade_pnl
+    perf.total_pnl = perf.trade_pnl - perf.fee_paid if perf.fee_token == quote else perf.trade_pnl
     perf.return_pct = divide(perf.total_pnl, perf.hold_value)
     return perf
