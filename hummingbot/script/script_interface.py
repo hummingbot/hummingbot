@@ -56,9 +56,11 @@ class PMMParameters:
 
         # These below parameters are yet to open for the script
 
-        # self._inventory_skew_enabled = None
-        # self._inventory_target_base_pct = None
-        # self._inventory_range_multiplier = None
+        self._inventory_skew_enabled = None
+        self._inventory_target_base_pct = None
+        self._inventory_range_multiplier = None
+        self._order_override = None
+
         # self._order_optimization_enabled = None
         # self._ask_order_optimization_depth = None
         # self._bid_order_optimization_depth = None
@@ -82,9 +84,11 @@ class PMMParameters:
     hanging_orders_enabled = StrategyParameter("hanging_orders_enabled")
     hanging_orders_cancel_pct = StrategyParameter("hanging_orders_cancel_pct")
 
-    # inventory_skew_enabled = PMMParameter("inventory_skew_enabled")
-    # inventory_target_base_pct = PMMParameter("inventory_target_base_pct")
-    # inventory_range_multiplier = PMMParameter("inventory_range_multiplier")
+    inventory_skew_enabled = StrategyParameter("inventory_skew_enabled")
+    inventory_target_base_pct = StrategyParameter("inventory_target_base_pct")
+    inventory_range_multiplier = StrategyParameter("inventory_range_multiplier")
+    order_override = StrategyParameter("order_override")
+
     # order_optimization_enabled = PMMParameter("order_optimization_enabled")
     # ask_order_optimization_depth = PMMParameter("ask_order_optimization_depth")
     # bid_order_optimization_depth = PMMParameter("bid_order_optimization_depth")
@@ -98,13 +102,26 @@ class PMMParameters:
         return f"{self.__class__.__name__} {str(self.__dict__)}"
 
 
+class PmmMarketInfo:
+    def __init__(self, exchange: str,
+                 trading_pair: str,):
+        self.exchange = exchange
+        self.trading_pair = trading_pair
+
+    def __repr__(self):
+        return f"{self.__class__.__name__} {str(self.__dict__)}"
+
+
 class OnTick:
     def __init__(self, mid_price: Decimal,
                  pmm_parameters: PMMParameters,
-                 all_total_balances: Dict[str, Dict[str, Decimal]]):
+                 all_total_balances: Dict[str, Dict[str, Decimal]],
+                 all_available_balances: Dict[str, Dict[str, Decimal]],
+                 ):
         self.mid_price = mid_price
         self.pmm_parameters = pmm_parameters
         self.all_total_balances = all_total_balances
+        self.all_available_balances = all_available_balances
 
     def __repr__(self):
         return f"{self.__class__.__name__} {str(self.__dict__)}"
