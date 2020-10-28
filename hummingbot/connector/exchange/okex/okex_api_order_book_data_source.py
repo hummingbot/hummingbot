@@ -183,7 +183,7 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 trading_pairs: List[str] = self._trading_pairs
-                async with websockets.connect(OKCOIN_WS_URI) as ws:
+                async with websockets.connect(OKEX_WS_URI) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
 
                     for trading_pair in trading_pairs:
