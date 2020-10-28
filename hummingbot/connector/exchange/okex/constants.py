@@ -25,7 +25,7 @@ OKEX_BALANCE_URL = "api/spot/v3/accounts"
 
 
 # WS
-OKCOIN_WS_URI = "wss://real.okex.com:8443/ws/v3"
+OKEX_WS_URI = "wss://real.okex.com:8443/ws/v3"
 
 OKEX_WS_CHANNEL_SPOT_ACCOUNT = "spot/account"
 OKEX_WS_CHANNEL_SPOT_ORDER = "spot/order"
