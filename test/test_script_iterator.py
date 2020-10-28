@@ -136,6 +136,11 @@ class ScriptIteratorUnitTest(unittest.TestCase):
             strategy.order_level_amount = Decimal("4")
             strategy.order_level_spread = Decimal("0.05")
             strategy.order_amount = Decimal("20")
+
+            strategy.inventory_skew_enabled = True
+            strategy.inventory_range_multiplier = 2
+            strategy.inventory_target_base_pct = 0.6
+            strategy.order_override = {"order_1": ["buy", 0.5, 100], "order_2": ["sell", 0.55, 102]}
         finally:
             self._script_iterator.stop(self.clock)
 

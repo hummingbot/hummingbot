@@ -25,22 +25,26 @@ class BinanceUserStreamTracker(UserStreamTracker):
             cls._bust_logger = logging.getLogger(__name__)
         return cls._bust_logger
 
-    def __init__(self, binance_client: Optional[BinanceClient] = None):
+    def __init__(self, binance_client: Optional[BinanceClient] = None, domain: str = "com"):
         super().__init__()
         self._binance_client: BinanceClient = binance_client
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[UserStreamTrackerDataSource] = None
         self._user_stream_tracking_task: Optional[asyncio.Task] = None
+        self._domain = domain
 
     @property
     def data_source(self) -> UserStreamTrackerDataSource:
         if not self._data_source:
-            self._data_source = BinanceAPIUserStreamDataSource(binance_client=self._binance_client)
+            self._data_source = BinanceAPIUserStreamDataSource(binance_client=self._binance_client, domain=self._domain)
         return self._data_source
 
     @property
     def exchange_name(self) -> str:
-        return "binance"
+        if self._domain == "com":
+            return "binance"
+        else:
+            return f"binance_{self._domain}"
 
     async def start(self):
         self._user_stream_tracking_task = safe_ensure_future(

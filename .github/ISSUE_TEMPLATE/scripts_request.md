@@ -1,7 +1,7 @@
 ---
 name: Scripts Request
 about: Suggest an idea for a script
-title: "[Script]"
+title: ''
 labels: scripts
 assignees: ''
 
