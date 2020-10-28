@@ -1,4 +1,4 @@
-import secrets
+from os import listdir
 from os.path import join
 from datetime import datetime, timedelta
 from cryptography import x509
@@ -8,16 +8,15 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from hummingbot import cert_path
+from distutils.util import strtobool
 
 CERT_FILE_PATH = cert_path()
 CERT_SUBJECT = [
-    x509.NameAttribute(NameOID.COUNTRY_NAME, 'xx'),
-    x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, 'xx'),
-    x509.NameAttribute(NameOID.LOCALITY_NAME, 'xx'),
-    x509.NameAttribute(NameOID.ORGANIZATION_NAME, 'xx'),
+    x509.NameAttribute(NameOID.ORGANIZATION_NAME, 'localhost'),
     x509.NameAttribute(NameOID.COMMON_NAME, 'localhost'),
 ]
-ALT_NAMES = ['localhost']
+# Set alternative DNS
+SAN_DNS = [x509.DNSName('localhost')]
 VALIDITY_DURATION = 365
 
 
@@ -74,6 +73,7 @@ def generate_public_key(private_key, filename):
         .serial_number(x509.random_serial_number())
         .not_valid_before(current_datetime)
         .not_valid_after(expiration_datetime)
+        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
     )
 
     # Use private key to sign cert
@@ -96,17 +96,15 @@ def generate_csr(private_key, filename):
     Generate CSR (Certificate Signing Request)
     """
 
-    subject = x509.Name(CERT_SUBJECT)
-
-    # Set alternative DNS
-    alt_names = []
-    for name in ALT_NAMES:
-        alt_names.append(x509.DNSName(name))
+    # CSR subject cannot be the same as CERT_SUBJECT
+    subject = x509.Name([
+        x509.NameAttribute(NameOID.COMMON_NAME, 'localhost'),
+    ])
 
     builder = (
         x509.CertificateSigningRequestBuilder()
         .subject_name(subject)
-        .add_extension(x509.SubjectAlternativeName(alt_names), critical=False)
+        .add_extension(x509.SubjectAlternativeName(SAN_DNS), critical=False)
     )
 
     csr = builder.sign(private_key, hashes.SHA256(), default_backend())
@@ -126,67 +124,109 @@ def sign_csr(csr, ca_public_key, ca_private_key, filename):
     current_datetime = datetime.utcnow()
     expiration_datetime = current_datetime + timedelta(days=VALIDITY_DURATION)
 
-    builder = (
-        x509.CertificateBuilder()
-        .subject_name(csr.subject)
-        .issuer_name(ca_public_key.subject)
-        .public_key(csr.public_key())
-        .serial_number(x509.random_serial_number())
-        .not_valid_before(current_datetime)
-        .not_valid_after(expiration_datetime)
-        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True,)
-    )
+    try:
+        builder = (
+            x509.CertificateBuilder()
+            .subject_name(csr.subject)
+            .issuer_name(ca_public_key.subject)
+            .public_key(csr.public_key())
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(current_datetime)
+            .not_valid_after(expiration_datetime)
+            .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True,)
+        )
 
-    for extension in csr.extensions:
-        builder = builder.add_extension(extension.value, extension.critical)
+        for extension in csr.extensions:
+            builder = builder.add_extension(extension.value, extension.critical)
 
-    public_key = builder.sign(
-        private_key=ca_private_key,
-        algorithm=hashes.SHA256(),
-        backend=default_backend(),
-    )
+        public_key = builder.sign(
+            private_key=ca_private_key,
+            algorithm=hashes.SHA256(),
+            backend=default_backend(),
+        )
 
-    filepath = join(CERT_FILE_PATH, filename)
-    with open(filepath, "wb") as key_file:
-        key_file.write(public_key.public_bytes(serialization.Encoding.PEM))
+        filepath = join(CERT_FILE_PATH, filename)
+        with open(filepath, "wb") as key_file:
+            key_file.write(public_key.public_bytes(serialization.Encoding.PEM))
+
+        return filepath
+    except Exception as e:
+        raise Exception(e.output)
 
 
-async def create_self_sign_ca_certs():
+def create_self_sign_certs(enabled = 'no'):
     """
     Create self-sign CA Cert
     """
-    ca_private_key_filename = 'ca-private-key.pem'
-    ca_public_key_filename = 'ca-public-key.pem'
-    server_private_key_filename = 'server-private-key.pem'
-    server_public_key_filename = 'server-public-key.pem'
-    server_csr_filename = 'server-csr.pem'
+    ca_key_filename = 'ca_key.pem'
+    ca_cert_filename = 'ca_cert.pem'
+    server_key_filename = 'server_key.pem'
+    server_cert_filename = 'server_cert.pem'
+    server_csr_filename = 'server_csr.pem'
+    client_key_filename = 'client_key.pem'
+    client_cert_filename = 'client_cert.pem'
+    client_csr_filename = 'client_csr.pem'
 
-    password = secrets.token_hex(12)
-    server_password = None  # 'serverpassword'
+    # certs required for gateway
+    required_certs = [ca_key_filename, ca_cert_filename,
+                      server_key_filename, server_cert_filename,
+                      client_key_filename, client_cert_filename]
 
-    # Create CA Private & Public Keys for signing
-    private_key = generate_private_key(ca_private_key_filename, password)
-    generate_public_key(private_key, ca_public_key_filename)
+    filelist = listdir(CERT_FILE_PATH)
+    contain_required_certs = all(elem in filelist for elem in required_certs)
 
-    # Create CSR
-    server_private_key = generate_private_key(server_private_key_filename, server_password)
-    generate_csr(server_private_key, server_csr_filename)
+    if strtobool(enabled) and not contain_required_certs:
 
-    # Load CSR
-    csr_file = open(join(CERT_FILE_PATH, server_csr_filename), 'rb')
-    csr = x509.load_pem_x509_csr(csr_file.read(), default_backend())
+        # import only after global config has already been loaded to retrieve client_id
+        from hummingbot.client.config.global_config_map import global_config_map
 
-    # Load CA public key
-    ca_public_key_file = open(join(CERT_FILE_PATH, ca_public_key_filename), 'rb')
-    ca_public_key = x509.load_pem_x509_certificate(ca_public_key_file.read(), default_backend())
+        password = global_config_map["gateway_cert_passphrase"].value
+        # local certificate must be unencrypted. Currently, Requests does not support using encrypted keys.
+        client_password = None
 
-    # Load CA private key
-    ca_private_key_file = open(join(CERT_FILE_PATH, ca_private_key_filename), 'rb')
-    ca_private_key = serialization.load_pem_private_key(
-        ca_private_key_file.read(),
-        password.encode('utf-8'),
-        default_backend(),
-    )
+        if not password:
+            print("Error: Please set gateway_cert_passphrase and retry\nCert passphrase is required for Gateway SSL")
+            return
 
-    # Sign CSR
-    sign_csr(csr, ca_public_key, ca_private_key, server_public_key_filename)
+        # Create CA Private & Public Keys for signing
+        ca_private_key = generate_private_key(ca_key_filename, password)
+        generate_public_key(ca_private_key, ca_cert_filename)
+
+        # Create Server Private & Public Keys for signing
+        server_private_key = generate_private_key(server_key_filename, password)
+        # Create CSR
+        generate_csr(server_private_key, server_csr_filename)
+        # Load CSR
+        server_csr_file = open(join(CERT_FILE_PATH, server_csr_filename), 'rb')
+        server_csr = x509.load_pem_x509_csr(server_csr_file.read(), default_backend())
+
+        # Create Client CSR
+        client_private_key = generate_private_key(client_key_filename, client_password)
+        # Create CSR
+        generate_csr(client_private_key, client_csr_filename)
+        # Load CSR
+        client_csr_file = open(join(CERT_FILE_PATH, client_csr_filename), 'rb')
+        client_csr = x509.load_pem_x509_csr(client_csr_file.read(), default_backend())
+
+        # Load CA public key
+        ca_cert_file = open(join(CERT_FILE_PATH, ca_cert_filename), 'rb')
+        ca_cert = x509.load_pem_x509_certificate(ca_cert_file.read(), default_backend())
+        # Load CA private key
+        ca_key_file = open(join(CERT_FILE_PATH, ca_key_filename), 'rb')
+        ca_key = serialization.load_pem_private_key(
+            ca_key_file.read(),
+            password.encode('utf-8'),
+            default_backend(),
+        )
+
+        try:
+            # Sign Server Cert with CSR
+            sign_csr(server_csr, ca_cert, ca_key, server_cert_filename)
+            # Sign Client Cert with CSR
+            sign_csr(client_csr, ca_cert, ca_key, client_cert_filename)
+
+        except Exception as e:
+            raise Exception(e.output)
+    else:
+        # TODO: condition for future certs re-generate, removal, etc ops
+        pass
