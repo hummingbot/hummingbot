@@ -6,6 +6,8 @@ from typing import Dict, Any
 import json
 import requests
 import time
+from os.path import realpath, join
+import ssl
 
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -28,7 +30,15 @@ from hummingbot.connector.connector.balancer.balancer_in_flight_order import Bal
 s_logger = None
 s_decimal_0 = Decimal("0")
 s_decimal_NaN = Decimal("nan")
-GATEWAY_API_URL = "http://localhost:5000"
+GATEWAY_API_URL = "https://localhost:5000"
+
+
+def add_certs_args(args):
+    ca_certs = realpath(join(__file__, join("../../../../../certs/ca_cert.pem")))
+    client_certs = (realpath(join(__file__, join("../../../../../certs/client_cert.pem"))),
+                    realpath(join(__file__, join("../../../../../certs/client_key.pem"))))
+    args.update({"verify": ca_certs, "cert": client_certs})
+    return args
 
 
 class BalancerConnector(ConnectorBase):
@@ -66,7 +76,7 @@ class BalancerConnector(ConnectorBase):
     def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
         base, quote = trading_pair.split("-")
         side = "buy" if is_buy else "sell"
-        resp = self._request_get(f"balancer/{side}-price", {"base": base, "quote": quote, "amount": amount})
+        resp = self._request_post(f"balancer/{side}-price", {"base": base, "quote": quote, "amount": amount})
         if resp["price"] is not None:
             return Decimal(str(resp["price"]))
 
@@ -112,7 +122,7 @@ class BalancerConnector(ConnectorBase):
                       }
         self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount)
         try:
-            order_result = await self._api_request("get", f"balancer/{trade_type.name.lower()}", api_params)
+            order_result = await self._api_request("post", f"balancer/{trade_type.name.lower()}", api_params)
             hash = order_result["txHash"]
             status = order_result["status"]
             tracked_order = self._in_flight_orders.get(order_id)
@@ -253,7 +263,7 @@ class BalancerConnector(ConnectorBase):
         """
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
-        resp_json = await self._api_request("get", "eth/balances")
+        resp_json = await self._api_request("post", "eth/balances")
         for token, bal in resp_json["balances"].items():
             # self._account_available_balances[token] = Decimal(str(bal))
             self._account_balances[token] = Decimal(str(bal))
@@ -269,7 +279,8 @@ class BalancerConnector(ConnectorBase):
         :returns Shared client session instance
         """
         if self._shared_client is None:
-            self._shared_client = aiohttp.ClientSession()
+            #  conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
+            self._shared_client = aiohttp.ClientSession()  # connector=conn)
         return self._shared_client
 
     async def _api_request(self,
@@ -284,16 +295,20 @@ class BalancerConnector(ConnectorBase):
         signature to the request.
         :returns A response in json format.
         """
+        ssl_ctx = ssl.create_default_context(cafile=realpath(join(__file__, join("../../../../../certs/ca_cert.pem"))))
+        ssl_ctx.load_cert_chain(realpath(join(__file__, join("../../../../../certs/client_cert.pem"))),
+                                realpath(join(__file__, join("../../../../../certs/client_key.pem"))))
         url = f"{GATEWAY_API_URL}/{path_url}"
         client = await self._http_client()
         if method == "get":
             if len(params) > 0:
-                response = await client.get(url, params=params)
+                response = await client.get(url, params=params, ssl_context=ssl_ctx)
             else:
-                response = await client.get(url)
+                response = await client.get(url, ssl_context=ssl_ctx)
         elif method == "post":
-            post_json = json.dumps(params)
-            response = await client.post(url, data=post_json)
+            #  post_json = json.dumps(params)
+            params["privateKey"] = "dc393a78a366ac53ffbd5283e71785fd2097807fef1bc5b73b8ec84da47fb8de"
+            response = await client.post(url, data=params, ssl_context=ssl_ctx)
         else:
             raise NotImplementedError
 
@@ -304,10 +319,13 @@ class BalancerConnector(ConnectorBase):
         if response.status != 200:
             raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. "
                           f"Message: {parsed_response}")
+        if "error" in parsed_response:
+            raise Exception(f"Error: {parsed_response['error']}")
         print(f"REQUEST: {method} {path_url} {params}")
         print(f"RESPONSE: {parsed_response}")
         return parsed_response
 
-    def _request_get(self, path_url: str, params: Dict[str, Any]):
-        resp = requests.get(url=f"{GATEWAY_API_URL}/{path_url}", params=params)
+    def _request_post(self, path_url: str, params: Dict[str, Any]):
+        args = {"url": f"{GATEWAY_API_URL}/{path_url}/", "data": params}
+        resp = requests.post(**add_certs_args(args))
         return resp.json()
