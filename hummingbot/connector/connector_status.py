@@ -1,19 +1,20 @@
 #!/usr/bin/env python
 
 connector_status = {
-    'binance': 'ok',
-    'bitfinex': 'ok',
-    'bittrex': 'warning',
-    'celo': 'ok',
-    'coinbase_pro': 'ok',
-    'crypto_com': 'warning',
-    'eterbase': 'unavailable',
-    'ethereum': 'unavailable',
-    'huobi': 'ok',
-    'kraken': 'warning',
-    'kucoin': 'ok',
-    'liquid': 'ok',
-    'loopring': 'ok'
+    'binance': 'green',
+    'binance_us': 'yellow',
+    'bitfinex': 'green',
+    'bittrex': 'yellow',
+    'celo': 'green',
+    'coinbase_pro': 'green',
+    'crypto_com': 'yellow',
+    'eterbase': 'red',
+    'ethereum': 'red',
+    'huobi': 'green',
+    'kraken': 'yellow',
+    'kucoin': 'green',
+    'liquid': 'green',
+    'loopring': 'green'
 }
 
 
@@ -24,7 +25,7 @@ def get_connector_status(connector_name: str) -> str:
     Ok means a connector is working properly. The connector_status dict is updated every new release.
     """
     if connector_name not in connector_status.keys():
-        status = "Unknown"
+        status = "UNKNOWN"
     else:
-        return connector_status[connector_name].capitalize()
+        return connector_status[connector_name].upper()
     return status

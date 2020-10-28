@@ -80,11 +80,11 @@ class StartCommand:
             self._notify("\nPaper Trading ON: All orders are simulated, and no real orders are placed.")
 
         # Show warning message if the exchange connector has outstanding bugs or not working
-        if get_connector_status(get_strategy_config_map(self.strategy_name).get("exchange").value) == "Warning":
-            self._notify("\nThis connector has one or more outstanding issues, please use with caution.\n"
-                         "Refer to our GitHub issues page for more information.")
-        elif get_connector_status(get_strategy_config_map(self.strategy_name).get("exchange").value) == "Unavailable":
-            self._notify("\nWARNING: This exchange connector is currently not usable.")
+        status = get_connector_status(get_strategy_config_map(self.strategy_name).get("exchange").value)
+        if status != "GREEN":
+            self._notify(f"\nConnector status: {status}. This connector has one or more issues.\n"
+                         "Refer to our Github page for more info: https://github.com/coinalpha/hummingbot")
+
         await self.start_market_making(self.strategy_name)
 
     async def start_market_making(self,  # type: HummingbotApplication
