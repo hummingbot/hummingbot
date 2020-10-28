@@ -10,6 +10,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.core.utils.estimate_fee import estimate_fee
 
 from .utils import create_arb_proposals, ArbProposal
 
@@ -100,10 +101,10 @@ class AmmArbStrategy(StrategyPyBase):
         if not self._all_markets_ready:
             self._all_markets_ready = all([market.ready for market in self.active_markets])
             if not self._all_markets_ready:
-                self.logger().warning(f"Markets are not ready. Please wait...")
+                self.logger().warning("Markets are not ready. Please wait...")
                 return
             else:
-                self.logger().info(f"Markets are ready. Trading started.")
+                self.logger().info("Markets are ready. Trading started.")
         if self.ready_for_new_arb_trades():
             if self._main_task is None or self._main_task.done():
                 self._main_task = safe_ensure_future(self.main())
@@ -114,11 +115,11 @@ class AmmArbStrategy(StrategyPyBase):
         min profitability required, applies the slippage buffer, applies budget constraint, then finally execute the
         arbitrage.
         """
-        self._arb_proposals = create_arb_proposals(self._market_info_1, self._market_info_2, self._order_amount)
+        self._arb_proposals = await create_arb_proposals(self._market_info_1, self._market_info_2, self._order_amount)
         arb_proposals = [t for t in self._arb_proposals if t.profit_pct() >= self._min_profitability]
         if len(arb_proposals) == 0:
             if self._last_no_arb_reported < self.current_timestamp - 20.:
-                self.logger().info(f"No arbitrage opportunity.\n" +
+                self.logger().info("No arbitrage opportunity.\n" +
                                    "\n".join(self.short_proposal_msg(self._arb_proposals, False)))
                 self._last_no_arb_reported = self.current_timestamp
             return
@@ -158,8 +159,9 @@ class AmmArbStrategy(StrategyPyBase):
                 balance = market.get_available_balance(token)
                 required = arb_side.amount
                 if arb_side.is_buy:
-                    required = (arb_side.amount * arb_side.order_price) * \
-                               (Decimal("1") + market.estimate_fee_pct(False))
+                    trade_fee = estimate_fee(market.name, False)
+                    fee_pct = trade_fee.percent
+                    required = (arb_side.amount * arb_side.order_price) * (Decimal("1") + fee_pct)
                 if balance < required:
                     arb_side.amount = s_decimal_zero
                     self.logger().info(f"Can't arbitrage, {market.display_name} "

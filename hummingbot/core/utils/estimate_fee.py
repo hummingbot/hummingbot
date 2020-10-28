@@ -11,7 +11,7 @@ def estimate_fee(exchange: str, is_maker: bool) -> TradeFee:
     use_gas = CONNECTOR_SETTINGS[exchange].use_eth_gas_lookup
     if use_gas:
         gas_amount = EthGasStationLookup.get_instance().gas_price * CONNECTOR_SETTINGS[exchange].gas_limit
-        return TradeFee(flat_fees=[("ETH", gas_amount)])
+        return TradeFee(percent=0, flat_fees=[("ETH", gas_amount)])
     fee_type = CONNECTOR_SETTINGS[exchange].fee_type
     fee_token = CONNECTOR_SETTINGS[exchange].fee_token
     default_fees = CONNECTOR_SETTINGS[exchange].default_fees
@@ -27,6 +27,6 @@ def estimate_fee(exchange: str, is_maker: bool) -> TradeFee:
         fee = fee_config.value
     fee = Decimal(str(fee))
     if fee_type is TradeFeeType.Percent:
-        return TradeFee(percent=fee / Decimal("100"))
+        return TradeFee(percent=fee / Decimal("100"), flat_fees=[])
     elif fee_type is TradeFeeType.FlatFee:
-        return TradeFee(flat_fees=[(fee_token, fee)])
+        return TradeFee(percent=0, flat_fees=[(fee_token, fee)])
