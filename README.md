@@ -11,20 +11,30 @@ Hummingbot is an open-source project that integrates cryptocurrency trading on b
 
 We created hummingbot to promote **decentralized market-making**: enabling members of the community to contribute to the liquidity and trading efficiency in cryptocurrency markets.
 
+## Connector status
+
+![GREEN](https://via.placeholder.com/15/008000/?text=+) GREEN - Connector is working properly and safe to use
+
+![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) YELLOW - Connector is either new or has one or more issues
+
+![RED](https://via.placeholder.com/15/f03c15/?text=+) RED - Connector is broken and unusable
+
+OKEx is reportedly being investigated by Chinese authorities and has stopped withdrawals.
+
 ## Supported centralized exchanges
 
 | logo | id | name | ver | doc | status |
 |:---:|:---:|:---:|:---:|:---:|:---:|
-| <img src="https://i.ibb.co/m0YDQLd/Screen-Shot-2019-03-14-at-10-53-42-AM.png" alt="Binance" width="90" /> | binance | [Binance](https://www.binance.com/) | 3 | [API](https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md) | ![ok](https://via.placeholder.com/15/008000/?text=+) |
-| <img src="https://i.ibb.co/h9JdGDW/cbp.jpg" alt="Coinbase Pro" width="90" /> | coinbase_pro | [Coinbase Pro](https://pro.coinbase.com/) | * | [API](https://docs.pro.coinbase.com/) | ![ok](https://via.placeholder.com/15/008000/?text=+) |
-|<img src="documentation/docs/assets/img/huobi_logo.png" alt="Huobi Global" width="90" />| huobi | [Huobi Global](https://www.hbg.com) | 1 | [API](https://huobiapi.github.io/docs/spot/v1/en/) | ![ok](https://via.placeholder.com/15/008000/?text=+) |
-|<img src="documentation/docs/assets/img/bittrex_logo.png" alt="Bittrex Global" width="90" height="30" />| bittrex | [Bittrex Global](https://global.bittrex.com/) | 3 | [API](https://bittrex.github.io/api/v3) | ![warning](https://via.placeholder.com/15/ffff00/?text=+) |
-| <img src="documentation/docs/assets/img/liquid_logo.png" alt="Liquid" width="90" /> | liquid | [Liquid](https://www.liquid.com/) | 2 | [API](https://developers.liquid.com/) | ![ok](https://via.placeholder.com/15/008000/?text=+) |
-| <img src="documentation/docs/assets/img/kucoin_logo.png" alt="KuCoin" width="90" /> | kucoin | [KuCoin](https://www.kucoin.com/) | 1 | [API](https://docs.kucoin.com/#general) | ![ok](https://via.placeholder.com/15/008000/?text=+) |
-| <img src="documentation/docs/assets/img/kraken_logo.png" alt="Kraken" width="90" /> | kraken | [Kraken](https://www.kraken.com/) | 1 | [API](https://www.kraken.com/features/api) | ![warning](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="https://i.ibb.co/m0YDQLd/Screen-Shot-2019-03-14-at-10-53-42-AM.png" alt="Binance" width="90" /> | binance | [Binance](https://www.binance.com/) | 3 | [API](https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) | Connector is working properly
+| <img src="https://i.ibb.co/h9JdGDW/cbp.jpg" alt="Coinbase Pro" width="90" /> | coinbase_pro | [Coinbase Pro](https://pro.coinbase.com/) | * | [API](https://docs.pro.coinbase.com/) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
+|<img src="documentation/docs/assets/img/huobi_logo.png" alt="Huobi Global" width="90" />| huobi | [Huobi Global](https://www.hbg.com) | 1 | [API](https://huobiapi.github.io/docs/spot/v1/en/) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
+|<img src="documentation/docs/assets/img/bittrex_logo.png" alt="Bittrex Global" width="90" height="30" />| bittrex | [Bittrex Global](https://global.bittrex.com/) | 3 | [API](https://bittrex.github.io/api/v3) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="documentation/docs/assets/img/liquid_logo.png" alt="Liquid" width="90" /> | liquid | [Liquid](https://www.liquid.com/) | 2 | [API](https://developers.liquid.com/) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
+| <img src="documentation/docs/assets/img/kucoin_logo.png" alt="KuCoin" width="90" /> | kucoin | [KuCoin](https://www.kucoin.com/) | 1 | [API](https://docs.kucoin.com/#general) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
+| <img src="documentation/docs/assets/img/kraken_logo.png" alt="Kraken" width="90" /> | kraken | [Kraken](https://www.kraken.com/) | 1 | [API](https://www.kraken.com/features/api) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="documentation/docs/assets/img/eterbase_logo.png" alt="Eterbase" width="90" /> | eterbase | [Eterbase](https://www.eterbase.com/) | * | [API](https://developers.eterbase.exchange/?version=latest) | ![unavailable](https://via.placeholder.com/15/f03c15/?text=+) |
-| <img src="documentation/docs/assets/img/cryptocom_logo.png" alt="Crypto.com" width="90" /> | crypto_com | [Crypto.com](https://crypto.com/exchange) | 2 | [API](https://exchange-docs.crypto.com/#introduction) | ![warning](https://via.placeholder.com/15/ffff00/?text=+) |
-| <img src="documentation/docs/assets/img/bitfinex_logo.png" alt="Bitfinex" width="90" /> | bitfinex | [Bitfinex](https://www.bitfinex.com/) | 2 | [API](https://docs.bitfinex.com/docs/introduction) | ![ok](https://via.placeholder.com/15/008000/?text=+)  |
+| <img src="documentation/docs/assets/img/cryptocom_logo.png" alt="Crypto.com" width="90" /> | crypto_com | [Crypto.com](https://crypto.com/exchange) | 2 | [API](https://exchange-docs.crypto.com/#introduction) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="documentation/docs/assets/img/bitfinex_logo.png" alt="Bitfinex" width="90" /> | bitfinex | [Bitfinex](https://www.bitfinex.com/) | 2 | [API](https://docs.bitfinex.com/docs/introduction) | ![GREEN](https://via.placeholder.com/15/008000/?text=+)  |
 
 
 ## Supported decentralized exchanges
@@ -32,7 +42,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | logo | id | name | ver | doc| status |
 |:---:|:---:|:---:|:---:|:---:|:--:|
 | <img src="documentation/docs/assets/img/radar_logo.png" alt="Radar Relay" width="90" height="30" /> | radar_relay | [Radar Relay](https://radarrelay.com/) | 2 | [API](https://developers.radarrelay.com/api/trade-api) | ![unavailable](https://via.placeholder.com/15/f03c15/?text=+) |
-| <img src="documentation/docs/assets/img/loopring_logo.png" alt="Loopring" width="90" /> | loopring | [Loopring](https://loopring.io/) | * | [API](https://docs.loopring.io/en/) | ![ok](https://via.placeholder.com/15/008000/?text=+) |
+| <img src="documentation/docs/assets/img/loopring_logo.png" alt="Loopring" width="90" /> | loopring | [Loopring](https://loopring.io/) | * | [API](https://docs.loopring.io/en/) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
 
 ## Community contributed exchange connectors
 
