@@ -20,9 +20,9 @@ connector_status = {
 
 def get_connector_status(connector_name: str) -> str:
     """
-    Indicator whether a connector is working properly or not. Unknown means the connector is not in the dict.
-    Unavailable means a connector doesn't work, Warning means the connector works but has issues.
-    Ok means a connector is working properly. The connector_status dict is updated every new release.
+    Indicator whether a connector is working properly or not. UNKNOWN means the connector is not in the dict.
+    RED means a connector doesn't work, YELLOW means the connector is either new or has one or more issues.
+    GREEN means a connector is working properly. The connector_status dict is updated every new release.
     """
     if connector_name not in connector_status.keys():
         status = "UNKNOWN"
