@@ -30,7 +30,7 @@ from hummingbot.connector.exchange.okex.constants import (
     OKEX_SYMBOLS_URL,
     OKEX_PRICE_URL,
     OKEX_DEPTH_URL,
-    OKCOIN_WS_URI,
+    OKEX_WS_URI,
 )
 
 from hummingbot.connector.exchange.okex.okex_utils import inflate
