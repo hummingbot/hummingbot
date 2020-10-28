@@ -55,6 +55,9 @@ debug.log
 /*.egg-info
 *.whl
 
+# Cert files
+/certs
+
 # VSCode
 .vscode/
 .history/

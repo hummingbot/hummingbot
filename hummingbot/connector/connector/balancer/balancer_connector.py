@@ -2,17 +2,19 @@ import logging
 from decimal import Decimal
 import asyncio
 import aiohttp
-from typing import Dict, Any
+from typing import Dict, Any, List
 import json
-import requests
 import time
 from os.path import realpath, join
 import ssl
+from hummingbot.core.utils import async_ttl_cache
 
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.event.events import (
     MarketEvent,
     BuyOrderCreatedEvent,
@@ -27,16 +29,19 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.connector.balancer.balancer_in_flight_order import BalancerInFlightOrder
+from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 s_logger = None
 s_decimal_0 = Decimal("0")
 s_decimal_NaN = Decimal("nan")
 GATEWAY_API_URL = "https://localhost:5000"
+CA_CERT_PATH = realpath(join(__file__, join("../../../../../certs/ca_cert.pem")))
+CLIENT_CERT_PATH = realpath(join(__file__, join("../../../../../certs/client_cert.pem")))
+CLIENT_KEY_PATH = realpath(join(__file__, join("../../../../../certs/client_key.pem")))
 
 
 def add_certs_args(args):
-    ca_certs = realpath(join(__file__, join("../../../../../certs/ca_cert.pem")))
-    client_certs = (realpath(join(__file__, join("../../../../../certs/client_cert.pem"))),
-                    realpath(join(__file__, join("../../../../../certs/client_key.pem"))))
+    ca_certs = CA_CERT_PATH
+    client_certs = (CLIENT_CERT_PATH, CLIENT_KEY_PATH)
     args.update({"verify": ca_certs, "cert": client_certs})
     return args
 
@@ -57,12 +62,18 @@ class BalancerConnector(ConnectorBase):
         return s_logger
 
     def __init__(self,
+                 trading_pairs: List[str],
+                 wallet: Web3Wallet,
+                 ethereum_rpc_url: str,
                  trading_required: bool = True
                  ):
         """
         :param trading_required: Whether actual trading is needed.
         """
         super().__init__()
+        self._trading_pairs = trading_pairs
+        self._wallet = wallet
+        self._ethereum_rpc_url = ethereum_rpc_url
         self._trading_required = trading_required
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
@@ -73,15 +84,28 @@ class BalancerConnector(ConnectorBase):
     def name(self):
         return "balancer"
 
-    def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
+    @property
+    def limit_orders(self) -> List[LimitOrder]:
+        return [
+            in_flight_order.to_limit_order()
+            for in_flight_order in self._in_flight_orders.values()
+        ]
+
+    def get_mid_price(self, trading_pair):
+        from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
+        trading_pair = trading_pair.replace("WETH", "ETH")
+        return BinanceAPIOrderBookDataSource.get_mid_price(trading_pair)
+
+    @async_ttl_cache(ttl=5, maxsize=10)
+    async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
         base, quote = trading_pair.split("-")
         side = "buy" if is_buy else "sell"
-        resp = self._request_post(f"balancer/{side}-price", {"base": base, "quote": quote, "amount": amount})
+        resp = await self._api_request("post", f"balancer/{side}-price", {"base": base, "quote": quote, "amount": amount})
         if resp["price"] is not None:
             return Decimal(str(resp["price"]))
 
-    def get_order_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
-        return self.get_quote_price(trading_pair, is_buy, amount)
+    async def get_order_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
+        return await self.get_quote_price(trading_pair, is_buy, amount)
 
     def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal):
         return self.place_order(True, trading_pair, amount, price)
@@ -265,7 +289,7 @@ class BalancerConnector(ConnectorBase):
         remote_asset_names = set()
         resp_json = await self._api_request("post", "eth/balances")
         for token, bal in resp_json["balances"].items():
-            # self._account_available_balances[token] = Decimal(str(bal))
+            self._account_available_balances[token] = Decimal(str(bal))
             self._account_balances[token] = Decimal(str(bal))
             remote_asset_names.add(token)
 
@@ -279,8 +303,10 @@ class BalancerConnector(ConnectorBase):
         :returns Shared client session instance
         """
         if self._shared_client is None:
-            #  conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
-            self._shared_client = aiohttp.ClientSession()  # connector=conn)
+            ssl_ctx = ssl.create_default_context(cafile=CA_CERT_PATH)
+            ssl_ctx.load_cert_chain(CLIENT_CERT_PATH, CLIENT_KEY_PATH)
+            conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
+            self._shared_client = aiohttp.ClientSession(connector=conn)
         return self._shared_client
 
     async def _api_request(self,
@@ -295,20 +321,17 @@ class BalancerConnector(ConnectorBase):
         signature to the request.
         :returns A response in json format.
         """
-        ssl_ctx = ssl.create_default_context(cafile=realpath(join(__file__, join("../../../../../certs/ca_cert.pem"))))
-        ssl_ctx.load_cert_chain(realpath(join(__file__, join("../../../../../certs/client_cert.pem"))),
-                                realpath(join(__file__, join("../../../../../certs/client_key.pem"))))
         url = f"{GATEWAY_API_URL}/{path_url}"
         client = await self._http_client()
         if method == "get":
             if len(params) > 0:
-                response = await client.get(url, params=params, ssl_context=ssl_ctx)
+                response = await client.get(url, params=params)
             else:
-                response = await client.get(url, ssl_context=ssl_ctx)
+                response = await client.get(url)
         elif method == "post":
             #  post_json = json.dumps(params)
-            params["privateKey"] = "dc393a78a366ac53ffbd5283e71785fd2097807fef1bc5b73b8ec84da47fb8de"
-            response = await client.post(url, data=params, ssl_context=ssl_ctx)
+            params["privateKey"] = self._wallet.private_key[2:]  # "dc393a78a366ac53ffbd5283e71785fd2097807fef1bc5b73b8ec84da47fb8de"
+            response = await client.post(url, data=params)
         else:
             raise NotImplementedError
 
@@ -321,11 +344,9 @@ class BalancerConnector(ConnectorBase):
                           f"Message: {parsed_response}")
         if "error" in parsed_response:
             raise Exception(f"Error: {parsed_response['error']}")
-        print(f"REQUEST: {method} {path_url} {params}")
-        print(f"RESPONSE: {parsed_response}")
+        # print(f"REQUEST: {method} {path_url} {params}")
+        # print(f"RESPONSE: {parsed_response}")
         return parsed_response
 
-    def _request_post(self, path_url: str, params: Dict[str, Any]):
-        args = {"url": f"{GATEWAY_API_URL}/{path_url}/", "data": params}
-        resp = requests.post(**add_certs_args(args))
-        return resp.json()
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+        return []

@@ -388,7 +388,7 @@ cdef class ConnectorBase(NetworkIterator):
         """
         return self.c_quantize_order_amount(trading_pair, amount)
 
-    def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
+    async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
         """
         Returns a quote price (or exchange rate) for a given amount, like asking how much does it cost to buy 4 apples?
         :param trading_pair: The market trading pair
@@ -398,7 +398,7 @@ cdef class ConnectorBase(NetworkIterator):
         """
         raise NotImplementedError
 
-    def get_order_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
+    async def get_order_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
         """
         Returns a price required for order submission, this price could differ from the quote price (e.g. for
         an exchange with order book).
