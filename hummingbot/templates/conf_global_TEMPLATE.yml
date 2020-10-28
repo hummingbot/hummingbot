@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 12
+template_version: 13
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -11,6 +11,9 @@ bamboo_relay_pre_emptive_soft_cancels: false
 
 binance_api_key: null
 binance_api_secret: null
+
+binance_us_api_key: null
+binance_us_api_secret: null
 
 bittrex_api_key: null
 bittrex_secret_key: null
@@ -129,6 +132,16 @@ script_file_path: null
 balance_asset_limit:
   binance:
 
+# Fixed gas price (in Gwei) for Ethereum transactions
+manual_gas_price:
+# To enable gas price lookup (true/false)
+ethgasstation_gas_enabled:
+# API key for defipulse.com gas station API
+ethgasstation_api_key:
+# Gas level you want to use for Ethereum transactions (fast, fastest, safeLow, average)
+ethgasstation_gas_level:
+# Refresh time for Ethereum gas price lookups (in seconds)
+ethgasstation_refresh_time:
 # Gateway API Configurations
 # default host to only use localhost IP 127.0.0.1
 # Port need to match the final installation port for Gateway

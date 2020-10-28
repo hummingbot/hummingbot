@@ -60,10 +60,22 @@ class SQLConnectionManager:
         return get_declarative_base()
 
     @classmethod
-    def get_trade_fills_instance(cls) -> "SQLConnectionManager":
+    def get_trade_fills_instance(cls, db_name: Optional[str] = None) -> "SQLConnectionManager":
         if cls._scm_trade_fills_instance is None:
-            cls._scm_trade_fills_instance = SQLConnectionManager(SQLConnectionType.TRADE_FILLS)
+            cls._scm_trade_fills_instance = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_name=db_name)
+        elif cls.create_db_path(db_name=db_name) != cls._scm_trade_fills_instance.db_path:
+            cls._scm_trade_fills_instance.commit()
+            cls._scm_trade_fills_instance = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_name=db_name)
         return cls._scm_trade_fills_instance
+
+    @classmethod
+    def create_db_path(cls, db_path: Optional[str] = None, db_name: Optional[str] = None) -> str:
+        if db_path is not None:
+            return db_path
+        if db_name is not None:
+            return join(data_path(), f"{db_name}.sqlite")
+        else:
+            return join(data_path(), "hummingbot_trades.sqlite")
 
     @classmethod
     def get_db_engine(cls,
@@ -88,9 +100,10 @@ class SQLConnectionManager:
 
     def __init__(self,
                  connection_type: SQLConnectionType,
-                 db_path: Optional[str] = None):
-        if db_path is None:
-            db_path = join(data_path(), "hummingbot_trades.sqlite")
+                 db_path: Optional[str] = None,
+                 db_name: Optional[str] = None):
+        db_path = self.create_db_path(db_path, db_name)
+        self.db_path = db_path
 
         engine_options = {
             "db_engine": global_config_map.get("db_engine").value,
