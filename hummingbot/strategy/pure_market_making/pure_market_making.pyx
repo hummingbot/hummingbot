@@ -150,6 +150,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         return all([market.ready for market in self._sb_markets])
 
     @property
+    def market_info(self) -> MarketTradingPairTuple:
+        return self._market_info
+
+    @property
     def order_refresh_tolerance_pct(self) -> Decimal:
         return self._order_refresh_tolerance_pct
 
@@ -225,7 +229,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     @property
     def inventory_range_multiplier(self) -> Decimal:
-        return self.inventory_range_multiplier
+        return self._inventory_range_multiplier
 
     @inventory_range_multiplier.setter
     def inventory_range_multiplier(self, value: Decimal):
@@ -330,6 +334,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @property
     def trading_pair(self):
         return self._market_info.trading_pair
+
+    @property
+    def order_override(self):
+        return self._order_override
+
+    @order_override.setter
+    def order_override(self, value: Dict[str, List[str]]):
+        self._order_override = value
 
     def get_price(self) -> float:
         if self._asset_price_delegate is not None:
@@ -782,28 +794,45 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             ExchangeBase market = self._market_info.market
             object quote_size
             object base_size
-            object quote_size_total = Decimal("0")
-            object base_size_total = Decimal("0")
+            object adjusted_amount
 
         base_balance, quote_balance = self.c_get_adjusted_available_balance(self.active_non_hanging_orders)
 
         for buy in proposal.buys:
-            buy_fees = market.c_get_fee(self.base_asset, self.quote_asset, OrderType.LIMIT, TradeType.BUY,
-                                        buy.size, buy.price)
-            quote_size = buy.size * buy.price * (Decimal(1) + buy_fees.percent)
-            if quote_balance < quote_size_total + quote_size:
-                self.logger().info(f"Insufficient balance: Buy order (price: {buy.price}, size: {buy.size}) is omitted, {self.quote_asset} available balance: {quote_balance - quote_size_total}.")
-                quote_size = s_decimal_zero
+            buy_fee = market.c_get_fee(self.base_asset, self.quote_asset, OrderType.LIMIT, TradeType.BUY,
+                                       buy.size, buy.price)
+            quote_size = buy.size * buy.price * (Decimal(1) + buy_fee.percent)
+
+            # Adjust buy order size to use remaining balance if less than the order amount
+            if quote_balance < quote_size:
+                adjusted_amount = quote_balance / (buy.price * (Decimal("1") + buy_fee.percent))
+                adjusted_amount = market.c_quantize_order_amount(self.trading_pair, adjusted_amount)
+                self.logger().info(f"Not enough balance for buy order (Size: {buy.size.normalize()}, Price: {buy.price.normalize()}), "
+                                   f"order_amount is adjusted to {adjusted_amount}")
+                buy.size = adjusted_amount
+                quote_balance = s_decimal_zero
+            elif quote_balance == s_decimal_zero:
                 buy.size = s_decimal_zero
-            quote_size_total += quote_size
+            else:
+                quote_balance -= quote_size
+
         proposal.buys = [o for o in proposal.buys if o.size > 0]
+
         for sell in proposal.sells:
             base_size = sell.size
-            if base_balance < base_size_total + base_size:
-                self.logger().info(f"Insufficient balance: Sell order (price: {sell.price}, size: {sell.size}) is omitted, {self.base_asset} available balance: {base_balance - base_size_total}.")
-                base_size = s_decimal_zero
+
+            # Adjust sell order size to use remaining balance if less than the order amount
+            if base_balance < base_size:
+                adjusted_amount = market.c_quantize_order_amount(self.trading_pair, base_balance)
+                self.logger().info(f"Not enough balance for sell order (Size: {sell.size.normalize()}, Price: {sell.price.normalize()}), "
+                                   f"order_amount is adjusted to {adjusted_amount}")
+                sell.size = adjusted_amount
+                base_balance = s_decimal_zero
+            elif base_balance == s_decimal_zero:
                 sell.size = s_decimal_zero
-            base_size_total += base_size
+            else:
+                base_balance -= base_size
+
         proposal.sells = [o for o in proposal.sells if o.size > 0]
 
     cdef c_filter_out_takers(self, object proposal):
