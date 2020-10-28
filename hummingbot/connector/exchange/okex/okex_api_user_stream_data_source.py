@@ -16,7 +16,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
 
 from hummingbot.connector.exchange.okex.okex_utils import inflate
-from hummingbot.connector.exchange.okex.constants import OKCOIN_WS_URI
+from hummingbot.connector.exchange.okex.constants import OKEX_WS_URI
 
 import time
 
