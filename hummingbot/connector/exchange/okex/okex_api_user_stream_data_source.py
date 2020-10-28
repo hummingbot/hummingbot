@@ -76,7 +76,7 @@ class OkexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def get_ws_connection(self):
 
-        stream_url: str = f"{OKCOIN_WS_URI}"
+        stream_url: str = f"{OKEX_WS_URI}"
         return websockets.connect(stream_url)
 
     async def _socket_user_stream(self) -> AsyncIterable[str]:
