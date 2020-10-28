@@ -256,6 +256,38 @@ main_config_map = {
                   required_if=lambda: False,
                   type_str="json",
                   default={exchange: None for exchange in settings.EXCHANGES}),
+    "manual_gas_price":
+        ConfigVar(key="manual_gas_price",
+                  prompt="Enter fixed gas price (in Gwei) you want to use for Ethereum transactions >>> ",
+                  required_if=lambda: False,
+                  type_str="int",
+                  default=50),
+    "ethgasstation_gas_enabled":
+        ConfigVar(key="ethgasstation_gas_enabled",
+                  prompt="Do you want to enable Etbereum gas station price lookup? >>> ",
+                  required_if=lambda: False,
+                  type_str="bool",
+                  validator=validate_bool,
+                  default=False),
+    "ethgasstation_api_key":
+        ConfigVar(key="ethgasstation_api_key",
+                  prompt="Enter API key for defipulse.com gas station API >>> ",
+                  required_if=lambda: global_config_map["ethgasstation_gas_enabled"].value,
+                  type_str="str"),
+    "ethgasstation_gas_level":
+        ConfigVar(key="ethgasstation_gas_level",
+                  prompt="Enter gas level you want to use for Ethereum transactions (fast, fastest, safeLow, average) "
+                         ">>> ",
+                  required_if=lambda: global_config_map["ethgasstation_gas_enabled"].value,
+                  type_str="str",
+                  validator=lambda s: None if s in {"fast", "fastest", "safeLow", "average"}
+                  else "Invalid gas level."),
+    "ethgasstation_refresh_time":
+        ConfigVar(key="ethgasstation_refresh_time",
+                  prompt="Enter refresh time for Ethereum gas price lookup (in seconds) >>> ",
+                  required_if=lambda: global_config_map["ethgasstation_gas_enabled"].value,
+                  type_str="int",
+                  default=120),
     "gateway_api_port":
         ConfigVar(key="gateway_api_port",
                   prompt="Please enter your Gateway API port >>> ",

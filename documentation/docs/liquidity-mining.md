@@ -32,8 +32,14 @@ Liquidity mining sets forth an analytical framework for determining market maker
 
 Qualified participants will be eligible to receive compensation in accordance with each liquidity mining campaign’s schedule of Liquidity Mining Payments, which will be based on each participant’s trading activity (in particular, orders placed and their sizes and spreads) in the tokens subject to the liquidity mining campaign.
 
-==Participants must enter a valid wallet address applicable for the campaign that they are participating in.== CoinAlpha does not take any responsibility and will not reimburse for any loss of funds due to a participant submitting an incorrect or invalid wallet address.
+**Wallet address** 
 
+==Participants must enter a valid wallet address applicable for the campaign that they are participating in.== Wallet address are use for receiving payouts only, you do not need to deposit assets into or trade using this wallet.
+
+For more details on how to obtain wallet address and its requiremets, please refer to our docs on [Liquidity Mining FAQs](https://docs.hummingbot.io/faq/liquidity-mining/#how-to-add-wallet-address)
+
+!!! warning "Warning: Use of invalid wallet address"
+    **CoinAlpha does not take any responsibility and will not reimburse for any loss of funds due to a participant submitting an incorrect or invalid wallet address.**
 
 **Orders outstanding for more than 30 minutes not counted for rewards**
 
@@ -48,18 +54,9 @@ Due to the recent surge in Ethereum gas price, Hummingbot will impose a $50.00 m
 
 For miners who earn < $50 within one week, their rewards will be accrued and rolled over to the next period, read more in this [Reddit post](https://www.reddit.com/r/Hummingbot/comments/ip4mc3/announcement_raising_minimum_payment_to_50/).
 
-!!! Note
-    XZC payments are not subject to a minimum payout reward; all payouts will be made for each period.
-
-
 **Enabling USDT for USD-based payments**
 
 Starting from the rewards period beginning on October 6, 2020 12.00am UTC, all USD-based rewards will be accrued in USDT.
-
-**ZCoin campaign paused**
-
-ZCoin is putting its campaign on pause and will continue to monitor and re-evaluate the liquidity for its token. They are one of our original launch partners and we appreciate their support of our platform so far!
-
 
 ## Current Reward Period
 
@@ -245,8 +242,3 @@ NEM Group comprises three separate entities: NEM Software, NEM Trading, and NEM 
 
 [Forum](https://forum.nem.io/) | [Twitter](https://twitter.com/nemofficial) | [Telegram](https://t.me/nemred) | [Github](https://github.com/NemProject) | [CoinMarketCap](https://coinmarketcap.com/currencies/nem/) | [CoinGecko](https://www.coingecko.com/en/coins/nem)
 
-### Zcoin
-
-[ZCoin (XZC)](https://zcoin.io/) is an open-source privacy-focused cryptocurrency token that launched in Sep 2016. Zcoin originally pioneered the use of Zerocoin to enable privacy but has since transitioned to a scheme called Sigma which is based on a paper by Jens Groth and Markulf Kohlweiss that reportedly allows greater scalability and removes the need for trusted setup in Zerocoin. With Zcoin’s Sigma feature, only the sender and receiver would be able to ascertain the exchange of funds in a given transaction, as no transaction histories are linked to the actual coins. Zcoin is also the creator of the Lelantus privacy protocol which improves Sigma's privacy and functionality. Its ZC token has been listed on Binance, Huobi Global, Bittrex, etc. 
-
-[Whitepaper](https://zcoin.io/tech/) | [Twitter](https://twitter.com/zcoinofficial) | [Telegram](https://t.me/zcoinproject) | [Github](https://github.com/zcoinofficial) | [Explorer](https://chainz.cryptoid.info/xzc/) | [CoinMarketCap](https://coinmarketcap.com/currencies/zcoin) | [CoinGecko](https://www.coingecko.com/en/coins/zcoin)
