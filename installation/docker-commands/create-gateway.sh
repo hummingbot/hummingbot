@@ -100,7 +100,9 @@ create_instance () {
  --name $GATEWAY_INSTANCE_NAME \
  -p 127.0.0.1:$PORT:5000 \
  -e CERT_PASSPHRASE="$PASSWORD" \
+ -e BALANCER_NETWORK="mainnet" \
  -e ETHEREUM_RPC_URL="$RPC_URL" \
+ -e SUBGRAPH_URL="https://api.thegraph.com/subgraphs/name/balancer-labs/balancer" \
  --mount "type=bind,source=$FOLDER,destination=/usr/src/app/certs/" \
  coinalpha/gateway-api:$GATEWAY_TAG
 }
