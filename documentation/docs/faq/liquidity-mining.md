@@ -199,10 +199,11 @@ Now you are set. Your account will now be able to receive USDT. If you want to k
 !!! note "Important note"
     You must enable USDT on the Algo wallet in order to be able to receive USDT ASA. Enabling USDT will also require you to have some amount of ALGO tokens in the wallet in order to call the function to enable USDT.
 
+!!! tip
+    You can swap USDT ASA to USDT ETH/Tron/Omni which are all supported by Binance, you can check this [app](https://swaptether.io/) to swap between different implementations of tether.
+
 !!! warning "Incorrect wallet address"
     **CoinAlpha does not take any responsibility and will not reimburse for any loss of funds due to a participant submitting an incorrect or invalid wallet address.**
-
-
 
 ### How do I see how my rewards are calculated?
 

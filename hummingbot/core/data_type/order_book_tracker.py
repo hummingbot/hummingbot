@@ -42,7 +42,8 @@ class OrderBookTracker(ABC):
             cls._obt_logger = logging.getLogger(__name__)
         return cls._obt_logger
 
-    def __init__(self, data_source: OrderBookTrackerDataSource, trading_pairs: List[str]):
+    def __init__(self, data_source: OrderBookTrackerDataSource, trading_pairs: List[str], domain: Optional[str] = None):
+        self._domain: Optional[str] = domain
         self._data_source: OrderBookTrackerDataSource = data_source
         self._trading_pairs: List[str] = trading_pairs
         self._order_books_initialized: asyncio.Event = asyncio.Event()
@@ -154,7 +155,10 @@ class OrderBookTracker(ABC):
                              if o_book.last_applied_trade < time.perf_counter() - (60. * 3)
                              and o_book.last_trade_price_rest_updated < time.perf_counter() - 5]
                 if outdateds:
-                    last_prices = await self._data_source.get_last_traded_prices(outdateds)
+                    args = {"trading_pairs": outdateds}
+                    if self._domain is not None:
+                        args["domain"] = self._domain
+                    last_prices = await self._data_source.get_last_traded_prices(**args)
                     for trading_pair, last_price in last_prices.items():
                         self._order_books[trading_pair].last_trade_price = last_price
                         self._order_books[trading_pair].last_trade_price_rest_updated = time.perf_counter()
