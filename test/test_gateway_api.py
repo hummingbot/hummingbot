@@ -6,7 +6,7 @@ from os.path import (
 import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
 import unittest
-from hummingbot.client import settings
+# from hummingbot.client import settings
 # from hummingbot.client.config.global_config_map import global_config_map
 import ruamel.yaml
 import requests
@@ -24,7 +24,6 @@ class GatewayAPIUnitTest(unittest.TestCase):
 
     # for name, config in global_config_map.items():
     #     print(name, config)
-    gateway_config_path: str = realpath(join(__file__, join("../../", settings.GATEWAY_CONFIG_PATH)))
     TEMPLATE_DATA = None
 
     def setUp(self):
@@ -38,25 +37,25 @@ class GatewayAPIUnitTest(unittest.TestCase):
         #             self.GATEWAY_PORT = str(self.TEMPLATE_DATA['gateway_api_port'])
         #         if key == "template_version":
         #             continue
-        #         self.assertTrue(key in gateway_config_map, f"{key} not in global_config_map")
+        #         self.assertTrue(key in global_config_map, f"{key} not in global_config_map")
 
     def tearDown(self):
         pass
 
-    def test_get_no_cert_verification(self):
-        url = self.API_HOST + '/api'
-        response = requests.get(url, verify=False)
-        result = response.json()
-        print(result.keys(), result['error'], 'error' in result.keys())
-        self.assertTrue('error' in result.keys(), f"{result['error']}")
+    # def test_get_no_cert_verification(self):
+    #     url = self.API_HOST + '/api'
+    #     response = requests.get(url, verify=False)
+    #     result = response.json()
+    #     print(result.keys(), result['error'], 'error' in result.keys())
+    #     self.assertTrue('error' in result.keys(), f"{result['error']}")
 
     def test_get_api_status(self):
         url = self.API_HOST + '/api'
 
-        certServer = realpath(join(__file__, join("../../certs/server_cert.pem")))
-        cacerts = (realpath(join(__file__, join("../../certs/client_cert.pem"))),
-                   realpath(join(__file__, join("../../certs/client_key.pem"))))
-        response = requests.get(url, verify=certServer, cert=cacerts)
+        ca_certs = realpath(join(__file__, join("../../certs/ca_cert.pem")))
+        client_certs = (realpath(join(__file__, join("../../certs/client_cert.pem"))),
+                        realpath(join(__file__, join("../../certs/client_key.pem"))))
+        response = requests.get(url, verify=ca_certs, cert=client_certs)
 
         result = response.json()
         print('result', result)

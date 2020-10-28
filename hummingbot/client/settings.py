@@ -21,7 +21,6 @@ KEYFILE_POSTFIX = ".json"
 ENCYPTED_CONF_PREFIX = "encrypted_"
 ENCYPTED_CONF_POSTFIX = ".json"
 GLOBAL_CONFIG_PATH = "conf/conf_global.yml"
-GATEWAY_CONFIG_PATH = "conf/conf_gateway.yml"
 TRADE_FEES_CONFIG_PATH = "conf/conf_fee_overrides.yml"
 TOKEN_ADDRESSES_FILE_PATH = realpath(join(__file__, "../../wallet/ethereum/erc20_tokens.json"))
 DEFAULT_KEY_FILE_PATH = "conf/"
@@ -154,7 +153,6 @@ def ethereum_wallet_required() -> bool:
     return any(e in ETH_WALLET_CONNECTORS for e in required_exchanges)
 
 
-GATEWAY_API = {"gateway_api_port": 5000}
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
 MAXIMUM_LOG_PANE_LINE_COUNT = 1000
 MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT = 100
