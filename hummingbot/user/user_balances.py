@@ -1,5 +1,5 @@
 from hummingbot.core.utils.market_mid_price import get_mid_price
-from hummingbot.client.settings import CONNECTOR_SETTINGS, ETH_WALLET_CONNECTORS
+from hummingbot.client.settings import CONNECTOR_SETTINGS
 from hummingbot.client.config.security import Security
 from hummingbot.client.config.config_helpers import get_connector_class
 from hummingbot.core.utils.async_utils import safe_gather
@@ -16,10 +16,11 @@ class UserBalances:
     @staticmethod
     def connect_market(exchange, **api_details):
         connector = None
-        if exchange not in ETH_WALLET_CONNECTORS:
+        conn_setting = CONNECTOR_SETTINGS[exchange]
+        if not conn_setting.use_ethereum_wallet:
             connector_class = get_connector_class(exchange)
-            connector = connector_class(**api_details)
-
+            init_params = conn_setting.conn_init_parameters(api_details)
+            connector = connector_class(**init_params)
         return connector
 
     # return error message if the _update_balances fails
