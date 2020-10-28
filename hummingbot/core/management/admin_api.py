@@ -103,7 +103,7 @@ class AdminApi:
         """
         Calls to get updated parameters by admin API
         """
-        if self._admin_control_type != "" and self.UPDATE_INTERVAL < (current_timestamp - self._updated_timestamp):
+        if self._admin_control_type != "none" and self.UPDATE_INTERVAL < (current_timestamp - self._updated_timestamp):
             self._updated_timestamp = current_timestamp
             asyncio.run_coroutine_threadsafe(self.update_params(), self._ev_loop)
 
