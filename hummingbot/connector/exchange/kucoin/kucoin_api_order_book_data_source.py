@@ -321,12 +321,10 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().error("Timeout error with WebSocket connection. Retrying after 5 seconds...",
                                     exc_info=True)
                 await asyncio.sleep(5.0)
-                await self._start_update_tasks(StreamType.Depth, output)  # restart from scratch
-                await self._start_update_tasks(StreamType.Trade, output)
-                continue
-            finally:
-                if ping_task is not None and not ping_task.done():
-                    ping_task.cancel()
+            except Exception:
+                self.logger().error("Unexpected exception with WebSocket connection. Retrying after 5 seconds...",
+                                    exc_info=True)
+                await asyncio.sleep(5.0)
 
     async def _update_subscription(self, ws: websockets.WebSocketClientProtocol, stream_type: StreamType, market: str,
                                    subscribe: bool):
