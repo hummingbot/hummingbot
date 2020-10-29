@@ -93,8 +93,9 @@ cdef class ProbitActiveOrderTracker:
 
     cdef tuple c_convert_snapshot_message_to_np_arrays(self, object message):
         cdef:
-            float price
-            float amount
+            # NOTE: These declaration must be commented, or the value in the variable is changed to incorrect value
+            # float price
+            # float amount
             str order_id
             dict order_dict
 
