@@ -197,15 +197,20 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._stop_update_tasks(stream_type)
         market_assignments: List[str] = await self.get_markets_per_ws_connection()
 
-        task_dict: Dict[int, Dict[str, Any]] = {}
         for task_index, market_subset in enumerate(market_assignments):
-            task_dict[task_index] = {"markets": set(market_subset.split(',')),
-                                     "task": safe_ensure_future(self._outer_messages(stream_type,
-                                                                                     task_index,
-                                                                                     output))}
-        self._tasks[stream_type] = task_dict
+            await self._start_single_update_task(stream_type,
+                                                 output,
+                                                 task_index,
+                                                 market_subset)
 
-    async def _refresh_subscriptions(self, stream_type: StreamType):
+    async def _start_single_update_task(self, stream_type: StreamType, output: asyncio.Queue,
+                                        task_index: int, market_subset: str):
+        self._tasks[stream_type][task_index] = {
+            "markets": set(market_subset.split(',')),
+            "task": safe_ensure_future(self._outer_messages(stream_type, task_index, output))
+        }
+
+    async def _refresh_subscriptions(self, stream_type: StreamType, output: asyncio.Queue):
         """
         modifies the subscription list (market pairs) for each connection to track changes in active markets
         :param stream_type: whether diffs or trades
@@ -232,7 +237,14 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 if len(self._tasks[stream_type][task_index]["markets"]) < smallest_set_size:
                     smallest_index = task_index
                     smallest_set_size = len(self._tasks[stream_type][task_index]["markets"])
-            self._tasks[stream_type][smallest_index]["markets"].add(market)
+            if smallest_set_size < self.SYMBOLS_PER_CONNECTION:
+                self._tasks[stream_type][smallest_index]["markets"].add(market)
+            else:
+                new_index: int = len(self._tasks[stream_type])
+                await self._start_single_update_task(stream_type=stream_type,
+                                                     output=output,
+                                                     task_index=new_index,
+                                                     market_subset=market)
 
     def _stop_update_tasks(self, stream_type: StreamType):
         if stream_type in self._tasks:
@@ -335,7 +347,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await self._start_update_tasks(StreamType.Trade, output)
                 while True:
                     await asyncio.sleep(secs_until_next_oclock())
-                    await self._refresh_subscriptions(StreamType.Trade)
+                    await self._refresh_subscriptions(StreamType.Trade, output)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -350,7 +362,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await self._start_update_tasks(StreamType.Depth, output)
                 while True:
                     await asyncio.sleep(secs_until_next_oclock())
-                    await self._refresh_subscriptions(StreamType.Depth)
+                    await self._refresh_subscriptions(StreamType.Depth, output)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
