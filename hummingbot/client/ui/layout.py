@@ -180,20 +180,27 @@ def get_active_strategy():
     return [(style, f"Strategy: {hb.strategy_name}")]
 
 
-def get_active_markets():
+"""def get_active_markets():
     from hummingbot.client.hummingbot_application import HummingbotApplication
     hb = HummingbotApplication.main_application()
     style = "class:primary"
     markets = "None" if len(hb.market_trading_pairs_map) == 0 \
               else eval(str(hb.market_trading_pairs_map))
-    return [(style, f"Market(s): {markets}")]
+    return [(style, f"Market(s): {markets}")]"""
 
 
-def get_script_file():
+"""def get_script_file():
     from hummingbot.client.config.global_config_map import global_config_map
     script = global_config_map["script_file_path"].value
     style = "class:primary"
-    return [(style, f"Script_file: {script}")]
+    return [(style, f"Script_file: {script}")]"""
+
+
+def get_strategy_file():
+    from hummingbot.client.hummingbot_application import HummingbotApplication
+    hb = HummingbotApplication.main_application()
+    style = "class:primary"
+    return [(style, f"Strategy File: {hb._strategy_file_name}")]
 
 
 def generate_layout(input_field: TextArea,
@@ -208,8 +215,9 @@ def generate_layout(input_field: TextArea,
             Window(FormattedTextControl(get_version), style="class:title"),
             Window(FormattedTextControl(get_paper_trade_status), style="class:title"),
             Window(FormattedTextControl(get_active_strategy), style="class:title"),
-            Window(FormattedTextControl(get_active_markets), style="class:title"),
-            Window(FormattedTextControl(get_script_file), style="class:title"),
+            # Window(FormattedTextControl(get_active_markets), style="class:title"),
+            # Window(FormattedTextControl(get_script_file), style="class:title"),
+            Window(FormattedTextControl(get_strategy_file), style="class:title"),
         ], height=1),
         VSplit([
             FloatContainer(
