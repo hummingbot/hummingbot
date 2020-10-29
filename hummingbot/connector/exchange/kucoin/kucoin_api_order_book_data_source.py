@@ -254,52 +254,66 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
             del self._tasks[stream_type]
 
     async def _outer_messages(self, stream_type: StreamType, task_index: int, output: asyncio.Queue):
-        websocket_data: Dict[str, Any] = await self.ws_connect_data()
-        kucoin_ws_uri: str = websocket_data["data"]["instanceServers"][0]["endpoint"] + "?token=" + \
-            websocket_data["data"]["token"] + "&acceptUserMessage=true"
         ping_task: Optional[asyncio.Task] = None
-        # connects and writes data to the output queue
         while True:
             try:
-                market_set: set = self._tasks[stream_type][task_index]["markets"]
-                async with websockets.connect(kucoin_ws_uri) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
-                    ping_task = safe_ensure_future(self._send_ping(KucoinAPIOrderBookDataSource.PING_INTERVAL, ws))
+                websocket_data: Dict[str, Any] = await self.ws_connect_data()
+                kucoin_ws_uri: str = websocket_data["data"]["instanceServers"][0]["endpoint"] + \
+                    "?token=" + websocket_data["data"]["token"] + "&acceptUserMessage=true"
+                # connects and writes data to the output queue
+                while True:
+                    try:
+                        market_set: Set[str] = self._tasks[stream_type][task_index]["markets"]
+                        market_string: str = ','.join(str(s) for s in market_set)
+                        async with websockets.connect(kucoin_ws_uri) as ws:
+                            ws: websockets.WebSocketClientProtocol = ws
+                            ping_task = safe_ensure_future(
+                                self._send_ping(KucoinAPIOrderBookDataSource.PING_INTERVAL, ws)
+                            )
 
-                    # initial market list for this connection
-                    market_string = ','.join(str(s) for s in market_set)
-                    await self._subscribe(ws, stream_type, market_string)
+                            # subscribe to initial market list for this connection
+                            await self._subscribe(ws, stream_type, market_string)
 
-                    async for raw_msg in self._inner_messages(ws):
-                        msg: Dict[str, Any] = json.loads(raw_msg)
-                        if msg["type"] in ("ack", "welcome", "pong"):
-                            pass
-                        elif msg["type"] == "message":
-                            if stream_type == StreamType.Depth:
-                                order_book_message: OrderBookMessage = KucoinOrderBook.diff_message_from_exchange(msg)
-                            else:
-                                trading_pair = msg["data"]["symbol"]
-                                data = msg["data"]
-                                order_book_message: OrderBookMessage = \
-                                    KucoinOrderBook.trade_message_from_exchange(data,
-                                                                                metadata={"trading_pair": trading_pair})
-                            output.put_nowait(order_book_message)
-                        else:
-                            # self.logger().error(f"Unrecognized message received from Kucoin websocket: {msg}")
-                            self.logger().debug(f"Unrecognized message received from Kucoin websocket: {msg}")
+                            async for raw_msg in self._inner_messages(ws):
+                                msg: Dict[str, Any] = json.loads(raw_msg)
+                                if msg["type"] in ("ack", "welcome", "pong"):
+                                    pass
+                                elif msg["type"] == "message":
+                                    if stream_type == StreamType.Depth:
+                                        order_book_message: OrderBookMessage = KucoinOrderBook.diff_message_from_exchange(msg)
+                                    else:
+                                        trading_pair: str = msg["data"]["symbol"]
+                                        data = msg["data"]
+                                        order_book_message: OrderBookMessage = \
+                                            KucoinOrderBook.trade_message_from_exchange(
+                                                data,
+                                                metadata={"trading_pair": trading_pair}
+                                            )
+                                    output.put_nowait(order_book_message)
+                                else:
+                                    # self.logger().error(f"Unrecognized message received from Kucoin websocket: {msg}")
+                                    self.logger().debug(f"Unrecognized message received from Kucoin websocket: {msg}")
 
-                        # unsubscribe from any unneeded markets
-                        markets_to_unsubscribe: set = market_set - self._tasks[stream_type][task_index]["markets"]
-                        for market in markets_to_unsubscribe:
-                            await self._unsubscribe(ws, stream_type, market)
-                        market_set -= markets_to_unsubscribe
+                                # unsubscribe from any unneeded markets
+                                markets_to_unsubscribe: Set[str] = market_set - self._tasks[stream_type][task_index]["markets"]
+                                for market in markets_to_unsubscribe:
+                                    await self._unsubscribe(ws, stream_type, market)
+                                market_set -= markets_to_unsubscribe
 
-                        # subscribe to any new markets
-                        markets_to_subscribe: set = self._tasks[stream_type][task_index]["markets"] - market_set
-                        for market in markets_to_subscribe:
-                            await self._subscribe(ws, stream_type, market)
-                        market_set |= markets_to_subscribe
+                                # subscribe to any new markets
+                                markets_to_subscribe: Set[str] = self._tasks[stream_type][task_index]["markets"] - market_set
+                                for market in markets_to_subscribe:
+                                    await self._subscribe(ws, stream_type, market)
+                                market_set |= markets_to_subscribe
 
+                    except asyncio.CancelledError:
+                        self.logger().info("Task Cancelled")
+                        raise
+                    except asyncio.TimeoutError:
+                        raise
+                    finally:
+                        if ping_task is not None and not ping_task.done():
+                            ping_task.cancel()
             except asyncio.CancelledError:
                 self.logger().info("Task Cancelled")
                 raise
