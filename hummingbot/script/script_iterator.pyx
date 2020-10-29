@@ -16,7 +16,15 @@ from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.script.script_process import run_script
-from hummingbot.script.script_interface import StrategyParameter, PMMParameters, OnTick, OnStatus, CallNotify, CallLog
+from hummingbot.script.script_interface import (
+    StrategyParameter,
+    PMMParameters,
+    OnTick,
+    OnStatus,
+    CallNotify,
+    CallLog,
+    PmmMarketInfo,
+)
 
 sir_logger = None
 
@@ -68,6 +76,8 @@ cdef class ScriptIterator(TimeIterator):
         for market in self._markets:
             for event_pair in self._event_pairs:
                 market.add_listener(event_pair[0], event_pair[1])
+        self._parent_queue.put(PmmMarketInfo(self._strategy.market_info.market.name,
+                                             self._strategy.trading_pair))
 
     cdef c_stop(self, Clock clock):
         TimeIterator.c_stop(self, clock)
@@ -86,7 +96,8 @@ cdef class ScriptIterator(TimeIterator):
             if attr[:1] != '_':
                 param_value = getattr(self._strategy, attr)
                 setattr(pmm_strategy, attr, param_value)
-        cdef object on_tick = OnTick(self.strategy.get_mid_price(), pmm_strategy, self.all_total_balances())
+        cdef object on_tick = OnTick(self.strategy.get_mid_price(), pmm_strategy,
+                                     self.all_total_balances(), self.all_available_balances())
         self._parent_queue.put(on_tick)
 
     def _did_complete_buy_order(self,
@@ -126,3 +137,11 @@ cdef class ScriptIterator(TimeIterator):
     def all_total_balances(self):
         all_bals = {m.name: m.get_all_balances() for m in self._markets}
         return {exchange: {token: bal for token, bal in bals.items() if bal > 0} for exchange, bals in all_bals.items()}
+
+    def all_available_balances(self):
+        all_bals = self.all_total_balances()
+        ret_val = {}
+        for exchange, balances in all_bals.items():
+            connector = [c for c in self._markets if c.name == exchange][0]
+            ret_val[exchange] = {token: connector.get_available_balance(token) for token in balances.keys()}
+        return ret_val

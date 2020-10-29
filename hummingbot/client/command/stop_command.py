@@ -54,7 +54,6 @@ class StopCommand:
         if self.kill_switch is not None:
             self.kill_switch.stop()
 
-        self.starting_balances.clear()
         self.wallet = None
         self.strategy_task = None
         self.strategy = None
