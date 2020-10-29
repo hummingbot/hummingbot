@@ -15,6 +15,7 @@ from hummingbot.core.event.events import (
     MarketEvent,
     OrderType,
     SellOrderCompletedEvent,
+    MarketOrderFailureEvent
 )
 from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
@@ -25,6 +26,12 @@ from hummingbot.connector.markets_recorder import MarketsRecorder
 
 trading_pair = "WETH-DAI"
 base, quote = trading_pair.split("-")
+
+
+class MockWallet:
+    @property
+    def private_key(self):
+        return "0xdc393a78a366ac53ffbd5283e71785fd2097807fef1bc5b73b8ec84da47fb8de"
 
 
 class BalancerConnectorUnitTest(unittest.TestCase):
@@ -46,7 +53,7 @@ class BalancerConnectorUnitTest(unittest.TestCase):
     def setUpClass(cls):
         cls.ev_loop = asyncio.get_event_loop()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.connector: BalancerConnector = BalancerConnector()
+        cls.connector: BalancerConnector = BalancerConnector([], MockWallet(), "")
         print("Initializing CryptoCom market... this will take about a minute.")
         cls.clock.add_iterator(cls.connector)
         cls.stack: contextlib.ExitStack = contextlib.ExitStack()
@@ -85,14 +92,16 @@ class BalancerConnectorUnitTest(unittest.TestCase):
             print(f"{token}: {bal}")
         self.assertIn(base, all_bals)
         self.assertTrue(all_bals[base] > 0)
-        # asyncio.get_event_loop().run_until_complete(self._test_update_balances())
 
     def test_get_quote_price(self):
+        asyncio.get_event_loop().run_until_complete(self._test_get_quote_price())
+
+    async def _test_get_quote_price(self):
         balancer = self.connector
-        buy_price = balancer.get_quote_price(trading_pair, True, Decimal("1"))
+        buy_price = await balancer.get_quote_price(trading_pair, True, Decimal("1"))
         self.assertTrue(buy_price > 0)
         print(f"buy_price: {buy_price}")
-        sell_price = balancer.get_quote_price(trading_pair, False, Decimal("1"))
+        sell_price = await balancer.get_quote_price(trading_pair, False, Decimal("1"))
         self.assertTrue(sell_price > 0)
         print(f"sell_price: {sell_price}")
         self.assertTrue(buy_price != sell_price)
@@ -111,7 +120,7 @@ class BalancerConnectorUnitTest(unittest.TestCase):
     def test_sell(self):
         balancer = self.connector
         amount = Decimal("0.1")
-        price = Decimal("1")
+        price = Decimal("0.01")
         order_id = balancer.sell(trading_pair, amount, OrderType.LIMIT, price)
         event = self.ev_loop.run_until_complete(self.event_logger.wait_for(SellOrderCompletedEvent))
         self.assertTrue(event.order_id is not None)
@@ -120,15 +129,13 @@ class BalancerConnectorUnitTest(unittest.TestCase):
         print(event.order_id)
 
     def test_sell_failure(self):
-        # Todo: This doesn't work atm as the Gateway API doesn't handle this well enough
-        return
-        # balancer = self.connector
-        # # Since we don't have 1000 WETH, this should trigger order failure
-        # amount = Decimal("1000")
-        # price = Decimal("1")
-        # order_id = balancer.sell(trading_pair, amount, OrderType.LIMIT, price)
-        # event = self.ev_loop.run_until_complete(self.event_logger.wait_for(MarketOrderFailureEvent))
-        # self.assertEqual(order_id, event.order_id)
+        balancer = self.connector
+        # Since we don't have 1000 WETH, this should trigger order failure
+        amount = Decimal("1000")
+        price = Decimal("1")
+        order_id = balancer.sell(trading_pair, amount, OrderType.LIMIT, price)
+        event = self.ev_loop.run_until_complete(self.event_logger.wait_for(MarketOrderFailureEvent))
+        self.assertEqual(order_id, event.order_id)
 
     def test_filled_orders_recorded(self):
         config_path = "test_config"

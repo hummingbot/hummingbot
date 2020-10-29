@@ -6,9 +6,9 @@ from .data_types import ArbProposal, ArbProposalSide
 s_decimal_nan = Decimal("NaN")
 
 
-def create_arb_proposals(market_info_1: MarketTradingPairTuple,
-                         market_info_2: MarketTradingPairTuple,
-                         order_amount: Decimal) -> List[ArbProposal]:
+async def create_arb_proposals(market_info_1: MarketTradingPairTuple,
+                               market_info_2: MarketTradingPairTuple,
+                               order_amount: Decimal) -> List[ArbProposal]:
     """
     Creates base arbitrage proposals for given markets without any filtering.
     :param market_info_1: The first market
@@ -23,15 +23,15 @@ def create_arb_proposals(market_info_1: MarketTradingPairTuple,
         first_side = ArbProposalSide(
             market_info_1,
             is_buy,
-            market_info_1.market.get_quote_price(market_info_1.trading_pair, is_buy, order_amount),
-            market_info_1.market.get_order_price(market_info_1.trading_pair, is_buy, order_amount),
+            await market_info_1.market.get_quote_price(market_info_1.trading_pair, is_buy, order_amount),
+            await market_info_1.market.get_order_price(market_info_1.trading_pair, is_buy, order_amount),
             order_amount
         )
         second_side = ArbProposalSide(
             market_info_2,
             not is_buy,
-            market_info_2.market.get_quote_price(market_info_2.trading_pair, not is_buy, order_amount),
-            market_info_2.market.get_order_price(market_info_2.trading_pair, not is_buy, order_amount),
+            await market_info_2.market.get_quote_price(market_info_2.trading_pair, not is_buy, order_amount),
+            await market_info_2.market.get_order_price(market_info_2.trading_pair, not is_buy, order_amount),
             order_amount
         )
         results.append(ArbProposal(first_side, second_side))
