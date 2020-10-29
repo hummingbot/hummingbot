@@ -338,6 +338,9 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     await self._refresh_subscriptions(StreamType.Trade)
             except asyncio.CancelledError:
                 raise
+            except Exception as e:
+                self.logger().error(f"Unexpected error. {e}", exc_info=True)
+                await asyncio.sleep(5.0)
             finally:
                 self._stop_update_tasks(StreamType.Trade)
 
@@ -350,6 +353,9 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     await self._refresh_subscriptions(StreamType.Depth)
             except asyncio.CancelledError:
                 raise
+            except Exception as e:
+                self.logger().error(f"Unexpected error. {e}", exc_info=True)
+                await asyncio.sleep(5.0)
             finally:
                 self._stop_update_tasks(StreamType.Depth)
 
