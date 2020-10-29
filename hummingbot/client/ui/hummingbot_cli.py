@@ -82,7 +82,10 @@ class HummingbotCLI:
 
     def log(self, text: str, save_log: bool = True):
         if save_log:
-            self.output_field.log(text)
+            if self.live_updates:
+                self.output_field.log(text, silent=True)
+            else:
+                self.output_field.log(text)
         else:
             self.output_field.log(text, save_log=False)
 
