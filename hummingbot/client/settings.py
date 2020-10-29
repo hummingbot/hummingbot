@@ -31,6 +31,11 @@ CONF_FILE_PATH = "conf/"
 CONF_PREFIX = "conf_"
 CONF_POSTFIX = "_strategy"
 SCRIPTS_PATH = "scripts/"
+CERTS_PATH = "certs/"
+
+GATEAWAY_CA_CERT_PATH = realpath(join(__file__, join(f"../../../{CERTS_PATH}/ca_cert.pem")))
+GATEAWAY_CLIENT_CERT_PATH = realpath(join(__file__, join(f"../../../{CERTS_PATH}/client_cert.pem")))
+GATEAWAY_CLIENT_KEY_PATH = realpath(join(__file__, join(f"../../../{CERTS_PATH}/client_key.pem")))
 
 
 class ConnectorType(Enum):
@@ -151,6 +156,11 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
 
 def ethereum_wallet_required() -> bool:
     return any(e in ETH_WALLET_CONNECTORS for e in required_exchanges)
+
+
+def ethereum_gas_station_required() -> bool:
+    return any(name for name, con_set in CONNECTOR_SETTINGS.items() if name in required_exchanges
+               and con_set.use_eth_gas_lookup)
 
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
