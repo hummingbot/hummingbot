@@ -72,6 +72,6 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 raise
             except Exception:
                 self.logger().error(
-                    "Unexpected error with Probit WebSocket connection. " "Retrying after 30 seconds...", exc_info=True
+                    "Unexpected error with Probit WebSocket connection. " "Retrying after 10 seconds...", exc_info=True
                 )
-                await asyncio.sleep(30.0)
+                await asyncio.sleep(10.0)

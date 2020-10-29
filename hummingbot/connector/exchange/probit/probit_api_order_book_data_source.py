@@ -182,10 +182,10 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().network(
                     "Unexpected error with WebSocket connection.",
                     exc_info=True,
-                    app_warning_msg="Unexpected error with WebSocket connection. Retrying in 30 seconds. "
+                    app_warning_msg="Unexpected error with WebSocket connection. Retrying in 10 seconds. "
                                     "Check network connection."
                 )
-                await asyncio.sleep(30.0)
+                await asyncio.sleep(10.0)
             finally:
                 await ws.disconnect()
 
