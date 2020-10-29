@@ -12,6 +12,7 @@ from typing import (
     List,
     Optional,
     DefaultDict,
+    Set,
 )
 from collections import defaultdict
 from enum import Enum
@@ -211,7 +212,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :param output: the output queue
         """
         all_symbols: List[str] = await self.get_trading_pairs()
-        all_symbols_set = set(all_symbols)
+        all_symbols_set: Set[str] = set(all_symbols)
 
         # removals
         # remove any markets in current connections that are not present in the new master set
