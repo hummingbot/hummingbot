@@ -76,10 +76,9 @@ class HummingbotApplication(*commands):
         self.clock: Optional[Clock] = None
         self.market_trading_pairs_map = {}
 
-        self.init_time: int = int(time.time() * 1e3)
+        self.init_time: float = time.time()
         self.start_time: Optional[int] = None
         self.assets: Optional[Set[str]] = set()
-        self.starting_balances = {}
         self.placeholder_mode = False
         self.log_queue_listener: Optional[logging.handlers.QueueListener] = None
         self.data_feed: Optional[DataFeedBase] = None
