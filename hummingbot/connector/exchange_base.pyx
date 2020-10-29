@@ -278,13 +278,13 @@ cdef class ExchangeBase(ConnectorBase):
         elif price_type is PriceType.LastTrade:
             return Decimal(self.c_get_order_book(trading_pair).last_trade_price)
 
-    def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
+    async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
         """
         For an exchange type connector, the quote price is volume weighted average price.
         """
         return Decimal(str(self.get_vwap_for_volume(trading_pair, is_buy, amount).result_price))
 
-    def get_order_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
+    async def get_order_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
         """
         For an exchange type connector, the price required for order submission is the price of the order book for
         required volume.

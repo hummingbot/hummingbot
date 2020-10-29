@@ -74,7 +74,9 @@ class UserBalances:
         tasks = []
         # Update user balances, except connectors that use Ethereum wallet.
         if len(exchanges) == 0:
-            exchanges = [cs.name for cs in CONNECTOR_SETTINGS.values() if not cs.use_ethereum_wallet]
+            exchanges = [cs.name for cs in CONNECTOR_SETTINGS.values()]
+        exchanges = [cs.name for cs in CONNECTOR_SETTINGS.values() if not cs.use_ethereum_wallet
+                     and cs.name in exchanges]
         if reconnect:
             self._markets.clear()
         for exchange in exchanges:

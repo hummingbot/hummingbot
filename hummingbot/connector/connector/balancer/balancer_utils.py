@@ -1,7 +1,7 @@
 from typing import List
 
 CENTRALIZED = False
-EXAMPLE_PAIR = "ETH-USDC"
+EXAMPLE_PAIR = "WETH-DAI"
 DEFAULT_FEES = [0., 0.]
 
 USE_ETHEREUM_WALLET = True
