@@ -195,7 +195,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _start_update_tasks(self, stream_type: StreamType, output: asyncio.Queue):
         self._stop_update_tasks(stream_type)
-        market_assignments = await self.get_markets_per_ws_connection()
+        market_assignments: List[str] = await self.get_markets_per_ws_connection()
 
         task_dict: Dict[int, Dict[str, Any]] = {}
         for task_index, market_subset in enumerate(market_assignments):
@@ -226,8 +226,8 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         # now all_symbols_set contains just the additions, add each of those to the shortest connection list
         for market in all_symbols_set:
-            smallest_index = 0
-            smallest_set_size = self.SYMBOLS_PER_CONNECTION + 1
+            smallest_index: int = 0
+            smallest_set_size: int = self.SYMBOLS_PER_CONNECTION + 1
             for task_index in self._tasks[stream_type]:
                 if len(self._tasks[stream_type][task_index]["markets"]) < smallest_set_size:
                     smallest_index = task_index
@@ -304,7 +304,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _update_subscription(self, ws: websockets.WebSocketClientProtocol, stream_type: StreamType, market: str,
                                    subscribe: bool):
-        subscribe_request: dict
+        subscribe_request: Dict[str, Any]
         if stream_type == StreamType.Depth:
             subscribe_request = {
                 "id": int(time.time()),
@@ -313,7 +313,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 "response": True
             }
         else:
-            subscribe_request: Dict[str, Any] = {
+            subscribe_request = {
                 "id": int(time.time()),
                 "type": "subscribe" if subscribe else "unsubscribe",
                 "topic": f"/market/match:{market}",
