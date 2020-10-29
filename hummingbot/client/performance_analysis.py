@@ -201,6 +201,5 @@ def calculate_trade_performance(current_strategy_name: str,
     trade_performance_stats["portfolio_spent_quote_value"] = portfolio_spent_quote_value
     trade_performance_stats["portfolio_delta"] = portfolio_acquired_quote_value - portfolio_spent_quote_value
     trade_performance_stats["portfolio_delta_percentage"] = portfolio_delta_percentage
-    trade_performance_stats["no_of_trades"] = len(raw_queried_trades)
 
     return trade_performance_stats, market_trading_pair_stats
