@@ -10,8 +10,10 @@ from typing import (
     AsyncIterable,
     Dict,
     List,
-    Optional
+    Optional,
+    DefaultDict,
 )
+from collections import defaultdict
 from enum import Enum
 from async_timeout import timeout
 import time
@@ -62,7 +64,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def __init__(self, trading_pairs: List[str]):
         super().__init__(trading_pairs)
         self._order_book_create_function = lambda: OrderBook()
-        self._tasks: Dict[Any, Any] = {}
+        self._tasks: DefaultDict[StreamType, Dict[int, Dict[str, Any]]] = defaultdict(dict)
 
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
