@@ -356,8 +356,9 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
+                trading_pairs: List[str] = await self.get_trading_pairs()
                 async with aiohttp.ClientSession() as client:
-                    for trading_pair in self._trading_pairs:
+                    for trading_pair in trading_pairs:
                         try:
                             snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
                             snapshot_timestamp: float = time.time()
