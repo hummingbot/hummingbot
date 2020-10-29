@@ -43,7 +43,7 @@ order_refresh_time: 10.0
 order_refresh_tolerance_pct: 0.0
 
 # Size of your bid and ask order.
-order_amount: 1100.0
+order_amount: 2100.0
 
 # Delta of order_amount.
 order_amount_delta: 2500.0
@@ -132,7 +132,7 @@ take_if_crossed: true
 order_override:
 
 # Bot type for admin API.
-# One of 'liqudity', 'buy', 'sell' and empty string. If this is empty string, it means that admin control deactivated
+# One of 'liqudity', 'buy', 'sell' and 'none'. If this is 'none', it means that admin control deactivated
 admin_control_type: buy
 
 # For more detailed information, see:
