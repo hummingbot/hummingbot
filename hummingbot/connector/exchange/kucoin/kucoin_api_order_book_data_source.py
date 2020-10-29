@@ -375,7 +375,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         except Exception:
                             self.logger().error("Unexpected error.", exc_info=True)
                             await asyncio.sleep(5.0)
-                    await asyncio.sleep(secs_until_next_oclock())
+                await asyncio.sleep(secs_until_next_oclock())
             except asyncio.CancelledError:
                 raise
             except Exception:
