@@ -170,7 +170,7 @@ class CustomTextArea:
     def __pt_container__(self):
         return self.window
 
-    def log(self, text: str):
+    def log(self, text: str, save_log: bool = True):
         # Getting the max width of the window area
         if self.window.render_info is None:
             max_width = 100
@@ -187,8 +187,11 @@ class CustomTextArea:
                 line = line[max_width:]
             new_lines.append(line)
 
-        self.log_lines.extend(new_lines)
-        while len(self.log_lines) > self.max_line_count:
-            self.log_lines.popleft()
-        new_text: str = "\n".join(self.log_lines)
+        if save_log:
+            self.log_lines.extend(new_lines)
+            while len(self.log_lines) > self.max_line_count:
+                self.log_lines.popleft()
+            new_text: str = "\n".join(self.log_lines)
+        else:
+            new_text: str = "\n".join(new_lines)
         self.buffer.document = Document(text=new_text, cursor_position=len(new_text))
