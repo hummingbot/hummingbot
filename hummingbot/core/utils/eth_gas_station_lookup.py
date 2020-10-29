@@ -7,6 +7,7 @@ from typing import (
 )
 import aiohttp
 from enum import Enum
+from decimal import Decimal
 from hummingbot.core.network_base import (
     NetworkBase,
     NetworkStatus
@@ -16,6 +17,14 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.client.config.global_config_map import global_config_map
 
 ETH_GASSTATION_API_URL = "https://data-api.defipulse.com/api/v1/egs/api/ethgasAPI.json?api-key={}"
+
+
+def get_gas_price(in_gwei: bool = True) -> Decimal:
+    if not global_config_map["ethgasstation_gas_enabled"].value:
+        gas_price = global_config_map["ethgasstation_gas_enabled"].value
+    else:
+        gas_price = EthGasStationLookup.get_instance().gas_price
+    return gas_price if in_gwei else gas_price / Decimal("1e9")
 
 
 class GasLevel(Enum):
