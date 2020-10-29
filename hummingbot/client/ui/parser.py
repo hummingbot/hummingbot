@@ -78,6 +78,10 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     status_parser.set_defaults(func=hummingbot.status)
 
     history_parser = subparsers.add_parser("history", help="See the past performance of the current bot")
+    history_parser.add_argument("-d", "--days", type=float, default=0, dest="days",
+                                help="How many days in the past (can be decimal value)")
+    history_parser.add_argument("-v", "--verbose", action="store_true", default=False,
+                                dest="verbose", help="List all trades")
     history_parser.set_defaults(func=hummingbot.history)
 
     exit_parser = subparsers.add_parser("exit", help="Exit and cancel all outstanding orders")
