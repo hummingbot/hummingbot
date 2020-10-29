@@ -21,7 +21,7 @@ bid_spread: 15.0
 # Spread of 1 = 1% away from mid price at that time.
 # Example if mid price is 100 and ask_spread is 1.
 # Your bid is placed at 101.
-ask_spread: 15.0
+ask_spread: 20.0
 
 # Minimum Spread
 # How far away from the mid price to cancel active orders
