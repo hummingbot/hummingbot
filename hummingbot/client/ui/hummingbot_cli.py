@@ -43,6 +43,7 @@ class HummingbotCLI:
         # add self.to_stop_config to know if cancel is triggered
         self.to_stop_config: bool = False
 
+        self.live_updates = False
         self.bindings = bindings
         self.input_handler = input_handler
         self.input_field.accept_handler = self.accept
@@ -79,8 +80,11 @@ class HummingbotCLI:
     def clear_input(self):
         self.pending_input = None
 
-    def log(self, text: str):
-        self.output_field.log(text)
+    def log(self, text: str, save_log: bool = True):
+        if save_log:
+            self.output_field.log(text)
+        else:
+            self.output_field.log(text, save_log=False)
 
     def change_prompt(self, prompt: str, is_password: bool = False):
         self.prompt_text = prompt
