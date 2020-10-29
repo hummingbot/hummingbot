@@ -1047,11 +1047,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         if not to_defer_canceling:
             for order in active_orders:
+                self.logger().info(f"Cancelling active order since difference between new order prices "
+                                   f"and current order prices is not within "
+                                   f"{self._order_refresh_tolerance_pct:.2%} order_refresh_tolerance_pct")
                 self.c_cancel_order(self._market_info, order.client_order_id)
         else:
-            self.logger().info(f"Not cancelling active orders since difference between new order prices "
-                               f"and current order prices is within "
-                               f"{self._order_refresh_tolerance_pct:.2%} order_refresh_tolerance_pct")
+            # self.logger().info(f"Not cancelling active orders since difference between new order prices "
+            #                   f"and current order prices is within "
+            #                   f"{self._order_refresh_tolerance_pct:.2%} order_refresh_tolerance_pct")
             self.set_timers()
 
     cdef c_cancel_hanging_orders(self):
@@ -1070,6 +1073,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             if orders and float(price) > 0:
                 order = orders[0]
                 if float(abs(order.price - price)/price) >= float(self._hanging_orders_cancel_pct):
+                    self.logger().info(f"Cancelling Hanging order")
                     self.c_cancel_order(self._market_info, order.client_order_id)
 
     # Cancel Non-Hanging, Active Orders if Spreads are below minimum_spread
@@ -1171,5 +1175,12 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         data = self._admin_api.get_updated_params(self._current_timestamp)
         self._order_amount = data["order_amount"]
         self._order_amount_delta = data["order_amount_delta"]
-        self._filled_order_delay = data["filled_order_delay"]
-        self._filled_order_delay_delta = data["filled_order_delay_delta"]
+
+        new_delay = data["filled_order_delay"]
+        new_delay_delta = data["filled_order_delay_delta"]
+        if self._filled_order_delay != new_delay or self._filled_order_delay_delta != new_delay_delta:
+            self._filled_order_delay = new_delay
+            self._filled_order_delay_delta = new_delay_delta
+
+            self._create_timestamp = self._current_timestamp + self._filled_order_delay + random.randint(0, self._filled_order_delay_delta)
+            self._cancel_timestamp = min(self._cancel_timestamp, self._create_timestamp)
