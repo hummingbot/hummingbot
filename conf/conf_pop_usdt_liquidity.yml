@@ -15,7 +15,7 @@ market: POP-USDT
 # Spread of 1 = 1% away from mid price at that time.
 # Example if mid price is 100 and bid_spread is 1.
 # Your bid is placed at 99.
-bid_spread: 15.0
+bid_spread: 3.0
 
 # How far away from mid price to place the ask order.
 # Spread of 1 = 1% away from mid price at that time.
@@ -58,10 +58,10 @@ inventory_target_base_pct: 50.0
 
 # The range around the inventory target base percent to maintain, expressed in multiples of total order size (for
 # inventory skew feature).
-inventory_range_multiplier: 1.0
+inventory_range_multiplier: 300.0
 
 # Number of levels of orders to place on each side of the order book.
-order_levels: 3
+order_levels: 1
 
 # Increase or decrease size of consecutive orders after the first order (if order_levels > 1).
 order_level_amount: 5000.0
