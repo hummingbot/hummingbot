@@ -67,7 +67,7 @@ class ExportCommand:
 
     async def export_trades(self,  # type: HummingbotApplication
                             ):
-        trades: List[TradeFill] = self._get_trades_from_session(self.init_time)
+        trades: List[TradeFill] = self._get_trades_from_session(int(self.init_time * 1e3))
         if len(trades) == 0:
             self._notify("No past trades to export.")
             return
