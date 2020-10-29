@@ -142,3 +142,10 @@ ethgasstation_api_key:
 ethgasstation_gas_level:
 # Refresh time for Ethereum gas price lookups (in seconds)
 ethgasstation_refresh_time:
+# Gateway API Configurations
+# default host to only use localhost
+# Port need to match the final installation port for Gateway
+gateway_enabled: false
+gateway_cert_passphrase: null
+gateway_api_host: localhost
+gateway_api_port: 5000
