@@ -26,4 +26,9 @@ class UpdateParametersTestScript(ScriptBase):
             self.pmm_parameters.order_level_amount = Decimal("4")
             self.pmm_parameters.order_level_spread = Decimal("0.05")
             self.pmm_parameters.order_amount = Decimal("20")
+            self.pmm_parameters.inventory_skew_enabled = True
+            self.pmm_parameters.inventory_range_multiplier = Decimal("2")
+            self.pmm_parameters.inventory_target_base_pct = Decimal("0.6")
+            self.pmm_parameters.order_override = {"order_1": ["buy", Decimal("0.5"), Decimal("100")],
+                                                  "order_2": ["sell", Decimal("0.55"), Decimal("101")], }
             self._has_updated = True
