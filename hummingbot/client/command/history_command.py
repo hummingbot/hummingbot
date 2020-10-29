@@ -15,7 +15,7 @@ from hummingbot.model.trade_fill import TradeFill
 from hummingbot.core.utils.market_price import get_last_price
 from hummingbot.user.user_balances import UserBalances
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.client.performance import PerformanceMetrics, calculate_performance_metrics
+from hummingbot.client.performance import PerformanceMetrics, calculate_performance_metrics, smart_round
 
 s_float_0 = float(0)
 s_decimal_0 = Decimal("0")
@@ -27,21 +27,6 @@ if TYPE_CHECKING:
 
 def get_timestamp(days_ago: float = 0.) -> float:
     return time.time() - (60. * 60. * 24. * days_ago)
-
-
-def smart_round(value: Decimal) -> Decimal:
-    step = Decimal("1")
-    if Decimal("10000") > abs(value) > Decimal("100"):
-        step = Decimal("0.1")
-    elif Decimal("100") > abs(value) > Decimal("1"):
-        step = Decimal("0.01")
-    elif Decimal("1") > abs(value) > Decimal("0.01"):
-        step = Decimal("0.0001")
-    elif Decimal("0.01") > abs(value) > Decimal("0.0001"):
-        step = Decimal("0.00001")
-    elif Decimal("0.0001") > abs(value) > s_decimal_0:
-        step = Decimal("0.000001")
-    return (value // step) * step
 
 
 class HistoryCommand:
