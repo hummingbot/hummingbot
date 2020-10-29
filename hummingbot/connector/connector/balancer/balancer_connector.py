@@ -5,7 +5,6 @@ import aiohttp
 from typing import Dict, Any, List
 import json
 import time
-from os.path import realpath, join
 import ssl
 from hummingbot.core.utils import async_ttl_cache
 
@@ -30,18 +29,19 @@ from hummingbot.core.event.events import (
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.connector.balancer.balancer_in_flight_order import BalancerInFlightOrder
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
+from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
+from hummingbot.core.utils.eth_gas_station_lookup import get_gas_price
+from hummingbot.connector.connector.balancer.balancer_utils import GAS_LIMIT
+from hummingbot.client.config.global_config_map import global_config_map
 s_logger = None
 s_decimal_0 = Decimal("0")
 s_decimal_NaN = Decimal("nan")
-GATEWAY_API_URL = "https://localhost:5000"
-CA_CERT_PATH = realpath(join(__file__, join("../../../../../certs/ca_cert.pem")))
-CLIENT_CERT_PATH = realpath(join(__file__, join("../../../../../certs/client_cert.pem")))
-CLIENT_KEY_PATH = realpath(join(__file__, join("../../../../../certs/client_key.pem")))
+GATEWAY_API_URL = f"https://{global_config_map['gateway_api_host'].value}:{global_config_map['gateway_api_port'].value}"
 
 
 def add_certs_args(args):
-    ca_certs = CA_CERT_PATH
-    client_certs = (CLIENT_CERT_PATH, CLIENT_KEY_PATH)
+    ca_certs = GATEAWAY_CA_CERT_PATH
+    client_certs = (GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH)
     args.update({"verify": ca_certs, "cert": client_certs})
     return args
 
@@ -137,12 +137,13 @@ class BalancerConnector(ConnectorBase):
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
         base, quote = trading_pair.split("-")
-        gas = Decimal("10")  # Todo: use estimate_fee for this
+        gas_price = get_gas_price()
+        gas_amount = gas_price * GAS_LIMIT
         api_params = {"base": base,
                       "quote": quote,
                       "amount": str(amount),
                       "maxPrice": str(price),
-                      "gasPrice": str(gas),
+                      "gasPrice": str(gas_price),
                       }
         self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount)
         try:
@@ -157,7 +158,8 @@ class BalancerConnector(ConnectorBase):
                 tracked_order.fee_asset = "ETH"
                 tracked_order.executed_amount_base = amount
                 tracked_order.executed_amount_quote = amount * price
-                tracked_order.fee_paid = gas
+                # Todo: the actual gas amount paid to miner could be lower than the limit set.
+                tracked_order.fee_paid = gas_amount
                 event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
                 event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
                 self.trigger_event(event_tag, event_class(self.current_timestamp, OrderType.LIMIT, trading_pair, amount,
@@ -171,7 +173,7 @@ class BalancerConnector(ConnectorBase):
                                        tracked_order.order_type,
                                        price,
                                        amount,
-                                       TradeFee(0.0, [("ETH", gas)]),
+                                       TradeFee(0.0, [("ETH", gas_amount)]),
                                        hash
                                    ))
 
@@ -303,8 +305,8 @@ class BalancerConnector(ConnectorBase):
         :returns Shared client session instance
         """
         if self._shared_client is None:
-            ssl_ctx = ssl.create_default_context(cafile=CA_CERT_PATH)
-            ssl_ctx.load_cert_chain(CLIENT_CERT_PATH, CLIENT_KEY_PATH)
+            ssl_ctx = ssl.create_default_context(cafile=GATEAWAY_CA_CERT_PATH)
+            ssl_ctx.load_cert_chain(GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH)
             conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
             self._shared_client = aiohttp.ClientSession(connector=conn)
         return self._shared_client

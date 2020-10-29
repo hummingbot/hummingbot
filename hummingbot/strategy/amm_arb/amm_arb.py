@@ -10,7 +10,6 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.core.utils.estimate_fee import estimate_fee
 
 from .utils import create_arb_proposals, ArbProposal
 
@@ -116,7 +115,7 @@ class AmmArbStrategy(StrategyPyBase):
         arbitrage.
         """
         self._arb_proposals = await create_arb_proposals(self._market_info_1, self._market_info_2, self._order_amount)
-        arb_proposals = [t for t in self._arb_proposals if t.profit_pct() >= self._min_profitability]
+        arb_proposals = [t for t in self._arb_proposals if t.profit_pct(True) >= self._min_profitability]
         if len(arb_proposals) == 0:
             if self._last_no_arb_reported < self.current_timestamp - 20.:
                 self.logger().info("No arbitrage opportunity.\n" +
@@ -158,10 +157,6 @@ class AmmArbStrategy(StrategyPyBase):
                 token = arb_side.market_info.quote_asset if arb_side.is_buy else arb_side.market_info.base_asset
                 balance = market.get_available_balance(token)
                 required = arb_side.amount
-                if arb_side.is_buy:
-                    trade_fee = estimate_fee(market.name, False)
-                    fee_pct = trade_fee.percent
-                    required = (arb_side.amount * arb_side.order_price) * (Decimal("1") + fee_pct)
                 if balance < required:
                     arb_side.amount = s_decimal_zero
                     self.logger().info(f"Can't arbitrage, {market.display_name} "
