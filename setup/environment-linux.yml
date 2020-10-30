@@ -116,6 +116,7 @@ dependencies:
     - parsimonious==0.8.1
     - pre-commit==2.1.1
     - protobuf==3.11.3
+    - psutil==5.7.2
     - pyasn1==0.4.8
     - pyasn1-modules==0.2.8
     - pyblake2

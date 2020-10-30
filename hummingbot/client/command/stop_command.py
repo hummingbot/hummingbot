@@ -57,3 +57,4 @@ class StopCommand:
         self.market_pair = None
         self.clock = None
         self.markets_recorder = None
+        self.market_trading_pairs_map.clear()

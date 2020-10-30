@@ -15,7 +15,6 @@ from prompt_toolkit.layout.menus import CompletionsMenu
 from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import Completer
-from prompt_toolkit.utils import is_windows
 from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.widgets import SearchToolbar
 
@@ -110,6 +109,38 @@ def create_output_field():
     )
 
 
+def create_timer():
+    return TextArea(
+        style='class:title',
+        focus_on_click=False,
+        read_only=False,
+        scrollbar=False,
+        max_line_count=1,
+        width=20,
+    )
+
+
+def create_process_monitor():
+    return TextArea(
+        style='class:title',
+        focus_on_click=False,
+        read_only=False,
+        scrollbar=False,
+        max_line_count=1,
+        align=WindowAlign.RIGHT
+    )
+
+
+def create_trade_monitor():
+    return TextArea(
+        style='class:title',
+        focus_on_click=False,
+        read_only=False,
+        scrollbar=False,
+        max_line_count=1,
+    )
+
+
 def create_search_field() -> SearchToolbar:
     return SearchToolbar(text_if_not_searching=[('class:primary', "[CTRL + F] to start searching.")],
                          forward_search_prompt=[('class:primary', "Search logs [Press CTRL + F to hide search] >>> ")],
@@ -142,24 +173,51 @@ def get_paper_trade_status():
     return [(style, f"paper_trade_mode: {paper_trade_status}")]
 
 
-def get_title_bar_right_text():
-    copy_key = "CTRL + SHIFT" if is_windows() else "fn"
-    return [
-        ("class:title", "[Double Ctrl + C] QUIT      "),
-        ("class:title", "[Ctrl + S] STATUS      "),
-        ("class:title", f"Hold down \"{copy_key}\" for selecting and copying text"),
-    ]
+def get_active_strategy():
+    from hummingbot.client.hummingbot_application import HummingbotApplication
+    hb = HummingbotApplication.main_application()
+    style = "class:primary"
+    return [(style, f"Strategy: {hb.strategy_name}")]
+
+
+"""def get_active_markets():
+    from hummingbot.client.hummingbot_application import HummingbotApplication
+    hb = HummingbotApplication.main_application()
+    style = "class:primary"
+    markets = "None" if len(hb.market_trading_pairs_map) == 0 \
+              else eval(str(hb.market_trading_pairs_map))
+    return [(style, f"Market(s): {markets}")]"""
+
+
+"""def get_script_file():
+    from hummingbot.client.config.global_config_map import global_config_map
+    script = global_config_map["script_file_path"].value
+    style = "class:primary"
+    return [(style, f"Script_file: {script}")]"""
+
+
+def get_strategy_file():
+    from hummingbot.client.hummingbot_application import HummingbotApplication
+    hb = HummingbotApplication.main_application()
+    style = "class:primary"
+    return [(style, f"Strategy File: {hb._strategy_file_name}")]
 
 
 def generate_layout(input_field: TextArea,
                     output_field: TextArea,
                     log_field: TextArea,
-                    search_field: SearchToolbar):
+                    search_field: SearchToolbar,
+                    timer: TextArea,
+                    process_monitor: TextArea,
+                    trade_monitor: TextArea):
     root_container = HSplit([
         VSplit([
             Window(FormattedTextControl(get_version), style="class:title"),
             Window(FormattedTextControl(get_paper_trade_status), style="class:title"),
-            Window(FormattedTextControl(get_title_bar_right_text), align=WindowAlign.RIGHT, style="class:title"),
+            Window(FormattedTextControl(get_active_strategy), style="class:title"),
+            # Window(FormattedTextControl(get_active_markets), style="class:title"),
+            # Window(FormattedTextControl(get_script_file), style="class:title"),
+            Window(FormattedTextControl(get_strategy_file), style="class:title"),
         ], height=1),
         VSplit([
             FloatContainer(
@@ -184,6 +242,11 @@ def generate_layout(input_field: TextArea,
                 search_field,
             ]),
         ]),
+        VSplit([
+            trade_monitor,
+            process_monitor,
+            timer,
+        ], height=1),
 
     ])
     return Layout(root_container, focused_element=input_field)
