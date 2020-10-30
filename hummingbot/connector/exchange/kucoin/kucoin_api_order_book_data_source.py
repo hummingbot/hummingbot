@@ -10,8 +10,11 @@ from typing import (
     AsyncIterable,
     Dict,
     List,
-    Optional
+    Optional,
+    DefaultDict,
+    Set,
 )
+from collections import defaultdict
 from enum import Enum
 from async_timeout import timeout
 import time
@@ -62,7 +65,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def __init__(self, trading_pairs: List[str]):
         super().__init__(trading_pairs)
         self._order_book_create_function = lambda: OrderBook()
-        self._tasks: Dict[Any, Any] = {}
+        self._tasks: DefaultDict[StreamType, Dict[int, Dict[str, Any]]] = defaultdict(dict)
 
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
@@ -192,24 +195,29 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _start_update_tasks(self, stream_type: StreamType, output: asyncio.Queue):
         self._stop_update_tasks(stream_type)
-        market_assignments = await self.get_markets_per_ws_connection()
+        market_assignments: List[str] = await self.get_markets_per_ws_connection()
 
-        task_dict: Dict[int, Dict[str, Any]] = {}
         for task_index, market_subset in enumerate(market_assignments):
-            task_dict[task_index] = {"markets": set(market_subset.split(',')),
-                                     "task": safe_ensure_future(self._outer_messages(stream_type,
-                                                                                     task_index,
-                                                                                     output))}
-        self._tasks[stream_type] = task_dict
+            await self._start_single_update_task(stream_type,
+                                                 output,
+                                                 task_index,
+                                                 market_subset)
 
-    async def _refresh_subscriptions(self, stream_type: StreamType):
+    async def _start_single_update_task(self, stream_type: StreamType, output: asyncio.Queue,
+                                        task_index: int, market_subset: str):
+        self._tasks[stream_type][task_index] = {
+            "markets": set(market_subset.split(',')),
+            "task": safe_ensure_future(self._outer_messages(stream_type, task_index, output))
+        }
+
+    async def _refresh_subscriptions(self, stream_type: StreamType, output: asyncio.Queue):
         """
         modifies the subscription list (market pairs) for each connection to track changes in active markets
         :param stream_type: whether diffs or trades
         :param output: the output queue
         """
         all_symbols: List[str] = await self.get_trading_pairs()
-        all_symbols_set = set(all_symbols)
+        all_symbols_set: Set[str] = set(all_symbols)
 
         # removals
         # remove any markets in current connections that are not present in the new master set
@@ -223,13 +231,20 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         # now all_symbols_set contains just the additions, add each of those to the shortest connection list
         for market in all_symbols_set:
-            smallest_index = 0
-            smallest_set_size = self.SYMBOLS_PER_CONNECTION + 1
+            smallest_index: int = 0
+            smallest_set_size: int = self.SYMBOLS_PER_CONNECTION + 1
             for task_index in self._tasks[stream_type]:
                 if len(self._tasks[stream_type][task_index]["markets"]) < smallest_set_size:
                     smallest_index = task_index
                     smallest_set_size = len(self._tasks[stream_type][task_index]["markets"])
-            self._tasks[stream_type][smallest_index]["markets"].add(market)
+            if smallest_set_size < self.SYMBOLS_PER_CONNECTION:
+                self._tasks[stream_type][smallest_index]["markets"].add(market)
+            else:
+                new_index: int = len(self._tasks[stream_type])
+                await self._start_single_update_task(stream_type=stream_type,
+                                                     output=output,
+                                                     task_index=new_index,
+                                                     market_subset=market)
 
     def _stop_update_tasks(self, stream_type: StreamType):
         if stream_type in self._tasks:
@@ -239,52 +254,66 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
             del self._tasks[stream_type]
 
     async def _outer_messages(self, stream_type: StreamType, task_index: int, output: asyncio.Queue):
-        websocket_data: Dict[str, Any] = await self.ws_connect_data()
-        kucoin_ws_uri: str = websocket_data["data"]["instanceServers"][0]["endpoint"] + "?token=" + \
-            websocket_data["data"]["token"] + "&acceptUserMessage=true"
         ping_task: Optional[asyncio.Task] = None
-        # connects and writes data to the output queue
         while True:
             try:
-                market_set: set = self._tasks[stream_type][task_index]["markets"]
-                async with websockets.connect(kucoin_ws_uri) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
-                    ping_task = safe_ensure_future(self._send_ping(KucoinAPIOrderBookDataSource.PING_INTERVAL, ws))
+                websocket_data: Dict[str, Any] = await self.ws_connect_data()
+                kucoin_ws_uri: str = websocket_data["data"]["instanceServers"][0]["endpoint"] + \
+                    "?token=" + websocket_data["data"]["token"] + "&acceptUserMessage=true"
+                # connects and writes data to the output queue
+                while True:
+                    try:
+                        market_set: Set[str] = self._tasks[stream_type][task_index]["markets"]
+                        market_string: str = ','.join(str(s) for s in market_set)
+                        async with websockets.connect(kucoin_ws_uri) as ws:
+                            ws: websockets.WebSocketClientProtocol = ws
+                            ping_task = safe_ensure_future(
+                                self._send_ping(KucoinAPIOrderBookDataSource.PING_INTERVAL, ws)
+                            )
 
-                    # initial market list for this connection
-                    market_string = ','.join(str(s) for s in market_set)
-                    await self._subscribe(ws, stream_type, market_string)
+                            # subscribe to initial market list for this connection
+                            await self._subscribe(ws, stream_type, market_string)
 
-                    async for raw_msg in self._inner_messages(ws):
-                        msg: Dict[str, Any] = json.loads(raw_msg)
-                        if msg["type"] in ("ack", "welcome", "pong"):
-                            pass
-                        elif msg["type"] == "message":
-                            if stream_type == StreamType.Depth:
-                                order_book_message: OrderBookMessage = KucoinOrderBook.diff_message_from_exchange(msg)
-                            else:
-                                trading_pair = msg["data"]["symbol"]
-                                data = msg["data"]
-                                order_book_message: OrderBookMessage = \
-                                    KucoinOrderBook.trade_message_from_exchange(data,
-                                                                                metadata={"trading_pair": trading_pair})
-                            output.put_nowait(order_book_message)
-                        else:
-                            # self.logger().error(f"Unrecognized message received from Kucoin websocket: {msg}")
-                            self.logger().debug(f"Unrecognized message received from Kucoin websocket: {msg}")
+                            async for raw_msg in self._inner_messages(ws):
+                                msg: Dict[str, Any] = json.loads(raw_msg)
+                                if msg["type"] in ("ack", "welcome", "pong"):
+                                    pass
+                                elif msg["type"] == "message":
+                                    if stream_type == StreamType.Depth:
+                                        order_book_message: OrderBookMessage = KucoinOrderBook.diff_message_from_exchange(msg)
+                                    else:
+                                        trading_pair: str = msg["data"]["symbol"]
+                                        data = msg["data"]
+                                        order_book_message: OrderBookMessage = \
+                                            KucoinOrderBook.trade_message_from_exchange(
+                                                data,
+                                                metadata={"trading_pair": trading_pair}
+                                            )
+                                    output.put_nowait(order_book_message)
+                                else:
+                                    # self.logger().error(f"Unrecognized message received from Kucoin websocket: {msg}")
+                                    self.logger().debug(f"Unrecognized message received from Kucoin websocket: {msg}")
 
-                        # unsubscribe from any unneeded markets
-                        markets_to_unsubscribe: set = market_set - self._tasks[stream_type][task_index]["markets"]
-                        for market in markets_to_unsubscribe:
-                            await self._unsubscribe(ws, stream_type, market)
-                        market_set -= markets_to_unsubscribe
+                                # unsubscribe from any unneeded markets
+                                markets_to_unsubscribe: Set[str] = market_set - self._tasks[stream_type][task_index]["markets"]
+                                for market in markets_to_unsubscribe:
+                                    await self._unsubscribe(ws, stream_type, market)
+                                market_set -= markets_to_unsubscribe
 
-                        # subscribe to any new markets
-                        markets_to_subscribe: set = self._tasks[stream_type][task_index]["markets"] - market_set
-                        for market in markets_to_subscribe:
-                            await self._subscribe(ws, stream_type, market)
-                        market_set |= markets_to_subscribe
+                                # subscribe to any new markets
+                                markets_to_subscribe: Set[str] = self._tasks[stream_type][task_index]["markets"] - market_set
+                                for market in markets_to_subscribe:
+                                    await self._subscribe(ws, stream_type, market)
+                                market_set |= markets_to_subscribe
 
+                    except asyncio.CancelledError:
+                        self.logger().info("Task Cancelled")
+                        raise
+                    except asyncio.TimeoutError:
+                        raise
+                    finally:
+                        if ping_task is not None and not ping_task.done():
+                            ping_task.cancel()
             except asyncio.CancelledError:
                 self.logger().info("Task Cancelled")
                 raise
@@ -292,16 +321,14 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().error("Timeout error with WebSocket connection. Retrying after 5 seconds...",
                                     exc_info=True)
                 await asyncio.sleep(5.0)
-                await self._start_update_tasks(StreamType.Depth, output)  # restart from scratch
-                await self._start_update_tasks(StreamType.Trade, output)
-                continue
-            finally:
-                if ping_task is not None and not ping_task.done():
-                    ping_task.cancel()
+            except Exception:
+                self.logger().error("Unexpected exception with WebSocket connection. Retrying after 5 seconds...",
+                                    exc_info=True)
+                await asyncio.sleep(5.0)
 
     async def _update_subscription(self, ws: websockets.WebSocketClientProtocol, stream_type: StreamType, market: str,
                                    subscribe: bool):
-        subscribe_request: dict
+        subscribe_request: Dict[str, Any]
         if stream_type == StreamType.Depth:
             subscribe_request = {
                 "id": int(time.time()),
@@ -310,7 +337,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 "response": True
             }
         else:
-            subscribe_request: Dict[str, Any] = {
+            subscribe_request = {
                 "id": int(time.time()),
                 "type": "subscribe" if subscribe else "unsubscribe",
                 "topic": f"/market/match:{market}",
@@ -332,9 +359,12 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await self._start_update_tasks(StreamType.Trade, output)
                 while True:
                     await asyncio.sleep(secs_until_next_oclock())
-                    await self._refresh_subscriptions(StreamType.Trade)
+                    await self._refresh_subscriptions(StreamType.Trade, output)
             except asyncio.CancelledError:
                 raise
+            except Exception as e:
+                self.logger().error(f"Unexpected error. {e}", exc_info=True)
+                await asyncio.sleep(5.0)
             finally:
                 self._stop_update_tasks(StreamType.Trade)
 
@@ -344,17 +374,21 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await self._start_update_tasks(StreamType.Depth, output)
                 while True:
                     await asyncio.sleep(secs_until_next_oclock())
-                    await self._refresh_subscriptions(StreamType.Depth)
+                    await self._refresh_subscriptions(StreamType.Depth, output)
             except asyncio.CancelledError:
                 raise
+            except Exception as e:
+                self.logger().error(f"Unexpected error. {e}", exc_info=True)
+                await asyncio.sleep(5.0)
             finally:
                 self._stop_update_tasks(StreamType.Depth)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
+                trading_pairs: List[str] = await self.get_trading_pairs()
                 async with aiohttp.ClientSession() as client:
-                    for trading_pair in self._trading_pairs:
+                    for trading_pair in trading_pairs:
                         try:
                             snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
                             snapshot_timestamp: float = time.time()
@@ -371,7 +405,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         except Exception:
                             self.logger().error("Unexpected error.", exc_info=True)
                             await asyncio.sleep(5.0)
-                    await asyncio.sleep(secs_until_next_oclock())
+                await asyncio.sleep(secs_until_next_oclock())
             except asyncio.CancelledError:
                 raise
             except Exception:
