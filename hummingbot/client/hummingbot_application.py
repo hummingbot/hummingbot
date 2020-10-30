@@ -68,18 +68,18 @@ class HummingbotApplication(*commands):
         self.markets: Dict[str, ExchangeBase] = {}
         self.wallet: Optional[Web3Wallet] = None
         # strategy file name and name get assigned value after import or create command
-        self.strategy_file_name: str = None
+        self._strategy_file_name: str = None
         self.strategy_name: str = None
         self.strategy_task: Optional[asyncio.Task] = None
         self.strategy: Optional[StrategyBase] = None
         self.market_pair: Optional[CrossExchangeMarketPair] = None
         self.market_trading_pair_tuples: List[MarketTradingPairTuple] = []
         self.clock: Optional[Clock] = None
+        self.market_trading_pairs_map = {}
 
-        self.init_time: int = int(time.time() * 1e3)
+        self.init_time: float = time.time()
         self.start_time: Optional[int] = None
         self.assets: Optional[Set[str]] = set()
-        self.starting_balances = {}
         self.placeholder_mode = False
         self.log_queue_listener: Optional[logging.handlers.QueueListener] = None
         self.data_feed: Optional[DataFeedBase] = None
@@ -88,11 +88,21 @@ class HummingbotApplication(*commands):
         self._app_warnings: Deque[ApplicationWarning] = deque()
         self._trading_required: bool = True
 
-        self.trade_fill_db: SQLConnectionManager = SQLConnectionManager.get_trade_fills_instance()
+        self.trade_fill_db: Optional[SQLConnectionManager] = None
         self.markets_recorder: Optional[MarketsRecorder] = None
         self._script_iterator = None
         # This is to start fetching trading pairs for auto-complete
         TradingPairFetcher.get_instance()
+
+    @property
+    def strategy_file_name(self) -> str:
+        return self._strategy_file_name
+
+    @strategy_file_name.setter
+    def strategy_file_name(self, value: str):
+        self._strategy_file_name = value
+        db_name = value.split(".")[0]
+        self.trade_fill_db = SQLConnectionManager.get_trade_fills_instance(db_name=db_name)
 
     @property
     def strategy_config_map(self):
@@ -198,14 +208,14 @@ class HummingbotApplication(*commands):
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
 
         # aggregate trading_pairs if there are duplicate markets
-        market_trading_pairs_map = {}
-        for market_name, trading_pairs in market_names:
-            if market_name not in market_trading_pairs_map:
-                market_trading_pairs_map[market_name] = []
-            for hb_trading_pair in trading_pairs:
-                market_trading_pairs_map[market_name].append(hb_trading_pair)
 
-        for connector_name, trading_pairs in market_trading_pairs_map.items():
+        for market_name, trading_pairs in market_names:
+            if market_name not in self.market_trading_pairs_map:
+                self.market_trading_pairs_map[market_name] = []
+            for hb_trading_pair in trading_pairs:
+                self.market_trading_pairs_map[market_name].append(hb_trading_pair)
+
+        for connector_name, trading_pairs in self.market_trading_pairs_map.items():
             if global_config_map.get("paper_trade_enabled").value:
                 if connector_name not in DERIVATIVES:
                     try:
