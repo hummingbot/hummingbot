@@ -2,7 +2,7 @@ import logging
 from decimal import Decimal
 import asyncio
 import aiohttp
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import json
 import time
 import ssl
@@ -36,7 +36,6 @@ from hummingbot.client.config.global_config_map import global_config_map
 s_logger = None
 s_decimal_0 = Decimal("0")
 s_decimal_NaN = Decimal("nan")
-GATEWAY_API_URL = f"https://{global_config_map['gateway_api_host'].value}:{global_config_map['gateway_api_port'].value}"
 
 
 def add_certs_args(args):
@@ -91,13 +90,21 @@ class BalancerConnector(ConnectorBase):
             for in_flight_order in self._in_flight_orders.values()
         ]
 
-    def get_mid_price(self, trading_pair):
-        from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
-        trading_pair = trading_pair.replace("WETH", "ETH")
-        return BinanceAPIOrderBookDataSource.get_mid_price(trading_pair)
+    # def get_mid_price(self, trading_pair):
+    #     from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
+    #     trading_pair = trading_pair.replace("WETH", "ETH")
+    #     return BinanceAPIOrderBookDataSource.get_mid_price(trading_pair)
+
+    async def approve_balancer_contract(self, token_symbol: str):
+        resp = await self._api_request("post", "eth/approve", {"symbol": token_symbol, "gasPrice": get_gas_price()})
+        return resp["approval"]
+
+    async def get_allowances(self):
+        resp = await self._api_request("post", "eth/allowances")
+        return resp
 
     @async_ttl_cache(ttl=5, maxsize=10)
-    async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
+    async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Optional[Decimal]:
         base, quote = trading_pair.split("-")
         side = "buy" if is_buy else "sell"
         resp = await self._api_request("post", f"balancer/{side}-price", {"base": base, "quote": quote, "amount": amount})
@@ -282,6 +289,12 @@ class BalancerConnector(ConnectorBase):
                 self._last_poll_timestamp = self.current_timestamp
             except asyncio.CancelledError:
                 raise
+            except Exception as e:
+                self.logger().error(str(e), exc_info=True)
+                self.logger().network("Unexpected error while fetching account updates.",
+                                      exc_info=True,
+                                      app_warning_msg="Could not fetch balances from Gateway API.")
+                await asyncio.sleep(0.5)
 
     async def _update_balances(self):
         """
@@ -323,7 +336,9 @@ class BalancerConnector(ConnectorBase):
         signature to the request.
         :returns A response in json format.
         """
-        url = f"{GATEWAY_API_URL}/{path_url}"
+        base_url = f"https://{global_config_map['gateway_api_host'].value}:" \
+                   f"{global_config_map['gateway_api_port'].value}"
+        url = f"{base_url}/{path_url}"
         client = await self._http_client()
         if method == "get":
             if len(params) > 0:
@@ -346,8 +361,8 @@ class BalancerConnector(ConnectorBase):
                           f"Message: {parsed_response}")
         if "error" in parsed_response:
             raise Exception(f"Error: {parsed_response['error']}")
-        # print(f"REQUEST: {method} {path_url} {params}")
-        # print(f"RESPONSE: {parsed_response}")
+        print(f"REQUEST: {method} {path_url} {params}")
+        print(f"RESPONSE: {parsed_response}")
         return parsed_response
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
