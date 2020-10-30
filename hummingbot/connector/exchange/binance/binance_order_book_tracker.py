@@ -32,7 +32,8 @@ class BinanceOrderBookTracker(OrderBookTracker):
                  domain: str = "com"):
         super().__init__(
             data_source=BinanceAPIOrderBookDataSource(trading_pairs=trading_pairs, domain=domain),
-            trading_pairs=trading_pairs
+            trading_pairs=trading_pairs,
+            domain=domain
         )
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
