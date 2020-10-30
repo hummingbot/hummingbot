@@ -23,6 +23,12 @@ from hummingbot.model.sql_connection_manager import (
 )
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.connector.markets_recorder import MarketsRecorder
+from hummingbot.client.config.global_config_map import global_config_map
+
+global_config_map['gateway_api_host'].value = "localhost"
+global_config_map['gateway_api_port'].value = 5000
+global_config_map['ethgasstation_gas_enabled'].value = False
+global_config_map['manual_gas_price'].value = 50
 
 trading_pair = "WETH-DAI"
 base, quote = trading_pair.split("-")
@@ -93,6 +99,14 @@ class BalancerConnectorUnitTest(unittest.TestCase):
         self.assertIn(base, all_bals)
         self.assertTrue(all_bals[base] > 0)
 
+    def test_allowances(self):
+        asyncio.get_event_loop().run_until_complete(self._test_allowances())
+
+    async def _test_allowances(self):
+        balancer = self.connector
+        allowances = await balancer.get_allowances()
+        print(allowances)
+
     def test_get_quote_price(self):
         asyncio.get_event_loop().run_until_complete(self._test_get_quote_price())
 
@@ -105,6 +119,9 @@ class BalancerConnectorUnitTest(unittest.TestCase):
         self.assertTrue(sell_price > 0)
         print(f"sell_price: {sell_price}")
         self.assertTrue(buy_price != sell_price)
+        # try to get price for non existing pair, this should return None
+        # sell_price = await balancer.get_quote_price("AAA-BBB", False, Decimal("1"))
+        # self.assertTrue(sell_price is None)
 
     def test_buy(self):
         balancer = self.connector
@@ -119,7 +136,7 @@ class BalancerConnectorUnitTest(unittest.TestCase):
 
     def test_sell(self):
         balancer = self.connector
-        amount = Decimal("0.1")
+        amount = Decimal("1")
         price = Decimal("0.01")
         order_id = balancer.sell(trading_pair, amount, OrderType.LIMIT, price)
         event = self.ev_loop.run_until_complete(self.event_logger.wait_for(SellOrderCompletedEvent))
