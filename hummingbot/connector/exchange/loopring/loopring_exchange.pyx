@@ -479,9 +479,10 @@ cdef class LoopringExchange(ExchangeBase):
             res = await self.api_request("DELETE", ORDER_CANCEL_ROUTE, params=cancellation_payload, secure=True)
             code = res['resultInfo']['code']
             message = res['resultInfo']['message']
-            if code == 102117:
-                # Order didn't exist on exchange, mark this as canceled
+            if code == 102117 and in_flight_order.created_at < (int(time.time()) - UNRECOGNIZED_ORDER_DEBOUCE):
+                # Order doesn't exist and enough time has passed so we are safe to mark this as canceled
                 self.c_trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
+                self.stop_tracking(tracked_order.client_order_id)
             elif code != 0 and (code != 100001 or message != "order in status CANCELLED can't be cancelled"):
                 raise Exception(f"Cancel order returned code {res['resultInfo']['code']} ({res['resultInfo']['message']})")
 
@@ -835,7 +836,7 @@ cdef class LoopringExchange(ExchangeBase):
                     # this order should have a loopring_order_id at this point. If it doesn't, we should cancel it
                     # as we won't be able to poll for updates
                     try:
-                        self.cancel_order(client_order_id)
+                        await self.cancel_order(client_order_id)
                     except Exception:
                         pass
                 continue
@@ -853,7 +854,7 @@ cdef class LoopringExchange(ExchangeBase):
                                       f"{client_order_id }({tracked_order.exchange_order_id}) from api (code: {loopring_order_request['resultInfo']['code']})")
 
                 # check if this error is because the api cliams to be unaware of this order. If so, and this order
-                # is reasonably old, mark the orde as cancelled
+                # is reasonably old, mark the order as cancelled
                 if loopring_order_request['resultInfo']['code'] == 107003:
                     if tracked_order.created_at < (int(time.time()) - UNRECOGNIZED_ORDER_DEBOUCE):
                         self.logger().warning(f"marking {client_order_id} as cancelled")
