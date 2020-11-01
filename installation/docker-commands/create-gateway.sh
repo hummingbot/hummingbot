@@ -33,6 +33,15 @@ else
   if [ ! -d "$FOLDER" ]; then
     echo "‼️  Directory not found in ${FOLDER}"
     prompt_hummingbot_data_path
+  else
+    # check for server_cert.pem, server_key.pem, ca_cert.pem
+    if [[ -f "$FOLDER/server_cert.pem" && -f "$FOLDER/server_key.pem" && -f "$FOLDER/ca_cert.pem" ]]; then
+      echo
+    else
+      echo "‼️  SSL Certs missing from path $FOLDER"
+      echo "  Required: server_cert.pem, server_key.pem, ca_cert.pem"
+      prompt_hummingbot_data_path
+    fi
   fi
 fi
 }
@@ -79,6 +88,20 @@ printf "%30s %5s\n" "Gateway cert path:" "$FOLDER"
 printf "%30s %5s\n" "Gateway port:" "$PORT"
 echo
 
+ENV_FILE="./gateway.env"
+echo "  Writing config to environment file"
+echo "" > $ENV_FILE # clear existing file data
+echo "# gateway-api script generated env" >> $ENV_FILE
+echo "" >> $ENV_FILE
+echo "NODE_ENV=prod" >> $ENV_FILE
+echo "PORT=$PORT" >> $ENV_FILE
+echo "" >> $ENV_FILE
+echo "BALANCER_NETWORK=mainnet" >> $ENV_FILE
+echo "ETHEREUM_RPC_URL=$RPC_URL" >> $ENV_FILE
+echo "SUBGRAPH_URL=https://api.thegraph.com/subgraphs/name/balancer-labs/balancer" >> $ENV_FILE
+echo "EXCHANGE_PROXY=0x3E66B66Fd1d0b02fDa6C811Da9E0547970DB2f21" >> $ENV_FILE
+echo "" >> $ENV_FILE
+
 prompt_proceed () {
  read -p "   Do you want to proceed? [Y/N] >>> " PROCEED
  if [ "$PROCEED" == "" ]
@@ -95,14 +118,12 @@ create_instance () {
 
 
 
- # 5) Launch a new instance of hummingbot
+ # Launch a new instance of hummingbot
  docker run -d \
  --name $GATEWAY_INSTANCE_NAME \
  -p 127.0.0.1:$PORT:5000 \
+ --env-file $ENV_FILE \
  -e CERT_PASSPHRASE="$PASSWORD" \
- -e BALANCER_NETWORK="mainnet" \
- -e ETHEREUM_RPC_URL="$RPC_URL" \
- -e SUBGRAPH_URL="https://api.thegraph.com/subgraphs/name/balancer-labs/balancer" \
  --mount "type=bind,source=$FOLDER,destination=/usr/src/app/certs/" \
  coinalpha/gateway-api:$GATEWAY_TAG
 }
