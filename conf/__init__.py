@@ -91,6 +91,11 @@ eterbase_api_key = os.getenv("ETERBASE_API_KEY")
 eterbase_secret_key = os.getenv("ETERBASE_SECRET_KEY")
 eterbase_account = os.getenv("ETERBASE_ACCOUNT")
 
+# OKEx Test
+okex_api_key = os.getenv("OKEX_API_KEY")
+okex_secret_key = os.getenv("OKEX_SECRET_KEY")
+okex_passphrase = os.getenv("OKEX_PASSPHRASE")
+
 # CryptoCom Test
 crypto_com_api_key = os.getenv("CRYPTO_COM_API_KEY")
 crypto_com_secret_key = os.getenv("CRYPTO_COM_SECRET_KEY")
