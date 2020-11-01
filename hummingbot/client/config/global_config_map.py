@@ -261,7 +261,8 @@ main_config_map = {
         ConfigVar(key="manual_gas_price",
                   prompt="Enter fixed gas price (in Gwei) you want to use for Ethereum transactions >>> ",
                   required_if=lambda: False,
-                  type_str="int",
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, Decimal(0), inclusive=False),
                   default=50),
     "ethgasstation_gas_enabled":
         ConfigVar(key="ethgasstation_gas_enabled",

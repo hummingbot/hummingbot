@@ -14,6 +14,7 @@ from hummingbot.core.event.events import TradeFeeType
 
 # Global variables
 required_exchanges: List[str] = []
+requried_connector_trading_pairs: Dict[str, List[str]] = {}
 
 # Global static values
 KEYFILE_PREFIX = "key_file_"
@@ -161,6 +162,14 @@ def ethereum_wallet_required() -> bool:
 def ethereum_gas_station_required() -> bool:
     return any(name for name, con_set in CONNECTOR_SETTINGS.items() if name in required_exchanges
                and con_set.use_eth_gas_lookup)
+
+
+def ethereum_required_trading_pairs() -> List[str]:
+    ret_val = []
+    for conn, t_pair in requried_connector_trading_pairs.items():
+        if CONNECTOR_SETTINGS[conn].use_ethereum_wallet:
+            ret_val += t_pair
+    return ret_val
 
 
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000

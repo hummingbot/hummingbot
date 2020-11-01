@@ -2,12 +2,13 @@ import logging
 from decimal import Decimal
 import asyncio
 import aiohttp
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import json
 import time
 import ssl
+import copy
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.core.utils import async_ttl_cache
-
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -28,15 +29,15 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.connector.balancer.balancer_in_flight_order import BalancerInFlightOrder
-from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.core.utils.eth_gas_station_lookup import get_gas_price
-from hummingbot.connector.connector.balancer.balancer_utils import GAS_LIMIT
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.config_helpers import get_erc20_token_addresses
+
 s_logger = None
 s_decimal_0 = Decimal("0")
 s_decimal_NaN = Decimal("nan")
-GATEWAY_API_URL = f"https://{global_config_map['gateway_api_host'].value}:{global_config_map['gateway_api_port'].value}"
+logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
 def add_certs_args(args):
@@ -63,7 +64,7 @@ class BalancerConnector(ConnectorBase):
 
     def __init__(self,
                  trading_pairs: List[str],
-                 wallet: Web3Wallet,
+                 wallet_private_key: str,
                  ethereum_rpc_url: str,
                  trading_required: bool = True
                  ):
@@ -72,13 +73,21 @@ class BalancerConnector(ConnectorBase):
         """
         super().__init__()
         self._trading_pairs = trading_pairs
-        self._wallet = wallet
+        tokens = set()
+        for trading_pair in trading_pairs:
+            tokens.update(set(trading_pair.split("-")))
+        self._token_addresses = get_erc20_token_addresses(tokens)
+        self._wallet_private_key = wallet_private_key
         self._ethereum_rpc_url = ethereum_rpc_url
         self._trading_required = trading_required
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
         self._last_poll_timestamp = 0.0
         self._in_flight_orders = {}
+        self._allowances = {}
+        self._status_polling_task = None
+        self._auto_approve_task = None
+        self._real_time_balance_update = False
 
     @property
     def name(self):
@@ -91,16 +100,47 @@ class BalancerConnector(ConnectorBase):
             for in_flight_order in self._in_flight_orders.values()
         ]
 
-    def get_mid_price(self, trading_pair):
-        from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
-        trading_pair = trading_pair.replace("WETH", "ETH")
-        return BinanceAPIOrderBookDataSource.get_mid_price(trading_pair)
+    async def auto_approve(self):
+        self.logger().info("Checking for allowances...")
+        self._allowances = await self.get_allowances()
+        for token, amount in self._allowances.items():
+            if amount <= s_decimal_0:
+                amount_approved = await self.approve_balancer_spender(token)
+                if amount_approved > 0:
+                    self._allowances[token] = amount_approved
+                    await asyncio.sleep(2)
+                else:
+                    break
+
+    async def approve_balancer_spender(self, token_symbol: str) -> Decimal:
+        resp = await self._api_request("post",
+                                       "eth/approve",
+                                       {"tokenAddress": self._token_addresses[token_symbol],
+                                        "gasPrice": str(get_gas_price())})
+        amount_approved = Decimal(str(resp["amount"]))
+        if amount_approved > 0:
+            self.logger().info(f"Approved Balancer spender contract for {token_symbol}.")
+        else:
+            self.logger().info(f"Balancer spender contract approval failed on {token_symbol}.")
+        return amount_approved
+
+    async def get_allowances(self) -> Dict[str, Decimal]:
+        ret_val = {}
+        resp = await self._api_request("post", "eth/allowances",
+                                       {"tokenAddressList": ",".join(self._token_addresses.values())})
+        for address, amount in resp["approvals"].items():
+            ret_val[self.get_token(address)] = Decimal(str(amount))
+        return ret_val
 
     @async_ttl_cache(ttl=5, maxsize=10)
-    async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
+    async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Optional[Decimal]:
         base, quote = trading_pair.split("-")
         side = "buy" if is_buy else "sell"
-        resp = await self._api_request("post", f"balancer/{side}-price", {"base": base, "quote": quote, "amount": amount})
+        resp = await self._api_request("post",
+                                       f"balancer/{side}-price",
+                                       {"base": self._token_addresses[base],
+                                        "quote": self._token_addresses[quote],
+                                        "amount": amount})
         if resp["price"] is not None:
             return Decimal(str(resp["price"]))
 
@@ -138,9 +178,8 @@ class BalancerConnector(ConnectorBase):
         price = self.quantize_order_price(trading_pair, price)
         base, quote = trading_pair.split("-")
         gas_price = get_gas_price()
-        gas_amount = gas_price * GAS_LIMIT
-        api_params = {"base": base,
-                      "quote": quote,
+        api_params = {"base": self._token_addresses[base],
+                      "quote": self._token_addresses[quote],
                       "amount": str(amount),
                       "maxPrice": str(price),
                       "gasPrice": str(gas_price),
@@ -158,8 +197,7 @@ class BalancerConnector(ConnectorBase):
                 tracked_order.fee_asset = "ETH"
                 tracked_order.executed_amount_base = amount
                 tracked_order.executed_amount_quote = amount * price
-                # Todo: the actual gas amount paid to miner could be lower than the limit set.
-                tracked_order.fee_paid = gas_amount
+                tracked_order.fee_paid = Decimal(str(order_result["gasUsed"])) * gas_price / Decimal(str(1e9))
                 event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
                 event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
                 self.trigger_event(event_tag, event_class(self.current_timestamp, OrderType.LIMIT, trading_pair, amount,
@@ -173,7 +211,7 @@ class BalancerConnector(ConnectorBase):
                                        tracked_order.order_type,
                                        price,
                                        amount,
-                                       TradeFee(0.0, [("ETH", gas_amount)]),
+                                       TradeFee(0.0, [("ETH", tracked_order.fee_paid)]),
                                        hash
                                    ))
 
@@ -249,15 +287,29 @@ class BalancerConnector(ConnectorBase):
     def ready(self):
         return all(self.status_dict.values())
 
+    def has_allowances(self):
+        return len(self._allowances.values()) == len(self._token_addresses.values()) and \
+            all(amount > s_decimal_0 for amount in self._allowances.values())
+
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
+            "allowances": self.has_allowances() if self._trading_required else True
         }
 
     async def start_network(self):
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
+            self._auto_approve_task = safe_ensure_future(self.auto_approve())
+
+    async def stop_network(self):
+        if self._status_polling_task is not None:
+            self._status_polling_task.cancel()
+            self._status_polling_task = None
+        if self._auto_approve_task is not None:
+            self._auto_approve_task.cancel()
+            self._auto_approve_task = None
 
     async def check_network(self) -> NetworkStatus:
         return NetworkStatus.CONNECTED
@@ -282,6 +334,15 @@ class BalancerConnector(ConnectorBase):
                 self._last_poll_timestamp = self.current_timestamp
             except asyncio.CancelledError:
                 raise
+            except Exception as e:
+                self.logger().error(str(e), exc_info=True)
+                self.logger().network("Unexpected error while fetching account updates.",
+                                      exc_info=True,
+                                      app_warning_msg="Could not fetch balances from Gateway API.")
+                await asyncio.sleep(0.5)
+
+    def get_token(self, token_address: str) -> str:
+        return [k for k, v in self._token_addresses.items() if v == token_address][0]
 
     async def _update_balances(self):
         """
@@ -289,8 +350,12 @@ class BalancerConnector(ConnectorBase):
         """
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
-        resp_json = await self._api_request("post", "eth/balances")
+        resp_json = await self._api_request("post",
+                                            "eth/balances",
+                                            {"tokenAddressList": ",".join(self._token_addresses.values())})
         for token, bal in resp_json["balances"].items():
+            if len(token) > 4:
+                token = self.get_token(token)
             self._account_available_balances[token] = Decimal(str(bal))
             self._account_balances[token] = Decimal(str(bal))
             remote_asset_names.add(token)
@@ -299,6 +364,9 @@ class BalancerConnector(ConnectorBase):
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
+
+        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
+        self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
     async def _http_client(self) -> aiohttp.ClientSession:
         """
@@ -323,7 +391,10 @@ class BalancerConnector(ConnectorBase):
         signature to the request.
         :returns A response in json format.
         """
-        url = f"{GATEWAY_API_URL}/{path_url}"
+        base_url = f"https://{global_config_map['gateway_api_host'].value}:" \
+                   f"{global_config_map['gateway_api_port'].value}"
+        url = f"{base_url}/{path_url}"
+        self.logger().info(f"REQUEST: {method} {path_url} {params}")
         client = await self._http_client()
         if method == "get":
             if len(params) > 0:
@@ -331,8 +402,10 @@ class BalancerConnector(ConnectorBase):
             else:
                 response = await client.get(url)
         elif method == "post":
-            #  post_json = json.dumps(params)
-            params["privateKey"] = self._wallet.private_key[2:]  # "dc393a78a366ac53ffbd5283e71785fd2097807fef1bc5b73b8ec84da47fb8de"
+            params[
+                "privateKey"] = self._wallet_private_key
+            if params["privateKey"][:2] != "0x":
+                params["privateKey"] = "0x" + params["privateKey"]
             response = await client.post(url, data=params)
         else:
             raise NotImplementedError
@@ -342,13 +415,19 @@ class BalancerConnector(ConnectorBase):
         except Exception as e:
             raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
         if response.status != 200:
-            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. "
-                          f"Message: {parsed_response}")
+            err_msg = ""
+            if "error" in parsed_response:
+                err_msg = f" Message: {parsed_response['error']}"
+            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.{err_msg}")
         if "error" in parsed_response:
             raise Exception(f"Error: {parsed_response['error']}")
-        # print(f"REQUEST: {method} {path_url} {params}")
-        # print(f"RESPONSE: {parsed_response}")
+
+        self.logger().info(f"RESPONSE: {parsed_response}")
         return parsed_response
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         return []
+
+    @property
+    def in_flight_orders(self) -> Dict[str, BalancerInFlightOrder]:
+        return self._in_flight_orders

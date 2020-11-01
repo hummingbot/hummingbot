@@ -4,6 +4,7 @@ from collections import (
     deque,
     OrderedDict
 )
+import inspect
 from typing import List, Dict
 from hummingbot import check_dev_mode
 from hummingbot.logger.application_warning import ApplicationWarning
@@ -67,12 +68,16 @@ class StatusCommand:
 
         return "\n".join(lines)
 
-    def strategy_status(self):
+    async def strategy_status(self):
         paper_trade = "\n  Paper Trading ON: All orders are simulated, and no real orders are placed." if global_config_map.get("paper_trade_enabled").value \
             else ""
         app_warning = self.application_warning()
         app_warning = "" if app_warning is None else app_warning
-        status = paper_trade + "\n" + self.strategy.format_status() + "\n" + app_warning
+        if inspect.iscoroutinefunction(self.strategy.format_status):
+            st_status = await self.strategy.format_status()
+        else:
+            st_status = self.strategy.format_status()
+        status = paper_trade + "\n" + st_status + "\n" + app_warning
         if self._script_iterator is not None:
             self._script_iterator.request_status()
             status += '\n Status from script would noy appear here. Simply run the status command without "--live" to see script status.'
@@ -121,10 +126,11 @@ class StatusCommand:
                 await self.stop_live_update()
                 self.app.live_updates = True
                 while self.app.live_updates:
-                    await self.cls_display_delay(self.strategy_status() + "\n\n Press escape key to stop update.", 1)
+                    await self.cls_display_delay(await self.strategy_status() +
+                                                 "\n\n Press escape key to stop update.", 1)
                 self._notify("Stopped live status display update.")
             else:
-                self._notify(self.strategy_status())
+                self._notify(await self.strategy_status())
             return True
 
         # Preliminary checks.
