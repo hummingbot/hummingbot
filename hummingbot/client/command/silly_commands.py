@@ -193,6 +193,11 @@ class SillyCommands:
         await asyncio.sleep(delay)
         self.app.output_field.buffer.undo()
 
+    async def stop_live_update(self):
+        if self.app.live_updates is True:
+            self.app.live_updates = False
+            await asyncio.sleep(1)
+
     def display_alert(self, custom_alert = None):
         alert = """
                                 ====================================
