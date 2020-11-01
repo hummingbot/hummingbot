@@ -22,6 +22,8 @@ from decimal import Decimal
 import requests
 import cachetools.func
 import websockets
+from websockets.client import Connect as WSConnectionContext
+
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
@@ -46,6 +48,186 @@ def secs_until_next_oclock():
 class StreamType(Enum):
     Depth = "depth"
     Trade = "trade"
+
+
+class KucoinWSConnectionIterator:
+    """
+    A message iterator that automatically manages the auto-ping requirement from Kucoin, and returns all JSON-decoded
+    messages from a Kucoin websocket connection
+
+    Instances of this class are intended to be used with an `async for msg in <iterator>: ...` block. The iterator does
+    the following:
+
+     1. At the beginning of the loop, connect to Kucoin's public websocket data stream, and subscribe to topics matching
+        its constructor arguments.
+     2. Start an automatic ping background task, to keep the websocket connection alive.
+     3. Yield any messages received from Kucoin, after JSON decode. Note that this means all messages, include ACK and
+        PONG messages, are returned.
+     4. Raises `asyncio.TimeoutError` if no message have been heard from Kucoin for more than
+       `PING_TIMEOUT + PING_INTERVAL`.
+     5. If the iterator exits for any reason, including any failures or timeout - stop and clean up the automatic ping
+        task.
+
+    Note that this iterator does NOT come with any error handling logic or built-in resilience by itself. It is expected
+    that the caller of the iterator should handle all errors from the iterator.
+    """
+    PING_TIMEOUT = 10.0
+    PING_INTERVAL = 5
+
+    _kwsci_logger: Optional[logging.Logger] = None
+
+    @classmethod
+    def logger(cls) -> logging.Logger:
+        if cls._kwsci_logger is None:
+            cls._kwsci_logger = logging.getLogger(__name__)
+        return cls._kwsci_logger
+
+    def __init__(self, stream_type: StreamType, trading_pairs: Set[str]):
+        self._ping_task: Optional[asyncio.Task] = None
+        self._stream_type: StreamType = stream_type
+        self._trading_pairs: Set[str] = trading_pairs
+        self._last_nonce: int = int(time.time() * 1e3)
+        self._websocket: Optional[websockets.WebSocketClientProtocol] = None
+
+    @staticmethod
+    async def get_ws_connection_context() -> WSConnectionContext:
+        async with aiohttp.ClientSession() as session:
+            async with session.post('https://api.kucoin.com/api/v1/bullet-public', data=b'') as resp:
+                response: aiohttp.ClientResponse = resp
+                if response.status != 200:
+                    raise IOError(f"Error fetching Kucoin websocket connection data."
+                                  f"HTTP status is {response.status}.")
+                data: Dict[str, Any] = await response.json()
+
+        endpoint: str = data["data"]["instanceServers"][0]["endpoint"]
+        token: str = data["data"]["token"]
+        ws_url: str = f"{endpoint}?token={token}&acceptUserMessage=true"
+        return WSConnectionContext(ws_url)
+
+    @staticmethod
+    async def update_subscription(ws: websockets.WebSocketClientProtocol,
+                                  stream_type: StreamType,
+                                  trading_pairs: Set[str],
+                                  subscribe: bool):
+        subscribe_request: Dict[str, Any]
+        market_str: str = ",".join(sorted(trading_pairs))
+        if stream_type == StreamType.Depth:
+            subscribe_request = {
+                "id": int(time.time()),
+                "type": "subscribe" if subscribe else "unsubscribe",
+                "topic": f"/market/level2:{market_str}",
+                "response": True
+            }
+        else:
+            subscribe_request = {
+                "id": int(time.time()),
+                "type": "subscribe" if subscribe else "unsubscribe",
+                "topic": f"/market/match:{market_str}",
+                "privateChannel": False,
+                "response": True
+            }
+        await ws.send(json.dumps(subscribe_request))
+        await asyncio.sleep(0.2)  # watch out for the rate limit
+
+    async def subscribe(self, stream_type: StreamType, trading_pairs: Set[str]):
+        await KucoinWSConnectionIterator.update_subscription(self.websocket, stream_type, trading_pairs, True)
+
+    async def unsubscribe(self, stream_type: StreamType, trading_pairs: Set[str]):
+        await KucoinWSConnectionIterator.update_subscription(self.websocket, stream_type, trading_pairs, False)
+
+    @property
+    def stream_type(self) -> StreamType:
+        return self._stream_type
+
+    @property
+    def trading_pairs(self) -> Set[str]:
+        return self._trading_pairs.copy()
+
+    @trading_pairs.setter
+    def trading_pairs(self, trading_pairs: Set[str]):
+        prev_trading_pairs = self._trading_pairs
+        self._trading_pairs = trading_pairs.copy()
+
+        if prev_trading_pairs != trading_pairs and self._websocket is not None:
+            unsubscribe_set: Set[str] = prev_trading_pairs - trading_pairs
+            subscribe_set: Set[str] = trading_pairs - prev_trading_pairs
+            if len(unsubscribe_set) > 0:
+                await self.unsubscribe(self.stream_type, unsubscribe_set)
+            if len(subscribe_set) > 0:
+                await self.subscribe(self.stream_type, subscribe_set)
+
+    @property
+    def websocket(self) -> Optional[websockets.WebSocketClientProtocol]:
+        return self._websocket
+
+    @property
+    def ping_task(self) -> Optional[asyncio.Task]:
+        return self._ping_task
+
+    def get_nonce(self) -> int:
+        now_ms: int = int(time.time() * 1e3)
+        if now_ms <= self._last_nonce:
+            now_ms = self._last_nonce + 1
+        self._last_nonce = now_ms
+        return now_ms
+
+    async def _ping_loop(self, interval_secs: float):
+        ws: websockets.WebSocketClientProtocol = self.websocket
+
+        while True:
+            try:
+                if not ws.closed:
+                    await ws.ensure_open()
+                    ping_msg: Dict[str, Any] = {
+                        "id": self.get_nonce(),
+                        "type": "ping"
+                    }
+                    await ws.send(json.dumps(ping_msg))
+            except websockets.exceptions.ConnectionClosedError:
+                pass
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                raise
+            await asyncio.sleep(interval_secs)
+
+    async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
+        # Terminate the recv() loop as soon as the next message timed out, so the outer loop can disconnect.
+        try:
+            while True:
+                async with timeout(self.PING_TIMEOUT + self.PING_INTERVAL):
+                    yield await ws.recv()
+        except asyncio.TimeoutError:
+            self.logger().warning(f"Message recv() timed out. "
+                                  f"Stream type = {self.stream_type},"
+                                  f"Trading pairs = {self.trading_pairs}.")
+            raise
+
+    async def __aiter__(self) -> AsyncIterable[Dict[str, any]]:
+        if self._websocket is not None:
+            raise EnvironmentError("Iterator already in use.")
+
+        # Get connection info and connect to Kucoin websocket.
+        ping_task: Optional[asyncio.Task] = None
+
+        try:
+            async with (await self.get_ws_connection_context()) as ws:
+                self._websocket = ws
+
+                # Subscribe to the initial topic.
+                await self.subscribe(self.stream_type, self.trading_pairs)
+
+                # Start the ping task
+                ping_task = safe_ensure_future(self._ping_loop(self.PING_INTERVAL))
+
+                # Get messages
+                async for raw_msg in self._inner_messages(ws):
+                    msg: Dict[str, any] = json.loads(raw_msg)
+                    yield msg
+        finally:
+            # Clean up.
+            if ping_task is not None:
+                ping_task.cancel()
 
 
 class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -143,44 +325,6 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
             order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
             return order_book
 
-    async def _inner_messages(self,
-                              ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
-        # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
-        try:
-            while True:
-                async with timeout(self.MESSAGE_TIMEOUT):
-                    yield await ws.recv()
-        except asyncio.TimeoutError:
-            self.logger().warning("Message recv() timed out. Going to reconnect...")
-            raise
-
-    # get required data to create a websocket request
-    async def ws_connect_data(self):
-        async with aiohttp.ClientSession() as session:
-            async with session.post('https://api.kucoin.com/api/v1/bullet-public', data=b'') as resp:
-                response: aiohttp.ClientResponse = resp
-                if response.status != 200:
-                    raise IOError(f"Error fetching Kucoin websocket connection data."
-                                  f"HTTP status is {response.status}.")
-                data: Dict[str, Any] = await response.json()
-                return data
-
-    async def _send_ping(self, interval_secs: int, ws: websockets.WebSocketClientProtocol):
-        ping_msg: Dict[str, Any] = {"id": 0, "type": "ping"}
-        while True:
-            try:
-                if not ws.closed:
-                    await ws.ensure_open()
-                    ping_msg["id"] = int(time.time())
-                    await ws.send(json.dumps(ping_msg))
-            except websockets.exceptions.ConnectionClosedError:
-                pass
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                raise
-            await asyncio.sleep(interval_secs)
-
     async def get_markets_per_ws_connection(self) -> List[str]:
         # Fetch the  markets and split per connection
         all_symbols: List[str] = await self.get_trading_pairs()
@@ -207,7 +351,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                         task_index: int, market_subset: str):
         self._tasks[stream_type][task_index] = {
             "markets": set(market_subset.split(',')),
-            "task": safe_ensure_future(self._outer_messages(stream_type, task_index, output))
+            "task": safe_ensure_future(self._collect_and_decode_messages_loop(stream_type, task_index, output))
         }
 
     async def _refresh_subscriptions(self, stream_type: StreamType, output: asyncio.Queue):
@@ -253,69 +397,38 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     self._tasks[stream_type][task_index]["task"].cancel()
             del self._tasks[stream_type]
 
-    async def _outer_messages(self, stream_type: StreamType, task_index: int, output: asyncio.Queue):
-        ping_task: Optional[asyncio.Task] = None
+    async def _collect_and_decode_messages_loop(self, stream_type: StreamType, task_index: int, output: asyncio.Queue):
         while True:
             try:
-                websocket_data: Dict[str, Any] = await self.ws_connect_data()
-                kucoin_ws_uri: str = websocket_data["data"]["instanceServers"][0]["endpoint"] + \
-                    "?token=" + websocket_data["data"]["token"] + "&acceptUserMessage=true"
-                # connects and writes data to the output queue
-                while True:
-                    try:
-                        market_set: Set[str] = self._tasks[stream_type][task_index]["markets"]
-                        market_string: str = ','.join(str(s) for s in market_set)
-                        async with websockets.connect(kucoin_ws_uri) as ws:
-                            ws: websockets.WebSocketClientProtocol = ws
-                            ping_task = safe_ensure_future(
-                                self._send_ping(KucoinAPIOrderBookDataSource.PING_INTERVAL, ws)
-                            )
+                local_market_set: Set[str] = self._tasks[stream_type][task_index]["markets"].copy()
+                kucoin_msg_iterator: KucoinWSConnectionIterator = KucoinWSConnectionIterator(
+                    stream_type, local_market_set
+                )
+                async for raw_msg in kucoin_msg_iterator:
+                    msg_type: str = raw_msg.get("type", "")
+                    if msg_type in {"ack", "welcome", "pong"}:
+                        pass
+                    elif msg_type == "message":
+                        if stream_type == StreamType.Depth:
+                            order_book_message: OrderBookMessage = KucoinOrderBook.diff_message_from_exchange(raw_msg)
+                        else:
+                            trading_pair: str = raw_msg["data"]["symbol"]
+                            data = raw_msg["data"]
+                            order_book_message: OrderBookMessage = \
+                                KucoinOrderBook.trade_message_from_exchange(
+                                    data,
+                                    metadata={"trading_pair": trading_pair}
+                                )
+                        output.put_nowait(order_book_message)
+                    else:
+                        self.logger().warning(f"Unrecognized message type from Kucoin: {msg_type}. "
+                                              f"Message = {raw_msg}.")
 
-                            # subscribe to initial market list for this connection
-                            await self._subscribe(ws, stream_type, market_string)
+                    local_market_set = self._tasks[stream_type][task_index]["markets"].copy()
+                    if kucoin_msg_iterator.trading_pairs != local_market_set:
+                        kucoin_msg_iterator.trading_pairs = local_market_set
 
-                            async for raw_msg in self._inner_messages(ws):
-                                msg: Dict[str, Any] = json.loads(raw_msg)
-                                if msg["type"] in ("ack", "welcome", "pong"):
-                                    pass
-                                elif msg["type"] == "message":
-                                    if stream_type == StreamType.Depth:
-                                        order_book_message: OrderBookMessage = KucoinOrderBook.diff_message_from_exchange(msg)
-                                    else:
-                                        trading_pair: str = msg["data"]["symbol"]
-                                        data = msg["data"]
-                                        order_book_message: OrderBookMessage = \
-                                            KucoinOrderBook.trade_message_from_exchange(
-                                                data,
-                                                metadata={"trading_pair": trading_pair}
-                                            )
-                                    output.put_nowait(order_book_message)
-                                else:
-                                    # self.logger().error(f"Unrecognized message received from Kucoin websocket: {msg}")
-                                    self.logger().debug(f"Unrecognized message received from Kucoin websocket: {msg}")
-
-                                # unsubscribe from any unneeded markets
-                                markets_to_unsubscribe: Set[str] = market_set - self._tasks[stream_type][task_index]["markets"]
-                                for market in markets_to_unsubscribe:
-                                    await self._unsubscribe(ws, stream_type, market)
-                                market_set -= markets_to_unsubscribe
-
-                                # subscribe to any new markets
-                                markets_to_subscribe: Set[str] = self._tasks[stream_type][task_index]["markets"] - market_set
-                                for market in markets_to_subscribe:
-                                    await self._subscribe(ws, stream_type, market)
-                                market_set |= markets_to_subscribe
-
-                    except asyncio.CancelledError:
-                        self.logger().info("Task Cancelled")
-                        raise
-                    except asyncio.TimeoutError:
-                        raise
-                    finally:
-                        if ping_task is not None and not ping_task.done():
-                            ping_task.cancel()
             except asyncio.CancelledError:
-                self.logger().info("Task Cancelled")
                 raise
             except asyncio.TimeoutError:
                 self.logger().error("Timeout error with WebSocket connection. Retrying after 5 seconds...",
@@ -325,33 +438,6 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().error("Unexpected exception with WebSocket connection. Retrying after 5 seconds...",
                                     exc_info=True)
                 await asyncio.sleep(5.0)
-
-    async def _update_subscription(self, ws: websockets.WebSocketClientProtocol, stream_type: StreamType, market: str,
-                                   subscribe: bool):
-        subscribe_request: Dict[str, Any]
-        if stream_type == StreamType.Depth:
-            subscribe_request = {
-                "id": int(time.time()),
-                "type": "subscribe" if subscribe else "unsubscribe",
-                "topic": f"/market/level2:{market}",
-                "response": True
-            }
-        else:
-            subscribe_request = {
-                "id": int(time.time()),
-                "type": "subscribe" if subscribe else "unsubscribe",
-                "topic": f"/market/match:{market}",
-                "privateChannel": False,
-                "response": True
-            }
-        await ws.send(json.dumps(subscribe_request))
-        await asyncio.sleep(0.2)  # watch out for the rate limit
-
-    async def _subscribe(self, ws: websockets.WebSocketClientProtocol, stream_type: StreamType, market: str):
-        await self._update_subscription(ws, stream_type, market, True)
-
-    async def _unsubscribe(self, ws: websockets.WebSocketClientProtocol, stream_type: StreamType, market: str):
-        await self._update_subscription(ws, stream_type, market, False)
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
