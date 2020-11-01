@@ -219,7 +219,7 @@ class AmmArbStrategy(StrategyPyBase):
                          f"{proposal.profit_pct():.2%}")
         return lines
 
-    def format_status(self) -> str:
+    async def format_status_async(self) -> str:
         """
         Returns a status string formatted to display nicely on terminal. The strings composes of 4 parts: markets,
         assets, profitability and warnings(if any).
@@ -232,8 +232,8 @@ class AmmArbStrategy(StrategyPyBase):
         data = []
         for market_info in [self._market_info_1, self._market_info_2]:
             market, trading_pair, base_asset, quote_asset = market_info
-            buy_price = market.get_quote_price(trading_pair, True, self._order_amount)
-            sell_price = market.get_quote_price(trading_pair, False, self._order_amount)
+            buy_price = await market.get_quote_price(trading_pair, True, self._order_amount)
+            sell_price = await market.get_quote_price(trading_pair, False, self._order_amount)
             mid_price = (buy_price + sell_price) / 2
             data.append([
                 market.display_name,
