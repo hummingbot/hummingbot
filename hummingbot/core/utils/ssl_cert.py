@@ -1,5 +1,5 @@
-from os import listdir
-from os.path import join
+from os import listdir, remove
+from os.path import join, isfile
 from datetime import datetime, timedelta
 from cryptography import x509
 from cryptography.x509.oid import NameOID
@@ -228,5 +228,8 @@ def create_self_sign_certs(enabled = 'no'):
         except Exception as e:
             raise Exception(e.output)
     else:
-        # TODO: condition for future certs re-generate, removal, etc ops
-        pass
+        # remove existing cert when disabling gateway
+        for f in listdir(CERT_FILE_PATH):
+            f_path = join(CERT_FILE_PATH, f)
+            if isfile(f_path):
+                remove(f_path)
