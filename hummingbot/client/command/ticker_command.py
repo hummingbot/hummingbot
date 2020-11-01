@@ -46,12 +46,13 @@ class TickerCommand:
                 float(market_connector.get_price_by_type(trading_pair, PriceType.LastTrade))
             ]]
             ticker_df = pd.DataFrame(data=data, columns=columns).to_string(index=False)
-            return f"   Market: {market_connector.name}\n  {ticker_df}\n\n Press escape key to stop update."
+            return f"   Market: {market_connector.name}\n  {ticker_df}"
 
         if live:
+            await self.stop_live_update()
             self.app.live_updates = True
             while self.app.live_updates:
-                await self.cls_display_delay(get_ticker(), 1)
+                await self.cls_display_delay(get_ticker() + "\n\n Press escape key to stop update.", 1)
             self._notify("Stopped live ticker display update.")
         else:
             self._notify(get_ticker())

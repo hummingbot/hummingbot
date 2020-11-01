@@ -45,12 +45,13 @@ class OrderBookCommand:
             joined_df = pd.concat([bids, asks], axis=1)
             text_lines = ["    " + line for line in joined_df.to_string(index=False).split("\n")]
             header = f"  market: {market_connector.name} {trading_pair}\n"
-            return header + "\n".join(text_lines) + "\n\n Press escape key to stop update."
+            return header + "\n".join(text_lines)
 
         if live:
+            await self.stop_live_update()
             self.app.live_updates = True
             while self.app.live_updates:
-                await self.cls_display_delay(get_order_book(min(lines, 35)), 0.5)
+                await self.cls_display_delay(get_order_book(min(lines, 35)) + "\n\n Press escape key to stop update.", 0.5)
             self._notify("Stopped live orderbook display update.")
         else:
             self._notify(get_order_book(lines))

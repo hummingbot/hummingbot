@@ -103,15 +103,15 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
         connector_dirs = [f for f in scandir(type_dir.path) if f.is_dir()]
         for connector_dir in connector_dirs:
             if connector_dir.name.startswith("_") or \
-                    connector_dir.name in connector_exceptions or \
-                    not any(f.name == f"{connector_dir.name}_utils.py" for f in scandir(connector_dir.path)):
+                    connector_dir.name in connector_exceptions:
                 continue
             if connector_dir.name in connector_settings:
                 raise Exception(f"Multiple connectors with the same {connector_dir.name} name.")
             path = f"hummingbot.connector.{type_dir.name}.{connector_dir.name}.{connector_dir.name}_utils"
-            util_module = importlib.import_module(path)
-            if util_module is None:
-                raise Exception(f"{path} does not exist.")
+            try:
+                util_module = importlib.import_module(path)
+            except ModuleNotFoundError:
+                continue
             fee_type = TradeFeeType.Percent
             fee_type_setting = getattr(util_module, "FEE_TYPE", None)
             if fee_type_setting is not None:
