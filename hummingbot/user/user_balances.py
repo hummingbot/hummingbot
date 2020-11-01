@@ -1,4 +1,4 @@
-from hummingbot.core.utils.market_mid_price import get_mid_price
+from hummingbot.core.utils.market_price import get_mid_price
 from hummingbot.client.settings import CONNECTOR_SETTINGS
 from hummingbot.client.config.security import Security
 from hummingbot.client.config.config_helpers import get_connector_class
