@@ -55,8 +55,6 @@ debug.log
 /*.egg-info
 *.whl
 
-# Cert files
-/certs
 
 # VSCode
 .vscode/
@@ -65,5 +63,7 @@ debug.log
 # Documentation build dir
 /documentation/site/
 
-# CA Certs
+# Gateway API files
+/certs
 *.pem
+gateway.env
