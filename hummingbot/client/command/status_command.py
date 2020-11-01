@@ -118,6 +118,7 @@ class StatusCommand:
 
         if self.strategy is not None:
             if live:
+                await self.stop_live_update()
                 self.app.live_updates = True
                 while self.app.live_updates:
                     await self.cls_display_delay(self.strategy_status() + "\n\n Press escape key to stop update.", 1)
