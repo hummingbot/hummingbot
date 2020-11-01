@@ -20,7 +20,7 @@ from hummingbot.client.config.config_helpers import (
 from hummingbot.client.settings import (
     STRATEGIES,
     SCRIPTS_PATH,
-    ethereum_wallet_required
+    ethereum_gas_station_required
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.kill_switch import KillSwitch
@@ -116,7 +116,7 @@ class StartCommand:
                     self.clock.add_iterator(self._script_iterator)
                     self._notify(f"Script ({script_file}) started.")
 
-            if global_config_map["ethgasstation_gas_enabled"].value and ethereum_wallet_required():
+            if global_config_map["ethgasstation_gas_enabled"].value and ethereum_gas_station_required():
                 EthGasStationLookup.get_instance().start()
 
             self.strategy_task: asyncio.Task = safe_ensure_future(self._run_clock(), loop=self.ev_loop)

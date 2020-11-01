@@ -20,7 +20,12 @@ from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.client.errors import InvalidCommandError, ArgumentParserError
 from hummingbot.client.config.global_config_map import global_config_map, using_wallet
-from hummingbot.client.config.config_helpers import get_erc20_token_addresses, get_strategy_config_map, get_connector_class
+from hummingbot.client.config.config_helpers import (
+    get_erc20_token_addresses,
+    get_strategy_config_map,
+    get_connector_class,
+    get_eth_wallet_private_key,
+)
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
 from hummingbot.core.utils.kill_switch import KillSwitch
@@ -192,7 +197,7 @@ class HummingbotApplication(*commands):
         ethereum_wallet = global_config_map.get("ethereum_wallet").value
         private_key = Security._private_keys[ethereum_wallet]
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
-        erc20_token_addresses = get_erc20_token_addresses(token_trading_pairs)
+        erc20_token_addresses = get_erc20_token_addresses(token_trading_pairs).values()
 
         chain_name: str = global_config_map.get("ethereum_chain_name").value
         self.wallet: Web3Wallet = Web3Wallet(
@@ -203,8 +208,6 @@ class HummingbotApplication(*commands):
         )
 
     def _initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
-        ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
-
         # aggregate trading_pairs if there are duplicate markets
         market_trading_pairs_map = {}
         for market_name, trading_pairs in market_names:
@@ -230,8 +233,14 @@ class HummingbotApplication(*commands):
                 init_params = conn_setting.conn_init_parameters(keys)
                 init_params.update(trading_pairs=trading_pairs, trading_required=self._trading_required)
                 if conn_setting.use_ethereum_wallet:
-                    assert self.wallet is not None
-                    init_params.update(wallet=self.wallet, ethereum_rpc_url=ethereum_rpc_url)
+                    ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
+                    # Todo: Hard coded this execption for now until we figure out how to handle all ethereum connecotrs.
+                    if connector_name == "balancer":
+                        private_key = get_eth_wallet_private_key()
+                        init_params.update(wallet_private_key=private_key, ethereum_rpc_url=ethereum_rpc_url)
+                    else:
+                        assert self.wallet is not None
+                        init_params.update(wallet=self.wallet, ethereum_rpc_url=ethereum_rpc_url)
                 connector_class = get_connector_class(connector_name)
                 connector = connector_class(**init_params)
 

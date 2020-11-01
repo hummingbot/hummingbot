@@ -52,7 +52,7 @@ class EthGasStationLookup(NetworkBase):
 
     def __init__(self):
         super().__init__()
-        self._gas_prices: Dict[str, int] = {}
+        self._gas_prices: Dict[str, Decimal] = {}
         self._async_task = None
 
     @property
@@ -83,9 +83,11 @@ class EthGasStationLookup(NetworkBase):
                     resp_data: Dict[str, Any] = await response.json()
                     for key, value in resp_data.items():
                         if key in GasLevel.__members__:
-                            self._gas_prices[GasLevel[key]] = int(value)
+                            self._gas_prices[GasLevel[key]] = Decimal(str(value)) / Decimal("10")
                     prices_str = ', '.join([k.name + ': ' + str(v) for k, v in self._gas_prices.items()])
                     self.logger().info(f"Gas: [{prices_str}]")
+                    self.logger().info(f"Estimated gas used per transaction ({self.gas_level.name}): "
+                                       f"{get_gas_price(False)} ETH")
                     await asyncio.sleep(self.refresh_time)
             except asyncio.CancelledError:
                 raise
