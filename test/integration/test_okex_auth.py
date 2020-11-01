@@ -1,7 +1,4 @@
 import unittest
-# from typing import List
-
-# import websockets
 
 from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
 from unittest import mock
