@@ -6,7 +6,7 @@ from typing import Dict, Any, List, Optional
 import json
 import time
 import ssl
-
+import copy
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.network_iterator import NetworkStatus
@@ -87,6 +87,7 @@ class BalancerConnector(ConnectorBase):
         self._allowances = {}
         self._status_polling_task = None
         self._auto_approve_task = None
+        self._real_time_balance_update = False
 
     @property
     def name(self):
@@ -196,7 +197,7 @@ class BalancerConnector(ConnectorBase):
                 tracked_order.fee_asset = "ETH"
                 tracked_order.executed_amount_base = amount
                 tracked_order.executed_amount_quote = amount * price
-                tracked_order.fee_paid = Decimal(str(order_result["gasUsed"])) * gas_price * 1e-9
+                tracked_order.fee_paid = Decimal(str(order_result["gasUsed"])) * gas_price / Decimal(str(1e9))
                 event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
                 event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
                 self.trigger_event(event_tag, event_class(self.current_timestamp, OrderType.LIMIT, trading_pair, amount,
@@ -364,6 +365,9 @@ class BalancerConnector(ConnectorBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
+        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
+        self._in_flight_orders_snapshot_timestamp = self.current_timestamp
+
     async def _http_client(self) -> aiohttp.ClientSession:
         """
         :returns Shared client session instance
@@ -390,6 +394,7 @@ class BalancerConnector(ConnectorBase):
         base_url = f"https://{global_config_map['gateway_api_host'].value}:" \
                    f"{global_config_map['gateway_api_port'].value}"
         url = f"{base_url}/{path_url}"
+        self.logger().info(f"REQUEST: {method} {path_url} {params}")
         client = await self._http_client()
         if method == "get":
             if len(params) > 0:
@@ -410,13 +415,19 @@ class BalancerConnector(ConnectorBase):
         except Exception as e:
             raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
         if response.status != 200:
-            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. "
-                          f"Message: {parsed_response}")
+            err_msg = ""
+            if "error" in parsed_response:
+                err_msg = f" Message: {parsed_response['error']}"
+            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.{err_msg}")
         if "error" in parsed_response:
             raise Exception(f"Error: {parsed_response['error']}")
-        # self.logger().info(f"REQUEST: {method} {path_url} {params}")
-        # self.logger().info(f"RESPONSE: {parsed_response}")
+
+        self.logger().info(f"RESPONSE: {parsed_response}")
         return parsed_response
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         return []
+
+    @property
+    def in_flight_orders(self) -> Dict[str, BalancerInFlightOrder]:
+        return self._in_flight_orders
