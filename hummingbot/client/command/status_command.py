@@ -4,6 +4,7 @@ from collections import (
     deque,
     OrderedDict
 )
+import inspect
 from typing import List, Dict
 from hummingbot import check_dev_mode
 from hummingbot.logger.application_warning import ApplicationWarning
@@ -72,9 +73,8 @@ class StatusCommand:
             else ""
         app_warning = self.application_warning()
         app_warning = "" if app_warning is None else app_warning
-        st_status = ""
-        if getattr(self.strategy, "format_status_async", None) is not None:
-            st_status = await self.strategy.format_status_async()
+        if inspect.iscoroutinefunction(self.strategy.format_status):
+            st_status = await self.strategy.format_status()
         else:
             st_status = self.strategy.format_status()
         status = paper_trade + "\n" + st_status + "\n" + app_warning

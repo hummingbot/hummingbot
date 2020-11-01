@@ -76,6 +76,3 @@ cdef class StrategyPyBase(StrategyBase):
 
     def did_complete_sell_order(self, order_completed_event):
         pass
-
-    async def format_status_async(self):
-        raise NotImplementedError
