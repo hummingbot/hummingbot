@@ -79,6 +79,7 @@ class HummingbotApplication(*commands):
         self.market_pair: Optional[CrossExchangeMarketPair] = None
         self.market_trading_pair_tuples: List[MarketTradingPairTuple] = []
         self.clock: Optional[Clock] = None
+        self.market_trading_pairs_map = {}
 
         self.init_time: float = time.time()
         self.start_time: Optional[int] = None
@@ -209,14 +210,14 @@ class HummingbotApplication(*commands):
 
     def _initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
         # aggregate trading_pairs if there are duplicate markets
-        market_trading_pairs_map = {}
-        for market_name, trading_pairs in market_names:
-            if market_name not in market_trading_pairs_map:
-                market_trading_pairs_map[market_name] = []
-            for hb_trading_pair in trading_pairs:
-                market_trading_pairs_map[market_name].append(hb_trading_pair)
 
-        for connector_name, trading_pairs in market_trading_pairs_map.items():
+        for market_name, trading_pairs in market_names:
+            if market_name not in self.market_trading_pairs_map:
+                self.market_trading_pairs_map[market_name] = []
+            for hb_trading_pair in trading_pairs:
+                self.market_trading_pairs_map[market_name].append(hb_trading_pair)
+
+        for connector_name, trading_pairs in self.market_trading_pairs_map.items():
             conn_setting = CONNECTOR_SETTINGS[connector_name]
             if global_config_map.get("paper_trade_enabled").value and conn_setting.type == ConnectorType.Exchange:
                 try:

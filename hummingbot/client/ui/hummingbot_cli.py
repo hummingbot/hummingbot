@@ -15,7 +15,11 @@ from hummingbot.client.ui.layout import (
     create_output_field,
     create_search_field,
     generate_layout,
+    create_timer,
+    create_process_monitor,
+    create_trade_monitor
 )
+from hummingbot.client.ui.interface_utils import start_timer, start_process_monitor, start_trade_monitor
 from hummingbot.client.ui.style import load_style
 import logging
 
@@ -39,7 +43,10 @@ class HummingbotCLI:
         self.input_field = create_input_field(completer=completer)
         self.output_field = create_output_field()
         self.log_field = create_log_field(self.search_field)
-        self.layout = generate_layout(self.input_field, self.output_field, self.log_field, self.search_field)
+        self.timer = create_timer()
+        self.process_usage = create_process_monitor()
+        self.trade_monitor = create_trade_monitor()
+        self.layout = generate_layout(self.input_field, self.output_field, self.log_field, self.search_field, self.timer, self.process_usage, self.trade_monitor)
         # add self.to_stop_config to know if cancel is triggered
         self.to_stop_config: bool = False
 
@@ -55,6 +62,12 @@ class HummingbotCLI:
         self.pending_input = None
         self.input_event = None
         self.hide_input = False
+
+        # start ui tasks
+        loop = asyncio.get_event_loop()
+        loop.create_task(start_timer(self.timer))
+        loop.create_task(start_process_monitor(self.process_usage))
+        loop.create_task(start_trade_monitor(self.trade_monitor))
 
     async def run(self):
         await self.app.run_async()
@@ -82,7 +95,10 @@ class HummingbotCLI:
 
     def log(self, text: str, save_log: bool = True):
         if save_log:
-            self.output_field.log(text)
+            if self.live_updates:
+                self.output_field.log(text, silent=True)
+            else:
+                self.output_field.log(text)
         else:
             self.output_field.log(text, save_log=False)
 

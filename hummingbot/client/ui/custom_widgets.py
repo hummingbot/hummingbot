@@ -18,7 +18,7 @@ from prompt_toolkit.filters import (
     has_focus,
     is_done,
 )
-from prompt_toolkit.layout.containers import Window
+from prompt_toolkit.layout.containers import Window, WindowAlign
 from prompt_toolkit.layout.controls import BufferControl
 from prompt_toolkit.layout.margins import (
     ScrollbarMargin,
@@ -54,7 +54,7 @@ class CustomTextArea:
                  dont_extend_height=False, dont_extend_width=False,
                  line_numbers=False, get_line_prefix=None, scrollbar=False,
                  style='', search_field=None, preview_search=True, prompt='',
-                 input_processors=None, max_line_count=1000, initial_text=""):
+                 input_processors=None, max_line_count=1000, initial_text="", align=WindowAlign.LEFT):
         assert isinstance(text, six.text_type)
         assert search_field is None or isinstance(search_field, SearchToolbar)
 
@@ -129,7 +129,8 @@ class CustomTextArea:
             wrap_lines=Condition(lambda: is_true(self.wrap_lines)),
             left_margins=left_margins,
             right_margins=right_margins,
-            get_line_prefix=get_line_prefix)
+            get_line_prefix=get_line_prefix,
+            align=align)
 
         self.log_lines: Deque[str] = deque()
         self.log(initial_text)
@@ -170,7 +171,7 @@ class CustomTextArea:
     def __pt_container__(self):
         return self.window
 
-    def log(self, text: str, save_log: bool = True):
+    def log(self, text: str, save_log: bool = True, silent: bool = False):
         # Getting the max width of the window area
         if self.window.render_info is None:
             max_width = 100
@@ -194,4 +195,5 @@ class CustomTextArea:
             new_text: str = "\n".join(self.log_lines)
         else:
             new_text: str = "\n".join(new_lines)
-        self.buffer.document = Document(text=new_text, cursor_position=len(new_text))
+        if not silent:
+            self.buffer.document = Document(text=new_text, cursor_position=len(new_text))
