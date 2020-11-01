@@ -50,6 +50,10 @@ eterbase_account: null
 bitfinex_api_key: null
 bitfinex_secret_key: null
 
+okex_api_key: null
+okex_secret_key: null
+okex_passphrase: null
+
 celo_address: null
 celo_password: null
 
