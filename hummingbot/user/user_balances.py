@@ -1,9 +1,11 @@
 from hummingbot.core.utils.market_price import get_mid_price
 from hummingbot.client.settings import CONNECTOR_SETTINGS
 from hummingbot.client.config.security import Security
-from hummingbot.client.config.config_helpers import get_connector_class
+from hummingbot.client.config.config_helpers import get_connector_class, get_eth_wallet_private_key
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.connector.connector.balancer.balancer_connector import BalancerConnector
+from hummingbot.client.settings import ethereum_required_trading_pairs
 from typing import Optional, Dict, List
 from decimal import Decimal
 
@@ -105,6 +107,16 @@ class UserBalances:
         balance = web3.eth.getBalance(ethereum_wallet)
         balance = web3.fromWei(balance, "ether")
         return balance
+
+    @staticmethod
+    async def eth_n_erc20_balances() -> Dict[str, Decimal]:
+        ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
+        connector = BalancerConnector(ethereum_required_trading_pairs(),
+                                      get_eth_wallet_private_key(),
+                                      ethereum_rpc_url,
+                                      True)
+        await connector._update_balances()
+        return connector.get_all_balances()
 
     @staticmethod
     def validate_ethereum_wallet() -> Optional[str]:

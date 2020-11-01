@@ -1,12 +1,12 @@
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     validate_connector,
-    validate_market_trading_pair,
     validate_decimal,
     validate_bool
 )
 from hummingbot.client.settings import (
     required_exchanges,
+    requried_connector_trading_pairs,
     EXAMPLE_PAIRS,
 )
 from decimal import Decimal
@@ -14,6 +14,14 @@ from decimal import Decimal
 
 def exchange_on_validated(value: str) -> None:
     required_exchanges.append(value)
+
+
+def market_1_on_validated(value: str) -> None:
+    requried_connector_trading_pairs[amm_arb_config_map["connector_1"].value] = [value]
+
+
+def market_2_on_validated(value: str) -> None:
+    requried_connector_trading_pairs[amm_arb_config_map["connector_2"].value] = [value]
 
 
 def market_1_prompt() -> str:
@@ -51,7 +59,7 @@ amm_arb_config_map = {
         key="market_1",
         prompt=market_1_prompt,
         prompt_on_new=True,
-        validator=lambda x: validate_market_trading_pair(amm_arb_config_map["connector_1"].value, x)),
+        on_validated=market_1_on_validated),
     "connector_2": ConfigVar(
         key="connector_2",
         prompt="Enter your second connector (exchange/AMM) >>> ",
@@ -62,7 +70,7 @@ amm_arb_config_map = {
         key="market_2",
         prompt=market_2_prompt,
         prompt_on_new=True,
-        validator=lambda x: validate_market_trading_pair(amm_arb_config_map["connector_2"].value, x)),
+        on_validated=market_2_on_validated),
     "order_amount": ConfigVar(
         key="order_amount",
         prompt=order_amount_prompt,
