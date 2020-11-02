@@ -1,10 +1,17 @@
 #!/usr/bin/env python
 
-import asyncio
-import json
 import aiohttp
+import asyncio
+from async_timeout import timeout
+import cachetools.func
+from collections import defaultdict
+from decimal import Decimal
+from enum import Enum
+import json
 import logging
 import pandas as pd
+import requests
+import time
 from typing import (
     Any,
     AsyncIterable,
@@ -13,14 +20,8 @@ from typing import (
     Optional,
     DefaultDict,
     Set,
+    Tuple,
 )
-from collections import defaultdict
-from enum import Enum
-from async_timeout import timeout
-import time
-from decimal import Decimal
-import requests
-import cachetools.func
 import websockets
 from websockets.client import Connect as WSConnectionContext
 
@@ -67,6 +68,8 @@ class KucoinWSConnectionIterator:
        `PING_TIMEOUT + PING_INTERVAL`.
      5. If the iterator exits for any reason, including any failures or timeout - stop and clean up the automatic ping
         task.
+
+    The trading pairs subscription can be updated dynamically by assigning into the `trading_pairs` property.
 
     Note that this iterator does NOT come with any error handling logic or built-in resilience by itself. It is expected
     that the caller of the iterator should handle all errors from the iterator.
@@ -238,6 +241,35 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     _kaobds_logger: Optional[HummingbotLogger] = None
 
+    class TaskEntry:
+        __slots__ = ("__weakref__", "_trading_pairs", "_task", "_message_iterator")
+
+        def __init__(self, trading_pairs: Set[str], task: asyncio.Task):
+            self._trading_pairs: Set[str] = trading_pairs.copy()
+            self._task: asyncio.Task = task
+            self._message_iterator: Optional[KucoinWSConnectionIterator] = None
+
+        @property
+        def trading_pairs(self) -> Set[str]:
+            return self._trading_pairs.copy()
+
+        @property
+        def task(self) -> asyncio.Task:
+            return self._task
+
+        @property
+        def message_iterator(self) -> Optional[KucoinWSConnectionIterator]:
+            return self._message_iterator
+
+        @message_iterator.setter
+        def message_iterator(self, msg_iter: KucoinWSConnectionIterator):
+            self._message_iterator = msg_iter
+
+        def update_trading_pairs(self, trading_pairs: Set[str]):
+            self._trading_pairs = trading_pairs.copy()
+            if self._message_iterator is not None:
+                self._message_iterator.trading_pairs = self._trading_pairs
+
     @classmethod
     def logger(cls) -> HummingbotLogger:
         if cls._kaobds_logger is None:
@@ -247,7 +279,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def __init__(self, trading_pairs: List[str]):
         super().__init__(trading_pairs)
         self._order_book_create_function = lambda: OrderBook()
-        self._tasks: DefaultDict[StreamType, Dict[int, Dict[str, Any]]] = defaultdict(dict)
+        self._tasks: DefaultDict[StreamType, Dict[int, KucoinAPIOrderBookDataSource.TaskEntry]] = defaultdict(dict)
 
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
@@ -347,12 +379,15 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                                  task_index,
                                                  market_subset)
 
-    async def _start_single_update_task(self, stream_type: StreamType, output: asyncio.Queue,
-                                        task_index: int, market_subset: str):
-        self._tasks[stream_type][task_index] = {
-            "markets": set(market_subset.split(',')),
-            "task": safe_ensure_future(self._collect_and_decode_messages_loop(stream_type, task_index, output))
-        }
+    async def _start_single_update_task(self,
+                                        stream_type: StreamType,
+                                        output: asyncio.Queue,
+                                        task_index: int,
+                                        market_subset: str):
+        self._tasks[stream_type][task_index] = self.TaskEntry(
+            set(market_subset.split(',')),
+            safe_ensure_future(self._collect_and_decode_messages_loop(stream_type, task_index, output))
+        )
 
     async def _refresh_subscriptions(self, stream_type: StreamType, output: asyncio.Queue):
         """
@@ -362,27 +397,34 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         all_symbols: List[str] = await self.get_trading_pairs()
         all_symbols_set: Set[str] = set(all_symbols)
+        pending_trading_pair_updates: Dict[Tuple[StreamType, int], Set[str]] = {}
 
         # removals
         # remove any markets in current connections that are not present in the new master set
         for task_index in self._tasks[stream_type]:
-            self._tasks[stream_type][task_index]["markets"] &= all_symbols_set
+            update_key: Tuple[StreamType, int] = (stream_type, task_index)
+            if update_key not in pending_trading_pair_updates:
+                pending_trading_pair_updates[update_key] = self._tasks[stream_type][task_index].trading_pairs
+            pending_trading_pair_updates[update_key] &= all_symbols_set
 
         # additions
         # from the new set of trading pairs, delete any items that are in the connections already
         for task_index in self._tasks[stream_type]:
-            all_symbols_set -= self._tasks[stream_type][task_index]["markets"]
+            all_symbols_set -= self._tasks[stream_type][task_index].trading_pairs
 
         # now all_symbols_set contains just the additions, add each of those to the shortest connection list
         for market in all_symbols_set:
             smallest_index: int = 0
             smallest_set_size: int = self.SYMBOLS_PER_CONNECTION + 1
             for task_index in self._tasks[stream_type]:
-                if len(self._tasks[stream_type][task_index]["markets"]) < smallest_set_size:
+                if len(self._tasks[stream_type][task_index].trading_pairs) < smallest_set_size:
                     smallest_index = task_index
-                    smallest_set_size = len(self._tasks[stream_type][task_index]["markets"])
+                    smallest_set_size = len(self._tasks[stream_type][task_index].trading_pairs)
             if smallest_set_size < self.SYMBOLS_PER_CONNECTION:
-                self._tasks[stream_type][smallest_index]["markets"].add(market)
+                update_key: Tuple[StreamType, int] = (stream_type, smallest_index)
+                if update_key not in pending_trading_pair_updates:
+                    pending_trading_pair_updates[update_key] = self._tasks[stream_type][smallest_index].trading_pairs
+                pending_trading_pair_updates[update_key].add(market)
             else:
                 new_index: int = len(self._tasks[stream_type])
                 await self._start_single_update_task(stream_type=stream_type,
@@ -390,20 +432,24 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                                      task_index=new_index,
                                                      market_subset=market)
 
+        # update the trading pairs set for all task entries that have pending updates.
+        for (stream_type, task_index), trading_pairs in pending_trading_pair_updates.items():
+            self._tasks[stream_type][task_index].update_trading_pairs(trading_pairs)
+
     def _stop_update_tasks(self, stream_type: StreamType):
         if stream_type in self._tasks:
             for task_index in self._tasks[stream_type]:
-                if not self._tasks[stream_type][task_index]["task"].done():
-                    self._tasks[stream_type][task_index]["task"].cancel()
+                if not self._tasks[stream_type][task_index].task.done():
+                    self._tasks[stream_type][task_index].task.cancel()
             del self._tasks[stream_type]
 
     async def _collect_and_decode_messages_loop(self, stream_type: StreamType, task_index: int, output: asyncio.Queue):
         while True:
             try:
-                local_market_set: Set[str] = self._tasks[stream_type][task_index]["markets"].copy()
                 kucoin_msg_iterator: KucoinWSConnectionIterator = KucoinWSConnectionIterator(
-                    stream_type, local_market_set
+                    stream_type, self._tasks[stream_type][task_index].trading_pairs
                 )
+                self._tasks[stream_type][task_index].message_iterator = kucoin_msg_iterator
                 async for raw_msg in kucoin_msg_iterator:
                     msg_type: str = raw_msg.get("type", "")
                     if msg_type in {"ack", "welcome", "pong"}:
@@ -423,11 +469,6 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     else:
                         self.logger().warning(f"Unrecognized message type from Kucoin: {msg_type}. "
                                               f"Message = {raw_msg}.")
-
-                    local_market_set = self._tasks[stream_type][task_index]["markets"].copy()
-                    if kucoin_msg_iterator.trading_pairs != local_market_set:
-                        kucoin_msg_iterator.trading_pairs = local_market_set
-
             except asyncio.CancelledError:
                 raise
             except asyncio.TimeoutError:
@@ -438,6 +479,8 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().error("Unexpected exception with WebSocket connection. Retrying after 5 seconds...",
                                     exc_info=True)
                 await asyncio.sleep(5.0)
+            finally:
+                self._tasks[stream_type][task_index].message_iterator = None
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
