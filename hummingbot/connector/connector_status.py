@@ -18,12 +18,19 @@ connector_status = {
     'okex': 'red'
 }
 
+warning_messages = {
+    'eterbase': 'Hack investigation and security audit is ongoing for Eterbase. Trading is currently disabled.',
+    'okex': 'OKEx is reportedly being investigated by Chinese authorities and has stopped withdrawals.'
+}
+
 
 def get_connector_status(connector_name: str) -> str:
     """
-    Indicator whether a connector is working properly or not. UNKNOWN means the connector is not in the dict.
-    RED means a connector doesn't work, YELLOW means the connector is either new or has one or more issues.
-    GREEN means a connector is working properly. The connector_status dict is updated every new release.
+    Indicator whether a connector is working properly or not.
+    UNKNOWN means the connector is not in connector_status dict.
+    RED means a connector doesn't work.
+    YELLOW means the connector is either new or has one or more issues.
+    GREEN means a connector is working properly.
     """
     if connector_name not in connector_status.keys():
         status = "UNKNOWN"
