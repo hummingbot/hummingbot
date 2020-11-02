@@ -26,7 +26,7 @@ from hummingbot.core.utils.kill_switch import KillSwitch
 from typing import TYPE_CHECKING
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.script.script_iterator import ScriptIterator
-from hummingbot.connector.connector_status import get_connector_status
+from hummingbot.connector.connector_status import get_connector_status, warning_messages
 from hummingbot.client.config.config_helpers import get_strategy_config_map
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -79,20 +79,16 @@ class StartCommand:
         if global_config_map.get("paper_trade_enabled").value:
             self._notify("\nPaper Trading ON: All orders are simulated, and no real orders are placed.")
 
-        # Show warning message if the exchange connector has outstanding issues or not working
         connector = get_strategy_config_map(self.strategy_name).get("exchange").value
         status = get_connector_status(get_strategy_config_map(self.strategy_name).get("exchange").value)
 
-        # Display custom message for connectors on RED or YELLOW status
-        if connector == "okex":
-            custom_message = "OKEx is reportedly being investigated by Chinese authorities and has stopped withdrawals."
+        # Display custom warning message for specific connectors
+        warning_msg = warning_messages.get(connector, None)
+        if warning_msg is not None:
             self._notify(f"\nConnector status: {status}\n"
-                         f"{custom_message}.")
-        elif connector == "eterbase":
-            custom_message = "Hack investigation and security audit is ongoing for Eterbase. " \
-                             "Trading is currently disabled."
-            self._notify(f"\nConnector status: {status}\n"
-                         f"{custom_message}")
+                         f"{warning_msg}")
+
+        # Display warning message if the exchange connector has outstanding issues or not working
         elif status != "GREEN":
             self._notify(f"\nConnector status: {status}. This connector has one or more issues.\n"
                          "Refer to our Github page for more info: https://github.com/coinalpha/hummingbot")
