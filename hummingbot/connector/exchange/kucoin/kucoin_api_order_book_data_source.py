@@ -152,12 +152,14 @@ class KucoinWSConnectionIterator:
         self._trading_pairs = trading_pairs.copy()
 
         if prev_trading_pairs != trading_pairs and self._websocket is not None:
-            unsubscribe_set: Set[str] = prev_trading_pairs - trading_pairs
-            subscribe_set: Set[str] = trading_pairs - prev_trading_pairs
-            if len(unsubscribe_set) > 0:
-                await self.unsubscribe(self.stream_type, unsubscribe_set)
-            if len(subscribe_set) > 0:
-                await self.subscribe(self.stream_type, subscribe_set)
+            async def update_subscriptions_func():
+                unsubscribe_set: Set[str] = prev_trading_pairs - trading_pairs
+                subscribe_set: Set[str] = trading_pairs - prev_trading_pairs
+                if len(unsubscribe_set) > 0:
+                    await self.unsubscribe(self.stream_type, unsubscribe_set)
+                if len(subscribe_set) > 0:
+                    await self.subscribe(self.stream_type, subscribe_set)
+            safe_ensure_future(update_subscriptions_func())
 
     @property
     def websocket(self) -> Optional[websockets.WebSocketClientProtocol]:
