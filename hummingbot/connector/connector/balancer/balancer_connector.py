@@ -394,7 +394,7 @@ class BalancerConnector(ConnectorBase):
         base_url = f"https://{global_config_map['gateway_api_host'].value}:" \
                    f"{global_config_map['gateway_api_port'].value}"
         url = f"{base_url}/{path_url}"
-        self.logger().info(f"REQUEST: {method} {path_url} {params}")
+        # self.logger().info(f"REQUEST: {method} {path_url} {params}")
         client = await self._http_client()
         if method == "get":
             if len(params) > 0:
@@ -422,7 +422,7 @@ class BalancerConnector(ConnectorBase):
         if "error" in parsed_response:
             raise Exception(f"Error: {parsed_response['error']}")
 
-        self.logger().info(f"RESPONSE: {parsed_response}")
+        # self.logger().info(f"RESPONSE: {parsed_response}")
         return parsed_response
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:

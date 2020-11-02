@@ -1,5 +1,5 @@
-from os import listdir, remove
-from os.path import join, isfile
+from os import listdir
+from os.path import join
 from datetime import datetime, timedelta
 from cryptography import x509
 from cryptography.x509.oid import NameOID
@@ -8,7 +8,6 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from hummingbot import cert_path
-from distutils.util import strtobool
 
 CERT_FILE_PATH = cert_path()
 CERT_SUBJECT = [
@@ -154,82 +153,62 @@ def sign_csr(csr, ca_public_key, ca_private_key, filename):
         raise Exception(e.output)
 
 
-def create_self_sign_certs(enabled = 'no'):
-    """
-    Create self-sign CA Cert
-    """
-    ca_key_filename = 'ca_key.pem'
-    ca_cert_filename = 'ca_cert.pem'
-    server_key_filename = 'server_key.pem'
-    server_cert_filename = 'server_cert.pem'
-    server_csr_filename = 'server_csr.pem'
-    client_key_filename = 'client_key.pem'
-    client_cert_filename = 'client_cert.pem'
-    client_csr_filename = 'client_csr.pem'
+ca_key_filename = 'ca_key.pem'
+ca_cert_filename = 'ca_cert.pem'
+server_key_filename = 'server_key.pem'
+server_cert_filename = 'server_cert.pem'
+server_csr_filename = 'server_csr.pem'
+client_key_filename = 'client_key.pem'
+client_cert_filename = 'client_cert.pem'
+client_csr_filename = 'client_csr.pem'
 
-    # certs required for gateway
+
+def certs_files_exist() -> bool:
     required_certs = [ca_key_filename, ca_cert_filename,
                       server_key_filename, server_cert_filename,
                       client_key_filename, client_cert_filename]
 
-    filelist = listdir(CERT_FILE_PATH)
-    contain_required_certs = all(elem in filelist for elem in required_certs)
+    file_list = listdir(CERT_FILE_PATH)
+    return all(elem in file_list for elem in required_certs)
 
-    if strtobool(enabled) and not contain_required_certs:
 
-        # import only after global config has already been loaded to retrieve client_id
-        from hummingbot.client.config.global_config_map import global_config_map
+def create_self_sign_certs(pass_phase: str):
+    """
+    Create self-sign CA Cert
+    """
 
-        password = global_config_map["gateway_cert_passphrase"].value
-        # local certificate must be unencrypted. Currently, Requests does not support using encrypted keys.
-        client_password = None
+    # Create CA Private & Public Keys for signing
+    ca_private_key = generate_private_key(ca_key_filename, pass_phase)
+    generate_public_key(ca_private_key, ca_cert_filename)
 
-        if not password:
-            print("Error: Please set gateway_cert_passphrase and retry\nCert passphrase is required for Gateway SSL")
-            return
+    # Create Server Private & Public Keys for signing
+    server_private_key = generate_private_key(server_key_filename, pass_phase)
+    # Create CSR
+    generate_csr(server_private_key, server_csr_filename)
+    # Load CSR
+    server_csr_file = open(join(CERT_FILE_PATH, server_csr_filename), 'rb')
+    server_csr = x509.load_pem_x509_csr(server_csr_file.read(), default_backend())
 
-        # Create CA Private & Public Keys for signing
-        ca_private_key = generate_private_key(ca_key_filename, password)
-        generate_public_key(ca_private_key, ca_cert_filename)
+    # Create Client CSR
+    client_private_key = generate_private_key(client_key_filename, pass_phase)
+    # Create CSR
+    generate_csr(client_private_key, client_csr_filename)
+    # Load CSR
+    client_csr_file = open(join(CERT_FILE_PATH, client_csr_filename), 'rb')
+    client_csr = x509.load_pem_x509_csr(client_csr_file.read(), default_backend())
 
-        # Create Server Private & Public Keys for signing
-        server_private_key = generate_private_key(server_key_filename, password)
-        # Create CSR
-        generate_csr(server_private_key, server_csr_filename)
-        # Load CSR
-        server_csr_file = open(join(CERT_FILE_PATH, server_csr_filename), 'rb')
-        server_csr = x509.load_pem_x509_csr(server_csr_file.read(), default_backend())
+    # Load CA public key
+    ca_cert_file = open(join(CERT_FILE_PATH, ca_cert_filename), 'rb')
+    ca_cert = x509.load_pem_x509_certificate(ca_cert_file.read(), default_backend())
+    # Load CA private key
+    ca_key_file = open(join(CERT_FILE_PATH, ca_key_filename), 'rb')
+    ca_key = serialization.load_pem_private_key(
+        ca_key_file.read(),
+        pass_phase.encode('utf-8'),
+        default_backend(),
+    )
 
-        # Create Client CSR
-        client_private_key = generate_private_key(client_key_filename, client_password)
-        # Create CSR
-        generate_csr(client_private_key, client_csr_filename)
-        # Load CSR
-        client_csr_file = open(join(CERT_FILE_PATH, client_csr_filename), 'rb')
-        client_csr = x509.load_pem_x509_csr(client_csr_file.read(), default_backend())
-
-        # Load CA public key
-        ca_cert_file = open(join(CERT_FILE_PATH, ca_cert_filename), 'rb')
-        ca_cert = x509.load_pem_x509_certificate(ca_cert_file.read(), default_backend())
-        # Load CA private key
-        ca_key_file = open(join(CERT_FILE_PATH, ca_key_filename), 'rb')
-        ca_key = serialization.load_pem_private_key(
-            ca_key_file.read(),
-            password.encode('utf-8'),
-            default_backend(),
-        )
-
-        try:
-            # Sign Server Cert with CSR
-            sign_csr(server_csr, ca_cert, ca_key, server_cert_filename)
-            # Sign Client Cert with CSR
-            sign_csr(client_csr, ca_cert, ca_key, client_cert_filename)
-
-        except Exception as e:
-            raise Exception(e.output)
-    else:
-        # remove existing cert when disabling gateway
-        for f in listdir(CERT_FILE_PATH):
-            f_path = join(CERT_FILE_PATH, f)
-            if isfile(f_path):
-                remove(f_path)
+    # Sign Server Cert with CSR
+    sign_csr(server_csr, ca_cert, ca_key, server_cert_filename)
+    # Sign Client Cert with CSR
+    sign_csr(client_csr, ca_cert, ca_key, client_cert_filename)
