@@ -19,7 +19,7 @@ class BinancePerpetualOrderBookTrackerUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        cls.user_stream_tracker: BinancePerpetualUserStreamTracker = BinancePerpetualUserStreamTracker(api_key="")
+        cls.user_stream_tracker: BinancePerpetualUserStreamTracker = BinancePerpetualUserStreamTracker(api_key="", base_url="https://testnet.binancefuture.com", stream_url="wss://stream.binancefuture.com")
         cls.user_stream_tracker_task: asyncio.Task = safe_ensure_future(cls.user_stream_tracker.start())
 
     def test_user_stream(self):

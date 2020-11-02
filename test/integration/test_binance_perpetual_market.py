@@ -8,8 +8,6 @@ from typing import List
 
 from hummingbot.core.clock import Clock
 from hummingbot.core.clock_mode import ClockMode
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
-from hummingbot.core.data_type.user_stream_tracker import UserStreamTrackerDataSourceType
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     OrderType,
@@ -22,7 +20,7 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import BinancePerpetualDerivative
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from .assets.test_keys import Keys
+import conf
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
@@ -49,11 +47,9 @@ class BinancePerpetualMarketUnitTest(unittest.TestCase):
         cls._ev_loop = asyncio.get_event_loop()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: BinancePerpetualDerivative = BinancePerpetualDerivative(
-            api_key=Keys.get_binance_futures_api_key(),
-            api_secret=Keys.get_binance_futures_api_secret(),
-            order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-            user_stream_tracker_data_source_type=UserStreamTrackerDataSourceType.EXCHANGE_API,
-            trading_pairs=["ETHUSDT"]
+            api_key=conf.binance_perpetual_api_key,
+            api_secret=conf.binance_perpetual_api_secret,
+            trading_pairs=["ETH-USDT"]
         )
         print("Initializing Binance Perpetual market... this will take about a minute.")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
@@ -107,7 +103,7 @@ class BinancePerpetualMarketUnitTest(unittest.TestCase):
 
     @unittest.skip("")
     def test_buy_and_sell_order_then_cancel_individually(self):
-        trading_pair = "ETHUSDT"
+        trading_pair = "ETH-USDT"
         # Create Buy Order
         buy_order_id = self.market.buy(
             trading_pair=trading_pair,
@@ -157,7 +153,7 @@ class BinancePerpetualMarketUnitTest(unittest.TestCase):
 
     @unittest.skip("")
     def test_buy_and_sell_order_then_cancel_all(self):
-        trading_pair = "ETHUSDT"
+        trading_pair = "ETH-USDT"
         # Create Buy Order
         buy_order_id = self.market.buy(
             trading_pair=trading_pair,
@@ -198,7 +194,7 @@ class BinancePerpetualMarketUnitTest(unittest.TestCase):
 
     @unittest.skip("")
     def test_buy_and_sell_order_then_cancel_account_orders(self):
-        trading_pair = "ETHUSDT"
+        trading_pair = "ETH-USDT"
         # Create Buy Order
         buy_order_id = self.market.buy(
             trading_pair=trading_pair,
@@ -236,7 +232,7 @@ class BinancePerpetualMarketUnitTest(unittest.TestCase):
 
     @unittest.skip("")
     def test_order_fill_event(self):
-        trading_pair = "ETHUSDT"
+        trading_pair = "ETH-USDT"
 
         amount: Decimal = Decimal(0.01)
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
