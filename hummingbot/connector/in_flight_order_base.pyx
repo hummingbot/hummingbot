@@ -13,7 +13,6 @@ from hummingbot.core.event.events import (
 
 s_decimal_0 = Decimal(0)
 
-
 cdef class InFlightOrderBase:
     def __init__(self,
                  client_order_id: str,
