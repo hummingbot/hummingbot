@@ -36,10 +36,10 @@ RECENT_TRADES_URL = "{}/fapi/v1/trades"
 class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def __init__(self, base_url: str, stream_url: str, trading_pairs: List[str] = None):
         super().__init__(trading_pairs)
-        self._trading_pairs: List[str] = trading_pairs
         self._order_book_create_function = lambda: OrderBook()
         self._base_url = base_url
         self._stream_url = stream_url + "/stream"
+        self._domain = "binance_perpetual" if base_url == PERPETUAL_BASE_URL else "binance_perpetual_testnet"
 
     _bpobds_logger: Optional[HummingbotLogger] = None
 
@@ -50,15 +50,16 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return cls._bpobds_logger
 
     @classmethod
-    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
-        tasks = [cls.get_last_traded_price(t_pair) for t_pair in trading_pairs]
+    async def get_last_traded_prices(cls, trading_pairs: List[str], domain=None) -> Dict[str, float]:
+        tasks = [cls.get_last_traded_price(t_pair, domain) for t_pair in trading_pairs]
         results = await safe_gather(*tasks)
         return {t_pair: result for t_pair, result in zip(trading_pairs, results)}
 
     @classmethod
-    async def get_last_traded_price(cls, trading_pair: str) -> float:
+    async def get_last_traded_price(cls, trading_pair: str, domain=None) -> float:
         async with aiohttp.ClientSession() as client:
-            resp = await client.get(f"{TICKER_PRICE_CHANGE_URL.format(cls._base_url)}?symbol={convert_to_exchange_trading_pair(trading_pair)}")
+            url = TESTNET_BASE_URL if domain == "binance_perpetual_testnet" else PERPETUAL_BASE_URL
+            resp = await client.get(f"{TICKER_PRICE_CHANGE_URL.format(url)}?symbol={convert_to_exchange_trading_pair(trading_pair)}")
             resp_json = await resp.json()
             return float(resp_json["lastPrice"])
 
@@ -81,20 +82,20 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @staticmethod
     @cachetools.func.ttl_cache(ttl=10)
-    def get_mid_price(trading_pair: str, domain=False) -> Optional[Decimal]:
+    def get_mid_price(trading_pair: str, domain=None) -> Optional[Decimal]:
         from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils import convert_to_exchange_trading_pair
 
-        BASE_URL = TESTNET_BASE_URL if domain is True else PERPETUAL_BASE_URL
+        BASE_URL = TESTNET_BASE_URL if domain == "binance_perpetual_testnet" else PERPETUAL_BASE_URL
         resp = requests.get(url=f"{TICKER_PRICE_URL.format(BASE_URL)}?symbol={convert_to_exchange_trading_pair(trading_pair)}")
         record = resp.json()
         result = (Decimal(record["bidPrice"]) + Decimal(record["askPrice"])) / Decimal("2")
         return result
 
     @staticmethod
-    async def fetch_trading_pairs(domain=False) -> List[str]:
+    async def fetch_trading_pairs(domain=None) -> List[str]:
         try:
             from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils import convert_from_exchange_trading_pair
-            BASE_URL = TESTNET_BASE_URL if domain is True else PERPETUAL_BASE_URL
+            BASE_URL = TESTNET_BASE_URL if domain == "binance_perpetual_testnet" else PERPETUAL_BASE_URL
             async with aiohttp.ClientSession() as client:
                 async with client.get(EXCHANGE_INFO_URL.format(BASE_URL), timeout=10) as response:
                     if response.status == 200:
@@ -113,11 +114,10 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return []
 
     @staticmethod
-    async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, limit: int = 1000, domain=False) -> Dict[str, Any]:
-        BASE_URL = TESTNET_BASE_URL if domain is True else PERPETUAL_BASE_URL
+    async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, limit: int = 1000, domain=None) -> Dict[str, Any]:
         params: Dict = {"limit": str(limit), "symbol": convert_to_exchange_trading_pair(trading_pair)} if limit != 0 \
             else {"symbol": convert_to_exchange_trading_pair(trading_pair)}
-        async with client.get(SNAPSHOT_REST_URL.format(BASE_URL), params=params) as response:
+        async with client.get(SNAPSHOT_REST_URL.format(domain), params=params) as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
                 raise IOError(f"Error fetching Binance market snapshot for {trading_pair}. "
@@ -163,16 +163,6 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return return_val
     """
 
-    async def ping_waiter(self, client: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
-        while True:
-            try:
-                ping = None
-                ping: str = await asyncio.wait_for(client.ping(), timeout=180.0)
-                if ping:
-                    await client.pong(data=b'')
-            except asyncio.TimeoutError:
-                await client.pong(data=b'')
-
     async def ws_messages(self, client: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         try:
             while True:
@@ -203,9 +193,6 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             timestamp
                         )
                         output.put_nowait(order_book_message)
-                    async for raw_msg in self.ws_messages(ws):
-                        # do nothing
-                        pass
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -226,9 +213,6 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         msg_json = ujson.loads(raw_msg)
                         trade_msg: OrderBookMessage = BinancePerpetualOrderBook.trade_message_from_exchange(msg_json)
                         output.put_nowait(trade_msg)
-                    async for raw_msg in self.ws_messages(ws):
-                        # do nothing
-                        pass
             except asyncio.CancelledError:
                 raise
             except Exception:

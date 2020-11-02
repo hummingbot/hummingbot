@@ -604,31 +604,31 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                     self.logger().warning(f"WARNING: Some markets are not connected or are down at the moment. Market "
                                           f"making may be dangerous when markets or networks are unstable.")
 
-            if len(self.active_positions) == 0:
-                proposal = None
-                asset_mid_price = Decimal("0")
-                # asset_mid_price = self.c_set_mid_price(market_info)
-                if self._create_timestamp <= self._current_timestamp:
-                    # 1. Create base order proposals
-                    proposal =self.c_create_base_proposal()
-                    # 2. Apply functions that limit numbers of buys and sells proposal
-                    self.c_apply_order_levels_modifiers(proposal)
-                    # 3. Apply functions that modify orders price
-                    self.c_apply_order_price_modifiers(proposal)
-                    # 4. Apply functions that modify orders size
-                    self.c_apply_order_size_modifiers(proposal)
-                    # 5. Apply budget constraint, i.e. can't buy/sell more than what you have.
-                    self.c_apply_budget_constraint(proposal)
+            # if len(self.active_positions) == 0:
+            proposal = None
+            asset_mid_price = Decimal("0")
+            # asset_mid_price = self.c_set_mid_price(market_info)
+            if self._create_timestamp <= self._current_timestamp:
+                # 1. Create base order proposals
+                proposal =self.c_create_base_proposal()
+                # 2. Apply functions that limit numbers of buys and sells proposal
+                self.c_apply_order_levels_modifiers(proposal)
+                # 3. Apply functions that modify orders price
+                self.c_apply_order_price_modifiers(proposal)
+                # 4. Apply functions that modify orders size
+                self.c_apply_order_size_modifiers(proposal)
+                # 5. Apply budget constraint, i.e. can't buy/sell more than what you have.
+                self.c_apply_budget_constraint(proposal)
 
-                    if not self._take_if_crossed:
-                        self.c_filter_out_takers(proposal)
-                self.c_cancel_active_orders(proposal)
-                self.c_cancel_hanging_orders()
-                self.c_cancel_orders_below_min_spread()
-                if self.c_to_create_orders(proposal):
-                    self.c_execute_orders_proposal(proposal)
-            else:
-                self.c_manage_positions()
+                if not self._take_if_crossed:
+                    self.c_filter_out_takers(proposal)
+            self.c_cancel_active_orders(proposal)
+            self.c_cancel_hanging_orders()
+            self.c_cancel_orders_below_min_spread()
+            if self.c_to_create_orders(proposal):
+                self.c_execute_orders_proposal(proposal)
+            """else:
+                self.c_manage_positions()"""
         finally:
             self._last_timestamp = timestamp
 

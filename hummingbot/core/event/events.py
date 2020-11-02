@@ -66,10 +66,9 @@ class OrderType(Enum):
     MARKET = 1
     LIMIT = 2
     LIMIT_MAKER = 3
-    TRAILING_STOP = 4
 
     def is_limit_type(self):
-        return self in (OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.TRAILING_STOP)
+        return self in (OrderType.LIMIT, OrderType.LIMIT_MAKER)
 
 
 # For Derivatives Exchanges

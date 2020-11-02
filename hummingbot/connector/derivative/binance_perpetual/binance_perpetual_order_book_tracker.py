@@ -33,6 +33,7 @@ class BinancePerpetualOrderBookTracker(OrderBookTracker):
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         self._saved_messages_queues: Dict[str, Deque[OrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
         self._trading_pairs: Optional[List[str]] = trading_pairs
+        self._domain = "binance_perpetual_testnet" if "testnet" in base_url else "binance_perpetual"
 
     """
     @property
@@ -49,7 +50,7 @@ class BinancePerpetualOrderBookTracker(OrderBookTracker):
 
     @property
     def exchange_name(self) -> str:
-        return "binance_perpetuals"
+        return self._domain
 
     async def _order_book_diff_router(self):
         """
