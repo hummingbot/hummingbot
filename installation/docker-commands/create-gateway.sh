@@ -83,6 +83,13 @@ prompt_ethereum_rpc_url
 # Ask the user for the hummingobt data folder location
 prompt_password () {
 read -s -p "   Enter the your Gateway cert passphrase configured in Hummingbot  >>> " PASSWORD
+if [ "$PASSWORD" == "" ]
+then
+ echo
+ echo
+ echo "‼️  ERROR. Certificates are not empty string. "
+ prompt_password
+fi
 }
 prompt_password
 
