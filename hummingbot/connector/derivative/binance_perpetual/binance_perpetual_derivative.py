@@ -39,7 +39,6 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent, PositionSide, PositionMode)
-from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.asyncio_throttle import Throttler
 from hummingbot.logger import HummingbotLogger
@@ -107,8 +106,8 @@ class BinancePerpetualDerivative(DerivativeBase):
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True,
                  **domain):
-        super().__init__()
         self._testnet = True if len(domain) > 0 else False
+        super().__init__()
         self._api_key = binance_perpetual_api_key
         self._api_secret = binance_perpetual_api_secret
         self._trading_required = trading_required
@@ -130,7 +129,6 @@ class BinancePerpetualDerivative(DerivativeBase):
         self._status_polling_task = None
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
-        self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._last_poll_timestamp = 0
         self._throttler = Throttler((10.0, 1.0))
         self._funding_rate = 0
@@ -139,7 +137,7 @@ class BinancePerpetualDerivative(DerivativeBase):
 
     @property
     def name(self) -> str:
-        return "binance_perpetual"
+        return "binance_perpetual_testnet" if self._testnet else "binance_perpetual"
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -169,13 +167,10 @@ class BinancePerpetualDerivative(DerivativeBase):
         return [in_flight_order.to_limit_order() for in_flight_order in self._in_flight_orders.values()]
 
     def start(self, clock: Clock, timestamp: float):
-        # super().start(clock, timestamp)
-        DerivativeBase.start(self, clock, timestamp)
+        super().start(clock, timestamp)
 
     def stop(self, clock: Clock):
-        # super().stop(clock)
-        DerivativeBase.stop(self, clock)
-        # self._async_scheduler.stop()
+        super().stop(clock)
 
     async def start_network(self):
         self._order_book_tracker.start()
@@ -185,7 +180,7 @@ class BinancePerpetualDerivative(DerivativeBase):
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
 
-    def stop_network(self):
+    def _stop_network(self):
         self._order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
@@ -197,6 +192,9 @@ class BinancePerpetualDerivative(DerivativeBase):
             self._trading_rules_polling_task.cancel()
         self._status_polling_task = self._user_stream_tracker_task = \
             self._user_stream_event_listener_task = None
+
+    async def stop_network(self):
+        self._stop_network()
 
     async def check_network(self) -> NetworkStatus:
         try:
@@ -245,9 +243,6 @@ class BinancePerpetualDerivative(DerivativeBase):
             api_params["price"] = f"{price}"
         if order_type == OrderType.LIMIT:
             api_params["timeInForce"] = "GTC"
-        if order_type == OrderType.TRAILING_STOP:
-            api_params["type"] = "TRAILING_STOP_MARKET"
-            api_params["callbackRate"] = f"{price}"
 
         if self._position_mode == PositionMode.HEDGE:
             api_params["positionSide"] = "LONG" if trade_type is TradeType.BUY else "SHORT"
