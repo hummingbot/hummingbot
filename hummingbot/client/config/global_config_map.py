@@ -9,7 +9,6 @@ from hummingbot.client.config.config_validators import (
     validate_bool,
     validate_decimal
 )
-from hummingbot.core.utils.ssl_cert import create_self_sign_certs
 
 
 def generate_client_id() -> str:
@@ -295,18 +294,6 @@ main_config_map = {
                   prompt=None,
                   required_if=lambda: False,
                   default='localhost'),
-    "gateway_cert_passphrase":
-        ConfigVar(key="gateway_cert_passphrase",
-                  prompt="Please enter your Gateway API cert passphrase >>> ",
-                  type_str="str",
-                  required_if=lambda: False),
-    "gateway_enabled":
-        ConfigVar(key="gateway_enabled",
-                  prompt="Enable Gateway API Integration (Yes/No) ? >>> ",
-                  type_str="bool",
-                  default=False,
-                  validator=validate_bool,
-                  on_validated = lambda value: create_self_sign_certs(value)),
     "gateway_api_port":
         ConfigVar(key="gateway_api_port",
                   prompt="Please enter your Gateway API port >>> ",
