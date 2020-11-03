@@ -50,8 +50,7 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
         raise NotImplementedError
 
     @abstractmethod
-    async def \
-            listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
         Object type in the output queue must be OrderBookMessage
         """
