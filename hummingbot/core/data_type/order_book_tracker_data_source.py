@@ -19,6 +19,15 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
         self._trading_pairs: List[str] = trading_pairs
         self._order_book_create_function = lambda: OrderBook()
 
+    @staticmethod
+    @abstractmethod
+    async def fetch_trading_pairs() -> List[str]:
+        """
+        `fetch_trading_pairs()` and `get_trading_pairs()` are used by public order book fetchers,
+        do not remove.
+        """
+        raise NotImplementedError
+
     @property
     def order_book_create_function(self) -> Callable[[], OrderBook]:
         return self._order_book_create_function
@@ -30,6 +39,13 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
         raise NotImplementedError
+
+    async def get_trading_pairs(self) -> List[str]:
+        """
+        `fetch_trading_pairs()` and `get_trading_pairs()` are used by public order book fetchers,
+        do not remove.
+        """
+        return await self.fetch_trading_pairs()
 
     @abstractmethod
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
