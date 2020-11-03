@@ -52,7 +52,7 @@ KEYS = {
 }
 
 OTHER_DOMAINS = ["binance_us"]
-OTHER_DOMAINS_PARAMETER = {"binance_us": True}
+OTHER_DOMAINS_PARAMETER = {"binance_us": "us"}
 OTHER_DOMAINS_EXAMPLE_PAIR = {"binance_us": "BTC-USDT"}
 OTHER_DOMAINS_DEFAULT_FEES = {"binance_us": [0.1, 0.1]}
 OTHER_DOMAINS_KEYS = {"binance_us": {
