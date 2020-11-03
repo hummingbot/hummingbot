@@ -144,6 +144,9 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                               f"HTTP status is {response.status}.")
             return await response.json()
 
+    async def get_trading_pairs(self) -> List[str]:
+        return await self.fetch_trading_pairs()
+
     async def get_new_order_book(self, trading_pair: str) -> BambooRelayOrderBook:
         async with aiohttp.ClientSession() as client:
             snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair, self._api_endpoint,
