@@ -9,8 +9,8 @@ FEE_TYPE = "FlatFee"
 FEE_TOKEN = "ETH"
 
 USE_ETH_GAS_LOOKUP = True
-GAS_LIMIT = 120000
+GAS_LIMIT = 1200000
 
 
 async def fetch_trading_pairs() -> List[str]:
-    return ["WETH-USDC", "WETH-DAI"]
+    return ["WETH-USDC", "WETH-DAI", "BAL-WETH", "WBTC-WETH", "MKR-WETH", "LINK-WETH", "LEND-ETH"]
