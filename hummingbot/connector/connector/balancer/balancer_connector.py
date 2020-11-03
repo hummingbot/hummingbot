@@ -191,7 +191,8 @@ class BalancerConnector(ConnectorBase):
             status = order_result["status"]
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
-                self.logger().info(f"Created {trade_type.name} order {order_id} for {amount} {trading_pair}.")
+                self.logger().info(f"Created {trade_type.name} order {order_id} txHash: {hash} "
+                                   f"for {amount} {trading_pair}.")
                 tracked_order.exchange_order_id = hash
             if int(status) == 1:
                 tracked_order.fee_asset = "ETH"
@@ -201,7 +202,7 @@ class BalancerConnector(ConnectorBase):
                 event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
                 event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
                 self.trigger_event(event_tag, event_class(self.current_timestamp, OrderType.LIMIT, trading_pair, amount,
-                                                          price, order_id))
+                                                          price, order_id, hash))
                 self.trigger_event(MarketEvent.OrderFilled,
                                    OrderFilledEvent(
                                        self.current_timestamp,
@@ -402,18 +403,12 @@ class BalancerConnector(ConnectorBase):
             else:
                 response = await client.get(url)
         elif method == "post":
-            params[
-                "privateKey"] = self._wallet_private_key
+            params["privateKey"] = self._wallet_private_key
             if params["privateKey"][:2] != "0x":
                 params["privateKey"] = "0x" + params["privateKey"]
             response = await client.post(url, data=params)
-        else:
-            raise NotImplementedError
 
-        try:
-            parsed_response = json.loads(await response.text())
-        except Exception as e:
-            raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
+        parsed_response = json.loads(await response.text())
         if response.status != 200:
             err_msg = ""
             if "error" in parsed_response:
