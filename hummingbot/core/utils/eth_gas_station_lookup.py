@@ -15,6 +15,7 @@ from hummingbot.core.network_base import (
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.settings import CONNECTOR_SETTINGS
 
 ETH_GASSTATION_API_URL = "https://data-api.defipulse.com/api/v1/egs/api/ethgasAPI.json?api-key={}"
 
@@ -86,8 +87,10 @@ class EthGasStationLookup(NetworkBase):
                             self._gas_prices[GasLevel[key]] = Decimal(str(value)) / Decimal("10")
                     prices_str = ', '.join([k.name + ': ' + str(v) for k, v in self._gas_prices.items()])
                     self.logger().info(f"Gas: [{prices_str}]")
-                    self.logger().info(f"Estimated gas used per transaction ({self.gas_level.name}): "
-                                       f"{get_gas_price(False)} ETH")
+                    for name, con_setting in CONNECTOR_SETTINGS.items():
+                        if con_setting.use_eth_gas_lookup:
+                            self.logger().info(f"Estimated gas used per transaction ({self.gas_level.name}): "
+                                               f"{get_gas_price(False) * con_setting.gas_limit:.5f} ETH")
                     await asyncio.sleep(self.refresh_time)
             except asyncio.CancelledError:
                 raise

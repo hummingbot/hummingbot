@@ -248,13 +248,13 @@ class TradeFee(NamedTuple):
     def fee_amount_in_quote(self, trading_pair: str, price: Decimal, order_amount: Decimal):
         fee_amount = Decimal("0")
         if self.percent > 0:
-            return (price * order_amount) * self.percent
+            fee_amount = (price * order_amount) * self.percent
         base, quote = trading_pair.split("-")
         for flat_fee in self.flat_fees:
             if interchangeable(flat_fee[0], base):
-                fee_amount += (flat_fee[1] * price)
+                fee_amount += (flat_fee[1] / price)
             elif interchangeable(flat_fee[0], quote):
-                fee_amount += flat_fee[1] * price
+                fee_amount += flat_fee[1]
         return fee_amount
 
 

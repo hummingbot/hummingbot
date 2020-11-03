@@ -190,7 +190,8 @@ def create_self_sign_certs(pass_phase: str):
     server_csr = x509.load_pem_x509_csr(server_csr_file.read(), default_backend())
 
     # Create Client CSR
-    client_private_key = generate_private_key(client_key_filename, pass_phase)
+    # local certificate must be unencrypted. Currently, Requests does not support using encrypted keys.
+    client_private_key = generate_private_key(client_key_filename, None)
     # Create CSR
     generate_csr(client_private_key, client_csr_filename)
     # Load CSR
