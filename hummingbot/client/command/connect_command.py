@@ -38,7 +38,6 @@ class ConnectCommand:
         to_connect = True
         if Security.encrypted_file_exists(exchange_configs[0].key):
             await Security.wait_til_decryption_done()
-
             api_key_config = [c for c in exchange_configs if "api_key" in c.key][0]
             api_key = Security.decrypted_value(api_key_config.key)
             answer = await self.app.prompt(prompt=f"Would you like to replace your existing {exchange} API key "
@@ -49,14 +48,14 @@ class ConnectCommand:
             if answer.lower() not in ("yes", "y"):
                 to_connect = False
         if to_connect:
-            api_keys = {}
             for config in exchange_configs:
                 await self.prompt_a_config(config)
                 if self.app.to_stop_config:
                     self.app.to_stop_config = False
                     return
                 Security.update_secure_config(config.key, config.value)
-                api_keys[config.key] = config.value
+            api_keys = await Security.api_keys(exchange)
+            api_keys[config.key] = config.value
             err_msg = await UserBalances.instance().add_exchange(exchange, **api_keys)
             if err_msg is None:
                 self._notify(f"\nYou are now connected to {exchange}.")
@@ -95,7 +94,6 @@ class ConnectCommand:
                         failed_msgs[option] = err_msg
                     else:
                         keys_confirmed = 'Yes'
-                data.append([option, keys_added, keys_confirmed])
             elif option == "celo":
                 celo_address = global_config_map["celo_address"].value
                 if celo_address is not None and Security.encrypted_file_exists("celo_password"):
@@ -105,7 +103,6 @@ class ConnectCommand:
                         failed_msgs[option] = err_msg
                     else:
                         keys_confirmed = 'Yes'
-                data.append([option, keys_added, keys_confirmed])
             else:
                 api_keys = (await Security.api_keys(option)).values()
                 if len(api_keys) > 0:
@@ -115,7 +112,7 @@ class ConnectCommand:
                         failed_msgs[option] = err_msg
                     else:
                         keys_confirmed = 'Yes'
-                data.append([option, keys_added, keys_confirmed])
+            data.append([option, keys_added, keys_confirmed])
         return pd.DataFrame(data=data, columns=columns), failed_msgs
 
     async def connect_ethereum(self,  # type: HummingbotApplication
