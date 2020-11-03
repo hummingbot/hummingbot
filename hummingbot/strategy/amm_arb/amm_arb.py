@@ -2,7 +2,7 @@ from decimal import Decimal
 import logging
 import asyncio
 import pandas as pd
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
@@ -69,7 +69,8 @@ class AmmArbStrategy(StrategyPyBase):
 
         self._ev_loop = asyncio.get_event_loop()
         self._main_task = None
-        self._first_order_completed_event = asyncio.Event()
+        self._first_order_done_event: Optional[asyncio.Event] = None
+        self._first_order_succeeded: Optional[bool] = None
         self._first_order_id = None
 
         self._last_timestamp = 0
@@ -115,7 +116,8 @@ class AmmArbStrategy(StrategyPyBase):
         arbitrage.
         """
         self._arb_proposals = await create_arb_proposals(self._market_info_1, self._market_info_2, self._order_amount)
-        arb_proposals = [t for t in self._arb_proposals if t.profit_pct(True) >= self._min_profitability]
+        arb_proposals = [t.copy() for t in self._arb_proposals
+                         if t.profit_pct(account_for_fee=True) >= self._min_profitability]
         if len(arb_proposals) == 0:
             if self._last_no_arb_reported < self.current_timestamp - 20.:
                 self.logger().info("No arbitrage opportunity.\n" +
@@ -156,7 +158,7 @@ class AmmArbStrategy(StrategyPyBase):
                 market = arb_side.market_info.market
                 token = arb_side.market_info.quote_asset if arb_side.is_buy else arb_side.market_info.base_asset
                 balance = market.get_available_balance(token)
-                required = arb_side.amount
+                required = arb_side.amount * arb_side.order_price if arb_side.is_buy else arb_side.amount
                 if balance < required:
                     arb_side.amount = s_decimal_zero
                     self.logger().info(f"Can't arbitrage, {market.display_name} "
@@ -176,7 +178,11 @@ class AmmArbStrategy(StrategyPyBase):
             self.logger().info(f"Found arbitrage opportunity!: {arb_proposal}")
             for arb_side in (arb_proposal.first_side, arb_proposal.second_side):
                 if not self._concurrent_orders_submission and arb_side == arb_proposal.second_side:
-                    await self._first_order_completed_event.wait()
+                    await self._first_order_done_event.wait()
+                    if not self._first_order_succeeded:
+                        self._first_order_succeeded = None
+                        continue
+                    self._first_order_succeeded = None
                 side = "BUY" if arb_side.is_buy else "SELL"
                 self.log_with_clock(logging.INFO,
                                     f"Placing {side} order for {arb_side.amount} {arb_side.market_info.base_asset} "
@@ -189,17 +195,15 @@ class AmmArbStrategy(StrategyPyBase):
                                           )
                 if not self._concurrent_orders_submission and arb_side == arb_proposal.first_side:
                     self._first_order_id = order_id
-                    self._first_order_completed_event = asyncio.Event()
+                    self._first_order_done_event = asyncio.Event()
 
     def ready_for_new_arb_trades(self) -> bool:
         """
         Returns True if there is no outstanding unfilled order.
         """
-
-        outstanding_orders = {**self._sb_order_tracker.get_limit_orders(),
-                              **self._sb_order_tracker.get_market_orders()}
+        # outstanding_orders = self.market_info_to_active_orders.get(self._market_info, [])
         for market_info in [self._market_info_1, self._market_info_2]:
-            if not market_info.market.ready or len(outstanding_orders.get(market_info, {})) > 0:
+            if len(self.market_info_to_active_orders.get(market_info, [])) > 0:
                 return False
         return True
 
@@ -216,7 +220,7 @@ class AmmArbStrategy(StrategyPyBase):
             side2 = "buy" if proposal.second_side.is_buy else "sell"
             lines.append(f"{'    ' if indented else ''}{side1} at {proposal.first_side.market_info.market.display_name}"
                          f", {side2} at {proposal.second_side.market_info.market.display_name}: "
-                         f"{proposal.profit_pct():.2%}")
+                         f"{proposal.profit_pct(True):.2%}")
         return lines
 
     async def format_status(self) -> str:
@@ -262,15 +266,24 @@ class AmmArbStrategy(StrategyPyBase):
         return "\n".join(lines)
 
     def did_complete_buy_order(self, order_completed_event):
-        self.did_complete_order(order_completed_event)
+        self.first_order_done(order_completed_event, True)
 
     def did_complete_sell_order(self, order_completed_event):
-        self.did_complete_order(order_completed_event)
+        self.first_order_done(order_completed_event, True)
 
-    def did_complete_order(self, order_completed_event):
-        if not self._concurrent_orders_submission and self._first_order_completed_event is not None and \
-                order_completed_event.order_id == self._first_order_id:
-            self._first_order_completed_event.set()
+    def did_fail_order(self, order_failed_event):
+        self.first_order_done(order_failed_event, False)
+
+    def did_cancel_order(self, cancelled_event):
+        self.first_order_done(cancelled_event, False)
+
+    def did_expire_order(self, expired_event):
+        self.first_order_done(expired_event, False)
+
+    def first_order_done(self, event, succeeded):
+        if self._first_order_done_event is not None and event.order_id == self._first_order_id:
+            self._first_order_done_event.set()
+            self._first_order_succeeded = succeeded
 
     @property
     def tracked_limit_orders(self) -> List[Tuple[ConnectorBase, LimitOrder]]:
