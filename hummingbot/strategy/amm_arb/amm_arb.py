@@ -105,7 +105,6 @@ class AmmArbStrategy(StrategyPyBase):
                 return
             else:
                 self.logger().info("Markets are ready. Trading started.")
-        self.trigger_first_order_completed_event()
         if self.ready_for_new_arb_trades():
             if self._main_task is None or self._main_task.done():
                 self._main_task = safe_ensure_future(self.main())
@@ -265,15 +264,6 @@ class AmmArbStrategy(StrategyPyBase):
             lines.extend(["", "*** WARNINGS ***"] + warning_lines)
 
         return "\n".join(lines)
-
-    def trigger_first_order_completed_event(self):
-        return
-        if self._first_order_id is None:
-            return
-        market_1_orders = self.market_info_to_active_orders.get(self._market_info_1, [])
-        if not any(o.client_order_id == self._first_order_id for o in market_1_orders):
-            self._first_order_completed_event.set()
-            self._first_order_id = None
 
     def did_complete_buy_order(self, order_completed_event):
         self.first_order_done(order_completed_event, True)
