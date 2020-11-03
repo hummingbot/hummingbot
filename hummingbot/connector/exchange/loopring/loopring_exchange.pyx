@@ -394,7 +394,7 @@ cdef class LoopringExchange(ExchangeBase):
             # Begin tracking order
             self.logger().info(
                 f"Created {in_flight_order.description} order {client_order_id} for {amount} {trading_pair}.")
-            
+
             return True
 
         except Exception as e:
@@ -421,7 +421,7 @@ cdef class LoopringExchange(ExchangeBase):
                           price: Optional[Decimal] = Decimal('NaN')):
         if await self.execute_order(TradeType.BUY, order_id, trading_pair, amount, order_type, price):
             self.c_trigger_event(BUY_ORDER_CREATED_EVENT,
-                                    BuyOrderCreatedEvent(now(), order_type, trading_pair, Decimal(amount), Decimal(price), order_id))
+                                 BuyOrderCreatedEvent(now(), order_type, trading_pair, Decimal(amount), Decimal(price), order_id))
 
     async def execute_sell(self,
                            order_id: str,
@@ -431,7 +431,7 @@ cdef class LoopringExchange(ExchangeBase):
                            price: Optional[Decimal] = Decimal('NaN')):
         if await self.execute_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price):
             self.c_trigger_event(SELL_ORDER_CREATED_EVENT,
-                                    SellOrderCreatedEvent(now(), order_type, trading_pair, Decimal(amount), Decimal(price), order_id))
+                                 SellOrderCreatedEvent(now(), order_type, trading_pair, Decimal(amount), Decimal(price), order_id))
 
     cdef str c_buy(self, str trading_pair, object amount, object order_type = OrderType.LIMIT, object price = 0.0,
                    dict kwargs = {}):
