@@ -10,8 +10,6 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
-
-DERIVATIVES = settings.DERIVATIVES
 OPTIONS = {cs.name for cs in settings.CONNECTOR_SETTINGS.values()
            if not cs.use_ethereum_wallet}.union({"ethereum", "celo"})
 
@@ -33,7 +31,6 @@ class ConnectCommand:
         self.app.clear_input()
         self.placeholder_mode = True
         self.app.hide_input = True
-        paper_trade = "testnet" if global_config_map.get("paper_trade_enabled").value else None
         if exchange == "kraken":
             self._notify("Reminder: Please ensure your Kraken API Key Nonce Window is at least 10.")
         exchange_configs = [c for c in global_config_map.values()
@@ -44,7 +41,7 @@ class ConnectCommand:
 
             api_key_config = [c for c in exchange_configs if "api_key" in c.key][0]
             api_key = Security.decrypted_value(api_key_config.key)
-            answer = await self.app.prompt(prompt=f"Would you like to replace your existing {exchange} {paper_trade} API key "
+            answer = await self.app.prompt(prompt=f"Would you like to replace your existing {exchange} API key "
                                                   f"{api_key} (Yes/No)? >>> ")
             if self.app.to_stop_config:
                 self.app.to_stop_config = False
@@ -62,9 +59,9 @@ class ConnectCommand:
                 api_keys[config.key] = config.value
             err_msg = await UserBalances.instance().add_exchange(exchange, **api_keys)
             if err_msg is None:
-                self._notify(f"\nYou are now connected to {exchange} {paper_trade}.")
+                self._notify(f"\nYou are now connected to {exchange}.")
             else:
-                self._notify(f"\n{paper_trade.capitalize()} Error: {err_msg}")
+                self._notify(f"\nError: {err_msg}")
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
@@ -109,32 +106,6 @@ class ConnectCommand:
                     else:
                         keys_confirmed = 'Yes'
                 data.append([option, keys_added, keys_confirmed])
-                """
-                elif option in DERIVATIVES:
-                    # check keys for main and testnet derivative keys_added
-                    api_keys = (await Security.api_keys(option)).keys()
-                    testnet_checked = False
-                    mainet_checked = False
-                    for api_key in api_keys:
-                        if "testnet" in api_key and testnet_checked is False:
-                            testnet_checked = True
-                            keys_added = "Yes"
-                            err_msg = err_msgs.get(option + "testnet")
-                            if err_msg is not None:
-                                failed_msgs[option] = err_msg
-                            else:
-                                keys_confirmed = 'Yes'
-                            data.append([option + "(testnet)", keys_added, keys_confirmed])
-                        elif "testnet" not in api_key and mainet_checked is False:
-                            mainet_checked = True
-                            keys_added = "Yes"
-                            err_msg = err_msgs.get(option)
-                            if err_msg is not None:
-                                failed_msgs[option] = err_msg
-                            else:
-                                keys_confirmed = 'Yes'
-                            data.append([option + "(mainnet)", keys_added, keys_confirmed])
-                """
             else:
                 api_keys = (await Security.api_keys(option)).values()
                 if len(api_keys) > 0:
