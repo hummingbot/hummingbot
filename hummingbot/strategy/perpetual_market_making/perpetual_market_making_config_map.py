@@ -162,13 +162,15 @@ perpetual_market_making_config_map = {
                   prompt="Trailing Stop Callback Rate - Min 0.1, Max 5 "
                          "? (Enter 1 to indicate 1%) >>> ",
                   type_str="decimal",
-                  validator=lambda v: validate_decimal(v, 0.1, 5, inclusive=True)),
+                  default=Decimal("0"),
+                  validator=lambda v: validate_decimal(v, 0, 5, inclusive=True)),
     "ts_activation_spread":
         ConfigVar(key="ts_activation_spread",
                   prompt="How far away from the position entry price do you want to set the "
                          "activation price for position exit trailing stop order? (Enter 1 to indicate 1%) >>> ",
                   type_str="decimal",
-                  validator=lambda v: validate_decimal(v, 0, 100, inclusive=False)),
+                  default=Decimal("0"),
+                  validator=lambda v: validate_decimal(v, 0, 100, inclusive=True)),
     "minimum_spread":
         ConfigVar(key="minimum_spread",
                   prompt="At what minimum spread should the bot automatically cancel orders? (Enter 1 for 1%) >>> ",
