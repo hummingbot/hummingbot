@@ -98,7 +98,7 @@ def start(self):
             order_refresh_tolerance_pct=order_refresh_tolerance_pct,
             minimum_spread=minimum_spread,
             hb_app_notification=True,
-            order_override=order_override,
+            order_override={} if order_override is None else order_override,
         )
     except Exception as e:
         self._notify(str(e))

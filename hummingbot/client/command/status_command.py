@@ -80,7 +80,6 @@ class StatusCommand:
         status = paper_trade + "\n" + st_status + "\n" + app_warning
         if self._script_iterator is not None:
             self._script_iterator.request_status()
-            status += '\n Status from script would noy appear here. Simply run the status command without "--live" to see script status.'
         return status
 
     def application_warning(self):
@@ -126,8 +125,8 @@ class StatusCommand:
                 await self.stop_live_update()
                 self.app.live_updates = True
                 while self.app.live_updates:
-                    await self.cls_display_delay(await self.strategy_status() +
-                                                 "\n\n Press escape key to stop update.", 1)
+                    script_status = '\n Status from script would not appear here. Simply run the status command without "--live" to see script status.'
+                    await self.cls_display_delay(self.strategy_status() + script_status + "\n\n Press escape key to stop update.", 1)
                 self._notify("Stopped live status display update.")
             else:
                 self._notify(await self.strategy_status())
