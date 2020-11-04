@@ -71,6 +71,19 @@ class OrderType(Enum):
         return self in (OrderType.LIMIT, OrderType.LIMIT_MAKER)
 
 
+# For Derivatives Exchanges
+class PositionSide(Enum):
+    LONG = "LONG"
+    SHORT = "SHORT"
+    BOTH = "BOTH"
+
+
+# For Derivatives Exchanges
+class PositionMode(Enum):
+    HEDGE = True
+    ONEWAY = False
+
+
 class PriceType(Enum):
     MidPrice = 1
     BestBid = 2
