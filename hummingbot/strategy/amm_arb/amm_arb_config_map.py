@@ -84,7 +84,7 @@ amm_arb_config_map = {
         validator=lambda v: validate_decimal(v),
         type_str="decimal"),
     "market_1_slippage_buffer": ConfigVar(
-        key="slippage_buffer",
+        key="market_1_slippage_buffer",
         prompt="How much buffer do you want to add to the price to account for slippage for orders on the first market "
                "(Enter 1 for 1%)? >>> ",
         prompt_on_new=True,
@@ -92,7 +92,7 @@ amm_arb_config_map = {
         validator=lambda v: validate_decimal(v),
         type_str="decimal"),
     "market_2_slippage_buffer": ConfigVar(
-        key="slippage_buffer",
+        key="market_2_slippage_buffer",
         prompt="How much buffer do you want to add to the price to account for slippage for orders on the second market"
                " (Enter 1 for 1%)? >>> ",
         prompt_on_new=True,
