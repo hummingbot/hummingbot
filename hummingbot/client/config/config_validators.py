@@ -9,6 +9,12 @@ def validate_exchange(value: str) -> Optional[str]:
         return f"Invalid exchange, please choose value from {EXCHANGES}"
 
 
+def validate_derivative(value: str) -> Optional[str]:
+    from hummingbot.client.settings import DERIVATIVES
+    if value not in DERIVATIVES:
+        return f"Invalid exchange, please choose value from {DERIVATIVES}"
+
+
 def validate_connector(value: str) -> Optional[str]:
     from hummingbot.client.settings import CONNECTOR_SETTINGS
     if value not in CONNECTOR_SETTINGS:
