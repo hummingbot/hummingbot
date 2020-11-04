@@ -36,6 +36,7 @@ from hummingbot.client.settings import (
 from hummingbot.client.config.security import Security
 from hummingbot.core.utils.market_price import get_mid_price
 from hummingbot import get_strategy_list
+from eth_account import Account
 
 # Use ruamel.yaml to preserve order and comments in .yml file
 yaml_parser = ruamel.yaml.YAML()
@@ -153,16 +154,29 @@ def get_strategy_template_path(strategy: str) -> str:
     return join(TEMPLATE_PATH, f"{CONF_PREFIX}{strategy}{CONF_POSTFIX}_TEMPLATE.yml")
 
 
-def get_erc20_token_addresses(trading_pairs: List[str]):
+def get_eth_wallet_private_key() -> Optional[str]:
+    ethereum_wallet = global_config_map.get("ethereum_wallet").value
+    if ethereum_wallet is None or ethereum_wallet == "":
+        return None
+    private_key = Security._private_keys[ethereum_wallet]
+    account = Account.privateKeyToAccount(private_key)
+    return account.privateKey.hex()
 
-    with open(TOKEN_ADDRESSES_FILE_PATH) as f:
+
+def get_erc20_token_addresses(tokens: List[str]) -> Dict[str, str]:
+    chain = global_config_map.get("ethereum_chain_name").value
+    address_file_path = TOKEN_ADDRESSES_FILE_PATH
+    if chain is not None and chain != "MAIN_NET":
+        address_file_path = TOKEN_ADDRESSES_FILE_PATH.replace(".json", f"_{chain.lower()}.json")
+    with open(address_file_path) as f:
         try:
             data: Dict[str, str] = json.load(f)
             overrides: Dict[str, str] = global_config_map.get("ethereum_token_overrides").value
             if overrides is not None:
                 data.update(overrides)
-            addresses = [data[trading_pair] for trading_pair in trading_pairs if trading_pair in data]
-            return addresses
+            # addresses = [data[trading_pair] for trading_pair in tokens if trading_pair in data]
+            # return addresses
+            return {k: v for k, v in data.items() if k in tokens}
         except Exception as e:
             logging.getLogger().error(e, exc_info=True)
 
