@@ -48,11 +48,10 @@ async def start_process_monitor(process_monitor):
 async def start_trade_monitor(trade_monitor):
     from hummingbot.client.hummingbot_application import HummingbotApplication
     hb = HummingbotApplication.main_application()
-    trade_monitor.log("Trades: 0, Total P&L: 0.00, Return %: 0.00%")
+    trade_monitor.log("Trades: 0, Total P&L: 0.00 USDT, Return %: 0.00%")
     total_trades = 0
     return_pcts = []
     pnls = []
-    quote_asset = ""
 
     while True:
         if hb.strategy_task is not None and not hb.strategy_task.done():
@@ -63,16 +62,32 @@ async def start_trade_monitor(trade_monitor):
                     total_trades = len(trades)
                     market_info: Set[Tuple[str, str]] = set((t.market, t.symbol) for t in trades)
                     for market, symbol in market_info:
-                        quote_asset = symbol.split("-")[1]  # Note that the qiote asset of the last pair is assumed to be the quote asset of P&L for simplicity
+                        quote_asset = symbol.split("-")[1]
                         cur_trades = [t for t in trades if t.market == market and t.symbol == symbol]
                         cur_balances = await hb.get_current_balances(market)
                         cur_price = await get_last_price(market.replace("_PaperTrade", ""), symbol)
                         perf = calculate_performance_metrics(symbol, cur_trades, cur_balances, cur_price)
                         return_pcts.append(perf.return_pct)
-                        pnls.append(perf.total_pnl)
+                        # convert to USDT equivalent
+                        usdt_price = None
+                        if quote_asset not in ["USDT", "USDC", "USD"]:
+                            try:
+                                usdt_price = Decimal(str(perf.total_pnl)) * await get_last_price(market.replace("_PaperTrade", ""), f"{quote_asset}-USDT")
+                            except Exception:
+                                pass
+                        else:
+                            usdt_price = Decimal(str(perf.total_pnl))
+                        if not usdt_price:
+                            try:
+                                usdt_price = Decimal(str(perf.total_pnl)) / await get_last_price(market.replace("_PaperTrade", ""), f"USDT-{quote_asset}")
+                            except Exception:
+                                pass
+                        if not usdt_price:  # if a USDT pair doesn't exist assume that value to be USDT
+                            usdt_price = Decimal(str(perf.total_pnl))
+                        pnls.append(usdt_price)
                     avg_return = sum(return_pcts) / len(return_pcts) if len(return_pcts) > 0 else s_decimal_0
-                    total_pnls = sum(pnls)  # Note that this sum doesn't handles cases with different multiple pairs for simplisity
-                    trade_monitor.log(f"Trades: {total_trades}, Total P&L: {smart_round(total_pnls)} {quote_asset}, Return %: {avg_return:.2%}")
+                    total_pnls = sum(pnls)  # Note that this sum may not be accurate for cases where a usdt pair of the quote asset doesn't exist.
+                    trade_monitor.log(f"Trades: {total_trades}, Total P&L: {smart_round(total_pnls)} USDT, Return %: {avg_return:.2%}")
                     return_pcts.clear()
                     pnls.clear()
         await asyncio.sleep(2)  # sleeping for longer to manage resources
