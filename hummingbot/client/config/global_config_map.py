@@ -137,7 +137,7 @@ main_config_map = {
                   required_if=lambda: global_config_map["ethereum_rpc_url"].value is not None),
     "ethereum_chain_name":
         ConfigVar(key="ethereum_chain_name",
-                  prompt="What is your preferred ethereum chain name? >>> ",
+                  prompt="What is your preferred ethereum chain name (MAIN_NET, KOVAN)? >>> ",
                   type_str="str",
                   required_if=lambda: False,
                   default="MAIN_NET"),
@@ -265,7 +265,7 @@ main_config_map = {
                   default=50),
     "ethgasstation_gas_enabled":
         ConfigVar(key="ethgasstation_gas_enabled",
-                  prompt="Do you want to enable Etbereum gas station price lookup? >>> ",
+                  prompt="Do you want to enable Ethereum gas station price lookup? >>> ",
                   required_if=lambda: False,
                   type_str="bool",
                   validator=validate_bool,

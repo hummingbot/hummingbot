@@ -22,7 +22,7 @@ ETH_GASSTATION_API_URL = "https://data-api.defipulse.com/api/v1/egs/api/ethgasAP
 
 def get_gas_price(in_gwei: bool = True) -> Decimal:
     if not global_config_map["ethgasstation_gas_enabled"].value:
-        gas_price = global_config_map["ethgasstation_gas_enabled"].value
+        gas_price = global_config_map["manual_gas_price"].value
     else:
         gas_price = EthGasStationLookup.get_instance().gas_price
     return gas_price if in_gwei else gas_price / Decimal("1e9")
