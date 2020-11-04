@@ -15,6 +15,12 @@ binance_api_secret: null
 binance_us_api_key: null
 binance_us_api_secret: null
 
+binance_perpetual_api_key: null
+binance_perpetual_api_secret: null
+
+binance_perpetual_testnet_api_key: null
+binance_perpetual_testnet_api_secret: null
+
 bittrex_api_key: null
 bittrex_secret_key: null
 
