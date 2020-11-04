@@ -9,6 +9,7 @@ from prompt_toolkit.document import Document
 from os import listdir
 from os.path import isfile, join
 from hummingbot.client.settings import (
+    CONNECTOR_SETTINGS,
     EXCHANGES,
     DERIVATIVES,
     STRATEGIES,
@@ -18,7 +19,7 @@ from hummingbot.client.settings import (
 from hummingbot.client.ui.parser import ThrowingArgumentParser
 from hummingbot.core.utils.wallet_setup import list_wallets
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
-from hummingbot.client.command.connect_command import OPTIONS as CONNECT_EXCHANGES
+from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
 
 
 def file_name_list(path, file_extension):
@@ -31,9 +32,10 @@ class HummingbotCompleter(Completer):
         self.hummingbot_application = hummingbot_application
         self._path_completer = WordCompleter(file_name_list(CONF_FILE_PATH, "yml"))
         self._command_completer = WordCompleter(self.parser.commands, ignore_case=True)
+        self._connector_completer = WordCompleter(CONNECTOR_SETTINGS.keys(), ignore_case=True)
         self._exchange_completer = WordCompleter(EXCHANGES, ignore_case=True)
         self._derivative_completer = WordCompleter(DERIVATIVES, ignore_case=True)
-        self._connect_exchange_completer = WordCompleter(CONNECT_EXCHANGES, ignore_case=True)
+        self._connect_option_completer = WordCompleter(CONNECT_OPTIONS, ignore_case=True)
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
         self._history_completer = WordCompleter(["--days", "--verbose"], ignore_case=True)
@@ -55,18 +57,10 @@ class HummingbotCompleter(Completer):
     @property
     def _trading_pair_completer(self) -> Completer:
         trading_pair_fetcher = TradingPairFetcher.get_instance()
-        market = None
-        for exchange in EXCHANGES:
-            exchange_variant = exchange + "_"
-            if exchange in self.prompt_text and exchange_variant not in self.prompt_text:
+        for exchange in list(CONNECTOR_SETTINGS.keys()).sort(key=len):
+            if exchange in self.prompt_text:
                 market = exchange
                 break
-        if market is None:
-            for exchange in DERIVATIVES:
-                exchange_variant = exchange + "_"
-                if exchange in self.prompt_text and exchange_variant not in self.prompt_text:
-                    market = exchange
-                    break
         trading_pairs = trading_pair_fetcher.trading_pairs.get(market, []) if trading_pair_fetcher.ready else []
         return WordCompleter(trading_pairs, ignore_case=True, sentence=True)
 
@@ -113,9 +107,12 @@ class HummingbotCompleter(Completer):
                any(x for x in ("derivative name", "name of derivative", "name of the derivative")
                    if x in self.prompt_text.lower())
 
-    def _complete_connect_exchanges(self, document: Document) -> bool:
+    def _complete_connect_options(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        return "connect" in text_before_cursor
+        return text_before_cursor.startswith("connect ")
+
+    def _complete_connectors(self, document: Document) -> bool:
+        return "connector" in self.prompt_text
 
     def _complete_export_options(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -176,8 +173,12 @@ class HummingbotCompleter(Completer):
             for c in self._wallet_address_completer.get_completions(document, complete_event):
                 yield c
 
-        elif self._complete_connect_exchanges(document):
-            for c in self._connect_exchange_completer.get_completions(document, complete_event):
+        elif self._complete_connectors(document):
+            for c in self._connector_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_connect_options(document):
+            for c in self._connect_option_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_export_options(document):
@@ -185,7 +186,7 @@ class HummingbotCompleter(Completer):
                 yield c
 
         elif self._complete_balance_limit_exchanges(document):
-            for c in self._connect_exchange_completer.get_completions(document, complete_event):
+            for c in self._connect_option_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_balance_options(document):

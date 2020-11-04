@@ -989,3 +989,9 @@ cdef class PaperTradeExchange(ExchangeBase):
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)
+
+    def get_maker_order_type(self):
+        return OrderType.LIMIT
+
+    def get_taker_order_type(self):
+        return OrderType.LIMIT

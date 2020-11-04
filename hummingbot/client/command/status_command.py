@@ -4,6 +4,7 @@ from collections import (
     deque,
     OrderedDict
 )
+import inspect
 from typing import List, Dict
 from hummingbot import check_dev_mode
 from hummingbot.logger.application_warning import ApplicationWarning
@@ -17,7 +18,7 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.config.security import Security
 from hummingbot.user.user_balances import UserBalances
-from hummingbot.client.settings import required_exchanges, ethereum_wallet_required
+from hummingbot.client.settings import required_exchanges, ethereum_wallet_required, ethereum_gas_station_required
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 from typing import TYPE_CHECKING
@@ -67,15 +68,18 @@ class StatusCommand:
 
         return "\n".join(lines)
 
-    def strategy_status(self):
+    async def strategy_status(self):
         paper_trade = "\n  Paper Trading ON: All orders are simulated, and no real orders are placed." if global_config_map.get("paper_trade_enabled").value \
             else ""
         app_warning = self.application_warning()
         app_warning = "" if app_warning is None else app_warning
-        status = paper_trade + "\n" + self.strategy.format_status() + "\n" + app_warning
+        if inspect.iscoroutinefunction(self.strategy.format_status):
+            st_status = await self.strategy.format_status()
+        else:
+            st_status = self.strategy.format_status()
+        status = paper_trade + "\n" + st_status + "\n" + app_warning
         if self._script_iterator is not None:
             self._script_iterator.request_status()
-            status += '\n Status from script would noy appear here. Simply run the status command without "--live" to see script status.'
         return status
 
     def application_warning(self):
@@ -121,10 +125,11 @@ class StatusCommand:
                 await self.stop_live_update()
                 self.app.live_updates = True
                 while self.app.live_updates:
-                    await self.cls_display_delay(self.strategy_status() + "\n\n Press escape key to stop update.", 1)
+                    script_status = '\n Status from script would not appear here. Simply run the status command without "--live" to see script status.'
+                    await self.cls_display_delay(self.strategy_status() + script_status + "\n\n Press escape key to stop update.", 1)
                 self._notify("Stopped live status display update.")
             else:
-                self._notify(self.strategy_status())
+                self._notify(await self.strategy_status())
             return True
 
         # Preliminary checks.
@@ -177,6 +182,10 @@ class StatusCommand:
                         self._notify("  - ETH wallet check: Minimum ETH requirement satisfied")
             else:
                 self._notify("  - ETH wallet check: ETH wallet is not connected.")
+
+        if ethereum_gas_station_required() and not global_config_map["ethgasstation_gas_enabled"].value:
+            self._notify(f'  - ETH gas station check: Manual gas price is fixed at '
+                         f'{global_config_map["manual_gas_price"].value}.')
 
         loading_markets: List[ConnectorBase] = []
         for market in self.markets.values():

@@ -231,6 +231,13 @@ class TradeFeeType(Enum):
     FlatFee = 2
 
 
+def interchangeable(token_a: str, token_b: str) -> bool:
+    interchangeable_tokens = {"WETH", "ETH", "WBTC", "BTC"}
+    if token_a == token_b:
+        return True
+    return {token_a, token_b} <= interchangeable_tokens
+
+
 class TradeFee(NamedTuple):
     percent: Decimal  # 0.1 = 10%
     flat_fees: List[Tuple[str, Decimal]] = []  # list of (asset, amount) ie: ("ETH", 0.05)
@@ -250,6 +257,18 @@ class TradeFee(NamedTuple):
             [(fee_entry["asset"], Decimal(fee_entry["amount"]))
              for fee_entry in data["flat_fees"]]
         )
+
+    def fee_amount_in_quote(self, trading_pair: str, price: Decimal, order_amount: Decimal):
+        fee_amount = Decimal("0")
+        if self.percent > 0:
+            fee_amount = (price * order_amount) * self.percent
+        base, quote = trading_pair.split("-")
+        for flat_fee in self.flat_fees:
+            if interchangeable(flat_fee[0], base):
+                fee_amount += (flat_fee[1] / price)
+            elif interchangeable(flat_fee[0], quote):
+                fee_amount += flat_fee[1]
+        return fee_amount
 
 
 class OrderBookTradeEvent(NamedTuple):

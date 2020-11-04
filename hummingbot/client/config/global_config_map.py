@@ -137,7 +137,7 @@ main_config_map = {
                   required_if=lambda: global_config_map["ethereum_rpc_url"].value is not None),
     "ethereum_chain_name":
         ConfigVar(key="ethereum_chain_name",
-                  prompt="What is your preferred ethereum chain name? >>> ",
+                  prompt="What is your preferred ethereum chain name (MAIN_NET, KOVAN)? >>> ",
                   type_str="str",
                   required_if=lambda: False,
                   default="MAIN_NET"),
@@ -256,6 +256,50 @@ main_config_map = {
                   required_if=lambda: False,
                   type_str="json",
                   default={exchange: None for exchange in settings.EXCHANGES}),
+    "manual_gas_price":
+        ConfigVar(key="manual_gas_price",
+                  prompt="Enter fixed gas price (in Gwei) you want to use for Ethereum transactions >>> ",
+                  required_if=lambda: False,
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, Decimal(0), inclusive=False),
+                  default=50),
+    "ethgasstation_gas_enabled":
+        ConfigVar(key="ethgasstation_gas_enabled",
+                  prompt="Do you want to enable Ethereum gas station price lookup? >>> ",
+                  required_if=lambda: False,
+                  type_str="bool",
+                  validator=validate_bool,
+                  default=False),
+    "ethgasstation_api_key":
+        ConfigVar(key="ethgasstation_api_key",
+                  prompt="Enter API key for defipulse.com gas station API >>> ",
+                  required_if=lambda: global_config_map["ethgasstation_gas_enabled"].value,
+                  type_str="str"),
+    "ethgasstation_gas_level":
+        ConfigVar(key="ethgasstation_gas_level",
+                  prompt="Enter gas level you want to use for Ethereum transactions (fast, fastest, safeLow, average) "
+                         ">>> ",
+                  required_if=lambda: global_config_map["ethgasstation_gas_enabled"].value,
+                  type_str="str",
+                  validator=lambda s: None if s in {"fast", "fastest", "safeLow", "average"}
+                  else "Invalid gas level."),
+    "ethgasstation_refresh_time":
+        ConfigVar(key="ethgasstation_refresh_time",
+                  prompt="Enter refresh time for Ethereum gas price lookup (in seconds) >>> ",
+                  required_if=lambda: global_config_map["ethgasstation_gas_enabled"].value,
+                  type_str="int",
+                  default=120),
+    "gateway_api_host":
+        ConfigVar(key="gateway_api_host",
+                  prompt=None,
+                  required_if=lambda: False,
+                  default='localhost'),
+    "gateway_api_port":
+        ConfigVar(key="gateway_api_port",
+                  prompt="Please enter your Gateway API port >>> ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  default="5000"),
 }
 
 global_config_map = {**key_config_map, **main_config_map}
