@@ -57,7 +57,7 @@ class HummingbotCompleter(Completer):
     @property
     def _trading_pair_completer(self) -> Completer:
         trading_pair_fetcher = TradingPairFetcher.get_instance()
-        for exchange in list(CONNECTOR_SETTINGS.keys()).sort(key=len):
+        for exchange in sorted(list(CONNECTOR_SETTINGS.keys()), key=len, reverse=True):
             if exchange in self.prompt_text:
                 market = exchange
                 break
