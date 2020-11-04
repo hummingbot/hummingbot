@@ -39,6 +39,9 @@ cdef class LoopringInFlightOrder(InFlightOrderBase):
         self.executed_amount_quote = filled_volume
         self.fee_paid = filled_fee
 
+        (base, quote) = self.market.split_trading_pair(trading_pair)
+        self.fee_asset = base if trade_type is TradeType.BUY else quote
+
     @property
     def is_done(self) -> bool:
         return self.status >= LoopringOrderStatus.DONE
@@ -49,7 +52,7 @@ cdef class LoopringInFlightOrder(InFlightOrderBase):
 
     @property
     def is_failure(self) -> bool:
-        return self.status >= LoopringOrderStatus.FAILED
+        return self.status >= LoopringOrderStatus.failed
 
     @property
     def is_expired(self) -> bool:
@@ -128,11 +131,12 @@ cdef class LoopringInFlightOrder(InFlightOrderBase):
         (base, quote) = self.market.split_trading_pair(trading_pair)
         base_id: int = self.market.token_configuration.get_tokenid(base)
         quote_id: int = self.market.token_configuration.get_tokenid(quote)
+        fee_currency_id: int = self.market.token_configuration.get_tokenid(self.fee_asset)
 
         new_status: LoopringOrderStatus = LoopringOrderStatus[data["status"]]
         new_executed_amount_base: Decimal = self.market.token_configuration.unpad(data["filledSize"], base_id)
         new_executed_amount_quote: Decimal = self.market.token_configuration.unpad(data["filledVolume"], quote_id)
-        new_fee_paid: Decimal = Decimal(data["filledFee"])
+        new_fee_paid: Decimal = self.market.token_configuration.unpad(data["filledFee"], fee_currency_id)
 
         if new_executed_amount_base > self.executed_amount_base or new_executed_amount_quote > self.executed_amount_quote:
             diff_base: Decimal = new_executed_amount_base - self.executed_amount_base
@@ -151,10 +155,16 @@ cdef class LoopringInFlightOrder(InFlightOrderBase):
         if not self.is_done and new_status == LoopringOrderStatus.expired:
             events.append((MarketEvent.OrderExpired, None, None, None))
 
+        if not self.is_done and new_status == LoopringOrderStatus.failed:
+            events.append((MarketEvent.OrderFailure, None, None, None))
+
         self.status = new_status
         self.last_state = str(new_status)
         self.executed_amount_base = new_executed_amount_base
         self.executed_amount_quote = new_executed_amount_quote
         self.fee_paid = new_fee_paid
+
+        if self.exchange_order_id is None:
+            self.update_exchange_order_id(data.get('hash', None))
 
         return events
