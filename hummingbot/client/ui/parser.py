@@ -84,6 +84,10 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
                                 dest="verbose", help="List all trades")
     history_parser.set_defaults(func=hummingbot.history)
 
+    generate_certs_parser = subparsers.add_parser("generate_certs", help="Create SSL certifications "
+                                                                         "for Gateway communication.")
+    generate_certs_parser.set_defaults(func=hummingbot.generate_certs)
+
     exit_parser = subparsers.add_parser("exit", help="Exit and cancel all outstanding orders")
     exit_parser.add_argument("-f", "--force", action="store_true", help="Force exit without cancelling outstanding orders",
                              default=False)
