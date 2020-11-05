@@ -6,7 +6,8 @@ from typing import (
     Set,
     Tuple,
     TYPE_CHECKING,
-    List
+    List,
+    Optional
 )
 from datetime import datetime
 from hummingbot.client.config.global_config_map import global_config_map
@@ -33,7 +34,7 @@ class HistoryCommand:
     def history(self,  # type: HummingbotApplication
                 days: float = 0,
                 verbose: bool = False,
-                precision: int = 0
+                precision: Optional[int] = None
                 ):
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.history)
@@ -58,7 +59,7 @@ class HistoryCommand:
     async def history_report(self,  # type: HummingbotApplication
                              start_time: float,
                              trades: List[TradeFill],
-                             precision: int = 0,
+                             precision: Optional[int] = None,
                              display_report: bool = True) -> Decimal:
         market_info: Set[Tuple[str, str]] = set((t.market, t.symbol) for t in trades)
         if display_report:
