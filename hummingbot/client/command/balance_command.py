@@ -1,5 +1,6 @@
 from hummingbot.client.settings import (
     GLOBAL_CONFIG_PATH,
+    ethereum_required_trading_pairs
 )
 from hummingbot.user.user_balances import UserBalances
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -127,18 +128,23 @@ class BalanceCommand:
         rows = []
         bals = CeloCLI.balances()
         for token, bal in bals.items():
-            rows.append({"asset": token.upper(), "amount": round(bal.total, 4)})
-        df = pd.DataFrame(data=rows, columns=["asset", "amount"])
-        df.sort_values(by=["asset"], inplace=True)
+            rows.append({"Asset": token.upper(), "Amount": round(bal.total, 4)})
+        df = pd.DataFrame(data=rows, columns=["Asset", "Amount"])
+        df.sort_values(by=["Asset"], inplace=True)
         return df
 
     async def ethereum_balances_df(self,  # type: HummingbotApplication
                                    ):
         rows = []
-        bal = UserBalances.ethereum_balance()
-        rows.append({"asset": "ETH", "amount": round(bal, 4)})
-        df = pd.DataFrame(data=rows, columns=["asset", "amount"])
-        df.sort_values(by=["asset"], inplace=True)
+        if ethereum_required_trading_pairs():
+            bals = await UserBalances.eth_n_erc20_balances()
+            for token, bal in bals.items():
+                rows.append({"Asset": token, "Amount": round(bal, 4)})
+        else:
+            eth_bal = UserBalances.ethereum_balance()
+            rows.append({"Asset": "ETH", "Amount": round(eth_bal, 4)})
+        df = pd.DataFrame(data=rows, columns=["Asset", "Amount"])
+        df.sort_values(by=["Asset"], inplace=True)
         return df
 
     async def asset_limits_df(self,

@@ -24,7 +24,7 @@ from hummingbot.core.event.events import (
     TradeFee,
 )
 from hummingbot.connector.exchange.loopring.loopring_exchange import LoopringExchange
-from hummingbot.market.market_base import OrderType
+from hummingbot.connector.exchange_base import OrderType
 # from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
 
 sys.path.insert(0, realpath(join(__file__, "../../../")))

@@ -10,11 +10,8 @@ from hummingbot.client.command import __all__ as commands
 from hummingbot.core.clock import Clock
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
-
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
-
 from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
-
 from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.client.ui.keybindings import load_key_bindings
@@ -23,10 +20,14 @@ from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.client.errors import InvalidCommandError, ArgumentParserError
 from hummingbot.client.config.global_config_map import global_config_map, using_wallet
-from hummingbot.client.config.config_helpers import get_erc20_token_addresses, get_strategy_config_map, get_connector_class
+from hummingbot.client.config.config_helpers import (
+    get_erc20_token_addresses,
+    get_strategy_config_map,
+    get_connector_class,
+    get_eth_wallet_private_key,
+)
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
-
 from hummingbot.core.utils.kill_switch import KillSwitch
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.notifier.notifier_base import NotifierBase
@@ -34,11 +35,9 @@ from hummingbot.notifier.telegram_notifier import TelegramNotifier
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.client.config.security import Security
-
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
-
-from hummingbot.client.settings import CEXES, DEXES, DERIVATIVES
+from hummingbot.client.settings import CONNECTOR_SETTINGS, ConnectorType
 
 s_logger = None
 
@@ -73,18 +72,18 @@ class HummingbotApplication(*commands):
         self.markets: Dict[str, ExchangeBase] = {}
         self.wallet: Optional[Web3Wallet] = None
         # strategy file name and name get assigned value after import or create command
-        self.strategy_file_name: str = None
+        self._strategy_file_name: str = None
         self.strategy_name: str = None
         self.strategy_task: Optional[asyncio.Task] = None
         self.strategy: Optional[StrategyBase] = None
         self.market_pair: Optional[CrossExchangeMarketPair] = None
         self.market_trading_pair_tuples: List[MarketTradingPairTuple] = []
         self.clock: Optional[Clock] = None
+        self.market_trading_pairs_map = {}
 
-        self.init_time: int = int(time.time() * 1e3)
+        self.init_time: float = time.time()
         self.start_time: Optional[int] = None
         self.assets: Optional[Set[str]] = set()
-        self.starting_balances = {}
         self.placeholder_mode = False
         self.log_queue_listener: Optional[logging.handlers.QueueListener] = None
         self.data_feed: Optional[DataFeedBase] = None
@@ -93,11 +92,21 @@ class HummingbotApplication(*commands):
         self._app_warnings: Deque[ApplicationWarning] = deque()
         self._trading_required: bool = True
 
-        self.trade_fill_db: SQLConnectionManager = SQLConnectionManager.get_trade_fills_instance()
+        self.trade_fill_db: Optional[SQLConnectionManager] = None
         self.markets_recorder: Optional[MarketsRecorder] = None
         self._script_iterator = None
         # This is to start fetching trading pairs for auto-complete
         TradingPairFetcher.get_instance()
+
+    @property
+    def strategy_file_name(self) -> str:
+        return self._strategy_file_name
+
+    @strategy_file_name.setter
+    def strategy_file_name(self, value: str):
+        self._strategy_file_name = value
+        db_name = value.split(".")[0]
+        self.trade_fill_db = SQLConnectionManager.get_trade_fills_instance(db_name=db_name)
 
     @property
     def strategy_config_map(self):
@@ -189,7 +198,7 @@ class HummingbotApplication(*commands):
         ethereum_wallet = global_config_map.get("ethereum_wallet").value
         private_key = Security._private_keys[ethereum_wallet]
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
-        erc20_token_addresses = get_erc20_token_addresses(token_trading_pairs)
+        erc20_token_addresses = get_erc20_token_addresses(token_trading_pairs).values()
 
         chain_name: str = global_config_map.get("ethereum_chain_name").value
         self.wallet: Web3Wallet = Web3Wallet(
@@ -200,18 +209,17 @@ class HummingbotApplication(*commands):
         )
 
     def _initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
-        ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
-
         # aggregate trading_pairs if there are duplicate markets
-        market_trading_pairs_map = {}
-        for market_name, trading_pairs in market_names:
-            if market_name not in market_trading_pairs_map:
-                market_trading_pairs_map[market_name] = []
-            for hb_trading_pair in trading_pairs:
-                market_trading_pairs_map[market_name].append(hb_trading_pair)
 
-        for connector_name, trading_pairs in market_trading_pairs_map.items():
-            if global_config_map.get("paper_trade_enabled").value:
+        for market_name, trading_pairs in market_names:
+            if market_name not in self.market_trading_pairs_map:
+                self.market_trading_pairs_map[market_name] = []
+            for hb_trading_pair in trading_pairs:
+                self.market_trading_pairs_map[market_name].append(hb_trading_pair)
+
+        for connector_name, trading_pairs in self.market_trading_pairs_map.items():
+            conn_setting = CONNECTOR_SETTINGS[connector_name]
+            if global_config_map.get("paper_trade_enabled").value and conn_setting.type == ConnectorType.Exchange:
                 try:
                     connector = create_paper_trade_market(market_name, trading_pairs)
                 except Exception:
@@ -219,22 +227,22 @@ class HummingbotApplication(*commands):
                 paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
                 for asset, balance in paper_trade_account_balance.items():
                     connector.set_balance(asset, balance)
-
-            elif connector_name in CEXES or connector_name in DERIVATIVES:
-                keys = dict((key, value.value) for key, value in dict(filter(lambda item: connector_name in item[0], global_config_map.items())).items())
-                connector_class = get_connector_class(connector_name)
-                connector = connector_class(**keys, trading_pairs=trading_pairs, trading_required=self._trading_required)
-
-            elif connector_name in DEXES:
-                assert self.wallet is not None
-                keys = dict((key, value.value) for key, value in dict(filter(lambda item: connector_name in item[0], global_config_map.items())).items())
-                connector_class = get_connector_class(connector_name)
-                connector = connector_class(**keys, wallet=self.wallet, ethereum_rpc_url=ethereum_rpc_url, trading_pairs=trading_pairs, trading_required=self._trading_required)
-                # TO-DO for DEXes: rename all extra argument to match key in global_config_map
-
             else:
-                raise ValueError(f"Connector name {connector_name} is invalid.")
-
+                keys = {key: config.value for key, config in global_config_map.items()
+                        if key in conn_setting.config_keys}
+                init_params = conn_setting.conn_init_parameters(keys)
+                init_params.update(trading_pairs=trading_pairs, trading_required=self._trading_required)
+                if conn_setting.use_ethereum_wallet:
+                    ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
+                    # Todo: Hard coded this execption for now until we figure out how to handle all ethereum connectors.
+                    if connector_name == "balancer":
+                        private_key = get_eth_wallet_private_key()
+                        init_params.update(wallet_private_key=private_key, ethereum_rpc_url=ethereum_rpc_url)
+                    else:
+                        assert self.wallet is not None
+                        init_params.update(wallet=self.wallet, ethereum_rpc_url=ethereum_rpc_url)
+                connector_class = get_connector_class(connector_name)
+                connector = connector_class(**init_params)
             self.markets[connector_name] = connector
 
         self.markets_recorder = MarketsRecorder(

@@ -6,7 +6,7 @@ from typing import (
 )
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
-from hummingbot.client.settings import ALL_CONNECTORS
+from hummingbot.client.settings import CONNECTOR_SETTINGS, ConnectorType
 import logging
 
 from .async_utils import safe_ensure_future
@@ -36,15 +36,21 @@ class TradingPairFetcher:
     async def fetch_all(self):
         tasks = []
         fetched_connectors = []
-        for connector_type, connectors in ALL_CONNECTORS.items():
-            if connector_type != "connector":
-                for connector in connectors:
-                    module_name = f"{connector}_api_order_book_data_source"
-                    class_name = "".join([o.capitalize() for o in connector.split("_")]) + "APIOrderBookDataSource"
-                    module_path = f"hummingbot.connector.{connector_type}.{connector}.{module_name}"
-                    module = getattr(importlib.import_module(module_path), class_name)
-                    tasks.append(module.fetch_trading_pairs())
-                    fetched_connectors.append(connector)
+        for conn_setting in CONNECTOR_SETTINGS.values():
+            module_name = f"{conn_setting.base_name()}_utils" if conn_setting.type is ConnectorType.Connector \
+                else f"{conn_setting.base_name()}_api_order_book_data_source"
+            module_path = f"hummingbot.connector.{conn_setting.type.name.lower()}." \
+                          f"{conn_setting.base_name()}.{module_name}"
+            if conn_setting.type is ConnectorType.Connector:
+                module = importlib.import_module(module_path)
+            else:
+                class_name = "".join([o.capitalize() for o in conn_setting.base_name().split("_")]) + \
+                             "APIOrderBookDataSource"
+                module = getattr(importlib.import_module(module_path), class_name)
+            args = {}
+            args = conn_setting.add_domain_parameter(args)
+            tasks.append(module.fetch_trading_pairs(**args))
+            fetched_connectors.append(conn_setting.name)
 
         results = await safe_gather(*tasks, return_exceptions=True)
         self.trading_pairs = dict(zip(fetched_connectors, results))
