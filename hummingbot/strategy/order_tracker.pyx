@@ -125,8 +125,14 @@ cdef class OrderTracker(TimeIterator):
     cdef dict c_get_limit_orders(self):
         return self._tracked_limit_orders
 
+    def get_limit_orders(self):
+        return self.c_get_limit_orders()
+
     cdef dict c_get_market_orders(self):
         return self._tracked_market_orders
+
+    def get_market_orders(self):
+        return self.c_get_market_orders()
 
     cdef dict c_get_shadow_limit_orders(self):
         return self._shadow_tracked_limit_orders

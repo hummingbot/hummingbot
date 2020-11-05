@@ -73,6 +73,7 @@ mkdir hummingbot_files
 mkdir hummingbot_files/hummingbot_conf
 mkdir hummingbot_files/hummingbot_logs
 mkdir hummingbot_files/hummingbot_data
+mkdir hummingbot_files/hummingbot_certs
 mkdir hummingbot_files/hummingbot_scripts
 
 # 3) Launch a new instance of hummingbot
@@ -82,6 +83,7 @@ docker run -it \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_data,destination=/data/" \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_certs,destination=/certs/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_scripts,destination=/scripts/" \
 coinalpha/hummingbot:latest
 ```
@@ -157,6 +159,7 @@ mkdir hummingbot_files
 mkdir hummingbot_files/hummingbot_conf
 mkdir hummingbot_files/hummingbot_logs
 mkdir hummingbot_files/hummingbot_data
+mkdir hummingbot_files/hummingbot_certs
 mkdir hummingbot_files/hummingbot_scripts
 
 # 3) Launch a new instance of hummingbot
@@ -166,6 +169,7 @@ docker run -it \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_data,destination=/data/" \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_certs,destination=/certs/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_scripts,destination=/scripts/" \
 coinalpha/hummingbot:latest
 ```
@@ -239,6 +243,7 @@ mkdir hummingbot_files
 mkdir hummingbot_files/hummingbot_conf
 mkdir hummingbot_files/hummingbot_logs
 mkdir hummingbot_files/hummingbot_data
+mkdir hummingbot_files/hummingbot_certs
 mkdir hummingbot_files/hummingbot_scripts
 
 # 3) Launch a new instance of hummingbot
@@ -248,6 +253,7 @@ docker run -it \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_data,destination=/data/" \
+--mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_certs,destination=/certs/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_scripts,destination=/scripts/" \
 coinalpha/hummingbot:latest
 ```
@@ -276,11 +282,17 @@ A previous version can be installed when creating a Hummingbot instance.
 
 ➡️  Enter Hummingbot version: [latest|development] (default = "latest")
 
+# 3) Specify the Gateway API version to be installed when prompted
+
+➡️  Enter Gateway API version: [latest|development] (default = "latest")
+
 ```
 
  For example, enter `version-0.16.0`. The versions are listed here in [Hummingbot Tags](https://hub.docker.com/r/coinalpha/hummingbot/tags).
 
 ----
+
+
 
 ## Developer Notes
 

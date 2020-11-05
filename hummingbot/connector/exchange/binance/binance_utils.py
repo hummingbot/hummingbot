@@ -8,15 +8,10 @@ from hummingbot.client.config.config_methods import using_exchange
 
 
 CENTRALIZED = True
-
-
 EXAMPLE_PAIR = "ZRX-ETH"
-
-
 DEFAULT_FEES = [0.1, 0.1]
 
-
-TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|DAI|XRP|USDT|USDC|USDS|TUSD|PAX|TRX|BUSD|NGN|RUB|TRY|EUR|IDRT|ZAR|UAH|GBP|BKRW|BIDR)$")
+TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|DAI|XRP|USDT|USDC|USDS|TUSD|PAX|TRX|BUSD|NGN|RUB|TRY|EUR|IDRT|ZAR|UAH|GBP|BKRW|BIDR|USD)$")
 
 
 def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
@@ -55,3 +50,22 @@ KEYS = {
                   is_secure=True,
                   is_connect_key=True),
 }
+
+OTHER_DOMAINS = ["binance_us"]
+OTHER_DOMAINS_PARAMETER = {"binance_us": "us"}
+OTHER_DOMAINS_EXAMPLE_PAIR = {"binance_us": "BTC-USDT"}
+OTHER_DOMAINS_DEFAULT_FEES = {"binance_us": [0.1, 0.1]}
+OTHER_DOMAINS_KEYS = {"binance_us": {
+    "binance_us_api_key":
+        ConfigVar(key="binance_us_api_key",
+                  prompt="Enter your Binance US API key >>> ",
+                  required_if=using_exchange("binance_us"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "binance_us_api_secret":
+        ConfigVar(key="binance_us_api_secret",
+                  prompt="Enter your Binance US API secret >>> ",
+                  required_if=using_exchange("binance_us"),
+                  is_secure=True,
+                  is_connect_key=True),
+}}

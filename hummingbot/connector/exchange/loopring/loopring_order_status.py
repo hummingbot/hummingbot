@@ -8,7 +8,7 @@ class LoopringOrderStatus(Enum):
     cancelling = 200
     DONE = 300
     processed = 301
-    FAILED = 400
+    failed = 400
     cancelled = 402
     expired = 403
 

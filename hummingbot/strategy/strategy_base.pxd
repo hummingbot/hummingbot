@@ -17,7 +17,7 @@ cdef class StrategyBase(TimeIterator):
         EventListener _sb_complete_buy_order_listener
         EventListener _sb_complete_sell_order_listener
         bint _sb_delegate_lock
-        OrderTracker _sb_order_tracker
+        public OrderTracker _sb_order_tracker
 
     cdef c_add_markets(self, list markets)
     cdef c_remove_markets(self, list markets)
