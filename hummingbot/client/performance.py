@@ -111,6 +111,19 @@ def calculate_performance_metrics(trading_pair: str,
     return perf
 
 
-def smart_round(value: Decimal) -> Decimal:
-    # Simply quantize values to 8 decimal places
-    return Decimal(str(value)).quantize(Decimal("0.00000001"))
+def smart_round(value: Decimal, precision: int = 0) -> Decimal:
+    if precision > 0:
+        precision = 1 / (10 ** precision)
+        return Decimal(str(value)).quantize(Decimal(str(precision)))
+    step = Decimal("1")
+    if Decimal("10000") > abs(value) > Decimal("100"):
+        step = Decimal("0.1")
+    elif Decimal("100") > abs(value) > Decimal("1"):
+        step = Decimal("0.01")
+    elif Decimal("1") > abs(value) > Decimal("0.01"):
+        step = Decimal("0.0001")
+    elif Decimal("0.01") > abs(value) > Decimal("0.0001"):
+        step = Decimal("0.00001")
+    elif Decimal("0.0001") > abs(value) > s_decimal_0:
+        step = Decimal("0.000001")
+    return (value // step) * step
