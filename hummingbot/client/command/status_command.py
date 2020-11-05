@@ -216,6 +216,19 @@ class StatusCommand:
             for offline_market in offline_markets:
                 self._notify(f"  - Connector check: {offline_market} is currently offline.")
             return False
+
+        # Paper trade mode is currently not available for connectors other than exchanges.
+        # Todo: This check is hard coded at the moment, when we get a clearer direction on how we should handle this,
+        # this section will need updating.
+        if global_config_map.get("paper_trade_enabled").value:
+            if "balancer" in required_exchanges and \
+                    str(global_config_map.get("ethereum_chain_name").value).lower() != "kovan":
+                self._notify("Error: Paper trade mode is not available on balancer at the moment.")
+                return False
+            if "binance_perpetual" in required_exchanges:
+                self._notify("Error: Paper trade mode is not available on binance_perpetual at the moment.")
+                return False
+
         self.application_warning()
         self._notify("  - All checks: Confirmed.")
         return True
