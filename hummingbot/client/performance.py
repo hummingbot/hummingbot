@@ -111,7 +111,10 @@ def calculate_performance_metrics(trading_pair: str,
     return perf
 
 
-def smart_round(value: Decimal) -> Decimal:
+def smart_round(value: Decimal, precision: Optional[int] = None) -> Decimal:
+    if precision is not None:
+        precision = 1 / (10 ** precision)
+        return Decimal(str(value)).quantize(Decimal(str(precision)))
     step = Decimal("1")
     if Decimal("10000") > abs(value) > Decimal("100"):
         step = Decimal("0.1")
