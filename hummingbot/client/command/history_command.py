@@ -6,7 +6,8 @@ from typing import (
     Set,
     Tuple,
     TYPE_CHECKING,
-    List
+    List,
+    Optional
 )
 from datetime import datetime
 from hummingbot.client.config.global_config_map import global_config_map
@@ -33,6 +34,7 @@ class HistoryCommand:
     def history(self,  # type: HummingbotApplication
                 days: float = 0,
                 verbose: bool = False,
+                precision: Optional[int] = None
                 ):
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.history)
@@ -52,11 +54,12 @@ class HistoryCommand:
         if verbose:
             self.list_trades(start_time)
         if self.strategy_name != "celo_arb":
-            safe_ensure_future(self.history_report(start_time, trades))
+            safe_ensure_future(self.history_report(start_time, trades, precision))
 
     async def history_report(self,  # type: HummingbotApplication
                              start_time: float,
                              trades: List[TradeFill],
+                             precision: Optional[int] = None,
                              display_report: bool = True) -> Decimal:
         market_info: Set[Tuple[str, str]] = set((t.market, t.symbol) for t in trades)
         if display_report:
@@ -68,7 +71,7 @@ class HistoryCommand:
             cur_price = await get_last_price(market.replace("_PaperTrade", ""), symbol)
             perf = calculate_performance_metrics(symbol, cur_trades, cur_balances, cur_price)
             if display_report:
-                self.report_performance_by_market(market, symbol, perf)
+                self.report_performance_by_market(market, symbol, perf, precision)
             return_pcts.append(perf.return_pct)
         avg_return = sum(return_pcts) / len(return_pcts) if len(return_pcts) > 0 else s_decimal_0
         if display_report and len(return_pcts) > 1:
@@ -100,7 +103,8 @@ class HistoryCommand:
     def report_performance_by_market(self,  # type: HummingbotApplication
                                      market: str,
                                      trading_pair: str,
-                                     perf: PerformanceMetrics):
+                                     perf: PerformanceMetrics,
+                                     precision: int):
         lines = []
         base, quote = trading_pair.split("-")
         lines.extend(
@@ -111,17 +115,17 @@ class HistoryCommand:
         trades_data = [
             [f"{'Number of trades':<27}", perf.num_buys, perf.num_sells, perf.num_trades],
             [f"{f'Total trade volume ({base})':<27}",
-             smart_round(perf.b_vol_base),
-             smart_round(perf.s_vol_base),
-             smart_round(perf.tot_vol_base)],
+             smart_round(perf.b_vol_base, precision),
+             smart_round(perf.s_vol_base, precision),
+             smart_round(perf.tot_vol_base, precision)],
             [f"{f'Total trade volume ({quote})':<27}",
-             smart_round(perf.b_vol_quote),
-             smart_round(perf.s_vol_quote),
-             smart_round(perf.tot_vol_quote)],
+             smart_round(perf.b_vol_quote, precision),
+             smart_round(perf.s_vol_quote, precision),
+             smart_round(perf.tot_vol_quote, precision)],
             [f"{'Avg price':<27}",
-             smart_round(perf.avg_b_price),
-             smart_round(perf.avg_s_price),
-             smart_round(perf.avg_tot_price)],
+             smart_round(perf.avg_b_price, precision),
+             smart_round(perf.avg_s_price, precision),
+             smart_round(perf.avg_tot_price, precision)],
         ]
         trades_df: pd.DataFrame = pd.DataFrame(data=trades_data, columns=trades_columns)
         lines.extend(["", "  Trades:"] + ["    " + line for line in trades_df.to_string(index=False).split("\n")])
@@ -129,13 +133,13 @@ class HistoryCommand:
         assets_columns = ["", "start", "current", "change"]
         assets_data = [
             [f"{base:<17}",
-             smart_round(perf.start_base_bal),
-             smart_round(perf.cur_base_bal),
-             smart_round(perf.tot_vol_base)],
+             smart_round(perf.start_base_bal, precision),
+             smart_round(perf.cur_base_bal, precision),
+             smart_round(perf.tot_vol_base, precision)],
             [f"{quote:<17}",
-             smart_round(perf.start_quote_bal),
-             smart_round(perf.cur_quote_bal),
-             smart_round(perf.tot_vol_quote)],
+             smart_round(perf.start_quote_bal, precision),
+             smart_round(perf.cur_quote_bal, precision),
+             smart_round(perf.tot_vol_quote, precision)],
             [f"{trading_pair + ' price':<17}",
              perf.start_price,
              perf.cur_price,
@@ -149,11 +153,11 @@ class HistoryCommand:
         lines.extend(["", "  Assets:"] + ["    " + line for line in assets_df.to_string(index=False).split("\n")])
 
         perf_data = [
-            ["Hold portfolio value    ", f"{smart_round(perf.hold_value)} {quote}"],
-            ["Current portfolio value ", f"{smart_round(perf.cur_value)} {quote}"],
-            ["Trade P&L               ", f"{smart_round(perf.trade_pnl)} {quote}"],
-            ["Fees paid               ", f"{smart_round(perf.fee_paid)} {perf.fee_token}"],
-            ["Total P&L               ", f"{smart_round(perf.total_pnl)} {quote}"],
+            ["Hold portfolio value    ", f"{smart_round(perf.hold_value, precision)} {quote}"],
+            ["Current portfolio value ", f"{smart_round(perf.cur_value, precision)} {quote}"],
+            ["Trade P&L               ", f"{smart_round(perf.trade_pnl, precision)} {quote}"],
+            ["Fees paid               ", f"{smart_round(perf.fee_paid, precision)} {perf.fee_token}"],
+            ["Total P&L               ", f"{smart_round(perf.total_pnl, precision)} {quote}"],
             ["Return %                ", f"{perf.return_pct:.2%}"],
         ]
         perf_df: pd.DataFrame = pd.DataFrame(data=perf_data)
