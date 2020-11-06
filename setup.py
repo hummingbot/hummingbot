@@ -65,6 +65,7 @@ def main():
             "wallet/ethereum/zero_ex/*.json",
             "wallet/ethereum/token_abi/*.json",
             "wallet/ethereum/erc20_tokens.json",
+            "wallet/ethereum/erc20_tokens_kovan.json",
             "VERSION",
             "templates/*TEMPLATE.yml"
         ],
