@@ -31,6 +31,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         bint _add_transaction_costs_to_orders
         object _asset_price_delegate
         object _inventory_cost_price_delegate
+        bint _inventory_cost_allow_higher_bids
         object _price_type
         bint _take_if_crossed
         object _price_ceiling

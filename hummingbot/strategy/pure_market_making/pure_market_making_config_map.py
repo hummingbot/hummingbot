@@ -342,6 +342,14 @@ pure_market_making_config_map = {
                   prompt="Enter pricing API URL >>> ",
                   required_if=lambda: pure_market_making_config_map.get("price_source").value == "custom_api",
                   type_str="str"),
+    "inventory_cost_allow_higher_bids":
+        ConfigVar(key="inventory_cost_allow_higher_bids",
+                  prompt="Do you want to allow placing bid orders higher than inventory price? ("
+                         "Yes/No) >>> ",
+                  required_if=lambda: pure_market_making_config_map.get(
+                      "price_type").value == "inventory_cost",
+                  type_str="bool",
+                  validator=validate_bool),
     "order_override":
         ConfigVar(key="order_override",
                   prompt=None,
