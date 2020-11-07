@@ -801,6 +801,33 @@ class PMMUnitTest(unittest.TestCase):
         first_bid_order = strategy.active_buys[0]
         self.assertEqual(Decimal("98.01"), first_bid_order.price)
 
+    def test_inventory_cost_price_del_allow_higher_bids(self):
+        strategy = self.one_level_strategy
+        strategy.inventory_cost_price_delegate = self.inventory_cost_price_del
+        strategy.inventory_cost_allow_higher_bids = True
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        # Expecting to have orders set according to mid_price as there is no inventory cost data yet
+        first_bid_order = strategy.active_buys[0]
+        first_ask_order = strategy.active_sells[0]
+        self.assertEqual(Decimal("99"), first_bid_order.price)
+        self.assertEqual(Decimal("101"), first_ask_order.price)
+
+        # Filling buy order
+        self.simulate_maker_market_trade(
+            is_buy=False, quantity=Decimal("1"), price=Decimal("98.9"),
+        )
+        # And shifting market up
+        simulate_order_book_widening(self.book_data.order_book, 101, 110)
+        self.clock.backtest_til(self.start_timestamp + 7)
+
+        # Expect inventory cost price to be equal to buy price
+        self.assertEqual(strategy.inventory_cost_price_delegate.get_price(), Decimal("99"))
+        first_bid_order = strategy.active_buys[0]
+        # Expect bid price to be higher that inventory cost price
+        self.assertGreater(first_bid_order.price, Decimal("101"))
+
     def test_order_book_asset_del(self):
         strategy = self.one_level_strategy
         strategy.asset_price_delegate = self.order_book_asset_del

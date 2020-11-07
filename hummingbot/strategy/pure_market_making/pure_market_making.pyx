@@ -84,6 +84,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                  add_transaction_costs_to_orders: bool = False,
                  asset_price_delegate: AssetPriceDelegate = None,
                  inventory_cost_price_delegate: InventoryCostPriceDelegate = None,
+                 inventory_cost_allow_higher_bids: bool = False,
                  price_type: str = "mid_price",
                  take_if_crossed: bool = False,
                  price_ceiling: Decimal = s_decimal_neg_one,
@@ -125,6 +126,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._add_transaction_costs_to_orders = add_transaction_costs_to_orders
         self._asset_price_delegate = asset_price_delegate
         self._inventory_cost_price_delegate = inventory_cost_price_delegate
+        self._inventory_cost_allow_higher_bids = inventory_cost_allow_higher_bids
         self._price_type = self.get_price_type(price_type)
         self._take_if_crossed = take_if_crossed
         self._price_ceiling = price_ceiling
@@ -429,6 +431,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._inventory_cost_price_delegate = value
 
     @property
+    def inventory_cost_allow_higher_bids(self):
+        return self._inventory_cost_allow_higher_bids
+
+    @inventory_cost_allow_higher_bids.setter
+    def inventory_cost_allow_higher_bids(self, value):
+        self._inventory_cost_allow_higher_bids = value
+
+    @property
     def order_tracker(self):
         return self._sb_order_tracker
 
@@ -697,7 +707,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             except NoPrice:
                 pass
             else:
-                buy_reference_price = min(inventory_cost_price, buy_reference_price)
+                if not self._inventory_cost_allow_higher_bids:
+                    buy_reference_price = min(inventory_cost_price, buy_reference_price)
                 sell_reference_price = max(inventory_cost_price, sell_reference_price)
 
         # First to check if a customized order override is configured, otherwise the proposal will be created according
