@@ -25,6 +25,7 @@ cdef class BinanceExchange(ExchangeBase):
         object _async_scheduler
         object _set_server_time_offset_task
         object _throttler
+        str _domain
 
     cdef c_did_timeout_tx(self, str tracking_id)
     cdef c_start_tracking_order(self,

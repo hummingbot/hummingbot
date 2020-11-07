@@ -22,6 +22,7 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
+from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
 from hummingbot.connector.exchange.loopring.loopring_order_book_tracker import LoopringOrderBookTracker
@@ -51,9 +52,9 @@ from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
-from hummingbot.connector.exchange.loopring.ethsnarks2.eddsa import PureEdDSA, PoseidonEdDSA
-from hummingbot.connector.exchange.loopring.ethsnarks2.field import FQ, SNARK_SCALAR_FIELD
-from hummingbot.connector.exchange.loopring.ethsnarks2.poseidon import poseidon_params, poseidon
+from ethsnarks_loopring import PoseidonEdDSA
+from ethsnarks_loopring import FQ, SNARK_SCALAR_FIELD
+from ethsnarks_loopring import poseidon_params, poseidon
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -94,6 +95,34 @@ ORDER_CANCEL_ROUTE = "api/v2/orders"
 MAXIMUM_FILL_COUNT = 16
 UNRECOGNIZED_ORDER_DEBOUCE = 20  # seconds
 
+
+class LatchingEventResponder(EventListener):
+    def __init__(self, callback: any, num_expected: int):
+        super().__init__()
+        self._callback = callback
+        self._completed = asyncio.Event()
+        self._num_remaining = num_expected
+
+    def __call__(self, arg: any):
+        if self._callback(arg):
+            self._reduce()
+
+    def _reduce(self):
+        self._num_remaining -= 1
+        if self._num_remaining <= 0:
+            self._completed.set()
+
+    async def wait_for_completion(self, timeout: float):
+        try:
+            await asyncio.wait_for(self._completed.wait(), timeout=timeout)
+        except asyncio.TimeoutError:
+            pass
+        return self._completed.is_set()
+
+    def cancel_one(self):
+        self._reduce()
+
+
 cdef class LoopringExchangeTransactionTracker(TransactionTracker):
     cdef:
         LoopringExchange _owner
@@ -107,7 +136,6 @@ cdef class LoopringExchangeTransactionTracker(TransactionTracker):
         self._owner.c_did_timeout_tx(tx_id)
 
 cdef class LoopringExchange(ExchangeBase):
-    # This causes it to hang when starting network
     @classmethod
     def logger(cls) -> HummingbotLogger:
         global s_logger
@@ -291,7 +319,7 @@ cdef class LoopringExchange(ExchangeBase):
             "accountId": self._loopring_accountid,
             "allOrNone": "false",
             "validSince": validSince,
-            "validUntil": validSince + (604800*5),  # Until week later
+            "validUntil": validSince + (604800 * 5),  # Until week later
             "maxFeeBips": 63,
             "label": 20,
             "buy": "true" if order_side is TradeType.BUY else "false",
@@ -336,7 +364,7 @@ cdef class LoopringExchange(ExchangeBase):
             raise ValueError(f"Order amount({str(amount)}) is less than the minimum allowable amount({str(trading_rule.min_order_size)})")
         if amount > trading_rule.max_order_size:
             raise ValueError(f"Order amount({str(amount)}) is greater than the maximum allowable amount({str(trading_rule.max_order_size)})")
-        if amount*price < trading_rule.min_notional_size:
+        if amount * price < trading_rule.min_notional_size:
             raise ValueError(f"Order notional value({str(amount*price)}) is less than the minimum allowable notional value for an order ({str(trading_rule.min_notional_size)})")
 
         try:
@@ -346,12 +374,11 @@ cdef class LoopringExchange(ExchangeBase):
 
             try:
                 creation_response = await self.place_order(client_order_id, trading_pair, amount, order_side is TradeType.BUY, order_type, price)
-            except asyncio.exceptions.TimeoutError as e:
-                # we don't know what state we ended up in here so add this order to our recovery queue
-
-                # Let's just issue a cancel order for now and hope for the best
-                if not self.cancel_order(client_order_id):
-                    raise e
+            except asyncio.exceptions.TimeoutError:
+                # We timed out while placing this order. We may have successfully submitted the order, or we may have had connection
+                # issues that prevented the submission from taking place. We'll assume that the order is live and let our order status
+                # updates mark this as cancelled if it doesn't actually exist.
+                return True
 
             # Verify the response from the exchange
             if "data" not in creation_response.keys():
@@ -368,11 +395,12 @@ cdef class LoopringExchange(ExchangeBase):
             self.logger().info(
                 f"Created {in_flight_order.description} order {client_order_id} for {amount} {trading_pair}.")
 
+            return True
+
         except Exception as e:
             self.logger().warning(f"Error submitting {order_side.name} {order_type.name} order to Loopring for "
                                   f"{amount} {trading_pair} at {price}.")
             self.logger().info(e)
-            traceback.print_exc()
 
             # Re-sync our next order id after this failure
             base, quote = trading_pair.split('-')
@@ -383,22 +411,17 @@ cdef class LoopringExchange(ExchangeBase):
             self.stop_tracking(client_order_id)
             self.c_trigger_event(ORDER_FAILURE_EVENT, MarketOrderFailureEvent(now(), client_order_id, order_type))
 
+            return False
+
     async def execute_buy(self,
                           order_id: str,
                           trading_pair: str,
                           amount: Decimal,
                           order_type: OrderType,
                           price: Optional[Decimal] = Decimal('NaN')):
-        try:
-            await self.execute_order(TradeType.BUY, order_id, trading_pair, amount, order_type, price)
-
+        if await self.execute_order(TradeType.BUY, order_id, trading_pair, amount, order_type, price):
             self.c_trigger_event(BUY_ORDER_CREATED_EVENT,
                                  BuyOrderCreatedEvent(now(), order_type, trading_pair, Decimal(amount), Decimal(price), order_id))
-        except ValueError as e:
-            # Stop tracking this order
-            self.stop_tracking(order_id)
-            self.c_trigger_event(ORDER_FAILURE_EVENT, MarketOrderFailureEvent(now(), order_id, order_type))
-            raise e
 
     async def execute_sell(self,
                            order_id: str,
@@ -406,15 +429,9 @@ cdef class LoopringExchange(ExchangeBase):
                            amount: Decimal,
                            order_type: OrderType,
                            price: Optional[Decimal] = Decimal('NaN')):
-        try:
-            await self.execute_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price)
+        if await self.execute_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price):
             self.c_trigger_event(SELL_ORDER_CREATED_EVENT,
                                  SellOrderCreatedEvent(now(), order_type, trading_pair, Decimal(amount), Decimal(price), order_id))
-        except ValueError as e:
-            # Stop tracking this order
-            self.stop_tracking(order_id)
-            self.c_trigger_event(ORDER_FAILURE_EVENT, MarketOrderFailureEvent(now(), order_id, order_type))
-            raise e
 
     cdef str c_buy(self, str trading_pair, object amount, object order_type = OrderType.LIMIT, object price = 0.0,
                    dict kwargs = {}):
@@ -450,8 +467,15 @@ cdef class LoopringExchange(ExchangeBase):
             }
 
             res = await self.api_request("DELETE", ORDER_CANCEL_ROUTE, params=cancellation_payload, secure=True)
-            if res['resultInfo']['code'] != 0 and res['resultInfo']['message'] != "order in status CANCELLED can't be cancelled":
+            code = res['resultInfo']['code']
+            message = res['resultInfo']['message']
+            if code == 102117 and in_flight_order.created_at < (int(time.time()) - UNRECOGNIZED_ORDER_DEBOUCE):
+                # Order doesn't exist and enough time has passed so we are safe to mark this as canceled
+                self.c_trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
+                self.c_stop_tracking_order(client_order_id)
+            elif code != 0 and (code != 100001 or message != "order in status CANCELLED can't be cancelled"):
                 raise Exception(f"Cancel order returned code {res['resultInfo']['code']} ({res['resultInfo']['message']})")
+
             return True
 
         except Exception as e:
@@ -467,15 +491,35 @@ cdef class LoopringExchange(ExchangeBase):
             del self._in_flight_orders[order_id]
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
-        results = []
         cancellation_queue = self._in_flight_orders.copy()
+        if len(cancellation_queue) == 0:
+            return []
+
+        order_status = {o.client_order_id: False for o in cancellation_queue.values()}
+        for o, s in order_status.items():
+            self.logger().info(o + ' ' + str(s))
+
+        def set_cancellation_status(oce: OrderCancelledEvent):
+            if oce.order_id in order_status:
+                order_status[oce.order_id] = True
+                return True
+            return False
+
+        cancel_verifier = LatchingEventResponder(set_cancellation_status, len(cancellation_queue))
+        self.c_add_listener(ORDER_CANCELLED_EVENT, cancel_verifier)
+
         for order_id, in_flight in cancellation_queue.iteritems():
             try:
-                await self.cancel_order(order_id)
-                results.append(CancellationResult(order_id=order_id, success=True))
+                if not await self.cancel_order(order_id):
+                    # this order did not exist on the exchange
+                    cancel_verifier.cancel_one()
             except Exception:
-                results.append(CancellationResult(order_id=order_id, success=False))
-        return results
+                cancel_verifier.cancel_one()
+
+        all_completed: bool = await cancel_verifier.wait_for_completion(timeout_seconds)
+        self.c_remove_listener(ORDER_CANCELLED_EVENT, cancel_verifier)
+
+        return [CancellationResult(order_id=order_id, success=success) for order_id, success in order_status.items()]
 
     cdef object c_get_fee(self,
                           str base_currency,
@@ -577,7 +621,7 @@ cdef class LoopringExchange(ExchangeBase):
                                                       tracked_order.order_type,
                                                       new_price,
                                                       new_amount,
-                                                      TradeFee(Decimal(0), [(tracked_order.quote_asset, new_fee)]),
+                                                      TradeFee(Decimal(0), [(tracked_order.fee_asset, new_fee)]),
                                                       tracked_order.client_order_id))
             elif market_event == MarketEvent.OrderExpired:
                 self.c_trigger_event(ORDER_EXPIRED_EVENT,
@@ -600,8 +644,7 @@ cdef class LoopringExchange(ExchangeBase):
                                                                     tracked_order.client_order_id,
                                                                     tracked_order.base_asset,
                                                                     tracked_order.quote_asset,
-                                                                    (tracked_order.fee_asset
-                                                                        or tracked_order.quote_asset),
+                                                                    tracked_order.fee_asset,
                                                                     tracked_order.executed_amount_base,
                                                                     tracked_order.executed_amount_quote,
                                                                     tracked_order.fee_paid,
@@ -614,8 +657,7 @@ cdef class LoopringExchange(ExchangeBase):
                                                                      tracked_order.client_order_id,
                                                                      tracked_order.base_asset,
                                                                      tracked_order.quote_asset,
-                                                                     (tracked_order.fee_asset
-                                                                      or tracked_order.quote_asset),
+                                                                     tracked_order.fee_asset,
                                                                      tracked_order.executed_amount_base,
                                                                      tracked_order.executed_amount_quote,
                                                                      tracked_order.fee_paid,
@@ -695,8 +737,8 @@ cdef class LoopringExchange(ExchangeBase):
                     tracked_order: LoopringInFlightOrder = self._in_flight_orders.get(client_order_id)
 
                     if tracked_order is None:
-                        self.logger().warning(f"Unrecognized order ID from user stream: {client_order_id}.")
-                        self.logger().warning(f"Event: {event_message}")
+                        self.logger().debug(f"Unrecognized order ID from user stream: {client_order_id}.")
+                        self.logger().debug(f"Event: {event_message}")
                         continue
 
                     # update the tracked order
@@ -779,7 +821,15 @@ cdef class LoopringExchange(ExchangeBase):
         for client_order_id, tracked_order in tracked_orders.iteritems():
             loopring_order_id = tracked_order.exchange_order_id
             if loopring_order_id is None:
-                continue  # This order is still pending acknowledgement from the exchange
+                # This order is still pending acknowledgement from the exchange
+                if tracked_order.created_at < (int(time.time()) - UNRECOGNIZED_ORDER_DEBOUCE):
+                    # this order should have a loopring_order_id at this point. If it doesn't, we should cancel it
+                    # as we won't be able to poll for updates
+                    try:
+                        await self.cancel_order(client_order_id)
+                    except Exception:
+                        pass
+                continue
 
             try:
                 loopring_order_request = await self.api_request("GET",
@@ -794,7 +844,7 @@ cdef class LoopringExchange(ExchangeBase):
                                       f"{client_order_id }({tracked_order.exchange_order_id}) from api (code: {loopring_order_request['resultInfo']['code']})")
 
                 # check if this error is because the api cliams to be unaware of this order. If so, and this order
-                # is reasonably old, mark the orde as cancelled
+                # is reasonably old, mark the order as cancelled
                 if loopring_order_request['resultInfo']['code'] == 107003:
                     if tracked_order.created_at < (int(time.time()) - UNRECOGNIZED_ORDER_DEBOUCE):
                         self.logger().warning(f"marking {client_order_id} as cancelled")

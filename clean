@@ -6,6 +6,6 @@ echo "Cleaning up all intermediate and compiled files generated from Cython comp
 
 rm -rf build dist
 rm -f $(find . -name "*.pyx" | sed s/\.pyx$/\*\.cpp/g)
-find . -name "*.so" -o -name "*.pyd" -exec rm -f {} \;
+find . \( -name "*.so" -o -name "*.pyd" \) -exec rm -f {} \;
 
 echo "Done!"
