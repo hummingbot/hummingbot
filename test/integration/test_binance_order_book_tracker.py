@@ -104,8 +104,8 @@ class BinanceOrderBookTrackerUnitTest(unittest.TestCase):
             self.assertFalse(math.isnan(order_book.last_trade_price))
 
     def test_api_get_last_traded_prices(self):
-        prices = self.ev_loop.run_until_complete(
-            BinanceAPIOrderBookDataSource.get_last_traded_prices(["BTCUSDT", "LTCBTC"]))
+        binance_ob_data_source = BinanceAPIOrderBookDataSource(["BTCUSDT", "LTCBTC"])
+        prices = self.ev_loop.run_until_complete(binance_ob_data_source.get_last_traded_prices(["BTCUSDT", "LTCBTC"]))
         for key, value in prices.items():
             print(f"{key} last_trade_price: {value}")
         self.assertGreater(prices["BTCUSDT"], 1000)

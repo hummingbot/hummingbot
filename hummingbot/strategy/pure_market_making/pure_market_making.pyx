@@ -154,6 +154,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         return all([market.ready for market in self._sb_markets])
 
     @property
+    def market_info(self) -> MarketTradingPairTuple:
+        return self._market_info
+
+    @property
     def order_refresh_tolerance_pct(self) -> Decimal:
         return self._order_refresh_tolerance_pct
 
@@ -229,7 +233,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     @property
     def inventory_range_multiplier(self) -> Decimal:
-        return self.inventory_range_multiplier
+        return self._inventory_range_multiplier
 
     @inventory_range_multiplier.setter
     def inventory_range_multiplier(self, value: Decimal):
@@ -335,9 +339,16 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     def trading_pair(self):
         return self._market_info.trading_pair
 
-    def get_price(self) -> Decimal:
-        price_provider = self._asset_price_delegate or self._market_info
+    @property
+    def order_override(self):
+        return self._order_override
 
+    @order_override.setter
+    def order_override(self, value: Dict[str, List[str]]):
+        self._order_override = value
+
+    def get_price(self) -> float:
+        price_provider = self._asset_price_delegate or self._market_info
         if self._price_type is PriceType.LastOwnTrade:
             price = self._last_own_trade_price
         elif self._price_type is PriceType.InventoryCost:
