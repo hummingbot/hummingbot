@@ -22,6 +22,9 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.strategy.pure_market_making import (
     PureMarketMakingStrategy
 )
+from hummingbot.strategy.perpetual_market_making import (
+    PerpetualMarketMakingStrategy
+)
 from hummingbot.user.user_balances import UserBalances
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -39,6 +42,17 @@ global_configs_to_display = ["0x_active_cancels",
                              "send_error_logs",
                              "script_enabled",
                              "script_file_path"]
+# perpetual parameters that are disabled untill needed.
+disabled_perpetual_parameters = ["inventory_target_base_pct",
+                                 "ts_activation_spread",
+                                 "ts_callback_rate",
+                                 "inventory_skew_enabled",
+                                 "inventory_range_multiplier",
+                                 "price_source",
+                                 "price_source_derivative",
+                                 "price_source_market",
+                                 "price_source_custom_api",
+                                 "take_if_crossed"]
 
 
 class ConfigCommand:
@@ -94,12 +108,12 @@ class ConfigCommand:
 
     # Make this function static so unit testing can be performed.
     @staticmethod
-    def update_running_pure_mm(pure_mm_strategy: PureMarketMakingStrategy, key: str, new_value: Any):
+    def update_running_mm(mm_strategy, key: str, new_value: Any):
         if key in no_restart_pmm_keys_in_percentage:
-            setattr(pure_mm_strategy, key, new_value / Decimal("100"))
+            setattr(mm_strategy, key, new_value / Decimal("100"))
             return True
         elif key in no_restart_pmm_keys:
-            setattr(pure_mm_strategy, key, new_value)
+            setattr(mm_strategy, key, new_value)
             return True
         return False
 
@@ -125,7 +139,10 @@ class ConfigCommand:
             config_var = config_map[key]
             if input_value is None:
                 self._notify("Please follow the prompt to complete configurations: ")
-            if config_var.key == "inventory_target_base_pct":
+            if (config_var.key in disabled_perpetual_parameters) and isinstance(self.strategy, PerpetualMarketMakingStrategy):
+                self._notify("This parameter is currently disabled in Perpetual Market Making Strategy.")
+                return
+            elif config_var.key == "inventory_target_base_pct":
                 await self.asset_ratio_maintenance_prompt(config_map, input_value)
             else:
                 await self.prompt_a_config(config_var, input_value=input_value, assign_default=False)
@@ -142,8 +159,9 @@ class ConfigCommand:
             self._notify(f"{key}: {str(config_var.value)}")
             for config in missings:
                 self._notify(f"{config.key}: {str(config.value)}")
-            if isinstance(self.strategy, PureMarketMakingStrategy):
-                updated = ConfigCommand.update_running_pure_mm(self.strategy, key, config_var.value)
+            if isinstance(self.strategy, PureMarketMakingStrategy) or \
+               isinstance(self.strategy, PerpetualMarketMakingStrategy):
+                updated = ConfigCommand.update_running_mm(self.strategy, key, config_var.value)
                 if updated:
                     self._notify(f"\nThe current {self.strategy_name} strategy has been updated "
                                  f"to reflect the new configuration.")
