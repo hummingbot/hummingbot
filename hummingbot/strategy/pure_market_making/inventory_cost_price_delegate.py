@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from hummingbot.core.event.events import OrderFilledEvent, TradeType
 from hummingbot.exceptions import NoPrice
@@ -21,7 +21,7 @@ class InventoryCostPriceDelegate:
         )
         try:
             price = record.quote_volume / record.base_volume
-        except (ZeroDivisionError, AttributeError):
+        except (ZeroDivisionError, InvalidOperation, AttributeError):
             raise NoPrice("Inventory cost delegate does not have price cost data yet")
 
         return Decimal(price)

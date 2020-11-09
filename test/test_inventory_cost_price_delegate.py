@@ -103,3 +103,17 @@ class TestInventoryCostPriceDelegate(unittest.TestCase):
         self._session.commit()
         delegate_price = self.delegate.get_price()
         self.assertEqual(delegate_price, price)
+
+    def test_get_price_by_type_zero_division(self):
+        amount = Decimal("0")
+        price = Decimal("9000")
+
+        record = InventoryCost(
+            base_asset=self.base_asset,
+            quote_asset=self.quote_asset,
+            base_volume=amount,
+            quote_volume=amount * price,
+        )
+        self._session.add(record)
+        self._session.commit()
+        self.assertRaises(NoPrice, self.delegate.get_price)
