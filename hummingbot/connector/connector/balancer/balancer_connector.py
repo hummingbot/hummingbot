@@ -40,13 +40,6 @@ s_decimal_NaN = Decimal("nan")
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
-def add_certs_args(args):
-    ca_certs = GATEAWAY_CA_CERT_PATH
-    client_certs = (GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH)
-    args.update({"verify": ca_certs, "cert": client_certs})
-    return args
-
-
 class BalancerConnector(ConnectorBase):
     """
     BalancerConnector connects with balancer gateway APIs and provides pricing, user account tracking and trading
@@ -69,6 +62,9 @@ class BalancerConnector(ConnectorBase):
                  trading_required: bool = True
                  ):
         """
+        :param trading_pairs: a list of trading pairs
+        :param wallet_private_key: a private key for eth wallet
+        :param ethereum_rpc_url: this is usually infura RPC URL
         :param trading_required: Whether actual trading is needed.
         """
         super().__init__()
@@ -101,6 +97,10 @@ class BalancerConnector(ConnectorBase):
         ]
 
     async def auto_approve(self):
+        """
+        Automatically approves Balancer contract as a spender for token in trading pairs.
+        It first checks if there are any already approved amount (allowance)
+        """
         self.logger().info("Checking for allowances...")
         self._allowances = await self.get_allowances()
         for token, amount in self._allowances.items():
@@ -113,6 +113,10 @@ class BalancerConnector(ConnectorBase):
                     break
 
     async def approve_balancer_spender(self, token_symbol: str) -> Decimal:
+        """
+        Approves Balancer contract as a spender for a token.
+        :param token_symbol: token to approve.
+        """
         resp = await self._api_request("post",
                                        "eth/approve",
                                        {"tokenAddress": self._token_addresses[token_symbol],
@@ -125,6 +129,10 @@ class BalancerConnector(ConnectorBase):
         return amount_approved
 
     async def get_allowances(self) -> Dict[str, Decimal]:
+        """
+        Retrieves allowances for token in trading_pairs
+        :return: A dictionary of token and its allowance (how much Balancer can spend).
+        """
         ret_val = {}
         resp = await self._api_request("post", "eth/allowances",
                                        {"tokenAddressList": ",".join(self._token_addresses.values())})
@@ -134,26 +142,70 @@ class BalancerConnector(ConnectorBase):
 
     @async_ttl_cache(ttl=5, maxsize=10)
     async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Optional[Decimal]:
-        base, quote = trading_pair.split("-")
-        side = "buy" if is_buy else "sell"
-        resp = await self._api_request("post",
-                                       f"balancer/{side}-price",
-                                       {"base": self._token_addresses[base],
-                                        "quote": self._token_addresses[quote],
-                                        "amount": amount})
-        if resp["price"] is not None:
-            return Decimal(str(resp["price"]))
+        """
+        Retrieves a quote price.
+        :param trading_pair: The market trading pair
+        :param is_buy: True for an intention to buy, False for an intention to sell
+        :param amount: The amount required (in base token unit)
+        :return: The quote price.
+        """
+
+        try:
+            base, quote = trading_pair.split("-")
+            side = "buy" if is_buy else "sell"
+            resp = await self._api_request("post",
+                                           f"balancer/{side}-price",
+                                           {"base": self._token_addresses[base],
+                                            "quote": self._token_addresses[quote],
+                                            "amount": amount})
+            if resp["price"] is not None:
+                return Decimal(str(resp["price"]))
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().network(
+                f"Error getting quote price for {trading_pair}  {side} order for {amount} amount.",
+                exc_info=True,
+                app_warning_msg=str(e)
+            )
 
     async def get_order_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
+        """
+        This is simply the quote price
+        """
         return await self.get_quote_price(trading_pair, is_buy, amount)
 
-    def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal):
+    def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal) -> str:
+        """
+        Buys an amount of base token for a given price (or cheaper).
+        :param trading_pair: The market trading pair
+        :param amount: The order amount (in base token unit)
+        :param order_type: Any order type is fine, not needed for this.
+        :param price: The maximum price for the order.
+        :return: A newly created order id (internal).
+        """
         return self.place_order(True, trading_pair, amount, price)
 
-    def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal):
+    def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal) -> str:
+        """
+        Sells an amount of base token for a given price (or at a higher price).
+        :param trading_pair: The market trading pair
+        :param amount: The order amount (in base token unit)
+        :param order_type: Any order type is fine, not needed for this.
+        :param price: The minimum price for the order.
+        :return: A newly created order id (internal).
+        """
         return self.place_order(False, trading_pair, amount, price)
 
-    def place_order(self, is_buy: bool, trading_pair: str, amount: Decimal, price: Decimal):
+    def place_order(self, is_buy: bool, trading_pair: str, amount: Decimal, price: Decimal) -> str:
+        """
+        Places an order.
+        :param is_buy: True for buy order
+        :param trading_pair: The market trading pair
+        :param amount: The order amount (in base token unit)
+        :param price: The minimum price for the order.
+        :return: A newly created order id (internal).
+        """
         side = TradeType.BUY if is_buy else TradeType.SELL
         order_id = f"{side.name.lower()}-{trading_pair}-{get_tracking_nonce()}"
         safe_ensure_future(self._create_order(side, order_id, trading_pair, amount, price))
@@ -166,7 +218,7 @@ class BalancerConnector(ConnectorBase):
                             amount: Decimal,
                             price: Decimal):
         """
-        Calls create-order API end point to place an order, starts tracking the order and triggers order created event.
+        Calls buy or sell API end point to place an order, starts tracking the order and triggers relevant order events.
         :param trade_type: BUY or SELL
         :param order_id: Internal order id (also called client_order_id)
         :param trading_pair: The market to place order
@@ -288,7 +340,10 @@ class BalancerConnector(ConnectorBase):
     def ready(self):
         return all(self.status_dict.values())
 
-    def has_allowances(self):
+    def has_allowances(self) -> bool:
+        """
+        Checks if all tokens have allowance (an amount approved)
+        """
         return len(self._allowances.values()) == len(self._token_addresses.values()) and \
             all(amount > s_decimal_0 for amount in self._allowances.values())
 
@@ -313,6 +368,14 @@ class BalancerConnector(ConnectorBase):
             self._auto_approve_task = None
 
     async def check_network(self) -> NetworkStatus:
+        try:
+            response = await self._api_request("get", "api")
+            if response["status"] != "ok":
+                raise Exception(f"Error connecting to Gateway API. HTTP status is {response.status}.")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
 
     def tick(self, timestamp: float):
@@ -347,7 +410,7 @@ class BalancerConnector(ConnectorBase):
 
     async def _update_balances(self):
         """
-        Calls REST API to update total and available balances.
+        Calls Eth API to update total and available balances.
         """
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
@@ -388,14 +451,12 @@ class BalancerConnector(ConnectorBase):
         Sends an aiohttp request and waits for a response.
         :param method: The HTTP method, e.g. get or post
         :param path_url: The path url or the API end point
-        :param is_auth_required: Whether an authentication is required, when True the function will add encrypted
-        signature to the request.
+        :param params: A dictionary of required params for the end point
         :returns A response in json format.
         """
         base_url = f"https://{global_config_map['gateway_api_host'].value}:" \
                    f"{global_config_map['gateway_api_port'].value}"
         url = f"{base_url}/{path_url}"
-        # self.logger().info(f"REQUEST: {method} {path_url} {params}")
         client = await self._http_client()
         if method == "get":
             if len(params) > 0:
@@ -417,7 +478,6 @@ class BalancerConnector(ConnectorBase):
         if "error" in parsed_response:
             raise Exception(f"Error: {parsed_response['error']}")
 
-        # self.logger().info(f"RESPONSE: {parsed_response}")
         return parsed_response
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
