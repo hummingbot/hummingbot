@@ -125,8 +125,11 @@ class StatusCommand:
                 await self.stop_live_update()
                 self.app.live_updates = True
                 while self.app.live_updates:
-                    script_status = '\n Status from script would not appear here. Simply run the status command without "--live" to see script status.'
-                    await self.cls_display_delay(self.strategy_status() + script_status + "\n\n Press escape key to stop update.", 1)
+                    script_status = '\n Status from script would not appear here. ' \
+                                    'Simply run the status command without "--live" to see script status.'
+                    await self.cls_display_delay(
+                        await self.strategy_status() + script_status + "\n\n Press escape key to stop update.", 1
+                    )
                 self._notify("Stopped live status display update.")
             else:
                 self._notify(await self.strategy_status())
