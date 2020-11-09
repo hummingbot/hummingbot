@@ -134,15 +134,24 @@ class BalancerConnector(ConnectorBase):
 
     @async_ttl_cache(ttl=5, maxsize=10)
     async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Optional[Decimal]:
-        base, quote = trading_pair.split("-")
-        side = "buy" if is_buy else "sell"
-        resp = await self._api_request("post",
-                                       f"balancer/{side}-price",
-                                       {"base": self._token_addresses[base],
-                                        "quote": self._token_addresses[quote],
-                                        "amount": amount})
-        if resp["price"] is not None:
-            return Decimal(str(resp["price"]))
+        try:
+            base, quote = trading_pair.split("-")
+            side = "buy" if is_buy else "sell"
+            resp = await self._api_request("post",
+                                           f"balancer/{side}-price",
+                                           {"base": self._token_addresses[base],
+                                            "quote": self._token_addresses[quote],
+                                            "amount": amount})
+            if resp["price"] is not None:
+                return Decimal(str(resp["price"]))
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().network(
+                f"Error getting quote price for {trading_pair}  {side} order for {amount} amount.",
+                exc_info=True,
+                app_warning_msg=str(e)
+            )
 
     async def get_order_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
         return await self.get_quote_price(trading_pair, is_buy, amount)

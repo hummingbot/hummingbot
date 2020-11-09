@@ -181,7 +181,7 @@ class HistoryCommand:
         start_time = self.init_time
         trades: List[TradeFill] = self._get_trades_from_session(int(start_time * 1e3),
                                                                 config_file_path=self.strategy_file_name)
-        avg_return = await self.history_report(start_time, trades, False)
+        avg_return = await self.history_report(start_time, trades, display_report=False)
         return avg_return
 
     def list_trades(self,  # type: HummingbotApplication
