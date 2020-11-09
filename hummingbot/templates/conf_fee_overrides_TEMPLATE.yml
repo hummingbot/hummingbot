@@ -52,3 +52,9 @@ bamboo_relay_taker_fee_amount:
 
 binance_us_maker_fee:
 binance_us_taker_fee:
+
+binance_perpetual_maker_fee:
+binance_perpetual_taker_fee:
+
+binance_perpetual_testnet_maker_fee:
+binance_perpetual_testnet_taker_fee:
