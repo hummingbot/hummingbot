@@ -65,7 +65,7 @@ class MethodType(Enum):
 bpm_logger = None
 
 
-BROKER_ID = "3XTHGFrD"
+BROKER_ID = "x-3XTHGFrD"
 
 
 def get_client_order_id(order_side: str, trading_pair: object):
