@@ -41,7 +41,7 @@ class KillSwitch:
                         self._hummingbot_application._notify(f"\n[Kill switch triggered]\n"
                                                              f"Current profitability "
                                                              f"is {self._profitability}. Stopping the bot...")
-                        self._hummingbot_application.trade_performance_report()
+                        self._hummingbot_application.history()
                         self._hummingbot_application.stop()
                         break
 
