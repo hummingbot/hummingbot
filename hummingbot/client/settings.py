@@ -4,6 +4,7 @@ from os.path import (
     realpath,
     join,
 )
+import logging
 from enum import Enum
 from decimal import Decimal
 from typing import List, NamedTuple, Dict, Any
@@ -102,7 +103,9 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
     type_dirs = [f for f in scandir(f'{str(package_dir)}/hummingbot/connector') if f.is_dir()]
     for type_dir in type_dirs:
         connector_dirs = [f for f in scandir(type_dir.path) if f.is_dir()]
+        print(f"connector type: {type_dir.name}")
         for connector_dir in connector_dirs:
+            print(f"connector_dir: {connector_dir}")
             if connector_dir.name.startswith("_") or \
                     connector_dir.name in connector_exceptions:
                 continue
@@ -111,7 +114,8 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
             path = f"hummingbot.connector.{type_dir.name}.{connector_dir.name}.{connector_dir.name}_utils"
             try:
                 util_module = importlib.import_module(path)
-            except ModuleNotFoundError:
+            except ModuleNotFoundError as e:
+                logging.getLogger().error(f"Error importing module {path}: {str(e)}", exc_info=True)
                 continue
             fee_type = TradeFeeType.Percent
             fee_type_setting = getattr(util_module, "FEE_TYPE", None)
