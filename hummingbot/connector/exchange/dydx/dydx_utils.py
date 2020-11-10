@@ -1,8 +1,29 @@
-CENTRALIZED = False
+
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.config.config_methods import using_exchange
+
+CENTRALIZED = True
+
+USE_ETHEREUM_WALLET = False
 
 EXAMPLE_PAIR = "WETH-DAI"
 
-DEFAULT_FEES = [0.0, 0.2]
+DEFAULT_FEES = [0.0, 0.3]
+
+KEYS = {
+    "dydx_eth_private_key":
+        ConfigVar(key="dydx_eth_private_key",
+                  prompt="Enter your Ethereum private key >>> ",
+                  required_if=using_exchange("dydx"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "dydx_node_address":
+        ConfigVar(key="dydx_node_address",
+                  prompt="Which Ethereum node would you like your client to connect to?  >>> ",
+                  required_if=using_exchange("dydx"),
+                  is_secure=True,
+                  is_connect_key=True)
+}
 
 DYDX_ROOT_API = "https://api.dydx.exchange/v1"
 

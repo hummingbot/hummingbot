@@ -134,8 +134,8 @@ cdef class DydxExchange(ExchangeBase):
         return s_logger
 
     def __init__(self,
-                 wallet: Web3Wallet,
-                 ethereum_rpc_url: str,
+                 dydx_eth_private_key: str,
+                 dydx_node_address: str,
                  poll_interval: float = 10.0,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
@@ -144,7 +144,7 @@ cdef class DydxExchange(ExchangeBase):
 
         self._real_time_balance_update = True
 
-        self._dydx_auth = DydxAuth(wallet.address)
+        self._dydx_auth = DydxAuth(dydx_node_address)
         self._token_configuration = DydxAPITokenConfigurationDataSource()
 
         self.API_REST_ENDPOINT = MAINNET_API_REST_ENDPOINT
@@ -169,8 +169,8 @@ cdef class DydxExchange(ExchangeBase):
         self._shared_client = None
         self._polling_update_task = None
 
-        self._dydx_private_key = wallet.private_key
-        self._dydx_node = ethereum_rpc_url
+        self._dydx_private_key = dydx_eth_private_key
+        self._dydx_node = dydx_node_address
         self.dydx_client: DYDXClientWrapper = DYDXClientWrapper(private_key=self._dydx_private_key, 
                                                     node=self._dydx_node,
                                                     account_number=dydx_consts.ACCOUNT_NUMBERS_SPOT)
@@ -310,12 +310,12 @@ cdef class DydxExchange(ExchangeBase):
         price = self.c_quantize_order_price(trading_pair, price)
 
         # Check trading rules
-        if order_type.is_limit_type():
+        trading_rule = self._trading_rules[f"{trading_pair}-market"]
+
+        if order_type is OrderType.LIMIT_MAKER:
+            # We can be sure that the order will be rejected if below the smallOrderThreshold
             trading_rule = self._trading_rules[f"{trading_pair}-limit"]
-            if amount < trading_rule.min_order_size:
-                amount = s_decimal_0
-        elif order_type == OrderType.MARKET:
-            trading_rule = self._trading_rules[f"{trading_pair}-market"]
+
         if order_type.is_limit_type() and trading_rule.supports_limit_orders is False:
             raise ValueError("LIMIT orders are not supported")
         elif order_type == OrderType.MARKET and trading_rule.supports_market_orders is False:
@@ -526,12 +526,12 @@ cdef class DydxExchange(ExchangeBase):
                           object order_side,
                           object amount,
                           object price):
-        is_maker = order_type is OrderType.LIMIT
+        is_maker = order_type is OrderType.LIMIT_MAKER
         market = f"{base_currency}-{quote_currency}".upper()
         if (market in self._fee_rules) and (not self._fee_override):
             fee_rule = self._fee_rules[market]
             if is_maker:
-                return TradeFee(percent=fee_rule["maker"])
+                return TradeFee(percent=fee_rule["makerFee"])
             else:
                 trading_rule = self._trading_rules[f"{market}-limit"] # the small order threshold is the same as the min limit order
                 if amount >= trading_rule.min_order_size:
