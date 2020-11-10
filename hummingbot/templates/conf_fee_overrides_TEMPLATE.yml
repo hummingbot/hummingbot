@@ -3,7 +3,7 @@
 ########################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 4
+template_version: 5
 
 # Exchange trading fees, the values are in percentage value, e.g. 0.1 for 0.1%.
 # If the value is left blank, the default value (from corresponding market connector) will be used.
@@ -58,3 +58,9 @@ binance_perpetual_taker_fee:
 
 binance_perpetual_testnet_maker_fee:
 binance_perpetual_testnet_taker_fee:
+
+okex_maker_fee:
+okex_taker_fee:
+
+balancer_maker_fee_amount:
+balancer_taker_fee_amount:
