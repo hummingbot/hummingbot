@@ -99,7 +99,7 @@ class DydxAPITokenConfigurationDataSource():
         """
 
         padded_amount = self.pad(amount, baseid)
-        adjusted_price = self.unpad(self.pad(price, baseid), quoteid)
+        adjusted_price = price * Decimal(f"1e{self._digits[baseid] - self._digits[quoteid]}")
 
         return {
             "baseTokenId": baseid,
