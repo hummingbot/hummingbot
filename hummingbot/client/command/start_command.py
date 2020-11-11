@@ -19,13 +19,17 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.settings import (
     STRATEGIES,
-    SCRIPTS_PATH
+    SCRIPTS_PATH,
+    ethereum_gas_station_required,
+    required_exchanges,
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.kill_switch import KillSwitch
 from typing import TYPE_CHECKING
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.core.utils.eth_gas_station_lookup import EthGasStationLookup
 from hummingbot.script.script_iterator import ScriptIterator
+from hummingbot.connector.connector_status import get_connector_status, warning_messages
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -76,6 +80,22 @@ class StartCommand:
         self._notify(f"\nStatus check complete. Starting '{self.strategy_name}' strategy...")
         if global_config_map.get("paper_trade_enabled").value:
             self._notify("\nPaper Trading ON: All orders are simulated, and no real orders are placed.")
+
+        for exchange in required_exchanges:
+            connector = str(exchange)
+            status = get_connector_status(connector)
+
+            # Display custom warning message for specific connectors
+            warning_msg = warning_messages.get(connector, None)
+            if warning_msg is not None:
+                self._notify(f"\nConnector status: {status}\n"
+                             f"{warning_msg}")
+
+            # Display warning message if the exchange connector has outstanding issues or not working
+            elif status != "GREEN":
+                self._notify(f"\nConnector status: {status}. This connector has one or more issues.\n"
+                             "Refer to our Github page for more info: https://github.com/coinalpha/hummingbot")
+
         await self.start_market_making(self.strategy_name)
 
     async def start_market_making(self,  # type: HummingbotApplication
@@ -114,12 +134,13 @@ class StartCommand:
                     self.clock.add_iterator(self._script_iterator)
                     self._notify(f"Script ({script_file}) started.")
 
+            if global_config_map["ethgasstation_gas_enabled"].value and ethereum_gas_station_required():
+                EthGasStationLookup.get_instance().start()
+
             self.strategy_task: asyncio.Task = safe_ensure_future(self._run_clock(), loop=self.ev_loop)
             self._notify(f"\n'{strategy_name}' strategy started.\n"
                          f"Run `status` command to query the progress.")
             self.logger().info("start command initiated.")
-            if not self.starting_balances:
-                self.starting_balances = await self.wait_till_ready(self.balance_snapshot)
 
             if self._trading_required:
                 self.kill_switch = KillSwitch(self)

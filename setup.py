@@ -19,7 +19,7 @@ if is_posix:
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20201006"
+    version = "20201111"
     packages = [
         "hummingbot",
         "hummingbot.client",
@@ -35,6 +35,8 @@ def main():
         "hummingbot.logger",
         "hummingbot.market",
         "hummingbot.connector",
+        "hummingbot.connector.connector",
+        "hummingbot.connector.connector.balancer",
         "hummingbot.connector.exchange",
         "hummingbot.connector.exchange.binance",
         "hummingbot.connector.exchange.bitfinex",
@@ -47,11 +49,16 @@ def main():
         "hummingbot.connector.exchange.crypto_com",
         "hummingbot.connector.exchange.kucoin",
         "hummingbot.connector.exchange.loopring",
+        "hummingbot.connector.exchange.okex",
+        "hummingbot.connector.derivative",
+        "hummingbot.connector.derivative.binance_perpetual",
         "hummingbot.script",
         "hummingbot.strategy",
+        "hummingbot.strategy.amm_arb",
         "hummingbot.strategy.arbitrage",
         "hummingbot.strategy.cross_exchange_market_making",
         "hummingbot.strategy.pure_market_making",
+        "hummingbot.strategy.perpetual_market_making",
         "hummingbot.templates",
         "hummingbot.wallet",
         "hummingbot.wallet.ethereum",
@@ -65,6 +72,7 @@ def main():
             "wallet/ethereum/zero_ex/*.json",
             "wallet/ethereum/token_abi/*.json",
             "wallet/ethereum/erc20_tokens.json",
+            "wallet/ethereum/erc20_tokens_kovan.json",
             "VERSION",
             "templates/*TEMPLATE.yml"
         ],
@@ -107,7 +115,7 @@ def main():
         "pandas",
         "pytz",
         "pyyaml",
-        "python-binance==0.7.1",
+        "python-binance==0.7.5",
         "sqlalchemy",
         "ujson",
         "yarl",

@@ -1,9 +1,7 @@
-import importlib
 import random
 from typing import Callable, Optional
 from decimal import Decimal
 import os.path
-from os import scandir
 from hummingbot.client.config.config_var import ConfigVar
 import hummingbot.client.settings as settings
 from hummingbot.client.config.config_methods import paper_trade_disabled, using_exchange as using_exchange_pointer
@@ -28,7 +26,7 @@ def using_bamboo_coordinator_mode() -> bool:
 
 
 def using_wallet() -> bool:
-    return paper_trade_disabled() and any([e in settings.DEXES for e in settings.required_exchanges])
+    return paper_trade_disabled() and settings.ethereum_wallet_required()
 
 
 def validate_script_file_path(file_path: str) -> Optional[bool]:
@@ -41,19 +39,8 @@ def validate_script_file_path(file_path: str) -> Optional[bool]:
 
 def connector_keys():
     all_keys = {}
-    invalid_names = ["__pycache__", "paper_trade"]
-    connector_types = ["exchange", "derivative"]
-    for connector_type in connector_types:
-        try:
-            connectors = [f.name for f in scandir(f'hummingbot/connector/{connector_type}') if f.is_dir() and f.name not in invalid_names]
-        except Exception:
-            continue
-        for connector in connectors:
-            try:
-                module_path = f"hummingbot.connector.{connector_type}.{connector}.{connector}_utils"
-                all_keys.update(getattr(importlib.import_module(module_path), "KEYS"))
-            except Exception:
-                continue
+    for connector_setting in settings.CONNECTOR_SETTINGS.values():
+        all_keys.update(connector_setting.config_keys)
     return all_keys
 
 
@@ -150,9 +137,10 @@ main_config_map = {
                   required_if=lambda: global_config_map["ethereum_rpc_url"].value is not None),
     "ethereum_chain_name":
         ConfigVar(key="ethereum_chain_name",
-                  prompt="What is your preferred ethereum chain name? >>> ",
+                  prompt="What is your preferred ethereum chain name (MAIN_NET, KOVAN)? >>> ",
                   type_str="str",
                   required_if=lambda: False,
+                  validator=lambda s: None if s in {"MAIN_NET", "KOVAN"} else "Invalid chain name.",
                   default="MAIN_NET"),
     "ethereum_token_overrides":
         ConfigVar(key="ethereum_token_overrides",
@@ -269,6 +257,50 @@ main_config_map = {
                   required_if=lambda: False,
                   type_str="json",
                   default={exchange: None for exchange in settings.EXCHANGES}),
+    "manual_gas_price":
+        ConfigVar(key="manual_gas_price",
+                  prompt="Enter fixed gas price (in Gwei) you want to use for Ethereum transactions >>> ",
+                  required_if=lambda: False,
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, Decimal(0), inclusive=False),
+                  default=50),
+    "ethgasstation_gas_enabled":
+        ConfigVar(key="ethgasstation_gas_enabled",
+                  prompt="Do you want to enable Ethereum gas station price lookup? >>> ",
+                  required_if=lambda: False,
+                  type_str="bool",
+                  validator=validate_bool,
+                  default=False),
+    "ethgasstation_api_key":
+        ConfigVar(key="ethgasstation_api_key",
+                  prompt="Enter API key for defipulse.com gas station API >>> ",
+                  required_if=lambda: global_config_map["ethgasstation_gas_enabled"].value,
+                  type_str="str"),
+    "ethgasstation_gas_level":
+        ConfigVar(key="ethgasstation_gas_level",
+                  prompt="Enter gas level you want to use for Ethereum transactions (fast, fastest, safeLow, average) "
+                         ">>> ",
+                  required_if=lambda: global_config_map["ethgasstation_gas_enabled"].value,
+                  type_str="str",
+                  validator=lambda s: None if s in {"fast", "fastest", "safeLow", "average"}
+                  else "Invalid gas level."),
+    "ethgasstation_refresh_time":
+        ConfigVar(key="ethgasstation_refresh_time",
+                  prompt="Enter refresh time for Ethereum gas price lookup (in seconds) >>> ",
+                  required_if=lambda: global_config_map["ethgasstation_gas_enabled"].value,
+                  type_str="int",
+                  default=120),
+    "gateway_api_host":
+        ConfigVar(key="gateway_api_host",
+                  prompt=None,
+                  required_if=lambda: False,
+                  default='localhost'),
+    "gateway_api_port":
+        ConfigVar(key="gateway_api_port",
+                  prompt="Please enter your Gateway API port >>> ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  default="5000"),
 }
 
 global_config_map = {**key_config_map, **main_config_map}

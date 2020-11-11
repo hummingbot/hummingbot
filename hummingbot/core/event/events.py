@@ -6,8 +6,8 @@ from typing import (
     List,
     Dict,
     NamedTuple,
-)
-
+    Optional)
+from dataclasses import dataclass
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 
 
@@ -69,6 +69,19 @@ class OrderType(Enum):
 
     def is_limit_type(self):
         return self in (OrderType.LIMIT, OrderType.LIMIT_MAKER)
+
+
+# For Derivatives Exchanges
+class PositionSide(Enum):
+    LONG = "LONG"
+    SHORT = "SHORT"
+    BOTH = "BOTH"
+
+
+# For Derivatives Exchanges
+class PositionMode(Enum):
+    HEDGE = True
+    ONEWAY = False
 
 
 class PriceType(Enum):
@@ -144,7 +157,8 @@ class MarketReceivedAssetEvent(NamedTuple):
     amount_received: float
 
 
-class BuyOrderCompletedEvent(NamedTuple):
+@dataclass
+class BuyOrderCompletedEvent:
     timestamp: float
     order_id: str
     base_asset: str
@@ -154,9 +168,11 @@ class BuyOrderCompletedEvent(NamedTuple):
     quote_asset_amount: Decimal
     fee_amount: Decimal
     order_type: OrderType
+    exchange_order_id: Optional[str] = None
 
 
-class SellOrderCompletedEvent(NamedTuple):
+@dataclass
+class SellOrderCompletedEvent:
     timestamp: float
     order_id: str
     base_asset: str
@@ -166,11 +182,14 @@ class SellOrderCompletedEvent(NamedTuple):
     quote_asset_amount: Decimal
     fee_amount: Decimal
     order_type: OrderType
+    exchange_order_id: Optional[str] = None
 
 
-class OrderCancelledEvent(NamedTuple):
+@dataclass
+class OrderCancelledEvent:
     timestamp: float
     order_id: str
+    exchange_order_id: Optional[str] = None
 
 
 class OrderExpiredEvent(NamedTuple):
@@ -207,6 +226,18 @@ class TokenApprovedEvent(NamedTuple):
     raw_amount: int
 
 
+class TradeFeeType(Enum):
+    Percent = 1
+    FlatFee = 2
+
+
+def interchangeable(token_a: str, token_b: str) -> bool:
+    interchangeable_tokens = {"WETH", "ETH", "WBTC", "BTC"}
+    if token_a == token_b:
+        return True
+    return {token_a, token_b} <= interchangeable_tokens
+
+
 class TradeFee(NamedTuple):
     percent: Decimal  # 0.1 = 10%
     flat_fees: List[Tuple[str, Decimal]] = []  # list of (asset, amount) ie: ("ETH", 0.05)
@@ -226,6 +257,18 @@ class TradeFee(NamedTuple):
             [(fee_entry["asset"], Decimal(fee_entry["amount"]))
              for fee_entry in data["flat_fees"]]
         )
+
+    def fee_amount_in_quote(self, trading_pair: str, price: Decimal, order_amount: Decimal):
+        fee_amount = Decimal("0")
+        if self.percent > 0:
+            fee_amount = (price * order_amount) * self.percent
+        base, quote = trading_pair.split("-")
+        for flat_fee in self.flat_fees:
+            if interchangeable(flat_fee[0], base):
+                fee_amount += (flat_fee[1] / price)
+            elif interchangeable(flat_fee[0], quote):
+                fee_amount += flat_fee[1]
+        return fee_amount
 
 
 class OrderBookTradeEvent(NamedTuple):
@@ -281,19 +324,23 @@ class OrderFilledEvent(NamedTuple):
         )
 
 
-class BuyOrderCreatedEvent(NamedTuple):
+@dataclass
+class BuyOrderCreatedEvent:
     timestamp: float
     type: OrderType
     trading_pair: str
     amount: Decimal
     price: Decimal
     order_id: str
+    exchange_order_id: Optional[str] = None
 
 
-class SellOrderCreatedEvent(NamedTuple):
+@dataclass
+class SellOrderCreatedEvent:
     timestamp: float
     type: OrderType
     trading_pair: str
     amount: Decimal
     price: Decimal
     order_id: str
+    exchange_order_id: Optional[str] = None
