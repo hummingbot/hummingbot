@@ -32,10 +32,7 @@ class KillSwitch:
         while True:
             try:
                 if self._kill_switch_enabled:
-                    # calculate_profitability gives profitability in percent terms i.e. 0.015 to indicate 0.015%
-                    # self._kill_switch_rate is in numerical term 1.e. 0.015 to indicate 1.5%
-                    self._profitability: Decimal = \
-                        self._hummingbot_application.calculate_profitability() / Decimal("100")
+                    self._profitability: Decimal = await self._hummingbot_application.calculate_profitability()
 
                     # Stop the bot if losing too much money, or if gained a certain amount of profit
                     if (self._profitability <= self._kill_switch_rate < Decimal("0.0")) or \
@@ -44,7 +41,6 @@ class KillSwitch:
                         self._hummingbot_application._notify(f"\n[Kill switch triggered]\n"
                                                              f"Current profitability "
                                                              f"is {self._profitability}. Stopping the bot...")
-                        self._hummingbot_application.trade_performance_report()
                         self._hummingbot_application.stop()
                         break
 
