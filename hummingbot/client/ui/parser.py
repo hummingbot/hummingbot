@@ -82,6 +82,8 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
                                 help="How many days in the past (can be decimal value)")
     history_parser.add_argument("-v", "--verbose", action="store_true", default=False,
                                 dest="verbose", help="List all trades")
+    history_parser.add_argument("-p", "--precision", default=None, type=int,
+                                dest="precision", help="Level of precions for values displayed")
     history_parser.set_defaults(func=hummingbot.history)
 
     generate_certs_parser = subparsers.add_parser("generate_certs", help="Create SSL certifications "

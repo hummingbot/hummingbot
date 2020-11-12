@@ -1,6 +1,6 @@
 ---
 version: 1
-template_version: 8
+template_version: 9
 
 formatters:
     simple:
@@ -41,6 +41,10 @@ handlers:
         level: DEBUG
 
 loggers:
+    hummingbot.core.utils.eth_gas_station_lookup:
+        level: NETWORK
+        propagate: false
+        handlers: [console_info, file_handler]
     hummingbot.logger.log_server_client:
         level: WARNING
         propagate: false

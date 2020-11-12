@@ -153,7 +153,7 @@ create_instance () {
  # Launch a new instance of hummingbot
  docker run -d \
  --name $GATEWAY_INSTANCE_NAME \
- -p 127.0.0.1:$PORT:5000 \
+ -p 127.0.0.1:$PORT:$PORT \
  --env-file $ENV_FILE \
  -e CERT_PASSPHRASE="$PASSWORD" \
  --mount "type=bind,source=$FOLDER,destination=/usr/src/app/certs/" \

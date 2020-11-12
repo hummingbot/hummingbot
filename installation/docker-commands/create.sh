@@ -42,7 +42,7 @@ printf "%30s %5s\n" "Main folder path:" "$PWD/$FOLDER"
 printf "%30s %5s\n" "Config files:" "├── $FOLDER/hummingbot_conf"
 printf "%30s %5s\n" "Log files:" "├── $FOLDER/hummingbot_logs"
 printf "%30s %5s\n" "Trade and data files:" "├── $FOLDER/hummingbot_data"
-printf "%30s %5s\n" "Scripts files:" "└── $FOLDER/hummingbot_scripts"
+printf "%30s %5s\n" "Scripts files:" "├── $FOLDER/hummingbot_scripts"
 printf "%30s %5s\n" "Cert files:" "└── $FOLDER/hummingbot_certs"
 echo
 

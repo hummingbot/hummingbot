@@ -36,7 +36,7 @@ class GasLevel(Enum):
 
 
 class EthGasStationLookup(NetworkBase):
-    _logger: Optional[HummingbotLogger] = None
+    _egsl_logger: Optional[HummingbotLogger] = None
     _shared_instance: "EthGasStationLookup" = None
 
     @classmethod
@@ -47,9 +47,9 @@ class EthGasStationLookup(NetworkBase):
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._logger is None:
-            cls._logger = logging.getLogger(__name__)
-        return cls._logger
+        if cls._egsl_logger is None:
+            cls._egsl_logger = logging.getLogger(__name__)
+        return cls._egsl_logger
 
     def __init__(self):
         super().__init__()

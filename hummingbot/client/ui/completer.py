@@ -38,7 +38,7 @@ class HummingbotCompleter(Completer):
         self._connect_option_completer = WordCompleter(CONNECT_OPTIONS, ignore_case=True)
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
-        self._history_completer = WordCompleter(["--days", "--verbose"], ignore_case=True)
+        self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
         self._py_file_completer = WordCompleter(file_name_list(SCRIPTS_PATH, "py"))
 
