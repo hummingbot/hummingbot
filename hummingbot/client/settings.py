@@ -32,7 +32,6 @@ TEMPLATE_PATH = realpath(join(__file__, "../../templates/"))
 CONF_FILE_PATH = "conf/"
 CONF_PREFIX = "conf_"
 CONF_POSTFIX = "_strategy"
-# SCRIPTS_PATH = "scripts/"
 SCRIPTS_PATH = realpath(join(__file__, "../../../scripts/"))
 CERTS_PATH = "certs/"
 
