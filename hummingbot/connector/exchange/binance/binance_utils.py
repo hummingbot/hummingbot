@@ -13,6 +13,8 @@ DEFAULT_FEES = [0.1, 0.1]
 
 TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|DAI|XRP|USDT|USDC|USDS|TUSD|PAX|TRX|BUSD|NGN|RUB|TRY|EUR|IDRT|ZAR|UAH|GBP|BKRW|BIDR|USD)$")
 
+USD_QUOTES = ["DAI", "USDT", "USDC", "USDS", "TUSD", "PAX", "BUSD", "USD"]
+
 
 def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
     try:

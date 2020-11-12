@@ -1,7 +1,31 @@
-from typing import Optional
+from typing import Optional, Dict
 from decimal import Decimal
 import importlib
 from hummingbot.client.settings import ALL_CONNECTORS, CONNECTOR_SETTINGS, ConnectorType
+from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
+from hummingbot.connector.exchange.binance.binance_utils import USD_QUOTES
+
+
+def usd_value(token: str, amount: Decimal) -> Optional[Decimal]:
+    pass
+
+
+async def token_usd_values() -> Dict[str, Decimal]:
+    prices = await BinanceAPIOrderBookDataSource.get_all_mid_prices()
+    tokens = {t.split("-")[0] for t in prices}
+    ret_val = {}
+    for token in tokens:
+        token_usds = [t for t in prices if t.split("-")[0] == token and t.split("-")[1] in USD_QUOTES]
+        if token_usds:
+            ret_val[token] = prices[token_usds[0]]
+        else:
+            token_anys = [t for t in prices if t.split("-")[0] == token]
+            quote = token_anys[0].split("-")[1]
+            quote_usds = [t for t in prices if t.split("-")[0] == quote and t.split("-")[1] in USD_QUOTES]
+            if quote_usds:
+                price = prices[token_anys[0]] * prices[quote_usds[0]]
+                ret_val[token] = price
+    return ret_val
 
 
 def get_mid_price(exchange: str, trading_pair: str) -> Optional[Decimal]:
