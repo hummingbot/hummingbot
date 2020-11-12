@@ -166,7 +166,7 @@ def get_eth_wallet_private_key() -> Optional[str]:
 def get_erc20_token_addresses(tokens: List[str]) -> Dict[str, str]:
     chain = global_config_map.get("ethereum_chain_name").value
     address_file_path = TOKEN_ADDRESSES_FILE_PATH
-    if chain is not None and chain != "MAIN_NET":
+    if chain is not None and chain.lower() == "kovan":
         address_file_path = TOKEN_ADDRESSES_FILE_PATH.replace(".json", f"_{chain.lower()}.json")
     with open(address_file_path) as f:
         try:
