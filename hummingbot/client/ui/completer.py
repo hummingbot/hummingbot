@@ -9,7 +9,9 @@ from prompt_toolkit.document import Document
 from os import listdir
 from os.path import isfile, join
 from hummingbot.client.settings import (
+    CONNECTOR_SETTINGS,
     EXCHANGES,
+    DERIVATIVES,
     STRATEGIES,
     CONF_FILE_PATH,
     SCRIPTS_PATH
@@ -17,7 +19,7 @@ from hummingbot.client.settings import (
 from hummingbot.client.ui.parser import ThrowingArgumentParser
 from hummingbot.core.utils.wallet_setup import list_wallets
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
-from hummingbot.client.command.connect_command import OPTIONS as CONNECT_EXCHANGES
+from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
 
 
 def file_name_list(path, file_extension):
@@ -30,10 +32,13 @@ class HummingbotCompleter(Completer):
         self.hummingbot_application = hummingbot_application
         self._path_completer = WordCompleter(file_name_list(CONF_FILE_PATH, "yml"))
         self._command_completer = WordCompleter(self.parser.commands, ignore_case=True)
+        self._connector_completer = WordCompleter(CONNECTOR_SETTINGS.keys(), ignore_case=True)
         self._exchange_completer = WordCompleter(EXCHANGES, ignore_case=True)
-        self._connect_exchange_completer = WordCompleter(CONNECT_EXCHANGES, ignore_case=True)
+        self._derivative_completer = WordCompleter(DERIVATIVES, ignore_case=True)
+        self._connect_option_completer = WordCompleter(CONNECT_OPTIONS, ignore_case=True)
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
+        self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
         self._py_file_completer = WordCompleter(file_name_list(SCRIPTS_PATH, "py"))
 
@@ -52,8 +57,7 @@ class HummingbotCompleter(Completer):
     @property
     def _trading_pair_completer(self) -> Completer:
         trading_pair_fetcher = TradingPairFetcher.get_instance()
-        market = None
-        for exchange in EXCHANGES:
+        for exchange in sorted(list(CONNECTOR_SETTINGS.keys()), key=len, reverse=True):
             if exchange in self.prompt_text:
                 market = exchange
                 break
@@ -93,13 +97,22 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return "-e" in text_before_cursor or \
                "--exchange" in text_before_cursor or \
-               "connect" in text_before_cursor or \
                any(x for x in ("exchange name", "name of exchange", "name of the exchange")
                    if x in self.prompt_text.lower())
 
-    def _complete_connect_exchanges(self, document: Document) -> bool:
+    def _complete_derivatives(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        return "connect" in text_before_cursor
+        return "--exchange" in text_before_cursor or \
+               "perpetual" in text_before_cursor or \
+               any(x for x in ("derivative name", "name of derivative", "name of the derivative")
+                   if x in self.prompt_text.lower())
+
+    def _complete_connect_options(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("connect ")
+
+    def _complete_connectors(self, document: Document) -> bool:
+        return "connector" in self.prompt_text
 
     def _complete_export_options(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -108,6 +121,10 @@ class HummingbotCompleter(Completer):
     def _complete_balance_options(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("balance ")
+
+    def _complete_history_arguments(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("history ")
 
     def _complete_trading_pairs(self, document: Document) -> bool:
         return "trading pair" in self.prompt_text
@@ -156,8 +173,12 @@ class HummingbotCompleter(Completer):
             for c in self._wallet_address_completer.get_completions(document, complete_event):
                 yield c
 
-        elif self._complete_connect_exchanges(document):
-            for c in self._connect_exchange_completer.get_completions(document, complete_event):
+        elif self._complete_connectors(document):
+            for c in self._connector_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_connect_options(document):
+            for c in self._connect_option_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_export_options(document):
@@ -165,15 +186,23 @@ class HummingbotCompleter(Completer):
                 yield c
 
         elif self._complete_balance_limit_exchanges(document):
-            for c in self._connect_exchange_completer.get_completions(document, complete_event):
+            for c in self._connect_option_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_balance_options(document):
             for c in self._balance_completer.get_completions(document, complete_event):
                 yield c
 
+        elif self._complete_history_arguments(document):
+            for c in self._history_completer.get_completions(document, complete_event):
+                yield c
+
         elif self._complete_exchanges(document):
             for c in self._exchange_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_derivatives(document):
+            for c in self._derivative_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_trading_pairs(document):

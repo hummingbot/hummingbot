@@ -1,6 +1,7 @@
 from decimal import Decimal
 import logging
 import pandas as pd
+import numpy as np
 from typing import (
     List,
     Dict,
@@ -34,6 +35,7 @@ from .asset_price_delegate cimport AssetPriceDelegate
 from .asset_price_delegate import AssetPriceDelegate
 from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
 from .inventory_skew_calculator import calculate_total_order_size
+from .order_book_asset_price_delegate cimport OrderBookAssetPriceDelegate
 
 
 NaN = float("nan")
@@ -140,11 +142,16 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._logging_options = logging_options
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
+        self._last_own_trade_price = Decimal('nan')
 
         self.c_add_markets([market_info.market])
 
     def all_markets_ready(self):
         return all([market.ready for market in self._sb_markets])
+
+    @property
+    def market_info(self) -> MarketTradingPairTuple:
+        return self._market_info
 
     @property
     def order_refresh_tolerance_pct(self) -> Decimal:
@@ -222,7 +229,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     @property
     def inventory_range_multiplier(self) -> Decimal:
-        return self.inventory_range_multiplier
+        return self._inventory_range_multiplier
 
     @inventory_range_multiplier.setter
     def inventory_range_multiplier(self, value: Decimal):
@@ -328,12 +335,23 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     def trading_pair(self):
         return self._market_info.trading_pair
 
+    @property
+    def order_override(self):
+        return self._order_override
+
+    @order_override.setter
+    def order_override(self, value: Dict[str, List[str]]):
+        self._order_override = value
+
     def get_price(self) -> float:
         if self._asset_price_delegate is not None:
             price_provider = self._asset_price_delegate
         else:
             price_provider = self._market_info
-        price = price_provider.get_price_by_type(self._price_type)
+        if self._price_type is PriceType.LastOwnTrade:
+            price = self._last_own_trade_price
+        else:
+            price = price_provider.get_price_by_type(self._price_type)
         if price.is_nan():
             price = price_provider.get_price_by_type(PriceType.MidPrice)
         return price
@@ -460,7 +478,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     def pure_mm_assets_df(self, to_show_current_pct: bool) -> pd.DataFrame:
         market, trading_pair, base_asset, quote_asset = self._market_info
-        price = self.get_price()
+        price = self._market_info.get_mid_price()
         base_balance = float(market.get_balance(base_asset))
         quote_balance = float(market.get_balance(quote_asset))
         available_base_balance = float(market.get_available_balance(base_asset))
@@ -516,6 +534,31 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             ])
 
         return pd.DataFrame(data=data, columns=columns)
+
+    def market_status_data_frame(self, market_trading_pair_tuples: List[MarketTradingPairTuple]) -> pd.DataFrame:
+        markets_data = []
+        markets_columns = ["Exchange", "Market", "Best Bid", "Best Ask", f"Ref Price ({self._price_type.name})"]
+        if self._price_type is PriceType.LastOwnTrade and self._last_own_trade_price.is_nan():
+            markets_columns[-1] = "Ref Price (MidPrice)"
+        market_books = [(self._market_info.market, self._market_info.trading_pair)]
+        if type(self._asset_price_delegate) is OrderBookAssetPriceDelegate:
+            market_books.append((self._asset_price_delegate.market, self._asset_price_delegate.trading_pair))
+        for market, trading_pair in market_books:
+            bid_price = market.get_price(trading_pair, False)
+            ask_price = market.get_price(trading_pair, True)
+            ref_price = float("nan")
+            if market == self._market_info.market and self._asset_price_delegate is None:
+                ref_price = self.get_price()
+            elif market == self._asset_price_delegate.market and self._price_type is not PriceType.LastOwnTrade:
+                ref_price = self._asset_price_delegate.get_price_by_type(self._price_type)
+            markets_data.append([
+                market.display_name,
+                trading_pair,
+                float(bid_price),
+                float(ask_price),
+                float(ref_price)
+            ])
+        return pd.DataFrame(data=markets_data, columns=markets_columns).replace(np.nan, '', regex=True)
 
     def format_status(self) -> str:
         if not self._all_markets_ready:
@@ -623,22 +666,21 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             list buys = []
             list sells = []
 
-        # first to check if any advanced users provide an order override array. In this case, the orders will be
-        # generated per orverride array, otherwise the order will be generated according to buy/sell/order spread/amounts
-        # specificed by users through client interface
+        # First to check if a customized order override is configured, otherwise the proposal will be created according
+        # to order spread, amount, and levels setting.
         order_override = self._order_override
         if order_override is not None and len(order_override) > 0:
             for key, value in order_override.items():
                 if str(value[0]) in ["buy", "sell"]:
                     if str(value[0]) == "buy":
-                        price = self.c_get_mid_price() * (Decimal("1") - Decimal(str(value[1])) / Decimal("100"))
+                        price = self.get_price() * (Decimal("1") - Decimal(str(value[1])) / Decimal("100"))
                         price = market.c_quantize_order_price(self.trading_pair, price)
                         size = Decimal(str(value[2]))
                         size = market.c_quantize_order_amount(self.trading_pair, size)
                         if size > 0 and price > 0:
                             buys.append(PriceSize(price, size))
                     elif str(value[0]) == "sell":
-                        price = self.c_get_mid_price() * (Decimal("1") + Decimal(str(value[1])) / Decimal("100"))
+                        price = self.get_price() * (Decimal("1") + Decimal(str(value[1])) / Decimal("100"))
                         price = market.c_quantize_order_price(self.trading_pair, price)
                         size = Decimal(str(value[2]))
                         size = market.c_quantize_order_amount(self.trading_pair, size)
@@ -752,28 +794,45 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             ExchangeBase market = self._market_info.market
             object quote_size
             object base_size
-            object quote_size_total = Decimal("0")
-            object base_size_total = Decimal("0")
+            object adjusted_amount
 
         base_balance, quote_balance = self.c_get_adjusted_available_balance(self.active_non_hanging_orders)
 
         for buy in proposal.buys:
-            buy_fees = market.c_get_fee(self.base_asset, self.quote_asset, OrderType.LIMIT, TradeType.BUY,
-                                        buy.size, buy.price)
-            quote_size = buy.size * buy.price * (Decimal(1) + buy_fees.percent)
-            if quote_balance < quote_size_total + quote_size:
-                self.logger().info(f"Insufficient balance: Buy order (price: {buy.price}, size: {buy.size}) is omitted, {self.quote_asset} available balance: {quote_balance - quote_size_total}.")
-                quote_size = s_decimal_zero
+            buy_fee = market.c_get_fee(self.base_asset, self.quote_asset, OrderType.LIMIT, TradeType.BUY,
+                                       buy.size, buy.price)
+            quote_size = buy.size * buy.price * (Decimal(1) + buy_fee.percent)
+
+            # Adjust buy order size to use remaining balance if less than the order amount
+            if quote_balance < quote_size:
+                adjusted_amount = quote_balance / (buy.price * (Decimal("1") + buy_fee.percent))
+                adjusted_amount = market.c_quantize_order_amount(self.trading_pair, adjusted_amount)
+                self.logger().info(f"Not enough balance for buy order (Size: {buy.size.normalize()}, Price: {buy.price.normalize()}), "
+                                   f"order_amount is adjusted to {adjusted_amount}")
+                buy.size = adjusted_amount
+                quote_balance = s_decimal_zero
+            elif quote_balance == s_decimal_zero:
                 buy.size = s_decimal_zero
-            quote_size_total += quote_size
+            else:
+                quote_balance -= quote_size
+
         proposal.buys = [o for o in proposal.buys if o.size > 0]
+
         for sell in proposal.sells:
             base_size = sell.size
-            if base_balance < base_size_total + base_size:
-                self.logger().info(f"Insufficient balance: Sell order (price: {sell.price}, size: {sell.size}) is omitted, {self.base_asset} available balance: {base_balance - base_size_total}.")
-                base_size = s_decimal_zero
+
+            # Adjust sell order size to use remaining balance if less than the order amount
+            if base_balance < base_size:
+                adjusted_amount = market.c_quantize_order_amount(self.trading_pair, base_balance)
+                self.logger().info(f"Not enough balance for sell order (Size: {sell.size.normalize()}, Price: {sell.price.normalize()}), "
+                                   f"order_amount is adjusted to {adjusted_amount}")
+                sell.size = adjusted_amount
+                base_balance = s_decimal_zero
+            elif base_balance == s_decimal_zero:
                 sell.size = s_decimal_zero
-            base_size_total += base_size
+            else:
+                base_balance -= base_size
+
         proposal.sells = [o for o in proposal.sells if o.size > 0]
 
     cdef c_filter_out_takers(self, object proposal):
@@ -908,6 +967,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 self._hanging_order_ids.append(other_order_id)
 
         self._filled_buys_balance += 1
+        self._last_own_trade_price = limit_order_record.price
 
         self.log_with_clock(
             logging.INFO,
@@ -951,6 +1011,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 self._hanging_order_ids.append(other_order_id)
 
         self._filled_sells_balance += 1
+        self._last_own_trade_price = limit_order_record.price
 
         self.log_with_clock(
             logging.INFO,
@@ -1118,5 +1179,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             return PriceType.BestAsk
         elif price_type_str == "last_price":
             return PriceType.LastTrade
+        elif price_type_str == 'last_own_trade_price':
+            return PriceType.LastOwnTrade
         else:
             raise ValueError(f"Unrecognized price type string {price_type_str}.")

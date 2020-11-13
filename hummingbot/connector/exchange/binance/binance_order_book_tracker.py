@@ -28,19 +28,25 @@ class BinanceOrderBookTracker(OrderBookTracker):
         return cls._bobt_logger
 
     def __init__(self,
-                 trading_pairs: Optional[List[str]] = None):
+                 trading_pairs: Optional[List[str]] = None,
+                 domain: str = "com"):
         super().__init__(
-            data_source=BinanceAPIOrderBookDataSource(trading_pairs=trading_pairs),
-            trading_pairs=trading_pairs
+            data_source=BinanceAPIOrderBookDataSource(trading_pairs=trading_pairs, domain=domain),
+            trading_pairs=trading_pairs,
+            domain=domain
         )
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
+        self._domain = domain
         self._saved_message_queues: Dict[str, Deque[OrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
 
     @property
     def exchange_name(self) -> str:
-        return "binance"
+        if self._domain == "com":
+            return "binance"
+        else:
+            return f"binance_{self._domain}"
 
     async def _order_book_diff_router(self):
         """

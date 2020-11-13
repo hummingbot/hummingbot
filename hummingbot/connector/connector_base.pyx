@@ -120,7 +120,7 @@ cdef class ConnectorBase(NetworkIterator):
 
     def order_filled_balances(self, starting_timestamp = 0) -> Dict[str, Decimal]:
         """
-        Calculates total asset balance changes from filled orders since the time stamp
+        Calculates total asset balance changes from filled orders since the timestamp
         For BUY filled order, the quote balance goes down while the base balance goes up, and for SELL order, it's the
         opposite. This does not account for fee.
         :param starting_timestamp: The starting timestamp to include filter order filled events
@@ -387,3 +387,24 @@ cdef class ConnectorBase(NetworkIterator):
         Applies trading rule to quantize order amount.
         """
         return self.c_quantize_order_amount(trading_pair, amount)
+
+    async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
+        """
+        Returns a quote price (or exchange rate) for a given amount, like asking how much does it cost to buy 4 apples?
+        :param trading_pair: The market trading pair
+        :param is_buy: True for buy order, False for sell order
+        :param amount: The order amount
+        :return The quoted price
+        """
+        raise NotImplementedError
+
+    async def get_order_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
+        """
+        Returns a price required for order submission, this price could differ from the quote price (e.g. for
+        an exchange with order book).
+        :param trading_pair: The market trading pair
+        :param is_buy: True for buy order, False for sell order
+        :param amount: The order amount
+        :return The price to specify in an order.
+        """
+        raise NotImplementedError

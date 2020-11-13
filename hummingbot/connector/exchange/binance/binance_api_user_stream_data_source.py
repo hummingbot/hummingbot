@@ -16,8 +16,9 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from binance.client import Client as BinanceClient
 from hummingbot.logger import HummingbotLogger
 
-BINANCE_API_ENDPOINT = "https://api.binance.com/api/v1/"
+BINANCE_API_ENDPOINT = "https://api.binance.{}/api/v1/"
 BINANCE_USER_STREAM_ENDPOINT = "userDataStream"
+BINANCE_WSS_USER_STREAM = "wss://stream.binance.{}:9443/ws/"
 
 
 class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
@@ -33,11 +34,12 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
             cls._bausds_logger = logging.getLogger(__name__)
         return cls._bausds_logger
 
-    def __init__(self, binance_client: BinanceClient):
+    def __init__(self, binance_client: BinanceClient, domain: str = "com"):
         self._binance_client: BinanceClient = binance_client
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
         self._last_recv_time: float = 0
+        self._domain = domain
         super().__init__()
 
     @property
@@ -46,17 +48,19 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def get_listen_key(self):
         async with aiohttp.ClientSession() as client:
-            async with client.post(f"{BINANCE_API_ENDPOINT}{BINANCE_USER_STREAM_ENDPOINT}",
+            url = BINANCE_API_ENDPOINT.format(self._domain)
+            async with client.post(f"{url}{BINANCE_USER_STREAM_ENDPOINT}",
                                    headers={"X-MBX-APIKEY": self._binance_client.API_KEY}) as response:
                 response: aiohttp.ClientResponse = response
                 if response.status != 200:
-                    raise IOError(f"Error fetching Binance user stream listen key. HTTP status is {response.status}.")
+                    raise IOError(f"Error fetching user stream listen key. HTTP status is {response.status}.")
                 data: Dict[str, str] = await response.json()
                 return data["listenKey"]
 
     async def ping_listen_key(self, listen_key: str) -> bool:
         async with aiohttp.ClientSession() as client:
-            async with client.put(f"{BINANCE_API_ENDPOINT}{BINANCE_USER_STREAM_ENDPOINT}",
+            url = BINANCE_API_ENDPOINT.format(self._domain)
+            async with client.put(f"{url}{BINANCE_USER_STREAM_ENDPOINT}",
                                   headers={"X-MBX-APIKEY": self._binance_client.API_KEY},
                                   params={"listenKey": listen_key}) as response:
                 data: [str, any] = await response.json()
@@ -94,7 +98,8 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 yield msg
 
     async def get_ws_connection(self) -> websockets.WebSocketClientProtocol:
-        stream_url: str = f"wss://stream.binance.com:9443/ws/{self._current_listen_key}"
+        url = BINANCE_WSS_USER_STREAM.format(self._domain)
+        stream_url: str = f"{url}{self._current_listen_key}"
         self.logger().info(f"Reconnecting to {stream_url}.")
 
         # Create the WS connection.
