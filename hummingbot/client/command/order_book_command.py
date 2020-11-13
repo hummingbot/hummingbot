@@ -9,13 +9,15 @@ class OrderBookCommand:
     def order_book(self,  # type: HummingbotApplication
                    lines: int = 5,
                    exchange: str = None,
-                   market: str = None):
-        safe_ensure_future(self.show_order_book(lines, exchange, market))
+                   market: str = None,
+                   live: bool = False):
+        safe_ensure_future(self.show_order_book(lines, exchange, market, live))
 
     async def show_order_book(self,  # type: HummingbotApplication
                               lines: int = 5,
                               exchange: str = None,
-                              market: str = None):
+                              market: str = None,
+                              live: bool = False):
         if len(self.markets.keys()) == 0:
             self._notify("There is currently no active market.")
             return
@@ -34,11 +36,22 @@ class OrderBookCommand:
             trading_pair, order_book = market, market_connector.order_books[market]
         else:
             trading_pair, order_book = next(iter(market_connector.order_books.items()))
-        bids = order_book.snapshot[0][['price', 'amount']].head(lines)
-        bids.rename(columns={'price': 'bid_price', 'amount': 'bid_volume'}, inplace=True)
-        asks = order_book.snapshot[1][['price', 'amount']].head(lines)
-        asks.rename(columns={'price': 'ask_price', 'amount': 'ask_volume'}, inplace=True)
-        joined_df = pd.concat([bids, asks], axis=1)
-        text_lines = ["    " + line for line in joined_df.to_string(index=False).split("\n")]
-        self._notify(f"  market: {market_connector.name} {trading_pair}\n")
-        self._notify("\n".join(text_lines))
+
+        def get_order_book(lines):
+            bids = order_book.snapshot[0][['price', 'amount']].head(lines)
+            bids.rename(columns={'price': 'bid_price', 'amount': 'bid_volume'}, inplace=True)
+            asks = order_book.snapshot[1][['price', 'amount']].head(lines)
+            asks.rename(columns={'price': 'ask_price', 'amount': 'ask_volume'}, inplace=True)
+            joined_df = pd.concat([bids, asks], axis=1)
+            text_lines = ["    " + line for line in joined_df.to_string(index=False).split("\n")]
+            header = f"  market: {market_connector.name} {trading_pair}\n"
+            return header + "\n".join(text_lines)
+
+        if live:
+            await self.stop_live_update()
+            self.app.live_updates = True
+            while self.app.live_updates:
+                await self.cls_display_delay(get_order_book(min(lines, 35)) + "\n\n Press escape key to stop update.", 0.5)
+            self._notify("Stopped live orderbook display update.")
+        else:
+            self._notify(get_order_book(lines))
