@@ -54,7 +54,8 @@ class TerraConnector(ConnectorBase):
         return s_logger
 
     def __init__(self,
-                 trading_pairs: List[str],
+                 terra_private_key: str,
+                 trading_pairs: List[str] = [],
                  trading_required: bool = True
                  ):
         """
