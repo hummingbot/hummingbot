@@ -17,15 +17,15 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.event.events import (
     MarketEvent,
-    # BuyOrderCreatedEvent,
-    # SellOrderCreatedEvent,
-    # BuyOrderCompletedEvent,
-    # SellOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    SellOrderCreatedEvent,
+    BuyOrderCompletedEvent,
+    SellOrderCompletedEvent,
     MarketOrderFailureEvent,
-    # OrderFilledEvent,
+    OrderFilledEvent,
     OrderType,
     TradeType,
-    # TradeFee
+    TradeFee
 )
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.connector.balancer.balancer_in_flight_order import BalancerInFlightOrder
@@ -54,7 +54,8 @@ class TerraConnector(ConnectorBase):
         return s_logger
 
     def __init__(self,
-                 terra_private_key: str,
+                 terra_wallet_address: str,
+                 terra_wallet_seeds: str,
                  trading_pairs: List[str] = [],
                  trading_required: bool = True
                  ):
@@ -63,6 +64,8 @@ class TerraConnector(ConnectorBase):
         :param trading_required: Whether actual trading is needed.
         """
         super().__init__()
+        self._terra_wallet_address = terra_wallet_address
+        self._terra_wallet_seeds = terra_wallet_seeds
         self._trading_pairs = trading_pairs
         self._trading_required = trading_required
         self._ev_loop = asyncio.get_event_loop()
@@ -83,7 +86,7 @@ class TerraConnector(ConnectorBase):
             for in_flight_order in self._in_flight_orders.values()
         ]
 
-    @async_ttl_cache(ttl=5, maxsize=10)
+    @async_ttl_cache(ttl=2, maxsize=10)
     async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Optional[Decimal]:
         """
         Retrieves a quote price.
@@ -97,14 +100,9 @@ class TerraConnector(ConnectorBase):
 
             base, quote = trading_pair.split("-")
             side = "buy" if is_buy else "sell"
-            return Decimal("1")
-            # resp = await self._api_request("post",
-            #                                f"balancer/{side}-price",
-            #                                {"base": self._token_addresses[base],
-            #                                 "quote": self._token_addresses[quote],
-            #                                 "amount": amount})
-            # if resp["price"] is not None:
-            #     return Decimal(str(resp["price"]))
+            resp = await self._api_request("post", "terra/price", {"base": base, "quote": quote, "amount": amount})
+            if resp["price"] is not None:
+                return Decimal(str(resp["price"]))
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -174,63 +172,64 @@ class TerraConnector(ConnectorBase):
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
         base, quote = trading_pair.split("-")
-        # api_params = {"base": self._token_addresses[base],
-        #               "quote": self._token_addresses[quote],
-        #               "amount": str(amount),
-        #               "maxPrice": str(price),
-        #               "gasPrice": str(gas_price),
-        #               }
+        api_params = {"base": base,
+                      "quote": quote,
+                      "trade_type": "buy" if trade_type is TradeType.BUY else "sell",
+                      "amount": str(amount),
+                      "secret": self._terra_wallet_seeds,
+                      # "maxPrice": str(price),
+                      }
         self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount)
         try:
             pass
-            # order_result = await self._api_request("post", f"balancer/{trade_type.name.lower()}", api_params)
-            # hash = order_result["txHash"]
-            # status = order_result["status"]
-            # tracked_order = self._in_flight_orders.get(order_id)
-            # if tracked_order is not None:
-            #     self.logger().info(f"Created {trade_type.name} order {order_id} txHash: {hash} "
-            #                        f"for {amount} {trading_pair}.")
-            #     tracked_order.exchange_order_id = hash
-            # if int(status) == 1:
-            #     tracked_order.fee_asset = "ETH"
-            #     tracked_order.executed_amount_base = amount
-            #     tracked_order.executed_amount_quote = amount * price
-            #     tracked_order.fee_paid = Decimal(str(order_result["gasUsed"])) * gas_price / Decimal(str(1e9))
-            #     event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
-            #     event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
-            #     self.trigger_event(event_tag, event_class(self.current_timestamp, OrderType.LIMIT, trading_pair, amount,
-            #                                               price, order_id, hash))
-            #     self.trigger_event(MarketEvent.OrderFilled,
-            #                        OrderFilledEvent(
-            #                            self.current_timestamp,
-            #                            tracked_order.client_order_id,
-            #                            tracked_order.trading_pair,
-            #                            tracked_order.trade_type,
-            #                            tracked_order.order_type,
-            #                            price,
-            #                            amount,
-            #                            TradeFee(0.0, [("ETH", tracked_order.fee_paid)]),
-            #                            hash
-            #                        ))
-            #
-            #     event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY \
-            #         else MarketEvent.SellOrderCompleted
-            #     event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY \
-            #         else SellOrderCompletedEvent
-            #     self.trigger_event(event_tag,
-            #                        event_class(self.current_timestamp,
-            #                                    tracked_order.client_order_id,
-            #                                    tracked_order.base_asset,
-            #                                    tracked_order.quote_asset,
-            #                                    tracked_order.fee_asset,
-            #                                    tracked_order.executed_amount_base,
-            #                                    tracked_order.executed_amount_quote,
-            #                                    tracked_order.fee_paid,
-            #                                    tracked_order.order_type))
-            #     self.stop_tracking_order(tracked_order.client_order_id)
-            # else:
-            #     self.trigger_event(MarketEvent.OrderFailure,
-            #                        MarketOrderFailureEvent(self.current_timestamp, order_id, OrderType.LIMIT))
+            order_result = await self._api_request("post", "terra/trade", api_params)
+            hash = order_result["txHash"]
+            status = order_result["status"]
+            tracked_order = self._in_flight_orders.get(order_id)
+            if tracked_order is not None:
+                self.logger().info(f"Created {trade_type.name} order {order_id} txHash: {hash} "
+                                   f"for {amount} {trading_pair}.")
+                tracked_order.exchange_order_id = hash
+            if int(status) == 1:
+                tracked_order.fee_asset = order_result["fee"]["token"]
+                tracked_order.executed_amount_base = amount
+                tracked_order.executed_amount_quote = amount * price
+                tracked_order.fee_paid = order_result["fee"]["amount"]
+                event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
+                event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
+                self.trigger_event(event_tag, event_class(self.current_timestamp, OrderType.LIMIT, trading_pair, amount,
+                                                          price, order_id, hash))
+                self.trigger_event(MarketEvent.OrderFilled,
+                                   OrderFilledEvent(
+                                       self.current_timestamp,
+                                       tracked_order.client_order_id,
+                                       tracked_order.trading_pair,
+                                       tracked_order.trade_type,
+                                       tracked_order.order_type,
+                                       price,
+                                       amount,
+                                       TradeFee(0.0, [(tracked_order.fee_asset, tracked_order.fee_paid)]),
+                                       hash
+                                   ))
+
+                event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY \
+                    else MarketEvent.SellOrderCompleted
+                event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY \
+                    else SellOrderCompletedEvent
+                self.trigger_event(event_tag,
+                                   event_class(self.current_timestamp,
+                                               tracked_order.client_order_id,
+                                               tracked_order.base_asset,
+                                               tracked_order.quote_asset,
+                                               tracked_order.fee_asset,
+                                               tracked_order.executed_amount_base,
+                                               tracked_order.executed_amount_quote,
+                                               tracked_order.fee_paid,
+                                               tracked_order.order_type))
+                self.stop_tracking_order(tracked_order.client_order_id)
+            else:
+                self.trigger_event(MarketEvent.OrderFailure,
+                                   MarketOrderFailureEvent(self.current_timestamp, order_id, OrderType.LIMIT))
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -343,22 +342,20 @@ class TerraConnector(ConnectorBase):
         """
         Calls Eth API to update total and available balances.
         """
-        # local_asset_names = set(self._account_balances.keys())
-        # remote_asset_names = set()
-        # resp_json = await self._api_request("post",
-        #                                     "eth/balances",
-        #                                     {"tokenAddressList": ",".join(self._token_addresses.values())})
-        # for token, bal in resp_json["balances"].items():
-        #     if len(token) > 4:
-        #         token = self.get_token(token)
-        #     self._account_available_balances[token] = Decimal(str(bal))
-        #     self._account_balances[token] = Decimal(str(bal))
-        #     remote_asset_names.add(token)
-        #
-        # asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-        # for asset_name in asset_names_to_remove:
-        #     del self._account_available_balances[asset_name]
-        #     del self._account_balances[asset_name]
+        local_asset_names = set(self._account_balances.keys())
+        remote_asset_names = set()
+        resp_json = await self._api_request("post",
+                                            "terra/balances",
+                                            {"address": self._terra_wallet_address})
+        for token, bal in resp_json["balances"].items():
+            self._account_available_balances[token] = Decimal(str(bal))
+            self._account_balances[token] = Decimal(str(bal))
+            remote_asset_names.add(token)
+
+        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+        for asset_name in asset_names_to_remove:
+            del self._account_available_balances[asset_name]
+            del self._account_balances[asset_name]
 
         self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
         self._in_flight_orders_snapshot_timestamp = self.current_timestamp
@@ -395,9 +392,6 @@ class TerraConnector(ConnectorBase):
             else:
                 response = await client.get(url)
         elif method == "post":
-            params["privateKey"] = self._wallet_private_key
-            if params["privateKey"][:2] != "0x":
-                params["privateKey"] = "0x" + params["privateKey"]
             response = await client.post(url, data=params)
 
         parsed_response = json.loads(await response.text())
