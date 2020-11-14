@@ -64,7 +64,7 @@ from .binance_in_flight_order import BinanceInFlightOrder
 from .binance_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair)
-
+from hummingbot.core.data_type.common import OpenOrder
 s_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_NaN = Decimal("nan")
@@ -1043,3 +1043,24 @@ cdef class BinanceExchange(ExchangeBase):
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)
+
+    async def get_open_orders(self) -> List[OpenOrder]:
+        orders = await self.query_api(self._binance_client.get_open_orders)
+        ret_val = []
+        for order in orders:
+            if BROKER_ID not in order["clientOrderId"]:
+                continue
+            ret_val.append(
+                OpenOrder(
+                    client_order_id=order["clientOrderId"],
+                    trading_pair=convert_from_exchange_trading_pair(order["symbol"]),
+                    price=Decimal(str(order["price"])),
+                    amount=Decimal(str(order["origQty"])),
+                    executed_amount=Decimal(str(order["executedQty"])),
+                    status=order["status"],
+                    order_type=self.to_hb_order_type(order["type"]),
+                    is_buy=True if order["side"].lower() == "buy" else False,
+                    time=int(order["time"])
+                )
+            )
+        return ret_val

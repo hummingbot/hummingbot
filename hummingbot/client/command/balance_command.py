@@ -90,7 +90,7 @@ class BalanceCommand:
             else:
                 lines = ["    " + line for line in df.to_string(index=False).split("\n")]
                 self._notify("\n".join(lines))
-                self._notify(f"\n Total: {df['Total USD'].sum()} USD")
+                self._notify(f"\n  Total: $ {df['Total USD'].sum():.0f}")
 
         celo_address = global_config_map["celo_address"].value
         if celo_address is not None:
@@ -135,13 +135,13 @@ class BalanceCommand:
             if bal == Decimal(0):
                 continue
             avai = Decimal(ex_avai_balances.get(token.upper(), 0)) if ex_avai_balances is not None else Decimal(0)
-            deployed = f"{avai / bal:.0%}"
+            deployed = f"{(bal - avai) / bal:.0%}"
             usd = await usd_value(token, bal)
             usd = 0 if usd is None else usd
             rows.append({"Asset": token.upper(),
                          "Total": round(bal, 4),
                          "Deployed": deployed,
-                         "Total USD": round(usd, 4),
+                         "Total USD": round(usd),
                          })
         df = pd.DataFrame(data=rows, columns=["Asset", "Total", "Deployed", "Total USD"])
         df.sort_values(by=["Asset"], inplace=True)

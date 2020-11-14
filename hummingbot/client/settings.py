@@ -4,7 +4,6 @@ from os.path import (
     realpath,
     join,
 )
-import logging
 from enum import Enum
 from decimal import Decimal
 from typing import List, NamedTuple, Dict, Any
@@ -112,8 +111,7 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
             path = f"hummingbot.connector.{type_dir.name}.{connector_dir.name}.{connector_dir.name}_utils"
             try:
                 util_module = importlib.import_module(path)
-            except ModuleNotFoundError as e:
-                logging.getLogger().error(f"Error importing module {path}: {str(e)}", exc_info=True)
+            except ModuleNotFoundError:
                 continue
             fee_type = TradeFeeType.Percent
             fee_type_setting = getattr(util_module, "FEE_TYPE", None)
