@@ -65,6 +65,7 @@ from .binance_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair)
 from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.core.data_type.trade import Trade
 s_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_NaN = Decimal("nan")
@@ -1061,6 +1062,26 @@ cdef class BinanceExchange(ExchangeBase):
                     order_type=self.to_hb_order_type(order["type"]),
                     is_buy=True if order["side"].lower() == "buy" else False,
                     time=int(order["time"])
+                )
+            )
+        return ret_val
+
+    async def get_my_trades(self, trading_pair: str, timestamp: float) -> List[Trade]:
+        trades = await self.query_api(self._binance_client.get_my_trades,
+                                      symbol=convert_to_exchange_trading_pair(trading_pair),
+                                      timestamp=timestamp)
+        ret_val = []
+        for trade in trades:
+            ret_val.append(
+                Trade(
+                    trading_pair=convert_from_exchange_trading_pair(trade["symbol"]),
+                    side=TradeType.BUY if trade["isBuyer"],
+                    price=Decimal(str(trade["price"])),
+                    amount=Decimal(str(trade["qty"])),
+                    order_type=None,
+                    market=convert_from_exchange_trading_pair(trade["symbol"]),
+                    timestamp=int(trade["time"]),
+                    trade_fee=TradeFee(0.0, [(trade["commissionAsset"], trade["commission"])]),
                 )
             )
         return ret_val

@@ -135,15 +135,15 @@ class BalanceCommand:
             if bal == Decimal(0):
                 continue
             avai = Decimal(ex_avai_balances.get(token.upper(), 0)) if ex_avai_balances is not None else Decimal(0)
-            deployed = f"{(bal - avai) / bal:.0%}"
+            allocated = f"{(bal - avai) / bal:.0%}"
             usd = await usd_value(token, bal)
             usd = 0 if usd is None else usd
             rows.append({"Asset": token.upper(),
                          "Total": round(bal, 4),
-                         "Deployed": deployed,
+                         "Allocated": allocated,
                          "Total USD": round(usd),
                          })
-        df = pd.DataFrame(data=rows, columns=["Asset", "Total", "Deployed", "Total USD"])
+        df = pd.DataFrame(data=rows, columns=["Asset", "Total", "Allocated", "Total USD"])
         df.sort_values(by=["Asset"], inplace=True)
         return df
 
