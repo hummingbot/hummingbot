@@ -4,6 +4,7 @@ from typing import (
 )
 from hummingbot.client.errors import ArgumentParserError
 from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
+from hummingbot.client.settings import CONNECTOR_SETTINGS
 
 
 class ThrowingArgumentParser(argparse.ArgumentParser):
@@ -72,6 +73,11 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
 
     stop_parser = subparsers.add_parser('stop', help="Stop the current bot")
     stop_parser.set_defaults(func=hummingbot.stop)
+
+    open_orders_parser = subparsers.add_parser('open_orders', help="Show all active open orders")
+    open_orders_parser.add_argument("exchange", nargs="?", choices=CONNECTOR_SETTINGS.keys(),
+                                    help="Name of the exchange.")
+    open_orders_parser.set_defaults(func=hummingbot.open_orders)
 
     status_parser = subparsers.add_parser("status", help="Get the market status of the current bot")
     status_parser.add_argument("--live", default=False, action="store_true", dest="live", help="Show status updates")
