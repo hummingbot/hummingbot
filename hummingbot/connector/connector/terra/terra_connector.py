@@ -102,10 +102,7 @@ class TerraConnector(ConnectorBase):
             side = "buy" if is_buy else "sell"
             resp = await self._api_request("post", "terra/price", {"base": base, "quote": quote, "trade_type": side,
                                                                    "amount": str(amount)})
-            if is_buy:
-                return Decimal(str(resp["swapOut"]["amount"])) / amount
-            else:
-                return Decimal(str(resp["swapIn"]["amount"])) / amount
+            return Decimal(str(resp["price"]))
             # if resp["price"] is not None:
             #     return Decimal(str(resp["price"]))
         except asyncio.CancelledError:
