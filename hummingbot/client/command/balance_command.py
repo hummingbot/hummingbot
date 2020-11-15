@@ -140,10 +140,10 @@ class BalanceCommand:
             usd = 0 if usd is None else usd
             rows.append({"Asset": token.upper(),
                          "Total": round(bal, 4),
-                         "Allocated": allocated,
                          "Total USD": round(usd),
+                         "Allocated": allocated,
                          })
-        df = pd.DataFrame(data=rows, columns=["Asset", "Total", "Allocated", "Total USD"])
+        df = pd.DataFrame(data=rows, columns=["Asset", "Total", "Total USD", "Allocated"])
         df.sort_values(by=["Asset"], inplace=True)
         return df
 

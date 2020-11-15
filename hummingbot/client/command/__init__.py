@@ -17,6 +17,7 @@ from .order_book_command import OrderBookCommand
 from .ticker_command import TickerCommand
 from .generate_certs_command import GenerateCertsCommand
 from .open_orders_command import OpenOrdersCommand
+from .trades_command import TradesCommand
 
 
 __all__ = [
@@ -38,5 +39,6 @@ __all__ = [
     OrderBookCommand,
     TickerCommand,
     GenerateCertsCommand,
-    OpenOrdersCommand
+    OpenOrdersCommand,
+    TradesCommand
 ]

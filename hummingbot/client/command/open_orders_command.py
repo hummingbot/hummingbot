@@ -27,7 +27,7 @@ class OpenOrdersCommand:
         if exchange is None:
             exchange = "binance"
         if threading.current_thread() != threading.main_thread():
-            self.ev_loop.call_soon_threadsafe(self.history)
+            self.ev_loop.call_soon_threadsafe(self.open_orders)
             return
         safe_ensure_future(self.open_orders_report(exchange))
 

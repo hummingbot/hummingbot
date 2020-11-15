@@ -1075,7 +1075,7 @@ cdef class BinanceExchange(ExchangeBase):
             ret_val.append(
                 Trade(
                     trading_pair=convert_from_exchange_trading_pair(trade["symbol"]),
-                    side=TradeType.BUY if trade["isBuyer"],
+                    side=TradeType.BUY if trade["isBuyer"] else TradeType.SELL,
                     price=Decimal(str(trade["price"])),
                     amount=Decimal(str(trade["qty"])),
                     order_type=None,

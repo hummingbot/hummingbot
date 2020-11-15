@@ -26,10 +26,13 @@ def get_utc_timestamp(days_ago: float = 0.) -> float:
 
 class TradesCommand:
     def trades(self,  # type: HummingbotApplication
-               days: float = 1,
-               market: str = None):
+               days: float,
+               market: str):
+        if market is None:
+            market = "HARD-USDT"
+        market = market.upper()
         if threading.current_thread() != threading.main_thread():
-            self.ev_loop.call_soon_threadsafe(self.history)
+            self.ev_loop.call_soon_threadsafe(self.trades)
             return
         safe_ensure_future(self.trades_report(days, market))
 
@@ -49,7 +52,7 @@ class TradesCommand:
         for trade in trades:
             side = "buy" if trade.side is TradeType.BUY else "sell"
             usd = await usd_value(trade.trading_pair.split("-")[0], trade.amount)
-            data.append([trade.trading_pair, side, f"{trade.price:.4f}", round(usd)])
+            data.append([trade.trading_pair, side, f"{trade.price:.4f}", trade.amount, round(usd)])
         lines = []
         df: pd.DataFrame = pd.DataFrame(data=data, columns=columns)
         lines.extend(["    " + line for line in df.to_string(index=False).split("\n")])
