@@ -29,11 +29,12 @@ from hummingbot.client.config.global_config_map import global_config_map
 global_config_map['gateway_api_host'].value = "localhost"
 global_config_map['gateway_api_port'].value = 5000
 
-trading_pair = "LUNA-UDT"
+trading_pair = "LUNA-UST"
 base, quote = trading_pair.split("-")
 
-WALLET_ADDRESS = ""
-WALLET_SEEDS = ""
+WALLET_ADDRESS = "terra127pvcl444tmfsysvehd7cy8yq9h98a4fhzx9t9"
+WALLET_SEEDS = "purchase enhance comic six across harvest ensure tobacco bomb vote pistol cannon bright blade crawl " \
+               "size mom worry boat claim involve correct valid sell"
 
 
 class BalancerConnectorUnitTest(unittest.TestCase):
@@ -104,10 +105,10 @@ class BalancerConnectorUnitTest(unittest.TestCase):
 
     async def _test_get_quote_price(self):
         balancer = self.connector
-        buy_price = await balancer.get_quote_price(trading_pair, True, Decimal("1"))
+        buy_price = await balancer.get_quote_price(trading_pair, True, Decimal("100"))
         self.assertTrue(buy_price > 0)
         print(f"buy_price: {buy_price}")
-        sell_price = await balancer.get_quote_price(trading_pair, False, Decimal("1"))
+        sell_price = await balancer.get_quote_price(trading_pair, False, Decimal("100"))
         self.assertTrue(sell_price > 0)
         print(f"sell_price: {sell_price}")
         # self.assertTrue(buy_price != sell_price)
@@ -117,7 +118,7 @@ class BalancerConnectorUnitTest(unittest.TestCase):
 
     def test_buy(self):
         balancer = self.connector
-        amount = Decimal("0.1")
+        amount = Decimal("100")
         price = Decimal("1")
         order_id = balancer.buy(trading_pair, amount, OrderType.LIMIT, price)
         event = self.ev_loop.run_until_complete(self.event_logger.wait_for(BuyOrderCompletedEvent))
@@ -128,7 +129,7 @@ class BalancerConnectorUnitTest(unittest.TestCase):
 
     def test_sell(self):
         balancer = self.connector
-        amount = Decimal("1")
+        amount = Decimal("100")
         price = Decimal("0.01")
         order_id = balancer.sell(trading_pair, amount, OrderType.LIMIT, price)
         event = self.ev_loop.run_until_complete(self.event_logger.wait_for(SellOrderCompletedEvent))

@@ -100,9 +100,14 @@ class TerraConnector(ConnectorBase):
 
             base, quote = trading_pair.split("-")
             side = "buy" if is_buy else "sell"
-            resp = await self._api_request("post", "terra/price", {"base": base, "quote": quote, "amount": amount})
-            if resp["price"] is not None:
-                return Decimal(str(resp["price"]))
+            resp = await self._api_request("post", "terra/price", {"base": base, "quote": quote, "trade_type": side,
+                                                                   "amount": str(amount)})
+            if is_buy:
+                return Decimal(str(resp["swapOut"]["amount"])) / amount
+            else:
+                return Decimal(str(resp["swapIn"]["amount"])) / amount
+            # if resp["price"] is not None:
+            #     return Decimal(str(resp["price"]))
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -181,16 +186,15 @@ class TerraConnector(ConnectorBase):
                       }
         self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount)
         try:
-            pass
             order_result = await self._api_request("post", "terra/trade", api_params)
             hash = order_result["txHash"]
-            status = order_result["status"]
+            txSuccess = order_result["txSuccess"]
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {trade_type.name} order {order_id} txHash: {hash} "
                                    f"for {amount} {trading_pair}.")
                 tracked_order.exchange_order_id = hash
-            if int(status) == 1:
+            if txSuccess:
                 tracked_order.fee_asset = order_result["fee"]["token"]
                 tracked_order.executed_amount_base = amount
                 tracked_order.executed_amount_quote = amount * price
