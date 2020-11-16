@@ -1070,18 +1070,5 @@ cdef class BinanceExchange(ExchangeBase):
         trades = await self.query_api(self._binance_client.get_my_trades,
                                       symbol=convert_to_exchange_trading_pair(trading_pair),
                                       timestamp=timestamp)
-        ret_val = []
-        for trade in trades:
-            ret_val.append(
-                Trade(
-                    trading_pair=convert_from_exchange_trading_pair(trade["symbol"]),
-                    side=TradeType.BUY if trade["isBuyer"] else TradeType.SELL,
-                    price=Decimal(str(trade["price"])),
-                    amount=Decimal(str(trade["qty"])),
-                    order_type=None,
-                    market=convert_from_exchange_trading_pair(trade["symbol"]),
-                    timestamp=int(trade["time"]),
-                    trade_fee=TradeFee(0.0, [(trade["commissionAsset"], trade["commission"])]),
-                )
-            )
-        return ret_val
+        from hummingbot.connector.exchange.binance.binance_helper import format_trades
+        return format_trades(trades)
