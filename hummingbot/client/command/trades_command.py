@@ -44,17 +44,18 @@ class TradesCommand:
         if not api_keys:
             return
         data = []
-        columns = ["Market", " Side", " Price", "Amount", " Amount(USD)"]
+        columns = ["Side", " Price", "Amount", " Amount(USD)"]
         connector = UserBalances.connect_market(exchange, **api_keys)
-        timestamp = get_utc_timestamp(days)
-        trades: List[Trade] = await connector.get_my_trades(market, timestamp)
+        timestamp = get_utc_timestamp(days) * 1e3
+        trades: List[Trade] = await connector.get_my_trades(market, int(timestamp))
         trades = sorted(trades, key=lambda x: (x.trading_pair, x.timestamp))
         for trade in trades:
             side = "buy" if trade.side is TradeType.BUY else "sell"
             usd = await usd_value(trade.trading_pair.split("-")[0], trade.amount)
-            data.append([trade.trading_pair, side, f"{trade.price:.4f}", trade.amount, round(usd)])
+            data.append([side, f"{trade.price:.4f}", f"{trade.amount:.4f}", round(usd)])
         lines = []
         df: pd.DataFrame = pd.DataFrame(data=data, columns=columns)
+        lines.extend([f"    {market.upper()}"])
         lines.extend(["    " + line for line in df.to_string(index=False).split("\n")])
         self._notify("\n" + "\n".join(lines))
         self._notify(f"\n  Total: $ {df[' Amount(USD)'].sum():.0f}")
