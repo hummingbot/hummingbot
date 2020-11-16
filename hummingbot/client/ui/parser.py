@@ -80,11 +80,16 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     open_orders_parser.set_defaults(func=hummingbot.open_orders)
 
     trades_parser = subparsers.add_parser('trades', help="Show trades")
-    trades_parser.add_argument("-d", "--days", type=float, default=1, dest="days",
+    trades_parser.add_argument("-d", "--days", type=float, default=1., dest="days",
                                help="How many days in the past (can be decimal value)")
     trades_parser.add_argument("-m", "--market", default=None,
                                dest="market", help="The market you want to see trades.")
     trades_parser.set_defaults(func=hummingbot.trades)
+
+    pnl_parser = subparsers.add_parser('pnl', help="Show profits and losses")
+    pnl_parser.add_argument("-d", "--days", type=float, default=1., dest="days",
+                            help="How many days in the past (can be decimal value)")
+    pnl_parser.set_defaults(func=hummingbot.pnl)
 
     status_parser = subparsers.add_parser("status", help="Get the market status of the current bot")
     status_parser.add_argument("--live", default=False, action="store_true", dest="live", help="Show status updates")

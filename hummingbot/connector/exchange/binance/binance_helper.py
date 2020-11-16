@@ -1,8 +1,13 @@
 from decimal import Decimal
+from datetime import datetime, timezone
 from hummingbot.core.data_type.trade import Trade, TradeType, TradeFee
 from hummingbot.connector.exchange.binance.binance_utils import (
     convert_from_exchange_trading_pair,
 )
+
+
+def get_utc_timestamp(days_ago: float = 0.) -> float:
+    return datetime.utcnow().replace(tzinfo=timezone.utc).timestamp() - (60. * 60. * 24. * days_ago)
 
 
 def format_trades(trades):

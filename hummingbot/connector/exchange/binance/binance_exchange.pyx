@@ -26,6 +26,7 @@ from typing import (
 
 import conf
 from hummingbot.core.utils.asyncio_throttle import Throttler
+from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -1066,9 +1067,18 @@ cdef class BinanceExchange(ExchangeBase):
             )
         return ret_val
 
-    async def get_my_trades(self, trading_pair: str, timestamp: float) -> List[Trade]:
+    @async_ttl_cache(ttl=30, maxsize=10)
+    async def get_all_my_trades(self, trading_pair: str) -> List[Trade]:
+        # Ths Binance API call rate is 5, so we cache to make sure we don't go over rate limit
         trades = await self.query_api(self._binance_client.get_my_trades,
-                                      symbol=convert_to_exchange_trading_pair(trading_pair),
-                                      timestamp=timestamp)
+                                      symbol=convert_to_exchange_trading_pair(trading_pair))
         from hummingbot.connector.exchange.binance.binance_helper import format_trades
         return format_trades(trades)
+
+    async def get_my_trades(self, trading_pair: str, days_ago: float) -> List[Trade]:
+        trades = await self.get_all_my_trades(trading_pair)
+        from hummingbot.connector.exchange.binance.binance_helper import get_utc_timestamp
+        if days_ago is not None:
+            time = get_utc_timestamp(days_ago) * 1e3
+            trades = [t for t in trades if t.timestamp > time]
+        return trades

@@ -6,12 +6,13 @@ from typing import (
     List,
 )
 from datetime import datetime
-from datetime import timezone
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.config.security import Security
 from hummingbot.user.user_balances import UserBalances
 from hummingbot.core.utils.market_price import usd_value
 from hummingbot.core.data_type.trade import Trade, TradeType
+from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.client.performance import smart_round
 
 s_float_0 = float(0)
 s_decimal_0 = Decimal("0")
@@ -20,17 +21,10 @@ if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
-def get_utc_timestamp(days_ago: float = 0.) -> float:
-    return datetime.utcnow().replace(tzinfo=timezone.utc).timestamp() - (60. * 60. * 24. * days_ago)
-
-
 class TradesCommand:
     def trades(self,  # type: HummingbotApplication
                days: float,
                market: str):
-        if market is None:
-            market = "HARD-USDT"
-        market = market.upper()
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.trades)
             return
@@ -43,19 +37,40 @@ class TradesCommand:
         api_keys = await Security.api_keys(exchange)
         if not api_keys:
             return
-        data = []
-        columns = ["Side", " Price", "Amount", " Amount(USD)"]
         connector = UserBalances.connect_market(exchange, **api_keys)
-        timestamp = get_utc_timestamp(days) * 1e3
-        trades: List[Trade] = await connector.get_my_trades(market, int(timestamp))
+        if market is None:
+            orders: List[OpenOrder] = await connector.get_open_orders()
+            markets = {o.trading_pair for o in orders}
+        else:
+            markets = {market.upper()}
+        for market in markets:
+            await self.market_trades_report(connector, days, market)
+
+    async def market_trades_report(self,  # type: HummingbotApplication
+                                   connector,
+                                   days: float,
+                                   market: str):
+        data = []
+        columns = ["Time", " Side", " Price", "Amount", " Amount(USD)"]
+        trades: List[Trade] = await connector.get_my_trades(market, days)
         trades = sorted(trades, key=lambda x: (x.trading_pair, x.timestamp))
+        fees = {}  # a dict of token and total fee amount
+        fee_usd = 0
         for trade in trades:
+            time = f"{datetime.fromtimestamp(trade.timestamp / 1e3).strftime('%Y-%m-%d %H:%M:%S')} "
             side = "buy" if trade.side is TradeType.BUY else "sell"
             usd = await usd_value(trade.trading_pair.split("-")[0], trade.amount)
-            data.append([side, f"{trade.price:.4f}", f"{trade.amount:.4f}", round(usd)])
+            data.append([time, side, smart_round(trade.price), smart_round(trade.amount), round(usd)])
+            for fee in trade.trade_fee.flat_fees:
+                if fee[0] not in fees:
+                    fees[fee[0]] = fee[1]
+                else:
+                    fees[fee[0]] += fee[1]
+                fee_usd += await usd_value(fee[0], fee[1])
         lines = []
         df: pd.DataFrame = pd.DataFrame(data=data, columns=columns)
-        lines.extend([f"    {market.upper()}"])
+        lines.extend([f"  {market.upper()}"])
         lines.extend(["    " + line for line in df.to_string(index=False).split("\n")])
         self._notify("\n" + "\n".join(lines))
-        self._notify(f"\n  Total: $ {df[' Amount(USD)'].sum():.0f}")
+        fee_text = ",".join(k + ": " + f"{v:.4f}" for k, v in fees.items())
+        self._notify(f"\n  Total Amount: $ {df[' Amount(USD)'].sum():.0f}    Fees: {fee_text} ($ {fee_usd:.2f})")

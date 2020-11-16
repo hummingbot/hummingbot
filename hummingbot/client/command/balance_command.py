@@ -84,13 +84,14 @@ class BalanceCommand:
         for exchange, bals in all_ex_bals.items():
             self._notify(f"\n{exchange}:")
             # df = await self.exchange_balances_df(bals, all_ex_limits.get(exchange, {}))
-            df = await self.exchange_balances_usd_df(bals, all_ex_avai_bals.get(exchange, {}))
+            df, allocated_total = await self.exchange_balances_usd_df(bals, all_ex_avai_bals.get(exchange, {}))
             if df.empty:
                 self._notify("You have no balance on this exchange.")
             else:
                 lines = ["    " + line for line in df.to_string(index=False).split("\n")]
                 self._notify("\n".join(lines))
-                self._notify(f"\n  Total: $ {df['Total USD'].sum():.0f}")
+                self._notify(f"\n  Total: $ {df['Total USD'].sum():.0f}    "
+                             f"Allocated: {allocated_total / df['Total USD'].sum():.2%}")
 
         celo_address = global_config_map["celo_address"].value
         if celo_address is not None:
@@ -130,6 +131,7 @@ class BalanceCommand:
     async def exchange_balances_usd_df(self,  # type: HummingbotApplication
                                        ex_balances: Dict[str, Decimal],
                                        ex_avai_balances: Dict[str, Decimal]):
+        allocated_total = Decimal("0")
         rows = []
         for token, bal in ex_balances.items():
             if bal == Decimal(0):
@@ -138,6 +140,7 @@ class BalanceCommand:
             allocated = f"{(bal - avai) / bal:.0%}"
             usd = await usd_value(token, bal)
             usd = 0 if usd is None else usd
+            allocated_total += await usd_value(token, (bal - avai))
             rows.append({"Asset": token.upper(),
                          "Total": round(bal, 4),
                          "Total USD": round(usd),
@@ -145,7 +148,7 @@ class BalanceCommand:
                          })
         df = pd.DataFrame(data=rows, columns=["Asset", "Total", "Total USD", "Allocated"])
         df.sort_values(by=["Asset"], inplace=True)
-        return df
+        return df, allocated_total
 
     async def celo_balances_df(self,  # type: HummingbotApplication
                                ):
