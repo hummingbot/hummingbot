@@ -34,13 +34,16 @@ class OpenOrdersCommand:
         if connector is None:
             self._notify("This command supports only binance (for now), please first connect to binance.")
             return
+        orders: List[OpenOrder] = await connector.get_open_orders()
+        if not orders:
+            self._notify("There is currently no open orders on binance.")
+            return
+        orders = sorted(orders, key=lambda x: (x.trading_pair, x.is_buy))
         data = []
         columns = ["Market", " Side", " Spread", " Size ($)", " Age"]
         if full_report:
             columns.extend(["   Allocation", "   Per Total"])
         mid_prices = await BinanceAPIOrderBookDataSource.get_all_mid_prices()
-        orders: List[OpenOrder] = await connector.get_open_orders()
-        orders = sorted(orders, key=lambda x: (x.trading_pair, x.is_buy))
         cur_balances = await self.get_current_balances(exchange)
         total_value = 0
         for o in orders:
