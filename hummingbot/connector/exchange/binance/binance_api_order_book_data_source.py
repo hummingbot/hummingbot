@@ -55,6 +55,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._domain = domain
 
     @classmethod
+    @cachetools.func.ttl_cache(ttl=10, maxsize=1000)
     async def get_last_traded_prices(cls, trading_pairs: List[str], domain: str = "com") -> Dict[str, float]:
         tasks = [cls.get_last_traded_price(t_pair, domain) for t_pair in trading_pairs]
         results = await safe_gather(*tasks)
@@ -69,7 +70,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return float(resp_json["lastPrice"])
 
     @staticmethod
-    @cachetools.func.ttl_cache(ttl=10)
+    @cachetools.func.ttl_cache(ttl=10, maxsize=1000)
     def get_mid_price(trading_pair: str, domain="com") -> Optional[Decimal]:
         from hummingbot.connector.exchange.binance.binance_utils import convert_to_exchange_trading_pair
         url = TICKER_PRICE_CHANGE_URL.format(domain)
@@ -79,7 +80,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return result if result else None
 
     @staticmethod
-    @async_ttl_cache(ttl=5, maxsize=10)
+    @async_ttl_cache(ttl=10, maxsize=1000)
     async def get_all_mid_prices(domain="com") -> Optional[Decimal]:
         from hummingbot.connector.exchange.binance.binance_utils import convert_from_exchange_trading_pair
         async with aiohttp.ClientSession() as client:

@@ -1067,7 +1067,7 @@ cdef class BinanceExchange(ExchangeBase):
             )
         return ret_val
 
-    @async_ttl_cache(ttl=30, maxsize=10)
+    @async_ttl_cache(ttl=30, maxsize=1000)
     async def get_all_my_trades(self, trading_pair: str) -> List[Trade]:
         # Ths Binance API call rate is 5, so we cache to make sure we don't go over rate limit
         trades = await self.query_api(self._binance_client.get_my_trades,

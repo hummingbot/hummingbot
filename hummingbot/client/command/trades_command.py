@@ -7,12 +7,12 @@ from typing import (
 )
 from datetime import datetime
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.client.config.security import Security
-from hummingbot.user.user_balances import UserBalances
 from hummingbot.core.utils.market_price import usd_value
 from hummingbot.core.data_type.trade import Trade, TradeType
 from hummingbot.core.data_type.common import OpenOrder
 from hummingbot.client.performance import smart_round
+from hummingbot.client.command.history_command import get_timestamp
+from hummingbot.client.config.global_config_map import global_config_map
 
 s_float_0 = float(0)
 s_decimal_0 = Decimal("0")
@@ -24,26 +24,32 @@ if TYPE_CHECKING:
 class TradesCommand:
     def trades(self,  # type: HummingbotApplication
                days: float,
-               market: str):
+               market: str,
+               open_order_markets: bool):
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.trades)
             return
-        safe_ensure_future(self.trades_report(days, market))
+        safe_ensure_future(self.trades_report(days, market, open_order_markets))
 
     async def trades_report(self,  # type: HummingbotApplication
                             days: float,
-                            market: str):
-        exchange = "binance"
-        api_keys = await Security.api_keys(exchange)
-        if not api_keys:
+                            market: str,
+                            open_order_markets: bool):
+        connector = await self.get_binance_connector()
+        if connector is None:
             self._notify("This command supports only binance (for now), please first connect to binance.")
             return
-        connector = UserBalances.connect_market(exchange, **api_keys)
-        if market is None:
+        self._notify(f"Starting: {datetime.fromtimestamp(get_timestamp(days)).strftime('%Y-%m-%d %H:%M:%S')}"
+                     f"    Ending: {datetime.fromtimestamp(get_timestamp(0)).strftime('%Y-%m-%d %H:%M:%S')}")
+        self._notify("Retrieving trades....")
+        if market is not None:
+            markets = {market.upper()}
+        elif open_order_markets:
             orders: List[OpenOrder] = await connector.get_open_orders()
             markets = {o.trading_pair for o in orders}
         else:
-            markets = {market.upper()}
+            markets = set(global_config_map["binance_markets"].value.split(","))
+        markets = sorted(markets)
         for market in markets:
             await self.market_trades_report(connector, days, market)
 
@@ -51,9 +57,12 @@ class TradesCommand:
                                    connector,
                                    days: float,
                                    market: str):
-        data = []
-        columns = ["Time", " Side", " Price", "Amount", " Amount(USD)"]
         trades: List[Trade] = await connector.get_my_trades(market, days)
+        if not trades:
+            self._notify(f"There is no trade on {market}.")
+            return
+        data = []
+        columns = ["Time", " Side", " Price", "Amount", " Amount ($)"]
         trades = sorted(trades, key=lambda x: (x.trading_pair, x.timestamp))
         fees = {}  # a dict of token and total fee amount
         fee_usd = 0
@@ -74,4 +83,4 @@ class TradesCommand:
         lines.extend(["    " + line for line in df.to_string(index=False).split("\n")])
         self._notify("\n" + "\n".join(lines))
         fee_text = ",".join(k + ": " + f"{v:.4f}" for k, v in fees.items())
-        self._notify(f"\n  Total Amount: $ {df[' Amount(USD)'].sum():.0f}    Fees: {fee_text} ($ {fee_usd:.2f})")
+        self._notify(f"\n  Total Amount: $ {df[' Amount ($)'].sum():.0f}    Fees: {fee_text} ($ {fee_usd:.2f})")

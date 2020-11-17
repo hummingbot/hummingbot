@@ -74,6 +74,8 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     stop_parser.set_defaults(func=hummingbot.stop)
 
     open_orders_parser = subparsers.add_parser('open_orders', help="Show all active open orders")
+    open_orders_parser.add_argument("-f", "--full_report", default=False, action="store_true",
+                                    dest="full_report", help="Show full report with size comparison")
     open_orders_parser.set_defaults(func=hummingbot.open_orders)
 
     trades_parser = subparsers.add_parser('trades', help="Show trades")
