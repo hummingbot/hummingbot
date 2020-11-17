@@ -36,6 +36,7 @@ class TradesCommand:
         exchange = "binance"
         api_keys = await Security.api_keys(exchange)
         if not api_keys:
+            self._notify("This command supports only binance (for now), please first connect to binance.")
             return
         connector = UserBalances.connect_market(exchange, **api_keys)
         if market is None:
