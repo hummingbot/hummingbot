@@ -91,6 +91,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                  minimum_spread: Decimal = Decimal(0),
                  hb_app_notification: bool = False,
                  order_override: Dict[str, List[str]] = {},
+                 base_bal_allocation_pct: Decimal = None,
+                 quote_bal_allocation_pct: Decimal = None,
                  ):
 
         if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
@@ -129,6 +131,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._ping_pong_warning_lines = []
         self._hb_app_notification = hb_app_notification
         self._order_override = order_override
+        self._base_bal_allocation_pct = base_bal_allocation_pct
+        self._quote_bal_allocation_pct = quote_bal_allocation_pct
 
         self._cancel_timestamp = 0
         self._create_timestamp = 0
@@ -758,6 +762,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     cdef c_apply_order_size_modifiers(self, object proposal):
         if self._inventory_skew_enabled:
             self.c_apply_inventory_skew(proposal)
+        self.c_apply_asset_allocation(proposal)
 
     cdef c_apply_inventory_skew(self, object proposal):
         cdef:
@@ -789,6 +794,24 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             size = market.c_quantize_order_amount(self.trading_pair, size, sell.price)
             sell.size = size
 
+    cdef c_apply_asset_allocation(self, object proposal):
+        cdef:
+            ExchangeBase market = self._market_info.market
+            object quote_size
+            object base_size
+            object adjusted_amount
+
+        base_balance, quote_balance = self.c_get_adjusted_available_balance(self.active_non_hanging_orders)
+
+        if self._quote_bal_allocation_pct is not None and proposal.buys:
+            quote_allocated = (quote_balance * self._quote_bal_allocation_pct) / len(proposal.buys)
+            for buy in proposal.buys:
+                buy.size = quote_allocated / buy.price
+        if self._base_bal_allocation_pct is not None and proposal.sells:
+            base_allocated = (base_balance * self._base_bal_allocation_pct) / len(proposal.sells)
+            for sell in proposal.sells:
+                sell.size = base_allocated
+
     cdef c_apply_budget_constraint(self, object proposal):
         cdef:
             ExchangeBase market = self._market_info.market
@@ -807,8 +830,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             if quote_balance < quote_size:
                 adjusted_amount = quote_balance / (buy.price * (Decimal("1") + buy_fee.percent))
                 adjusted_amount = market.c_quantize_order_amount(self.trading_pair, adjusted_amount)
-                self.logger().info(f"Not enough balance for buy order (Size: {buy.size.normalize()}, Price: {buy.price.normalize()}), "
-                                   f"order_amount is adjusted to {adjusted_amount}")
+                # self.logger().info(f"Not enough balance for buy order (Size: {buy.size.normalize()}, Price: {buy.price.normalize()}), "
+                #                    f"order_amount is adjusted to {adjusted_amount}")
                 buy.size = adjusted_amount
                 quote_balance = s_decimal_zero
             elif quote_balance == s_decimal_zero:
@@ -824,8 +847,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             # Adjust sell order size to use remaining balance if less than the order amount
             if base_balance < base_size:
                 adjusted_amount = market.c_quantize_order_amount(self.trading_pair, base_balance)
-                self.logger().info(f"Not enough balance for sell order (Size: {sell.size.normalize()}, Price: {sell.price.normalize()}), "
-                                   f"order_amount is adjusted to {adjusted_amount}")
+                # self.logger().info(f"Not enough balance for sell order (Size: {sell.size.normalize()}, Price: {sell.price.normalize()}), "
+                #                    f"order_amount is adjusted to {adjusted_amount}")
                 sell.size = adjusted_amount
                 base_balance = s_decimal_zero
             elif base_balance == s_decimal_zero:
@@ -1066,9 +1089,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             for order in active_orders:
                 self.c_cancel_order(self._market_info, order.client_order_id)
         else:
-            self.logger().info(f"Not cancelling active orders since difference between new order prices "
-                               f"and current order prices is within "
-                               f"{self._order_refresh_tolerance_pct:.2%} order_refresh_tolerance_pct")
+            # self.logger().info(f"Not cancelling active orders since difference between new order prices "
+            #                    f"and current order prices is within "
+            #                    f"{self._order_refresh_tolerance_pct:.2%} order_refresh_tolerance_pct")
             self.set_timers()
 
     cdef c_cancel_hanging_orders(self):

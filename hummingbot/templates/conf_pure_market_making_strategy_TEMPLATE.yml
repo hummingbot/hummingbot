@@ -2,7 +2,7 @@
 ###       Pure market making strategy config         ###
 ########################################################
 
-template_version: 19
+template_version: 20
 strategy: null
 
 # Exchange and token parameters.
@@ -115,6 +115,12 @@ take_if_crossed: null
 #   order_3: [sell, 0.1, 500]
 # Please make sure there is a space between : and [
 order_override: null
+
+# percentage of base asset balance to allocate to sell orders (50 for 50%)
+base_bal_allocation_pct: null
+# percentage of quote asset balance to allocate to buy orders (50 for 50%)
+quote_bal_allocation_pct: null
+
 
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/pure-market-making/#configuration-parameters
