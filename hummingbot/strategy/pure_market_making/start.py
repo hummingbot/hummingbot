@@ -48,8 +48,10 @@ def start(self):
         price_source_custom_api = c_map.get("price_source_custom_api").value
         order_refresh_tolerance_pct = c_map.get("order_refresh_tolerance_pct").value / Decimal('100')
         order_override = c_map.get("order_override").value
-        base_bal_allocation_pct = c_map.get("base_bal_allocation_pct").value / Decimal('100')
-        quote_bal_allocation_pct = c_map.get("quote_bal_allocation_pct").value / Decimal('100')
+        base_bal_allocation_pct = None if c_map.get("base_bal_allocation_pct").value is not None else \
+            c_map.get("base_bal_allocation_pct").value / Decimal('100')
+        quote_bal_allocation_pct = None if c_map.get("quote_bal_allocation_pct").value is not None else \
+            c_map.get("quote_bal_allocation_pct").value / Decimal('100')
 
         trading_pair: str = raw_trading_pair
         maker_assets: Tuple[str, str] = self._initialize_market_assets(exchange, [trading_pair])[0]
