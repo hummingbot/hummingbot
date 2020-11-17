@@ -26,7 +26,6 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.ui import login_prompt
 from hummingbot.client.ui.stdout_redirection import patch_stdout
-from hummingbot.client.settings import STRATEGIES
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.management.console import start_management_console
 from bin.hummingbot import (
