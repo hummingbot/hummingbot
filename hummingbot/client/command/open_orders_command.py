@@ -23,18 +23,18 @@ if TYPE_CHECKING:
 
 class OpenOrdersCommand:
     def open_orders(self,  # type: HummingbotApplication
-                    exchange: str):
-        if exchange is None:
-            exchange = "binance"
+                    ):
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.open_orders)
             return
-        safe_ensure_future(self.open_orders_report(exchange))
+        safe_ensure_future(self.open_orders_report())
 
     async def open_orders_report(self,  # type: HummingbotApplication
-                                 exchange: str = "binance"):
+                                 ):
+        exchange = "binance"
         api_keys = await Security.api_keys(exchange)
         if not api_keys:
+            self._notify("This command supports only binance (for now), please first connect to binance.")
             return
         data = []
         columns = ["Market", " Side", " Spread", " Size(USD)", " Age"]

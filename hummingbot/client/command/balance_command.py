@@ -90,8 +90,8 @@ class BalanceCommand:
             else:
                 lines = ["    " + line for line in df.to_string(index=False).split("\n")]
                 self._notify("\n".join(lines))
-                self._notify(f"\n  Total: $ {df['Total USD'].sum():.0f}    "
-                             f"Allocated: {allocated_total / df['Total USD'].sum():.2%}")
+                self._notify(f"\n  Total: $ {df['Total ($)'].sum():.0f}    "
+                             f"Allocated: {allocated_total / df['Total ($)'].sum():.2%}")
 
         celo_address = global_config_map["celo_address"].value
         if celo_address is not None:
@@ -143,10 +143,10 @@ class BalanceCommand:
             allocated_total += await usd_value(token, (bal - avai))
             rows.append({"Asset": token.upper(),
                          "Total": round(bal, 4),
-                         "Total USD": round(usd),
+                         "Total ($)": round(usd),
                          "Allocated": allocated,
                          })
-        df = pd.DataFrame(data=rows, columns=["Asset", "Total", "Total USD", "Allocated"])
+        df = pd.DataFrame(data=rows, columns=["Asset", "Total", "Total ($)", "Allocated"])
         df.sort_values(by=["Asset"], inplace=True)
         return df, allocated_total
 
