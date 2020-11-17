@@ -15,6 +15,7 @@ from hummingbot.core.data_type.common import OpenOrder
 from hummingbot.client.performance import calculate_performance_metrics
 from hummingbot.core.utils.market_price import get_last_price
 from hummingbot.client.command.history_command import get_timestamp
+from hummingbot.client.config.global_config_map import global_config_map
 
 s_float_0 = float(0)
 s_decimal_0 = Decimal("0")
@@ -32,28 +33,41 @@ class PnlCommand:
             return
         safe_ensure_future(self.pnl_report(days, open_order_markets))
 
+    async def get_binance_connector(self):
+        if self._binance_connector is not None:
+            return self._binance_connector
+        api_keys = await Security.api_keys("binance")
+        if not api_keys:
+            return None
+        self._binance_connector = UserBalances.connect_market("binance", **api_keys)
+        return self._binance_connector
+
     async def pnl_report(self,  # type: HummingbotApplication
                          days: float,
                          open_order_markets: bool):
         exchange = "binance"
-        api_keys = await Security.api_keys(exchange)
-        if not api_keys:
+        connector = await self.get_binance_connector()
+        if connector is None:
             self._notify("This command supports only binance (for now), please first connect to binance.")
             return
         self._notify(f"Starting: {datetime.fromtimestamp(get_timestamp(days)).strftime('%Y-%m-%d %H:%M:%S')}"
                      f"    Ending: {datetime.fromtimestamp(get_timestamp(0)).strftime('%Y-%m-%d %H:%M:%S')}")
         self._notify("Calculating profit and losses....")
-        connector = UserBalances.connect_market(exchange, **api_keys)
-        orders: List[OpenOrder] = await connector.get_open_orders()
+        if open_order_markets:
+            orders: List[OpenOrder] = await connector.get_open_orders()
+            markets = {o.trading_pair for o in orders}
+        else:
+            markets = set(global_config_map["binance_markets"].value.split(","))
+        markets = sorted(markets)
         data = []
-        columns = ["Market", " Volume ($)", " Fee ($)", " PnL ($)", " Return %"]
-        markets = {o.trading_pair for o in orders}
+        columns = ["Market", " Traded ($)", " Fee ($)", " PnL ($)", " Return %"]
+        cur_balances = await self.get_current_balances(exchange)
+
         for market in markets:
             base, quote = market.split("-")
             trades: List[Trade] = await connector.get_my_trades(market, days)
             if not trades:
                 continue
-            cur_balances = await self.get_current_balances(exchange)
             cur_price = await get_last_price(market.replace("_PaperTrade", ""), market)
             perf = calculate_performance_metrics(market, trades, cur_balances, cur_price)
             volume = await usd_value(quote, abs(perf.b_vol_quote) + abs(perf.s_vol_quote))

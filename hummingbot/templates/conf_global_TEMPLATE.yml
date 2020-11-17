@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 14
+template_version: 15
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -157,4 +157,7 @@ ethgasstation_refresh_time:
 # Port need to match the final installation port for Gateway
 gateway_api_host: localhost
 gateway_api_port: 5000
+
+# a list of binance markets (for trades/pnl reporting) separated by ',' e.g. RLC-USDT,RLC-BTC
+binance_markets:
 
