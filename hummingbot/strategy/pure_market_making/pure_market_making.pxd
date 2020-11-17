@@ -50,6 +50,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         double _status_report_interval
         int64_t _logging_options
         object _last_own_trade_price
+        object _base_bal_allocation_pct
+        object _quote_bal_allocation_pct
+
     cdef object c_get_mid_price(self)
     cdef object c_create_base_proposal(self)
     cdef tuple c_get_adjusted_available_balance(self, list orders)
@@ -59,7 +62,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     cdef c_apply_order_price_modifiers(self, object proposal)
     cdef c_apply_order_size_modifiers(self, object proposal)
     cdef c_apply_inventory_skew(self, object proposal)
+    cdef c_apply_asset_allocation(self, object proposal)
     cdef c_apply_budget_constraint(self, object proposal)
+
     cdef c_filter_out_takers(self, object proposal)
     cdef c_apply_order_optimization(self, object proposal)
     cdef c_apply_add_transaction_costs(self, object proposal)

@@ -920,6 +920,36 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("101.1"), sells[0].price)
         self.assertEqual(Decimal("2"), sells[0].quantity)
 
+    def test_asset_allocation_pct(self):
+        strategy = PureMarketMakingStrategy(
+            self.market_info,
+            bid_spread=Decimal("0.01"),
+            ask_spread=Decimal("0.01"),
+            order_amount=Decimal("1"),
+            order_refresh_time=5.0,
+            filled_order_delay=5.0,
+            order_refresh_tolerance_pct=-1,
+            minimum_spread=-1,
+            base_bal_allocation_pct=Decimal("0.25"),
+            quote_bal_allocation_pct=Decimal("0.5"),
+        )
+        self.market.set_balance("HBOT", Decimal("10"))
+        self.market.set_balance("ETH", Decimal("10000"))
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+
+        buys = strategy.active_buys
+        sells = strategy.active_sells
+        self.assertEqual(1, len(buys))
+        self.assertEqual(1, len(sells))
+        self.assertEqual(Decimal("99"), buys[0].price)
+        # 5000 of ETH should be allocated to buy order, the price is 99 so the order amount is
+        self.assertAlmostEqual(Decimal("5000") / Decimal("99"), buys[0].quantity, 4)
+
+        self.assertEqual(Decimal("101"), sells[0].price)
+        # 25% is allcated to sell, so that is 2.5 HBOT
+        self.assertAlmostEqual(Decimal("2.5"), sells[0].quantity, 4)
+
 
 class PureMarketMakingMinimumSpreadUnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
