@@ -145,3 +145,12 @@ class CallLog:
 
     def __repr__(self):
         return f"{self.__class__.__name__} {str(self.__dict__)}"
+
+
+class ScriptError:
+    def __init__(self, error: Exception, traceback: str):
+        self.error = error
+        self.traceback = traceback
+
+    def __repr__(self):
+        return f"{self.__class__.__name__} {str(self.error)} \nTrace back: {self.traceback}"

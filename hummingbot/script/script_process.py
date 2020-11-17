@@ -2,12 +2,17 @@ import asyncio
 import importlib
 import inspect
 import os
+import sys
+
 from multiprocessing import Queue
 from hummingbot.script.script_base import ScriptBase
 from hummingbot.script.script_interface import set_child_queue
 
 
 def run_script(script_file_name: str, parent_queue: Queue, child_queue: Queue, queue_check_interval: float):
+    sys.stdin.close()
+    sys.stdout.close()
+    sys.stderr.close()
     script_class = import_script_sub_class(script_file_name)
     script = script_class()
     script.assign_init(parent_queue, child_queue, queue_check_interval)
