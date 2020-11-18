@@ -120,7 +120,9 @@ class UniswapConnector(ConnectorBase):
         resp = await self._api_request("post",
                                        "eth/approve",
                                        {"tokenAddress": self._token_addresses[token_symbol],
-                                        "gasPrice": str(get_gas_price())})
+                                        "gasPrice": str(get_gas_price()),
+                                        # "decimals": self._token_decimals[token_symbol]  // if not supplied, gateway would treat it eth-like with 18 decimals
+                                        "connector": self.name})
         amount_approved = Decimal(str(resp["amount"]))
         if amount_approved > 0:
             self.logger().info(f"Approved Uniswap spender contract for {token_symbol}.")
@@ -135,7 +137,8 @@ class UniswapConnector(ConnectorBase):
         """
         ret_val = {}
         resp = await self._api_request("post", "eth/allowances",
-                                       {"tokenAddressList": ",".join(self._token_addresses.values())})
+                                       {"tokenAddressList": ",".join(self._token_addresses.values()),
+                                        "connector": self.name})
         for address, amount in resp["approvals"].items():
             ret_val[self.get_token(address)] = Decimal(str(amount))
         return ret_val
