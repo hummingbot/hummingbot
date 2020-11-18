@@ -55,7 +55,6 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._domain = domain
 
     @classmethod
-    @cachetools.func.ttl_cache(ttl=10, maxsize=1000)
     async def get_last_traded_prices(cls, trading_pairs: List[str], domain: str = "com") -> Dict[str, float]:
         tasks = [cls.get_last_traded_price(t_pair, domain) for t_pair in trading_pairs]
         results = await safe_gather(*tasks)

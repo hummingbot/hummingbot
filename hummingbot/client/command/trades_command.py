@@ -66,6 +66,7 @@ class TradesCommand:
         trades = sorted(trades, key=lambda x: (x.trading_pair, x.timestamp))
         fees = {}  # a dict of token and total fee amount
         fee_usd = 0
+
         for trade in trades:
             time = f"{datetime.fromtimestamp(trade.timestamp / 1e3).strftime('%Y-%m-%d %H:%M:%S')} "
             side = "buy" if trade.side is TradeType.BUY else "sell"
@@ -77,10 +78,11 @@ class TradesCommand:
                 else:
                     fees[fee[0]] += fee[1]
                 fee_usd += await usd_value(fee[0], fee[1])
+
         lines = []
         df: pd.DataFrame = pd.DataFrame(data=data, columns=columns)
         lines.extend([f"  {market.upper()}"])
         lines.extend(["    " + line for line in df.to_string(index=False).split("\n")])
         self._notify("\n" + "\n".join(lines))
         fee_text = ",".join(k + ": " + f"{v:.4f}" for k, v in fees.items())
-        self._notify(f"\n  Total Amount: $ {df[' Amount ($)'].sum():.0f}    Fees: {fee_text} ($ {fee_usd:.2f})")
+        self._notify(f"\n  Total traded: $ {df[' Amount ($)'].sum():.0f}    Fees: {fee_text} ($ {fee_usd:.2f})")

@@ -68,7 +68,7 @@ class PnlCommand:
             trades: List[Trade] = await connector.get_my_trades(market, days)
             if not trades:
                 continue
-            cur_price = await get_last_price(market.replace("_PaperTrade", ""), market)
+            cur_price = await get_last_price(exchange, market)
             perf = calculate_performance_metrics(market, trades, cur_balances, cur_price)
             volume = await usd_value(quote, abs(perf.b_vol_quote) + abs(perf.s_vol_quote))
             fee = await usd_value(perf.fee_token, perf.fee_paid)

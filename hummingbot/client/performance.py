@@ -46,6 +46,11 @@ class PerformanceMetrics:
     total_pnl: Decimal = s_decimal_0
     return_pct: Decimal = s_decimal_0
 
+    realised_pnl: Decimal = s_decimal_0
+    unrealised_pnl: Decimal = s_decimal_0
+    # An outstanding amount, negative means more sell amounts than buy (short position)
+    outstanding_amount: Decimal = s_decimal_0
+
 
 def calculate_performance_metrics(trading_pair: str,
                                   trades: List[TradeFill],
@@ -113,6 +118,37 @@ def calculate_performance_metrics(trading_pair: str,
     perf.fee_paid = Decimal(str(fee_paid))
     perf.total_pnl = perf.trade_pnl - perf.fee_paid if perf.fee_token == quote else perf.trade_pnl
     perf.return_pct = divide(perf.total_pnl, perf.hold_value)
+
+    # The section below calculates realised and unrealised profits for the trades, this is currently not in used
+    # but could be valuable for derivative / perpetual positions where long/short is exposed until closed.
+    done_pnl = 0
+    undone_vol = 0
+    undone_price = 0
+    for trade in trades:
+        pos_price = trade.price * -1 if trade.trade_type.upper() == "BUY" else trade.price
+        if undone_vol == 0:
+            undone_vol = trade.amount
+            undone_price = pos_price
+            continue
+        if undone_price * pos_price > 0:
+            undone_price = ((pos_price * trade.amount) + (undone_vol * undone_price)) / (trade.amount + undone_vol)
+            undone_vol += trade.amount
+        else:
+            min_vol = min(trade.amount, undone_vol)
+            done_pnl += (undone_price * min_vol) + (pos_price * min_vol)
+            if trade.amount > undone_vol:
+                undone_price = pos_price
+            undone_vol = abs(undone_vol - trade.amount)
+            if undone_vol == s_decimal_0:
+                undone_price = s_decimal_0
+    perf.realised_pnl = done_pnl
+    if undone_price > s_decimal_0:
+        perf.unrealised_pnl = undone_vol * (undone_price - current_price)
+        perf.outstanding_amount = undone_vol * -1
+    elif undone_price < s_decimal_0:
+        perf.unrealised_pnl = undone_vol * (undone_price + current_price)
+        perf.outstanding_amount = undone_vol
+
     return perf
 
 
@@ -129,8 +165,6 @@ def smart_round(value: Decimal, precision: Optional[int] = None) -> Decimal:
         step = Decimal("0.0001")
     elif Decimal("0.01") > abs(value) > Decimal("0.0001"):
         step = Decimal("0.00001")
-    elif Decimal("0.0001") > abs(value) > Decimal("0.00001"):
-        step = Decimal("0.000001")
-    elif Decimal("0.00001") > abs(value) > s_decimal_0:
+    elif Decimal("0.0001") > abs(value) > s_decimal_0:
         step = Decimal("0.00000001")
     return (value // step) * step
