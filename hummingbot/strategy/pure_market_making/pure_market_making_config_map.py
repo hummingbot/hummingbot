@@ -199,7 +199,7 @@ pure_market_making_config_map = {
         ConfigVar(key="order_levels",
                   prompt="How many orders do you want to place on both sides? >>> ",
                   type_str="int",
-                  validator=lambda v: validate_int(v, min_value=0, inclusive=False),
+                  validator=lambda v: validate_int(v, min_value=-1, inclusive=False),
                   default=1),
     "order_level_amount":
         ConfigVar(key="order_level_amount",
