@@ -8,7 +8,7 @@ from typing import (
     Optional,
     Callable,
 )
-from os.path import dirname
+from os.path import dirname, join
 from hummingbot.core.clock import (
     Clock,
     ClockMode
@@ -125,7 +125,7 @@ class StartCommand:
                 script_file = global_config_map["script_file_path"].value
                 folder = dirname(script_file)
                 if folder == "":
-                    script_file = SCRIPTS_PATH + script_file
+                    script_file = join(SCRIPTS_PATH, script_file)
                 if self.strategy_name != "pure_market_making":
                     self._notify("Error: script feature is only available for pure_market_making strategy (for now).")
                 else:
