@@ -14,6 +14,12 @@ async def usd_value(token: str, amount: Decimal) -> Optional[Decimal]:
     return usd_values.get(token, 0) * amount
 
 
+async def get_binance_mid_price(trading_pair: str) -> Dict[str, Decimal]:
+    # Binance is the place to go to for pricing atm
+    prices = await BinanceAPIOrderBookDataSource.get_all_mid_prices()
+    return prices.get(trading_pair, None)
+
+
 @async_ttl_cache(ttl=5, maxsize=100)
 async def token_usd_values() -> Dict[str, Decimal]:
     prices = await BinanceAPIOrderBookDataSource.get_all_mid_prices()

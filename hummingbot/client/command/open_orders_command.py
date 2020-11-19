@@ -9,8 +9,7 @@ from datetime import datetime
 from datetime import timezone
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.data_type.common import OpenOrder
-from hummingbot.core.utils.market_price import usd_value
-from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
+from hummingbot.core.utils.market_price import usd_value, get_binance_mid_price
 
 s_float_0 = float(0)
 s_decimal_0 = Decimal("0")
@@ -43,7 +42,6 @@ class OpenOrdersCommand:
         columns = ["Market", " Side", " Spread", " Size ($)", " Age"]
         if full_report:
             columns.extend(["   Allocation", "   Per Total"])
-        mid_prices = await BinanceAPIOrderBookDataSource.get_all_mid_prices()
         cur_balances = await self.get_current_balances(exchange)
         total_value = 0
         for o in orders:
@@ -51,7 +49,8 @@ class OpenOrdersCommand:
         for order in orders:
             base, quote = order.trading_pair.split("-")
             side = "buy" if order.is_buy else "sell"
-            spread = abs(order.price - mid_prices[order.trading_pair]) / mid_prices[order.trading_pair]
+            mid_price = await get_binance_mid_price(order.trading_pair)
+            spread = abs(order.price - mid_price) / mid_price
             size_usd = await usd_value(order.trading_pair.split("-")[0], order.amount)
             age = pd.Timestamp((datetime.utcnow().replace(tzinfo=timezone.utc).timestamp() * 1e3 - order.time) / 1e3,
                                unit='s').strftime('%H:%M:%S')

@@ -79,7 +79,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return result if result else None
 
     @staticmethod
-    @async_ttl_cache(ttl=10, maxsize=1000)
+    @async_ttl_cache(ttl=2, maxsize=1)
     async def get_all_mid_prices(domain="com") -> Optional[Decimal]:
         from hummingbot.connector.exchange.binance.binance_utils import convert_from_exchange_trading_pair
         async with aiohttp.ClientSession() as client:
