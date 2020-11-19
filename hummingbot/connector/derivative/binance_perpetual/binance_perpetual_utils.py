@@ -41,13 +41,13 @@ KEYS = {
     "binance_perpetual_api_key":
         ConfigVar(key="binance_perpetual_api_key",
                   prompt="Enter your Binance Perpetual API key >>> ",
-                  required_if=using_exchange("binance_perpetuals"),
+                  required_if=using_exchange("binance_perpetual"),
                   is_secure=True,
                   is_connect_key=True),
     "binance_perpetual_api_secret":
         ConfigVar(key="binance_perpetual_api_secret",
                   prompt="Enter your Binance Perpetual API secret >>> ",
-                  required_if=using_exchange("binance_perpetuals"),
+                  required_if=using_exchange("binance_perpetual"),
                   is_secure=True,
                   is_connect_key=True),
 

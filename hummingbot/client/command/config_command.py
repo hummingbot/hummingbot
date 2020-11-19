@@ -41,18 +41,17 @@ global_configs_to_display = ["0x_active_cancels",
                              "telegram_chat_id",
                              "send_error_logs",
                              "script_enabled",
-                             "script_file_path"]
-# perpetual parameters that are disabled untill needed.
-disabled_perpetual_parameters = ["inventory_target_base_pct",
-                                 "ts_activation_spread",
-                                 "ts_callback_rate",
-                                 "inventory_skew_enabled",
-                                 "inventory_range_multiplier",
-                                 "price_source",
-                                 "price_source_derivative",
-                                 "price_source_market",
-                                 "price_source_custom_api",
-                                 "take_if_crossed"]
+                             "script_file_path",
+                             "manual_gas_price",
+                             "ethereum_chain_name",
+                             "ethgasstation_gas_enabled",
+                             "ethgasstation_api_key",
+                             "ethgasstation_gas_level",
+                             "ethgasstation_refresh_time",
+                             "gateway_enabled",
+                             "gateway_cert_passphrase",
+                             "gateway_api_host",
+                             "gateway_api_port"]
 
 
 class ConfigCommand:
@@ -139,9 +138,6 @@ class ConfigCommand:
             config_var = config_map[key]
             if input_value is None:
                 self._notify("Please follow the prompt to complete configurations: ")
-            if (config_var.key in disabled_perpetual_parameters) and isinstance(self.strategy, PerpetualMarketMakingStrategy):
-                self._notify("This parameter is currently disabled in Perpetual Market Making Strategy.")
-                return
             elif config_var.key == "inventory_target_base_pct":
                 await self.asset_ratio_maintenance_prompt(config_map, input_value)
             else:
