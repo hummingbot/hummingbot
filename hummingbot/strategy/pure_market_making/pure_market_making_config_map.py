@@ -339,18 +339,4 @@ pure_market_making_config_map = {
                   required_if=lambda: False,
                   default=None,
                   type_str="json"),
-    "base_bal_allocation_pct":
-        ConfigVar(key="base_bal_allocation_pct",
-                  prompt="At what percentage of base asset balance do you want to allocate to sell orders? "
-                         "Enter 50 for 50% >>> ",
-                  required_if=lambda: False,
-                  type_str="decimal",
-                  validator=lambda v: validate_decimal(v, 0, 100)),
-    "quote_bal_allocation_pct":
-        ConfigVar(key="quote_bal_allocation_pct",
-                  prompt="At what percentage of quote asset balance do you want to allocate to buy orders? "
-                         "Enter 50 for 50% >>> ",
-                  required_if=lambda: False,
-                  type_str="decimal",
-                  validator=lambda v: validate_decimal(v, 0, 100)),
 }
