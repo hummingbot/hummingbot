@@ -138,7 +138,7 @@ class ConfigCommand:
             config_var = config_map[key]
             if input_value is None:
                 self._notify("Please follow the prompt to complete configurations: ")
-            elif config_var.key == "inventory_target_base_pct":
+            if config_var.key == "inventory_target_base_pct":
                 await self.asset_ratio_maintenance_prompt(config_map, input_value)
             else:
                 await self.prompt_a_config(config_var, input_value=input_value, assign_default=False)
