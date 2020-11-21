@@ -11,7 +11,8 @@ CENTRALIZED = True
 EXAMPLE_PAIR = "ZRX-ETH"
 DEFAULT_FEES = [0.1, 0.1]
 
-TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|DAI|XRP|USDT|USDC|USDS|TUSD|PAX|TRX|BUSD|NGN|RUB|TRY|EUR|IDRT|ZAR|UAH|GBP|BKRW|BIDR|USD)$")
+TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BNB|BTC|ETH|TRX|XRP|USDT|BKRW|BUSD|EUR|TUSD|USDC|TRY|PAX|AUD|BIDR|BRL|DAI|"
+                                   r"GBP|IDRT|NGN|RUB|ZAR|UAH)$")
 
 
 def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
