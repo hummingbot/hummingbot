@@ -107,6 +107,7 @@ class BinancePerpetualDerivative(DerivativeBase):
                  trading_required: bool = True,
                  **domain):
         self._testnet = True if len(domain) > 0 else False
+        print(domain)
         super().__init__()
         self._api_key = binance_perpetual_api_key
         self._api_secret = binance_perpetual_api_secret
@@ -117,7 +118,7 @@ class BinancePerpetualDerivative(DerivativeBase):
         self._base_url = PERPETUAL_BASE_URL if self._testnet is False else TESTNET_BASE_URL
         self._stream_url = DIFF_STREAM_URL if self._testnet is False else TESTNET_STREAM_URL
         self._user_stream_tracker = BinancePerpetualUserStreamTracker(base_url=self._base_url, stream_url=self._stream_url, api_key=self._api_key)
-        self._order_book_tracker = BinancePerpetualOrderBookTracker(base_url=self._base_url, stream_url=self._stream_url, trading_pairs=trading_pairs)
+        self._order_book_tracker = BinancePerpetualOrderBookTracker(trading_pairs=trading_pairs, **domain)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._in_flight_orders = {}
