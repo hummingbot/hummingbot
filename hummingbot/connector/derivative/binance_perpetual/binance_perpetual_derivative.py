@@ -107,7 +107,6 @@ class BinancePerpetualDerivative(DerivativeBase):
                  trading_required: bool = True,
                  **domain):
         self._testnet = True if len(domain) > 0 else False
-        print(domain)
         super().__init__()
         self._api_key = binance_perpetual_api_key
         self._api_secret = binance_perpetual_api_secret
