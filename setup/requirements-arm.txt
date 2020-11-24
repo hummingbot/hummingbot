@@ -27,3 +27,4 @@ bitstring==3.1.7
 pyblake2==1.1.2
 pysha3==1.0.2
 psutil==5.7.2
+ethsnarks-loopring==0.1.5
