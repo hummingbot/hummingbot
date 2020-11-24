@@ -610,6 +610,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     cdef c_start(self, Clock clock, double timestamp):
         StrategyBase.c_start(self, clock, timestamp)
         self._last_timestamp = timestamp
+        # start tracking any restored limit order
+        self.c_track_restored_orders(self.market_info)
 
     cdef c_tick(self, double timestamp):
         StrategyBase.c_tick(self, timestamp)
