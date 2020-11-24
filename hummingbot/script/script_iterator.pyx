@@ -3,6 +3,7 @@
 from typing import List
 import asyncio
 import logging
+import traceback
 from multiprocessing import Process, Queue
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.clock import Clock
@@ -24,6 +25,7 @@ from hummingbot.script.script_interface import (
     CallNotify,
     CallLog,
     PmmMarketInfo,
+    ScriptError,
 )
 
 sir_logger = None
@@ -114,22 +116,28 @@ cdef class ScriptIterator(TimeIterator):
 
     async def listen_to_child_queue(self):
         while True:
-            if self._child_queue.empty():
-                await asyncio.sleep(self._queue_check_interval)
-                continue
-            item = self._child_queue.get()
-            # print(f"received: {str(item)}")
-            self.logger().info(f"received: {str(item)}")
-            if item is None:
-                break
-            if isinstance(item, StrategyParameter):
-                setattr(self._strategy, item.name, item.updated_value)
-            elif isinstance(item, CallNotify) and not self._is_unit_testing_mode:
-                # ignore this on unit testing as the below import will mess up unit testing.
-                from hummingbot.client.hummingbot_application import HummingbotApplication
-                HummingbotApplication.main_application()._notify(item.msg)
-            elif isinstance(item, CallLog):
-                self.logger().info(f"script - {item.msg}")
+            try:
+                if self._child_queue.empty():
+                    await asyncio.sleep(self._queue_check_interval)
+                    continue
+                item = self._child_queue.get()
+                self.logger().info(f"received: {str(item)}")
+                if item is None:
+                    break
+                if isinstance(item, StrategyParameter):
+                    setattr(self._strategy, item.name, item.updated_value)
+                elif isinstance(item, CallNotify) and not self._is_unit_testing_mode:
+                    # ignore this on unit testing as the below import will mess up unit testing.
+                    from hummingbot.client.hummingbot_application import HummingbotApplication
+                    HummingbotApplication.main_application()._notify(item.msg)
+                elif isinstance(item, CallLog):
+                    self.logger().info(f"script - {item.msg}")
+                elif isinstance(item, ScriptError):
+                    self.logger().info(f"{item}")
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().info("Unexpected error listening to child queue.", exc_info=True)
 
     def request_status(self):
         self._parent_queue.put(OnStatus())
