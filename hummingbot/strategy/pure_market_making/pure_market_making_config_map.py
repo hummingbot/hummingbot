@@ -18,7 +18,6 @@ from hummingbot.client.config.global_config_map import (
 )
 from hummingbot.client.config.config_helpers import (
     minimum_order_amount,
-    parse_cvar_value
 )
 from typing import Optional
 
@@ -99,16 +98,6 @@ def validate_price_floor_ceiling(value: str) -> Optional[str]:
         return f"{value} is not in decimal format."
     if not (decimal_value == Decimal("-1") or decimal_value > Decimal("0")):
         return "Value must be more than 0 or -1 to disable this feature."
-
-
-def validate_take_if_crossed(value: str) -> Optional[str]:
-    err_msg = validate_bool(value)
-    if err_msg is not None:
-        return err_msg
-    price_source_enabled = pure_market_making_config_map["price_source_enabled"].value
-    take_if_crossed = parse_cvar_value(pure_market_making_config_map["take_if_crossed"], value)
-    if take_if_crossed and not price_source_enabled:
-        return "You can enable this feature only when external pricing source for mid-market price is used."
 
 
 def exchange_on_validated(value: str):
