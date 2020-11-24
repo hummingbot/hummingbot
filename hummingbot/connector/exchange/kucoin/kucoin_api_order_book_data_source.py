@@ -251,6 +251,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
     PING_TIMEOUT = 10.0
     PING_INTERVAL = 15
     SYMBOLS_PER_CONNECTION = 100
+    SLEEP_BETWEEN_SNAPSHOT_REQUEST = 5.0
 
     _kaobds_logger: Optional[HummingbotLogger] = None
 
@@ -543,7 +544,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             )
                             output.put_nowait(snapshot_msg)
                             self.logger().debug(f"Saved order book snapshot for {trading_pair}")
-                            await asyncio.sleep(5.0)
+                            await asyncio.sleep(self.SLEEP_BETWEEN_SNAPSHOT_REQUEST)
                         except asyncio.CancelledError:
                             raise
                         except Exception:
