@@ -476,5 +476,17 @@ cdef class StrategyBase(TimeIterator):
 
     cdef c_stop_tracking_market_order(self, object market_pair, str order_id):
         self._sb_order_tracker.c_stop_tracking_market_order(market_pair, order_id)
+
+    cdef c_track_restored_orders(self, object market_pair):
+        cdef:
+            list limit_orders = market_pair.market.limit_orders
+
+        for order in limit_orders:
+            self.c_start_tracking_limit_order(market_pair,
+                                              order.client_order_id,
+                                              order.is_buy,
+                                              order.price,
+                                              order.quantity)
+
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
