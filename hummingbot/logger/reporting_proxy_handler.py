@@ -161,6 +161,7 @@ class ReportingProxyHandler(logging.Handler):
             if global_config_map["send_error_logs"].value:
                 if len(self._log_queue) > 0 and len(self._log_queue) >= min_send_capacity:
                     self.send_logs(self._log_queue)
+
                     self._log_queue = []
             if len(self._event_queue) > 0 and len(self._event_queue) >= min_send_capacity:
                 self.send_events(self._event_queue)
