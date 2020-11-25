@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
+    validate_exchange,
     validate_derivative,
     validate_market_trading_pair,
     validate_bool,
@@ -76,7 +77,8 @@ def price_source_market_prompt() -> str:
 def validate_price_source_derivative(value: str) -> Optional[str]:
     if value == perpetual_market_making_config_map.get("derivative").value:
         return "Price source derivative cannot be the same as maker derivative."
-    return validate_derivative(value)
+    if validate_derivative(value) is not None and validate_exchange(value) is not None:
+        return "Price must must be a valid exchange or derivative connector."
 
 
 def on_validated_price_source_derivative(value: str):
@@ -157,20 +159,6 @@ perpetual_market_making_config_map = {
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
                   prompt_on_new=True),
-    "ts_callback_rate":
-        ConfigVar(key="ts_callback_rate",
-                  prompt="Trailing Stop Callback Rate - Min 0.1, Max 5 "
-                         "? (Enter 1 to indicate 1%) >>> ",
-                  type_str="decimal",
-                  default=Decimal("0"),
-                  validator=lambda v: validate_decimal(v, 0, 5, inclusive=True)),
-    "ts_activation_spread":
-        ConfigVar(key="ts_activation_spread",
-                  prompt="How far away from the position entry price do you want to set the "
-                         "activation price for position exit trailing stop order? (Enter 1 to indicate 1%) >>> ",
-                  type_str="decimal",
-                  default=Decimal("0"),
-                  validator=lambda v: validate_decimal(v, 0, 100, inclusive=True)),
     "minimum_spread":
         ConfigVar(key="minimum_spread",
                   prompt="At what minimum spread should the bot automatically cancel orders? (Enter 1 for 1%) >>> ",
@@ -240,27 +228,6 @@ perpetual_market_making_config_map = {
                   required_if=lambda: perpetual_market_making_config_map.get("order_levels").value > 1,
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
-                  default=Decimal("1")),
-    "inventory_skew_enabled":
-        ConfigVar(key="inventory_skew_enabled",
-                  prompt="Would you like to enable inventory skew? (Yes/No) >>> ",
-                  type_str="bool",
-                  default=False,
-                  validator=validate_bool),
-    "inventory_target_base_pct":
-        ConfigVar(key="inventory_target_base_pct",
-                  prompt="What is your target base asset percentage? Enter 50 for 50% >>> ",
-                  required_if=lambda: perpetual_market_making_config_map.get("inventory_skew_enabled").value,
-                  type_str="decimal",
-                  validator=lambda v: validate_decimal(v, 0, 100),
-                  default=Decimal("50")),
-    "inventory_range_multiplier":
-        ConfigVar(key="inventory_range_multiplier",
-                  prompt="What is your tolerable range of inventory around the target, "
-                         "expressed in multiples of your total order size? ",
-                  required_if=lambda: perpetual_market_making_config_map.get("inventory_skew_enabled").value,
-                  type_str="decimal",
-                  validator=lambda v: validate_decimal(v, min_value=0, inclusive=False),
                   default=Decimal("1")),
     "filled_order_delay":
         ConfigVar(key="filled_order_delay",
@@ -334,7 +301,7 @@ perpetual_market_making_config_map = {
                   "Invalid price type."),
     "price_source_derivative":
         ConfigVar(key="price_source_derivative",
-                  prompt="Enter external price source derivative name >>> ",
+                  prompt="Enter external price source connector name or derivative name >>> ",
                   required_if=lambda: perpetual_market_making_config_map.get("price_source").value == "external_market",
                   type_str="str",
                   validator=validate_price_source_derivative,
@@ -347,7 +314,7 @@ perpetual_market_making_config_map = {
                   validator=validate_price_source_market),
     "take_if_crossed":
         ConfigVar(key="take_if_crossed",
-                  prompt="Do you want to take the best order if orders cross the orderbook? ((Yes/No) >>> ",
+                  prompt="Do you want to take the best order if orders cross the orderbook? (Yes/No) >>> ",
                   required_if=lambda: perpetual_market_making_config_map.get(
                       "price_source").value == "external_market",
                   type_str="bool",
