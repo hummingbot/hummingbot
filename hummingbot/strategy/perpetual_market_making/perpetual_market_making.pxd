@@ -11,8 +11,6 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         object _position_mode
         object _bid_spread
         object _ask_spread
-        object _ts_callback_rate
-        object _ts_activation_spread
         object _minimum_spread
         object _order_amount
         int _order_levels
@@ -23,9 +21,6 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         double _order_refresh_time
         object _order_refresh_tolerance_pct
         double _filled_order_delay
-        bint _inventory_skew_enabled
-        object _inventory_target_base_pct
-        object _inventory_range_multiplier
         bint _hanging_orders_enabled
         object _hanging_orders_cancel_pct
         bint _order_optimization_enabled
@@ -64,8 +59,6 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
     cdef c_apply_price_band(self, object proposal)
     cdef c_apply_ping_pong(self, object proposal)
     cdef c_apply_order_price_modifiers(self, object proposal)
-    cdef c_apply_order_size_modifiers(self, object proposal)
-    cdef c_apply_inventory_skew(self, object proposal)
     cdef c_apply_budget_constraint(self, object proposal)
     cdef c_filter_out_takers(self, object proposal)
     cdef c_apply_order_optimization(self, object proposal)

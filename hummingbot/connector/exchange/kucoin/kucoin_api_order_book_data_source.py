@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from itertools import islice
 
 import aiohttp
 import asyncio
@@ -112,24 +113,34 @@ class KucoinWSConnectionIterator:
                                   stream_type: StreamType,
                                   trading_pairs: Set[str],
                                   subscribe: bool):
-        subscribe_request: Dict[str, Any]
-        market_str: str = ",".join(sorted(trading_pairs))
+        # Kucoin has a limit of 100 subscription per 10 seconds
+        it = iter(trading_pairs)
+        trading_pair_chunks: List[Tuple[str]] = list(iter(lambda: tuple(islice(it, 100)), ()))
+        subscribe_requests: List[Dict[str, Any]] = []
         if stream_type == StreamType.Depth:
-            subscribe_request = {
-                "id": int(time.time()),
-                "type": "subscribe" if subscribe else "unsubscribe",
-                "topic": f"/market/level2:{market_str}",
-                "response": True
-            }
+            for trading_pair_chunk in trading_pair_chunks:
+                market_str: str = ",".join(sorted(trading_pair_chunk))
+                subscribe_requests.append({
+                    "id": int(time.time()),
+                    "type": "subscribe" if subscribe else "unsubscribe",
+                    "topic": f"/market/level2:{market_str}",
+                    "response": True
+                })
         else:
-            subscribe_request = {
-                "id": int(time.time()),
-                "type": "subscribe" if subscribe else "unsubscribe",
-                "topic": f"/market/match:{market_str}",
-                "privateChannel": False,
-                "response": True
-            }
-        await ws.send(json.dumps(subscribe_request))
+            for trading_pair_chunk in trading_pair_chunks:
+                market_str: str = ",".join(sorted(trading_pair_chunk))
+                subscribe_requests.append({
+                    "id": int(time.time()),
+                    "type": "subscribe" if subscribe else "unsubscribe",
+                    "topic": f"/market/match:{market_str}",
+                    "privateChannel": False,
+                    "response": True
+                })
+        for i, subscribe_request in enumerate(subscribe_requests):
+            await ws.send(json.dumps(subscribe_request))
+            if i != len(subscribe_requests) - 1:  # only sleep between requests
+                await asyncio.sleep(10)
+
         await asyncio.sleep(0.2)  # watch out for the rate limit
 
     async def subscribe(self, stream_type: StreamType, trading_pairs: Set[str]):
@@ -468,6 +479,8 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                     metadata={"trading_pair": trading_pair}
                                 )
                         output.put_nowait(order_book_message)
+                    elif msg_type == "error":
+                        self.logger().error(f"WS error message from Kucoin: {raw_msg}")
                     else:
                         self.logger().warning(f"Unrecognized message type from Kucoin: {msg_type}. "
                                               f"Message = {raw_msg}.")
