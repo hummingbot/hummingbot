@@ -480,13 +480,16 @@ cdef class StrategyBase(TimeIterator):
     cdef c_track_restored_orders(self, object market_pair):
         cdef:
             list limit_orders = market_pair.market.limit_orders
+            list restored_order_ids = []
 
         for order in limit_orders:
+            restored_order_ids.append(order.client_order_id)
             self.c_start_tracking_limit_order(market_pair,
                                               order.client_order_id,
                                               order.is_buy,
                                               order.price,
                                               order.quantity)
+        return restored_order_ids
 
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
