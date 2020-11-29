@@ -30,6 +30,7 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.eth_gas_station_lookup import EthGasStationLookup
 from hummingbot.script.script_iterator import ScriptIterator
 from hummingbot.connector.connector_status import get_connector_status, warning_messages
+from hummingbot.logger.reporting_proxy_handler import ReportingProxyHandler
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -112,6 +113,7 @@ class StartCommand:
             self.clock = Clock(ClockMode.REALTIME)
             if self.wallet is not None:
                 self.clock.add_iterator(self.wallet)
+            ReportingProxyHandler.get_instance().set_markets(list(self.markets.values()))
             for market in self.markets.values():
                 if market is not None:
                     self.clock.add_iterator(market)
