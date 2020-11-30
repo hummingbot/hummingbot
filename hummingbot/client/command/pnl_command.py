@@ -27,11 +27,13 @@ if TYPE_CHECKING:
 class PnlCommand:
     def pnl(self,  # type: HummingbotApplication
             days: float,
-            open_order_markets: bool):
+            market: str,
+            open_order_markets: bool
+            ):
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.trades)
             return
-        safe_ensure_future(self.pnl_report(days, open_order_markets))
+        safe_ensure_future(self.pnl_report(days, market, open_order_markets))
 
     async def get_binance_connector(self):
         if self._binance_connector is not None:
@@ -44,11 +46,21 @@ class PnlCommand:
 
     async def pnl_report(self,  # type: HummingbotApplication
                          days: float,
-                         open_order_markets: bool):
+                         market: str,
+                         open_order_markets: bool
+                         ):
         exchange = "binance"
         connector = await self.get_binance_connector()
+        cur_balances = await self.get_current_balances(exchange)
         if connector is None:
             self._notify("This command supports only binance (for now), please first connect to binance.")
+            return
+        if market is not None:
+            market = market.upper()
+            trades: List[Trade] = await connector.get_my_trades(market, days)
+            cur_price = await get_last_price(exchange, market)
+            perf = calculate_performance_metrics(market, trades, cur_balances, cur_price)
+            self.report_performance_by_market(exchange, market, perf, precision=None)
             return
         self._notify(f"Starting: {datetime.fromtimestamp(get_timestamp(days)).strftime('%Y-%m-%d %H:%M:%S')}"
                      f"    Ending: {datetime.fromtimestamp(get_timestamp(0)).strftime('%Y-%m-%d %H:%M:%S')}")
@@ -61,8 +73,6 @@ class PnlCommand:
         markets = sorted(markets)
         data = []
         columns = ["Market", " Traded ($)", " Fee ($)", " PnL ($)", " Return %"]
-        cur_balances = await self.get_current_balances(exchange)
-
         for market in markets:
             base, quote = market.split("-")
             trades: List[Trade] = await connector.get_my_trades(market, days)
