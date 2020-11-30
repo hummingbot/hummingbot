@@ -90,6 +90,8 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     pnl_parser = subparsers.add_parser('pnl', help="Show profits and losses")
     pnl_parser.add_argument("-d", "--days", type=float, default=1., dest="days",
                             help="How many days in the past (can be decimal value)")
+    pnl_parser.add_argument("-m", "--market", default=None,
+                            dest="market", help="The market you want to see trades.")
     pnl_parser.add_argument("-o", "--open_order_markets", default=False, action="store_true",
                             dest="open_order_markets", help="See PnL from current open order markets.")
     pnl_parser.set_defaults(func=hummingbot.pnl)
