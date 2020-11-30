@@ -25,6 +25,4 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
         cur_price = 110
         metrics = calculate_performance_metrics(trading_pair, trades, cur_bals, cur_price)
         self.assertEqual(Decimal("250"), metrics.trade_pnl)
-        self.assertEqual(Decimal("200"), metrics.realised_pnl)
-        self.assertEqual(Decimal("50"), metrics.unrealised_pnl)
         print(metrics)
