@@ -8,7 +8,7 @@ from os.path import (
 import json
 import logging
 import traceback
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, List, Dict, Tuple, Any, Union
 import threading
 import asyncio
 
@@ -19,7 +19,7 @@ from hummingbot.logger import (
 )
 from hummingbot.logger.log_server_client import LogServerClient
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
-from hummingbot.core.event.events import OrderFilledEvent, MarketEvent
+from hummingbot.core.event.events import OrderFilledEvent, MarketEvent, BuyOrderCreatedEvent, SellOrderCreatedEvent
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
@@ -40,7 +40,7 @@ class ReportingProxyHandler(logging.Handler):
 
     @classmethod
     def get_instance(cls, level=logging.ERROR,
-                     proxy_url="https://127.0.0.1:9000",
+                     proxy_url="http://127.0.0.1:9000",
                      capacity=1) -> "ReportingProxyHandler":
         if cls._shared_instance is None:
             cls._shared_instance = ReportingProxyHandler(level, proxy_url, capacity)
@@ -48,10 +48,9 @@ class ReportingProxyHandler(logging.Handler):
 
     def __init__(self,
                  level=logging.ERROR,
-                 proxy_url="https://127.0.0.1:9000",
+                 proxy_url="http://127.0.0.1:9000",
                  capacity=1):
         super().__init__()
-        proxy_url = "http://0.0.0.0:9000"
         self.setLevel(level)
         self._log_queue: list = []
         self._event_queue: list = []
@@ -59,10 +58,14 @@ class ReportingProxyHandler(logging.Handler):
         self._proxy_url: str = proxy_url
         self._log_server_client: Optional[LogServerClient] = None
         self._order_filled_events: Dict[str, List[OrderFilledEvent]] = {}
+        self._order_created_events: Dict[str, List[Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]]] = {}
         self._fill_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_fill_order)
+        self._create_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_create_order)
         self._send_aggregated_metrics_loop_task = None
         self._markets: List[ConnectorBase] = []
         self._event_pairs: List[Tuple[MarketEvent, SourceInfoEventForwarder]] = [
+            (MarketEvent.BuyOrderCreated, self._create_order_forwarder),
+            (MarketEvent.SellOrderCreated, self._create_order_forwarder),
             (MarketEvent.OrderFilled, self._fill_order_forwarder),
         ]
 
@@ -81,7 +84,6 @@ class ReportingProxyHandler(logging.Handler):
             return
         if not self.log_server_client.started:
             self.log_server_client.start()
-        # self.send_filled_volume("binance", "BBB", "CCC", 1200)
         log_type = record.__dict__.get("message_type", "log")
         if not log_type == "event":
             self.process_log(record)
@@ -176,16 +178,16 @@ class ReportingProxyHandler(logging.Handler):
         }
         self.log_server_client.request(request_obj)
 
-    def send_filled_volume(self, exchange, market, quote_volume):
+    def send_metric(self, metric_name: str, exchange: str, market: str, value: Any):
         request_obj = {
-            "url": f"{self._proxy_url}/filled_volume",
+            "url": f"{self._proxy_url}/{metric_name}",
             "method": "POST",
             "request_obj": {
                 "headers": {
                     'Content-Type': "application/json"
                 },
                 "data": json.dumps({"client_id": self.client_id, "exchange": exchange, "market": market,
-                                    "filled_quote_volume": str(quote_volume)})
+                                    f"{metric_name}": str(value)})
             }
         }
         self.log_server_client.request(request_obj)
@@ -218,24 +220,35 @@ class ReportingProxyHandler(logging.Handler):
         finally:
             logging.Handler.close(self)
 
-    def set_markets(self, markets: List[ConnectorBase]):
+    def set_markets(self, markets: List[ConnectorBase], heartbeat_interval_min: float):
         self._markets = markets
         for market in self._markets:
             for event_pair in self._event_pairs:
                 market.add_listener(event_pair[0], event_pair[1])
         if self._send_aggregated_metrics_loop_task is None:
-            self._send_aggregated_metrics_loop_task = safe_ensure_future(self.send_aggregated_metrics_loop())
+            self._send_aggregated_metrics_loop_task = safe_ensure_future(
+                self.send_aggregated_metrics_loop(heartbeat_interval_min))
 
-    async def send_aggregated_metrics_loop(self):
+    async def send_aggregated_metrics_loop(self, heartbeat_interval_min: float):
         while True:
             try:
                 for connector_name, filled_events in self._order_filled_events.copy().items():
                     pairs = set(e.trading_pair for e in filled_events)
                     for pair in pairs:
-                        traded_volume = sum(e.price * e.amount for e in filled_events if e.trading_pair == pair)
-                        self.send_filled_volume(connector_name, pair, traded_volume)
+                        filled_trades = [e for e in filled_events if e.trading_pair == pair]
+                        traded_volume = sum(e.price * e.amount for e in filled_trades)
+                        self.send_metric("filled_quote_volume", connector_name, pair, traded_volume)
+                        self.send_metric("trade_count", connector_name, pair, len(filled_trades))
                 self._order_filled_events.clear()
-                await asyncio.sleep(20)
+
+                for connector_name, created_events in self._order_created_events.copy().items():
+                    pairs = set(e.trading_pair for e in created_events)
+                    for pair in pairs:
+                        created_orders = [e for e in created_events if e.trading_pair == pair]
+                        self.send_metric("order_count", connector_name, pair, len(created_orders))
+                self._order_created_events.clear()
+
+                await asyncio.sleep(60 * heartbeat_interval_min)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -252,3 +265,14 @@ class ReportingProxyHandler(logging.Handler):
         if market.name not in self._order_filled_events:
             self._order_filled_events[market.name] = []
         self._order_filled_events[market.name].append(evt)
+
+    def _did_create_order(self,
+                          event_tag: int,
+                          market: ConnectorBase,
+                          evt: Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]):
+        if threading.current_thread() != threading.main_thread():
+            self._ev_loop.call_soon_threadsafe(self._did_create_order, event_tag, market, evt)
+            return
+        if market.name not in self._order_created_events:
+            self._order_created_events[market.name] = []
+        self._order_created_events[market.name].append(evt)

@@ -113,7 +113,9 @@ class StartCommand:
             self.clock = Clock(ClockMode.REALTIME)
             if self.wallet is not None:
                 self.clock.add_iterator(self.wallet)
-            ReportingProxyHandler.get_instance().set_markets(list(self.markets.values()))
+            if global_config_map["heartbeat_enabled"].value:
+                ReportingProxyHandler.get_instance().set_markets(
+                    list(self.markets.values()), float(global_config_map["heartbeat_interval_min"].value))
             for market in self.markets.values():
                 if market is not None:
                     self.clock.add_iterator(market)
