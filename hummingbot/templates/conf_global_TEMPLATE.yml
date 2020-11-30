@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 14
+template_version: 15
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -158,3 +158,7 @@ ethgasstation_refresh_time:
 gateway_api_host: localhost
 gateway_api_port: 5000
 
+# Whether to enable aggregated order and trade data collection
+heartbeat_enabled:
+# The frequency of sending the aggregated order and trade data (in minutes, e.g. enter 5 for once every 5 minutes)
+heartbeat_interval_min:

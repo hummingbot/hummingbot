@@ -142,10 +142,10 @@ def add_remote_logger_handler(loggers):
     from hummingbot.logger.reporting_proxy_handler import ReportingProxyHandler
     root_logger = logging.getLogger()
     try:
-        from hummingbot.client.config.global_config_map import global_config_map
-        log_server_url = global_config_map.get("log_server_url", "https://api.coinalpha.com/reporting-proxy")
+        # from hummingbot.client.config.global_config_map import global_config_map
+        # log_server_url = global_config_map["log_server_url"].value
         remote_logger = ReportingProxyHandler.get_instance(level="ERROR",
-                                                           proxy_url=log_server_url,
+                                                           proxy_url="https://api.coinalpha.com/reporting-proxy",
                                                            capacity=5)
         root_logger.addHandler(remote_logger)
         for logger_name in loggers:
@@ -196,8 +196,8 @@ def init_logging(conf_filename: str,
                     config_dict["loggers"][logger]["level"] = override_log_level
         logging.config.dictConfig(config_dict)
         # add remote logging to logger if in dev mode
-        if dev_mode:
-            add_remote_logger_handler(config_dict.get("loggers", []))
+        # if dev_mode:
+        #     add_remote_logger_handler(config_dict.get("loggers", []))
 
 
 def get_strategy_list() -> List[str]:
