@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 14
+template_version: 15
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -68,7 +68,7 @@ ethereum_wallet: null
 ethereum_rpc_url: null
 ethereum_rpc_ws_url: null
 ethereum_chain_name: MAIN_NET
-ethereum_token_overrides: {}
+ethereum_token_list_url: null
 
 # Kill switch
 kill_switch_enabled: null
@@ -158,4 +158,3 @@ ethgasstation_refresh_time:
 # Port need to match the final installation port for Gateway
 gateway_api_host: localhost
 gateway_api_port: 5000
-
