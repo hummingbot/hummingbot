@@ -8,6 +8,7 @@ import traceback
 import urllib
 import hashlib
 import math
+import requests
 import logging
 from collections import defaultdict
 from decimal import *
@@ -281,12 +282,11 @@ cdef class DydxExchange(ExchangeBase):
                   
         order_side = "BUY" if is_buy else "SELL"
         base, quote = trading_pair.split('-')
-        
         baseid, quoteid = self._token_configuration.get_tokenid(base), self._token_configuration.get_tokenid(quote)
         validSince = int(time.time()) - 3600
-        
         order_details = self._token_configuration.sell_buy_amounts(baseid, quoteid, amount, price, order_side)
         post_only=False
+
         if order_type is OrderType.LIMIT_MAKER:
             post_only=True
 
@@ -308,17 +308,15 @@ cdef class DydxExchange(ExchangeBase):
         # Quantize order
         amount = self.c_quantize_order_amount(trading_pair, amount)
         price = self.c_quantize_order_price(trading_pair, price)
-
         # Check trading rules
         trading_rule = self._trading_rules[f"{trading_pair}-market"]
-
-        if order_type is OrderType.LIMIT_MAKER:
+        if order_type.is_limit_type():
             # We can be sure that the order will be rejected if below the smallOrderThreshold
             trading_rule = self._trading_rules[f"{trading_pair}-limit"]
 
-        if order_type.is_limit_type() and trading_rule.supports_limit_orders is False:
+        if order_type.is_limit_type() and trading_rule.supports_limit_orders is False:  
             raise ValueError("LIMIT orders are not supported")
-        elif order_type == OrderType.MARKET and trading_rule.supports_market_orders is False:
+        elif order_type == OrderType.MARKET and trading_rule.supports_market_orders is False:  
             raise ValueError("MARKET orders are not supported")
 
         if amount < trading_rule.min_order_size:
@@ -327,11 +325,9 @@ cdef class DydxExchange(ExchangeBase):
            raise ValueError(f"Order amount({str(amount)}) is greater than the maximum allowable amount({str(trading_rule.max_order_size)})")
         if amount*price < trading_rule.min_notional_size:
             raise ValueError(f"Order notional value({str(amount*price)}) is less than the minimum allowable notional value for an order ({str(trading_rule.min_notional_size)})")
-
         try:
             created_at: int = int(time.time())
             self.c_start_tracking_order(order_side, client_order_id, order_type, created_at, None, trading_pair, price, amount)
-
             try:
                 creation_response = await self.place_order(client_order_id, trading_pair, amount, order_side is TradeType.BUY, order_type, price)
             except asyncio.exceptions.TimeoutError:
@@ -652,7 +648,6 @@ cdef class DydxExchange(ExchangeBase):
 
     def _issue_order_events(self,  tracked_order: DydxInFlightOrder):
         issuable_events: List[MarketEvent] = tracked_order.get_issuable_events()
-
         # Issue relevent events
         for (market_event, new_amount, new_price, new_fee) in issuable_events:
             if market_event == MarketEvent.OrderCancelled:
