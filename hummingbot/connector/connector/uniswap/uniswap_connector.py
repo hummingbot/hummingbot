@@ -28,7 +28,7 @@ from hummingbot.core.event.events import (
     TradeFee
 )
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.connector.connector.balancer.balancer_in_flight_order import BalancerInFlightOrder
+from hummingbot.connector.connector.uniswap.uniswap_in_flight_order import UniswapInFlightOrder
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.core.utils.eth_gas_station_lookup import get_gas_price
 from hummingbot.client.config.global_config_map import global_config_map
@@ -40,9 +40,9 @@ s_decimal_NaN = Decimal("nan")
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
-class BalancerConnector(ConnectorBase):
+class UniswapConnector(ConnectorBase):
     """
-    BalancerConnector connects with balancer gateway APIs and provides pricing, user account tracking and trading
+    UniswapConnector connects with uniswap gateway APIs and provides pricing, user account tracking and trading
     functionality.
     """
     API_CALL_TIMEOUT = 10.0
@@ -87,7 +87,7 @@ class BalancerConnector(ConnectorBase):
 
     @property
     def name(self):
-        return "balancer"
+        return "uniswap"
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
@@ -98,23 +98,23 @@ class BalancerConnector(ConnectorBase):
 
     async def auto_approve(self):
         """
-        Automatically approves Balancer contract as a spender for token in trading pairs.
+        Automatically approves Uniswap contract as a spender for token in trading pairs.
         It first checks if there are any already approved amount (allowance)
         """
         self.logger().info("Checking for allowances...")
         self._allowances = await self.get_allowances()
         for token, amount in self._allowances.items():
             if amount <= s_decimal_0:
-                amount_approved = await self.approve_balancer_spender(token)
+                amount_approved = await self.approve_uniswap_spender(token)
                 if amount_approved > 0:
                     self._allowances[token] = amount_approved
                     await asyncio.sleep(2)
                 else:
                     break
 
-    async def approve_balancer_spender(self, token_symbol: str) -> Decimal:
+    async def approve_uniswap_spender(self, token_symbol: str) -> Decimal:
         """
-        Approves Balancer contract as a spender for a token.
+        Approves Uniswap contract as a spender for a token.
         :param token_symbol: token to approve.
         """
         resp = await self._api_request("post",
@@ -125,15 +125,15 @@ class BalancerConnector(ConnectorBase):
                                         "connector": self.name})
         amount_approved = Decimal(str(resp["amount"]))
         if amount_approved > 0:
-            self.logger().info(f"Approved Balancer spender contract for {token_symbol}.")
+            self.logger().info(f"Approved Uniswap spender contract for {token_symbol}.")
         else:
-            self.logger().info(f"Balancer spender contract approval failed on {token_symbol}.")
+            self.logger().info(f"Uniswap spender contract approval failed on {token_symbol}.")
         return amount_approved
 
     async def get_allowances(self) -> Dict[str, Decimal]:
         """
         Retrieves allowances for token in trading_pairs
-        :return: A dictionary of token and its allowance (how much Balancer can spend).
+        :return: A dictionary of token and its allowance (how much Uniswap can spend).
         """
         ret_val = {}
         resp = await self._api_request("post", "eth/allowances",
@@ -157,7 +157,7 @@ class BalancerConnector(ConnectorBase):
             base, quote = trading_pair.split("-")
             side = "buy" if is_buy else "sell"
             resp = await self._api_request("post",
-                                           f"balancer/{side}-price",
+                                           f"uniswap/{side}-price",
                                            {"base": self._token_addresses[base],
                                             "quote": self._token_addresses[quote],
                                             "amount": amount})
@@ -241,7 +241,7 @@ class BalancerConnector(ConnectorBase):
                       }
         self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount)
         try:
-            order_result = await self._api_request("post", f"balancer/{trade_type.name.lower()}", api_params)
+            order_result = await self._api_request("post", f"uniswap/{trade_type.name.lower()}", api_params)
             hash = order_result["txHash"]
             status = order_result["status"]
             tracked_order = self._in_flight_orders.get(order_id)
@@ -294,7 +294,7 @@ class BalancerConnector(ConnectorBase):
         except Exception as e:
             self.stop_tracking_order(order_id)
             self.logger().network(
-                f"Error submitting {trade_type.name} order to Balancer for "
+                f"Error submitting {trade_type.name} order to Uniswap for "
                 f"{amount} {trading_pair} "
                 f"{price}.",
                 exc_info=True,
@@ -313,7 +313,7 @@ class BalancerConnector(ConnectorBase):
         """
         Starts tracking an order by simply adding it into _in_flight_orders dictionary.
         """
-        self._in_flight_orders[order_id] = BalancerInFlightOrder(
+        self._in_flight_orders[order_id] = UniswapInFlightOrder(
             client_order_id=order_id,
             exchange_order_id=exchange_order_id,
             trading_pair=trading_pair,
@@ -487,5 +487,5 @@ class BalancerConnector(ConnectorBase):
         return []
 
     @property
-    def in_flight_orders(self) -> Dict[str, BalancerInFlightOrder]:
+    def in_flight_orders(self) -> Dict[str, UniswapInFlightOrder]:
         return self._in_flight_orders
