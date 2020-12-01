@@ -23,27 +23,28 @@ then
   GATEWAY_INSTANCE_NAME="gateway-instance"
 fi
 
-# Ask the user for balancer network
+# Ask the user for ethereum network
 SUBGRAPH_URL=""
 EXCHANGE_PROXY=""
-prompt_balancer_network () {
-read -p "   Enter Balancer network you want to use [mainnet/kovan] (default = \"mainnet\") >>> " BALANCER_NETWORK
-if [[ "$BALANCER_NETWORK" == "" || "$BALANCER_NETWORK" == "mainnet" ]]
+UNISWAP_ROUTER="0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+prompt_ethereum_network () {
+read -p "   Enter Ethereum chain you want to use [mainnet/kovan] (default = \"mainnet\") >>> " ETHEREUM_CHAIN
+if [[ "$ETHEREUM_CHAIN" == "" || "$ETHEREUM_CHAIN" == "mainnet" ]]
 then
-  BALANCER_NETWORK="mainnet"
+  ETHEREUM_CHAIN="mainnet"
   SUBGRAPH_URL="https://api.thegraph.com/subgraphs/name/balancer-labs/balancer"
   EXCHANGE_PROXY="0x3E66B66Fd1d0b02fDa6C811Da9E0547970DB2f21"
-elif [ "$BALANCER_NETWORK" == "kovan" ]
+elif [ "$ETHEREUM_CHAIN" == "kovan" ]
 then
-  BALANCER_NETWORK="kovan"
+  ETHEREUM_CHAIN="kovan"
   SUBGRAPH_URL="https://api.thegraph.com/subgraphs/name/balancer-labs/balancer-kovan"
   EXCHANGE_PROXY="0x4e67bf5bD28Dd4b570FBAFe11D0633eCbA2754Ec"
-elif [[ "$BALANCER_NETWORK" != "" && "$BALANCER_NETWORK" != "mainnet" && "$BALANCER_NETWORK" != "kovan" ]]
+elif [[ "$ETHEREUM_CHAIN" != "" && "$ETHEREUM_CHAIN" != "mainnet" && "$ETHEREUM_CHAIN" != "kovan" ]]
 then
-  prompt_balancer_network
+  prompt_ethereum_network
 fi
 }
-prompt_balancer_network
+prompt_ethereum_network
 
 # Ask the user for the hummingobt data folder location
 prompt_hummingbot_data_path () {
@@ -112,9 +113,10 @@ echo
 printf "%30s %5s\n" "Gateway instance name:" "$GATEWAY_INSTANCE_NAME"
 printf "%30s %5s\n" "Version:" "coinalpha/gateway-api:$GATEWAY_TAG"
 echo
-printf "%30s %5s\n" "Balancer Network:" "$BALANCER_NETWORK"
+printf "%30s %5s\n" "Ethereum Network:" "$ETHEREUM_CHAIN"
 printf "%30s %5s\n" "Balancer Subgraph:" "$SUBGRAPH_URL"
 printf "%30s %5s\n" "Balancer Exchange Proxy:" "$EXCHANGE_PROXY"
+printf "%30s %5s\n" "Uniswap Router Address:" "$UNISWAP_ROUTER"
 printf "%30s %5s\n" "Ethereum RPC URL:" "$RPC_URL"
 printf "%30s %5s\n" "Gateway Cert Path:" "$FOLDER"
 printf "%30s %5s\n" "Gateway Port:" "$PORT"
@@ -128,10 +130,11 @@ echo "" >> $ENV_FILE
 echo "NODE_ENV=prod" >> $ENV_FILE
 echo "PORT=$PORT" >> $ENV_FILE
 echo "" >> $ENV_FILE
-echo "BALANCER_NETWORK=$BALANCER_NETWORK" >> $ENV_FILE
+echo "ETHEREUM_CHAIN=$ETHEREUM_CHAIN" >> $ENV_FILE
 echo "ETHEREUM_RPC_URL=$RPC_URL" >> $ENV_FILE
 echo "REACT_APP_SUBGRAPH_URL=$SUBGRAPH_URL" >> $ENV_FILE # must used "REACT_APP_SUBGRAPH_URL" for balancer-sor
 echo "EXCHANGE_PROXY=$EXCHANGE_PROXY" >> $ENV_FILE
+echo "UNISWAP_ROUTER=$UNISWAP_ROUTER" >> $ENV_FILE
 echo "" >> $ENV_FILE
 
 prompt_proceed () {
