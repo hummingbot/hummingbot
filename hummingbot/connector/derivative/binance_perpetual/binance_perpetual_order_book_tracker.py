@@ -22,10 +22,9 @@ class BinancePerpetualOrderBookTracker(OrderBookTracker):
         return cls._bpobt_logger
 
     def __init__(self,
-                 base_url: str, stream_url: str,
-                 trading_pairs: Optional[List[str]] = None):
-        super().__init__(data_source=BinancePerpetualAPIOrderBookDataSource(base_url=base_url, stream_url=stream_url, trading_pairs=trading_pairs),
-                         trading_pairs=trading_pairs)
+                 trading_pairs: Optional[List[str]] = None, domain: str = "binance_perpetual"):
+        super().__init__(data_source=BinancePerpetualAPIOrderBookDataSource(trading_pairs=trading_pairs, domain=domain),
+                         trading_pairs=trading_pairs, domain=domain)
 
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
@@ -33,7 +32,7 @@ class BinancePerpetualOrderBookTracker(OrderBookTracker):
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         self._saved_messages_queues: Dict[str, Deque[OrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
         self._trading_pairs: Optional[List[str]] = trading_pairs
-        self._domain = "binance_perpetual_testnet" if "testnet" in base_url else "binance_perpetual"
+        self._domain = domain
 
     """
     @property
