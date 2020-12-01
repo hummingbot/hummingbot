@@ -72,7 +72,11 @@ class BalancerConnector(ConnectorBase):
         tokens = set()
         for trading_pair in trading_pairs:
             tokens.update(set(trading_pair.split("-")))
-        self._token_addresses = get_erc20_token_addresses(tokens)
+        self.erc_20_token_list = get_erc20_token_addresses()
+        self._token_addresses = {t: l[0] for t, l in self.erc_20_token_list.items() if t in tokens}
+        self._token_decimals = {t: l[1] for t, l in self.erc_20_token_list.items() if t in tokens}
+        print(self._token_addresses)
+        print(self._token_decimals)
         self._wallet_private_key = wallet_private_key
         self._ethereum_rpc_url = ethereum_rpc_url
         self._trading_required = trading_required
