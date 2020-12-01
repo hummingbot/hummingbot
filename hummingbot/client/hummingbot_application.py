@@ -228,6 +228,7 @@ class HummingbotApplication(*commands):
                 for asset, balance in paper_trade_account_balance.items():
                     connector.set_balance(asset, balance)
             else:
+                Security.update_config_map(global_config_map)
                 keys = {key: config.value for key, config in global_config_map.items()
                         if key in conn_setting.config_keys}
                 init_params = conn_setting.conn_init_parameters(keys)
