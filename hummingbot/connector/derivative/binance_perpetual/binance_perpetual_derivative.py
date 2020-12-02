@@ -482,11 +482,11 @@ class BinancePerpetualDerivative(DerivativeBase):
 
                     # Execution Type: Trade => Filled
                     trade_type = TradeType.BUY if order_message.get("S") == "BUY" else TradeType.SELL
-                    if event_message.get("x") == "TRADE":
+                    if order_message.get("X") in ["PARTIALLY_FILLED", "FILLED"]:
                         order_filled_event = OrderFilledEvent(
                             timestamp=event_message.get("E") * 1e-3,
                             order_id=client_order_id,
-                            trading_pair=order_message.get("s"),
+                            trading_pair=convert_from_exchange_trading_pair(order_message.get("s")),
                             trade_type=trade_type,
                             order_type=OrderType.LIMIT if order_message.get("o") == "LIMIT" else OrderType.MARKET,
                             price=Decimal(order_message.get("L")),
@@ -501,7 +501,7 @@ class BinancePerpetualDerivative(DerivativeBase):
                             ),
                             exchange_trade_id=order_message.get("t")
                         )
-                        self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
+                        self.trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
                     if tracked_order.is_done:
                         if not tracked_order.is_failure:
