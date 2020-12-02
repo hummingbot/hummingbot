@@ -542,7 +542,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         cdef:
             ExchangeBase market = self._market_info.market
         market.set_margin(trading_pair, leverage)
-        market.set_hedge_mode(position)
+        market.set_position_mode(position)
 
     cdef c_tick(self, double timestamp):
         StrategyBase.c_tick(self, timestamp)
