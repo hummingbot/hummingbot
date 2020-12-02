@@ -228,6 +228,7 @@ class HummingbotApplication(*commands):
                 for asset, balance in paper_trade_account_balance.items():
                     connector.set_balance(asset, balance)
             else:
+                Security.update_config_map(global_config_map)
                 keys = {key: config.value for key, config in global_config_map.items()
                         if key in conn_setting.config_keys}
                 init_params = conn_setting.conn_init_parameters(keys)
@@ -235,7 +236,7 @@ class HummingbotApplication(*commands):
                 if conn_setting.use_ethereum_wallet:
                     ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
                     # Todo: Hard coded this execption for now until we figure out how to handle all ethereum connectors.
-                    if connector_name == "balancer":
+                    if connector_name in ["balancer", "uniswap"]:
                         private_key = get_eth_wallet_private_key()
                         init_params.update(wallet_private_key=private_key, ethereum_rpc_url=ethereum_rpc_url)
                     else:
