@@ -40,7 +40,7 @@ class DydxUserStreamTracker(UserStreamTracker):
     def data_source(self) -> UserStreamTrackerDataSource:
         if not self._data_source:
             self._data_source = DydxAPIUserStreamDataSource(orderbook_tracker_data_source=self._orderbook_tracker_data_source,
-                                                                dydx_auth=self._dydx_auth)
+                                                            dydx_auth=self._dydx_auth)
         return self._data_source
 
     @property

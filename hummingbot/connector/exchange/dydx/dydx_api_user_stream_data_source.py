@@ -64,9 +64,9 @@ class DydxAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     await ws.send(ujson.dumps(orders_subscribe_request))
 
                     balances_subscribe_request: Dict[str, Any] = {
-                      "type": "subscribe",
-                      "channel": "balance_updates",
-                      "id": wallet_address
+                        "type": "subscribe",
+                        "channel": "balance_updates",
+                        "id": wallet_address
                     }
 
                     await ws.send(ujson.dumps(balances_subscribe_request))

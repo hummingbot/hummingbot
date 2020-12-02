@@ -22,7 +22,7 @@ from websockets.exceptions import ConnectionClosed
 from hummingbot.connector.exchange.dydx.dydx_order_book import DydxOrderBook
 from hummingbot.connector.exchange.dydx.dydx_active_order_tracker import DydxActiveOrderTracker
 from hummingbot.connector.exchange.dydx.dydx_api_token_configuration_data_source import DydxAPITokenConfigurationDataSource
-from hummingbot.connector.exchange.dydx.dydx_utils import convert_from_exchange_trading_pair, convert_v2_pair_to_v1  #, get_ws_api_key
+from hummingbot.connector.exchange.dydx.dydx_utils import convert_from_exchange_trading_pair, convert_to_exchange_trading_pair, convert_v2_pair_to_v1
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book import OrderBook
@@ -32,10 +32,12 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 MARKETS_URL = "/markets"
 TICKER_URL = "/stats/markets"
 SNAPSHOT_URL = "/orderbook"
-#TOKEN_INFO_URL = "/api/v2/exchange/tokens"
+
 WS_URL = "wss://api.dydx.exchange/v1/ws"
 DYDX_V1_API_URL = "https://api.dydx.exchange/v1"
 DYDX_V2_API_URL = "https://api.dydx.exchange/v2"
+DYDX_ORDERBOOK_URL = "https://api.dydx.exchange/v1/orderbook/{}"
+DYDX_MARKET_INFO_URL = "https://api.dydx.exchange/v2/markets/{}"
 
 
 class DydxAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -140,13 +142,18 @@ class DydxAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @staticmethod
     @cachetools.func.ttl_cache(ttl=10)
     def get_mid_price(trading_pair: str) -> Optional[Decimal]:
-        resp = requests.get(url=DYDX_PRICE_URL, params={"market": trading_pair})
-        record = resp.json()
-        if record["resultInfo"]["code"] == 0:
-            data = record["data"]
-            mid_price = (Decimal(data[9]) + Decimal(data[10])) / 2
+        exchange_pair: str = convert_to_exchange_trading_pair(trading_pair)
+        market_info_response = requests.get(url=DYDX_MARKET_INFO_URL.format(exchange_pair))
+        market_info = market_info_response.json()
+        base_decimals = market_info['market'][exchange_pair]['baseCurrency']['decimals']
+        quote_decimals = market_info['market'][exchange_pair]['quoteCurrency']['decimals']
 
-            return mid_price
+        resp = requests.get(url=DYDX_ORDERBOOK_URL.format(exchange_pair))
+        record = resp.json()
+        conversion_factor = Decimal(f"1e{quote_decimals - base_decimals}")
+        best_bid = Decimal(record["bids"][0]["price"]) * conversion_factor
+        best_ask = Decimal(record["asks"][0]["price"]) * conversion_factor
+        return (best_bid + best_ask) / 2
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
@@ -173,7 +180,6 @@ class DydxAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                #ws_key: str = await get_ws_api_key()
                 async with websockets.connect(f"{WS_URL}") as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     for pair in self._trading_pairs:
@@ -202,16 +208,16 @@ class DydxAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 async with websockets.connect(f"{WS_URL}") as ws:
                     ws: websockets.WebSocketClientProtocol = ws
-                    for pair in self._trading_pairs:                      
+                    for pair in self._trading_pairs:
                         subscribe_request: Dict[str, Any] = {
                             "type": "subscribe",
                             "channel": "orderbook",
                             "id": pair
                         }
                         await ws.send(ujson.dumps(subscribe_request))
-                    async for raw_msg in self._inner_messages(ws):                        
+                    async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
-                        if "contents"  in msg:
+                        if "contents" in msg:
                             if "updates" in msg["contents"]:
                                 ts = datetime.timestamp(datetime.now())
                                 for item in msg["contents"]["updates"]:

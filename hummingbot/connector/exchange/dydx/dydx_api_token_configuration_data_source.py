@@ -10,7 +10,6 @@ from typing import (
     # Optional
 )
 
-from hummingbot.core.event.events import TradeType
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 TOKEN_CONFIGURATIONS_URL = 'https://api.dydx.exchange/v2/markets'

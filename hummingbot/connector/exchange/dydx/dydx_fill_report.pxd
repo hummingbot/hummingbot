@@ -4,4 +4,3 @@ cdef class DydxFillReport:
         public object amount
         public object price
         public object fee
- 
