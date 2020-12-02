@@ -4,6 +4,7 @@ from os.path import (
     realpath,
     join,
 )
+import logging
 from enum import Enum
 from decimal import Decimal
 from typing import List, NamedTuple, Dict, Any
@@ -31,7 +32,7 @@ TEMPLATE_PATH = realpath(join(__file__, "../../templates/"))
 CONF_FILE_PATH = "conf/"
 CONF_PREFIX = "conf_"
 CONF_POSTFIX = "_strategy"
-SCRIPTS_PATH = "scripts/"
+SCRIPTS_PATH = realpath(join(__file__, "../../../scripts/"))
 CERTS_PATH = "certs/"
 
 GATEAWAY_CA_CERT_PATH = realpath(join(__file__, join(f"../../../{CERTS_PATH}/ca_cert.pem")))
@@ -111,7 +112,8 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
             path = f"hummingbot.connector.{type_dir.name}.{connector_dir.name}.{connector_dir.name}_utils"
             try:
                 util_module = importlib.import_module(path)
-            except ModuleNotFoundError:
+            except ModuleNotFoundError as e:
+                logging.getLogger().error(f"Error importing module {path}: {str(e)}", exc_info=True)
                 continue
             fee_type = TradeFeeType.Percent
             fee_type_setting = getattr(util_module, "FEE_TYPE", None)

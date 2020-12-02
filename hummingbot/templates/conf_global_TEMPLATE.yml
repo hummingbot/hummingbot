@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 14
+template_version: 16
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -66,6 +66,9 @@ okex_passphrase: null
 celo_address: null
 celo_password: null
 
+terra_wallet_address: null
+terra_wallet_seeds: null
+
 # Ethereum wallet address: required for trading on a DEX
 ethereum_wallet: null
 ethereum_rpc_url: null
@@ -122,6 +125,7 @@ min_quote_order_amount:
   BNB: 0.5
   USDT: 11
   USDC: 11
+  BUSD: 11
 
 
 # Advanced database options, currently supports SQLAlchemy's included dialects

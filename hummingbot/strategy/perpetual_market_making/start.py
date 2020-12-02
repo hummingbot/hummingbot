@@ -19,8 +19,6 @@ def start(self):
     try:
         leverage = c_map.get("leverage").value
         position_mode = c_map.get("position_mode").value
-        ts_callback_rate = c_map.get("ts_callback_rate").value
-        ts_activation_spread = c_map.get("ts_activation_spread").value
         order_amount = c_map.get("order_amount").value
         order_refresh_time = c_map.get("order_refresh_time").value
         bid_spread = c_map.get("bid_spread").value / Decimal('100')
@@ -34,10 +32,6 @@ def start(self):
         order_level_spread = c_map.get("order_level_spread").value / Decimal('100')
         exchange = c_map.get("derivative").value.lower()
         raw_trading_pair = c_map.get("market").value
-        inventory_skew_enabled = c_map.get("inventory_skew_enabled").value
-        inventory_target_base_pct = 0 if c_map.get("inventory_target_base_pct").value is None else \
-            c_map.get("inventory_target_base_pct").value / Decimal('100')
-        inventory_range_multiplier = c_map.get("inventory_range_multiplier").value
         filled_order_delay = c_map.get("filled_order_delay").value
         hanging_orders_enabled = c_map.get("hanging_orders_enabled").value
         hanging_orders_cancel_pct = c_map.get("hanging_orders_cancel_pct").value / Decimal('100')
@@ -77,17 +71,12 @@ def start(self):
             market_info=MarketTradingPairTuple(*maker_data),
             leverage=leverage,
             position_mode=position_mode,
-            ts_activation_spread=ts_activation_spread,
-            ts_callback_rate=ts_callback_rate,
             bid_spread=bid_spread,
             ask_spread=ask_spread,
             order_levels=order_levels,
             order_amount=order_amount,
             order_level_spread=order_level_spread,
             order_level_amount=order_level_amount,
-            inventory_skew_enabled=inventory_skew_enabled,
-            inventory_target_base_pct=inventory_target_base_pct,
-            inventory_range_multiplier=inventory_range_multiplier,
             filled_order_delay=filled_order_delay,
             hanging_orders_enabled=hanging_orders_enabled,
             order_refresh_time=order_refresh_time,

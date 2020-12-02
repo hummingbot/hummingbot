@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_certs, cert_path
+from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_certs
+from hummingbot import cert_path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
