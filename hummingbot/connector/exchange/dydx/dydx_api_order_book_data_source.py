@@ -145,12 +145,12 @@ class DydxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         exchange_pair: str = convert_to_exchange_trading_pair(trading_pair)
         market_info_response = requests.get(url=DYDX_MARKET_INFO_URL.format(exchange_pair))
         market_info = market_info_response.json()
-        base_decimals = market_info['market'][exchange_pair]['baseCurrency']['decimals']
-        quote_decimals = market_info['market'][exchange_pair]['quoteCurrency']['decimals']
+        base_decimals = market_info['market']['baseCurrency']['decimals']
+        quote_decimals = market_info['market']['quoteCurrency']['decimals']
 
         resp = requests.get(url=DYDX_ORDERBOOK_URL.format(exchange_pair))
         record = resp.json()
-        conversion_factor = Decimal(f"1e{quote_decimals - base_decimals}")
+        conversion_factor = Decimal(f"1e{base_decimals - quote_decimals}")
         best_bid = Decimal(record["bids"][0]["price"]) * conversion_factor
         best_ask = Decimal(record["asks"][0]["price"]) * conversion_factor
         return (best_bid + best_ask) / 2
