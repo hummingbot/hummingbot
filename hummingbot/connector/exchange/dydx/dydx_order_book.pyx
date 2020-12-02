@@ -22,6 +22,7 @@ from hummingbot.core.data_type.order_book_message import (
 
 _dob_logger = None
 
+
 cdef class DydxOrderBook(OrderBook):
 
     @classmethod
@@ -66,7 +67,7 @@ cdef class DydxOrderBook(OrderBook):
 
     @classmethod
     def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        msg = record.json if type(record.json)==dict else ujson.loads(record.json)
+        msg = record.json if type(record.json) == dict else ujson.loads(record.json)
         return DydxOrderBookMessage(OrderBookMessageType.SNAPSHOT, msg, timestamp=record.timestamp * 1e-3)
 
     @classmethod

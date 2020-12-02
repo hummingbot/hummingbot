@@ -22,7 +22,7 @@ class DydxOrderBookMessage(OrderBookMessage):
                 raise ValueError("timestamp must not be None when initializing snapshot messages.")
             timestamp = int(time.time())
         return super(DydxOrderBookMessage, cls).__new__(cls, message_type, content,
-                                                            timestamp=timestamp, *args, **kwargs)
+                                                        timestamp=timestamp, *args, **kwargs)
 
     @property
     def update_id(self) -> int:

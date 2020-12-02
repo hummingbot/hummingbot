@@ -86,24 +86,20 @@ cdef class DydxActiveOrderTracker:
                     "totalAmount": amount,
                     "order_ids": [level_id]
                 }
-            self.active_asks_by_id[level_id] = {"price": price, "amount": amount} 
+            self.active_asks_by_id[level_id] = {"price": price, "amount": amount}
         # Return the sorted snapshot tables.
         bids_list = []
         for price in sorted(self.active_bids_by_price.keys(), reverse=True):
-            bids_list.append([
-              message.timestamp,
-              float(price),
-              float(self.active_bids_by_price[price]["totalAmount"]),
-              self.active_bids_by_price[price]["order_ids"][0]
-            ])
+            bids_list.append([message.timestamp,
+                              float(price),
+                              float(self.active_bids_by_price[price]["totalAmount"]),
+                              self.active_bids_by_price[price]["order_ids"][0]])
         asks_list = []
         for price in sorted(self.active_asks_by_price.keys(), reverse=False):
-            asks_list.append([
-              message.timestamp,
-              float(price),
-              float(self.active_asks_by_price[price]["totalAmount"]),
-              self.active_asks_by_price[price]["order_ids"][0]
-            ])
+            asks_list.append([message.timestamp,
+                              float(price),
+                              float(self.active_asks_by_price[price]["totalAmount"]),
+                              self.active_asks_by_price[price]["order_ids"][0]])
         cdef:
             np.ndarray[np.float64_t, ndim=2] bids = np.array(
                 bids_list, dtype="float64", ndmin=2)
@@ -161,7 +157,7 @@ cdef class DydxActiveOrderTracker:
                     }
             else:
                 self.active_asks_by_id[level_id] = {"price": correct_price, "amount": preliminary_amount}
-                
+
                 if correct_price in self.active_asks_by_price:
                     self.active_asks_by_price[correct_price]["totalAmount"] += preliminary_amount
                     correct_amount = self.active_asks_by_price[correct_price]["totalAmount"]
@@ -176,7 +172,7 @@ cdef class DydxActiveOrderTracker:
             if order_side == "BUY":
                 try:
                     prev_order = self.active_bids_by_id[level_id]
-                except:
+                except KeyError:
                     self.logger().debug(f"Unrecognized order id for {msg_type} command")
                     raise KeyError
                 correct_price = prev_order["price"]
@@ -184,7 +180,7 @@ cdef class DydxActiveOrderTracker:
             else:
                 try:
                     prev_order = self.active_asks_by_id[level_id]
-                except:
+                except KeyError:
                     self.logger().debug(f"Unrecognized order id for {msg_type} command")
                     raise KeyError
                 correct_price = prev_order["price"]
@@ -208,7 +204,7 @@ cdef class DydxActiveOrderTracker:
                                 new_total_amount += self.active_asks_by_id[o_id]["amount"]
                     prev_order_list["totalAmount"] = new_total_amount
                     prev_order_list["order_ids"].remove(level_id)
-                correct_amount = prev_order_list["totalAmount"]    
+                correct_amount = prev_order_list["totalAmount"]
 
         if correct_price is not None:
             if order_side == "BUY":

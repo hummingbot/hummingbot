@@ -66,6 +66,7 @@ s_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_NaN = Decimal("nan")
 
+
 def now():
     return int(time.time()) * 1000
 
@@ -87,14 +88,15 @@ MAINNET_WS_ENDPOINT = "wss://api.dydx.exchange/v1/ws"
 MARKETS_INFO_ROUTE = "v2/markets"
 UNRECOGNIZED_ORDER_DEBOUCE = 60  # seconds
 
+
 class LatchingEventResponder(EventListener):
-    def __init__(self, callback : any, num_expected : int):
+    def __init__(self, callback: any, num_expected: int):
         super().__init__()
         self._callback = callback
         self._completed = asyncio.Event()
         self._num_remaining = num_expected
 
-    def __call__(self, arg : any):
+    def __call__(self, arg: any):
         if self._callback(arg):
             self._reduce()
 
@@ -103,7 +105,7 @@ class LatchingEventResponder(EventListener):
         if self._num_remaining <= 0:
             self._completed.set()
 
-    async def wait_for_completion(self, timeout : float):
+    async def wait_for_completion(self, timeout: float):
         try:
             await asyncio.wait_for(self._completed.wait(), timeout=timeout)
         except asyncio.TimeoutError:
@@ -155,7 +157,7 @@ cdef class DydxExchange(ExchangeBase):
             rest_api_url=self.API_REST_ENDPOINT,
             websocket_url=self.WS_ENDPOINT,
             token_configuration = self.token_configuration
-        )        
+        )
         self._user_stream_tracker = DydxUserStreamTracker(
             orderbook_tracker_data_source=self._order_book_tracker.data_source,
             dydx_auth=self._dydx_auth
@@ -172,9 +174,9 @@ cdef class DydxExchange(ExchangeBase):
 
         self._dydx_private_key = dydx_eth_private_key
         self._dydx_node = dydx_node_address
-        self.dydx_client: DYDXClientWrapper = DYDXClientWrapper(private_key=self._dydx_private_key, 
-                                                    node=self._dydx_node,
-                                                    account_number=dydx_consts.ACCOUNT_NUMBERS_SPOT)
+        self.dydx_client: DYDXClientWrapper = DYDXClientWrapper(private_key=self._dydx_private_key,
+                                                                node=self._dydx_node,
+                                                                account_number=dydx_consts.ACCOUNT_NUMBERS_SPOT)
         # State
         self._lock = asyncio.Lock()
         self._trading_rules = {}
@@ -279,26 +281,24 @@ cdef class DydxExchange(ExchangeBase):
                           is_buy: bool,
                           order_type: OrderType,
                           price: Decimal) -> Dict[str, Any]:
-                  
+
         order_side = "BUY" if is_buy else "SELL"
         base, quote = trading_pair.split('-')
         baseid, quoteid = self._token_configuration.get_tokenid(base), self._token_configuration.get_tokenid(quote)
         validSince = int(time.time()) - 3600
         order_details = self._token_configuration.sell_buy_amounts(baseid, quoteid, amount, price, order_side)
-        post_only=False
+        post_only = False
 
         if order_type is OrderType.LIMIT_MAKER:
-            post_only=True
+            post_only = True
 
-        return await self.dydx_client.place_order(
-          market=trading_pair,
-          side=order_side,
-          amount=order_details["amount"],
-          price=order_details["price"],
-          fillOrKill=False,
-          postOnly=post_only,
-          clientId=client_order_id,
-        )
+        return await self.dydx_client.place_order(market=trading_pair,
+                                                  side=order_side,
+                                                  amount=order_details["amount"],
+                                                  price=order_details["price"],
+                                                  fillOrKill=False,
+                                                  postOnly=post_only,
+                                                  clientId=client_order_id)
 
     async def execute_order(self, order_side, client_order_id, trading_pair, amount, order_type, price):
         """
@@ -314,22 +314,22 @@ cdef class DydxExchange(ExchangeBase):
             # We can be sure that the order will be rejected if below the smallOrderThreshold
             trading_rule = self._trading_rules[f"{trading_pair}-limit"]
 
-        if order_type.is_limit_type() and trading_rule.supports_limit_orders is False:  
+        if order_type.is_limit_type() and trading_rule.supports_limit_orders is False:
             raise ValueError("LIMIT orders are not supported")
-        elif order_type == OrderType.MARKET and trading_rule.supports_market_orders is False:  
+        elif order_type == OrderType.MARKET and trading_rule.supports_market_orders is False:
             raise ValueError("MARKET orders are not supported")
 
         if amount < trading_rule.min_order_size:
             raise ValueError(f"Order amount({str(amount)}) is less than the minimum allowable amount({str(trading_rule.min_order_size)})")
         if amount > trading_rule.max_order_size:
-           raise ValueError(f"Order amount({str(amount)}) is greater than the maximum allowable amount({str(trading_rule.max_order_size)})")
-        if amount*price < trading_rule.min_notional_size:
+            raise ValueError(f"Order amount({str(amount)}) is greater than the maximum allowable amount({str(trading_rule.max_order_size)})")
+        if amount * price < trading_rule.min_notional_size:
             raise ValueError(f"Order notional value({str(amount*price)}) is less than the minimum allowable notional value for an order ({str(trading_rule.min_notional_size)})")
         try:
             created_at: int = int(time.time())
             self.c_start_tracking_order(order_side, client_order_id, order_type, created_at, None, trading_pair, price, amount)
             creation_response = await self.place_order(client_order_id, trading_pair, amount, order_side is TradeType.BUY, order_type, price)
-                
+
             # Verify the response from the exchange
             if "order" not in creation_response.keys():
                 raise Exception(creation_response['errors'][0]['msg'])
@@ -345,11 +345,9 @@ cdef class DydxExchange(ExchangeBase):
                 self._set_exchange_id(in_flight_order, dydx_order_id)
 
                 # Begin tracking order
-                self.logger().info(
-                    f"Created {in_flight_order.description} order {client_order_id} for {amount} {trading_pair}.")
+                self.logger().info(f"Created {in_flight_order.description} order {client_order_id} for {amount} {trading_pair}.")
             else:
-                 self.logger().info(
-                    f"Created order {client_order_id} for {amount} {trading_pair}.")
+                self.logger().info(f"Created order {client_order_id} for {amount} {trading_pair}.")
 
         except Exception as e:
             self.logger().warning(f"Error submitting {order_side.name} {order_type.name} order to dydx for "
@@ -369,7 +367,7 @@ cdef class DydxExchange(ExchangeBase):
         try:
             await self.execute_order(TradeType.BUY, order_id, trading_pair, amount, order_type, price)
             self.c_trigger_event(BUY_ORDER_CREATED_EVENT,
-                                    BuyOrderCreatedEvent(now(), order_type, trading_pair, Decimal(amount), Decimal(price), order_id))
+                                 BuyOrderCreatedEvent(now(), order_type, trading_pair, Decimal(amount), Decimal(price), order_id))
 
             # Issue any other events (fills) for this order that arrived while waiting for the exchange id
             tracked_order = self.in_flight_orders.get(order_id)
@@ -389,7 +387,7 @@ cdef class DydxExchange(ExchangeBase):
         try:
             await self.execute_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price)
             self.c_trigger_event(SELL_ORDER_CREATED_EVENT,
-                                    SellOrderCreatedEvent(now(), order_type, trading_pair, Decimal(amount), Decimal(price), order_id))
+                                 SellOrderCreatedEvent(now(), order_type, trading_pair, Decimal(amount), Decimal(price), order_id))
 
             # Issue any other events (fills) for this order that arrived while waiting for the exchange id
             tracked_order = self.in_flight_orders.get(order_id)
@@ -431,7 +429,7 @@ cdef class DydxExchange(ExchangeBase):
 
         try:
             if exchange_order_id is None:
-                # Note, we have no way of canceling an order or querying for information about the order 
+                # Note, we have no way of canceling an order or querying for information about the order
                 # without an exchange_order_id
                 if in_flight_order.created_at < (int(time.time()) - UNRECOGNIZED_ORDER_DEBOUCE):
                     # We'll just have to assume that this order doesn't exist
@@ -439,7 +437,7 @@ cdef class DydxExchange(ExchangeBase):
                     self.c_trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
                     return False
                 else:
-                    raise Exception(f"order {client_order_id} has no exchange id")   
+                    raise Exception(f"order {client_order_id} has no exchange id")
             res = await self.dydx_client.cancel_order(exchange_order_id)
             return True
 
@@ -448,7 +446,7 @@ cdef class DydxExchange(ExchangeBase):
                 if in_flight_order.created_at < (int(time.time()) - UNRECOGNIZED_ORDER_DEBOUCE):
                     # Order didn't exist on exchange, mark this as canceled
                     self.c_stop_tracking_order(in_flight_order.client_order_id)
-                    self.c_trigger_event(ORDER_CANCELLED_EVENT,cancellation_event)
+                    self.c_trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
                     return False
                 else:
                     raise Exception(f"order {client_order_id} does not yet exist on the exchange and could not be cancelled.")
@@ -469,13 +467,13 @@ cdef class DydxExchange(ExchangeBase):
             return []
 
         order_status = {o.client_order_id: o.is_done for o in cancellation_queue.values()}
-        
-        def set_cancellation_status(oce : OrderCancelledEvent):
+
+        def set_cancellation_status(oce: OrderCancelledEvent):
             if oce.order_id in order_status:
                 order_status[oce.order_id] = True
                 return True
             return False
-            
+
         cancel_verifier = LatchingEventResponder(set_cancellation_status, len(cancellation_queue))
         self.c_add_listener(ORDER_CANCELLED_EVENT, cancel_verifier)
 
@@ -490,8 +488,8 @@ cdef class DydxExchange(ExchangeBase):
             except Exception:
                 cancel_verifier.cancel_one()
                 order_status[order_id] = True
-        
-        all_completed : bool = await cancel_verifier.wait_for_completion(timeout_seconds)
+
+        all_completed: bool = await cancel_verifier.wait_for_completion(timeout_seconds)
         self.c_remove_listener(ORDER_CANCELLED_EVENT, cancel_verifier)
 
         return [CancellationResult(order_id=order_id, success=success) for order_id, success in order_status.items()]
@@ -510,7 +508,7 @@ cdef class DydxExchange(ExchangeBase):
             if is_maker:
                 return TradeFee(percent=fee_rule["makerFee"])
             else:
-                trading_rule = self._trading_rules[f"{market}-limit"] # the small order threshold is the same as the min limit order
+                trading_rule = self._trading_rules[f"{market}-limit"]  # the small order threshold is the same as the min limit order
                 if amount >= trading_rule.min_order_size:
                     return TradeFee(percent=fee_rule["largeTakerFee"])
                 else:
@@ -572,7 +570,7 @@ cdef class DydxExchange(ExchangeBase):
             if not order.is_done:
                 self._in_flight_orders[order_id] = order
 
-    cdef c_start_tracking_order(self, 
+    cdef c_start_tracking_order(self,
                                 object order_side,
                                 str client_order_id,
                                 object order_type,
@@ -581,14 +579,14 @@ cdef class DydxExchange(ExchangeBase):
                                 str trading_pair,
                                 object price,
                                 object amount):
-        in_flight_order = DydxInFlightOrder.from_dydx_order(self, 
-                                                            order_side, 
-                                                            client_order_id, 
-                                                            order_type, 
-                                                            created_at, 
-                                                            None, 
-                                                            trading_pair, 
-                                                            price, 
+        in_flight_order = DydxInFlightOrder.from_dydx_order(self,
+                                                            order_side,
+                                                            client_order_id,
+                                                            order_type,
+                                                            created_at,
+                                                            None,
+                                                            trading_pair,
+                                                            price,
                                                             amount)
         self._in_flight_orders[in_flight_order.client_order_id] = in_flight_order
         self._orders_pending_ack.add(client_order_id)
@@ -627,7 +625,7 @@ cdef class DydxExchange(ExchangeBase):
     # ----------------------------------------
     # updates to orders and balances
 
-    def _issue_order_events(self,  tracked_order: DydxInFlightOrder):
+    def _issue_order_events(self, tracked_order: DydxInFlightOrder):
         issuable_events: List[MarketEvent] = tracked_order.get_issuable_events()
         # Issue relevent events
         for (market_event, new_amount, new_price, new_fee) in issuable_events:
@@ -665,10 +663,10 @@ cdef class DydxExchange(ExchangeBase):
                                                              tracked_order.order_type))
             elif market_event == MarketEvent.BuyOrderCompleted:
                 self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
-                                    f"according to user stream.")
+                                   f"according to user stream.")
                 self.c_stop_tracking_order(tracked_order.client_order_id)
                 self.c_trigger_event(BUY_ORDER_COMPLETED_EVENT,
-                                        BuyOrderCompletedEvent(self._current_timestamp,
+                                     BuyOrderCompletedEvent(self._current_timestamp,
                                                             tracked_order.client_order_id,
                                                             tracked_order.base_asset,
                                                             tracked_order.quote_asset,
@@ -679,24 +677,24 @@ cdef class DydxExchange(ExchangeBase):
                                                             tracked_order.order_type))
             elif market_event == MarketEvent.SellOrderCompleted:
                 self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
-                                    f"according to user stream.")
-                self.c_stop_tracking_order(tracked_order.client_order_id)    
+                                   f"according to user stream.")
+                self.c_stop_tracking_order(tracked_order.client_order_id)
                 self.c_trigger_event(SELL_ORDER_COMPLETED_EVENT,
-                                        SellOrderCompletedEvent(self._current_timestamp,
-                                                                tracked_order.client_order_id,
-                                                                tracked_order.base_asset,
-                                                                tracked_order.quote_asset,
-                                                                tracked_order.fee_asset,
-                                                                tracked_order.executed_amount_base,
-                                                                tracked_order.executed_amount_quote,
-                                                                tracked_order.fee_paid,
-                                                                tracked_order.order_type))
+                                     SellOrderCompletedEvent(self._current_timestamp,
+                                                             tracked_order.client_order_id,
+                                                             tracked_order.base_asset,
+                                                             tracked_order.quote_asset,
+                                                             tracked_order.fee_asset,
+                                                             tracked_order.executed_amount_base,
+                                                             tracked_order.executed_amount_quote,
+                                                             tracked_order.fee_paid,
+                                                             tracked_order.order_type))
 
     def _set_balance_for_token(self, token_id: int, padded_total_amount: str):
         token_symbol: str = self.token_configuration.get_symbol(token_id)
         if token_symbol is None:
             return
-        total_amount: Decimal = self.token_configuration.unpad(padded_total_amount, token_id)        
+        total_amount: Decimal = self.token_configuration.unpad(padded_total_amount, token_id)
 
         self._account_balances[token_symbol] = total_amount
         reserved_balance = self._reserved_balances.get(token_symbol, Decimal(0))
@@ -717,7 +715,7 @@ cdef class DydxExchange(ExchangeBase):
                     padded_total_amount: str = data['newWei']
                     token_id: int = data['marketId']
                     self._set_balance_for_token(token_id, padded_total_amount)
-                
+
         except Exception as e:
             self.logger().error(f"Could not set balance {repr(e)}", exc_info=True)
 
@@ -780,7 +778,7 @@ cdef class DydxExchange(ExchangeBase):
                             if len(self._orders_pending_ack) > 0:
                                 self._unclaimed_fills[exchange_order_id].add(DydxFillReport(id, amount, price, fee_paid))
                     else:
-                        self.logger().debug(f"Unrecognized user stream event topic type for orders channel: {message_type}.")    
+                        self.logger().debug(f"Unrecognized user stream event topic type for orders channel: {message_type}.")
                 else:
                     self.logger().debug(f"Unrecognized user stream event topic: {topic}.")
 
@@ -823,7 +821,7 @@ cdef class DydxExchange(ExchangeBase):
                 decimals = market['baseCurrency']['decimals']
                 try:
                     price_increment = self.token_configuration.unpad_price(market['minimumTickSize'], baseid, quoteid)
-                    # Due to differing min order sizes between active orders that cross immediatly and passive orders that sit on 
+                    # Due to differing min order sizes between active orders that cross immediatly and passive orders that sit on
                     # the books, we use -limit and -market to represent LIMIT_MAKER and LIMIT/MARKET respectively
                     self._trading_rules[f"{market_name}-limit"] = TradingRule(
                         trading_pair = market_name,
@@ -843,11 +841,9 @@ cdef class DydxExchange(ExchangeBase):
                         supports_limit_orders = True,
                         supports_market_orders = False
                     )
-                    self._fee_rules[market_name] = {
-                      "makerFee": Decimal(market["makerFee"]),
-                      "largeTakerFee": Decimal(market["largeTakerFee"]),
-                      "smallTakerFee": Decimal(market["smallTakerFee"])
-                    }
+                    self._fee_rules[market_name] = {"makerFee": Decimal(market["makerFee"]),
+                                                    "largeTakerFee": Decimal(market["largeTakerFee"]),
+                                                    "smallTakerFee": Decimal(market["smallTakerFee"])}
                 except Exception as e:
                     self.logger().warning("Error updating trading rules")
                     self.logger().warning(str(e))
@@ -866,16 +862,15 @@ cdef class DydxExchange(ExchangeBase):
                         self.cancel_order(client_order_id)
                     except Exception:
                         pass
-                continue 
+                continue
 
             dydx_order_request = None
             try:
                 dydx_order_request = await self.dydx_client.get_order(dydx_order_id)
                 data = dydx_order_request["order"]
             except Exception as e:
-                self.logger().warning(f"Failed to fetch tracked dydx order " \
-                                      f"{client_order_id }({tracked_order.exchange_order_id}) from api "\
-                                      f"(code: {dydx_order_request['resultInfo']['code'] if dydx_order_request is not None else 'None'})")
+                self.logger().warning(f"Failed to fetch tracked dydx order "
+                                      f"{client_order_id }({tracked_order.exchange_order_id}) from api")
 
                 # check if this error is because the api cliams to be unaware of this order. If so, and this order
                 # is reasonably old, mark the orde as cancelled
@@ -913,10 +908,10 @@ cdef class DydxExchange(ExchangeBase):
                     tracked_order.register_fill(id, amount, price, fee_paid)
 
         except DydxAPIError as e:
-            self.logger().warning(f"Unable to poll for fills for order {tracked_order.client_order_id}"\
+            self.logger().warning(f"Unable to poll for fills for order {tracked_order.client_order_id}"
                                   f"(tracked_order.exchange_order_id): {e.status} {e.msg}")
         except KeyError as e:
-            self.logger().warning(f"Unable to poll for fills for order {tracked_order.client_order_id}"\
+            self.logger().warning(f"Unable to poll for fills for order {tracked_order.client_order_id}"
                                   f"(tracked_order.exchange_order_id): unexpected response data {data}")
 
     # ==========================================================
