@@ -310,7 +310,7 @@ cdef class DydxExchange(ExchangeBase):
         price = self.c_quantize_order_price(trading_pair, price)
         # Check trading rules
         trading_rule = self._trading_rules[f"{trading_pair}-market"]
-        if order_type.is_limit_type():
+        if order_type is OrderType.LIMIT_MAKER:
             # We can be sure that the order will be rejected if below the smallOrderThreshold
             trading_rule = self._trading_rules[f"{trading_pair}-limit"]
 
@@ -328,26 +328,7 @@ cdef class DydxExchange(ExchangeBase):
         try:
             created_at: int = int(time.time())
             self.c_start_tracking_order(order_side, client_order_id, order_type, created_at, None, trading_pair, price, amount)
-            try:
-                creation_response = await self.place_order(client_order_id, trading_pair, amount, order_side is TradeType.BUY, order_type, price)
-            except asyncio.exceptions.TimeoutError:
-                # We timed out while placing this order. We may have successfully submitted the order, or we may have had connection
-                # issues that prevented the submission from taking place.
-
-                # Note that if this order is live and we never recieved the exchange_order_id, we have no way of re-linking with this order
-                # TODO: we can use the /v2/orders endpoint to get a list of orders that match the parameters of the lost orders and that will contain
-                # the clientId that we have set. This can resync orders, but wouldn't be a garuntee of finding them in the list and would require a fair amout
-                # of work in handling this re-syncing process
-                # This would be somthing like
-                # self._lost_orders.append(client_order_id) # add this here
-                # ...
-                # some polling loop:
-                #   get_orders()
-                #   see if any lost orders are in the returned orders and set the exchange id if so
-                # ...
-
-                # TODO: ensure this is the right exception from place_order with our wrapped library call...
-                return
+            creation_response = await self.place_order(client_order_id, trading_pair, amount, order_side is TradeType.BUY, order_type, price)
                 
             # Verify the response from the exchange
             if "order" not in creation_response.keys():
@@ -842,6 +823,8 @@ cdef class DydxExchange(ExchangeBase):
                 decimals = market['baseCurrency']['decimals']
                 try:
                     price_increment = self.token_configuration.unpad_price(market['minimumTickSize'], baseid, quoteid)
+                    # Due to differing min order sizes between active orders that cross immediatly and passive orders that sit on 
+                    # the books, we use -limit and -market to represent LIMIT_MAKER and LIMIT/MARKET respectively
                     self._trading_rules[f"{market_name}-limit"] = TradingRule(
                         trading_pair = market_name,
                         min_order_size = self.token_configuration.unpad(market['smallOrderThreshold'], baseid),
@@ -857,8 +840,8 @@ cdef class DydxExchange(ExchangeBase):
                         min_price_increment = price_increment,
                         min_base_amount_increment = Decimal(f"1e-{decimals}"),
                         min_notional_size = self.token_configuration.unpad(market['minimumOrderSize'], baseid) * price_increment,
-                        supports_limit_orders = False,
-                        supports_market_orders = True
+                        supports_limit_orders = True,
+                        supports_market_orders = False
                     )
                     self._fee_rules[market_name] = {
                       "makerFee": Decimal(market["makerFee"]),
