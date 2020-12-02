@@ -86,6 +86,12 @@ class DydxOrderBookTrackerUnitTest(unittest.TestCase):
             lrc_eth_book.get_price_for_volume(True, 0.1).result_price, lrc_eth_book.get_price(True)
         )
 
+    def test_mid_price(self):
+        data_source = self.order_book_tracker.data_source
+        mid_price = data_source.get_mid_price(self.trading_pairs[0])
+        self.assertGreater(mid_price, 100)
+
+
 
 def main():
     logging.basicConfig(level=logging.INFO)
