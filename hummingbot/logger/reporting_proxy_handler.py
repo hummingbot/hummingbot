@@ -124,7 +124,8 @@ class ReportingProxyHandler(logging.Handler):
         if not message.get("msg"):
             return
         self._event_queue.append(message)
-        self._logged_order_events.append(log.dict_msg)
+        if "PaperTrade" not in log.dict_msg["event_source"]:
+            self._logged_order_events.append(log.dict_msg)
 
     def send_logs(self, logs):
         request_obj = {
@@ -206,8 +207,7 @@ class ReportingProxyHandler(logging.Handler):
         while True:
             try:
                 order_created = [e for e in self._logged_order_events if e["event_name"]
-                                 in ("BuyOrderCreatedEvent", "SellOrderCreatedEvent")
-                                 and e["exchange_order_id"] is not None]
+                                 in ("BuyOrderCreatedEvent", "SellOrderCreatedEvent")]
                 if order_created:
                     exchanges = set(e["event_source"] for e in order_created)
                     for exchange in exchanges:
@@ -216,8 +216,7 @@ class ReportingProxyHandler(logging.Handler):
                             created_orders = [e for e in order_created if e["event_source"] == exchange and
                                               e["trading_pair"] == market]
                             self.send_metric("order_count", exchange, market, len(created_orders))
-                order_filled = [e for e in self._logged_order_events if e["event_name"] == "OrderFilledEvent"
-                                and e['exchange_trade_id'] is not None and len(str(e['exchange_trade_id'])) > 0]
+                order_filled = [e for e in self._logged_order_events if e["event_name"] == "OrderFilledEvent"]
                 if order_filled:
                     exchanges = set(e["event_source"] for e in order_filled)
                     for exchange in exchanges:
