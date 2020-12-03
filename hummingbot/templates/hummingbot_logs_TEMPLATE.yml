@@ -75,7 +75,7 @@ loggers:
         propagate: false
     hummingbot.core.event.event_reporter:
         level: EVENT_LOG
-        handlers: [file_handler]
+        handlers: [file_handler, report_proxy_handler]
         propagate: false
     conf:
         level: NETWORK

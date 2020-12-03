@@ -8,8 +8,7 @@ from os.path import (
 import json
 import logging
 import traceback
-from typing import Optional, List, Dict, Tuple, Any, Union
-import threading
+from typing import Optional, List, Dict, Any
 import asyncio
 
 from hummingbot.client.config.global_config_map import global_config_map
@@ -18,9 +17,6 @@ from hummingbot.logger import (
     log_encoder
 )
 from hummingbot.logger.log_server_client import LogServerClient
-from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
-from hummingbot.core.event.events import OrderFilledEvent, MarketEvent, BuyOrderCreatedEvent, SellOrderCreatedEvent
-from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
@@ -30,21 +26,12 @@ CLIENT_VERSION = open(VERSIONFILE, "rt").read()
 
 class ReportingProxyHandler(logging.Handler):
     _rrh_logger: Optional[HummingbotLogger] = None
-    _shared_instance: "ReportingProxyHandler" = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
         if cls._rrh_logger is None:
             cls._rrh_logger = logging.getLogger(__name__)
         return cls._rrh_logger
-
-    @classmethod
-    def get_instance(cls, level=logging.ERROR,
-                     proxy_url="http://127.0.0.1:9000",
-                     capacity=1) -> "ReportingProxyHandler":
-        if cls._shared_instance is None:
-            cls._shared_instance = ReportingProxyHandler(level, proxy_url, capacity)
-        return cls._shared_instance
 
     def __init__(self,
                  level=logging.ERROR,
@@ -54,20 +41,14 @@ class ReportingProxyHandler(logging.Handler):
         self.setLevel(level)
         self._log_queue: list = []
         self._event_queue: list = []
+        self._logged_order_events: List[Dict] = []
         self._capacity: int = capacity
         self._proxy_url: str = proxy_url
         self._log_server_client: Optional[LogServerClient] = None
-        self._order_filled_events: Dict[str, List[OrderFilledEvent]] = {}
-        self._order_created_events: Dict[str, List[Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]]] = {}
-        self._fill_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_fill_order)
-        self._create_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_create_order)
         self._send_aggregated_metrics_loop_task = None
-        self._markets: List[ConnectorBase] = []
-        self._event_pairs: List[Tuple[MarketEvent, SourceInfoEventForwarder]] = [
-            (MarketEvent.BuyOrderCreated, self._create_order_forwarder),
-            (MarketEvent.SellOrderCreated, self._create_order_forwarder),
-            (MarketEvent.OrderFilled, self._fill_order_forwarder),
-        ]
+        if global_config_map["heartbeat_enabled"].value:
+            self._send_aggregated_metrics_loop_task = safe_ensure_future(
+                self.send_aggregated_metrics_loop(float(global_config_map["heartbeat_interval_min"].value)))
 
     @property
     def log_server_client(self):
@@ -143,6 +124,7 @@ class ReportingProxyHandler(logging.Handler):
         if not message.get("msg"):
             return
         self._event_queue.append(message)
+        self._logged_order_events.append(log.dict_msg)
 
     def send_logs(self, logs):
         request_obj = {
@@ -220,59 +202,37 @@ class ReportingProxyHandler(logging.Handler):
         finally:
             logging.Handler.close(self)
 
-    def set_markets(self, markets: List[ConnectorBase], heartbeat_interval_min: float):
-        self._markets = markets
-        for market in self._markets:
-            for event_pair in self._event_pairs:
-                market.add_listener(event_pair[0], event_pair[1])
-        if self._send_aggregated_metrics_loop_task is None:
-            self._send_aggregated_metrics_loop_task = safe_ensure_future(
-                self.send_aggregated_metrics_loop(heartbeat_interval_min))
-
     async def send_aggregated_metrics_loop(self, heartbeat_interval_min: float):
         while True:
             try:
-                for connector_name, filled_events in self._order_filled_events.copy().items():
-                    pairs = set(e.trading_pair for e in filled_events)
-                    for pair in pairs:
-                        filled_trades = [e for e in filled_events if e.trading_pair == pair]
-                        traded_volume = sum(e.price * e.amount for e in filled_trades)
-                        self.send_metric("filled_quote_volume", connector_name, pair, traded_volume)
-                        self.send_metric("trade_count", connector_name, pair, len(filled_trades))
-                self._order_filled_events.clear()
-
-                for connector_name, created_events in self._order_created_events.copy().items():
-                    pairs = set(e.trading_pair for e in created_events)
-                    for pair in pairs:
-                        created_orders = [e for e in created_events if e.trading_pair == pair]
-                        self.send_metric("order_count", connector_name, pair, len(created_orders))
-                self._order_created_events.clear()
-
+                order_created = [e for e in self._logged_order_events if e["event_name"]
+                                 in ("BuyOrderCreatedEvent", "SellOrderCreatedEvent")
+                                 and e["exchange_order_id"] is not None]
+                if order_created:
+                    exchanges = set(e["event_source"] for e in order_created)
+                    for exchange in exchanges:
+                        markets = set(e["trading_pair"] for e in order_created if e["event_source"] == exchange)
+                        for market in markets:
+                            created_orders = [e for e in order_created if e["event_source"] == exchange and
+                                              e["trading_pair"] == market]
+                            self.send_metric("order_count", exchange, market, len(created_orders))
+                order_filled = [e for e in self._logged_order_events if e["event_name"] == "OrderFilledEvent"
+                                and e['exchange_trade_id'] is not None and len(str(e['exchange_trade_id'])) > 0]
+                if order_filled:
+                    exchanges = set(e["event_source"] for e in order_filled)
+                    for exchange in exchanges:
+                        markets = set(e["trading_pair"] for e in order_filled if e["event_source"] == exchange)
+                        for market in markets:
+                            filled_trades = [e for e in order_filled if e["event_source"] == exchange and
+                                             e["trading_pair"] == market]
+                            traded_volume = sum(e["price"] * e["amount"] for e in filled_trades)
+                            self.send_metric("filled_quote_volume", exchange, market, traded_volume)
+                            self.send_metric("trade_count", exchange, market, len(filled_trades))
+                self._logged_order_events.clear()
                 await asyncio.sleep(60 * heartbeat_interval_min)
+
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().network("Unexpected error while sending aggregated metrics.", exc_info=True)
                 return
-
-    def _did_fill_order(self,
-                        event_tag: int,
-                        market: ConnectorBase,
-                        evt: OrderFilledEvent):
-        if threading.current_thread() != threading.main_thread():
-            self._ev_loop.call_soon_threadsafe(self._did_fill_order, event_tag, market, evt)
-            return
-        if market.name not in self._order_filled_events:
-            self._order_filled_events[market.name] = []
-        self._order_filled_events[market.name].append(evt)
-
-    def _did_create_order(self,
-                          event_tag: int,
-                          market: ConnectorBase,
-                          evt: Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]):
-        if threading.current_thread() != threading.main_thread():
-            self._ev_loop.call_soon_threadsafe(self._did_create_order, event_tag, market, evt)
-            return
-        if market.name not in self._order_created_events:
-            self._order_created_events[market.name] = []
-        self._order_created_events[market.name].append(evt)
