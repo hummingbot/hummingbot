@@ -452,7 +452,9 @@ cdef class KrakenExchange(ExchangeBase):
     async def _user_stream_event_listener(self):
         async for event_message in self._iter_user_event_queue():
             try:
-                event_type: str = event_message[-1]
+                # Event type is second from last, there is newly added sequence number (last item).
+                # https://docs.kraken.com/websockets/#sequence-numbers
+                event_type: str = event_message[-2]
                 updates: List[Any] = event_message[0]
                 if event_type == "ownTrades":
                     for update in updates:
