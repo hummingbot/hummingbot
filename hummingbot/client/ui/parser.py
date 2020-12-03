@@ -90,6 +90,10 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
                                                                          "for Gateway communication.")
     generate_certs_parser.set_defaults(func=hummingbot.generate_certs)
 
+    gateway_parser = subparsers.add_parser("gateway", help="Gateway API configurations")
+    gateway_parser.add_argument("option", nargs="?", choices=("update", "config"), help="Gateway configuration choices")
+    gateway_parser.set_defaults(func=hummingbot.gateway)
+
     exit_parser = subparsers.add_parser("exit", help="Exit and cancel all outstanding orders")
     exit_parser.add_argument("-f", "--force", action="store_true", help="Force exit without cancelling outstanding orders",
                              default=False)
