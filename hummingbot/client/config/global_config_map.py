@@ -148,6 +148,13 @@ main_config_map = {
                   type_str="json",
                   required_if=lambda: False,
                   default={}),
+    "terra_chain_name":
+        ConfigVar(key="terra_chain_name",
+                  prompt="What is your preferred Terra chain name (MAIN_NET, TEST_NET)? >>> ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  validator=lambda s: None if s in {"MAIN_NET", "TEST_NET"} else "Invalid chain name.",
+                  default="MAIN_NET"),
     # Whether or not to invoke cancel_all on exit if marketing making on a open order book DEX (e.g. Radar Relay)
     "on_chain_cancel_on_exit":
         ConfigVar(key="on_chain_cancel_on_exit",

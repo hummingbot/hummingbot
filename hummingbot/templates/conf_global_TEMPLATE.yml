@@ -65,6 +65,7 @@ celo_password: null
 
 terra_wallet_address: null
 terra_wallet_seeds: null
+terra_chain_name: MAIN_NET
 
 # Ethereum wallet address: required for trading on a DEX
 ethereum_wallet: null
