@@ -63,6 +63,9 @@ okex_passphrase: null
 celo_address: null
 celo_password: null
 
+terra_wallet_address: null
+terra_wallet_seeds: null
+
 # Ethereum wallet address: required for trading on a DEX
 ethereum_wallet: null
 ethereum_rpc_url: null
