@@ -39,10 +39,14 @@ class ConnectCommand:
         to_connect = True
         if Security.encrypted_file_exists(exchange_configs[0].key):
             await Security.wait_til_decryption_done()
-            api_key_config = [c for c in exchange_configs if "api_key" in c.key][0]
-            api_key = Security.decrypted_value(api_key_config.key)
-            answer = await self.app.prompt(prompt=f"Would you like to replace your existing {exchange} API key "
-                                                  f"{api_key} (Yes/No)? >>> ")
+            api_key_config = [c for c in exchange_configs if "api_key" in c.key]
+            if api_key_config:
+                api_key_config = api_key_config[0]
+                api_key = Security.decrypted_value(api_key_config.key)
+                prompt = f"Would you like to replace your existing {exchange} API key {api_key} (Yes/No)? >>> "
+            else:
+                prompt = f"Would you like to replace your existing {exchange_configs[0].key} (Yes/No)? >>> "
+            answer = await self.app.prompt(prompt=prompt)
             if self.app.to_stop_config:
                 self.app.to_stop_config = False
                 return
