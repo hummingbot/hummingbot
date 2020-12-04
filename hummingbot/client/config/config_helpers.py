@@ -165,7 +165,6 @@ def get_eth_wallet_private_key() -> Optional[str]:
 
 
 def get_erc20_token_addresses() -> Dict[str, List]:
-    chain = global_config_map.get("ethereum_chain_name").value
     token_list_url = global_config_map.get("ethereum_token_list_url").value
     address_file_path = TOKEN_ADDRESSES_FILE_PATH
     token_list = {}
@@ -175,8 +174,6 @@ def get_erc20_token_addresses() -> Dict[str, List]:
     for token in decoded_resp["tokens"]:
         token_list[token["symbol"]] = [token["address"], token["decimals"]]
 
-    if chain is not None and chain.lower() == "kovan":
-        address_file_path = TOKEN_ADDRESSES_FILE_PATH.replace(".json", f"_{chain.lower()}.json")
     with open(address_file_path) as f:
         try:
             overrides: Dict[str, str] = json.load(f)
