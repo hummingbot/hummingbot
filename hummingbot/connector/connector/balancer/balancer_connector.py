@@ -7,6 +7,7 @@ import json
 import time
 import ssl
 import copy
+import itertools as it
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.network_iterator import NetworkStatus
@@ -72,9 +73,9 @@ class BalancerConnector(ConnectorBase):
         tokens = set()
         for trading_pair in trading_pairs:
             tokens.update(set(trading_pair.split("-")))
-        self.erc_20_token_list = get_erc20_token_addresses()
-        self._token_addresses = {t: l[0] for t, l in self.erc_20_token_list.items() if t in tokens}
-        self._token_decimals = {t: l[1] for t, l in self.erc_20_token_list.items() if t in tokens}
+        self._erc_20_token_list = self.token_list()
+        self._token_addresses = {t: l[0] for t, l in self._erc_20_token_list.items() if t in tokens}
+        self._token_decimals = {t: l[1] for t, l in self._erc_20_token_list.items() if t in tokens}
         self._wallet_private_key = wallet_private_key
         self._ethereum_rpc_url = ethereum_rpc_url
         self._trading_required = trading_required
@@ -90,6 +91,18 @@ class BalancerConnector(ConnectorBase):
     @property
     def name(self):
         return "balancer"
+
+    @staticmethod
+    def token_list():
+        return get_erc20_token_addresses()
+
+    @staticmethod
+    async def fetch_trading_pairs() -> List[str]:
+        token_list = BalancerConnector.token_list()
+        trading_pairs = []
+        for base, quote in it.permutations(token_list.keys(), 2):
+            trading_pairs.append(f"{base}-{quote}")
+        return trading_pairs
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
