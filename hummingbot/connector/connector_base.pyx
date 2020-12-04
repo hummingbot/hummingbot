@@ -408,3 +408,7 @@ cdef class ConnectorBase(NetworkIterator):
         :return The price to specify in an order.
         """
         raise NotImplementedError
+
+    @property
+    def available_balances(self) -> Dict[str, Decimal]:
+        return self._account_available_balances
