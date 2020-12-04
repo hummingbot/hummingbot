@@ -807,8 +807,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             if quote_balance < quote_size:
                 adjusted_amount = quote_balance / (buy.price * (Decimal("1") + buy_fee.percent))
                 adjusted_amount = market.c_quantize_order_amount(self.trading_pair, adjusted_amount)
-                self.logger().info(f"Not enough balance for buy order (Size: {buy.size.normalize()}, Price: {buy.price.normalize()}), "
-                                   f"order_amount is adjusted to {adjusted_amount}")
+                # self.logger().info(f"Not enough balance for buy order (Size: {buy.size.normalize()}, Price: {buy.price.normalize()}), "
+                #                    f"order_amount is adjusted to {adjusted_amount}")
                 buy.size = adjusted_amount
                 quote_balance = s_decimal_zero
             elif quote_balance == s_decimal_zero:
@@ -824,8 +824,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             # Adjust sell order size to use remaining balance if less than the order amount
             if base_balance < base_size:
                 adjusted_amount = market.c_quantize_order_amount(self.trading_pair, base_balance)
-                self.logger().info(f"Not enough balance for sell order (Size: {sell.size.normalize()}, Price: {sell.price.normalize()}), "
-                                   f"order_amount is adjusted to {adjusted_amount}")
+                # self.logger().info(f"Not enough balance for sell order (Size: {sell.size.normalize()}, Price: {sell.price.normalize()}), "
+                #                    f"order_amount is adjusted to {adjusted_amount}")
                 sell.size = adjusted_amount
                 base_balance = s_decimal_zero
             elif base_balance == s_decimal_zero:
@@ -1066,9 +1066,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             for order in active_orders:
                 self.c_cancel_order(self._market_info, order.client_order_id)
         else:
-            self.logger().info(f"Not cancelling active orders since difference between new order prices "
-                               f"and current order prices is within "
-                               f"{self._order_refresh_tolerance_pct:.2%} order_refresh_tolerance_pct")
+            # self.logger().info(f"Not cancelling active orders since difference between new order prices "
+            #                    f"and current order prices is within "
+            #                    f"{self._order_refresh_tolerance_pct:.2%} order_refresh_tolerance_pct")
             self.set_timers()
 
     cdef c_cancel_hanging_orders(self):
