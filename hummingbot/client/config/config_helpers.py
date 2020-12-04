@@ -168,9 +168,12 @@ def get_erc20_token_addresses() -> Dict[str, List]:
     token_list_url = global_config_map.get("ethereum_token_list_url").value
     address_file_path = TOKEN_ADDRESSES_FILE_PATH
     token_list = {}
+    override_list = []
 
     resp = requests.get(token_list_url)
     decoded_resp = resp.json()
+    if resp.status_code == 200:
+        print(f"Fetched Ethereum ERC-20 token addresses from Token List {token_list_url}.")
     for token in decoded_resp["tokens"]:
         token_list[token["symbol"]] = [token["address"], token["decimals"]]
 
@@ -180,6 +183,10 @@ def get_erc20_token_addresses() -> Dict[str, List]:
             for token, address in overrides.items():
                 override_token = token_list.get(token, [address, 18])
                 token_list[token] = [address, override_token[1]]
+                override_list.append(token)
+
+            if len(override_list) > 0:
+                print(f"Applied address overrides from /conf/erc20_tokens.json to symbols {override_list}.")
 
             return token_list
         except Exception as e:
