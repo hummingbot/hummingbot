@@ -63,6 +63,9 @@ okex_passphrase: null
 celo_address: null
 celo_password: null
 
+terra_wallet_address: null
+terra_wallet_seeds: null
+
 # Ethereum wallet address: required for trading on a DEX
 ethereum_wallet: null
 ethereum_rpc_url: null
@@ -163,3 +166,5 @@ gateway_api_port: 5000
 heartbeat_enabled:
 # The frequency of sending the aggregated order and trade data (in minutes, e.g. enter 5 for once every 5 minutes)
 heartbeat_interval_min:
+# a list of binance markets (for trades/pnl reporting) separated by ',' e.g. RLC-USDT,RLC-BTC
+binance_markets:

@@ -316,6 +316,14 @@ main_config_map = {
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, Decimal(0), inclusive=False),
                   default=Decimal("15")),
+    "binance_markets":
+        ConfigVar(key="binance_markets",
+                  prompt="Please enter binance markets (for trades/pnl reporting) separated by ',' "
+                         "e.g. RLC-USDT,RLC-BTC  >>> ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  default="HARD-USDT,HARD-BTC,XEM-ETH,XEM-BTC,ALGO-USDT,ALGO-BTC,COTI-BNB,COTI-USDT,COTI-BTC,MFT-BNB,"
+                          "MFT-ETH,MFT-USDT,RLC-ETH,RLC-BTC,RLC-USDT"),
 }
 
 global_config_map = {**key_config_map, **main_config_map}
