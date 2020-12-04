@@ -18,6 +18,7 @@ from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent, Tr
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 
+
 class DydxOrderBookTrackerUnitTest(unittest.TestCase):
     order_book_tracker: Optional[DydxOrderBookTracker] = None
     events: List[OrderBookEvent] = [
@@ -62,8 +63,9 @@ class DydxOrderBookTrackerUnitTest(unittest.TestCase):
 
     def test_order_book_trade_event_emission(self):
         """
-        Test if order book tracker is able to retrieve order book trade message from exchange and
-        emit order book trade events after correctly parsing the trade messages
+        Test if order book tracker is able to retrieve order book trade message
+        from exchange and emit order book trade events after correctly parsing
+        the trade messages
         """
         self.run_parallel(self.event_logger.wait_for(OrderBookTradeEvent))
         for ob_trade_event in self.event_logger.event_log:
@@ -83,14 +85,14 @@ class DydxOrderBookTrackerUnitTest(unittest.TestCase):
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
         lrc_eth_book: OrderBook = order_books["WETH-DAI"]
         self.assertGreaterEqual(
-            lrc_eth_book.get_price_for_volume(True, 0.1).result_price, lrc_eth_book.get_price(True)
+            lrc_eth_book.get_price_for_volume(True, 0.1).result_price,
+            lrc_eth_book.get_price(True)
         )
 
     def test_mid_price(self):
         data_source = self.order_book_tracker.data_source
         mid_price = data_source.get_mid_price(self.trading_pairs[0])
         self.assertGreater(mid_price, 100)
-
 
 
 def main():
