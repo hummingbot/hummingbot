@@ -482,11 +482,11 @@ class BinancePerpetualDerivative(DerivativeBase):
 
                     # Execution Type: Trade => Filled
                     trade_type = TradeType.BUY if order_message.get("S") == "BUY" else TradeType.SELL
-                    if event_message.get("x") == "TRADE":
+                    if order_message.get("X") in ["PARTIALLY_FILLED", "FILLED"]:
                         order_filled_event = OrderFilledEvent(
                             timestamp=event_message.get("E") * 1e-3,
                             order_id=client_order_id,
-                            trading_pair=order_message.get("s"),
+                            trading_pair=convert_from_exchange_trading_pair(order_message.get("s")),
                             trade_type=trade_type,
                             order_type=OrderType.LIMIT if order_message.get("o") == "LIMIT" else OrderType.MARKET,
                             price=Decimal(order_message.get("L")),
@@ -501,7 +501,7 @@ class BinancePerpetualDerivative(DerivativeBase):
                             ),
                             exchange_trade_id=order_message.get("t")
                         )
-                        self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
+                        self.trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
                     if tracked_order.is_done:
                         if not tracked_order.is_failure:
@@ -556,6 +556,8 @@ class BinancePerpetualDerivative(DerivativeBase):
                                                      unrealized_pnl = Decimal(asset["up"]),
                                                      entry_price = Decimal(asset["ep"]),
                                                      amount = Decimal(asset["pa"]))
+                        else:
+                            await self._update_positions()
                 elif event_type == "MARGIN_CALL":
                     positions = event_message.get("p", [])
                     total_maint_margin_required = 0
@@ -714,7 +716,7 @@ class BinancePerpetualDerivative(DerivativeBase):
             position_side = PositionSide[position.get("positionSide")]
             unrealized_pnl = Decimal(position.get("unRealizedProfit"))
             entry_price = Decimal(position.get("entryPrice"))
-            amount = Decimal(position.get("positionAmt"))
+            amount = abs(Decimal(position.get("positionAmt")))
             leverage = Decimal(position.get("leverage"))
             if amount > 0:
                 self._account_positions[trading_pair + position_side.name] = Position(
@@ -725,6 +727,9 @@ class BinancePerpetualDerivative(DerivativeBase):
                     amount=amount,
                     leverage=leverage
                 )
+            else:
+                if (trading_pair + position_side.name) in self._account_positions:
+                    del self._account_positions[trading_pair + position_side.name]
 
     async def _update_order_fills_from_trades(self):
         last_tick = self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
@@ -898,8 +903,8 @@ class BinancePerpetualDerivative(DerivativeBase):
         safe_ensure_future(self._get_funding_rate(trading_pair))
         return self._funding_rate
 
-    async def _set_hedge_mode(self, position_mode: PositionMode):
-        initial_mode = await self._get_hedge_mode()
+    async def _set_position_mode(self, position_mode: PositionMode):
+        initial_mode = await self._get_position_mode()
         if initial_mode != position_mode:
             params = {
                 "dualSidePosition": position_mode.value
@@ -918,7 +923,7 @@ class BinancePerpetualDerivative(DerivativeBase):
         else:
             self.logger().info(f"Using {position_mode.name} position mode.")
 
-    async def _get_hedge_mode(self):
+    async def _get_position_mode(self):
         if self._position_mode is None:
             mode = await self.request(
                 path="/fapi/v1/positionSide/dual",
@@ -930,8 +935,8 @@ class BinancePerpetualDerivative(DerivativeBase):
 
         return self._position_mode
 
-    def set_hedge_mode(self, position_mode: PositionMode):
-        safe_ensure_future(self._set_hedge_mode(position_mode))
+    def set_position_mode(self, position_mode: PositionMode):
+        safe_ensure_future(self._set_position_mode(position_mode))
 
     async def request(self, path: str, params: Dict[str, Any] = {}, method: MethodType = MethodType.GET,
                       add_timestamp: bool = False, is_signed: bool = False, request_weight: int = 1, return_err: bool = False):

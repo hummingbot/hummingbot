@@ -99,6 +99,8 @@ class HummingbotApplication(*commands):
         # This is to start fetching trading pairs for auto-complete
         TradingPairFetcher.get_instance()
 
+        self._binance_connector = None
+
     @property
     def strategy_file_name(self) -> str:
         return self._strategy_file_name
