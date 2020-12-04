@@ -37,7 +37,7 @@ cdef class DydxExchange(ExchangeBase):
         dict _in_flight_orders_by_exchange_id
         set _orders_pending_ack
 
-    cdef c_start_tracking_order(self, 
+    cdef c_start_tracking_order(self,
                                 object side,
                                 str client_order_id,
                                 object order_type,
