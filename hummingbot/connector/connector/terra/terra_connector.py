@@ -79,6 +79,11 @@ class TerraConnector(ConnectorBase):
     def name(self):
         return "terra"
 
+    @staticmethod
+    async def fetch_trading_pairs() -> List[str]:
+        # Todo: find all available trading pairs
+        return ["LUNA-UST", "LUNA-KRT", "LUNA-SDT", "UST-KRT", "UST-SDT", "KRT-SDT"]
+
     @property
     def limit_orders(self) -> List[LimitOrder]:
         return [
