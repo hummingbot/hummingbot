@@ -16,6 +16,9 @@ from .silly_commands import SillyCommands
 from .order_book_command import OrderBookCommand
 from .ticker_command import TickerCommand
 from .generate_certs_command import GenerateCertsCommand
+from .open_orders_command import OpenOrdersCommand
+from .trades_command import TradesCommand
+from .pnl_command import PnlCommand
 
 
 __all__ = [
@@ -36,5 +39,8 @@ __all__ = [
     SillyCommands,
     OrderBookCommand,
     TickerCommand,
-    GenerateCertsCommand
+    GenerateCertsCommand,
+    OpenOrdersCommand,
+    TradesCommand,
+    PnlCommand
 ]
