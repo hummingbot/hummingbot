@@ -34,7 +34,7 @@ handlers:
     report_proxy_handler:
         class: hummingbot.logger.reporting_proxy_handler.ReportingProxyHandler
         level: DEBUG
-        proxy_url: https://api.coinalpha.com/reporting-proxy
+        proxy_url: https://api.coinalpha.com/reporting-proxy-v2
         capacity: 1
     "null":
         class: logging.NullHandler
