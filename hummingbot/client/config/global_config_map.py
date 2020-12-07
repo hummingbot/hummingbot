@@ -121,6 +121,13 @@ main_config_map = {
                   required_if=lambda: global_config_map["celo_address"].value is not None,
                   is_secure=True,
                   is_connect_key=True),
+    "balancer_max_swaps":
+        ConfigVar(key="balancer_max_swaps",
+                  prompt="Enter the maximum swap pool in Balancer >>> ",
+                  required_if=lambda: False,
+                  type_str="int",
+                  validator=lambda v: validate_decimal(v, Decimal(-100), Decimal(100)),
+                  default=4),
     "ethereum_wallet":
         ConfigVar(key="ethereum_wallet",
                   prompt="Enter your wallet private key >>> ",

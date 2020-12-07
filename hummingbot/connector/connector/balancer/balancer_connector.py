@@ -84,6 +84,7 @@ class BalancerConnector(ConnectorBase):
         self._status_polling_task = None
         self._auto_approve_task = None
         self._real_time_balance_update = False
+        self._max_swaps = global_config_map['balancer_max_swaps'].value
 
     @property
     def name(self):
@@ -160,7 +161,8 @@ class BalancerConnector(ConnectorBase):
                                            f"balancer/{side}-price",
                                            {"base": self._token_addresses[base],
                                             "quote": self._token_addresses[quote],
-                                            "amount": amount})
+                                            "amount": amount,
+                                            "maxSwaps": self._max_swaps})
             if resp["price"] is not None:
                 return Decimal(str(resp["price"]))
         except asyncio.CancelledError:
@@ -237,6 +239,7 @@ class BalancerConnector(ConnectorBase):
                       "quote": self._token_addresses[quote],
                       "amount": str(amount),
                       "maxPrice": str(price),
+                      "maxSwaps": str(self._max_swaps),
                       "gasPrice": str(gas_price),
                       }
         self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount)
