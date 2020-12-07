@@ -162,3 +162,6 @@ ethgasstation_refresh_time:
 gateway_api_host: localhost
 gateway_api_port: 5000
 
+# a list of binance markets (for trades/pnl reporting) separated by ',' e.g. RLC-USDT,RLC-BTC
+binance_markets:
+
