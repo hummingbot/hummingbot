@@ -159,12 +159,12 @@ class DydxAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def fetch_trading_pairs() -> List[str]:
         try:
             async with aiohttp.ClientSession() as client:
-                async with client.get(f"{DYDX_V1_API_URL}{MARKETS_URL}", timeout=5) as response:
+                async with client.get(DYDX_MARKET_INFO_URL.format(""), timeout=5) as response:
                     if response.status == 200:
                         all_trading_pairs: Dict[str, Any] = await response.json()
                         valid_trading_pairs: list = []
-                        for item in all_trading_pairs["data"]:
-                            valid_trading_pairs.append(item["market"])
+                        for item in all_trading_pairs["markets"].keys():
+                            valid_trading_pairs.append(item)
                         trading_pair_list: List[str] = []
                         for raw_trading_pair in valid_trading_pairs:
                             converted_trading_pair: Optional[str] = convert_from_exchange_trading_pair(raw_trading_pair)
