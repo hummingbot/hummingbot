@@ -9,7 +9,6 @@ FEE_TYPE = "FlatFee"
 FEE_TOKEN = "ETH"
 
 USE_ETH_GAS_LOOKUP = True
-GAS_LIMIT = 1200000
 
 
 async def fetch_trading_pairs() -> List[str]:
