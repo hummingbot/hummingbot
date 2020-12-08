@@ -210,7 +210,7 @@ class BinancePerpetualDerivative(DerivativeBase):
         :return a list of OrderType supported by this connector.
         Note that Market order type is no longer required and will not be used.
         """
-        return [OrderType.LIMIT, OrderType.MARKET]
+        return [OrderType.OPEN_POSITION, OrderType.CLOSE_POSITION]
 
     # ORDER PLACE AND CANCEL EXECUTIONS ---
     async def create_order(self,
@@ -222,11 +222,11 @@ class BinancePerpetualDerivative(DerivativeBase):
                            price: Optional[Decimal] = Decimal("NaN")):
 
         trading_rule: TradingRule = self._trading_rules[trading_pair]
-        if order_type == OrderType.LIMIT_MAKER:
-            raise ValueError("Binance Perpetuals does not support the Limit Maker order type.")
+        if order_type not in [OrderType.OPEN_POSITION, OrderType.CLOSE_POSITION]:
+            raise ValueError("Specify either OPEN_POSITION or CLOSE_POSITION order_type.")
 
         amount = self.quantize_order_amount(trading_pair, amount)
-        price = Decimal("NaN") if order_type == OrderType.MARKET else self.quantize_order_price(trading_pair, price)
+        price = self.quantize_order_price(trading_pair, price)
 
         if amount < trading_rule.min_order_size:
             raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
@@ -235,18 +235,19 @@ class BinancePerpetualDerivative(DerivativeBase):
         order_result = None
         api_params = {"symbol": convert_to_exchange_trading_pair(trading_pair),
                       "side": "BUY" if trade_type is TradeType.BUY else "SELL",
-                      "type": order_type.name.upper(),
+                      "type": "LIMIT",  # we basically use limit order for all position opening and closing
                       "quantity": f"{amount}",
-                      "newClientOrderId": order_id
+                      "newClientOrderId": order_id,
+                      "price": f"{price}",
+                      "timeInForce": "GTC"
                       }
-        if order_type != OrderType.MARKET:
-            api_params["price"] = f"{price}"
-        if order_type == OrderType.LIMIT:
-            api_params["timeInForce"] = "GTC"
 
         if self._position_mode == PositionMode.HEDGE:
-            api_params["positionSide"] = "LONG" if trade_type is TradeType.BUY else "SHORT"
-
+            if order_type == OrderType.OPEN_POSITION:
+                api_params["positionSide"] = "LONG" if trade_type is TradeType.BUY else "SHORT"
+            else:
+                api_params["positionSide"] = "SHORT" if trade_type is TradeType.BUY else "LONG"
+        order_type = OrderType.LIMIT
         self.start_tracking_order(order_id, "", trading_pair, trade_type, price, amount, order_type)
 
         try:
@@ -716,9 +717,9 @@ class BinancePerpetualDerivative(DerivativeBase):
             position_side = PositionSide[position.get("positionSide")]
             unrealized_pnl = Decimal(position.get("unRealizedProfit"))
             entry_price = Decimal(position.get("entryPrice"))
-            amount = abs(Decimal(position.get("positionAmt")))
+            amount = Decimal(position.get("positionAmt"))
             leverage = Decimal(position.get("leverage"))
-            if amount > 0:
+            if amount != 0:
                 self._account_positions[trading_pair + position_side.name] = Position(
                     trading_pair=convert_from_exchange_trading_pair(trading_pair),
                     position_side=position_side,
