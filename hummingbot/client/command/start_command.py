@@ -49,14 +49,16 @@ class StartCommand:
                 return func(*args, **kwargs)
 
     def start(self,  # type: HummingbotApplication
-              log_level: Optional[str] = None):
+              log_level: Optional[str] = None,
+              restore: Optional[bool] = False):
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.start, log_level)
             return
-        safe_ensure_future(self.start_check(log_level), loop=self.ev_loop)
+        safe_ensure_future(self.start_check(log_level, restore), loop=self.ev_loop)
 
     async def start_check(self,  # type: HummingbotApplication
-                          log_level: Optional[str] = None):
+                          log_level: Optional[str] = None,
+                          restore: Optional[bool] = False):
 
         if self.strategy_task is not None and not self.strategy_task.done():
             self._notify('The bot is already running - please run "stop" first')
@@ -96,10 +98,11 @@ class StartCommand:
                 self._notify(f"\nConnector status: {status}. This connector has one or more issues.\n"
                              "Refer to our Github page for more info: https://github.com/coinalpha/hummingbot")
 
-        await self.start_market_making(self.strategy_name)
+        await self.start_market_making(self.strategy_name, restore)
 
     async def start_market_making(self,  # type: HummingbotApplication
-                                  strategy_name: str):
+                                  strategy_name: str,
+                                  restore: Optional[bool] = False):
         start_strategy: Callable = get_strategy_starter_file(strategy_name)
         if strategy_name in STRATEGIES:
             start_strategy(self)
@@ -117,8 +120,11 @@ class StartCommand:
                     self.clock.add_iterator(market)
                     self.markets_recorder.restore_market_states(config_path, market)
                     if len(market.limit_orders) > 0:
-                        self._notify(f"Cancelling dangling limit orders on {market.name}...")
-                        await market.cancel_all(5.0)
+                        if restore is False:
+                            self._notify(f"Cancelling dangling limit orders on {market.name}...")
+                            await market.cancel_all(5.0)
+                        else:
+                            self._notify(f"Restored {len(market.limit_orders)} limit orders on {market.name}...")
             if self.strategy:
                 self.clock.add_iterator(self.strategy)
             if global_config_map["script_enabled"].value:
