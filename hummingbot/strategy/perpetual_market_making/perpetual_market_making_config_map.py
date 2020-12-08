@@ -34,6 +34,11 @@ def validate_derivative_trading_pair(value: str) -> Optional[str]:
     return validate_market_trading_pair(derivative, value)
 
 
+def validate_derivative_position_mode(value: str) -> Optional[str]:
+    if value not in ["One-way", "Hedge"]:
+        return "Position mode can either be One-way or Hedge mode"
+
+
 def order_amount_prompt() -> str:
     derivative = perpetual_market_making_config_map["derivative"].value
     trading_pair = perpetual_market_making_config_map["market"].value
@@ -139,11 +144,10 @@ perpetual_market_making_config_map = {
                   prompt_on_new=True),
     "position_mode":
         ConfigVar(key="position_mode",
-                  prompt="Do you want to use hedge mode? "
-                         "(If disabled, one-way position mode would be used.) >>> ",
-                  type_str="bool",
-                  default=False,
-                  validator=validate_bool,
+                  prompt="Which position mode do you want to use? (One-way/Hedge) >>> ",
+                  validator=validate_derivative_position_mode,
+                  type_str="str",
+                  default="One-way",
                   prompt_on_new=True),
     "bid_spread":
         ConfigVar(key="bid_spread",
@@ -186,6 +190,36 @@ perpetual_market_making_config_map = {
                   type_str="decimal",
                   validator=validate_order_amount,
                   prompt_on_new=True),
+    "position_management":
+        ConfigVar(key="position_management",
+                  prompt="How would you like to manage your positions? (Profit_taking/Trailing_stop) >>> ",
+                  type_str="str",
+                  default="Profit_taking",
+                  prompt_on_new=True),
+    "profit_taking_spread":
+        ConfigVar(key="profit_taking_spread",
+                  prompt="At what spread(in the profitable direction) from the entry price do you want to place a position close order? (Enter 1 for 1%) >>> ",
+                  required_if=lambda: perpetual_market_making_config_map.get("position_mode").value == "One-way" and perpetual_market_making_config_map.get("position_management").value == "Profit_taking",
+                  type_str="decimal",
+                  default=Decimal("0"),
+                  validator=lambda v: validate_decimal(v, 0, 100, True),
+                  prompt_on_new=True),
+    "long_profit_taking_spread":
+        ConfigVar(key="long_profit_taking_spread",
+                  prompt="At what spread from the entry price do you want to place a short order to reduce position? (Enter 1 for 1%) >>> ",
+                  required_if=lambda: perpetual_market_making_config_map.get("position_mode").value == "Hedge" and perpetual_market_making_config_map.get("position_management").value == "Profit_taking",
+                  type_str="decimal",
+                  default=Decimal("0"),
+                  validator=lambda v: validate_decimal(v, 0, 100, True),
+                  prompt_on_new=True),
+    "short_profit_taking_spread":
+        ConfigVar(key="short_profit_taking_spread",
+                  prompt="At what spread from the position entry price do you want to place a long order to reduce position? (Enter 1 for 1%) >>> ",
+                  required_if=lambda: perpetual_market_making_config_map.get("position_mode").value == "Hedge" and perpetual_market_making_config_map.get("position_management").value == "Profit_taking",
+                  type_str="decimal",
+                  default=Decimal("0"),
+                  validator=lambda v: validate_decimal(v, 0, 100, True),
+                  prompt_on_new=True),
     "price_ceiling":
         ConfigVar(key="price_ceiling",
                   prompt="Enter the price point above which only sell orders will be placed "
@@ -205,7 +239,6 @@ perpetual_market_making_config_map = {
                   prompt="Would you like to use the ping pong feature and alternate between buy and sell orders after fills? (Yes/No) >>> ",
                   type_str="bool",
                   default=False,
-                  prompt_on_new=True,
                   validator=validate_bool),
     "order_levels":
         ConfigVar(key="order_levels",
