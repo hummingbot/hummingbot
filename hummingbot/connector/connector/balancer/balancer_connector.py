@@ -7,6 +7,7 @@ import json
 import time
 import ssl
 import copy
+import itertools as it
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.network_iterator import NetworkStatus
@@ -72,7 +73,9 @@ class BalancerConnector(ConnectorBase):
         tokens = set()
         for trading_pair in trading_pairs:
             tokens.update(set(trading_pair.split("-")))
-        self._token_addresses = get_erc20_token_addresses(tokens)
+        self._erc_20_token_list = self.token_list()
+        self._token_addresses = {t: l[0] for t, l in self._erc_20_token_list.items() if t in tokens}
+        self._token_decimals = {t: l[1] for t, l in self._erc_20_token_list.items() if t in tokens}
         self._wallet_private_key = wallet_private_key
         self._ethereum_rpc_url = ethereum_rpc_url
         self._trading_required = trading_required
@@ -88,6 +91,18 @@ class BalancerConnector(ConnectorBase):
     @property
     def name(self):
         return "balancer"
+
+    @staticmethod
+    def token_list():
+        return get_erc20_token_addresses()
+
+    @staticmethod
+    async def fetch_trading_pairs() -> List[str]:
+        token_list = BalancerConnector.token_list()
+        trading_pairs = []
+        for base, quote in it.permutations(token_list.keys(), 2):
+            trading_pairs.append(f"{base}-{quote}")
+        return trading_pairs
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
@@ -121,7 +136,7 @@ class BalancerConnector(ConnectorBase):
                                        "eth/approve",
                                        {"tokenAddress": self._token_addresses[token_symbol],
                                         "gasPrice": str(get_gas_price()),
-                                        # "decimals": self._token_decimals[token_symbol]  // if not supplied, gateway would treat it eth-like with 18 decimals
+                                        "decimals": self._token_decimals[token_symbol],  # if not supplied, gateway would treat it eth-like with 18 decimals
                                         "connector": self.name})
         amount_approved = Decimal(str(resp["amount"]))
         if amount_approved > 0:
@@ -137,7 +152,7 @@ class BalancerConnector(ConnectorBase):
         """
         ret_val = {}
         resp = await self._api_request("post", "eth/allowances",
-                                       {"tokenAddressList": ",".join(self._token_addresses.values()),
+                                       {"tokenAddressList": json.dumps(dict(zip(self._token_addresses.values(), self._token_decimals.values()))),
                                         "connector": self.name})
         for address, amount in resp["approvals"].items():
             ret_val[self.get_token(address)] = Decimal(str(amount))
@@ -419,7 +434,7 @@ class BalancerConnector(ConnectorBase):
         remote_asset_names = set()
         resp_json = await self._api_request("post",
                                             "eth/balances",
-                                            {"tokenAddressList": ",".join(self._token_addresses.values())})
+                                            {"tokenAddressList": json.dumps(dict(zip(self._token_addresses.values(), self._token_decimals.values())))})
         for token, bal in resp_json["balances"].items():
             if len(token) > 4:
                 token = self.get_token(token)
