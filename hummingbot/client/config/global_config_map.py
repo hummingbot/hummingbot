@@ -142,12 +142,12 @@ main_config_map = {
                   required_if=lambda: False,
                   validator=lambda s: None if s in {"MAIN_NET", "KOVAN"} else "Invalid chain name.",
                   default="MAIN_NET"),
-    "ethereum_token_overrides":
-        ConfigVar(key="ethereum_token_overrides",
-                  prompt="What is your preferred ethereum token overrides? >>> ",
-                  type_str="json",
-                  required_if=lambda: False,
-                  default={}),
+    "ethereum_token_list_url":
+        ConfigVar(key="ethereum_token_list_url",
+                  prompt="Specify token list url of a list available on https://tokenlists.org/ >>> ",
+                  type_str="str",
+                  required_if=lambda: global_config_map["ethereum_wallet"].value is not None,
+                  default="https://wispy-bird-88a7.uniswap.workers.dev/?url=http://tokens.1inch.eth.link"),
     # Whether or not to invoke cancel_all on exit if marketing making on a open order book DEX (e.g. Radar Relay)
     "on_chain_cancel_on_exit":
         ConfigVar(key="on_chain_cancel_on_exit",
