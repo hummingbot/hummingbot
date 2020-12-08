@@ -139,7 +139,7 @@ cdef class DydxExchange(ExchangeBase):
     def __init__(self,
                  dydx_eth_private_key: str,
                  dydx_node_address: str,
-                 poll_interval: float = 10.0,
+                 poll_interval: float = 5.0,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
 
@@ -439,6 +439,13 @@ cdef class DydxExchange(ExchangeBase):
                 else:
                     raise Exception(f"order {client_order_id} has no exchange id")
             res = await self.dydx_client.cancel_order(exchange_order_id)
+            if 'order' in res:
+                cancel_details = res['order']
+                base, quote = self.split_trading_pair(cancel_details['market'])
+                base_id = self.token_configuration.get_tokenid(base)
+                filled_amount = self.token_configuration.unpad(cancel_details['filledAmount'], base_id)
+                if cancel_details['status'] == "CANCELED" and filled_amount == in_flight_order.executed_amount_base:
+                    self.c_trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
             return True
 
         except DydxAPIError as e:
@@ -796,7 +803,6 @@ cdef class DydxExchange(ExchangeBase):
             try:
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
-
                 await asyncio.gather(
                     self._update_balances(),
                     self._update_trading_rules(),
