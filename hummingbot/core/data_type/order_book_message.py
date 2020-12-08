@@ -42,6 +42,13 @@ class OrderBookMessage(namedtuple("_OrderBookMessage", "type, content, timestamp
             return -1
 
     @property
+    def first_update_id(self) -> int:
+        if self.type is OrderBookMessageType.DIFF:
+            return self.content.get("first_update_id", self.update_id)
+        else:
+            return -1
+
+    @property
     def trade_id(self) -> int:
         if self.type is OrderBookMessageType.TRADE:
             return self.content["trade_id"]
