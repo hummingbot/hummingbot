@@ -56,6 +56,12 @@ long_profit_taking_spread: null
 # short position take profit spread in hedge mode
 short_profit_taking_spread: null
 
+# Activation spread for trailing stop
+ts_activation_spread: null
+
+# Callback rate for trailing stop
+ts_callback_rate: null
+
 # Price band ceiling.
 price_ceiling: null
 

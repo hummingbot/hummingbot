@@ -27,6 +27,8 @@ def start(self):
         profit_taking_spread = c_map.get("profit_taking_spread").value / Decimal('100')
         long_profit_taking_spread = c_map.get("long_profit_taking_spread").value / Decimal('100')
         short_profit_taking_spread = c_map.get("short_profit_taking_spread").value / Decimal('100')
+        ts_activation_spread = c_map.get("ts_activation_spread").value / Decimal('100')
+        ts_callback_rate = c_map.get("ts_callback_rate").value / Decimal('100')
         minimum_spread = c_map.get("minimum_spread").value / Decimal('100')
         price_ceiling = c_map.get("price_ceiling").value
         price_floor = c_map.get("price_floor").value
@@ -83,6 +85,8 @@ def start(self):
             profit_taking_spread = profit_taking_spread,
             long_profit_taking_spread = long_profit_taking_spread,
             short_profit_taking_spread = short_profit_taking_spread,
+            ts_activation_spread = ts_activation_spread,
+            ts_callback_rate = ts_callback_rate,
             order_level_spread=order_level_spread,
             order_level_amount=order_level_amount,
             filled_order_delay=filled_order_delay,
