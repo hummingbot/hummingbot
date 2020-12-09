@@ -177,8 +177,8 @@ def get_erc20_token_addresses() -> Dict[str, List]:
     for token in decoded_resp["tokens"]:
         token_list[token["symbol"]] = [token["address"], token["decimals"]]
 
-    with open(address_file_path) as f:
-        try:
+    try:
+        with open(address_file_path) as f:
             overrides: Dict[str, str] = json.load(f)
             for token, address in overrides.items():
                 override_token = token_list.get(token, [address, 18])
@@ -186,11 +186,16 @@ def get_erc20_token_addresses() -> Dict[str, List]:
                 override_list.append(token)
 
             if len(override_list) > 0:
-                print(f"Applied address overrides from /conf/erc20_tokens.json to symbols {override_list}.")
+                print(f"Applied address overrides from {TOKEN_ADDRESSES_FILE_PATH} to symbols {override_list}.")
 
-            return token_list
-        except Exception as e:
-            logging.getLogger().error(e, exc_info=True)
+    except FileNotFoundError:
+        # create override file for first run w docker
+        with open(address_file_path, "w+") as f:
+            f.write(json.dumps({}))
+    except Exception as e:
+        logging.getLogger().error(e, exc_info=True)
+
+    return token_list
 
 
 def _merge_dicts(*args: Dict[str, ConfigVar]) -> OrderedDict:
