@@ -24,7 +24,7 @@ cdef class DydxInFlightOrder(InFlightOrderBase):
                  filled_size: Decimal,
                  filled_volume: Decimal,
                  filled_fee: Decimal,
-                 created_at: int):
+                 created_at: int,):
 
         super().__init__(client_order_id=client_order_id,
                          exchange_order_id=exchange_order_id,
@@ -45,6 +45,7 @@ cdef class DydxInFlightOrder(InFlightOrderBase):
         self._queued_events = []
         self._queued_fill_events = []
         self._completion_sent = False
+        self._cancel_before_eoid_set = False
 
         (base, quote) = self.market.split_trading_pair(trading_pair)
         self.fee_asset = base if trade_type is TradeType.BUY else quote
@@ -76,6 +77,10 @@ cdef class DydxInFlightOrder(InFlightOrderBase):
             return self.amount_remaining
         else:
             return self.amount_remaining * self.price
+
+    @property
+    def cancel_before_eoid_set(self):
+        return self._cancel_before_eoid_set
 
     def to_json(self):
         return json.dumps({
@@ -160,7 +165,8 @@ cdef class DydxInFlightOrder(InFlightOrderBase):
             self._completion_sent = True
 
     def register_fill(self, id: str, amount: Decimal, price: Decimal, fee: Decimal):
-        if id not in self.fills:
+        fill_ids = [fill.as_dict()["id"] for fill in self.fills]
+        if id not in fill_ids:
             report = DydxFillReport(id, amount, price, fee)
             self.fills.add(report)
             self.executed_amount_base += report.amount
@@ -183,6 +189,9 @@ cdef class DydxInFlightOrder(InFlightOrderBase):
             self._queued_events.clear()
 
         return events
+
+    def cancel_attempted_before_eoid_set(self):
+        self._cancel_before_eoid_set = True
 
     def update(self, data: Dict[str, Any]) -> List[Any]:
         base: str

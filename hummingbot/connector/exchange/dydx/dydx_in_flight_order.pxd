@@ -12,6 +12,7 @@ cdef class DydxInFlightOrder(InFlightOrderBase):
         public set fills
 
         bool _completion_sent
+        bool _cancel_before_eoid_set
         object _last_executed_amount_from_order_status
         list _queued_events
         list _queued_fill_events

@@ -147,7 +147,13 @@ cdef class DydxExchange(ExchangeBase):
 
         self._real_time_balance_update = True
 
-        self._dydx_auth = DydxAuth(dydx_node_address)
+        self._dydx_private_key = dydx_eth_private_key
+        self._dydx_node = dydx_node_address
+        self.dydx_client: DYDXClientWrapper = DYDXClientWrapper(private_key=self._dydx_private_key,
+                                                                node=self._dydx_node,
+                                                                account_number=dydx_consts.ACCOUNT_NUMBERS_SPOT)
+
+        self._dydx_auth = DydxAuth(self.dydx_client.client.public_address)
         self._token_configuration = DydxAPITokenConfigurationDataSource()
 
         self.API_REST_ENDPOINT = MAINNET_API_REST_ENDPOINT
@@ -172,11 +178,6 @@ cdef class DydxExchange(ExchangeBase):
         self._shared_client = None
         self._polling_update_task = None
 
-        self._dydx_private_key = dydx_eth_private_key
-        self._dydx_node = dydx_node_address
-        self.dydx_client: DYDXClientWrapper = DYDXClientWrapper(private_key=self._dydx_private_key,
-                                                                node=self._dydx_node,
-                                                                account_number=dydx_consts.ACCOUNT_NUMBERS_SPOT)
         # State
         self._lock = asyncio.Lock()
         self._trading_rules = {}
@@ -343,6 +344,9 @@ cdef class DydxExchange(ExchangeBase):
             in_flight_order = self._in_flight_orders.get(client_order_id)
             if in_flight_order is not None:
                 self._set_exchange_id(in_flight_order, dydx_order_id)
+                if in_flight_order.cancel_before_eoid_set:
+                    await self.cancel_order(client_order_id)
+                    return
 
                 # Begin tracking order
                 self.logger().info(f"Created {in_flight_order.description} order {client_order_id} for {amount} {trading_pair}.")
@@ -437,6 +441,7 @@ cdef class DydxExchange(ExchangeBase):
                     self.c_trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
                     return False
                 else:
+                    in_flight_order.cancel_attempted_before_eoid_set()
                     raise Exception(f"order {client_order_id} has no exchange id")
             res = await self.dydx_client.cancel_order(exchange_order_id)
             if 'order' in res:
@@ -445,6 +450,7 @@ cdef class DydxExchange(ExchangeBase):
                 base_id = self.token_configuration.get_tokenid(base)
                 filled_amount = self.token_configuration.unpad(cancel_details['filledAmount'], base_id)
                 if cancel_details['status'] == "CANCELED" and filled_amount == in_flight_order.executed_amount_base:
+                    self.c_stop_tracking_order(client_order_id)
                     self.c_trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
             return True
 
@@ -492,6 +498,8 @@ cdef class DydxExchange(ExchangeBase):
                     # this order did not exist on the exchange
                     cancel_verifier.cancel_one()
                     order_status[order_id] = True
+                else:
+                    await self.cancel_order(order_id)
             except Exception:
                 cancel_verifier.cancel_one()
                 order_status[order_id] = True
@@ -931,10 +939,10 @@ cdef class DydxExchange(ExchangeBase):
         return self._trading_rules[f"{trading_pair}-limit"].min_base_amount_increment
 
     cdef object c_quantize_order_price(self, str trading_pair, object price):
-        return price.quantize(self.c_get_order_price_quantum(trading_pair, price))
+        return price.quantize(self.c_get_order_price_quantum(trading_pair, price), rounding=ROUND_DOWN)
 
     cdef object c_quantize_order_amount(self, str trading_pair, object amount, object price = 0.0):
-        quantized_amount = amount.quantize(self.c_get_order_size_quantum(trading_pair, amount))
+        quantized_amount = amount.quantize(self.c_get_order_size_quantum(trading_pair, amount), rounding=ROUND_DOWN)
         rules = self._trading_rules[f"{trading_pair}-market"]
 
         if quantized_amount < rules.min_order_size:
