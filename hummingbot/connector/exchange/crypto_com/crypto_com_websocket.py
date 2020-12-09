@@ -16,6 +16,10 @@ from hummingbot.connector.exchange.crypto_com.crypto_com_utils import RequestId,
 
 # reusable websocket class
 
+import time
+_error_issue_time = time.time() + 20
+_error_issued = False
+
 
 class CryptoComWebsocket(RequestId):
     MESSAGE_TIMEOUT = 30.0
@@ -101,6 +105,10 @@ class CryptoComWebsocket(RequestId):
             payload["sig"] = auth["sig"]
             payload["api_key"] = auth["api_key"]
 
+        global _error_issued, _error_issue_time
+        if not _error_issued and _error_issue_time < time.time():
+            self._client = None
+            _error_issued = True
         await self._client.send(ujson.dumps(payload))
 
         return id
