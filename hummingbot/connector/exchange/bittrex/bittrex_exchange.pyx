@@ -241,7 +241,7 @@ cdef class BittrexExchange(ExchangeBase):
                 if market.get("status") != "OFFLINE":
                     # min_order_value is the base asset value corresponding to 50,000 Satoshis(~0.0005BTC)
                     # https://bittrex.zendesk.com/hc/en-us/articles/360001473863-Bittrex-Trading-Rules
-                    if last_trade_rate!=0:
+                    if last_trade_rate != 0:
                         min_order_value = (
                             min_btc_value / last_trade_rate if market.get("quoteCurrencySymbol") == "BTC" else
                             min_btc_value / eth_btc_price / last_trade_rate if market.get("quoteCurrencySymbol") == "ETH" else
