@@ -186,7 +186,7 @@ def get_erc20_token_addresses() -> Dict[str, List]:
                 override_list.append(token)
 
             if len(override_list) > 0:
-                print(f"Applied address overrides from /conf/erc20_tokens.json to symbols {override_list}.")
+                print(f"Applied address overrides from {TOKEN_ADDRESSES_FILE_PATH} to symbols {override_list}.")
 
             return token_list
         except Exception as e:
