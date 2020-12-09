@@ -308,6 +308,21 @@ main_config_map = {
                   type_str="str",
                   required_if=lambda: False,
                   default="5000"),
+    "heartbeat_enabled":
+        ConfigVar(key="heartbeat_enabled",
+                  prompt="Do you want to enable aggregated order and trade data collection? >>> ",
+                  required_if=lambda: False,
+                  type_str="bool",
+                  validator=validate_bool,
+                  default=True),
+    "heartbeat_interval_min":
+        ConfigVar(key="heartbeat_interval_min",
+                  prompt="How often do you want Hummingbot to send aggregated order and trade data (in minutes, "
+                         "e.g. enter 5 for once every 5 minutes)? >>> ",
+                  required_if=lambda: False,
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, Decimal(0), inclusive=False),
+                  default=Decimal("15")),
     "binance_markets":
         ConfigVar(key="binance_markets",
                   prompt="Please enter binance markets (for trades/pnl reporting) separated by ',' "
