@@ -33,8 +33,6 @@ from .perpetual_market_making_order_tracker import PerpetualMarketMakingOrderTra
 
 from .asset_price_delegate cimport AssetPriceDelegate
 from .asset_price_delegate import AssetPriceDelegate
-from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
-from .inventory_skew_calculator import calculate_total_order_size
 from .order_book_asset_price_delegate cimport OrderBookAssetPriceDelegate
 
 
@@ -66,18 +64,13 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                  position_mode: bool,
                  bid_spread: Decimal,
                  ask_spread: Decimal,
-                 ts_activation_spread: Decimal,
                  order_amount: Decimal,
-                 ts_callback_rate: Decimal = Decimal("0.1"),
                  order_levels: int = 1,
                  order_level_spread: Decimal = s_decimal_zero,
                  order_level_amount: Decimal = s_decimal_zero,
                  order_refresh_time: float = 30.0,
                  order_refresh_tolerance_pct: Decimal = s_decimal_neg_one,
                  filled_order_delay: float = 60.0,
-                 inventory_skew_enabled: bool = False,
-                 inventory_target_base_pct: Decimal = s_decimal_zero,
-                 inventory_range_multiplier: Decimal = s_decimal_zero,
                  hanging_orders_enabled: bool = False,
                  hanging_orders_cancel_pct: Decimal = Decimal("0.1"),
                  order_optimization_enabled: bool = False,
@@ -105,8 +98,6 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         self._market_info = market_info
         self._leverage = leverage
         self._position_mode = PositionMode.HEDGE if position_mode else PositionMode.ONEWAY
-        self._ts_callback_rate = ts_callback_rate
-        self._ts_activation_spread = ts_activation_spread
         self._bid_spread = bid_spread
         self._ask_spread = ask_spread
         self._minimum_spread = minimum_spread
@@ -119,9 +110,6 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         self._order_refresh_time = order_refresh_time
         self._order_refresh_tolerance_pct = order_refresh_tolerance_pct
         self._filled_order_delay = filled_order_delay
-        self._inventory_skew_enabled = inventory_skew_enabled
-        self._inventory_target_base_pct = inventory_target_base_pct
-        self._inventory_range_multiplier = inventory_range_multiplier
         self._hanging_orders_enabled = hanging_orders_enabled
         self._hanging_orders_cancel_pct = hanging_orders_cancel_pct
         self._order_optimization_enabled = order_optimization_enabled
@@ -215,30 +203,6 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
     @order_level_spread.setter
     def order_level_spread(self, value: Decimal):
         self._order_level_spread = value
-
-    @property
-    def inventory_skew_enabled(self) -> bool:
-        return self._inventory_skew_enabled
-
-    @inventory_skew_enabled.setter
-    def inventory_skew_enabled(self, value: bool):
-        self._inventory_skew_enabled = value
-
-    @property
-    def inventory_target_base_pct(self) -> Decimal:
-        return self._inventory_target_base_pct
-
-    @inventory_target_base_pct.setter
-    def inventory_target_base_pct(self, value: Decimal):
-        self._inventory_target_base_pct = value
-
-    @property
-    def inventory_range_multiplier(self) -> Decimal:
-        return self.inventory_range_multiplier
-
-    @inventory_range_multiplier.setter
-    def inventory_range_multiplier(self, value: Decimal):
-        self._inventory_range_multiplier = value
 
     @property
     def hanging_orders_enabled(self) -> bool:
@@ -531,7 +495,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         markets_df = self.market_status_data_frame([self._market_info])
         lines.extend(["", "  Markets:"] + ["    " + line for line in markets_df.to_string(index=False).split("\n")])
 
-        assets_df = self.perpetual_mm_assets_df(not self._inventory_skew_enabled)
+        assets_df = self.perpetual_mm_assets_df(False)
 
         first_col_length = max(*assets_df[0].apply(len))
         df_lines = assets_df.to_string(index=False, header=False,
@@ -578,7 +542,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         cdef:
             ExchangeBase market = self._market_info.market
         market.set_margin(trading_pair, leverage)
-        market.set_hedge_mode(position)
+        market.set_position_mode(position)
 
     cdef c_tick(self, double timestamp):
         StrategyBase.c_tick(self, timestamp)
@@ -615,9 +579,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                 self.c_apply_order_levels_modifiers(proposal)
                 # 3. Apply functions that modify orders price
                 self.c_apply_order_price_modifiers(proposal)
-                # 4. Apply functions that modify orders size
-                self.c_apply_order_size_modifiers(proposal)
-                # 5. Apply budget constraint, i.e. can't buy/sell more than what you have.
+                # 4. Apply budget constraint, i.e. can't buy/sell more than what you have.
                 self.c_apply_budget_constraint(proposal)
 
                 if not self._take_if_crossed:
@@ -772,40 +734,6 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
 
         if self._add_transaction_costs_to_orders:
             self.c_apply_add_transaction_costs(proposal)
-
-    cdef c_apply_order_size_modifiers(self, object proposal):
-        if self._inventory_skew_enabled:
-            self.c_apply_inventory_skew(proposal)
-
-    cdef c_apply_inventory_skew(self, object proposal):
-        cdef:
-            ExchangeBase market = self._market_info.market
-            object bid_adj_ratio
-            object ask_adj_ratio
-            object size
-
-        base_balance, quote_balance = self.c_get_adjusted_available_balance(self.active_orders)
-
-        total_order_size = calculate_total_order_size(self._order_amount, self._order_level_amount, self._order_levels)
-        bid_ask_ratios = c_calculate_bid_ask_ratios_from_base_asset_ratio(
-            float(base_balance),
-            float(quote_balance),
-            float(self.get_price()),
-            float(self._inventory_target_base_pct),
-            float(total_order_size * self._inventory_range_multiplier)
-        )
-        bid_adj_ratio = Decimal(bid_ask_ratios.bid_ratio)
-        ask_adj_ratio = Decimal(bid_ask_ratios.ask_ratio)
-
-        for buy in proposal.buys:
-            size = buy.size * bid_adj_ratio
-            size = market.c_quantize_order_amount(self.trading_pair, size)
-            buy.size = size
-
-        for sell in proposal.sells:
-            size = sell.size * ask_adj_ratio
-            size = market.c_quantize_order_amount(self.trading_pair, size, sell.price)
-            sell.size = size
 
     cdef c_apply_budget_constraint(self, object proposal):
         cdef:
