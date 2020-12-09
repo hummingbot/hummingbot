@@ -452,7 +452,7 @@ class CryptoComExchange(ExchangeBase):
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
                                    f"{amount} {trading_pair}.")
-                tracked_order.exchange_order_id = exchange_order_id
+                tracked_order.update_exchange_order_id(exchange_order_id)
 
             event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
             event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
@@ -530,11 +530,14 @@ class CryptoComExchange(ExchangeBase):
                  "order_id": ex_order_id},
                 True
             )
+            # code 0 means the cancel request is received by Crypto.com
             if result["code"] == 0:
                 if wait_for_status:
                     from hummingbot.core.utils.async_utils import wait_til
                     await wait_til(lambda: tracked_order.is_cancelled)
                 return order_id
+            else:
+                raise Exception(f"Invalid result code from private/cancel-order, response: {result}")
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -591,8 +594,8 @@ class CryptoComExchange(ExchangeBase):
         """
         Calls REST API to get status update for each in-flight order.
         """
-        last_tick = self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
-        current_tick = self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
+        last_tick = int(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
+        current_tick = int(self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
@@ -733,8 +736,8 @@ class CryptoComExchange(ExchangeBase):
         poll_interval = (self.SHORT_POLL_INTERVAL
                          if now - self._user_stream_tracker.last_recv_time > 60.0
                          else self.LONG_POLL_INTERVAL)
-        last_tick = self._last_timestamp / poll_interval
-        current_tick = timestamp / poll_interval
+        last_tick = int(self._last_timestamp / poll_interval)
+        current_tick = int(timestamp / poll_interval)
         if current_tick > last_tick:
             if not self._poll_notifier.is_set():
                 self._poll_notifier.set()
