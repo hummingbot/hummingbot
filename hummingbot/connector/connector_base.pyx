@@ -39,8 +39,8 @@ cdef class ConnectorBase(NetworkIterator):
     def __init__(self):
         super().__init__()
 
-        self._event_reporter = EventReporter(event_source=self.name)
-        self._event_logger = EventLogger(event_source=self.name)
+        self._event_reporter = EventReporter(event_source=self.display_name)
+        self._event_logger = EventLogger(event_source=self.display_name)
         for event_tag in self.MARKET_EVENTS:
             self.c_add_listener(event_tag.value, self._event_reporter)
             self.c_add_listener(event_tag.value, self._event_logger)
