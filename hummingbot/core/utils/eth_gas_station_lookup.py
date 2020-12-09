@@ -86,11 +86,13 @@ class EthGasStationLookup(NetworkBase):
                         if key in GasLevel.__members__:
                             self._gas_prices[GasLevel[key]] = Decimal(str(value)) / Decimal("10")
                     prices_str = ', '.join([k.name + ': ' + str(v) for k, v in self._gas_prices.items()])
-                    self.logger().info(f"Gas: [{prices_str}]")
+                    self.logger().info(f"Gas levels: [{prices_str}]")
                     for name, con_setting in CONNECTOR_SETTINGS.items():
                         if con_setting.use_eth_gas_lookup:
-                            self.logger().info(f"Estimated gas used per transaction ({self.gas_level.name}): "
-                                               f"{get_gas_price(False) * con_setting.gas_limit:.5f} ETH")
+                            self.logger().info(f"Gas estimate:"
+                                               f" limit = {con_setting.gas_limit:.0f},"
+                                               f" price = {self.gas_level.name},"
+                                               f" estimated cost = {get_gas_price(False) * con_setting.gas_limit:.5f} ETH")
                     await asyncio.sleep(self.refresh_time)
             except asyncio.CancelledError:
                 raise

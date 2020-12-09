@@ -6,6 +6,7 @@ from typing import (
     List
 )
 from hummingbot.model.trade_fill import TradeFill
+from hummingbot.core.event.events import TradeFee
 
 s_decimal_0 = Decimal("0")
 
@@ -44,6 +45,11 @@ class PerformanceMetrics:
     fee_token: str = ""
     total_pnl: Decimal = s_decimal_0
     return_pct: Decimal = s_decimal_0
+
+    realised_pnl: Decimal = s_decimal_0
+    unrealised_pnl: Decimal = s_decimal_0
+    # An outstanding amount, negative means more sell amounts than buy (short position)
+    outstanding_amount: Decimal = s_decimal_0
 
 
 def calculate_performance_metrics(trading_pair: str,
@@ -100,14 +106,19 @@ def calculate_performance_metrics(trading_pair: str,
     perf.trade_pnl = perf.cur_value - perf.hold_value
     fee_paid = 0
     perf.fee_token = quote
-    if trades[0].trade_fee.get("percent", None) is not None and trades[0].trade_fee["percent"] > 0:
-        fee_paid = sum(t.price * t.amount * t.trade_fee["percent"] for t in trades)
-    elif trades[0].trade_fee.get("flat_fees", []):
-        perf.fee_token = trades[0].trade_fee["flat_fees"][0]["asset"]
-        fee_paid = sum(f["amount"] for t in trades for f in t.trade_fee.get("flat_fees", []))
+    if type(trades[0].trade_fee) is TradeFee:
+        perf.fee_token = trades[0].trade_fee.flat_fees[0][0]
+        fee_paid = sum(sum(ff[1] for ff in t.trade_fee.flat_fees) for t in trades)
+    else:
+        if trades[0].trade_fee.get("percent", None) is not None and trades[0].trade_fee["percent"] > 0:
+            fee_paid = sum(t.price * t.amount * t.trade_fee["percent"] for t in trades)
+        elif trades[0].trade_fee.get("flat_fees", []):
+            perf.fee_token = trades[0].trade_fee["flat_fees"][0]["asset"]
+            fee_paid = sum(f["amount"] for t in trades for f in t.trade_fee.get("flat_fees", []))
     perf.fee_paid = Decimal(str(fee_paid))
     perf.total_pnl = perf.trade_pnl - perf.fee_paid if perf.fee_token == quote else perf.trade_pnl
     perf.return_pct = divide(perf.total_pnl, perf.hold_value)
+
     return perf
 
 
@@ -125,5 +136,5 @@ def smart_round(value: Decimal, precision: Optional[int] = None) -> Decimal:
     elif Decimal("0.01") > abs(value) > Decimal("0.0001"):
         step = Decimal("0.00001")
     elif Decimal("0.0001") > abs(value) > s_decimal_0:
-        step = Decimal("0.000001")
+        step = Decimal("0.00000001")
     return (value // step) * step
