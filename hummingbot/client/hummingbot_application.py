@@ -38,7 +38,6 @@ from hummingbot.client.config.security import Security
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.client.settings import CONNECTOR_SETTINGS, ConnectorType
-
 s_logger = None
 
 
@@ -80,6 +79,7 @@ class HummingbotApplication(*commands):
         self.market_trading_pair_tuples: List[MarketTradingPairTuple] = []
         self.clock: Optional[Clock] = None
         self.market_trading_pairs_map = {}
+        self.token_list = {}
 
         self.init_time: float = time.time()
         self.start_time: Optional[int] = None
@@ -196,11 +196,13 @@ class HummingbotApplication(*commands):
     def _initialize_wallet(self, token_trading_pairs: List[str]):
         if not using_wallet():
             return
+        if not self.token_list:
+            self.token_list = get_erc20_token_addresses()
 
         ethereum_wallet = global_config_map.get("ethereum_wallet").value
         private_key = Security._private_keys[ethereum_wallet]
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
-        erc20_token_addresses = get_erc20_token_addresses(token_trading_pairs).values()
+        erc20_token_addresses = {t: l[0] for t, l in self.token_list.items() if t in token_trading_pairs}
 
         chain_name: str = global_config_map.get("ethereum_chain_name").value
         self.wallet: Web3Wallet = Web3Wallet(
