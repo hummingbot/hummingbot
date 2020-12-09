@@ -28,8 +28,6 @@ class CryptoComAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
         self._last_recv_time: float = 0
-        self._start_time = time.time()
-        self._forced_error = False
         super().__init__()
 
     @property
@@ -49,9 +47,6 @@ class CryptoComAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 # print(f"WS_SOCKET: {msg}")
                 yield msg
                 self._last_recv_time = time.time()
-                if self._start_time < time.time() + 20 and not self._forced_error:
-                    self._forced_error = True
-                    break
                 if (msg.get("result") is None):
                     continue
         except Exception as e:
