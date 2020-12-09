@@ -38,8 +38,6 @@ from hummingbot.client.config.security import Security
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.client.settings import CONNECTOR_SETTINGS, ConnectorType
-from hummingbot.client.platform import client_system, installation_type
-from hummingbot.client.ui import version
 s_logger = None
 
 
@@ -101,7 +99,6 @@ class HummingbotApplication(*commands):
         TradingPairFetcher.get_instance()
 
         self._binance_connector = None
-        print(f"client_system: {client_system}  installation_type: {installation_type}  version: {version}")
 
     @property
     def strategy_file_name(self) -> str:

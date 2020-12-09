@@ -18,7 +18,7 @@ from hummingbot.logger import (
 )
 from hummingbot.logger.log_server_client import LogServerClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
-
+from hummingbot.client.platform import client_system, installation_type
 
 VERSIONFILE = realpath(join(__file__, "../../VERSION"))
 CLIENT_VERSION = open(VERSIONFILE, "rt").read()
@@ -169,7 +169,12 @@ class ReportingProxyHandler(logging.Handler):
                 "headers": {
                     'Content-Type': "application/json"
                 },
-                "data": json.dumps({"client_id": self.client_id, "exchange": exchange, "market": market,
+                "data": json.dumps({"client_id": self.client_id,
+                                    "exchange": exchange,
+                                    "market": market,
+                                    "version": CLIENT_VERSION,
+                                    "system": client_system,
+                                    "installation": installation_type,
                                     f"{metric_name}": str(value)})
             }
         }
