@@ -199,7 +199,8 @@ perpetual_market_making_config_map = {
     "profit_taking_spread":
         ConfigVar(key="profit_taking_spread",
                   prompt="At what spread(in the profitable direction) from the entry price do you want to place a position close order? (Enter 1 for 1%) >>> ",
-                  required_if=lambda: perpetual_market_making_config_map.get("position_mode").value == "One-way" and perpetual_market_making_config_map.get("position_management").value == "Profit_taking",
+                  required_if=lambda: perpetual_market_making_config_map.get("position_mode").value == "One-way" and
+                  perpetual_market_making_config_map.get("position_management").value == "Profit_taking",
                   type_str="decimal",
                   default=Decimal("0"),
                   validator=lambda v: validate_decimal(v, 0, 100, True),
@@ -207,7 +208,8 @@ perpetual_market_making_config_map = {
     "long_profit_taking_spread":
         ConfigVar(key="long_profit_taking_spread",
                   prompt="At what spread from the entry price do you want to place a short order to reduce position? (Enter 1 for 1%) >>> ",
-                  required_if=lambda: perpetual_market_making_config_map.get("position_mode").value == "Hedge" and perpetual_market_making_config_map.get("position_management").value == "Profit_taking",
+                  required_if=lambda: perpetual_market_making_config_map.get("position_mode").value == "Hedge" and
+                  perpetual_market_making_config_map.get("position_management").value == "Profit_taking",
                   type_str="decimal",
                   default=Decimal("0"),
                   validator=lambda v: validate_decimal(v, 0, 100, True),
@@ -215,10 +217,27 @@ perpetual_market_making_config_map = {
     "short_profit_taking_spread":
         ConfigVar(key="short_profit_taking_spread",
                   prompt="At what spread from the position entry price do you want to place a long order to reduce position? (Enter 1 for 1%) >>> ",
-                  required_if=lambda: perpetual_market_making_config_map.get("position_mode").value == "Hedge" and perpetual_market_making_config_map.get("position_management").value == "Profit_taking",
+                  required_if=lambda: perpetual_market_making_config_map.get("position_mode").value == "Hedge" and
+                  perpetual_market_making_config_map.get("position_management").value == "Profit_taking",
                   type_str="decimal",
                   default=Decimal("0"),
                   validator=lambda v: validate_decimal(v, 0, 100, True),
+                  prompt_on_new=True),
+    "ts_activation_spread":
+        ConfigVar(key="ts_activation_spread",
+                  prompt="At what spread from the position entry price do you want the bot to start trailing? (Enter 1 for 1%) >>> ",
+                  required_if=lambda: perpetual_market_making_config_map.get("position_management").value == "Trailing_stop",
+                  type_str="decimal",
+                  default=Decimal("0"),
+                  validator=lambda v: validate_decimal(v, 0, 100, True),
+                  prompt_on_new=True),
+    "ts_callback_rate":
+        ConfigVar(key="ts_callback_rate",
+                  prompt="At what spread away from the trailing peak price do you want to positions to remain open before they're closed? (Enter 1 for 1%) >>> ",
+                  required_if=lambda: perpetual_market_making_config_map.get("position_management").value == "Trailing_stop",
+                  type_str="decimal",
+                  default=Decimal("0"),
+                  validator=lambda v: validate_decimal(v, 0, 100, False),
                   prompt_on_new=True),
     "price_ceiling":
         ConfigVar(key="price_ceiling",
