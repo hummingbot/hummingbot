@@ -20,13 +20,13 @@ from hummingbot.core.event.events import (
     MarketEvent,
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
+    # BuyOrderCompletedEvent,
+    # SellOrderCompletedEvent,
     MarketOrderFailureEvent,
-    OrderFilledEvent,
+    # OrderFilledEvent,
     OrderType,
     TradeType,
-    TradeFee
+    # TradeFee
 )
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.connector.balancer.balancer_in_flight_order import BalancerInFlightOrder
@@ -48,6 +48,7 @@ class BalancerConnector(ConnectorBase):
     """
     API_CALL_TIMEOUT = 10.0
     POLL_INTERVAL = 60.0
+    UPDATE_ORDER_STATUS_MIN_INTERVAL = 1.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -261,52 +262,53 @@ class BalancerConnector(ConnectorBase):
         try:
             order_result = await self._api_request("post", f"balancer/{trade_type.name.lower()}", api_params)
             hash = order_result["txHash"]
-            status = order_result["status"]
+            # status = order_result["status"]
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {trade_type.name} order {order_id} txHash: {hash} "
                                    f"for {amount} {trading_pair}.")
                 tracked_order.exchange_order_id = hash
-            if int(status) == 1:
+            if hash:
                 tracked_order.fee_asset = "ETH"
                 tracked_order.executed_amount_base = amount
                 tracked_order.executed_amount_quote = amount * price
-                tracked_order.fee_paid = Decimal(str(order_result["gasUsed"])) * gas_price / Decimal(str(1e9))
+                # tracked_order.fee_paid = Decimal(str(order_result["gasUsed"])) * gas_price / Decimal(str(1e9))
                 event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
                 event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
                 self.trigger_event(event_tag, event_class(self.current_timestamp, OrderType.LIMIT, trading_pair, amount,
                                                           price, order_id, hash))
-                self.trigger_event(MarketEvent.OrderFilled,
-                                   OrderFilledEvent(
-                                       self.current_timestamp,
-                                       tracked_order.client_order_id,
-                                       tracked_order.trading_pair,
-                                       tracked_order.trade_type,
-                                       tracked_order.order_type,
-                                       price,
-                                       amount,
-                                       TradeFee(0.0, [("ETH", tracked_order.fee_paid)]),
-                                       hash
-                                   ))
 
-                event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY \
-                    else MarketEvent.SellOrderCompleted
-                event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY \
-                    else SellOrderCompletedEvent
-                self.trigger_event(event_tag,
-                                   event_class(self.current_timestamp,
-                                               tracked_order.client_order_id,
-                                               tracked_order.base_asset,
-                                               tracked_order.quote_asset,
-                                               tracked_order.fee_asset,
-                                               tracked_order.executed_amount_base,
-                                               tracked_order.executed_amount_quote,
-                                               tracked_order.fee_paid,
-                                               tracked_order.order_type))
-                self.stop_tracking_order(tracked_order.client_order_id)
-            else:
-                self.trigger_event(MarketEvent.OrderFailure,
-                                   MarketOrderFailureEvent(self.current_timestamp, order_id, OrderType.LIMIT))
+            #     self.trigger_event(MarketEvent.OrderFilled,
+            #                        OrderFilledEvent(
+            #                            self.current_timestamp,
+            #                            tracked_order.client_order_id,
+            #                            tracked_order.trading_pair,
+            #                            tracked_order.trade_type,
+            #                            tracked_order.order_type,
+            #                            price,
+            #                            amount,
+            #                            TradeFee(0.0, [("ETH", tracked_order.fee_paid)]),
+            #                            hash
+            #                        ))
+            #
+            #     event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY \
+            #         else MarketEvent.SellOrderCompleted
+            #     event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY \
+            #         else SellOrderCompletedEvent
+            #     self.trigger_event(event_tag,
+            #                        event_class(self.current_timestamp,
+            #                                    tracked_order.client_order_id,
+            #                                    tracked_order.base_asset,
+            #                                    tracked_order.quote_asset,
+            #                                    tracked_order.fee_asset,
+            #                                    tracked_order.executed_amount_base,
+            #                                    tracked_order.executed_amount_quote,
+            #                                    tracked_order.fee_paid,
+            #                                    tracked_order.order_type))
+            #     self.stop_tracking_order(tracked_order.client_order_id)
+            # else:
+            #     self.trigger_event(MarketEvent.OrderFailure,
+            #                        MarketOrderFailureEvent(self.current_timestamp, order_id, OrderType.LIMIT))
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -347,6 +349,34 @@ class BalancerConnector(ConnectorBase):
         """
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
+
+    async def _update_order_status(self):
+        """
+        Calls REST API to get status update for each in-flight order.
+        """
+        last_tick = self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
+        current_tick = self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
+
+        if current_tick > last_tick and len(self._in_flight_orders) > 0:
+            tracked_orders = list(self._in_flight_orders.values())
+
+            tasks = []
+            for tracked_order in tracked_orders:
+                order_id = await tracked_order.get_exchange_order_id()
+                tasks.append(self._api_request("post",
+                                               "eth/get-receipt",
+                                               {"txHash": order_id}))
+            self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
+            update_results = await safe_gather(*tasks, return_exceptions=True)
+            for update_result in update_results:
+                if isinstance(update_result, Exception):
+                    raise update_result
+                if "result" not in update_result:
+                    self.logger().info(f"_update_order_status result not in resp: {update_result}")
+                    continue
+                for trade_msg in update_result["result"]["trade_list"]:
+                    await self._process_trade_message(trade_msg)
+                self._process_order_message(update_result["result"]["order_info"])
 
     def get_taker_order_type(self):
         return OrderType.LIMIT
@@ -415,6 +445,7 @@ class BalancerConnector(ConnectorBase):
                 await self._poll_notifier.wait()
                 await safe_gather(
                     self._update_balances(),
+                    self._update_order_status(),
                 )
                 self._last_poll_timestamp = self.current_timestamp
             except asyncio.CancelledError:
@@ -495,7 +526,7 @@ class BalancerConnector(ConnectorBase):
             err_msg = ""
             if "error" in parsed_response:
                 err_msg = f" Message: {parsed_response['error']}"
-            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.{err_msg}")
+                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.{err_msg}")
         if "error" in parsed_response:
             raise Exception(f"Error: {parsed_response['error']}")
 
