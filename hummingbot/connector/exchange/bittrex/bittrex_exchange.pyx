@@ -241,13 +241,16 @@ cdef class BittrexExchange(ExchangeBase):
                 if market.get("status") != "OFFLINE":
                     # min_order_value is the base asset value corresponding to 50,000 Satoshis(~0.0005BTC)
                     # https://bittrex.zendesk.com/hc/en-us/articles/360001473863-Bittrex-Trading-Rules
-                    min_order_value = (
-                        min_btc_value / last_trade_rate if market.get("quoteCurrencySymbol") == "BTC" else
-                        min_btc_value / eth_btc_price / last_trade_rate if market.get("quoteCurrencySymbol") == "ETH" else
-                        min_btc_value * btc_usd_price / last_trade_rate if market.get("quoteCurrencySymbol") == "USD" else
-                        min_btc_value * btc_usdt_price / last_trade_rate if market.get("quoteCurrencySymbol") == "USDT" else
-                        min_btc_value
-                    ) * Decimal("1.01")  # Compensates for possible fluctuations
+                    if last_trade_rate != 0:
+                        min_order_value = (
+                            min_btc_value / last_trade_rate if market.get("quoteCurrencySymbol") == "BTC" else
+                            min_btc_value / eth_btc_price / last_trade_rate if market.get("quoteCurrencySymbol") == "ETH" else
+                            min_btc_value * btc_usd_price / last_trade_rate if market.get("quoteCurrencySymbol") == "USD" else
+                            min_btc_value * btc_usdt_price / last_trade_rate if market.get("quoteCurrencySymbol") == "USDT" else
+                            min_btc_value
+                        ) * Decimal("1.01")  # Compensates for possible fluctuations
+                    else:
+                        min_order_value = s_decimal_0
 
                     # Trading Rules info from Bittrex API response
                     retval.append(TradingRule(trading_pair,
