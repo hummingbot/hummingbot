@@ -14,7 +14,7 @@ market: null
 # What leverage to used
 leverage: null
 
-# Position mode to use, one-way or hedge position mode
+# Position mode to use, one-way or hedge position mode (If disabled, one-way position mode would be used. (True or False))
 position_mode: null
 
 # How far away from mid price to place the bid order.
