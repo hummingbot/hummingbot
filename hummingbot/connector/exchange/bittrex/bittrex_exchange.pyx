@@ -250,7 +250,7 @@ cdef class BittrexExchange(ExchangeBase):
                             min_btc_value
                         ) * Decimal("1.01")  # Compensates for possible fluctuations
                     else:
-                        min_order_value=s_decimal_0
+                        min_order_value = s_decimal_0
 
                     # Trading Rules info from Bittrex API response
                     retval.append(TradingRule(trading_pair,
