@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 15
+template_version: 16
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -65,6 +65,8 @@ celo_password: null
 
 terra_wallet_address: null
 terra_wallet_seeds: null
+
+balancer_max_swaps: 4
 
 # Ethereum wallet address: required for trading on a DEX
 ethereum_wallet: null
