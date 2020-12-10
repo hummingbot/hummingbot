@@ -38,7 +38,7 @@ from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     SellOrderCreatedEvent,
     OrderFilledEvent,
-    SellOrderCompletedEvent, PositionSide, PositionMode)
+    SellOrderCompletedEvent, PositionSide, PositionMode, PositionAction)
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.asyncio_throttle import Throttler
 from hummingbot.logger import HummingbotLogger
@@ -210,7 +210,7 @@ class BinancePerpetualDerivative(DerivativeBase):
         :return a list of OrderType supported by this connector.
         Note that Market order type is no longer required and will not be used.
         """
-        return [OrderType.OPEN_POSITION, OrderType.CLOSE_POSITION]
+        return [OrderType.LIMIT, OrderType.MARKET]
 
     # ORDER PLACE AND CANCEL EXECUTIONS ---
     async def create_order(self,
@@ -219,11 +219,12 @@ class BinancePerpetualDerivative(DerivativeBase):
                            trading_pair: str,
                            amount: Decimal,
                            order_type: OrderType,
+                           position_action: PositionAction,
                            price: Optional[Decimal] = Decimal("NaN")):
 
         trading_rule: TradingRule = self._trading_rules[trading_pair]
-        if order_type not in [OrderType.OPEN_POSITION, OrderType.CLOSE_POSITION]:
-            raise ValueError("Specify either OPEN_POSITION or CLOSE_POSITION order_type.")
+        if position_action not in [PositionAction.OPEN, PositionAction.CLOSE]:
+            raise ValueError("Specify either OPEN_POSITION or CLOSE_POSITION position_action.")
 
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
@@ -235,19 +236,20 @@ class BinancePerpetualDerivative(DerivativeBase):
         order_result = None
         api_params = {"symbol": convert_to_exchange_trading_pair(trading_pair),
                       "side": "BUY" if trade_type is TradeType.BUY else "SELL",
-                      "type": "LIMIT",  # we basically use limit order for all position opening and closing
+                      "type": "LIMIT" if order_type is OrderType.LIMIT else "MARKET",
                       "quantity": f"{amount}",
-                      "newClientOrderId": order_id,
-                      "price": f"{price}",
-                      "timeInForce": "GTC"
+                      "newClientOrderId": order_id
                       }
+        if order_type == OrderType.LIMIT:
+            api_params["price"] = f"{price}"
+            api_params["timeInForce"] = "GTC"
 
         if self._position_mode == PositionMode.HEDGE:
-            if order_type == OrderType.OPEN_POSITION:
+            if position_action == PositionAction.OPEN:
                 api_params["positionSide"] = "LONG" if trade_type is TradeType.BUY else "SHORT"
             else:
                 api_params["positionSide"] = "SHORT" if trade_type is TradeType.BUY else "LONG"
-        order_type = OrderType.LIMIT
+
         self.start_tracking_order(order_id, "", trading_pair, trade_type, price, amount, order_type)
 
         try:
@@ -292,15 +294,16 @@ class BinancePerpetualDerivative(DerivativeBase):
                           trading_pair: str,
                           amount: Decimal,
                           order_type: OrderType,
+                          position_action: PositionAction,
                           price: Optional[Decimal] = s_decimal_NaN):
-        return await self.create_order(TradeType.BUY, order_id, trading_pair, amount, order_type, price)
+        return await self.create_order(TradeType.BUY, order_id, trading_pair, amount, order_type, position_action, price)
 
     def buy(self, trading_pair: str, amount: object, order_type: object = OrderType.MARKET,
             price: object = s_decimal_NaN, **kwargs) -> str:
 
         t_pair: str = trading_pair
         order_id: str = get_client_order_id("sell", t_pair)
-        safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
+        safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, kwargs["position_action"], price))
         return order_id
 
     async def execute_sell(self,
@@ -308,15 +311,16 @@ class BinancePerpetualDerivative(DerivativeBase):
                            trading_pair: str,
                            amount: Decimal,
                            order_type: OrderType,
+                           position_action: PositionAction,
                            price: Optional[Decimal] = s_decimal_NaN):
-        return await self.create_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price)
+        return await self.create_order(TradeType.SELL, order_id, trading_pair, amount, order_type, position_action, price)
 
     def sell(self, trading_pair: str, amount: object, order_type: object = OrderType.MARKET,
              price: object = s_decimal_NaN, **kwargs) -> str:
 
         t_pair: str = trading_pair
         order_id: str = get_client_order_id("sell", t_pair)
-        safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
+        safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, kwargs["position_action"], price))
         return order_id
 
     async def cancel_all(self, timeout_seconds: float):
@@ -514,7 +518,7 @@ class BinancePerpetualDerivative(DerivativeBase):
                             else:
                                 event_tag = self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG
                                 event_class = SellOrderCompletedEvent
-                            self.logger().info(f"The market {trade_type} order {client_order_id} has completed "
+                            self.logger().info(f"The {tracked_order.order_type.name.lower()} {trade_type} order {client_order_id} has completed "
                                                f"according to websocket delta.")
                             self.trigger_event(event_tag,
                                                event_class(self.current_timestamp,
@@ -534,7 +538,7 @@ class BinancePerpetualDerivative(DerivativeBase):
                                                        OrderCancelledEvent(self.current_timestamp,
                                                                            tracked_order.client_order_id))
                                 else:
-                                    self.logger().info(f"The market order {tracked_order.client_order_id} has failed "
+                                    self.logger().info(f"The {tracked_order.order_type.name.lower()} order {tracked_order.client_order_id} has failed "
                                                        f"according to websocket delta.")
                                     self.trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                                        MarketOrderFailureEvent(self.current_timestamp,
@@ -841,7 +845,7 @@ class BinancePerpetualDerivative(DerivativeBase):
 
                             event_tag = self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG
                             event_class = SellOrderCompletedEvent
-                        self.logger().info(f"The market {tracked_order.trade_type.name} order {client_order_id} has "
+                        self.logger().info(f"The {order_type.name.lower()} {tracked_order.trade_type.name.lower()} order {client_order_id} has "
                                            f"completed according to order status API.")
                         self.trigger_event(event_tag,
                                            event_class(self.current_timestamp,
@@ -860,7 +864,7 @@ class BinancePerpetualDerivative(DerivativeBase):
                                                OrderCancelledEvent(self.current_timestamp,
                                                                    client_order_id))
                         else:
-                            self.logger().info(f"The market order {client_order_id} has failed according to "
+                            self.logger().info(f"The {order_type.name.lower()} order {client_order_id} has failed according to "
                                                f"order status API.")
                             self.trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                                MarketOrderFailureEvent(self.current_timestamp,
