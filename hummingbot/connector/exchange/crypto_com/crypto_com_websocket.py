@@ -15,6 +15,7 @@ from hummingbot.connector.exchange.crypto_com.crypto_com_auth import CryptoComAu
 from hummingbot.connector.exchange.crypto_com.crypto_com_utils import RequestId, get_ms_timestamp
 
 # reusable websocket class
+# ToDo: We should eventually remove this class, and instantiate web socket connection normally (see Binance for example)
 
 
 class CryptoComWebsocket(RequestId):
