@@ -10,6 +10,7 @@ from os.path import (
 )
 from collections import OrderedDict
 import json
+import requests
 from typing import (
     Any,
     Callable,
@@ -163,20 +164,31 @@ def get_eth_wallet_private_key() -> Optional[str]:
     return account.privateKey.hex()
 
 
-def get_erc20_token_addresses(tokens: List[str]) -> Dict[str, str]:
-    chain = global_config_map.get("ethereum_chain_name").value
+def get_erc20_token_addresses() -> Dict[str, List]:
+    token_list_url = global_config_map.get("ethereum_token_list_url").value
     address_file_path = TOKEN_ADDRESSES_FILE_PATH
-    if chain is not None and chain.lower() == "kovan":
-        address_file_path = TOKEN_ADDRESSES_FILE_PATH.replace(".json", f"_{chain.lower()}.json")
+    token_list = {}
+    override_list = []
+
+    resp = requests.get(token_list_url)
+    decoded_resp = resp.json()
+    if resp.status_code == 200:
+        print(f"Fetched Ethereum ERC-20 token addresses from Token List {token_list_url}.")
+    for token in decoded_resp["tokens"]:
+        token_list[token["symbol"]] = [token["address"], token["decimals"]]
+
     with open(address_file_path) as f:
         try:
-            data: Dict[str, str] = json.load(f)
-            overrides: Dict[str, str] = global_config_map.get("ethereum_token_overrides").value
-            if overrides is not None:
-                data.update(overrides)
-            # addresses = [data[trading_pair] for trading_pair in tokens if trading_pair in data]
-            # return addresses
-            return {k: v for k, v in data.items() if k in tokens}
+            overrides: Dict[str, str] = json.load(f)
+            for token, address in overrides.items():
+                override_token = token_list.get(token, [address, 18])
+                token_list[token] = [address, override_token[1]]
+                override_list.append(token)
+
+            if len(override_list) > 0:
+                print(f"Applied address overrides from /conf/erc20_tokens.json to symbols {override_list}.")
+
+            return token_list
         except Exception as e:
             logging.getLogger().error(e, exc_info=True)
 
