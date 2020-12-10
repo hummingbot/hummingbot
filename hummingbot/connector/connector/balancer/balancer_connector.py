@@ -47,8 +47,8 @@ class BalancerConnector(ConnectorBase):
     functionality.
     """
     API_CALL_TIMEOUT = 10.0
-    POLL_INTERVAL = 60.0
-    UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
+    POLL_INTERVAL = 10.0
+    UPDATE_ORDER_STATUS_MIN_INTERVAL = 60.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -323,74 +323,70 @@ class BalancerConnector(ConnectorBase):
         """
         Calls REST API to get status update for each in-flight order.
         """
-        last_tick = self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
-        current_tick = self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
+        tracked_orders = list(self._in_flight_orders.values())
 
-        if current_tick > last_tick and len(self._in_flight_orders) > 0:
-            tracked_orders = list(self._in_flight_orders.values())
-
-            tasks = []
-            for tracked_order in tracked_orders:
-                order_id = await tracked_order.get_exchange_order_id()
-                tasks.append(self._api_request("post",
-                                               "eth/get-receipt",
-                                               {"txHash": order_id}))
-            self.logger().info(f"Polling for order status updates of {len(tasks)} orders.")
-            update_results = await safe_gather(*tasks, return_exceptions=True)
-            for update_result in update_results:
-                if isinstance(update_result, Exception):
-                    raise update_result
-                if "txHash" not in update_result:
-                    self.logger().info(f"_update_order_status txHash not in resp: {update_result}")
-                    continue
-                if update_result["confirmed"] is True:
-                    if update_result["receipt"]["status"] == 1:
-                        gas_used = update_result["receipt"]["gasUsed"]
-                        gas_price = get_gas_price()
-                        fee = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
-                        self.trigger_event(
-                            MarketEvent.OrderFilled,
-                            OrderFilledEvent(
-                                self.current_timestamp,
-                                tracked_order.client_order_id,
-                                tracked_order.trading_pair,
-                                tracked_order.trade_type,
-                                tracked_order.order_type,
-                                Decimal(str(tracked_order.price)),
-                                Decimal(str(tracked_order.amount)),
-                                TradeFee(0.0, [(tracked_order.fee_asset, Decimal(str(fee)))]),
-                                exchange_trade_id=order_id
-                            )
+        tasks = []
+        for tracked_order in tracked_orders:
+            order_id = await tracked_order.get_exchange_order_id()
+            tasks.append(self._api_request("post",
+                                           "eth/get-receipt",
+                                           {"txHash": order_id}))
+        self.logger().info(f"Polling for order status updates of {len(tasks)} orders.")
+        update_results = await safe_gather(*tasks, return_exceptions=True)
+        for update_result in update_results:
+            if isinstance(update_result, Exception):
+                raise update_result
+            if "txHash" not in update_result:
+                self.logger().info(f"_update_order_status txHash not in resp: {update_result}")
+                continue
+            if update_result["confirmed"] is True:
+                if update_result["receipt"]["status"] == 1:
+                    gas_used = update_result["receipt"]["gasUsed"]
+                    gas_price = get_gas_price()
+                    fee = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
+                    self.trigger_event(
+                        MarketEvent.OrderFilled,
+                        OrderFilledEvent(
+                            self.current_timestamp,
+                            tracked_order.client_order_id,
+                            tracked_order.trading_pair,
+                            tracked_order.trade_type,
+                            tracked_order.order_type,
+                            Decimal(str(tracked_order.price)),
+                            Decimal(str(tracked_order.amount)),
+                            TradeFee(0.0, [(tracked_order.fee_asset, Decimal(str(fee)))]),
+                            exchange_trade_id=order_id
                         )
-                        tracked_order.last_state = "FILLED"
-                        self.logger().info(f"The {tracked_order.trade_type.name} order "
-                                           f"{tracked_order.client_order_id} has completed "
-                                           f"according to order status API.")
-                        event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY \
-                            else MarketEvent.SellOrderCompleted
-                        event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY \
-                            else SellOrderCompletedEvent
-                        self.trigger_event(event_tag,
-                                           event_class(self.current_timestamp,
-                                                       tracked_order.client_order_id,
-                                                       tracked_order.base_asset,
-                                                       tracked_order.quote_asset,
-                                                       tracked_order.fee_asset,
-                                                       tracked_order.executed_amount_base,
-                                                       tracked_order.executed_amount_quote,
-                                                       float(fee),
-                                                       tracked_order.order_type))
-                        self.stop_tracking_order(tracked_order.client_order_id)
-                    else:
-                        self.logger().info(
-                            f"The market order {tracked_order.client_order_id} has failed according to order status API. ")
-                        self.trigger_event(MarketEvent.OrderFailure,
-                                           MarketOrderFailureEvent(
-                                               self.current_timestamp,
-                                               tracked_order.client_order_id,
-                                               tracked_order.order_type
-                                           ))
-                        self.stop_tracking_order(tracked_order.client_order_id)
+                    )
+                    tracked_order.last_state = "FILLED"
+                    self.logger().info(f"The {tracked_order.trade_type.name} order "
+                                       f"{tracked_order.client_order_id} has completed "
+                                       f"according to order status API.")
+                    event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY \
+                        else MarketEvent.SellOrderCompleted
+                    event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY \
+                        else SellOrderCompletedEvent
+                    self.trigger_event(event_tag,
+                                       event_class(self.current_timestamp,
+                                                   tracked_order.client_order_id,
+                                                   tracked_order.base_asset,
+                                                   tracked_order.quote_asset,
+                                                   tracked_order.fee_asset,
+                                                   tracked_order.executed_amount_base,
+                                                   tracked_order.executed_amount_quote,
+                                                   float(fee),
+                                                   tracked_order.order_type))
+                    self.stop_tracking_order(tracked_order.client_order_id)
+                else:
+                    self.logger().info(
+                        f"The market order {tracked_order.client_order_id} has failed according to order status API. ")
+                    self.trigger_event(MarketEvent.OrderFailure,
+                                       MarketOrderFailureEvent(
+                                           self.current_timestamp,
+                                           tracked_order.client_order_id,
+                                           tracked_order.order_type
+                                       ))
+                    self.stop_tracking_order(tracked_order.client_order_id)
 
     def get_taker_order_type(self):
         return OrderType.LIMIT
@@ -478,25 +474,30 @@ class BalancerConnector(ConnectorBase):
         """
         Calls Eth API to update total and available balances.
         """
-        local_asset_names = set(self._account_balances.keys())
-        remote_asset_names = set()
-        resp_json = await self._api_request("post",
-                                            "eth/balances",
-                                            {"tokenAddressList": json.dumps(dict(zip(self._token_addresses.values(), self._token_decimals.values())))})
-        for token, bal in resp_json["balances"].items():
-            if len(token) > 4:
-                token = self.get_token(token)
-            self._account_available_balances[token] = Decimal(str(bal))
-            self._account_balances[token] = Decimal(str(bal))
-            remote_asset_names.add(token)
+        last_tick = self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
+        current_tick = self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
 
-        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-        for asset_name in asset_names_to_remove:
-            del self._account_available_balances[asset_name]
-            del self._account_balances[asset_name]
+        if current_tick > last_tick:
+            local_asset_names = set(self._account_balances.keys())
+            remote_asset_names = set()
+            resp_json = await self._api_request("post",
+                                                "eth/balances",
+                                                {"tokenAddressList": json.dumps(dict(zip(self._token_addresses.values(), self._token_decimals.values())))})
+            self.logger().info("Update balance ...")
+            for token, bal in resp_json["balances"].items():
+                if len(token) > 4:
+                    token = self.get_token(token)
+                self._account_available_balances[token] = Decimal(str(bal))
+                self._account_balances[token] = Decimal(str(bal))
+                remote_asset_names.add(token)
 
-        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
-        self._in_flight_orders_snapshot_timestamp = self.current_timestamp
+            asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+            for asset_name in asset_names_to_remove:
+                del self._account_available_balances[asset_name]
+                del self._account_balances[asset_name]
+
+            self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
+            self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
     async def _http_client(self) -> aiohttp.ClientSession:
         """
@@ -540,7 +541,7 @@ class BalancerConnector(ConnectorBase):
             err_msg = ""
             if "error" in parsed_response:
                 err_msg = f" Message: {parsed_response['error']}"
-                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.{err_msg}")
+            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.{err_msg}")
         if "error" in parsed_response:
             raise Exception(f"Error: {parsed_response['error']}")
 
