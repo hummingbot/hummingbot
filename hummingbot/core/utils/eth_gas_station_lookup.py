@@ -31,23 +31,7 @@ def get_gas_price(in_gwei: bool = True) -> Decimal:
 
 
 def get_gas_limit(connector_name: str) -> int:
-    gas_limit = None
-    lookup = EthGasStationLookup.get_instance()
-    if connector_name not in lookup.gas_limits.keys():
-        gas_limit = request_gas_limit(connector_name)
-    else:
-        if connector_name == "balancer":
-            current_max_swaps = lookup.balancer_max_swaps
-            global_config_max_swaps = global_config_map["balancer_max_swaps"].value
-            if current_max_swaps == global_config_max_swaps:
-                gas_limit = lookup.gas_limits[connector_name]
-            else:
-                gas_limit = request_gas_limit(connector_name)
-                # update new max swap & gas limit due to config change
-                lookup.balancer_max_swaps = global_config_max_swaps
-                lookup.gas_limits = {connector_name: gas_limit}
-        elif connector_name == "uniswap":
-            gas_limit = lookup.gas_limits[connector_name]
+    gas_limit = request_gas_limit(connector_name)
     return gas_limit
 
 

@@ -537,7 +537,7 @@ class UniswapConnector(ConnectorBase):
             err_msg = ""
             if "error" in parsed_response:
                 err_msg = f" Message: {parsed_response['error']}"
-                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.{err_msg}")
+            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.{err_msg}")
         if "error" in parsed_response:
             raise Exception(f"Error: {parsed_response['error']}")
 
