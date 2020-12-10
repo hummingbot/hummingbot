@@ -371,9 +371,9 @@ cdef class StrategyBase(TimeIterator):
                                  position_action=PositionAction.OPEN):
         return self.c_buy_with_specific_market(market_trading_pair_tuple, amount,
                                                order_type,
-                                               position_action,
                                                price,
-                                               expiration_seconds)
+                                               expiration_seconds,
+                                               position_action)
 
     cdef str c_buy_with_specific_market(self, object market_trading_pair_tuple, object amount,
                                         object order_type=OrderType.MARKET,
@@ -416,9 +416,9 @@ cdef class StrategyBase(TimeIterator):
                                   position_action=PositionAction.OPEN):
         return self.c_sell_with_specific_market(market_trading_pair_tuple, amount,
                                                 order_type,
-                                                position_action,
                                                 price,
-                                                expiration_seconds)
+                                                expiration_seconds,
+                                                position_action)
 
     cdef str c_sell_with_specific_market(self, object market_trading_pair_tuple, object amount,
                                          object order_type=OrderType.MARKET,
