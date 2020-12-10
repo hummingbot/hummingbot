@@ -1061,7 +1061,8 @@ cdef class BinanceExchange(ExchangeBase):
                     status=order["status"],
                     order_type=self.to_hb_order_type(order["type"]),
                     is_buy=True if order["side"].lower() == "buy" else False,
-                    time=int(order["time"])
+                    time=int(order["time"]),
+                    exchange_order_id=order["orderId"]
                 )
             )
         return ret_val
