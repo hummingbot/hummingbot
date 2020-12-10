@@ -123,6 +123,8 @@ min_quote_order_amount:
   USDT: 11
   USDC: 11
   BUSD: 11
+  TUSD: 11
+  TRY: 11
 
 
 # Advanced database options, currently supports SQLAlchemy's included dialects
