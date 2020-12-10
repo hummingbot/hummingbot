@@ -164,7 +164,8 @@ class DydxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         all_trading_pairs: Dict[str, Any] = await response.json()
                         valid_trading_pairs: list = []
                         for item in all_trading_pairs["markets"].keys():
-                            valid_trading_pairs.append(item)
+                            if "baseCurrency" in all_trading_pairs["markets"][item]:
+                                valid_trading_pairs.append(item)
                         trading_pair_list: List[str] = []
                         for raw_trading_pair in valid_trading_pairs:
                             converted_trading_pair: Optional[str] = convert_from_exchange_trading_pair(raw_trading_pair)

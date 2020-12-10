@@ -81,7 +81,7 @@ class DydxAPITokenConfigurationDataSource():
         """Converts the padded price string into the correct Decimal representation
         based on the "decimals" setting from the token configuration for the referenced base and quote.
         """
-        return Decimal(price) * Decimal(f"1e{self._digits[quote_id] - self._digits[base_id]}")
+        return Decimal(price) * Decimal(f"1e{self._digits[base_id] - self._digits[quote_id]}")
 
     def pad(self, volume: Decimal, tokenid: int) -> str:
         """Converts the volume/size Decimal into the padded string representation for the api
