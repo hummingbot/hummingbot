@@ -38,7 +38,6 @@ from hummingbot.client.config.security import Security
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.client.settings import CONNECTOR_SETTINGS, ConnectorType
-
 s_logger = None
 
 
