@@ -195,6 +195,8 @@ perpetual_market_making_config_map = {
                   prompt="How would you like to manage your positions? (Profit_taking/Trailing_stop) >>> ",
                   type_str="str",
                   default="Profit_taking",
+                  validator=lambda s: None if s in {"Profit_taking", "Trailing_stop"} else
+                  "Invalid position management.",
                   prompt_on_new=True),
     "profit_taking_spread":
         ConfigVar(key="profit_taking_spread",
@@ -238,6 +240,15 @@ perpetual_market_making_config_map = {
                   type_str="decimal",
                   default=Decimal("0"),
                   validator=lambda v: validate_decimal(v, 0, 100, False),
+                  prompt_on_new=True),
+    "close_position_order_type":
+        ConfigVar(key="close_position_order_type",
+                  prompt="What order type do you want to use for closing positions? (LIMIT/MARKET) >>> ",
+                  required_if=lambda: perpetual_market_making_config_map.get("position_management").value == "Trailing_stop",
+                  type_str="str",
+                  default="LIMIT",
+                  validator=lambda s: None if s in {"LIMIT", "MARKET"} else
+                  "Invalid order type.",
                   prompt_on_new=True),
     "price_ceiling":
         ConfigVar(key="price_ceiling",

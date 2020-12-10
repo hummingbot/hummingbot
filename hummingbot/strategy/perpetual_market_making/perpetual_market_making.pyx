@@ -13,7 +13,13 @@ from math import (
 )
 import time
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.event.events import TradeType, PriceType, PositionSide, PositionMode
+from hummingbot.core.event.events import (
+    TradeType,
+    PriceType,
+    PositionAction,
+    PositionSide,
+    PositionMode
+)
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
@@ -71,6 +77,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                  short_profit_taking_spread: Decimal,
                  ts_activation_spread: Decimal,
                  ts_callback_rate: Decimal,
+                 close_position_order_type: str,
                  order_levels: int = 1,
                  order_level_spread: Decimal = s_decimal_zero,
                  order_level_amount: Decimal = s_decimal_zero,
@@ -114,6 +121,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         self._short_profit_taking_spread = short_profit_taking_spread
         self._ts_activation_spread = ts_activation_spread
         self._ts_callback_rate = ts_callback_rate
+        self._close_position_order_type = OrderType.MARKET if close_position_order_type == "MARKET" else OrderType.LIMIT
         self._order_levels = order_levels
         self._buy_levels = order_levels
         self._sell_levels = order_levels
@@ -532,8 +540,8 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
 
     # The following exposed Python functions are meant for unit tests
     # ---------------------------------------------------------------
-    def execute_orders_proposal(self, proposal: Proposal, order_type: OrderType):
-        return self.c_execute_orders_proposal(proposal, order_type)
+    def execute_orders_proposal(self, proposal: Proposal, position_action: PositionAction):
+        return self.c_execute_orders_proposal(proposal, position_action)
 
     def cancel_order(self, order_id: str):
         return self.c_cancel_order(self._market_info, order_id)
@@ -597,7 +605,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                 self.c_cancel_hanging_orders()
                 self.c_cancel_orders_below_min_spread()
                 if self.c_to_create_orders(proposal):
-                    self.c_execute_orders_proposal(proposal, OrderType.OPEN_POSITION)
+                    self.c_execute_orders_proposal(proposal, PositionAction.OPEN)
                 # Reset peak ask and bid prices
                 self._ts_peak_ask_price = market.get_price(self.trading_pair, False)
                 self._ts_peak_bid_price = market.get_price(self.trading_pair, True)
@@ -615,7 +623,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         else:
             proposals = self.c_trailing_stop_feature(mode, session_positions)
         if proposals is not None:
-            self.c_execute_orders_proposal(proposals, OrderType.CLOSE_POSITION)
+            self.c_execute_orders_proposal(proposals, PositionAction.CLOSE)
 
     cdef c_profit_taking_feature(self, object mode, list active_positions):
         cdef:
@@ -695,6 +703,8 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                         self.logger().info(f"Cancelled sell order {order.client_order_id} in favour of trailing stop.")
 
         for position in active_positions:
+            if position.amount == Decimal("0"):
+                continue
             if position.amount > 0:  # this is a long position
                 top_ask = market.get_price(self.trading_pair, False)
                 if top_ask < position.entry_price:
@@ -713,7 +723,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                         self.logger().info(f"Closing long position immediately to stop-loss.")
                         sells.append(PriceSize(price, abs(position.amount)))
                 elif top_ask >= (position.entry_price * (Decimal("1") + self._ts_activation_spread)):
-                    if top_ask > self._ts_peak_ask_price:
+                    if top_ask > self._ts_peak_ask_price or self._ts_peak_ask_price == Decimal("0"):
                         self._ts_peak_ask_price = top_ask
                     elif top_ask <= (self._ts_peak_ask_price * (Decimal("1") - self._ts_callback_rate)):
                         exit_price = market.get_price_for_volume(self.trading_pair, False,
@@ -749,7 +759,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                         buys.append(PriceSize(price, abs(position.amount)))
                         self.logger().info(f"Closing short position immediately to stop-loss.")
                 elif top_bid <= (position.entry_price * (Decimal("1") - self._ts_activation_spread)):
-                    if top_bid < self._ts_peak_bid_price:
+                    if top_bid < self._ts_peak_bid_price or self._ts_peak_ask_price == Decimal("0"):
                         self._ts_peak_bid_price = top_bid
                     elif top_bid >= (self._ts_peak_bid_price * (Decimal("1") + self._ts_callback_rate)):
                         exit_price = market.get_price_for_volume(self.trading_pair, True,
@@ -1164,16 +1174,13 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
             proposal is not None and \
             len(self.active_non_hanging_orders) == 0
 
-    cdef c_execute_orders_proposal(self, object proposal, object order_type):
+    cdef c_execute_orders_proposal(self, object proposal, object position_action):
         cdef:
-            double expiration_seconds = (self._order_refresh_time
-                                         if ((self._market_info.market.name in self.RADAR_RELAY_TYPE_EXCHANGES) or
-                                             (self._market_info.market.name == "bamboo_relay" and
-                                              not self._market_info.market.use_coordinator))
-                                         else NaN)
+            double expiration_seconds = NaN
             str bid_order_id, ask_order_id
             bint orders_created = False
-            str position_type = "open" if order_type == OrderType.OPEN_POSITION else "close"
+            object order_type = self._close_position_order_type if position_action == PositionAction.CLOSE and \
+                self._position_management == "Trailing_stop" else OrderType.LIMIT
 
         if len(proposal.buys) > 0:
             if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
@@ -1182,7 +1189,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                                    for buy in proposal.buys]
                 self.logger().info(
                     f"({self.trading_pair}) Creating {len(proposal.buys)} bid orders "
-                    f"at (Size, Price): {price_quote_str} to {position_type} position(s)."
+                    f"at (Size, Price): {price_quote_str} to {position_action.name} position."
                 )
             for buy in proposal.buys:
                 bid_order_id = self.c_buy_with_specific_market(
@@ -1190,9 +1197,10 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                     buy.size,
                     order_type=order_type,
                     price=buy.price,
-                    expiration_seconds=expiration_seconds
+                    expiration_seconds=expiration_seconds,
+                    position_action=position_action
                 )
-                if position_type == "close":
+                if position_action == PositionAction.CLOSE:
                     self._ts_exit_orders.append(bid_order_id)
                 orders_created = True
         if len(proposal.sells) > 0:
@@ -1202,7 +1210,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                                    for sell in proposal.sells]
                 self.logger().info(
                     f"({self.trading_pair}) Creating {len(proposal.sells)} ask "
-                    f"orders at (Size, Price): {price_quote_str} to {position_type} position(s)."
+                    f"orders at (Size, Price): {price_quote_str} to {position_action.name} position."
                 )
             for sell in proposal.sells:
                 ask_order_id = self.c_sell_with_specific_market(
@@ -1210,9 +1218,10 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                     sell.size,
                     order_type=order_type,
                     price=sell.price,
-                    expiration_seconds=expiration_seconds
+                    expiration_seconds=expiration_seconds,
+                    position_action=position_action
                 )
-                if position_type == "close":
+                if position_action == PositionAction.CLOSE:
                     self._ts_exit_orders.append(ask_order_id)
                 orders_created = True
         if orders_created:

@@ -19,6 +19,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         object _short_profit_taking_spread
         object _ts_activation_spread
         object _ts_callback_rate
+        object _close_position_order_type
         int _order_levels
         int _buy_levels
         int _sell_levels
@@ -78,5 +79,5 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
     cdef c_cancel_hanging_orders(self)
     cdef c_cancel_orders_below_min_spread(self)
     cdef bint c_to_create_orders(self, object proposal)
-    cdef c_execute_orders_proposal(self, object proposal, object order_type)
+    cdef c_execute_orders_proposal(self, object proposal, object position_action)
     cdef set_timers(self)
