@@ -129,12 +129,11 @@ cdef class BinanceExchange(ExchangeBase):
                  trading_required: bool = True,
                  domain="com"
                  ):
-
+        self._domain = domain
         self.monkey_patch_binance_time()
         super().__init__()
         self._trading_required = trading_required
         self._order_book_tracker = BinanceOrderBookTracker(trading_pairs=trading_pairs, domain=domain)
-        self._domain = domain
         self._binance_client = BinanceClient(binance_api_key, binance_api_secret, tld=domain)
         self._user_stream_tracker = BinanceUserStreamTracker(binance_client=self._binance_client, domain=domain)
         self._ev_loop = asyncio.get_event_loop()
@@ -1062,7 +1061,8 @@ cdef class BinanceExchange(ExchangeBase):
                     status=order["status"],
                     order_type=self.to_hb_order_type(order["type"]),
                     is_buy=True if order["side"].lower() == "buy" else False,
-                    time=int(order["time"])
+                    time=int(order["time"]),
+                    exchange_order_id=order["orderId"]
                 )
             )
         return ret_val
