@@ -709,7 +709,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                     if create_order is True:
                         self.logger().info(f"Closing long position immediately to stop-loss.")
                         sells.append(PriceSize(price, abs(position.amount)))
-                elif top_ask >= (position.entry_price * (Decimal("1") + self._ts_activation_spread)):
+                elif max(top_ask, self._ts_peak_ask_price) >= (position.entry_price * (Decimal("1") + self._ts_activation_spread)):
                     if top_ask > self._ts_peak_ask_price or self._ts_peak_ask_price == Decimal("0"):
                         self._ts_peak_ask_price = top_ask
                     elif top_ask <= (self._ts_peak_ask_price * (Decimal("1") - self._ts_callback_rate)):
@@ -745,7 +745,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                     if create_order is True:
                         buys.append(PriceSize(price, abs(position.amount)))
                         self.logger().info(f"Closing short position immediately to stop-loss.")
-                elif top_bid <= (position.entry_price * (Decimal("1") - self._ts_activation_spread)):
+                elif min(top_bid, self._ts_peak_bid_price) <= (position.entry_price * (Decimal("1") - self._ts_activation_spread)):
                     if top_bid < self._ts_peak_bid_price or self._ts_peak_ask_price == Decimal("0"):
                         self._ts_peak_bid_price = top_bid
                     elif top_bid >= (self._ts_peak_bid_price * (Decimal("1") + self._ts_callback_rate)):
