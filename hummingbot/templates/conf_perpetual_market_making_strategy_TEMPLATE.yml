@@ -47,13 +47,10 @@ order_amount: null
 # Which position management feature to use. Trailing stop and take profit features are currently supported
 position_management: null
 
-# take profit spread when in one-way mode
-profit_taking_spread: null
-
-# long position take profit spread in hedge mode
+# long position take profit spread
 long_profit_taking_spread: null
 
-# short position take profit spread in hedge mode
+# short position take profit spread
 short_profit_taking_spread: null
 
 # Activation spread for trailing stop

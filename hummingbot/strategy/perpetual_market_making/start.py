@@ -24,7 +24,6 @@ def start(self):
         bid_spread = c_map.get("bid_spread").value / Decimal('100')
         ask_spread = c_map.get("ask_spread").value / Decimal('100')
         position_management = c_map.get("position_management").value
-        profit_taking_spread = c_map.get("profit_taking_spread").value / Decimal('100')
         long_profit_taking_spread = c_map.get("long_profit_taking_spread").value / Decimal('100')
         short_profit_taking_spread = c_map.get("short_profit_taking_spread").value / Decimal('100')
         ts_activation_spread = c_map.get("ts_activation_spread").value / Decimal('100')
@@ -83,7 +82,6 @@ def start(self):
             order_levels=order_levels,
             order_amount=order_amount,
             position_management = position_management,
-            profit_taking_spread = profit_taking_spread,
             long_profit_taking_spread = long_profit_taking_spread,
             short_profit_taking_spread = short_profit_taking_spread,
             ts_activation_spread = ts_activation_spread,

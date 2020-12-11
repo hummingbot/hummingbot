@@ -14,7 +14,6 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         object _minimum_spread
         object _order_amount
         str _position_management
-        object _profit_taking_spread
         object _long_profit_taking_spread
         object _short_profit_taking_spread
         object _ts_activation_spread

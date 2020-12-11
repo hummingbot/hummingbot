@@ -72,7 +72,6 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                  ask_spread: Decimal,
                  order_amount: Decimal,
                  position_management: str,
-                 profit_taking_spread: Decimal,
                  long_profit_taking_spread: Decimal,
                  short_profit_taking_spread: Decimal,
                  ts_activation_spread: Decimal,
@@ -116,7 +115,6 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         self._minimum_spread = minimum_spread
         self._order_amount = order_amount
         self._position_management = position_management
-        self._profit_taking_spread = profit_taking_spread
         self._long_profit_taking_spread = long_profit_taking_spread
         self._short_profit_taking_spread = short_profit_taking_spread
         self._ts_activation_spread = ts_activation_spread
@@ -647,8 +645,9 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                         self.c_cancel_order(self._market_info, order.client_order_id)
                         self.logger().info(f"Cancelled sell order {order.client_order_id} in favour of take profit order.")
                 # check if there is an active order to take profit, and create if none exists
-                take_profit_price = active_positions[0].entry_price * (Decimal("1") + self._profit_taking_spread) if active_positions[0].amount > 0 \
-                    else active_positions[0].entry_price * (Decimal("1") - self._profit_taking_spread)
+                profit_spread = self._long_profit_taking_spread if position.amount < 0 else self._short_profit_taking_spread
+                take_profit_price = position.entry_price * (Decimal("1") + profit_spread) if position.amount > 0 \
+                    else position.entry_price * (Decimal("1") - profit_spread)
                 price = market.c_quantize_order_price(self.trading_pair, take_profit_price)
                 exit_order_exists = [o for o in active_orders if o.price == price]
                 if len(exit_order_exists) == 0:
