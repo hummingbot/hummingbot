@@ -86,7 +86,6 @@ class BalancerConnector(ConnectorBase):
         self._last_balance_poll_timestamp = time.time()
         self._in_flight_orders = {}
         self._allowances = {}
-        self._pause_tx_polling = False
         self._status_polling_task = None
         self._auto_approve_task = None
         self._real_time_balance_update = False
@@ -229,7 +228,6 @@ class BalancerConnector(ConnectorBase):
         :param price: The minimum price for the order.
         :return: A newly created order id (internal).
         """
-        self._pause_tx_polling = True
         side = TradeType.BUY if is_buy else TradeType.SELL
         order_id = f"{side.name.lower()}-{trading_pair}-{get_tracking_nonce()}"
         safe_ensure_future(self._create_order(side, order_id, trading_pair, amount, price))
@@ -261,7 +259,7 @@ class BalancerConnector(ConnectorBase):
                       "maxSwaps": str(self._max_swaps),
                       "gasPrice": str(gas_price),
                       }
-        self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount)
+        self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, gas_price)
         try:
             order_result = await self._api_request("post", f"balancer/{trade_type.name.lower()}", api_params)
             hash = order_result["txHash"]
@@ -269,7 +267,8 @@ class BalancerConnector(ConnectorBase):
             if tracked_order is not None:
                 self.logger().info(f"Created {trade_type.name} order {order_id} txHash: {hash} "
                                    f"for {amount} {trading_pair}.")
-                tracked_order.exchange_order_id = hash
+                tracked_order.update_exchange_order_id(hash)
+                tracked_order.gas_price = gas_price
             if hash:
                 tracked_order.fee_asset = "ETH"
                 tracked_order.executed_amount_base = amount
@@ -281,8 +280,6 @@ class BalancerConnector(ConnectorBase):
             else:
                 self.trigger_event(MarketEvent.OrderFailure,
                                    MarketOrderFailureEvent(self.current_timestamp, order_id, OrderType.LIMIT))
-            # reset tx polling pause status
-            self._pause_tx_polling = False
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -303,7 +300,8 @@ class BalancerConnector(ConnectorBase):
                              trading_pair: str,
                              trade_type: TradeType,
                              price: Decimal,
-                             amount: Decimal):
+                             amount: Decimal,
+                             gas_price: Decimal):
         """
         Starts tracking an order by simply adding it into _in_flight_orders dictionary.
         """
@@ -314,7 +312,8 @@ class BalancerConnector(ConnectorBase):
             order_type=OrderType.LIMIT,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            gas_price=gas_price
         )
 
     def stop_tracking_order(self, order_id: str):
@@ -328,7 +327,7 @@ class BalancerConnector(ConnectorBase):
         """
         Calls REST API to get status update for each in-flight order.
         """
-        if self._pause_tx_polling is False and len(self._in_flight_orders) > 0:
+        if len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
 
             tasks = []
@@ -348,7 +347,7 @@ class BalancerConnector(ConnectorBase):
                 if update_result["confirmed"] is True:
                     if update_result["receipt"]["status"] == 1:
                         gas_used = update_result["receipt"]["gasUsed"]
-                        gas_price = get_gas_price()
+                        gas_price = tracked_order.gas_price
                         fee = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
                         self.trigger_event(
                             MarketEvent.OrderFilled,
