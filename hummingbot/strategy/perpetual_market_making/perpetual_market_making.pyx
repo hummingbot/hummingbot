@@ -644,33 +644,21 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                     elif active_positions[0].amount > 0 and not order.is_buy:
                         self.c_cancel_order(self._market_info, order.client_order_id)
                         self.logger().info(f"Cancelled sell order {order.client_order_id} in favour of take profit order.")
-                # check if there is an active order to take profit, and create if none exists
-                profit_spread = self._long_profit_taking_spread if position.amount < 0 else self._short_profit_taking_spread
-                take_profit_price = position.entry_price * (Decimal("1") + profit_spread) if position.amount > 0 \
-                    else position.entry_price * (Decimal("1") - profit_spread)
-                price = market.c_quantize_order_price(self.trading_pair, take_profit_price)
-                exit_order_exists = [o for o in active_orders if o.price == price]
-                if len(exit_order_exists) == 0:
-                    size = market.c_quantize_order_amount(self.trading_pair, abs(active_positions[0].amount))
-                    if size > 0 and price > 0:
-                        if active_positions[0].amount < 0:
-                            buys.append(PriceSize(price, size))
-                        else:
-                            sells.append(PriceSize(price, size))
-        else:
-            for position in active_positions:
-                profit_spread = self._long_profit_taking_spread if position.amount < 0 else self._short_profit_taking_spread
-                take_profit_price = position.entry_price * (Decimal("1") + profit_spread) if position.amount > 0 \
-                    else position.entry_price * (Decimal("1") - profit_spread)
-                price = market.c_quantize_order_price(self.trading_pair, take_profit_price)
-                exit_order_exists = [o for o in active_orders if o.price == price]
-                if len(exit_order_exists) == 0:
-                    size = market.c_quantize_order_amount(self.trading_pair, abs(position.amount))
-                    if size > 0 and price > 0:
-                        if position.amount < 0:
-                            buys.append(PriceSize(price, size))
-                        else:
-                            sells.append(PriceSize(price, size))
+
+        for position in active_positions:
+            # check if there is an active order to take profit, and create if none exists
+            profit_spread = self._long_profit_taking_spread if position.amount < 0 else self._short_profit_taking_spread
+            take_profit_price = position.entry_price * (Decimal("1") + profit_spread) if position.amount > 0 \
+                else position.entry_price * (Decimal("1") - profit_spread)
+            price = market.c_quantize_order_price(self.trading_pair, take_profit_price)
+            exit_order_exists = [o for o in active_orders if o.price == price]
+            if len(exit_order_exists) == 0:
+                size = market.c_quantize_order_amount(self.trading_pair, abs(position.amount))
+                if size > 0 and price > 0:
+                    if position.amount < 0:
+                        buys.append(PriceSize(price, size))
+                    else:
+                        sells.append(PriceSize(price, size))
         return Proposal(buys, sells)
 
     cdef c_trailing_stop_feature(self, object mode, list active_positions):
