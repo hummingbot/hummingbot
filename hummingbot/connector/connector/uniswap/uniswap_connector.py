@@ -47,8 +47,8 @@ class UniswapConnector(ConnectorBase):
     functionality.
     """
     API_CALL_TIMEOUT = 10.0
-    POLL_INTERVAL = 60.0
-    UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
+    POLL_INTERVAL = 1.0
+    UPDATE_BALANCE_INTERVAL = 30.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -83,8 +83,10 @@ class UniswapConnector(ConnectorBase):
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
         self._last_poll_timestamp = 0.0
+        self._last_balance_poll_timestamp = time.time()
         self._in_flight_orders = {}
         self._allowances = {}
+        self._pause_tx_polling = False
         self._status_polling_task = None
         self._auto_approve_task = None
         self._real_time_balance_update = False
@@ -225,6 +227,7 @@ class UniswapConnector(ConnectorBase):
         :param price: The minimum price for the order.
         :return: A newly created order id (internal).
         """
+        self._pause_tx_polling = True
         side = TradeType.BUY if is_buy else TradeType.SELL
         order_id = f"{side.name.lower()}-{trading_pair}-{get_tracking_nonce()}"
         safe_ensure_future(self._create_order(side, order_id, trading_pair, amount, price))
@@ -275,6 +278,8 @@ class UniswapConnector(ConnectorBase):
             else:
                 self.trigger_event(MarketEvent.OrderFailure,
                                    MarketOrderFailureEvent(self.current_timestamp, order_id, OrderType.LIMIT))
+            # reset tx polling pause status
+            self._pause_tx_polling = False
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -320,10 +325,7 @@ class UniswapConnector(ConnectorBase):
         """
         Calls REST API to get status update for each in-flight order.
         """
-        last_tick = self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
-        current_tick = self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
-
-        if current_tick > last_tick and len(self._in_flight_orders) > 0:
+        if self._pause_tx_polling is False and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
 
             tasks = []
@@ -332,9 +334,9 @@ class UniswapConnector(ConnectorBase):
                 tasks.append(self._api_request("post",
                                                "eth/get-receipt",
                                                {"txHash": order_id}))
-            self.logger().info(f"Polling for order status updates of {len(tasks)} orders.")
             update_results = await safe_gather(*tasks, return_exceptions=True)
             for update_result in update_results:
+                self.logger().info(f"Polling for order status updates of {len(tasks)} orders.")
                 if isinstance(update_result, Exception):
                     raise update_result
                 if "txHash" not in update_result:
@@ -475,6 +477,10 @@ class UniswapConnector(ConnectorBase):
         """
         Calls Eth API to update total and available balances.
         """
+        last_tick = self._last_balance_poll_timestamp
+        current_tick = self.current_timestamp
+        if (current_tick - last_tick) > self.UPDATE_BALANCE_INTERVAL:
+            self._last_balance_poll_timestamp = current_tick
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
         resp_json = await self._api_request("post",
