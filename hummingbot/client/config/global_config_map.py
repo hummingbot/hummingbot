@@ -7,6 +7,7 @@ import hummingbot.client.settings as settings
 from hummingbot.client.config.config_methods import paper_trade_disabled, using_exchange as using_exchange_pointer
 from hummingbot.client.config.config_validators import (
     validate_bool,
+    validate_int,
     validate_decimal
 )
 
@@ -126,7 +127,7 @@ main_config_map = {
                   prompt="Enter the maximum swap pool in Balancer >>> ",
                   required_if=lambda: False,
                   type_str="int",
-                  validator=lambda v: validate_decimal(v, Decimal(-100), Decimal(100)),
+                  validator=lambda v: validate_int(v, min_value=1, inclusive=False),
                   default=4),
     "ethereum_wallet":
         ConfigVar(key="ethereum_wallet",
