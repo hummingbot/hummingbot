@@ -96,10 +96,10 @@ class DydxAPITokenConfigurationDataSource():
         """ Returns the buying and selling amounts for unidirectional orders, based on the order
             side, price and amount and returns the padded values.
         """
-        print(price)
+
         padded_amount = self.pad(amount, baseid)
         adjusted_price = price * Decimal(f"1e{self._digits[quoteid] - self._digits[baseid]}")
-        print(adjusted_price)
+
         return {
             "baseTokenId": baseid,
             "quoteTokenId": quoteid,
