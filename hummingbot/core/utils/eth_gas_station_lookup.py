@@ -31,23 +31,7 @@ def get_gas_price(in_gwei: bool = True) -> Decimal:
 
 
 def get_gas_limit(connector_name: str) -> int:
-    gas_limit = None
-    Lookup = EthGasStationLookup.get_instance()
-    if connector_name not in Lookup.gas_limit.keys():
-        gas_limit = request_gas_limit(connector_name)
-    else:
-        if connector_name == "balancer":
-            current_max_swaps = Lookup.balancer_max_swaps
-            global_config_max_swaps = global_config_map["balancer_max_swaps"].value
-            if current_max_swaps == global_config_max_swaps:
-                gas_limit = Lookup.gas_limit[connector_name]
-            else:
-                gas_limit = request_gas_limit(connector_name)
-                # update new max swap & gas limit due to config change
-                Lookup.balancer_max_swaps = global_config_max_swaps
-                Lookup.gas_limit = {connector_name: gas_limit}
-        elif connector_name == "uniswap":
-            gas_limit = Lookup.gas_limit[connector_name]
+    gas_limit = request_gas_limit(connector_name)
     return gas_limit
 
 
@@ -100,7 +84,7 @@ class EthGasStationLookup(NetworkBase):
     def __init__(self):
         super().__init__()
         self._gas_prices: Dict[str, Decimal] = {}
-        self._gas_limit: Dict[str, Decimal] = {}
+        self._gas_limits: Dict[str, Decimal] = {}
         self._balancer_max_swaps: int = global_config_map["balancer_max_swaps"].value
         self._async_task = None
 
@@ -121,13 +105,13 @@ class EthGasStationLookup(NetworkBase):
         return self._gas_prices[self.gas_level]
 
     @property
-    def gas_limit(self):
-        return self._gas_limit
+    def gas_limits(self):
+        return self._gas_limits
 
-    @gas_limit.setter
-    def gas_limit(self, gas_limit: Dict[str, int]):
-        for key, value in gas_limit.items():
-            self._gas_limit[key] = value
+    @gas_limits.setter
+    def gas_limits(self, gas_limits: Dict[str, int]):
+        for key, value in gas_limits.items():
+            self._gas_limits[key] = value
 
     @property
     def balancer_max_swaps(self):
@@ -154,11 +138,11 @@ class EthGasStationLookup(NetworkBase):
                     self.logger().info(f"Gas levels: [{prices_str}]")
                     for name, con_setting in CONNECTOR_SETTINGS.items():
                         if con_setting.use_eth_gas_lookup:
-                            self._gas_limit[name] = get_gas_limit(name)
+                            self._gas_limits[name] = get_gas_limit(name)
                             self.logger().info(f"{name} Gas estimate:"
-                                               f" limit = {self.gas_limit[name]:.0f},"
+                                               f" limit = {self._gas_limits[name]:.0f},"
                                                f" price = {self.gas_level.name},"
-                                               f" estimated cost = {get_gas_price(False) * self._gas_limit[name]:.5f} ETH")
+                                               f" estimated cost = {get_gas_price(False) * self._gas_limits[name]:.5f} ETH")
                     await asyncio.sleep(self.refresh_time)
             except asyncio.CancelledError:
                 raise
