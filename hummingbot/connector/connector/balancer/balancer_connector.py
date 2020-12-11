@@ -47,8 +47,8 @@ class BalancerConnector(ConnectorBase):
     functionality.
     """
     API_CALL_TIMEOUT = 10.0
-    POLL_INTERVAL = 10.0
-    UPDATE_ORDER_STATUS_MIN_INTERVAL = 60.0
+    POLL_INTERVAL = 1.0
+    UPDATE_BALANCE_INTERVAL = 30.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -83,6 +83,7 @@ class BalancerConnector(ConnectorBase):
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
         self._last_poll_timestamp = 0.0
+        self._last_balance_poll_timestamp = time.time()
         self._in_flight_orders = {}
         self._allowances = {}
         self._status_polling_task = None
@@ -331,9 +332,9 @@ class BalancerConnector(ConnectorBase):
             tasks.append(self._api_request("post",
                                            "eth/get-receipt",
                                            {"txHash": order_id}))
-        self.logger().info(f"Polling for order status updates of {len(tasks)} orders.")
         update_results = await safe_gather(*tasks, return_exceptions=True)
         for update_result in update_results:
+            self.logger().info(f"Polling for order status updates of {len(tasks)} orders.")
             if isinstance(update_result, Exception):
                 raise update_result
             if "txHash" not in update_result:
@@ -474,16 +475,16 @@ class BalancerConnector(ConnectorBase):
         """
         Calls Eth API to update total and available balances.
         """
-        last_tick = self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
-        current_tick = self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
-
-        if current_tick > last_tick:
+        last_tick = self._last_balance_poll_timestamp
+        current_tick = self.current_timestamp
+        if (current_tick - last_tick) > self.UPDATE_BALANCE_INTERVAL:
+            self._last_balance_poll_timestamp = current_tick
             local_asset_names = set(self._account_balances.keys())
             remote_asset_names = set()
             resp_json = await self._api_request("post",
                                                 "eth/balances",
                                                 {"tokenAddressList": json.dumps(dict(zip(self._token_addresses.values(), self._token_decimals.values())))})
-            self.logger().info("Update balance ...")
+            self.logger().info("Update balance")
             for token, bal in resp_json["balances"].items():
                 if len(token) > 4:
                     token = self.get_token(token)
