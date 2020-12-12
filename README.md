@@ -43,7 +43,17 @@ OKEx is reportedly being investigated by Chinese authorities and has stopped wit
 | logo | id | name | ver | doc| status |
 |:---:|:---:|:---:|:---:|:---:|:--:|
 | <img src="assets/radar_logo.png" alt="Radar Relay" width="90" height="30" /> | radar_relay | [Radar Relay](https://radarrelay.com/) | 2 | [API](https://developers.radarrelay.com/api/trade-api) | ![unavailable](https://via.placeholder.com/15/f03c15/?text=+) |
-| <img src="assets/loopring_logo.png" alt="Loopring" width="90" /> | loopring | [Loopring](https://loopring.io/) | * | [API](https://docs.loopring.io/en/) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
+| <img src="assets/loopring_logo.png" alt="Loopring" width="90" /> | loopring | [Loopring](https://loopring.io/) | * | [API](https://docs.loopring.io/en/) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+
+
+## Supported protocol exchanges
+| logo | id | name | ver | doc| status |
+|:---:|:---:|:---:|:---:|:---:|:--:|
+| <img src="assets/celo_logo.png" alt="Celo" width="90" /> | celo | [Celo](https://terra.money/) | * | [SDK](https://celo.org/developers) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
+| <img src="assets/balancer.svg" alt="Balancer" width="90" height="30" /> | balancer | [Balancer](https://balancer.finance/) | * | [SDK](https://docs.balancer.finance/api/api) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="assets/terra_logo.png" alt="Terra" width="90" height="30" /> | terra | [Terra](https://terra.money/) | * | [SDK](https://docs.terra.money/) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="assets/uniswap.svg" alt="Uniswap" width="90" height="30" /> | uniswap | [Uniswap](https://uniswap.org/) | * | [SDK](https://uniswap.org/docs/v2/) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+
 
 ## Community contributed exchange connectors
 
