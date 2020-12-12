@@ -16,8 +16,9 @@ connector_status = {
     'kraken': 'yellow',
     'kucoin': 'green',
     'liquid': 'green',
-    'loopring': 'green',
-    'okex': 'red'
+    'loopring': 'yellow',
+    'okex': 'red',
+    'terra': 'yellow'
 }
 
 warning_messages = {
