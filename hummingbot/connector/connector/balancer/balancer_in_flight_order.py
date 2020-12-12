@@ -18,6 +18,7 @@ class BalancerInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
+                 gas_price: Decimal,
                  initial_state: str = "OPEN"):
         super().__init__(
             client_order_id,
@@ -30,6 +31,7 @@ class BalancerInFlightOrder(InFlightOrderBase):
             initial_state,
         )
         self.trade_id_set = set()
+        self._gas_price = gas_price
 
     @property
     def is_done(self) -> bool:
@@ -42,3 +44,11 @@ class BalancerInFlightOrder(InFlightOrderBase):
     @property
     def is_cancelled(self) -> bool:
         return self.last_state in {"CANCELED", "EXPIRED"}
+
+    @property
+    def gas_price(self) -> Decimal:
+        return self._gas_price
+
+    @gas_price.setter
+    def gas_price(self, gas_price) -> Decimal:
+        self._gas_price = gas_price
