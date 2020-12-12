@@ -50,7 +50,7 @@ OKEx is reportedly being investigated by Chinese authorities and has stopped wit
 | logo | id | name | ver | doc| status |
 |:---:|:---:|:---:|:---:|:---:|:--:|
 | <img src="assets/celo_logo.svg" alt="Celo" width="90" /> | celo | [Celo](https://terra.money/) | * | [SDK](https://celo.org/developers) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
-| <img src="assets/balancer_logo.svg" alt="Balancer" width="90" height="30" /> | balancer | [Balancer](https://balancer.finance/) | * | [SDK](https://docs.balancer.finance/api/api) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="assets/balancer_logo.svg" alt="Balancer" width="90" height="30" /> | balancer | [Balancer](https://balancer.finance/) | * | [SDK](https://docs.balancer.finance/) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/terra_logo.png" alt="Terra" width="90" /> | terra | [Terra](https://terra.money/) | * | [SDK](https://docs.terra.money/) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/uniswap_logo.svg" alt="Uniswap" width="90" height="30" /> | uniswap | [Uniswap](https://uniswap.org/) | * | [SDK](https://uniswap.org/docs/v2/) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 
