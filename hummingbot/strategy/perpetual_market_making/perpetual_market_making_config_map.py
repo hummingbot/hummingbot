@@ -138,7 +138,7 @@ perpetual_market_making_config_map = {
     "leverage":
         ConfigVar(key="leverage",
                   prompt="How much leverage do you want to use? "
-                         "(Binance Perpetual supports up to 75X for most pairs)) >>> ",
+                         "(Binance Perpetual supports up to 75X for most pairs) >>> ",
                   type_str="int",
                   validator=lambda v: validate_int(v, min_value=0, inclusive=False),
                   prompt_on_new=True),
