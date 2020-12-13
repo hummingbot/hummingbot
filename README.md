@@ -63,8 +63,8 @@ OKEx is reportedly being investigated by Chinese authorities and has stopped wit
 
 ### Install Hummingbot
 
-- [Quickstart guide](https://docs.hummingbot.io/quickstart/)
-- [All installation options](https://docs.hummingbot.io/installation/)
+- [Quickstart guide](https://hummingbot.io/acamedy/quickstart/)
+- [All installation options](https://docs.hummingbot.io/installation/overview/)
 - [Installation scripts](./installation/)
 
 ### Get support
