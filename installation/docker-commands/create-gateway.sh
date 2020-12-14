@@ -69,13 +69,12 @@ do
   # hummingbot client id
   if [ "$key" == "client_id" ]
   then
-    HUMMINGBOT_CLIENT_ID=$value
+    HUMMINGBOT_CLIENT_ID="$(echo -e "${value}" | tr -d '[:space:]')"
   fi
   # chain
   if [ "$key" == "ethereum_chain_name" ]
   then
-    ETHEREUM_CHAIN=$value
-    # ETHEREUM_CHAIN="$(echo -e "${value}" | tr -d '[:space:]')"
+    ETHEREUM_CHAIN="$(echo -e "${value}" | tr -d '[:space:]')"
     # subgraph url
     if [[ "$ETHEREUM_CHAIN" == "MAIN_NET" || "$ETHEREUM_CHAIN" == "main_net"  || "$ETHEREUM_CHAIN" == "MAINNET"  || "$ETHEREUM_CHAIN" == "mainnet" ]]
     then
@@ -89,7 +88,7 @@ do
   # ethereum rpc url
   if [ "$key" == "ethereum_rpc_url" ]
   then
-    ETHEREUM_RPC_URL=$value
+    ETHEREUM_RPC_URL="$(echo -e "${value}" | tr -d '[:space:]')"
   fi
 done < "$GLOBAL_CONFIG"
 }
