@@ -228,7 +228,7 @@ perpetual_market_making_config_map = {
                   required_if=lambda: perpetual_market_making_config_map.get("position_management").value == "Trailing_stop",
                   type_str="decimal",
                   default=Decimal("0"),
-                  validator=lambda v: validate_decimal(v, 0, 100, False),
+                  validator=lambda v: validate_decimal(v, 0, 100, True),
                   prompt_on_new=True),
     "close_position_order_type":
         ConfigVar(key="close_position_order_type",
