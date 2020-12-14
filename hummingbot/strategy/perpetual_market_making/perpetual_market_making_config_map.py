@@ -224,7 +224,7 @@ perpetual_market_making_config_map = {
                   prompt_on_new=True),
     "ts_callback_rate":
         ConfigVar(key="ts_callback_rate",
-                  prompt="At what spread away from the trailing peak price do you want to positions to remain open before they're closed? (Enter 1 for 1%) >>> ",
+                  prompt="At what spread away from the trailing peak price do you want positions to remain open before they're closed? (Enter 1 for 1%) >>> ",
                   required_if=lambda: perpetual_market_making_config_map.get("position_management").value == "Trailing_stop",
                   type_str="decimal",
                   default=Decimal("0"),
