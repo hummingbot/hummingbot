@@ -7,7 +7,7 @@ from prompt_toolkit.completion import (
 )
 from prompt_toolkit.document import Document
 from os import listdir
-from os.path import isfile, join
+from os.path import isfile, join, exists
 from hummingbot.client.settings import (
     CONNECTOR_SETTINGS,
     EXCHANGES,
@@ -23,6 +23,8 @@ from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
 
 
 def file_name_list(path, file_extension):
+    if not exists(path):
+        return []
     return sorted([f for f in listdir(path) if isfile(join(path, f)) and f.endswith(file_extension)])
 
 

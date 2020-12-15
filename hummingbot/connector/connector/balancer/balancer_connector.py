@@ -7,6 +7,7 @@ import json
 import time
 import ssl
 import copy
+import itertools as it
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.network_iterator import NetworkStatus
@@ -46,7 +47,8 @@ class BalancerConnector(ConnectorBase):
     functionality.
     """
     API_CALL_TIMEOUT = 10.0
-    POLL_INTERVAL = 60.0
+    POLL_INTERVAL = 1.0
+    UPDATE_BALANCE_INTERVAL = 30.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -72,22 +74,38 @@ class BalancerConnector(ConnectorBase):
         tokens = set()
         for trading_pair in trading_pairs:
             tokens.update(set(trading_pair.split("-")))
-        self._token_addresses = get_erc20_token_addresses(tokens)
+        self._erc_20_token_list = self.token_list()
+        self._token_addresses = {t: l[0] for t, l in self._erc_20_token_list.items() if t in tokens}
+        self._token_decimals = {t: l[1] for t, l in self._erc_20_token_list.items() if t in tokens}
         self._wallet_private_key = wallet_private_key
         self._ethereum_rpc_url = ethereum_rpc_url
         self._trading_required = trading_required
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
         self._last_poll_timestamp = 0.0
+        self._last_balance_poll_timestamp = time.time()
         self._in_flight_orders = {}
         self._allowances = {}
         self._status_polling_task = None
         self._auto_approve_task = None
         self._real_time_balance_update = False
+        self._max_swaps = global_config_map['balancer_max_swaps'].value
 
     @property
     def name(self):
         return "balancer"
+
+    @staticmethod
+    def token_list():
+        return get_erc20_token_addresses()
+
+    @staticmethod
+    async def fetch_trading_pairs() -> List[str]:
+        token_list = BalancerConnector.token_list()
+        trading_pairs = []
+        for base, quote in it.permutations(token_list.keys(), 2):
+            trading_pairs.append(f"{base}-{quote}")
+        return trading_pairs
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
@@ -121,7 +139,7 @@ class BalancerConnector(ConnectorBase):
                                        "eth/approve",
                                        {"tokenAddress": self._token_addresses[token_symbol],
                                         "gasPrice": str(get_gas_price()),
-                                        # "decimals": self._token_decimals[token_symbol]  // if not supplied, gateway would treat it eth-like with 18 decimals
+                                        "decimals": self._token_decimals[token_symbol],  # if not supplied, gateway would treat it eth-like with 18 decimals
                                         "connector": self.name})
         amount_approved = Decimal(str(resp["amount"]))
         if amount_approved > 0:
@@ -137,7 +155,7 @@ class BalancerConnector(ConnectorBase):
         """
         ret_val = {}
         resp = await self._api_request("post", "eth/allowances",
-                                       {"tokenAddressList": ",".join(self._token_addresses.values()),
+                                       {"tokenAddressList": json.dumps(dict(zip(self._token_addresses.values(), self._token_decimals.values()))),
                                         "connector": self.name})
         for address, amount in resp["approvals"].items():
             ret_val[self.get_token(address)] = Decimal(str(amount))
@@ -160,7 +178,8 @@ class BalancerConnector(ConnectorBase):
                                            f"balancer/{side}-price",
                                            {"base": self._token_addresses[base],
                                             "quote": self._token_addresses[quote],
-                                            "amount": amount})
+                                            "amount": amount,
+                                            "maxSwaps": self._max_swaps})
             if resp["price"] is not None:
                 return Decimal(str(resp["price"]))
         except asyncio.CancelledError:
@@ -237,55 +256,27 @@ class BalancerConnector(ConnectorBase):
                       "quote": self._token_addresses[quote],
                       "amount": str(amount),
                       "maxPrice": str(price),
+                      "maxSwaps": str(self._max_swaps),
                       "gasPrice": str(gas_price),
                       }
-        self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount)
+        self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, gas_price)
         try:
             order_result = await self._api_request("post", f"balancer/{trade_type.name.lower()}", api_params)
-            hash = order_result["txHash"]
-            status = order_result["status"]
+            hash = order_result.get("txHash")
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {trade_type.name} order {order_id} txHash: {hash} "
                                    f"for {amount} {trading_pair}.")
-                tracked_order.exchange_order_id = hash
-            if int(status) == 1:
+                tracked_order.update_exchange_order_id(hash)
+                tracked_order.gas_price = gas_price
+            if hash is not None:
                 tracked_order.fee_asset = "ETH"
                 tracked_order.executed_amount_base = amount
                 tracked_order.executed_amount_quote = amount * price
-                tracked_order.fee_paid = Decimal(str(order_result["gasUsed"])) * gas_price / Decimal(str(1e9))
                 event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
                 event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
                 self.trigger_event(event_tag, event_class(self.current_timestamp, OrderType.LIMIT, trading_pair, amount,
                                                           price, order_id, hash))
-                self.trigger_event(MarketEvent.OrderFilled,
-                                   OrderFilledEvent(
-                                       self.current_timestamp,
-                                       tracked_order.client_order_id,
-                                       tracked_order.trading_pair,
-                                       tracked_order.trade_type,
-                                       tracked_order.order_type,
-                                       price,
-                                       amount,
-                                       TradeFee(0.0, [("ETH", tracked_order.fee_paid)]),
-                                       hash
-                                   ))
-
-                event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY \
-                    else MarketEvent.SellOrderCompleted
-                event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY \
-                    else SellOrderCompletedEvent
-                self.trigger_event(event_tag,
-                                   event_class(self.current_timestamp,
-                                               tracked_order.client_order_id,
-                                               tracked_order.base_asset,
-                                               tracked_order.quote_asset,
-                                               tracked_order.fee_asset,
-                                               tracked_order.executed_amount_base,
-                                               tracked_order.executed_amount_quote,
-                                               tracked_order.fee_paid,
-                                               tracked_order.order_type))
-                self.stop_tracking_order(tracked_order.client_order_id)
             else:
                 self.trigger_event(MarketEvent.OrderFailure,
                                    MarketOrderFailureEvent(self.current_timestamp, order_id, OrderType.LIMIT))
@@ -309,7 +300,8 @@ class BalancerConnector(ConnectorBase):
                              trading_pair: str,
                              trade_type: TradeType,
                              price: Decimal,
-                             amount: Decimal):
+                             amount: Decimal,
+                             gas_price: Decimal):
         """
         Starts tracking an order by simply adding it into _in_flight_orders dictionary.
         """
@@ -320,7 +312,8 @@ class BalancerConnector(ConnectorBase):
             order_type=OrderType.LIMIT,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            gas_price=gas_price
         )
 
     def stop_tracking_order(self, order_id: str):
@@ -329,6 +322,76 @@ class BalancerConnector(ConnectorBase):
         """
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
+
+    async def _update_order_status(self):
+        """
+        Calls REST API to get status update for each in-flight order.
+        """
+        if len(self._in_flight_orders) > 0:
+            tracked_orders = list(self._in_flight_orders.values())
+
+            tasks = []
+            for tracked_order in tracked_orders:
+                order_id = await tracked_order.get_exchange_order_id()
+                tasks.append(self._api_request("post",
+                                               "eth/get-receipt",
+                                               {"txHash": order_id}))
+            update_results = await safe_gather(*tasks, return_exceptions=True)
+            for update_result in update_results:
+                self.logger().info(f"Polling for order status updates of {len(tasks)} orders.")
+                if isinstance(update_result, Exception):
+                    raise update_result
+                if "txHash" not in update_result:
+                    self.logger().info(f"_update_order_status txHash not in resp: {update_result}")
+                    continue
+                if update_result["confirmed"] is True:
+                    if update_result["receipt"]["status"] == 1:
+                        gas_used = update_result["receipt"]["gasUsed"]
+                        gas_price = tracked_order.gas_price
+                        fee = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
+                        self.trigger_event(
+                            MarketEvent.OrderFilled,
+                            OrderFilledEvent(
+                                self.current_timestamp,
+                                tracked_order.client_order_id,
+                                tracked_order.trading_pair,
+                                tracked_order.trade_type,
+                                tracked_order.order_type,
+                                Decimal(str(tracked_order.price)),
+                                Decimal(str(tracked_order.amount)),
+                                TradeFee(0.0, [(tracked_order.fee_asset, Decimal(str(fee)))]),
+                                exchange_trade_id=order_id
+                            )
+                        )
+                        tracked_order.last_state = "FILLED"
+                        self.logger().info(f"The {tracked_order.trade_type.name} order "
+                                           f"{tracked_order.client_order_id} has completed "
+                                           f"according to order status API.")
+                        event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY \
+                            else MarketEvent.SellOrderCompleted
+                        event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY \
+                            else SellOrderCompletedEvent
+                        self.trigger_event(event_tag,
+                                           event_class(self.current_timestamp,
+                                                       tracked_order.client_order_id,
+                                                       tracked_order.base_asset,
+                                                       tracked_order.quote_asset,
+                                                       tracked_order.fee_asset,
+                                                       tracked_order.executed_amount_base,
+                                                       tracked_order.executed_amount_quote,
+                                                       float(fee),
+                                                       tracked_order.order_type))
+                        self.stop_tracking_order(tracked_order.client_order_id)
+                    else:
+                        self.logger().info(
+                            f"The market order {tracked_order.client_order_id} has failed according to order status API. ")
+                        self.trigger_event(MarketEvent.OrderFailure,
+                                           MarketOrderFailureEvent(
+                                               self.current_timestamp,
+                                               tracked_order.client_order_id,
+                                               tracked_order.order_type
+                                           ))
+                        self.stop_tracking_order(tracked_order.client_order_id)
 
     def get_taker_order_type(self):
         return OrderType.LIMIT
@@ -397,6 +460,7 @@ class BalancerConnector(ConnectorBase):
                 await self._poll_notifier.wait()
                 await safe_gather(
                     self._update_balances(),
+                    self._update_order_status(),
                 )
                 self._last_poll_timestamp = self.current_timestamp
             except asyncio.CancelledError:
@@ -415,25 +479,29 @@ class BalancerConnector(ConnectorBase):
         """
         Calls Eth API to update total and available balances.
         """
-        local_asset_names = set(self._account_balances.keys())
-        remote_asset_names = set()
-        resp_json = await self._api_request("post",
-                                            "eth/balances",
-                                            {"tokenAddressList": ",".join(self._token_addresses.values())})
-        for token, bal in resp_json["balances"].items():
-            if len(token) > 4:
-                token = self.get_token(token)
-            self._account_available_balances[token] = Decimal(str(bal))
-            self._account_balances[token] = Decimal(str(bal))
-            remote_asset_names.add(token)
+        last_tick = self._last_balance_poll_timestamp
+        current_tick = self.current_timestamp
+        if (current_tick - last_tick) > self.UPDATE_BALANCE_INTERVAL:
+            self._last_balance_poll_timestamp = current_tick
+            local_asset_names = set(self._account_balances.keys())
+            remote_asset_names = set()
+            resp_json = await self._api_request("post",
+                                                "eth/balances",
+                                                {"tokenAddressList": json.dumps(dict(zip(self._token_addresses.values(), self._token_decimals.values())))})
+            for token, bal in resp_json["balances"].items():
+                if len(token) > 4:
+                    token = self.get_token(token)
+                self._account_available_balances[token] = Decimal(str(bal))
+                self._account_balances[token] = Decimal(str(bal))
+                remote_asset_names.add(token)
 
-        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-        for asset_name in asset_names_to_remove:
-            del self._account_available_balances[asset_name]
-            del self._account_balances[asset_name]
+            asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+            for asset_name in asset_names_to_remove:
+                del self._account_available_balances[asset_name]
+                del self._account_balances[asset_name]
 
-        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
-        self._in_flight_orders_snapshot_timestamp = self.current_timestamp
+            self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
+            self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
     async def _http_client(self) -> aiohttp.ClientSession:
         """

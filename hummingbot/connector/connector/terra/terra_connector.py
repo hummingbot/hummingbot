@@ -28,7 +28,7 @@ from hummingbot.core.event.events import (
     TradeFee
 )
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.connector.connector.balancer.balancer_in_flight_order import BalancerInFlightOrder
+from hummingbot.connector.connector.terra.terra_in_flight_order import TerraInFlightOrder
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.client.config.global_config_map import global_config_map
 
@@ -40,7 +40,7 @@ logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 class TerraConnector(ConnectorBase):
     """
-    BalancerConnector connects with balancer gateway APIs and provides pricing, user account tracking and trading
+    TerraInFlightOrder connects with terra gateway APIs and provides pricing, user account tracking and trading
     functionality.
     """
     API_CALL_TIMEOUT = 10.0
@@ -78,6 +78,12 @@ class TerraConnector(ConnectorBase):
     @property
     def name(self):
         return "terra"
+
+    @staticmethod
+    async def fetch_trading_pairs() -> List[str]:
+        return ["LUNA-UST", "LUNA-KRT", "LUNA-SDT", "LUNA-MNT",
+                "UST-KRT", "UST-SDT", "UST-MNT",
+                "KRT-SDT", "KRT-MNT", "SDT-MNT"]
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
@@ -257,7 +263,7 @@ class TerraConnector(ConnectorBase):
         """
         Starts tracking an order by simply adding it into _in_flight_orders dictionary.
         """
-        self._in_flight_orders[order_id] = BalancerInFlightOrder(
+        self._in_flight_orders[order_id] = TerraInFlightOrder(
             client_order_id=order_id,
             exchange_order_id=exchange_order_id,
             trading_pair=trading_pair,
@@ -412,5 +418,5 @@ class TerraConnector(ConnectorBase):
         return []
 
     @property
-    def in_flight_orders(self) -> Dict[str, BalancerInFlightOrder]:
+    def in_flight_orders(self) -> Dict[str, TerraInFlightOrder]:
         return self._in_flight_orders
