@@ -551,6 +551,23 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("97.5001"), strategy.active_buys[0].price)
         self.assertEqual(Decimal("102.499"), strategy.active_sells[0].price)
 
+    def test_order_optimization_with_multiple_order_levels(self):
+        # Widening the order book, top bid is now 97.5 and top ask 102.5
+        simulate_order_book_widening(self.book_data.order_book, 98, 102)
+        strategy = self.multi_levels_strategy
+        strategy.order_optimization_enabled = True
+        strategy.order_level_spread = Decimal("0.025")
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(3, len(strategy.active_buys))
+        self.assertEqual(3, len(strategy.active_sells))
+        self.assertEqual(Decimal("97.5001"), strategy.active_buys[0].price)
+        self.assertEqual(Decimal("102.499"), strategy.active_sells[0].price)
+        self.assertEqual(strategy.active_buys[1].price / strategy.active_buys[0].price, Decimal("0.975"))
+        self.assertEqual(strategy.active_buys[2].price / strategy.active_buys[0].price, Decimal("0.95"))
+        self.assertEqual(strategy.active_sells[1].price / strategy.active_sells[0].price, Decimal("1.025"))
+        self.assertEqual(strategy.active_sells[2].price / strategy.active_sells[0].price, Decimal("1.05"))
+
     def test_hanging_orders(self):
         strategy = self.one_level_strategy
         strategy.order_refresh_time = 4.0

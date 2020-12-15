@@ -859,17 +859,21 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             object own_buy_size = s_decimal_zero
             object own_sell_size = s_decimal_zero
 
-        # If there are multiple orders, do not jump prices
-        if self._order_levels > 1:
-            return
-
         for order in self.active_orders:
             if order.is_buy:
                 own_buy_size = order.quantity
             else:
                 own_sell_size = order.quantity
 
-        if len(proposal.buys) == 1:
+        self.logger().info("##############PRE-OPTIMIZATION ORDERS##############")
+        self.logger().info("####################BUY ORDERS####################")
+        for x in proposal.buys:
+            self.logger().info("{0}".format(x.price))
+        self.logger().info("####################SELL ORDERS####################")
+        for x in proposal.sells:
+            self.logger().info("{0}".format(x.price))
+
+        if len(proposal.buys) > 0:
             # Get the top bid price in the market using order_optimization_depth and your buy order volume
             top_bid_price = self._market_info.get_price_for_volume(
                 False, self._bid_order_optimization_depth + own_buy_size).result_price
@@ -880,12 +884,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             # Get the price above the top bid
             price_above_bid = (ceil(top_bid_price / price_quantum) + 1) * price_quantum
 
-            # If the price_above_bid is lower than the price suggested by the pricing proposal,
-            # lower your price to this
+            # If the price_above_bid is lower than the price suggested by the top pricing proposal,
+            # lower the price and from there apply the order_level_spread to each order in the next levels
+            proposal.buys = sorted(proposal.buys, key = lambda p: p.price, reverse = True)
             lower_buy_price = min(proposal.buys[0].price, price_above_bid)
-            proposal.buys[0].price = market.c_quantize_order_price(self.trading_pair, lower_buy_price)
+            for i, proposed in enumerate(proposal.buys):
+                proposal.buys[i].price = market.c_quantize_order_price(self.trading_pair, lower_buy_price) * (1 - self.order_level_spread * i)
 
-        if len(proposal.sells) == 1:
+        if len(proposal.sells) > 0:
             # Get the top ask price in the market using order_optimization_depth and your sell order volume
             top_ask_price = self._market_info.get_price_for_volume(
                 True, self._ask_order_optimization_depth + own_sell_size).result_price
@@ -897,9 +903,19 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             price_below_ask = (floor(top_ask_price / price_quantum) - 1) * price_quantum
 
             # If the price_below_ask is higher than the price suggested by the pricing proposal,
-            # increase your price to this
+            # increase your price and from there apply the order_level_spread to each order in the next levels
+            proposal.sells = sorted(proposal.sells, key = lambda p: p.price)
             higher_sell_price = max(proposal.sells[0].price, price_below_ask)
-            proposal.sells[0].price = market.c_quantize_order_price(self.trading_pair, higher_sell_price)
+            for i, proposed in enumerate(proposal.sells):
+                proposal.sells[i].price = market.c_quantize_order_price(self.trading_pair, higher_sell_price) * (1 + self.order_level_spread * i)
+
+        self.logger().info("##############POST-OPTIMIZATION ORDERS##############")
+        self.logger().info("####################BUY ORDERS####################")
+        for x in proposal.buys:
+            self.logger().info("{0}".format(x.price))
+        self.logger().info("####################SELL ORDERS####################")
+        for x in proposal.sells:
+            self.logger().info("{0}".format(x.price))
 
     cdef object c_apply_add_transaction_costs(self, object proposal):
         cdef:
