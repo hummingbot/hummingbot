@@ -459,7 +459,7 @@ class BalancerConnector(ConnectorBase):
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
                 await safe_gather(
-                    self._update_balances(),
+                    self._update_balances(on_interval = True),
                     self._update_order_status(),
                 )
                 self._last_poll_timestamp = self.current_timestamp
@@ -475,13 +475,14 @@ class BalancerConnector(ConnectorBase):
     def get_token(self, token_address: str) -> str:
         return [k for k, v in self._token_addresses.items() if v == token_address][0]
 
-    async def _update_balances(self):
+    async def _update_balances(self, on_interval = False):
         """
         Calls Eth API to update total and available balances.
         """
         last_tick = self._last_balance_poll_timestamp
         current_tick = self.current_timestamp
-        if (current_tick - last_tick) > self.UPDATE_BALANCE_INTERVAL:
+        if not on_interval or (current_tick - last_tick) > self.UPDATE_BALANCE_INTERVAL:
+            self.logger().info("Update wallet balance")
             self._last_balance_poll_timestamp = current_tick
             local_asset_names = set(self._account_balances.keys())
             remote_asset_names = set()
