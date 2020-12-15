@@ -71,6 +71,11 @@ class OrderType(Enum):
         return self in (OrderType.LIMIT, OrderType.LIMIT_MAKER)
 
 
+class PositionAction(Enum):
+    OPEN = "OPEN"
+    CLOSE = "CLOSE"
+
+
 # For Derivatives Exchanges
 class PositionSide(Enum):
     LONG = "LONG"

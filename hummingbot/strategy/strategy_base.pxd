@@ -36,10 +36,10 @@ cdef class StrategyBase(TimeIterator):
     cdef c_did_complete_buy_order_tracker(self, object order_completed_event)
     cdef c_did_complete_sell_order_tracker(self, object order_completed_event)
 
-    cdef str c_buy_with_specific_market(self, object market_trading_pair_tuple, object amount,
-                                        object order_type = *, object price = *, double expiration_seconds = *)
-    cdef str c_sell_with_specific_market(self, object market_trading_pair_tuple, object amount,
-                                         object order_type = *, object price = *, double expiration_seconds = *)
+    cdef str c_buy_with_specific_market(self, object market_trading_pair_tuple, object amount, object order_type = *,
+                                        object price = *, double expiration_seconds = *, position_action = *)
+    cdef str c_sell_with_specific_market(self, object market_trading_pair_tuple, object amount, object order_type = *,
+                                         object price = *, double expiration_seconds = *, position_action = *, )
     cdef c_cancel_order(self, object market_pair, str order_id)
 
     cdef c_start_tracking_limit_order(self, object market_pair, str order_id, bint is_buy, object price,
