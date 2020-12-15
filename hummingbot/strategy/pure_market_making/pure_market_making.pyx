@@ -865,14 +865,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             else:
                 own_sell_size = order.quantity
 
-        self.logger().info("##############PRE-OPTIMIZATION ORDERS##############")
-        self.logger().info("####################BUY ORDERS####################")
-        for x in proposal.buys:
-            self.logger().info("{0}".format(x.price))
-        self.logger().info("####################SELL ORDERS####################")
-        for x in proposal.sells:
-            self.logger().info("{0}".format(x.price))
-
         if len(proposal.buys) > 0:
             # Get the top bid price in the market using order_optimization_depth and your buy order volume
             top_bid_price = self._market_info.get_price_for_volume(
@@ -908,14 +900,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             higher_sell_price = max(proposal.sells[0].price, price_below_ask)
             for i, proposed in enumerate(proposal.sells):
                 proposal.sells[i].price = market.c_quantize_order_price(self.trading_pair, higher_sell_price) * (1 + self.order_level_spread * i)
-
-        self.logger().info("##############POST-OPTIMIZATION ORDERS##############")
-        self.logger().info("####################BUY ORDERS####################")
-        for x in proposal.buys:
-            self.logger().info("{0}".format(x.price))
-        self.logger().info("####################SELL ORDERS####################")
-        for x in proposal.sells:
-            self.logger().info("{0}".format(x.price))
 
     cdef object c_apply_add_transaction_costs(self, object proposal):
         cdef:
