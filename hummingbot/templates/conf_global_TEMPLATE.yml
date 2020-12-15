@@ -28,6 +28,9 @@ coinbase_pro_api_key: null
 coinbase_pro_secret_key: null
 coinbase_pro_passphrase: null
 
+dydx_eth_private_key: null
+dydx_node_address: null
+
 huobi_api_key: null
 huobi_secret_key: null
 
