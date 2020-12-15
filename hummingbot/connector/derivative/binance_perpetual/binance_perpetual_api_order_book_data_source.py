@@ -106,11 +106,14 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         raw_trading_pairs = [d["symbol"] for d in data["symbols"] if d["status"] == "TRADING"]
                         trading_pair_list: List[str] = []
                         for raw_trading_pair in raw_trading_pairs:
-                            trading_pair = convert_from_exchange_trading_pair(raw_trading_pair)
-                            if trading_pair is not None:
-                                trading_pair_list.append(trading_pair)
-                            else:
-                                continue
+                            try:
+                                trading_pair = convert_from_exchange_trading_pair(raw_trading_pair)
+                                if trading_pair is not None:
+                                    trading_pair_list.append(trading_pair)
+                                else:
+                                    continue
+                            except Exception:
+                                pass
                         return trading_pair_list
         except Exception:
             pass
