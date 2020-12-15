@@ -80,9 +80,11 @@ do
     then
       ETHEREUM_CHAIN="mainnet"
       REACT_APP_SUBGRAPH_URL="https://api.thegraph.com/subgraphs/name/balancer-labs/balancer"
+      EXCHANGE_PROXY="0x3E66B66Fd1d0b02fDa6C811Da9E0547970DB2f21"
     else
       ETHEREUM_CHAIN="kovan"
       REACT_APP_SUBGRAPH_URL="https://api.thegraph.com/subgraphs/name/balancer-labs/balancer-kovan"
+      EXCHANGE_PROXY="0x4e67bf5bD28Dd4b570FBAFe11D0633eCbA2754Ec"
     fi
   fi
   # ethereum rpc url
@@ -188,6 +190,10 @@ printf "%30s %5s\n" "Version:" "coinalpha/gateway-api:$GATEWAY_TAG"
 echo
 printf "%30s %5s\n" "Hummingbot Client ID:" "$HUMMINGBOT_CLIENT_ID"
 printf "%30s %5s\n" "Ethereum Chain:" "$ETHEREUM_CHAIN"
+printf "%30s %5s\n" "Ethereum RPC URL:" "$ETHEREUM_RPC_URL"
+printf "%30s %5s\n" "Balancer Subgraph:" "$REACT_APP_SUBGRAPH_URL"
+printf "%30s %5s\n" "Balancer Exchange Proxy:" "$EXCHANGE_PROXY"
+printf "%30s %5s\n" "Uniswap Router:" "$UNISWAP_ROUTER"
 printf "%30s %5s\n" "Terra Chain:" "$TERRA"
 printf "%30s %5s\n" "Gateway Cert Path:" "$CERT_PATH"
 printf "%30s %5s\n" "Gateway Port:" "$PORT"
@@ -205,6 +211,7 @@ echo "HUMMINGBOT_CLIENT_ID=$HUMMINGBOT_CLIENT_ID" >> $ENV_FILE
 echo "ETHEREUM_CHAIN=$ETHEREUM_CHAIN" >> $ENV_FILE
 echo "ETHEREUM_RPC_URL=$ETHEREUM_RPC_URL" >> $ENV_FILE
 echo "REACT_APP_SUBGRAPH_URL=$REACT_APP_SUBGRAPH_URL" >> $ENV_FILE # must used "REACT_APP_SUBGRAPH_URL" for balancer-sor
+echo "EXCHANGE_PROXY=$EXCHANGE_PROXY" >> $ENV_FILE
 echo "UNISWAP_ROUTER=$UNISWAP_ROUTER" >> $ENV_FILE
 echo "TERRA_LCD_URL=$TERRA_LCD_URL" >> $ENV_FILE
 echo "TERRA_CHAIN=$TERRA_CHAIN" >> $ENV_FILE
