@@ -90,8 +90,9 @@ class HistoryCommand:
             paper_balances = global_config_map["paper_trade_account_balance"].value
             return {token: Decimal(str(bal)) for token, bal in paper_balances.items()}
         else:
-            gateway_connectors = [cs.name for cs in CONNECTOR_SETTINGS.values() if cs.type == ConnectorType.Connector]
-            if market in gateway_connectors:
+            gateway_eth_connectors = [cs.name for cs in CONNECTOR_SETTINGS.values() if cs.use_ethereum_wallet and
+                                      cs.type == ConnectorType.Connector]
+            if market in gateway_eth_connectors:
                 return await UserBalances.instance().eth_n_erc20_balances()
             else:
                 await UserBalances.instance().update_exchange_balance(market)
