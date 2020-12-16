@@ -10,6 +10,7 @@ connector_status = {
     'celo': 'green',
     'coinbase_pro': 'green',
     'crypto_com': 'yellow',
+    'dydx': 'yellow',
     'eterbase': 'red',
     'ethereum': 'red',
     'huobi': 'green',
