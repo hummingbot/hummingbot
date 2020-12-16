@@ -65,12 +65,12 @@ OKEx is reportedly being investigated by Chinese authorities and has stopped wit
 
 - [Website](https://hummingbot.io)
 - [Documentation](https://docs.hummingbot.io)
-- [FAQs](https://docs.hummingbot.io/faq/)
+- [FAQs](https://docs.hummingbot.io/resources/faq/)
 
 ### Install Hummingbot
 
-- [Quickstart guide](https://docs.hummingbot.io/quickstart/)
-- [All installation options](https://docs.hummingbot.io/installation/)
+- [Quickstart guide](https://hummingbot.io/academy/quickstart/)
+- [All installation options](https://docs.hummingbot.io/installation/overview/)
 - [Installation scripts](./installation/)
 
 ### Get support
