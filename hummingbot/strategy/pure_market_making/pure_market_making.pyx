@@ -69,6 +69,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                  order_level_spread: Decimal = s_decimal_zero,
                  order_level_amount: Decimal = s_decimal_zero,
                  order_refresh_time: float = 30.0,
+                 max_order_age = 1800.0,
                  order_refresh_tolerance_pct: Decimal = s_decimal_neg_one,
                  filled_order_delay: float = 60.0,
                  inventory_skew_enabled: bool = False,
@@ -109,6 +110,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._order_level_spread = order_level_spread
         self._order_level_amount = order_level_amount
         self._order_refresh_time = order_refresh_time
+        self._max_order_age = max_order_age
         self._order_refresh_tolerance_pct = order_refresh_tolerance_pct
         self._filled_order_delay = filled_order_delay
         self._inventory_skew_enabled = inventory_skew_enabled
@@ -660,6 +662,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             self.c_cancel_active_orders(proposal)
             self.c_cancel_hanging_orders()
             self.c_cancel_orders_below_min_spread()
+            refresh_proposal = self.c_aged_order_refresh()
+            # Firstly restore cancelled aged order
+            if self.c_to_create_orders(refresh_proposal):
+                self.c_execute_orders_proposal(refresh_proposal)
             if self.c_to_create_orders(proposal):
                 self.c_execute_orders_proposal(proposal)
         finally:
@@ -1109,6 +1115,27 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                                    f"ID - {order.client_order_id}")
                 self.c_cancel_order(self._market_info, order.client_order_id)
 
+    # Refresh all active order that are older that the _max_order_age
+    cdef c_aged_order_refresh(self):
+        cdef:
+            list active_orders = self.active_orders
+            list buys = []
+            list sells = []
+
+        for order in active_orders:
+            age = 0 if "//" in order.client_order_id else \
+                pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:])/1e6,
+                             unit='s').strftime('%H:%M:%S')
+            if age > self._max_order_age:
+                if order.is_buy:
+                    buys.append(PriceSize(order.price, order.quantity))
+                else:
+                    sells.append(PriceSize(order.price, order.quantity))
+                if order.client_order_id in self._hanging_order_ids:
+                    self._hanging_aged_order_prices.append(order.price)
+                self.c_cancel_order(self._market_info, order.client_order_id)
+        return Proposal(buys, sells)
+
     cdef bint c_to_create_orders(self, object proposal):
         return self._create_timestamp < self._current_timestamp and \
             proposal is not None and \
@@ -1141,6 +1168,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     price=buy.price,
                     expiration_seconds=expiration_seconds
                 )
+                if buy.price in self._hanging_aged_order_prices:
+                    self._hanging_order_ids.append(bid_order_id)
+                    self._hanging_aged_order_prices.remove(buy.price)
                 orders_created = True
         if len(proposal.sells) > 0:
             if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
@@ -1159,6 +1189,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     price=sell.price,
                     expiration_seconds=expiration_seconds
                 )
+                if sell.price in self._hanging_aged_order_prices:
+                    self._hanging_order_ids.append(ask_order_id)
+                    self._hanging_aged_order_prices.remove(sell.price)
                 orders_created = True
         if orders_created:
             self.set_timers()
