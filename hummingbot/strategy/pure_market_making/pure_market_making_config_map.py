@@ -150,6 +150,14 @@ pure_market_making_config_map = {
                   type_str="float",
                   validator=lambda v: validate_decimal(v, 0, inclusive=False),
                   prompt_on_new=True),
+    "max_order_age":
+        ConfigVar(key="max_order_age",
+                  prompt="How long do you want to cancel and replace bids and asks "
+                         " with thesame price(in seconds)? >>> ",
+                  required_if=lambda: not (using_exchange("radar_relay")() or
+                                           (using_exchange("bamboo_relay")() and not using_bamboo_coordinator_mode())),
+                  type_str="float",
+                  validator=lambda v: validate_decimal(v, 0, inclusive=False)),
     "order_refresh_tolerance_pct":
         ConfigVar(key="order_refresh_tolerance_pct",
                   prompt="Enter the percent change in price needed to refresh orders at each cycle "
