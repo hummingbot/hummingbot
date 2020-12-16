@@ -157,6 +157,7 @@ pure_market_making_config_map = {
                   required_if=lambda: not (using_exchange("radar_relay")() or
                                            (using_exchange("bamboo_relay")() and not using_bamboo_coordinator_mode())),
                   type_str="float",
+                  default=Decimal("1800"),
                   validator=lambda v: validate_decimal(v, 0, inclusive=False)),
     "order_refresh_tolerance_pct":
         ConfigVar(key="order_refresh_tolerance_pct",
