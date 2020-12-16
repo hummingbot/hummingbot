@@ -36,14 +36,17 @@ OKEx is reportedly being investigated by Chinese authorities and has stopped wit
 | <img src="assets/cryptocom_logo.png" alt="Crypto.com" width="90" /> | crypto_com | [Crypto.com](https://crypto.com/exchange) | 2 | [API](https://exchange-docs.crypto.com/#introduction) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/bitfinex_logo.png" alt="Bitfinex" width="90" /> | bitfinex | [Bitfinex](https://www.bitfinex.com/) | 2 | [API](https://docs.bitfinex.com/docs/introduction) | ![GREEN](https://via.placeholder.com/15/008000/?text=+)  |
 | <img src="assets/okex_logo.png" alt="OKEx" width="90" /> | okex | [OKEx](https://www.okex.com/) | 2 | [API](https://www.okex.com/docs/en/) | ![RED](https://via.placeholder.com/15/f03c15/?text=+) |
+| <img src="assets/dydx_logo.png" alt="DyDx" width="90" /> | dy/dx | [dy/dx](https://dydx.exchange/) | 1 | [API](https://docs.dydx.exchange/) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 
 
 ## Supported decentralized exchanges
 
-| logo | id | name | ver | doc| status |
-|:---:|:---:|:---:|:---:|:---:|:--:|
-| <img src="assets/radar_logo.png" alt="Radar Relay" width="90" height="30" /> | radar_relay | [Radar Relay](https://radarrelay.com/) | 2 | [API](https://developers.radarrelay.com/api/trade-api) | ![unavailable](https://via.placeholder.com/15/f03c15/?text=+) |
-| <img src="assets/loopring_logo.png" alt="Loopring" width="90" /> | loopring | [Loopring](https://loopring.io/) | * | [API](https://docs.loopring.io/en/) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| logo | id | name | ver | doc| maintainer | status |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| <img src="https://i.ibb.co/1sPt940/Screen-Shot-2019-06-06-at-17-50-04.png" alt="Bamboo Relay" width="90" /> | bamboo_relay | [Bamboo Relay](https://bamboorelay.com/) | 3 | [API](https://sra.bamboorelay.com/) | [dex@bamboorelay.com](mailto:dex@bamboorelay.com) | ![RED](https://via.placeholder.com/15/f03c15/?text=+) |
+|<img src="assets/dolomite_logo.png" alt="Dolomite" width="90" />| dolomite | [Dolomite](https://dolomite.io/) | 1 | [API](https://docs.dolomite.io/) | [corey@dolomite.io](mailto:corey@dolomite.io) | ![RED](https://via.placeholder.com/15/f03c15/?text=+) |
+| <img src="assets/radar_logo.png" alt="Radar Relay" width="90" height="30" /> | radar_relay | [Radar Relay](https://radarrelay.com/) | 2 | [API](https://developers.radarrelay.com/api/trade-api) | | ![unavailable](https://via.placeholder.com/15/f03c15/?text=+) |
+| <img src="assets/loopring_logo.png" alt="Loopring" width="90" /> | loopring | [Loopring](https://loopring.io/) | * | [API](https://docs.loopring.io/en/) | | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 
 
 ## Supported protocol exchanges
@@ -54,13 +57,6 @@ OKEx is reportedly being investigated by Chinese authorities and has stopped wit
 | <img src="assets/terra_logo.png" alt="Terra" width="90" /> | terra | [Terra](https://terra.money/) | * | [SDK](https://docs.terra.money/) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/uniswap_logo.svg" alt="Uniswap" width="90" height="30" /> | uniswap | [Uniswap](https://uniswap.org/) | * | [SDK](https://uniswap.org/docs/v2/) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 
-
-## Community contributed exchange connectors
-
-| logo | id | name | ver | doc| maintainer | status |
-|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| <img src="https://i.ibb.co/1sPt940/Screen-Shot-2019-06-06-at-17-50-04.png" alt="Bamboo Relay" width="90" /> | bamboo_relay | [Bamboo Relay](https://bamboorelay.com/) | 3 | [API](https://sra.bamboorelay.com/) | [dex@bamboorelay.com](mailto:dex@bamboorelay.com) | ![RED](https://via.placeholder.com/15/f03c15/?text=+) |
-|<img src="assets/dolomite_logo.png" alt="Dolomite" width="90" />| dolomite | [Dolomite](https://dolomite.io/) | 1 | [API](https://docs.dolomite.io/) | [corey@dolomite.io](mailto:corey@dolomite.io) | ![RED](https://via.placeholder.com/15/f03c15/?text=+) |
 
 
 ## Getting Started
