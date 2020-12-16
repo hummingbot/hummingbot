@@ -134,6 +134,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         self._cancel_timestamp = 0
         self._create_timestamp = 0
+        self._hanging_aged_order_prices = []
         self._limit_order_type = self._market_info.market.get_maker_order_type()
         if take_if_crossed:
             self._limit_order_type = OrderType.LIMIT
@@ -664,7 +665,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             self.c_cancel_orders_below_min_spread()
             refresh_proposal = self.c_aged_order_refresh()
             # Firstly restore cancelled aged order
-            if self.c_to_create_orders(refresh_proposal):
+            if refresh_proposal is not None:
                 self.c_execute_orders_proposal(refresh_proposal)
             if self.c_to_create_orders(proposal):
                 self.c_execute_orders_proposal(proposal)
@@ -1124,15 +1125,24 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         for order in active_orders:
             age = 0 if "//" in order.client_order_id else \
-                pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:])/1e6,
-                             unit='s').strftime('%H:%M:%S')
-            if age > self._max_order_age:
+                int(int(time.time()) - int(order.client_order_id[-16:])/1e6)
+
+            # To prevent duplicating orders due to delay in receiving cancel response
+            refresh_check = [o for o in active_orders if o.price == order.price
+                             and o.quantity == order.quantity]
+            if len(refresh_check) > 1:
+                continue
+
+            if age >= self._max_order_age:
                 if order.is_buy:
                     buys.append(PriceSize(order.price, order.quantity))
                 else:
                     sells.append(PriceSize(order.price, order.quantity))
                 if order.client_order_id in self._hanging_order_ids:
                     self._hanging_aged_order_prices.append(order.price)
+                self.logger().info(f"Refreshing {'Buy' if order.is_buy else 'Sell'} order with ID - "
+                                   f"{order.client_order_id} because it reached maximum order age of "
+                                   f"{self._max_order_age} seconds.")
                 self.c_cancel_order(self._market_info, order.client_order_id)
         return Proposal(buys, sells)
 
