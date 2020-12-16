@@ -71,6 +71,12 @@ class ArbProposal:
         else:
             sell_fee_amount = sell_trade_fee.fee_amount_in_quote(sell.market_info.trading_pair, sell.quote_price,
                                                                  sell.amount)
+
+        # buy_fee_amount = buy_trade_fee.fee_amount_in_quote(buy.market_info.trading_pair,
+        #                                                    buy.quote_price, buy.amount)
+        # sell_fee_amount = sell_trade_fee.fee_amount_in_quote(sell.market_info.trading_pair, sell.quote_price,
+        #                                                      sell.amount)
+
         sell_gained_net = (sell.amount * sell.quote_price) - sell_fee_amount
         buy_spent_net = (buy.amount * buy.quote_price) + buy_fee_amount
         return (sell_gained_net - buy_spent_net) / buy_spent_net if buy_spent_net != s_decimal_0 else s_decimal_nan
