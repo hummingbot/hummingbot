@@ -231,9 +231,11 @@ class AmmArbStrategy(StrategyPyBase):
         for proposal in arb_proposal:
             side1 = "buy" if proposal.first_side.is_buy else "sell"
             side2 = "buy" if proposal.second_side.is_buy else "sell"
+            profit_pct = proposal.profit_pct(True, first_side_quote_eth_rate=self._market_1_quote_eth_rate,
+                                             second_side_quote_eth_rate = self._market_2_quote_eth_rate)
             lines.append(f"{'    ' if indented else ''}{side1} at {proposal.first_side.market_info.market.display_name}"
                          f", {side2} at {proposal.second_side.market_info.market.display_name}: "
-                         f"{proposal.profit_pct(True):.2%}")
+                         f"{profit_pct:.2%}")
         return lines
 
     async def format_status(self) -> str:
@@ -322,9 +324,11 @@ class AmmArbStrategy(StrategyPyBase):
     async def quote_in_eth_rate_fetch_loop(self):
         while True:
             try:
-                if self._market_info_1.market.name in ETH_WALLET_CONNECTORS:
+                if self._market_info_1.market.name in ETH_WALLET_CONNECTORS and \
+                        "WETH" not in self._market_info_1.trading_pair.split("-"):
                     self._market_1_quote_eth_rate = await self.request_rate_in_eth(self._market_info_1.quote_asset)
-                if self._market_info_2.market.name in ETH_WALLET_CONNECTORS:
+                if self._market_info_2.market.name in ETH_WALLET_CONNECTORS and \
+                        "WETH" not in self._market_info_2.trading_pair.split("-"):
                     self._market_2_quote_eth_rate = await self.request_rate_in_eth(self._market_info_2.quote_asset)
                 await asyncio.sleep(60 * 5)
             except asyncio.CancelledError:
