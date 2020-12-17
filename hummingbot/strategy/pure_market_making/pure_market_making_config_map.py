@@ -153,7 +153,7 @@ pure_market_making_config_map = {
     "max_order_age":
         ConfigVar(key="max_order_age",
                   prompt="How long do you want to cancel and replace bids and asks "
-                         " with thesame price(in seconds)? >>> ",
+                         "with the same price (in seconds)? >>> ",
                   required_if=lambda: not (using_exchange("radar_relay")() or
                                            (using_exchange("bamboo_relay")() and not using_bamboo_coordinator_mode())),
                   type_str="float",
