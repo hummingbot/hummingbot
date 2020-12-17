@@ -199,7 +199,7 @@ class TerraConnector(ConnectorBase):
             if tracked_order is not None:
                 self.logger().info(f"Created {trade_type.name} order {order_id} txHash: {hash} "
                                    f"for {amount} {trading_pair}.")
-                tracked_order.exchange_order_id = hash
+                tracked_order.update_exchange_order_id(hash)
             if txSuccess:
                 tracked_order.fee_asset = order_result["fee"]["token"]
                 tracked_order.executed_amount_base = amount
