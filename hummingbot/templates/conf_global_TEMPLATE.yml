@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 16
+template_version: 17
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -107,7 +107,7 @@ telegram_chat_id: null
 send_error_logs: null
 
 # Advanced configs: Do NOT touch unless you understand what you are changing
-client_id: null
+instance_id: null
 log_level: INFO
 debug_console: false
 strategy_report_interval: 900.0
