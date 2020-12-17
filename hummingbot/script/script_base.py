@@ -149,7 +149,7 @@ class ScriptBase:
             return None
         changes = []
         for index in range(1, len(samples)):
-            changes.append(abs(samples[index] - samples[index - 1]) / samples[index - 1])
+            changes.append(max(samples[index], samples[index - 1]) / min(samples[index], samples[index - 1]) - 1)
         return locate_function(changes)
 
     @staticmethod
