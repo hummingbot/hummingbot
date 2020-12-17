@@ -270,7 +270,7 @@ class TradeFee(NamedTuple):
         base, quote = trading_pair.split("-")
         for flat_fee in self.flat_fees:
             if interchangeable(flat_fee[0], base):
-                fee_amount += (flat_fee[1] / price)
+                fee_amount += (flat_fee[1] * price)
             elif interchangeable(flat_fee[0], quote):
                 fee_amount += flat_fee[1]
         return fee_amount
