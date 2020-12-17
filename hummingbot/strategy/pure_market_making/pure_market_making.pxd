@@ -18,6 +18,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         object _order_level_spread
         object _order_level_amount
         double _order_refresh_time
+        double _max_order_age
         object _order_refresh_tolerance_pct
         double _filled_order_delay
         bint _inventory_skew_enabled
@@ -50,6 +51,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         double _status_report_interval
         int64_t _logging_options
         object _last_own_trade_price
+        list _hanging_aged_order_prices
 
     cdef object c_get_mid_price(self)
     cdef object c_create_base_proposal(self)
@@ -69,6 +71,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     cdef c_cancel_active_orders(self, object proposal)
     cdef c_cancel_hanging_orders(self)
     cdef c_cancel_orders_below_min_spread(self)
+    cdef c_aged_order_refresh(self)
     cdef bint c_to_create_orders(self, object proposal)
     cdef c_execute_orders_proposal(self, object proposal)
     cdef set_timers(self)
