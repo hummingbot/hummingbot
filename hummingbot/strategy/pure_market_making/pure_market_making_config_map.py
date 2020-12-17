@@ -18,7 +18,6 @@ from hummingbot.client.config.global_config_map import (
 )
 from hummingbot.client.config.config_helpers import (
     minimum_order_amount,
-    parse_cvar_value
 )
 from typing import Optional
 
@@ -101,16 +100,6 @@ def validate_price_floor_ceiling(value: str) -> Optional[str]:
         return "Value must be more than 0 or -1 to disable this feature."
 
 
-def validate_take_if_crossed(value: str) -> Optional[str]:
-    err_msg = validate_bool(value)
-    if err_msg is not None:
-        return err_msg
-    price_source_enabled = pure_market_making_config_map["price_source_enabled"].value
-    take_if_crossed = parse_cvar_value(pure_market_making_config_map["take_if_crossed"], value)
-    if take_if_crossed and not price_source_enabled:
-        return "You can enable this feature only when external pricing source for mid-market price is used."
-
-
 def exchange_on_validated(value: str):
     required_exchanges.append(value)
 
@@ -161,6 +150,15 @@ pure_market_making_config_map = {
                   type_str="float",
                   validator=lambda v: validate_decimal(v, 0, inclusive=False),
                   prompt_on_new=True),
+    "max_order_age":
+        ConfigVar(key="max_order_age",
+                  prompt="How long do you want to cancel and replace bids and asks "
+                         "with the same price (in seconds)? >>> ",
+                  required_if=lambda: not (using_exchange("radar_relay")() or
+                                           (using_exchange("bamboo_relay")() and not using_bamboo_coordinator_mode())),
+                  type_str="float",
+                  default=Decimal("1800"),
+                  validator=lambda v: validate_decimal(v, 0, inclusive=False)),
     "order_refresh_tolerance_pct":
         ConfigVar(key="order_refresh_tolerance_pct",
                   prompt="Enter the percent change in price needed to refresh orders at each cycle "
@@ -199,7 +197,7 @@ pure_market_making_config_map = {
         ConfigVar(key="order_levels",
                   prompt="How many orders do you want to place on both sides? >>> ",
                   type_str="int",
-                  validator=lambda v: validate_int(v, min_value=0, inclusive=False),
+                  validator=lambda v: validate_int(v, min_value=-1, inclusive=False),
                   default=1),
     "order_level_amount":
         ConfigVar(key="order_level_amount",

@@ -7,6 +7,7 @@ import hummingbot.client.settings as settings
 from hummingbot.client.config.config_methods import paper_trade_disabled, using_exchange as using_exchange_pointer
 from hummingbot.client.config.config_validators import (
     validate_bool,
+    validate_int,
     validate_decimal
 )
 
@@ -49,8 +50,8 @@ key_config_map = connector_keys()
 
 main_config_map = {
     # The variables below are usually not prompted during setup process
-    "client_id":
-        ConfigVar(key="client_id",
+    "instance_id":
+        ConfigVar(key="instance_id",
                   prompt=None,
                   required_if=lambda: False,
                   default=generate_client_id()),
@@ -121,6 +122,13 @@ main_config_map = {
                   required_if=lambda: global_config_map["celo_address"].value is not None,
                   is_secure=True,
                   is_connect_key=True),
+    "balancer_max_swaps":
+        ConfigVar(key="balancer_max_swaps",
+                  prompt="Enter the maximum swap pool in Balancer >>> ",
+                  required_if=lambda: False,
+                  type_str="int",
+                  validator=lambda v: validate_int(v, min_value=1, inclusive=True),
+                  default=4),
     "ethereum_wallet":
         ConfigVar(key="ethereum_wallet",
                   prompt="Enter your wallet private key >>> ",
@@ -142,12 +150,12 @@ main_config_map = {
                   required_if=lambda: False,
                   validator=lambda s: None if s in {"MAIN_NET", "KOVAN"} else "Invalid chain name.",
                   default="MAIN_NET"),
-    "ethereum_token_overrides":
-        ConfigVar(key="ethereum_token_overrides",
-                  prompt="What is your preferred ethereum token overrides? >>> ",
-                  type_str="json",
-                  required_if=lambda: False,
-                  default={}),
+    "ethereum_token_list_url":
+        ConfigVar(key="ethereum_token_list_url",
+                  prompt="Specify token list url of a list available on https://tokenlists.org/ >>> ",
+                  type_str="str",
+                  required_if=lambda: global_config_map["ethereum_wallet"].value is not None,
+                  default="https://wispy-bird-88a7.uniswap.workers.dev/?url=http://tokens.1inch.eth.link"),
     # Whether or not to invoke cancel_all on exit if marketing making on a open order book DEX (e.g. Radar Relay)
     "on_chain_cancel_on_exit":
         ConfigVar(key="on_chain_cancel_on_exit",
@@ -301,6 +309,29 @@ main_config_map = {
                   type_str="str",
                   required_if=lambda: False,
                   default="5000"),
+    "heartbeat_enabled":
+        ConfigVar(key="heartbeat_enabled",
+                  prompt="Do you want to enable aggregated order and trade data collection? >>> ",
+                  required_if=lambda: False,
+                  type_str="bool",
+                  validator=validate_bool,
+                  default=True),
+    "heartbeat_interval_min":
+        ConfigVar(key="heartbeat_interval_min",
+                  prompt="How often do you want Hummingbot to send aggregated order and trade data (in minutes, "
+                         "e.g. enter 5 for once every 5 minutes)? >>> ",
+                  required_if=lambda: False,
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, Decimal(0), inclusive=False),
+                  default=Decimal("15")),
+    "binance_markets":
+        ConfigVar(key="binance_markets",
+                  prompt="Please enter binance markets (for trades/pnl reporting) separated by ',' "
+                         "e.g. RLC-USDT,RLC-BTC  >>> ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  default="HARD-USDT,HARD-BTC,XEM-ETH,XEM-BTC,ALGO-USDT,ALGO-BTC,COTI-BNB,COTI-USDT,COTI-BTC,MFT-BNB,"
+                          "MFT-ETH,MFT-USDT,RLC-ETH,RLC-BTC,RLC-USDT"),
 }
 
 global_config_map = {**key_config_map, **main_config_map}
