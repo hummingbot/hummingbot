@@ -89,6 +89,7 @@ class UniswapConnector(ConnectorBase):
         self._status_polling_task = None
         self._auto_approve_task = None
         self._real_time_balance_update = False
+        self._poll_notifier = None
 
     @property
     def name(self):
@@ -447,7 +448,7 @@ class UniswapConnector(ConnectorBase):
         It checks if status polling task is due for execution.
         """
         if time.time() - self._last_poll_timestamp > self.POLL_INTERVAL:
-            if not self._poll_notifier.is_set():
+            if self._poll_notifier is not None and not self._poll_notifier.is_set():
                 self._poll_notifier.set()
 
     async def _status_polling_loop(self):

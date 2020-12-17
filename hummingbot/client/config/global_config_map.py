@@ -127,7 +127,7 @@ main_config_map = {
                   prompt="Enter the maximum swap pool in Balancer >>> ",
                   required_if=lambda: False,
                   type_str="int",
-                  validator=lambda v: validate_int(v, min_value=1, inclusive=False),
+                  validator=lambda v: validate_int(v, min_value=1, inclusive=True),
                   default=4),
     "ethereum_wallet":
         ConfigVar(key="ethereum_wallet",

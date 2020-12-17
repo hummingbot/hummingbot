@@ -20,18 +20,24 @@ async def create_arb_proposals(market_info_1: MarketTradingPairTuple,
     results = []
     for index in range(0, 2):
         is_buy = not bool(index)  # bool(0) is False, so start with buy first
+        m_1_q_price = await market_info_1.market.get_quote_price(market_info_1.trading_pair, is_buy, order_amount)
+        m_1_o_price = await market_info_1.market.get_order_price(market_info_1.trading_pair, is_buy, order_amount)
+        m_2_q_price = await market_info_2.market.get_quote_price(market_info_2.trading_pair, not is_buy, order_amount)
+        m_2_o_price = await market_info_2.market.get_order_price(market_info_2.trading_pair, not is_buy, order_amount)
+        if any(p is None for p in (m_1_o_price, m_1_q_price, m_2_o_price, m_2_q_price)):
+            continue
         first_side = ArbProposalSide(
             market_info_1,
             is_buy,
-            await market_info_1.market.get_quote_price(market_info_1.trading_pair, is_buy, order_amount),
-            await market_info_1.market.get_order_price(market_info_1.trading_pair, is_buy, order_amount),
+            m_1_q_price,
+            m_1_o_price,
             order_amount
         )
         second_side = ArbProposalSide(
             market_info_2,
             not is_buy,
-            await market_info_2.market.get_quote_price(market_info_2.trading_pair, not is_buy, order_amount),
-            await market_info_2.market.get_order_price(market_info_2.trading_pair, not is_buy, order_amount),
+            m_2_q_price,
+            m_2_o_price,
             order_amount
         )
         results.append(ArbProposal(first_side, second_side))
