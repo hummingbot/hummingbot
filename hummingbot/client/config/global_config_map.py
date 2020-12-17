@@ -50,8 +50,8 @@ key_config_map = connector_keys()
 
 main_config_map = {
     # The variables below are usually not prompted during setup process
-    "client_id":
-        ConfigVar(key="client_id",
+    "instance_id":
+        ConfigVar(key="instance_id",
                   prompt=None,
                   required_if=lambda: False,
                   default=generate_client_id()),
