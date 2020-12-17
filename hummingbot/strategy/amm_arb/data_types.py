@@ -54,7 +54,7 @@ class ArbProposal:
         buy = self.first_side if self.first_side.is_buy else self.second_side
         sell = self.first_side if not self.first_side.is_buy else self.second_side
         if buy.quote_price == 0:
-            return s_decimal_nan
+            return s_decimal_0
         if not account_for_fee:
             return (sell.quote_price - buy.quote_price) / buy.quote_price
         buy_trade_fee = estimate_fee(buy.market_info.market.name, False)

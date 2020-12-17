@@ -451,7 +451,7 @@ class BalancerConnector(ConnectorBase):
         It checks if status polling task is due for execution.
         """
         if time.time() - self._last_poll_timestamp > self.POLL_INTERVAL:
-            if not self._poll_notifier.is_set():
+            if self._poll_notifier is not None and not self._poll_notifier.is_set():
                 self._poll_notifier.set()
 
     async def _status_polling_loop(self):
