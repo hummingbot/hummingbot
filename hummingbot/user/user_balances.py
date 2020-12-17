@@ -90,6 +90,9 @@ class UserBalances:
         await self.update_exchanges()
         return {k: v.get_all_balances() for k, v in sorted(self._markets.items(), key=lambda x: x[0])}
 
+    def all_avai_balances_all_exchanges(self) -> Dict[str, Dict[str, Decimal]]:
+        return {k: v.available_balances for k, v in sorted(self._markets.items(), key=lambda x: x[0])}
+
     async def balances(self, exchange, *symbols) -> Dict[str, Decimal]:
         if await self.update_exchange_balance(exchange) is None:
             results = {}
@@ -111,6 +114,7 @@ class UserBalances:
     @staticmethod
     async def eth_n_erc20_balances() -> Dict[str, Decimal]:
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
+        # Todo: Use generic ERC20 balance update
         connector = BalancerConnector(ethereum_required_trading_pairs(),
                                       get_eth_wallet_private_key(),
                                       ethereum_rpc_url,

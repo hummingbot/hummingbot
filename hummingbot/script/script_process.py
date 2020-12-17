@@ -2,6 +2,7 @@ import asyncio
 import importlib
 import inspect
 import os
+
 from multiprocessing import Queue
 from hummingbot.script.script_base import ScriptBase
 from hummingbot.script.script_interface import set_child_queue

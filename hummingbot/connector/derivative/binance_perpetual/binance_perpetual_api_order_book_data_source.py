@@ -22,7 +22,9 @@ from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils i
 
 from hummingbot.connector.derivative.binance_perpetual.constants import (
     PERPETUAL_BASE_URL,
-    TESTNET_BASE_URL
+    TESTNET_BASE_URL,
+    DIFF_STREAM_URL,
+    TESTNET_STREAM_URL
 )
 
 # API OrderBook Endpoints
@@ -34,12 +36,13 @@ RECENT_TRADES_URL = "{}/fapi/v1/trades"
 
 
 class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
-    def __init__(self, base_url: str, stream_url: str, trading_pairs: List[str] = None):
+    def __init__(self, trading_pairs: List[str] = None, domain: str = "binance_perpetual"):
         super().__init__(trading_pairs)
         self._order_book_create_function = lambda: OrderBook()
-        self._base_url = base_url
-        self._stream_url = stream_url + "/stream"
-        self._domain = "binance_perpetual" if base_url == PERPETUAL_BASE_URL else "binance_perpetual_testnet"
+        self._base_url = TESTNET_BASE_URL if domain == "binance_perpetual_testnet" else PERPETUAL_BASE_URL
+        self._stream_url = TESTNET_STREAM_URL if domain == "binance_perpetual_testnet" else DIFF_STREAM_URL
+        self._stream_url += "/stream"
+        self._domain = domain
 
     _bpobds_logger: Optional[HummingbotLogger] = None
 
@@ -103,11 +106,14 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         raw_trading_pairs = [d["symbol"] for d in data["symbols"] if d["status"] == "TRADING"]
                         trading_pair_list: List[str] = []
                         for raw_trading_pair in raw_trading_pairs:
-                            trading_pair = convert_from_exchange_trading_pair(raw_trading_pair)
-                            if trading_pair is not None:
-                                trading_pair_list.append(trading_pair)
-                            else:
-                                continue
+                            try:
+                                trading_pair = convert_from_exchange_trading_pair(raw_trading_pair)
+                                if trading_pair is not None:
+                                    trading_pair_list.append(trading_pair)
+                                else:
+                                    continue
+                            except Exception:
+                                pass
                         return trading_pair_list
         except Exception:
             pass
