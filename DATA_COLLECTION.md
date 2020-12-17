@@ -30,7 +30,7 @@ Hummingbot will never collect and/or report sensitive information, such as priva
 
 ## How do I opt-in to or opt-out of data sharing?
 
-From the Hummingbot client, run the command `config heatbeat_enabled` and set to `False` to disable all data reporting. Trade data and client data collection is saved in the `conf_global.yml` file in the base directory of the client.
+From the Hummingbot client, run the command `config heatbeat_enabled` and set to `False` to disable all data reporting. Trade data and client data configurations are saved in the `conf_global.yml` file in the base directory of the client.
 
 ## How this data is used
 
