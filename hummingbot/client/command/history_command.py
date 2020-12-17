@@ -11,7 +11,11 @@ from typing import (
 )
 from datetime import datetime
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.settings import MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT
+from hummingbot.client.settings import (
+    MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT,
+    CONNECTOR_SETTINGS,
+    ConnectorType
+)
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.core.utils.market_price import get_last_price
 from hummingbot.user.user_balances import UserBalances
@@ -86,8 +90,13 @@ class HistoryCommand:
             paper_balances = global_config_map["paper_trade_account_balance"].value
             return {token: Decimal(str(bal)) for token, bal in paper_balances.items()}
         else:
-            await UserBalances.instance().update_exchange_balance(market)
-            return UserBalances.instance().all_balances(market)
+            gateway_eth_connectors = [cs.name for cs in CONNECTOR_SETTINGS.values() if cs.use_ethereum_wallet and
+                                      cs.type == ConnectorType.Connector]
+            if market in gateway_eth_connectors:
+                return await UserBalances.instance().eth_n_erc20_balances()
+            else:
+                await UserBalances.instance().update_exchange_balance(market)
+                return UserBalances.instance().all_balances(market)
 
     def report_header(self,  # type: HummingbotApplication
                       start_time: float):
