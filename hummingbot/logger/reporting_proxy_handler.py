@@ -34,10 +34,12 @@ class ReportingProxyHandler(logging.Handler):
         return cls._rrh_logger
 
     def __init__(self,
-                 level=logging.ERROR,
-                 proxy_url="http://127.0.0.1:9000",
-                 capacity=1):
+                 level: int = logging.ERROR,
+                 proxy_url: str = "http://127.0.0.1:9000",
+                 enable_order_event_logging: bool = False,
+                 capacity: int = 1):
         super().__init__()
+        self._enable_order_event_logging: bool = enable_order_event_logging
         self.setLevel(level)
         self._log_queue: list = []
         self._event_queue: list = []
@@ -128,6 +130,8 @@ class ReportingProxyHandler(logging.Handler):
             self._logged_order_events.append(log.dict_msg)
 
     def send_logs(self, logs):
+        if not self._enable_order_event_logging:
+            return
         request_obj = {
             "url": f"{self._proxy_url}/logs",
             "method": "POST",
