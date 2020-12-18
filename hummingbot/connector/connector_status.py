@@ -2,20 +2,24 @@
 
 connector_status = {
     'binance': 'green',
+    'binance_perpetual': 'yellow',
+    'binance_perpetual_testnet': 'yellow',
     'binance_us': 'yellow',
     'bitfinex': 'green',
     'bittrex': 'yellow',
     'celo': 'green',
     'coinbase_pro': 'green',
     'crypto_com': 'yellow',
+    'dydx': 'yellow',
     'eterbase': 'red',
     'ethereum': 'red',
     'huobi': 'green',
     'kraken': 'yellow',
     'kucoin': 'green',
     'liquid': 'green',
-    'loopring': 'green',
-    'okex': 'red'
+    'loopring': 'yellow',
+    'okex': 'red',
+    'terra': 'yellow'
 }
 
 warning_messages = {

@@ -58,7 +58,7 @@ class CreateCommand:
             else:
                 config.value = None
         for config in config_map.values():
-            if config.prompt_on_new:
+            if config.prompt_on_new and config.required:
                 if not self.app.to_stop_config:
                     await self.prompt_a_config(config)
                 else:

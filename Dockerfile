@@ -84,6 +84,8 @@ ENV CONFIG_FILE_NAME=${CONFIG_FILE_NAME}
 ENV WALLET=${WALLET}
 ENV CONFIG_PASSWORD=${CONFIG_PASSWORD}
 
+ENV INSTALLATION_TYPE=docker
+
 # Add hummingbot user
 RUN useradd -m -s /bin/bash hummingbot && \
   ln -s /conf /home/hummingbot/conf && \

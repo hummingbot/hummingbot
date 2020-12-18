@@ -24,6 +24,9 @@ from hummingbot.model.inventory_cost import InventoryCost
 from hummingbot.strategy.pure_market_making import (
     PureMarketMakingStrategy
 )
+from hummingbot.strategy.perpetual_market_making import (
+    PerpetualMarketMakingStrategy
+)
 from hummingbot.user.user_balances import UserBalances
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -40,7 +43,18 @@ global_configs_to_display = ["0x_active_cancels",
                              "telegram_chat_id",
                              "send_error_logs",
                              "script_enabled",
-                             "script_file_path"]
+                             "script_file_path",
+                             "manual_gas_price",
+                             "ethereum_chain_name",
+                             "ethgasstation_gas_enabled",
+                             "ethgasstation_api_key",
+                             "ethgasstation_gas_level",
+                             "ethgasstation_refresh_time",
+                             "gateway_enabled",
+                             "gateway_cert_passphrase",
+                             "gateway_api_host",
+                             "gateway_api_port",
+                             "balancer_max_swaps"]
 
 
 class ConfigCommand:
@@ -96,12 +110,12 @@ class ConfigCommand:
 
     # Make this function static so unit testing can be performed.
     @staticmethod
-    def update_running_pure_mm(pure_mm_strategy: PureMarketMakingStrategy, key: str, new_value: Any):
+    def update_running_mm(mm_strategy, key: str, new_value: Any):
         if key in no_restart_pmm_keys_in_percentage:
-            setattr(pure_mm_strategy, key, new_value / Decimal("100"))
+            setattr(mm_strategy, key, new_value / Decimal("100"))
             return True
         elif key in no_restart_pmm_keys:
-            setattr(pure_mm_strategy, key, new_value)
+            setattr(mm_strategy, key, new_value)
             return True
         return False
 
@@ -146,8 +160,9 @@ class ConfigCommand:
             self._notify(f"{key}: {str(config_var.value)}")
             for config in missings:
                 self._notify(f"{config.key}: {str(config.value)}")
-            if isinstance(self.strategy, PureMarketMakingStrategy):
-                updated = ConfigCommand.update_running_pure_mm(self.strategy, key, config_var.value)
+            if isinstance(self.strategy, PureMarketMakingStrategy) or \
+               isinstance(self.strategy, PerpetualMarketMakingStrategy):
+                updated = ConfigCommand.update_running_mm(self.strategy, key, config_var.value)
                 if updated:
                     self._notify(f"\nThe current {self.strategy_name} strategy has been updated "
                                  f"to reflect the new configuration.")

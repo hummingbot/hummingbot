@@ -21,8 +21,8 @@ ENV WALLET=${WALLET}
 ENV CONFIG_PASSWORD=${CONFIG_PASSWORD}
 
 # Create mount points
-RUN mkdir /conf /logs /data /scripts
-VOLUME /conf /logs /data /scripts
+RUN mkdir /conf /logs /data /scripts /certs
+VOLUME /conf /logs /data /scripts /certs
 
 # Copy files
 COPY bin/ bin/

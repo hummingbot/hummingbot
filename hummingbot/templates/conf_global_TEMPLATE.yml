@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 13
+template_version: 17
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -27,6 +27,9 @@ bittrex_secret_key: null
 coinbase_pro_api_key: null
 coinbase_pro_secret_key: null
 coinbase_pro_passphrase: null
+
+dydx_eth_private_key: null
+dydx_node_address: null
 
 huobi_api_key: null
 huobi_secret_key: null
@@ -63,12 +66,17 @@ okex_passphrase: null
 celo_address: null
 celo_password: null
 
+terra_wallet_address: null
+terra_wallet_seeds: null
+
+balancer_max_swaps: 4
+
 # Ethereum wallet address: required for trading on a DEX
 ethereum_wallet: null
 ethereum_rpc_url: null
 ethereum_rpc_ws_url: null
 ethereum_chain_name: MAIN_NET
-ethereum_token_overrides: {}
+ethereum_token_list_url: null
 
 # Kill switch
 kill_switch_enabled: null
@@ -99,7 +107,7 @@ telegram_chat_id: null
 send_error_logs: null
 
 # Advanced configs: Do NOT touch unless you understand what you are changing
-client_id: null
+instance_id: null
 log_level: INFO
 debug_console: false
 strategy_report_interval: 900.0
@@ -119,6 +127,9 @@ min_quote_order_amount:
   BNB: 0.5
   USDT: 11
   USDC: 11
+  BUSD: 11
+  TUSD: 11
+  TRY: 11
 
 
 # Advanced database options, currently supports SQLAlchemy's included dialects
@@ -158,3 +169,9 @@ ethgasstation_refresh_time:
 gateway_api_host: localhost
 gateway_api_port: 5000
 
+# Whether to enable aggregated order and trade data collection
+heartbeat_enabled:
+# The frequency of sending the aggregated order and trade data (in minutes, e.g. enter 5 for once every 5 minutes)
+heartbeat_interval_min:
+# a list of binance markets (for trades/pnl reporting) separated by ',' e.g. RLC-USDT,RLC-BTC
+binance_markets:

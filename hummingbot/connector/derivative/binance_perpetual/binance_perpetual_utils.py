@@ -14,13 +14,16 @@ EXAMPLE_PAIR = "BTC-USDT"
 DEFAULT_FEES = [0.02, 0.04]
 
 
-TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(BTC|ETH|BNB|XRP|USDT|USDC|USDS|TUSD|PAX|TRX|BUSD|NGN|RUB|TRY|EUR|IDRT|ZAR|UAH|GBP|BKRW|BIDR)$")
+RE_4_LETTERS_QUOTE = re.compile(r"^(\w+)(USDT|USDC|USDS|TUSD|BUSD|IDRT|BKRW|BIDR)$")
+RE_3_LETTERS_QUOTE = re.compile(r"^(\w+)(BTC|ETH|BNB|DAI|XRP|PAX|TRX|NGN|RUB|TRY|EUR|ZAR|UAH|GBP|USD|BRL)$")
 
 
 # Helper Functions ---
 def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
     try:
-        m = TRADING_PAIR_SPLITTER.match(trading_pair)
+        m = RE_4_LETTERS_QUOTE.match(trading_pair)
+        if m is None:
+            m = RE_3_LETTERS_QUOTE.match(trading_pair)
         return m.group(1), m.group(2)
     except Exception as e:
         raise e
@@ -41,13 +44,13 @@ KEYS = {
     "binance_perpetual_api_key":
         ConfigVar(key="binance_perpetual_api_key",
                   prompt="Enter your Binance Perpetual API key >>> ",
-                  required_if=using_exchange("binance_perpetuals"),
+                  required_if=using_exchange("binance_perpetual"),
                   is_secure=True,
                   is_connect_key=True),
     "binance_perpetual_api_secret":
         ConfigVar(key="binance_perpetual_api_secret",
                   prompt="Enter your Binance Perpetual API secret >>> ",
-                  required_if=using_exchange("binance_perpetuals"),
+                  required_if=using_exchange("binance_perpetual"),
                   is_secure=True,
                   is_connect_key=True),
 
