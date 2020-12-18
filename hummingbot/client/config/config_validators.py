@@ -12,7 +12,7 @@ def validate_exchange(value: str) -> Optional[str]:
 def validate_derivative(value: str) -> Optional[str]:
     from hummingbot.client.settings import DERIVATIVES
     if value not in DERIVATIVES:
-        return f"Invalid exchange, please choose value from {DERIVATIVES}"
+        return f"Invalid derivative, please choose value from {DERIVATIVES}"
 
 
 def validate_connector(value: str) -> Optional[str]:
@@ -75,8 +75,9 @@ def validate_int(value: str, min_value: Decimal = None, max_value: Decimal = Non
     except Exception:
         return f"{value} is not in integer format."
     if inclusive:
-        if not (int(str(min_value)) <= int_value <= int(str(max_value))):
-            return f"Value must be between {min_value} and {max_value}."
+        if min_value is not None and max_value is not None:
+            if not (int(str(min_value)) <= int_value <= int(str(max_value))):
+                return f"Value must be between {min_value} and {max_value}."
         elif min_value is not None and not int_value >= int(str(min_value)):
             return f"Value cannot be less than {min_value}."
         elif max_value is not None and not int_value <= int(str(max_value)):

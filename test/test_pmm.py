@@ -946,8 +946,12 @@ class PMMUnitTest(unittest.TestCase):
         self.assertAlmostEqual(Decimal("97"), last_bid_order.price, 2)
         self.assertAlmostEqual(Decimal("103"), last_ask_order.price, 2)
 
-        ConfigCommand.update_running_pure_mm(strategy, "bid_spread", Decimal('2'))
-        ConfigCommand.update_running_pure_mm(strategy, "ask_spread", Decimal('2'))
+        ConfigCommand.update_running_mm(strategy, "bid_spread", Decimal('2'))
+        ConfigCommand.update_running_mm(strategy, "ask_spread", Decimal('2'))
+        for order in strategy.active_sells:
+            strategy.cancel_order(order.client_order_id)
+        for order in strategy.active_buys:
+            strategy.cancel_order(order.client_order_id)
         self.clock.backtest_til(self.start_timestamp + 7)
         first_bid_order = strategy.active_buys[0]
         first_ask_order = strategy.active_sells[0]

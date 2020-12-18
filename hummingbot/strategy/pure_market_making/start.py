@@ -21,6 +21,7 @@ def start(self):
     try:
         order_amount = c_map.get("order_amount").value
         order_refresh_time = c_map.get("order_refresh_time").value
+        max_order_age = c_map.get("max_order_age").value
         bid_spread = c_map.get("bid_spread").value / Decimal('100')
         ask_spread = c_map.get("ask_spread").value / Decimal('100')
         minimum_spread = c_map.get("minimum_spread").value / Decimal('100')
@@ -90,6 +91,7 @@ def start(self):
             filled_order_delay=filled_order_delay,
             hanging_orders_enabled=hanging_orders_enabled,
             order_refresh_time=order_refresh_time,
+            max_order_age = max_order_age,
             order_optimization_enabled=order_optimization_enabled,
             ask_order_optimization_depth=ask_order_optimization_depth,
             bid_order_optimization_depth=bid_order_optimization_depth,

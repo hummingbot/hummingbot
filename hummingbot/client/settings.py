@@ -23,7 +23,7 @@ ENCYPTED_CONF_PREFIX = "encrypted_"
 ENCYPTED_CONF_POSTFIX = ".json"
 GLOBAL_CONFIG_PATH = "conf/conf_global.yml"
 TRADE_FEES_CONFIG_PATH = "conf/conf_fee_overrides.yml"
-TOKEN_ADDRESSES_FILE_PATH = realpath(join(__file__, "../../wallet/ethereum/erc20_tokens.json"))
+TOKEN_ADDRESSES_FILE_PATH = "conf/erc20_tokens_override.json"
 DEFAULT_KEY_FILE_PATH = "conf/"
 DEFAULT_LOG_FILE_PATH = "logs/"
 DEFAULT_ETHEREUM_RPC_URL = "https://mainnet.coinalpha.com/hummingbot-test-node"
@@ -31,7 +31,7 @@ TEMPLATE_PATH = realpath(join(__file__, "../../templates/"))
 CONF_FILE_PATH = "conf/"
 CONF_PREFIX = "conf_"
 CONF_POSTFIX = "_strategy"
-SCRIPTS_PATH = "scripts/"
+SCRIPTS_PATH = realpath(join(__file__, "../../../scripts/"))
 CERTS_PATH = "certs/"
 
 GATEAWAY_CA_CERT_PATH = realpath(join(__file__, join(f"../../../{CERTS_PATH}/ca_cert.pem")))
@@ -59,7 +59,6 @@ class ConnectorSetting(NamedTuple):
     parent_name: str
     domain_parameter: str
     use_eth_gas_lookup: bool
-    gas_limit: int
 
     def module_name(self) -> str:
         # returns connector module name, e.g. binance_exchange
@@ -130,8 +129,7 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
                 is_sub_domain=False,
                 parent_name=None,
                 domain_parameter=None,
-                use_eth_gas_lookup=getattr(util_module, "USE_ETH_GAS_LOOKUP", False),
-                gas_limit=getattr(util_module, "GAS_LIMIT", None)
+                use_eth_gas_lookup=getattr(util_module, "USE_ETH_GAS_LOOKUP", False)
             )
             other_domains = getattr(util_module, "OTHER_DOMAINS", [])
             for domain in other_domains:
@@ -149,8 +147,7 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
                     is_sub_domain=True,
                     parent_name=parent.name,
                     domain_parameter=getattr(util_module, "OTHER_DOMAINS_PARAMETER")[domain],
-                    use_eth_gas_lookup=parent.use_eth_gas_lookup,
-                    gas_limit= parent.gas_limit
+                    use_eth_gas_lookup=parent.use_eth_gas_lookup
                 )
     return connector_settings
 
