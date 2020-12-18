@@ -39,8 +39,8 @@ class ReportingProxyHandler(logging.Handler):
                  enable_order_event_logging: bool = False,
                  capacity: int = 1):
         super().__init__()
-        self._enable_order_event_logging: bool = enable_order_event_logging
         self.setLevel(level)
+        self._enable_order_event_logging: bool = enable_order_event_logging
         self._log_queue: list = []
         self._event_queue: list = []
         self._logged_order_events: List[Dict] = []
