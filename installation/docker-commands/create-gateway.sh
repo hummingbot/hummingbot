@@ -26,7 +26,7 @@ fi
 
 # Ask the user for the hummingobt data folder location
 prompt_hummingbot_data_path () {
-read -p "   Enter the full location path where your Hummingbot files are located (example: /User/hbot/hummingbot_files) >>> " FOLDER
+read -p "   Enter the full location path where your Hummingbot files are located (example: /Users/hbot/hummingbot_files) >>> " FOLDER
 if [ "$FOLDER" == "" ]
 then
   prompt_hummingbot_data_path
@@ -66,10 +66,10 @@ fi
 
 while IFS=: read key value || [[ -n "$value" ]]
 do
-  # hummingbot client id
-  if [ "$key" == "client_id" ]
+  # hummingbot instance id
+  if [ "$key" == "instance_id" ]
   then
-    HUMMINGBOT_CLIENT_ID="$(echo -e "${value}" | tr -d '[:space:]')"
+    HUMMINGBOT_INSTANCE_ID="$(echo -e "${value}" | tr -d '[:space:]')"
   fi
   # chain
   if [ "$key" == "ethereum_chain_name" ]
@@ -188,7 +188,7 @@ echo
 printf "%30s %5s\n" "Gateway instance name:" "$GATEWAY_INSTANCE_NAME"
 printf "%30s %5s\n" "Version:" "coinalpha/gateway-api:$GATEWAY_TAG"
 echo
-printf "%30s %5s\n" "Hummingbot Client ID:" "$HUMMINGBOT_CLIENT_ID"
+printf "%30s %5s\n" "Hummingbot Instance ID:" "$HUMMINGBOT_INSTANCE_ID"
 printf "%30s %5s\n" "Ethereum Chain:" "$ETHEREUM_CHAIN"
 printf "%30s %5s\n" "Ethereum RPC URL:" "$ETHEREUM_RPC_URL"
 printf "%30s %5s\n" "Balancer Subgraph:" "$REACT_APP_SUBGRAPH_URL"
@@ -207,7 +207,7 @@ echo "" >> $ENV_FILE
 echo "NODE_ENV=prod" >> $ENV_FILE
 echo "PORT=$PORT" >> $ENV_FILE
 echo "" >> $ENV_FILE
-echo "HUMMINGBOT_CLIENT_ID=$HUMMINGBOT_CLIENT_ID" >> $ENV_FILE
+echo "HUMMINGBOT_INSTANCE_ID=$HUMMINGBOT_INSTANCE_ID" >> $ENV_FILE
 echo "ETHEREUM_CHAIN=$ETHEREUM_CHAIN" >> $ENV_FILE
 echo "ETHEREUM_RPC_URL=$ETHEREUM_RPC_URL" >> $ENV_FILE
 echo "REACT_APP_SUBGRAPH_URL=$REACT_APP_SUBGRAPH_URL" >> $ENV_FILE # must used "REACT_APP_SUBGRAPH_URL" for balancer-sor
