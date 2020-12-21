@@ -63,7 +63,7 @@ dependencies:
     - 0x-json-schemas==2.1.0
     - 0x-order-utils==4.0.0
     - aioconsole==0.1.15
-    - aiohttp==3.6.2
+    - aiohttp==3.7.3
     - aiokafka==0.5.2
     - appdirs==1.4.3
     - asn1crypto==1.3.0

@@ -36,7 +36,7 @@ class IdexUserStreamTracker(UserStreamTracker):
         if not self._data_source:
             self._data_source = IdexAPIUserStreamDataSource(
                 idex_auth=self._idex_auth,
-                trading_pairs=self._trading_pairs
+                trading_pairs=self._trading_pairs,
             )
         return self._data_source
 

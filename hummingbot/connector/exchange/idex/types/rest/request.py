@@ -2,15 +2,20 @@ import typing
 
 from dataclasses import dataclass
 
-from ..enums import *
+from ..enums import OrderSelfTradePrevention, OrderTimeInForce, OrderType, OrderSide
 
 
 @dataclass
 class RestRequestCancelOrder:
-    wallet: str
+    wallet: str = None
     nonce: typing.Optional[str] = None
     orderId: typing.Optional[str] = None
-    market: typing.Optional[str] = None
+
+
+@dataclass
+class RestRequestCancelAllOrders:
+    wallet: str = None
+    nonce: typing.Optional[str] = None
 
 
 @dataclass
@@ -38,10 +43,10 @@ class RestRequestFindBalances:
     asset: typing.Optional[str] = None
 
 
-@dataclass
-class RestRequestFindCandles(RestRequestFindWithPagination):
-    market: str
-    interval: CandleInterval
+# @dataclass
+# class RestRequestFindCandles(RestRequestFindWithPagination):
+#     market: str
+#     interval: CandleInterval
 
 
 @dataclass
@@ -78,10 +83,10 @@ class RestRequestFindOrder(RestRequestFindByWallet):
 
 
 @dataclass
-class RestRequestFindOrders(RestRequestFindByWallet, RestRequestFindWithPagination):
-    market: typing.Optional[str]
-    closed: typing.Optional[bool]
-    fromId: typing.Optional[str]
+class RestRequestFindOrders():
+    nonce: str
+    orderId: str
+    wallet: str
 
 
 @dataclass
@@ -113,13 +118,13 @@ class RestRequestAllOrderParameters:
     side: typing.Optional[OrderSide] = None
     nonce: typing.Optional[str] = None
     quantity: typing.Optional[str] = None
-    quoteOrderQuantity: typing.Optional[str] = None
+    # quoteOrderQuantity: typing.Optional[str] = None
     price: typing.Optional[str] = None
-    stopPrice: typing.Optional[str] = None
+    # stopPrice: typing.Optional[str] = None
     clientOrderId: typing.Optional[str] = None
     timeInForce: typing.Optional[OrderTimeInForce] = None
-    selfTradePrevention: typing.Optional[OrderSelfTradePrevention] = "gtc"
-    cancelAfter: typing.Optional[typing.Union[int, float]] = "dc"
+    selfTradePrevention: typing.Optional[OrderSelfTradePrevention] = "dc"
+    # cancelAfter: typing.Optional[typing.Union[int, float]] = "dc"
 
 
 @dataclass

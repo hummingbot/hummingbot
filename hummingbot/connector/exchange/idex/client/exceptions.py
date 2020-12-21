@@ -18,3 +18,7 @@ class RemoteApiError(Exception):
 
 class TooManyRequestError(Exception):
     pass
+
+
+class ResourceNotFoundError(Exception):
+    pass

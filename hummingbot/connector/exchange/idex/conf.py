@@ -21,9 +21,9 @@ def clean_ws_api_url(s: "Settings"):
 
 @dataclass
 class Settings:
+
     rest_api_url: str = "https://api-sandbox.idex.io/v1"
     ws_api_url: str = "wss://websocket-sandbox.idex.io/v1"
-    eth_account_private_key: str = None
 
     def __post_init__(self):
         inflect_env(self)
@@ -32,4 +32,3 @@ class Settings:
 
 
 settings = Settings()
-

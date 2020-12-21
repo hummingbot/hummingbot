@@ -4,6 +4,7 @@ import time
 import typing
 import uuid
 
+from decimal import Decimal
 from typing import Optional
 
 from hummingbot.core.event.events import OrderType, TradeType
@@ -46,11 +47,15 @@ async def get_trading_pair_splitter() -> typing.Pattern:
 
 
 async def to_idex_pair(pair: str) -> Optional[str]:
-    pattern = await get_trading_pair_splitter()
-    matcher = pattern.match(pair)
-    if matcher:
-        return f"{matcher.group(1)}-{matcher.group(2)}"
-    return None
+    return pair
+    # TODO this was causing PMM to be rate limited
+    # print(f"to_idex_pair() {pair}")
+    # pattern = await get_trading_pair_splitter()
+    # matcher = pattern.match(pair)
+    # if matcher:
+    # print(f"DONE PAIR: {matcher.group(1)}-{matcher.group(2)}")
+    # return f"{matcher.group(1)}-{matcher.group(2)}"
+    # return None
 
 
 HB_ORDER_TYPE_MAP = {
@@ -91,3 +96,11 @@ def from_idex_trade_type(side: str):
 
 def create_id():
     return str(uuid.uuid4())
+
+
+def create_nonce():
+    return uuid.uuid1()
+
+
+def round_to_8_decimals(amount: Decimal):
+    return str(round(amount, 8))
