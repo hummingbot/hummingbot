@@ -292,6 +292,7 @@ class OrderBookTracker(ABC):
                     continue
 
                 order_book: OrderBook = self._order_books[trading_pair]
+                print(f'CONTENT: {trade_message.content}')
                 order_book.apply_trade(OrderBookTradeEvent(
                     trading_pair=trade_message.trading_pair,
                     timestamp=trade_message.timestamp,
