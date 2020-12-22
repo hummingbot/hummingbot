@@ -55,6 +55,7 @@ def main():
         "hummingbot.connector.exchange.liquid",
         "hummingbot.connector.exchange.dolomite",
         "hummingbot.connector.exchange.eterbase",
+        "hummingbot.connector.exchange.tokocrypto",
         "hummingbot.connector.derivative",
         "hummingbot.connector.derivative.binance_perpetual",
         "hummingbot.script",
