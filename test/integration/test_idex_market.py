@@ -65,8 +65,8 @@ from test.integration.humming_ws_server import HummingWsServerFactory
 # MAINNET_RPC_URL = "http://mainnet-rpc.mainnet:8545"
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
-API_KEY = os.getenv("IDEX_API_KEY") #  if API_MOCK_ENABLED else conf.idex_api_key
-API_SECRET = os.getenv("IDEX_API_SECRET") #  if API_MOCK_ENABLED else conf.idex_api_secret_key
+API_KEY = os.getenv("IDEX_API_KEY") if API_MOCK_ENABLED else conf.idex_api_key
+API_SECRET = os.getenv("IDEX_API_SECRET") if API_MOCK_ENABLED else conf.idex_api_secret_key
 
 
 class IdexExchangeUnitTest(unittest.TestCase):
@@ -305,32 +305,32 @@ class IdexExchangeUnitTest(unittest.TestCase):
     #     self.assertEqual(order_id, order_failure_event.order_id)
 
     # TBD
-    # def test_limit_makers_unfilled(self):
-    #     price = self.market.get_price("LINK-ETH", True) * Decimal("0.8")
-    #     price = self.market.quantize_order_price("LINK-ETH", price)
-    #     amount = self.market.quantize_order_amount("LINK-ETH", 1)
-    #
-    #     order_id = self.place_order(True, "LINK-ETH", amount, OrderType.LIMIT_MAKER,
-    #                                 price, 10001,
-    #                                 FixtureIdex.OPEN_BUY_ORDER)
-    #     [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
-    #     order_created_event: BuyOrderCreatedEvent = order_created_event
-    #     self.assertEqual(order_id, order_created_event.order_id)
-    #
-    #     price = self.market.get_price("LINK-ETH", True) * Decimal("1.2")
-    #     price = self.market.quantize_order_price("LINK-ETH", price)
-    #     amount = self.market.quantize_order_amount("LINK-ETH", 1)
-    #
-    #     order_id = self.place_order(False, "LINK-ETH", amount, OrderType.LIMIT_MAKER,
-    #                                 price, 10002,
-    #                                 FixtureIdex.OPEN_SELL_ORDER)
-    #     [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
-    #     order_created_event: BuyOrderCreatedEvent = order_created_event
-    #     self.assertEqual(order_id, order_created_event.order_id)
-    #
-    #     [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
-    #     for cr in cancellation_results:
-    #         self.assertEqual(cr.success, True)
+    def test_limit_makers_unfilled(self):
+        price = self.market.get_price("LINK-ETH", True) * Decimal("0.8")
+        price = self.market.quantize_order_price("LINK-ETH", price)
+        amount = self.market.quantize_order_amount("LINK-ETH", 1)
+
+        order_id = self.place_order(True, "LINK-ETH", amount, OrderType.LIMIT_MAKER,
+                                    price, 10001,
+                                    FixtureIdex.OPEN_BUY_ORDER)
+        [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
+        order_created_event: BuyOrderCreatedEvent = order_created_event
+        self.assertEqual(order_id, order_created_event.order_id)
+
+        price = self.market.get_price("LINK-ETH", True) * Decimal("1.2")
+        price = self.market.quantize_order_price("LINK-ETH", price)
+        amount = self.market.quantize_order_amount("LINK-ETH", 1)
+
+        order_id = self.place_order(False, "LINK-ETH", amount, OrderType.LIMIT_MAKER,
+                                    price, 10002,
+                                    FixtureIdex.OPEN_SELL_ORDER)
+        [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
+        order_created_event: BuyOrderCreatedEvent = order_created_event
+        self.assertEqual(order_id, order_created_event.order_id)
+
+        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
+        for cr in cancellation_results:
+            self.assertEqual(cr.success, True)
 
     def fixture(self, fixture_data, **overwrites):
         data = fixture_data.copy()

@@ -114,6 +114,7 @@ class IdexAuth:
     def hex_to_uint128(cls, value):
         # Deal with leading 0x
         value = value.split("x", 1)[-1]
+        # Filter none hexl
         value = f"0x{''.join([c for c in value if c in cls.HEX_DIGITS_SET])}"
         return int(value, 16)
 
