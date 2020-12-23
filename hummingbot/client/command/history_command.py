@@ -17,7 +17,6 @@ from hummingbot.client.settings import (
     ConnectorType
 )
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.core.utils.market_price import get_last_price
 from hummingbot.user.user_balances import UserBalances
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.performance import PerformanceMetrics, calculate_performance_metrics, smart_round
@@ -72,8 +71,7 @@ class HistoryCommand:
         for market, symbol in market_info:
             cur_trades = [t for t in trades if t.market == market and t.symbol == symbol]
             cur_balances = await self.get_current_balances(market)
-            cur_price = await get_last_price(market.replace("_PaperTrade", ""), symbol)
-            perf = calculate_performance_metrics(symbol, cur_trades, cur_balances, cur_price)
+            perf = await calculate_performance_metrics(market, symbol, cur_trades, cur_balances)
             if display_report:
                 self.report_performance_by_market(market, symbol, perf, precision)
             return_pcts.append(perf.return_pct)
