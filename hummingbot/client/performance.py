@@ -44,9 +44,7 @@ class PerformanceMetrics:
     cur_value: Decimal = s_decimal_0
     trade_pnl: Decimal = s_decimal_0
 
-    fee_paid: Decimal = s_decimal_nan
     fee_in_quote: Decimal = s_decimal_0
-    fee_token: str = None
     total_pnl: Decimal = s_decimal_0
     return_pct: Decimal = s_decimal_0
 
@@ -136,9 +134,6 @@ async def calculate_performance_metrics(exchange: str,
                     perf.fees[flat_fee[0]] = s_decimal_0
                 perf.fees[flat_fee[0]] += flat_fee[1]
 
-    if len(perf.fees.items()) == 1:
-        perf.fee_token = next(iter(perf.fees.keys()))
-        perf.fee_paid = perf.fees[perf.fee_token]
     for fee_token, fee_amount in perf.fees.items():
         if fee_token == quote:
             perf.fee_in_quote += fee_amount
@@ -146,16 +141,6 @@ async def calculate_performance_metrics(exchange: str,
             last_price = await get_last_price(exchange, f"{fee_token}-{quote}")
             if last_price is not None:
                 perf.fee_in_quote += fee_amount * last_price
-    # if type(trades[0].trade_fee) is TradeFee:
-    #     perf.fee_token = trades[0].trade_fee.flat_fees[0][0]
-    #     fee_paid = sum(sum(ff[1] for ff in t.trade_fee.flat_fees) for t in trades)
-    # else:
-    #     if trades[0].trade_fee.get("percent", None) is not None and trades[0].trade_fee["percent"] > 0:
-    #         fee_paid = sum(t.price * t.amount * t.trade_fee["percent"] for t in trades)
-    #     elif trades[0].trade_fee.get("flat_fees", []):
-    #         perf.fee_token = trades[0].trade_fee["flat_fees"][0]["asset"]
-    #         fee_paid = sum(f["amount"] for t in trades for f in t.trade_fee.get("flat_fees", []))
-    # perf.fee_paid = Decimal(str(fee_paid))
 
     perf.total_pnl = perf.trade_pnl - perf.fee_in_quote
     perf.return_pct = divide(perf.total_pnl, perf.hold_value)
@@ -164,6 +149,8 @@ async def calculate_performance_metrics(exchange: str,
 
 
 def smart_round(value: Decimal, precision: Optional[int] = None) -> Decimal:
+    if value is None or value.is_nan():
+        return value
     if precision is not None:
         precision = 1 / (10 ** precision)
         return Decimal(str(value)).quantize(Decimal(str(precision)))
