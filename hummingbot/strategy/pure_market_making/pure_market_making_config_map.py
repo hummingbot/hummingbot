@@ -241,6 +241,7 @@ pure_market_making_config_map = {
                   prompt="What is the price of your base asset inventory? ",
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, min_value=Decimal("0"), inclusive=True),
+                  default=Decimal("1"),
                   ),
     "filled_order_delay":
         ConfigVar(key="filled_order_delay",
