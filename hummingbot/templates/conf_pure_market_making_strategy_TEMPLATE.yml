@@ -60,7 +60,7 @@ inventory_target_base_pct: null
 # inventory skew feature).
 inventory_range_multiplier: null
 
-# Initial price of the base asset
+# Initial price of the base asset. Note: this setting is not affects anything, the price is kept in the database.
 inventory_price: null
 
 # Allow to place bids higher than inventory price?
