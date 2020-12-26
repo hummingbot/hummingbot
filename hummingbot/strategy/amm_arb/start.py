@@ -15,8 +15,6 @@ def start(self):
     market_2_slippage_buffer = amm_arb_config_map.get("market_2_slippage_buffer").value / Decimal("100")
     concurrent_orders_submission = amm_arb_config_map.get("concurrent_orders_submission").value
 
-    # tokens = market_1.split("-") + market_2.split("-")
-    # self._initialize_wallet(token_trading_pairs=list(set(tokens)))
     self._initialize_markets([(connector_1, [market_1]), (connector_2, [market_2])])
     base_1, quote_1 = market_1.split("-")
     base_2, quote_2 = market_2.split("-")

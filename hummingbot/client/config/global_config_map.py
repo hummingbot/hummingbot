@@ -7,6 +7,7 @@ import hummingbot.client.settings as settings
 from hummingbot.client.config.config_methods import paper_trade_disabled, using_exchange as using_exchange_pointer
 from hummingbot.client.config.config_validators import (
     validate_bool,
+    validate_int,
     validate_decimal
 )
 
@@ -49,8 +50,8 @@ key_config_map = connector_keys()
 
 main_config_map = {
     # The variables below are usually not prompted during setup process
-    "client_id":
-        ConfigVar(key="client_id",
+    "instance_id":
+        ConfigVar(key="instance_id",
                   prompt=None,
                   required_if=lambda: False,
                   default=generate_client_id()),
@@ -121,6 +122,13 @@ main_config_map = {
                   required_if=lambda: global_config_map["celo_address"].value is not None,
                   is_secure=True,
                   is_connect_key=True),
+    "balancer_max_swaps":
+        ConfigVar(key="balancer_max_swaps",
+                  prompt="Enter the maximum swap pool in Balancer >>> ",
+                  required_if=lambda: False,
+                  type_str="int",
+                  validator=lambda v: validate_int(v, min_value=1, inclusive=True),
+                  default=4),
     "ethereum_wallet":
         ConfigVar(key="ethereum_wallet",
                   prompt="Enter your wallet private key >>> ",

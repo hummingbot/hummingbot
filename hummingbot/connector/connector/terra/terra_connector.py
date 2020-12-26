@@ -28,7 +28,7 @@ from hummingbot.core.event.events import (
     TradeFee
 )
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.connector.connector.balancer.balancer_in_flight_order import BalancerInFlightOrder
+from hummingbot.connector.connector.terra.terra_in_flight_order import TerraInFlightOrder
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.client.config.global_config_map import global_config_map
 
@@ -40,7 +40,7 @@ logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 class TerraConnector(ConnectorBase):
     """
-    BalancerConnector connects with balancer gateway APIs and provides pricing, user account tracking and trading
+    TerraInFlightOrder connects with terra gateway APIs and provides pricing, user account tracking and trading
     functionality.
     """
     API_CALL_TIMEOUT = 10.0
@@ -74,6 +74,7 @@ class TerraConnector(ConnectorBase):
         self._in_flight_orders = {}
         self._status_polling_task = None
         self._real_time_balance_update = False
+        self._poll_notifier = None
 
     @property
     def name(self):
@@ -81,8 +82,9 @@ class TerraConnector(ConnectorBase):
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
-        # Todo: find all available trading pairs
-        return ["LUNA-UST", "LUNA-KRT", "LUNA-SDT", "UST-KRT", "UST-SDT", "KRT-SDT"]
+        return ["LUNA-UST", "LUNA-KRT", "LUNA-SDT", "LUNA-MNT",
+                "UST-KRT", "UST-SDT", "UST-MNT",
+                "KRT-SDT", "KRT-MNT", "SDT-MNT"]
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
@@ -197,7 +199,7 @@ class TerraConnector(ConnectorBase):
             if tracked_order is not None:
                 self.logger().info(f"Created {trade_type.name} order {order_id} txHash: {hash} "
                                    f"for {amount} {trading_pair}.")
-                tracked_order.exchange_order_id = hash
+                tracked_order.update_exchange_order_id(hash)
             if txSuccess:
                 tracked_order.fee_asset = order_result["fee"]["token"]
                 tracked_order.executed_amount_base = amount
@@ -262,7 +264,7 @@ class TerraConnector(ConnectorBase):
         """
         Starts tracking an order by simply adding it into _in_flight_orders dictionary.
         """
-        self._in_flight_orders[order_id] = BalancerInFlightOrder(
+        self._in_flight_orders[order_id] = TerraInFlightOrder(
             client_order_id=order_id,
             exchange_order_id=exchange_order_id,
             trading_pair=trading_pair,
@@ -325,7 +327,7 @@ class TerraConnector(ConnectorBase):
         It checks if status polling task is due for execution.
         """
         if time.time() - self._last_poll_timestamp > self.POLL_INTERVAL:
-            if not self._poll_notifier.is_set():
+            if self._poll_notifier is not None and not self._poll_notifier.is_set():
                 self._poll_notifier.set()
 
     async def _status_polling_loop(self):
@@ -417,5 +419,5 @@ class TerraConnector(ConnectorBase):
         return []
 
     @property
-    def in_flight_orders(self) -> Dict[str, BalancerInFlightOrder]:
+    def in_flight_orders(self) -> Dict[str, TerraInFlightOrder]:
         return self._in_flight_orders

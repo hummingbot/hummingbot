@@ -2,6 +2,7 @@ from typing import List
 from hummingbot.strategy.strategy_base cimport StrategyBase
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.clock import Clock
+from hummingbot.core.clock cimport Clock
 
 from .order_tracker import OrderTracker
 
@@ -16,8 +17,19 @@ cdef class StrategyPyBase(StrategyBase):
     def add_markets(self, markets: List[ConnectorBase]):
         self.c_add_markets(markets)
 
-    def start(self, clock: Clock, timestamp: float):
+    cdef c_start(self, Clock clock, double timestamp):
         StrategyBase.c_start(self, clock, timestamp)
+        self.start(clock, timestamp)
+
+    def start(self, clock: Clock, timestamp: float):
+        pass
+
+    cdef c_stop(self, Clock clock):
+        StrategyBase.c_stop(self, clock)
+        self.stop(clock)
+
+    def stop(self, clock: Clock):
+        pass
 
     cdef c_tick(self, double timestamp):
         StrategyBase.c_tick(self, timestamp)
@@ -25,9 +37,6 @@ cdef class StrategyPyBase(StrategyBase):
 
     def tick(self, timestamp: float):
         raise NotImplementedError
-
-    def stop(self, clock: Clock):
-        StrategyBase.c_stop(self, clock)
 
     cdef c_did_create_buy_order(self, object order_created_event):
         self.did_create_buy_order(order_created_event)

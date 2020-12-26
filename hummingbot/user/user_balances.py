@@ -114,6 +114,7 @@ class UserBalances:
     @staticmethod
     async def eth_n_erc20_balances() -> Dict[str, Decimal]:
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
+        # Todo: Use generic ERC20 balance update
         connector = BalancerConnector(ethereum_required_trading_pairs(),
                                       get_eth_wallet_private_key(),
                                       ethereum_rpc_url,
