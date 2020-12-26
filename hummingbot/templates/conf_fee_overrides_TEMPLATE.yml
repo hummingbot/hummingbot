@@ -14,6 +14,9 @@ binance_taker_fee:
 coinbase_pro_maker_fee:
 coinbase_pro_taker_fee:
 
+dydx_maker_fee:
+dydx_taker_fee:
+
 huobi_maker_fee:
 huobi_taker_fee:
 

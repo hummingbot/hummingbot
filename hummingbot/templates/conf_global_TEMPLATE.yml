@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 15
+template_version: 17
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -27,6 +27,9 @@ bittrex_secret_key: null
 coinbase_pro_api_key: null
 coinbase_pro_secret_key: null
 coinbase_pro_passphrase: null
+
+dydx_eth_private_key: null
+dydx_node_address: null
 
 huobi_api_key: null
 huobi_secret_key: null
@@ -66,6 +69,8 @@ celo_password: null
 terra_wallet_address: null
 terra_wallet_seeds: null
 
+balancer_max_swaps: 4
+
 # Ethereum wallet address: required for trading on a DEX
 ethereum_wallet: null
 ethereum_rpc_url: null
@@ -102,7 +107,7 @@ telegram_chat_id: null
 send_error_logs: null
 
 # Advanced configs: Do NOT touch unless you understand what you are changing
-client_id: null
+instance_id: null
 log_level: INFO
 debug_console: false
 strategy_report_interval: 900.0
@@ -123,6 +128,8 @@ min_quote_order_amount:
   USDT: 11
   USDC: 11
   BUSD: 11
+  TUSD: 11
+  TRY: 11
 
 
 # Advanced database options, currently supports SQLAlchemy's included dialects

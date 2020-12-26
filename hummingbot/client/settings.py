@@ -59,7 +59,6 @@ class ConnectorSetting(NamedTuple):
     parent_name: str
     domain_parameter: str
     use_eth_gas_lookup: bool
-    gas_limit: int
 
     def module_name(self) -> str:
         # returns connector module name, e.g. binance_exchange
@@ -130,8 +129,7 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
                 is_sub_domain=False,
                 parent_name=None,
                 domain_parameter=None,
-                use_eth_gas_lookup=getattr(util_module, "USE_ETH_GAS_LOOKUP", False),
-                gas_limit=getattr(util_module, "GAS_LIMIT", None)
+                use_eth_gas_lookup=getattr(util_module, "USE_ETH_GAS_LOOKUP", False)
             )
             other_domains = getattr(util_module, "OTHER_DOMAINS", [])
             for domain in other_domains:
@@ -149,8 +147,7 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
                     is_sub_domain=True,
                     parent_name=parent.name,
                     domain_parameter=getattr(util_module, "OTHER_DOMAINS_PARAMETER")[domain],
-                    use_eth_gas_lookup=parent.use_eth_gas_lookup,
-                    gas_limit= parent.gas_limit
+                    use_eth_gas_lookup=parent.use_eth_gas_lookup
                 )
     return connector_settings
 

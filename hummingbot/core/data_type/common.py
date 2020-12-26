@@ -13,3 +13,4 @@ class OpenOrder(NamedTuple):
     order_type: OrderType
     is_buy: bool
     time: int
+    exchange_order_id: str

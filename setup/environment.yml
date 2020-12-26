@@ -80,6 +80,7 @@ dependencies:
     - decorator==4.4.2
     - deprecated==1.2.7
     - distlib==0.3.0
+    - dydx-python==0.11.2
     - entrypoints==0.3
     - eth-abi==2.1.1
     - eth-account==0.4.0

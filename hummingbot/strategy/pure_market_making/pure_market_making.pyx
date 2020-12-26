@@ -69,6 +69,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                  order_level_spread: Decimal = s_decimal_zero,
                  order_level_amount: Decimal = s_decimal_zero,
                  order_refresh_time: float = 30.0,
+                 max_order_age = 1800.0,
                  order_refresh_tolerance_pct: Decimal = s_decimal_neg_one,
                  filled_order_delay: float = 60.0,
                  inventory_skew_enabled: bool = False,
@@ -109,6 +110,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._order_level_spread = order_level_spread
         self._order_level_amount = order_level_amount
         self._order_refresh_time = order_refresh_time
+        self._max_order_age = max_order_age
         self._order_refresh_tolerance_pct = order_refresh_tolerance_pct
         self._filled_order_delay = filled_order_delay
         self._inventory_skew_enabled = inventory_skew_enabled
@@ -132,6 +134,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         self._cancel_timestamp = 0
         self._create_timestamp = 0
+        self._hanging_aged_order_prices = []
         self._limit_order_type = self._market_info.market.get_maker_order_type()
         if take_if_crossed:
             self._limit_order_type = OrderType.LIMIT
@@ -660,6 +663,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             self.c_cancel_active_orders(proposal)
             self.c_cancel_hanging_orders()
             self.c_cancel_orders_below_min_spread()
+            refresh_proposal = self.c_aged_order_refresh()
+            # Firstly restore cancelled aged order
+            if refresh_proposal is not None:
+                self.c_execute_orders_proposal(refresh_proposal)
             if self.c_to_create_orders(proposal):
                 self.c_execute_orders_proposal(proposal)
         finally:
@@ -859,17 +866,13 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             object own_buy_size = s_decimal_zero
             object own_sell_size = s_decimal_zero
 
-        # If there are multiple orders, do not jump prices
-        if self._order_levels > 1:
-            return
-
         for order in self.active_orders:
             if order.is_buy:
                 own_buy_size = order.quantity
             else:
                 own_sell_size = order.quantity
 
-        if len(proposal.buys) == 1:
+        if len(proposal.buys) > 0:
             # Get the top bid price in the market using order_optimization_depth and your buy order volume
             top_bid_price = self._market_info.get_price_for_volume(
                 False, self._bid_order_optimization_depth + own_buy_size).result_price
@@ -880,12 +883,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             # Get the price above the top bid
             price_above_bid = (ceil(top_bid_price / price_quantum) + 1) * price_quantum
 
-            # If the price_above_bid is lower than the price suggested by the pricing proposal,
-            # lower your price to this
+            # If the price_above_bid is lower than the price suggested by the top pricing proposal,
+            # lower the price and from there apply the order_level_spread to each order in the next levels
+            proposal.buys = sorted(proposal.buys, key = lambda p: p.price, reverse = True)
             lower_buy_price = min(proposal.buys[0].price, price_above_bid)
-            proposal.buys[0].price = market.c_quantize_order_price(self.trading_pair, lower_buy_price)
+            for i, proposed in enumerate(proposal.buys):
+                proposal.buys[i].price = market.c_quantize_order_price(self.trading_pair, lower_buy_price) * (1 - self.order_level_spread * i)
 
-        if len(proposal.sells) == 1:
+        if len(proposal.sells) > 0:
             # Get the top ask price in the market using order_optimization_depth and your sell order volume
             top_ask_price = self._market_info.get_price_for_volume(
                 True, self._ask_order_optimization_depth + own_sell_size).result_price
@@ -897,9 +902,11 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             price_below_ask = (floor(top_ask_price / price_quantum) - 1) * price_quantum
 
             # If the price_below_ask is higher than the price suggested by the pricing proposal,
-            # increase your price to this
+            # increase your price and from there apply the order_level_spread to each order in the next levels
+            proposal.sells = sorted(proposal.sells, key = lambda p: p.price)
             higher_sell_price = max(proposal.sells[0].price, price_below_ask)
-            proposal.sells[0].price = market.c_quantize_order_price(self.trading_pair, higher_sell_price)
+            for i, proposed in enumerate(proposal.sells):
+                proposal.sells[i].price = market.c_quantize_order_price(self.trading_pair, higher_sell_price) * (1 + self.order_level_spread * i)
 
     cdef object c_apply_add_transaction_costs(self, object proposal):
         cdef:
@@ -1109,6 +1116,36 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                                    f"ID - {order.client_order_id}")
                 self.c_cancel_order(self._market_info, order.client_order_id)
 
+    # Refresh all active order that are older that the _max_order_age
+    cdef c_aged_order_refresh(self):
+        cdef:
+            list active_orders = self.active_orders
+            list buys = []
+            list sells = []
+
+        for order in active_orders:
+            age = 0 if "//" in order.client_order_id else \
+                int(int(time.time()) - int(order.client_order_id[-16:])/1e6)
+
+            # To prevent duplicating orders due to delay in receiving cancel response
+            refresh_check = [o for o in active_orders if o.price == order.price
+                             and o.quantity == order.quantity]
+            if len(refresh_check) > 1:
+                continue
+
+            if age >= self._max_order_age:
+                if order.is_buy:
+                    buys.append(PriceSize(order.price, order.quantity))
+                else:
+                    sells.append(PriceSize(order.price, order.quantity))
+                if order.client_order_id in self._hanging_order_ids:
+                    self._hanging_aged_order_prices.append(order.price)
+                self.logger().info(f"Refreshing {'Buy' if order.is_buy else 'Sell'} order with ID - "
+                                   f"{order.client_order_id} because it reached maximum order age of "
+                                   f"{self._max_order_age} seconds.")
+                self.c_cancel_order(self._market_info, order.client_order_id)
+        return Proposal(buys, sells)
+
     cdef bint c_to_create_orders(self, object proposal):
         return self._create_timestamp < self._current_timestamp and \
             proposal is not None and \
@@ -1141,6 +1178,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     price=buy.price,
                     expiration_seconds=expiration_seconds
                 )
+                if buy.price in self._hanging_aged_order_prices:
+                    self._hanging_order_ids.append(bid_order_id)
+                    self._hanging_aged_order_prices.remove(buy.price)
                 orders_created = True
         if len(proposal.sells) > 0:
             if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
@@ -1159,6 +1199,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     price=sell.price,
                     expiration_seconds=expiration_seconds
                 )
+                if sell.price in self._hanging_aged_order_prices:
+                    self._hanging_order_ids.append(ask_order_id)
+                    self._hanging_aged_order_prices.remove(sell.price)
                 orders_created = True
         if orders_created:
             self.set_timers()

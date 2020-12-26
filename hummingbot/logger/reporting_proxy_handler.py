@@ -34,11 +34,13 @@ class ReportingProxyHandler(logging.Handler):
         return cls._rrh_logger
 
     def __init__(self,
-                 level=logging.ERROR,
-                 proxy_url="http://127.0.0.1:9000",
-                 capacity=1):
+                 level: int = logging.ERROR,
+                 proxy_url: str = "http://127.0.0.1:9000",
+                 enable_order_event_logging: bool = False,
+                 capacity: int = 1):
         super().__init__()
         self.setLevel(level)
+        self._enable_order_event_logging: bool = enable_order_event_logging
         self._log_queue: list = []
         self._event_queue: list = []
         self._logged_order_events: List[Dict] = []
@@ -57,8 +59,8 @@ class ReportingProxyHandler(logging.Handler):
         return self._log_server_client
 
     @property
-    def client_id(self):
-        return global_config_map["client_id"].value or ""
+    def instance_id(self):
+        return global_config_map["instance_id"].value or ""
 
     def emit(self, record):
         if record.__dict__.get("do_not_send", False):
@@ -128,6 +130,8 @@ class ReportingProxyHandler(logging.Handler):
             self._logged_order_events.append(log.dict_msg)
 
     def send_logs(self, logs):
+        if not self._enable_order_event_logging:
+            return
         request_obj = {
             "url": f"{self._proxy_url}/logs",
             "method": "POST",
@@ -136,7 +140,7 @@ class ReportingProxyHandler(logging.Handler):
                     'Content-Type': "application/json"
                 },
                 "data": json.dumps(logs, default=log_encoder),
-                "params": {"ddtags": f"client_id:{self.client_id},"
+                "params": {"ddtags": f"instance_id:{self.instance_id},"
                                      f"client_version:{CLIENT_VERSION},"
                                      f"type:log",
                            "ddsource": "hummingbot-client"}
@@ -153,7 +157,7 @@ class ReportingProxyHandler(logging.Handler):
                     'Content-Type': "application/json"
                 },
                 "data": json.dumps(logs, default=log_encoder),
-                "params": {"ddtags": f"client_id:{self.client_id},"
+                "params": {"ddtags": f"instance_id:{self.instance_id},"
                                      f"client_version:{CLIENT_VERSION},"
                                      f"type:log",
                            "ddsource": "hummingbot-client"}
@@ -169,7 +173,7 @@ class ReportingProxyHandler(logging.Handler):
                 "headers": {
                     'Content-Type': "application/json"
                 },
-                "data": json.dumps({"client_id": self.client_id,
+                "data": json.dumps({"instance_id": self.instance_id,
                                     "exchange": exchange,
                                     "market": market,
                                     "version": CLIENT_VERSION,
