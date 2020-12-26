@@ -254,12 +254,20 @@ class ConfigCommand:
             )
             await self.prompt_a_config(cvar)
             config_map[key].value = cvar.value
+
+            try:
+                quote_volume = balances[base_asset] * cvar.value
+            except TypeError:
+                # TypeError: unsupported operand type(s) for *: 'decimal.Decimal' and 'NoneType' - bad input / no input
+                self._notify("Inventory price not updated due to bad input")
+                return
+
             session: Session = self.trade_fill_db.get_shared_session()
             InventoryCost.add_volume(
                 session,
                 base_asset=base_asset,
                 quote_asset=quote_asset,
                 base_volume=balances[base_asset],
-                quote_volume=balances[base_asset] * cvar.value,
+                quote_volume=quote_volume,
                 overwrite=True,
             )
