@@ -180,6 +180,8 @@ class BalancerConnector(ConnectorBase):
                                            {"base": self._token_addresses[base],
                                             "quote": self._token_addresses[quote],
                                             "amount": amount,
+                                            "base_decimals": self._token_decimals[base],
+                                            "quote_decimals": self._token_decimals[quote],
                                             "maxSwaps": self._max_swaps})
             if resp["price"] is not None:
                 return Decimal(str(resp["price"]))
@@ -259,6 +261,8 @@ class BalancerConnector(ConnectorBase):
                       "maxPrice": str(price),
                       "maxSwaps": str(self._max_swaps),
                       "gasPrice": str(gas_price),
+                      "base_decimals": self._token_decimals[base],
+                      "quote_decimals": self._token_decimals[quote],
                       }
         self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, gas_price)
         try:
