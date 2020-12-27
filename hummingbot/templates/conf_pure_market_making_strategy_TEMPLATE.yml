@@ -2,7 +2,7 @@
 ###       Pure market making strategy config         ###
 ########################################################
 
-template_version: 20
+template_version: 21
 strategy: null
 
 # Exchange and token parameters.
@@ -52,6 +52,9 @@ ping_pong_enabled: null
 
 # Whether to enable Inventory skew feature (true/false).
 inventory_skew_enabled: null
+
+# What algorithm should be used for Inventory skew feature
+inventory_skew_algo: null
 
 # Target base asset inventory percentage target to be maintained (for Inventory skew feature).
 inventory_target_base_pct: null

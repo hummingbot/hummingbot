@@ -27,13 +27,15 @@ from hummingbot.client.config.global_config_map import global_config_map
 
 from .data_types import (
     Proposal,
-    PriceSize
+    PriceSize,
+    InventorySkewAlgo
 )
 from .pure_market_making_order_tracker import PureMarketMakingOrderTracker
 
 from .asset_price_delegate cimport AssetPriceDelegate
 from .asset_price_delegate import AssetPriceDelegate
 from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
+from .inventory_skew_calculator cimport c_calculate_inventory_ratios_at_price
 from .inventory_skew_calculator import calculate_total_order_size
 from .order_book_asset_price_delegate cimport OrderBookAssetPriceDelegate
 
@@ -73,6 +75,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                  order_refresh_tolerance_pct: Decimal = s_decimal_neg_one,
                  filled_order_delay: float = 60.0,
                  inventory_skew_enabled: bool = False,
+                 inventory_skew_algo: str = "original",
                  inventory_target_base_pct: Decimal = s_decimal_zero,
                  inventory_range_multiplier: Decimal = s_decimal_zero,
                  hanging_orders_enabled: bool = False,
@@ -114,6 +117,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._order_refresh_tolerance_pct = order_refresh_tolerance_pct
         self._filled_order_delay = filled_order_delay
         self._inventory_skew_enabled = inventory_skew_enabled
+        self._inventory_skew_algo = self.get_inventory_skew_algo(inventory_skew_algo)
         self._inventory_target_base_pct = inventory_target_base_pct
         self._inventory_range_multiplier = inventory_range_multiplier
         self._hanging_orders_enabled = hanging_orders_enabled
@@ -221,6 +225,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @inventory_skew_enabled.setter
     def inventory_skew_enabled(self, value: bool):
         self._inventory_skew_enabled = value
+
+    @property
+    def inventory_skew_algo(self) -> bool:
+        return self._inventory_skew_algo
+
+    @inventory_skew_algo.setter
+    def inventory_skew_algo(self, value: str):
+        self._inventory_skew_algo = self.get_inventory_skew_algo(value)
 
     @property
     def inventory_target_base_pct(self) -> Decimal:
@@ -440,12 +452,21 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                             else s_decimal_zero)
         quote_asset_ratio = Decimal("1") - base_asset_ratio if total_value > 0 else 0
         target_base_ratio = self._inventory_target_base_pct
-        inventory_range_multiplier = self._inventory_range_multiplier
         target_base_amount = (total_value * target_base_ratio
                               if price > s_decimal_zero
                               else s_decimal_zero)
         target_base_amount_in_quote = target_base_ratio * total_value_in_quote
         target_quote_amount = (1 - target_base_ratio) * total_value_in_quote
+
+        df_data = [
+            [f"Target Value ({self.quote_asset})", f"{target_base_amount_in_quote:.4f}",
+             f"{target_quote_amount:.4f}"],
+            ["Current %", f"{base_asset_ratio:.1%}", f"{quote_asset_ratio:.1%}"],
+            ["Target %", f"{target_base_ratio:.1%}", f"{1 - target_base_ratio:.1%}"],
+        ]
+
+        if self._inventory_skew_algo is InventorySkewAlgo.amm:
+            return pd.DataFrame(data=df_data)
 
         base_asset_range = total_order_size * self._inventory_range_multiplier
         base_asset_range = min(base_asset_range, total_value * Decimal("0.5"))
@@ -468,16 +489,21 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             float(target_base_ratio),
             float(base_asset_range)
         )
-        inventory_skew_df = pd.DataFrame(data=[
-            [f"Target Value ({self.quote_asset})", f"{target_base_amount_in_quote:.4f}",
-             f"{target_quote_amount:.4f}"],
-            ["Current %", f"{base_asset_ratio:.1%}", f"{quote_asset_ratio:.1%}"],
-            ["Target %", f"{target_base_ratio:.1%}", f"{1 - target_base_ratio:.1%}"],
-            ["Inventory Range", f"{low_water_mark_ratio:.1%} - {high_water_mark_ratio:.1%}",
-             f"{1 - high_water_mark_ratio:.1%} - {1 - low_water_mark_ratio:.1%}"],
-            ["Order Adjust %", f"{bid_ask_ratios.bid_ratio:.1%}", f"{bid_ask_ratios.ask_ratio:.1%}"]
-        ])
-        return inventory_skew_df
+        df_data.extend(
+            [
+                [
+                    "Inventory Range",
+                    f"{low_water_mark_ratio:.1%} - {high_water_mark_ratio:.1%}",
+                    f"{1 - high_water_mark_ratio:.1%} - {1 - low_water_mark_ratio:.1%}",
+                ],
+                [
+                    "Order Adjust %",
+                    f"{bid_ask_ratios.bid_ratio:.1%}",
+                    f"{bid_ask_ratios.ask_ratio:.1%}",
+                ],
+            ]
+        )
+        return pd.DataFrame(data=df_data)
 
     def pure_mm_assets_df(self, to_show_current_pct: bool) -> pd.DataFrame:
         market, trading_pair, base_asset, quote_asset = self._market_info
@@ -768,8 +794,45 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             self.c_apply_add_transaction_costs(proposal)
 
     cdef c_apply_order_size_modifiers(self, object proposal):
-        if self._inventory_skew_enabled:
+        if not self._inventory_skew_enabled:
+            return
+
+        if self._inventory_skew_algo is InventorySkewAlgo.amm:
+            self.c_apply_amm_skew(proposal)
+        elif self._inventory_skew_algo is InventorySkewAlgo.original:
             self.c_apply_inventory_skew(proposal)
+
+    cdef c_apply_amm_skew(self, object proposal):
+        """Applies AMM-like algo to a proposal to maintain constant portfolio ratio."""
+        cdef ExchangeBase market = self._market_info.market
+
+        base_balance, quote_balance = self.c_get_adjusted_available_balance(self.active_orders)
+
+        base_balance_tmp = base_balance
+        quote_balance_tmp = quote_balance
+        for buy in proposal.buys:
+            ratios_at_bid_price = c_calculate_inventory_ratios_at_price(base_balance_tmp, quote_balance_tmp, buy.price)
+            quote_to_spend = (
+                self._inventory_target_base_pct - Decimal(ratios_at_bid_price.base_pct)
+            ) * Decimal(ratios_at_bid_price.total_value)
+            to_buy = quote_to_spend / buy.price
+            # For every order level, assume that previous level has been filled and we need to take this into account
+            base_balance_tmp += to_buy
+            quote_balance_tmp -= quote_to_spend
+            # Note: order with negative size will be removed by c_apply_budget_constraint()
+            buy.size = market.c_quantize_order_amount(self.trading_pair, to_buy)
+
+        base_balance_tmp = base_balance
+        quote_balance_tmp = quote_balance
+        for sell in proposal.sells:
+            ratios_at_ask_price = c_calculate_inventory_ratios_at_price(base_balance_tmp, quote_balance_tmp, sell.price)
+            quote_to_obtain = (
+                Decimal(ratios_at_ask_price.base_pct) - self._inventory_target_base_pct
+            ) * Decimal(ratios_at_ask_price.total_value)
+            to_sell = quote_to_obtain / sell.price
+            base_balance_tmp -= to_sell
+            quote_balance_tmp += quote_to_obtain
+            sell.size = market.c_quantize_order_amount(self.trading_pair, to_sell)
 
     cdef c_apply_inventory_skew(self, object proposal):
         cdef:
@@ -1231,3 +1294,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             return PriceType.LastOwnTrade
         else:
             raise ValueError(f"Unrecognized price type string {price_type_str}.")
+
+    def get_inventory_skew_algo(self, skew_algo: str) -> InventorySkewAlgo:
+        try:
+            return getattr(InventorySkewAlgo, skew_algo)
+        except AttributeError:
+            raise ValueError(f"Unrecognized inventory skew algo {skew_algo}")

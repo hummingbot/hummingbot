@@ -32,6 +32,7 @@ def start(self):
         exchange = c_map.get("exchange").value.lower()
         raw_trading_pair = c_map.get("market").value
         inventory_skew_enabled = c_map.get("inventory_skew_enabled").value
+        inventory_skew_algo = c_map.get("inventory_skew_algo").value
         inventory_target_base_pct = 0 if c_map.get("inventory_target_base_pct").value is None else \
             c_map.get("inventory_target_base_pct").value / Decimal('100')
         inventory_range_multiplier = c_map.get("inventory_range_multiplier").value
@@ -79,6 +80,7 @@ def start(self):
             order_level_spread=order_level_spread,
             order_level_amount=order_level_amount,
             inventory_skew_enabled=inventory_skew_enabled,
+            inventory_skew_algo=inventory_skew_algo,
             inventory_target_base_pct=inventory_target_base_pct,
             inventory_range_multiplier=inventory_range_multiplier,
             filled_order_delay=filled_order_delay,

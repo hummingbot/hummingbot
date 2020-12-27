@@ -790,6 +790,54 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual("50.0%", status_df.iloc[4, 1])
         self.assertEqual("150.0%", status_df.iloc[4, 2])
 
+    def test_inventory_skew_algo_amm(self):
+        """Basic test for correct order amounts for AMM algo"""
+        strategy = self.one_level_strategy
+        strategy.inventory_skew_enabled = True
+        strategy.inventory_skew_algo = "amm"
+        strategy.inventory_target_base_pct = Decimal("0.5")
+        self.mid_price = Decimal("100")
+        self.market.set_balance("HBOT", Decimal("500"))
+        self.market.set_balance("ETH", Decimal("50000"))
+
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+        first_bid_order = strategy.active_buys[0]
+        first_ask_order = strategy.active_sells[0]
+        self.assertEqual(Decimal("2.52525"), first_bid_order.quantity)
+        self.assertEqual(Decimal("2.47524"), first_ask_order.quantity)
+
+    def test_inventory_skew_algo_amm_multiple_levels(self):
+        strategy = PureMarketMakingStrategy(
+            self.market_info,
+            bid_spread=Decimal("0.01"),
+            ask_spread=Decimal("0.01"),
+            order_amount=Decimal("1"),
+            order_refresh_time=5.0,
+            filled_order_delay=5.0,
+            order_refresh_tolerance_pct=-1,
+            order_levels=5,
+            order_level_spread=Decimal("0.01"),
+            order_level_amount=Decimal("0.5"),
+            inventory_skew_enabled=True,
+            inventory_target_base_pct=Decimal("0.5"),
+            inventory_range_multiplier=Decimal("0.5"),
+            minimum_spread=-1,
+        )
+        strategy.inventory_skew_enabled = True
+        strategy.inventory_skew_algo = "amm"
+        self.mid_price = Decimal("100")
+        self.market.set_balance("HBOT", Decimal("500"))
+        self.market.set_balance("ETH", Decimal("50000"))
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        self.assertEqual(5, len(strategy.active_buys))
+        self.assertEqual(5, len(strategy.active_sells))
+
     def test_order_book_asset_del(self):
         strategy = self.one_level_strategy
         strategy.asset_price_delegate = self.order_book_asset_del

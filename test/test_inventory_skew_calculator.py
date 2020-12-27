@@ -9,7 +9,7 @@ import unittest
 
 from hummingbot.strategy.pure_market_making.data_types import InventorySkewBidAskRatios
 from hummingbot.strategy.pure_market_making.inventory_skew_calculator import \
-    calculate_bid_ask_ratios_from_base_asset_ratio
+    calculate_bid_ask_ratios_from_base_asset_ratio, calculate_inventory_ratios_at_price
 
 
 class InventorySkewCalculatorUnitTest(unittest.TestCase):
@@ -108,6 +108,20 @@ class InventorySkewCalculatorUnitTest(unittest.TestCase):
         )
         self.assertAlmostEqual(0.0, bid_ask_ratios.bid_ratio)
         self.assertAlmostEqual(0.0, bid_ask_ratios.ask_ratio)
+
+    def test_calculate_inventory_ratios_at_price_simple(self):
+        """Very basic test, shows that function runs cleanly"""
+        ratios = calculate_inventory_ratios_at_price(50, 5000, 100)
+        self.assertEqual(ratios.base_pct, 0.5)
+        self.assertEqual(ratios.quote_pct, 0.5)
+        self.assertEqual(ratios.total_value, 10000)
+
+    def test_calculate_inventory_ratios_at_price_zero_quote(self):
+        """Test for correct handling of 0 quote balance"""
+        ratios = calculate_inventory_ratios_at_price(self.base_asset, 0, self.price)
+        self.assertEqual(ratios.base_pct, 1)
+        self.assertEqual(ratios.quote_pct, 0)
+        self.assertGreater(ratios.total_value, 0)
 
 
 if __name__ == "__main__":

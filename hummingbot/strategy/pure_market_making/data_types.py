@@ -1,9 +1,11 @@
 #!/usr/bin/env python
+from decimal import Decimal
+from enum import Enum
 from typing import (
     NamedTuple,
-    List
+    List,
 )
-from decimal import Decimal
+
 from hummingbot.core.event.events import OrderType
 
 ORDER_PROPOSAL_ACTION_CREATE_ORDERS = 1
@@ -34,6 +36,17 @@ class SizingProposal(NamedTuple):
 class InventorySkewBidAskRatios(NamedTuple):
     bid_ratio: float
     ask_ratio: float
+
+
+class InventorySkewAlgo(Enum):
+    original = 1
+    amm = 2
+
+
+class InventoryValue(NamedTuple):
+    base_pct: float
+    quote_pct: float
+    total_value: float
 
 
 class PriceSize:

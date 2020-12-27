@@ -3,3 +3,8 @@ cdef object c_calculate_bid_ask_ratios_from_base_asset_ratio(double base_asset_a
                                                              double price,
                                                              double target_base_asset_ratio,
                                                              double base_asset_range)
+
+
+cdef object c_calculate_inventory_ratios_at_price(
+    double base_asset_amount, double quote_asset_amount, double price
+)

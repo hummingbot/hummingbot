@@ -22,6 +22,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         object _order_refresh_tolerance_pct
         double _filled_order_delay
         bint _inventory_skew_enabled
+        object _inventory_skew_algo
         object _inventory_target_base_pct
         object _inventory_range_multiplier
         bint _hanging_orders_enabled
@@ -62,6 +63,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     cdef c_apply_order_price_modifiers(self, object proposal)
     cdef c_apply_order_size_modifiers(self, object proposal)
     cdef c_apply_inventory_skew(self, object proposal)
+    cdef c_apply_amm_skew(self, object proposal)
     cdef c_apply_budget_constraint(self, object proposal)
 
     cdef c_filter_out_takers(self, object proposal)

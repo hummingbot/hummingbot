@@ -1,7 +1,7 @@
 from decimal import Decimal
 import numpy as np
 
-from .data_types import InventorySkewBidAskRatios
+from .data_types import InventorySkewBidAskRatios, InventoryValue
 
 decimal_0 = Decimal(0)
 decimal_1 = Decimal(1)
@@ -55,3 +55,23 @@ cdef object c_calculate_bid_ask_ratios_from_base_asset_ratio(
         double ask_adjustment = 2.0 - bid_adjustment
 
     return InventorySkewBidAskRatios(bid_adjustment, ask_adjustment)
+
+
+def calculate_inventory_ratios_at_price(
+        base_asset_amount: float, quote_asset_amount: float, price: float
+) -> InventoryValue:
+    return c_calculate_inventory_ratios_at_price(
+        base_asset_amount, quote_asset_amount, price
+    )
+
+
+cdef object c_calculate_inventory_ratios_at_price(
+        double base_asset_amount, double quote_asset_amount, double price
+):
+    cdef:
+        double base_asset_value = base_asset_amount * price
+        double total_portfolio_value = base_asset_value + quote_asset_amount
+        double base_pct = base_asset_value / total_portfolio_value
+        double quote_pct = quote_asset_amount / total_portfolio_value
+
+    return InventoryValue(base_pct=base_pct, quote_pct=quote_pct, total_value=total_portfolio_value)

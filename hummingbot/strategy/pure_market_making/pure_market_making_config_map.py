@@ -221,6 +221,16 @@ pure_market_making_config_map = {
                   type_str="bool",
                   default=False,
                   validator=validate_bool),
+    "inventory_skew_algo":
+        ConfigVar(key="inventory_skew_algo",
+                  prompt="What inventory skew algorithm you would like to use? (original/amm) >>>",
+                  required_if=lambda: pure_market_making_config_map.get("inventory_skew_enabled").value,
+                  type_str="str",
+                  default="original",
+                  validator=lambda s: None if s in {"original",
+                                                    "amm",
+                                                    } else
+                  "Invalid algorithm."),
     "inventory_target_base_pct":
         ConfigVar(key="inventory_target_base_pct",
                   prompt="What is your target base asset percentage? Enter 50 for 50% >>> ",
