@@ -263,7 +263,6 @@ class TokocryptoSocketManager(threading.Thread):
                 }
             ]
         """
-
         return self._start_socket('!miniTicker@arr@{}ms'.format(update_time), callback)
 
     def start_trade_socket(self, symbol, callback):
@@ -510,13 +509,10 @@ class TokocryptoSocketManager(threading.Thread):
                 }
             ]
         """
-
-
         return self._start_futures_socket('!bookTicker', callback)
 
     def start_symbol_book_ticker_socket(self, symbol, callback):
         """Start a websocket for the best bid or ask's price or quantity for a specified symbol.
-
         https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#individual-symbol-book-ticker-streams
 
         :param symbol: required

@@ -8,9 +8,9 @@ from aiokafka import (
 import asyncio
 from async_timeout import timeout
 
-#from binance.client import Client as TokocryptoClient
-#from binance import client as tokocrypto_client_module
-#from binance.exceptions import BinanceAPIException
+# from binance.client import Client as TokocryptoClient
+# from binance import client as tokocrypto_client_module
+# from binance.exceptions import BinanceAPIException
 from hummingbot.connector.exchange.tokocrypto.tokocrypto.client import Client as TokocryptoClient
 from hummingbot.connector.exchange.tokocrypto.tokocrypto import client as tokocrypto_client_module
 from hummingbot.connector.exchange.tokocrypto.tokocrypto.exceptions import TokocryptoAPIException
@@ -325,15 +325,15 @@ cdef class TokocryptoExchange(ExchangeBase):
         cdef:
             int64_t last_tick = <int64_t>(self._last_timestamp / 60.0)
             int64_t current_tick = <int64_t>(self._current_timestamp / 60.0)
-        print('_update_trading_rules', {'current_tick' : current_tick, 'last_tick' : last_tick, '_current_trading_rules_len' : len(self._trading_rules)})
+        # print('_update_trading_rules', {'current_tick' : current_tick, 'last_tick' : last_tick, '_current_trading_rules_len' : len(self._trading_rules)})
         if current_tick > last_tick or len(self._trading_rules) < 1:
             exchange_info = await self.query_api(self._tokocrypto_client.get_exchange_info)
-            #self.logger().info(f"exchange_info = {exchange_info}", exc_info=True)
+            # self.logger().info(f"exchange_info = {exchange_info}", exc_info=True)
             trading_rules_list = self._format_trading_rules(exchange_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
                 self._trading_rules[convert_from_exchange_trading_pair(trading_rule.trading_pair)] = trading_rule
-            #self.logger().info(f"trading_rule = {self._trading_rules}", exc_info=True)
+            # self.logger().info(f"trading_rule = {self._trading_rules}", exc_info=True)
 
     def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """

@@ -157,7 +157,6 @@ class Client(object):
         return params
 
     def _request(self, method, uri, signed, force_params=False, **kwargs):
-
         # set default requests timeout
         kwargs['timeout'] = 10
 
@@ -200,7 +199,6 @@ class Client(object):
         return self._handle_response()
 
     def _request_api(self, method, path, signed=False, version=PUBLIC_API_VERSION, **kwargs):
-        
         uri = self._create_api_uri(path, signed, version)
         print('uri', uri)
         # test = self._request(method, uri, signed, **kwargs)
@@ -231,7 +229,6 @@ class Client(object):
         Raises the appropriate exceptions when necessary; otherwise, returns the
         response.
         """
-        
         if not str(self.response.status_code).startswith('2'):
             raise TokocryptoAPIException(self.response)
         try:
@@ -1774,7 +1771,6 @@ class Client(object):
 
         """
         # print('params', params)
-        
         return self._get('account/spot', True, data=params)
 
     def get_asset_balance(self, asset, **params):
