@@ -59,6 +59,9 @@ eterbase_account: null
 bitfinex_api_key: null
 bitfinex_secret_key: null
 
+tokocrypto_api_key: null
+tokocrypto_api_secret: null
+
 okex_api_key: null
 okex_secret_key: null
 okex_passphrase: null
