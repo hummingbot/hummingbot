@@ -20,7 +20,6 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.connector.exchange.radar_relay.radar_relay_order_book import RadarRelayOrderBook
 from hummingbot.connector.exchange.radar_relay.radar_relay_active_order_tracker import RadarRelayActiveOrderTracker
 from hummingbot.connector.exchange.radar_relay.radar_relay_order_book_message import RadarRelayOrderBookMessage
-from hummingbot.core.utils import async_ttl_cache
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
@@ -71,32 +70,6 @@ class RadarRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 raise IOError(f"Error fetching token info. HTTP status is {response.status}.")
             data = await response.json()
             return {d["address"]: d for d in data}
-
-    @classmethod
-    @async_ttl_cache(ttl=60 * 30, maxsize=1)
-    async def get_active_exchange_markets(cls) -> pd.DataFrame:
-        """
-        Returned data frame should have trading pair as index and include usd volume, baseAsset and quoteAsset
-        """
-        client: aiohttp.ClientSession = cls.http_client()
-        async with client.get(f"{MARKETS_URL}?include=ticker,stats") as response:
-            response: aiohttp.ClientResponse = response
-            if response.status != 200:
-                raise IOError(f"Error fetching active Radar Relay markets. HTTP status is {response.status}.")
-            data = await response.json()
-            data: List[Dict[str, any]] = [
-                {**item, **{"baseAsset": item["id"].split("-")[0], "quoteAsset": item["id"].split("-")[1]}}
-                for item in data
-            ]
-            all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data, index="id")
-
-            quote_volume: List[float] = []
-            for row in all_markets.itertuples():
-                base_volume: float = float(row.stats["volume24Hour"])
-                quote_volume.append(base_volume)
-
-            all_markets.loc[:, "volume"] = quote_volume
-            return all_markets.sort_values("USDVolume", ascending=False)
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:

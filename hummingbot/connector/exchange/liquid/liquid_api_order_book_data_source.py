@@ -11,7 +11,6 @@ import cachetools.func
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -60,108 +59,6 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         return products
 
-    @classmethod
-    @async_ttl_cache(ttl=60 * 30, maxsize=1)  # TODO: Not really sure what this does
-    async def get_active_exchange_markets(cls) -> (pd.DataFrame):
-        """
-        Returned data frame should have 'currency_pair_code' as index and include
-        * usd volume
-        * baseAsset
-        * quoteAsset
-        """
-        # Fetch raw exchange and markets data from Liquid
-        exchange_markets_data: list = await cls.get_exchange_markets_data()
-
-        # TODO: Understand the behavior of a non async method wrapped by another async method
-        # Make sure doing this will not block other task
-        market_data: List[str, Any] = cls.filter_market_data(
-            exchange_markets_data=exchange_markets_data)
-
-        market_data = cls.reformat_trading_pairs(market_data)
-
-        # Build the data frame
-        all_markets_df: pd.DataFrame = pd.DataFrame.from_records(data=market_data, index='trading_pair')
-
-        btc_price: float = float(all_markets_df.loc['BTC-USD'].last_traded_price)
-        eth_price: float = float(all_markets_df.loc['ETH-USD'].last_traded_price)
-        usd_volume: float = [
-            (
-                volume * quote_price if trading_pair.endswith(("USD", "USDC")) else
-                volume * quote_price * btc_price if trading_pair.endswith("BTC") else
-                volume * quote_price * eth_price if trading_pair.endswith("ETH") else
-                volume
-            )
-            for trading_pair, volume, quote_price in zip(
-                all_markets_df.index,
-                all_markets_df.volume_24h.astype('float'),
-                all_markets_df.last_traded_price.astype('float')
-            )
-        ]
-
-        all_markets_df.loc[:, 'USDVolume'] = usd_volume
-        all_markets_df.loc[:, 'volume'] = all_markets_df.volume_24h
-        all_markets_df.rename(
-            {"base_currency": "baseAsset", "quoted_currency": "quoteAsset"}, axis="columns", inplace=True
-        )
-
-        return all_markets_df.sort_values("USDVolume", ascending=False)
-
-    @classmethod
-    async def get_exchange_markets_data(cls) -> (List):
-        """
-        Fetch Liquid exchange data from '/products' with following structure:
-        exchange_markets_data (Dict)
-        |-- id: str
-        |-- product_type: str
-        |-- code: str
-        |-- name: str
-        |-- market_ask: float
-        |-- market_bid: float
-        |-- indicator: int
-        |-- currency: str
-        |-- currency_pair_code: str
-        |-- symbol: str
-        |-- btc_minimum_withdraw: float
-        |-- fiat_minimum_withdraw: float
-        |-- pusher_channel: str
-        |-- taker_fee: str (float)
-        |-- maker_fee: str (float)
-        |-- low_market_bid: str (float)
-        |-- high_market_ask: str (float)
-        |-- volume_24h: str (float)
-        |-- last_price_24h: str (float)
-        |-- last_traded_price: str (float)
-        |-- last_traded_quantity: str (float)
-        |-- quoted_currency: str
-        |-- base_currency: str
-        |-- disabled: bool
-        |-- margin_enabled: bool
-        |-- cfd_enabled: bool
-        |-- last_event_timestamp: str
-        """
-        async with aiohttp.ClientSession() as client:
-            exchange_markets_response: aiohttp.ClientResponse = await client.get(
-                Constants.GET_EXCHANGE_MARKETS_URL)
-
-            if exchange_markets_response.status != 200:
-                raise IOError(f"Error fetching Liquid markets information. "
-                              f"HTTP status is {exchange_markets_response.status}.")
-
-            exchange_markets_data = await exchange_markets_response.json()
-            return exchange_markets_data
-
-    @classmethod
-    def filter_market_data(cls, exchange_markets_data) -> (List[dict]):
-        """
-        Filter out:
-        * Market with invalid 'symbol' key, note: symbol here is not the same as trading pair
-        * Market with 'disabled' field set to True
-        """
-        return [
-            item for item in exchange_markets_data
-            if item['disabled'] is False
-        ]
-
     @staticmethod
     @cachetools.func.ttl_cache(ttl=10)
     def get_mid_price(trading_pair: str) -> Optional[Decimal]:
@@ -199,22 +96,14 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_trading_pairs(self) -> List[str]:
         """
         Extract trading_pairs information from all_markets_df generated
-        in get_active_exchange_markets method.
+        in fetch_trading_pairs method.
         Along the way, also populate the self._trading_pair_id_conversion_dict,
         for downstream reference since Liquid API uses id instead of trading
         pair as the identifier
         """
         try:
-            if not self.trading_pair_id_conversion_dict:
-                active_markets_df: pd.DataFrame = await self.get_active_exchange_markets()
-
-                if not self._trading_pairs:
-                    self._trading_pairs = active_markets_df.index.tolist()
-
-                self.trading_pair_id_conversion_dict = {
-                    trading_pair: active_markets_df.loc[trading_pair, 'id']
-                    for trading_pair in self._trading_pairs
-                }
+            if not self._trading_pairs:
+                self._trading_pairs = await self.fetch_trading_pairs()
         except Exception:
             self._trading_pairs = []
             self.logger().network(

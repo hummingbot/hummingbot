@@ -13,7 +13,6 @@ from typing import (
     Any,
     List,
 )
-import pandas as pd
 import unittest
 
 
@@ -25,10 +24,6 @@ class KrakenAPIOrderBookDataSourceUnitTest(unittest.TestCase):
 
     def run_async(self, task):
         return self.ev_loop.run_until_complete(task)
-
-    def test_get_active_exchange_markets(self):
-        market_data: pd.DataFrame = self.run_async(self.order_book_data_source.get_active_exchange_markets())
-        self.assertIn("ETHDAI", market_data.index)
 
     def test_get_trading_pairs(self):
         trading_pairs: List[str] = self.run_async(self.order_book_data_source.get_trading_pairs())

@@ -241,9 +241,6 @@ cdef class LoopringExchange(ExchangeBase):
                 retval.append(loopring_flight_order.to_limit_order())
         return retval
 
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        return await LoopringAPIOrderBookDataSource.get_active_exchange_markets()
-
     # ----------------------------------------
     # Account Balances
 

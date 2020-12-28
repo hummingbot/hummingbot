@@ -152,14 +152,6 @@ class BitfinexOrderBookTrackerUnitTest(unittest.TestCase):
                 break
         self.assertLessEqual(total_volume, 10 * self.daily_volume)
 
-    def test_get_active_exchange_markets(self):
-        [data] = self.run_parallel(self.order_book_tracker.data_source.get_active_exchange_markets())
-
-        self.assertGreater(data.size, 0)
-        self.assertTrue("baseAsset" in data)
-        self.assertTrue("quoteAsset" in data)
-        self.assertTrue("USDVolume" in data)
-
 
 def main():
     logging.basicConfig(level=logging.INFO)

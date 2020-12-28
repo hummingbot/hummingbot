@@ -191,9 +191,6 @@ cdef class KucoinExchange(ExchangeBase):
     def user_stream_tracker(self) -> KucoinUserStreamTracker:
         return self._user_stream_tracker
 
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        return await KucoinAPIOrderBookDataSource.get_active_exchange_markets()
-
     cdef c_start(self, Clock clock, double timestamp):
         self._tx_tracker.c_start(clock, timestamp)
         ExchangeBase.c_start(self, clock, timestamp)

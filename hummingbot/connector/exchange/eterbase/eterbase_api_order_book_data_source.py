@@ -63,10 +63,10 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @classmethod
     @async_ttl_cache(ttl=60 * 30, maxsize=1)
-    async def get_active_exchange_markets(cls) -> pd.DataFrame:
+    async def get_active_markets_with_ids(cls) -> pd.DataFrame:
         """
         *required
-        Returns all currently active BTC trading pairs from Eterbase, sorted by volume in descending order.
+        Returns all currently active trading pairs with ids from Eterbase.
         """
         async with aiohttp.ClientSession() as client:
             async with client.get(f"{constants.REST_URL}/markets") as products_response:
@@ -77,58 +77,7 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 for pair in data:
                     pair["symbol"] = convert_from_exchange_trading_pair(pair["symbol"])
                 all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data, index="id")
-                all_markets.rename({"base": "baseAsset", "quote": "quoteAsset"},
-                                   axis="columns", inplace=True)
-                all_markets = all_markets[(all_markets.state == 'Trading')]
-                ids: List[str] = list(all_markets.index)
-                volumes: List[float] = []
-                prices: List[float] = []
-
-                tickers = None
-                async with client.get(f"{constants.REST_URL}/tickers") as tickers_response:
-                    tickers_response: aiohttp.ClientResponse = tickers_response
-                    if tickers_response.status == 200:
-                        data = await tickers_response.json()
-                        tickers: pd.DataFrame = pd.DataFrame.from_records(data=data, index="marketId")
-                    else:
-                        raise IOError(f"Error fetching tickers on Eterbase. "
-                                      f"HTTP status is {tickers_response.status}.")
-
-                for product_id in ids:
-                    volumes.append(float(tickers.loc[product_id].volume))
-                    prices.append(float(tickers.loc[product_id].price))
-                all_markets["volume"] = volumes
-                all_markets["price"] = prices
-
-                cross_rates = None
-                async with client.get(f"{constants.REST_URL}/tickers/cross-rates") as crossrates_response:
-                    crossrates_response: aiohttp.ClientResponse = crossrates_response
-                    if crossrates_response.status == 200:
-                        data = await crossrates_response.json()
-                        cross_rates: pd.DataFrame = pd.json_normalize(data, record_path ='rates', meta = ['base'])
-                    else:
-                        raise IOError(f"Error fetching cross-rates on Eterbase. "
-                                      f"HTTP status is {crossrates_response.status}.")
-
-                usd_volume: List[float] = []
-                cross_rates_ids: List[str] = list(cross_rates.base)
-                for row in all_markets.itertuples():
-                    quote_name: str = row.quoteAsset
-                    quote_volume: float = row.volume
-                    quote_price: float = row.price
-
-                    found = False
-                    for product_id in cross_rates_ids:
-                        if quote_name == product_id:
-                            rate: float = cross_rates.loc[(cross_rates['base'] == product_id) & (cross_rates['quote'].str.startswith("USDT"))].iat[0, 1]
-                            usd_volume.append(quote_volume * quote_price * rate)
-                            found = True
-                            break
-                    if found is False:
-                        usd_volume.append(NaN)
-                        cls.logger().error(f"Unable to convert volume to USD for market - {quote_name}.")
-                all_markets["USDVolume"] = usd_volume
-                return all_markets.sort_values(by = ["USDVolume"], ascending = False)
+                return all_markets[(all_markets.state == 'Trading')]
 
     async def get_map_marketid(self) -> Dict[str, str]:
         """
@@ -139,7 +88,7 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         if not self._tp_map_mrktid:
             try:
-                active_markets: pd.DataFrame = await self.get_active_exchange_markets()
+                active_markets: pd.DataFrame = await self.get_active_markets_with_ids()
                 active_markets['id'] = active_markets.index
                 self._tp_map_mrktid = dict(zip(active_markets.symbol, active_markets.id))
             except Exception:

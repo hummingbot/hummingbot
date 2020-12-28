@@ -34,16 +34,13 @@ from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.bitfinex import (
     BITFINEX_REST_URL,
-    BITFINEX_REST_URL_V1,
     BITFINEX_WS_URI,
     ContentEventType,
 )
 from hummingbot.connector.exchange.bitfinex.bitfinex_utils import (
-    get_precision,
     join_paths,
     convert_to_exchange_trading_pair,
     convert_from_exchange_trading_pair,
-    split_trading_pair,
     valid_exchange_trading_pair,
 )
 from hummingbot.connector.exchange.bitfinex.bitfinex_active_order_tracker import BitfinexActiveOrderTracker
@@ -64,8 +61,6 @@ Ticker = namedtuple(
 )
 BookStructure = namedtuple("Book", "price count amount")
 TradeStructure = namedtuple("Trade", "id mts amount price")
-# n0-n9 no documented, we dont' know, maybe later market write docs
-ConfStructure = namedtuple("Conf", "n0 n1 n2 min max n5 n6 n7 n8 n9")
 
 
 class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -278,91 +273,28 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @classmethod
     @async_ttl_cache(ttl=REQUEST_TTL, maxsize=CACHE_SIZE)
-    async def get_active_exchange_markets(cls) -> pd.DataFrame:
+    async def get_all_pairs(cls) -> pd.DataFrame:
         async with aiohttp.ClientSession() as client:
-            tickers_response, exchange_conf_response, symbol_details_response = await safe_gather(
-                client.get(f"{BITFINEX_REST_URL}/tickers?symbols=ALL"),
+            exchange_conf_response = await safe_gather(
                 client.get(f"{BITFINEX_REST_URL}/conf/pub:info:pair"),
-                client.get(f"{BITFINEX_REST_URL_V1}/symbols_details"),
             )
-            tickers_response: aiohttp.ClientResponse = tickers_response
             exchange_conf_response: aiohttp.ClientResponse = exchange_conf_response
-            symbol_details_response: aiohttp.ClientResponse = symbol_details_response
 
-            if tickers_response.status != 200:
-                raise IOError(f"Error fetching Bitfinex markets information. "
-                              f"HTTP status is {tickers_response.status}.")
             if exchange_conf_response.status != 200:
                 raise IOError(f"Error fetching Bitfinex exchange information. "
                               f"HTTP status is {exchange_conf_response.status}.")
-            if symbol_details_response.status != 200:
-                raise IOError(f"Error fetching Bitfinex symbol details. "
-                              f"HTTP status is {symbol_details_response.status}.")
 
-            tickers_raw: List[Any] = await tickers_response.json()
             exchange_confs_raw: List[Any] = await exchange_conf_response.json()
-            symbol_details_raw: List[Any] = await symbol_details_response.json()
 
-            def itemToTicker(item: Any) -> Ticker:
-                try:
-                    item[0] = convert_from_exchange_trading_pair(item[0])
-                    return Ticker(*item)
-                except Exception:
-                    return None
-
-            tickers: List[Ticker] = list(filter(
-                lambda ticker: ticker is not None,
-                map(
-                    itemToTicker,
-                    filter(
-                        lambda item: item[0].startswith("t") and item[0].isalpha() and item[0][1].isupper(),
-                        tickers_raw
-                    )
-                )
-            ))
-
-            exchange_confs = dict(
-                (convert_from_exchange_trading_pair(item[0]), ConfStructure._make(item[1]))
+            exchange_confs = list(
+                convert_from_exchange_trading_pair(item[0])
                 for item in filter(
                     lambda item: item[0].isalpha() and valid_exchange_trading_pair(item[0]),
                     exchange_confs_raw[0]
                 )
             )
 
-            symbol_details = dict(
-                (convert_from_exchange_trading_pair(item["pair"].upper()), item)
-                for item in filter(
-                    lambda item: item["pair"].isalpha() and valid_exchange_trading_pair(item["pair"].upper()),
-                    symbol_details_raw
-                )
-            )
-
-            def getTickerPrices(ticker: Ticker) -> Dict[Any, Any]:
-                base, quote = split_trading_pair(ticker.tradingPair)
-
-                return {
-                    "symbol": ticker.tradingPair,
-                    "baseAsset": base,
-                    "base_increment": get_precision(symbol_details[ticker.tradingPair]["price_precision"]),
-                    "base_max_size": exchange_confs[ticker.tradingPair].max,
-                    "base_min_size": exchange_confs[ticker.tradingPair].min,
-                    "display_name": ticker.tradingPair,
-                    "quoteAsset": quote,
-                    "quote_increment": get_precision(symbol_details[ticker.tradingPair]["price_precision"]),
-                    "volume": ticker.volume,
-                    "price": ticker.last_price,
-                }
-
-            raw_prices = {
-                ticker.tradingPair: getTickerPrices(ticker)
-                for ticker in tickers
-            }
-
-            prices = cls._convert_volume(raw_prices)
-
-            all_markets: pd.DataFrame = pd.DataFrame.from_records(data=prices, index="symbol")
-
-            return all_markets.sort_values("USDVolume", ascending=False)
+            return exchange_confs
 
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
@@ -390,8 +322,7 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         if not self._trading_pairs:
             try:
-                active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                self._trading_pairs = active_markets.display_name.tolist()
+                self._trading_pairs = await self.get_all_pairs()
             except Exception:
                 msg = "Error getting active exchange information. Check network connection."
                 self._trading_pairs = []

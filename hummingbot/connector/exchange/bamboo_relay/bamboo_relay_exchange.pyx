@@ -355,9 +355,6 @@ cdef class BambooRelayExchange(ExchangeBase):
         except Exception:
             self.logger().error(f"Error restoring tracking states.", exc_info=True)
 
-    async def get_active_exchange_markets(self):
-        return await BambooRelayAPIOrderBookDataSource.get_active_exchange_markets(self._api_endpoint, self._api_prefix)
-
     async def _status_polling_loop(self):
         while True:
             try:

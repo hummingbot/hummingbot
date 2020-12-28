@@ -251,7 +251,6 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await asyncio.sleep(5.0)
 
     async def get_ws_subscription_message(self, subscription_type: str):
-        # all_markets: pd.DataFrame = await self.get_active_exchange_markets()
         trading_pairs: List[str] = []
         for tp in self._trading_pairs:
             base, quote = self.split_to_base_quote(convert_to_exchange_trading_pair(tp))

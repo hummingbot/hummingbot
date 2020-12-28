@@ -191,9 +191,6 @@ cdef class KrakenExchange(ExchangeBase):
             self._asset_pairs = {pair: details for pair, details in asset_pairs.items() if "." not in pair}
         return self._asset_pairs
 
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        return await KrakenAPIOrderBookDataSource.get_active_exchange_markets()
-
     async def _update_balances(self):
         cdef:
             dict open_orders
