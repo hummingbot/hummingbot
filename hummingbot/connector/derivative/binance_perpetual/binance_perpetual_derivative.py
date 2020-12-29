@@ -630,25 +630,26 @@ class BinancePerpetualDerivative(DerivativeBase):
         return_val: list = []
         for rule in rules:
             try:
-                trading_pair = convert_from_exchange_trading_pair(rule["symbol"])
-                filters = rule["filters"]
-                filt_dict = {fil["filterType"]: fil for fil in filters}
+                if rule["contractType"] == "PERPETUAL":
+                    trading_pair = convert_from_exchange_trading_pair(rule["symbol"])
+                    filters = rule["filters"]
+                    filt_dict = {fil["filterType"]: fil for fil in filters}
 
-                min_order_size = Decimal(filt_dict.get("LOT_SIZE").get("minQty"))
-                step_size = Decimal(filt_dict.get("LOT_SIZE").get("stepSize"))
-                tick_size = Decimal(filt_dict.get("PRICE_FILTER").get("tickSize"))
+                    min_order_size = Decimal(filt_dict.get("LOT_SIZE").get("minQty"))
+                    step_size = Decimal(filt_dict.get("LOT_SIZE").get("stepSize"))
+                    tick_size = Decimal(filt_dict.get("PRICE_FILTER").get("tickSize"))
 
-                # TODO: BINANCE PERPETUALS DOES NOT HAVE A MIN NOTIONAL VALUE, NEED TO CREATE NEW DERIVATIVES INFRASTRUCTURE
-                # min_notional = 0
+                    # TODO: BINANCE PERPETUALS DOES NOT HAVE A MIN NOTIONAL VALUE, NEED TO CREATE NEW DERIVATIVES INFRASTRUCTURE
+                    # min_notional = 0
 
-                return_val.append(
-                    TradingRule(trading_pair,
-                                min_order_size=min_order_size,
-                                min_price_increment=Decimal(tick_size),
-                                min_base_amount_increment=Decimal(step_size),
-                                # min_notional_size=Decimal(min_notional))
-                                )
-                )
+                    return_val.append(
+                        TradingRule(trading_pair,
+                                    min_order_size=min_order_size,
+                                    min_price_increment=Decimal(tick_size),
+                                    min_base_amount_increment=Decimal(step_size),
+                                    # min_notional_size=Decimal(min_notional))
+                                    )
+                    )
             except Exception as e:
                 self.logger().error(f"Error parsing the trading pair rule {rule}. Error: {e}. Skipping...",
                                     exc_info=True)
