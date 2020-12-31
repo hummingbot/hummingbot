@@ -72,7 +72,6 @@ def start(self):
         if price_type == "inventory_cost":
             db = HummingbotApplication.main_application().trade_fill_db
             inventory_cost_price_delegate = InventoryCostPriceDelegate(db, trading_pair)
-        inventory_cost_allow_higher_bids = c_map.get("inventory_cost_allow_higher_bids").value
         take_if_crossed = c_map.get("take_if_crossed").value
 
         strategy_logging_options = PureMarketMakingStrategy.OPTION_LOG_ALL
@@ -99,7 +98,6 @@ def start(self):
             logging_options=strategy_logging_options,
             asset_price_delegate=asset_price_delegate,
             inventory_cost_price_delegate=inventory_cost_price_delegate,
-            inventory_cost_allow_higher_bids=inventory_cost_allow_higher_bids,
             price_type=price_type,
             take_if_crossed=take_if_crossed,
             price_ceiling=price_ceiling,
