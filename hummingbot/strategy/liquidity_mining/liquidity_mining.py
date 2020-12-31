@@ -1,19 +1,18 @@
 from decimal import Decimal
 import logging
 import asyncio
-import pandas as pd
-from typing import List
+from typing import Dict
 from hummingbot.core.clock import Clock
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.client.settings import ETH_WALLET_CONNECTORS
-from hummingbot.connector.connector.uniswap.uniswap_connector import UniswapConnector
-
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from .data_types import Proposal, PriceSize
+from ...core.event.events import OrderType
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
-amm_logger = None
+lms_logger = None
 
 
 class LiquidityMiningStrategy(StrategyPyBase):
@@ -25,99 +24,54 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global amm_logger
-        if amm_logger is None:
-            amm_logger = logging.getLogger(__name__)
-        return amm_logger
+        global lms_logger
+        if lms_logger is None:
+            lms_logger = logging.getLogger(__name__)
+        return lms_logger
 
     def __init__(self,
                  exchange: ExchangeBase,
-                 markets: List[str],
+                 market_infos: Dict[str, MarketTradingPairTuple],
                  initial_spread: Decimal,
                  order_refresh_time: float,
                  order_refresh_tolerance_pct: Decimal,
                  status_report_interval: float = 900):
         super().__init__()
         self._exchange = exchange
-        self._markets = markets
+        self._market_infos = market_infos
         self._initial_spread = initial_spread
         self._order_refresh_time = order_refresh_time
         self._order_refresh_tolerance_pct = order_refresh_tolerance_pct
         self._ev_loop = asyncio.get_event_loop()
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
+        self._ready_to_trade = False
+        self.add_markets([exchange])
 
     def tick(self, timestamp: float):
         """
         Clock tick entry point, is run every second (on normal tick setting).
         :param timestamp: current tick timestamp
         """
-        if not self._all_markets_ready:
-            self._all_markets_ready = all([market.ready for market in self.active_markets])
-            if not self._all_markets_ready:
-                self.logger().warning("Markets are not ready. Please wait...")
+        if not self._ready_to_trade:
+            self._ready_to_trade = self._exchange.ready
+            if not self._exchange.ready:
+                self.logger().warning(f"{self._exchange.name} is not ready. Please wait...")
                 return
             else:
-                self.logger().info("Markets are ready. Trading started.")
-        if self._create_timestamp <= self._current_timestamp:
-            # 1. Create base order proposals
-            proposal = self.create_base_proposal()
-            # 2. Apply functions that limit numbers of buys and sells proposal
-            # self.c_apply_order_levels_modifiers(proposal)
-            # 3. Apply functions that modify orders price
-            # self.c_apply_order_price_modifiers(proposal)
-            # 4. Apply functions that modify orders size
-            # self.c_apply_order_size_modifiers(proposal)
-            # 5. Apply budget constraint, i.e. can't buy/sell more than what you have.
-            # self.c_apply_budget_constraint(proposal)
+                self.logger().info(f"{self._exchange.name} is ready. Trading started.")
 
-        self.cancel_active_orders(proposal)
-        if self.c_to_create_orders(proposal):
-            self.c_execute_orders_proposal(proposal)
+        proposals = self.create_base_proposals()
+        self.apply_volatility_adjustment(proposals)
+        self.execute_orders_proposal(proposals)
+        # self.cancel_active_orders(proposal)
+        # if self.c_to_create_orders(proposal):
+        #     self.c_execute_orders_proposal(proposal)
 
         self._last_timestamp = timestamp
 
     async def format_status(self) -> str:
-        """
-        Returns a status string formatted to display nicely on terminal. The strings composes of 4 parts: markets,
-        assets, profitability and warnings(if any).
-        """
-
-        if self._arb_proposals is None:
-            return "  The strategy is not ready, please try again later."
-        # active_orders = self.market_info_to_active_orders.get(self._market_info, [])
-        columns = ["Exchange", "Market", "Sell Price", "Buy Price", "Mid Price"]
-        data = []
-        for market_info in [self._market_info_1, self._market_info_2]:
-            market, trading_pair, base_asset, quote_asset = market_info
-            buy_price = await market.get_quote_price(trading_pair, True, self._order_amount)
-            sell_price = await market.get_quote_price(trading_pair, False, self._order_amount)
-            mid_price = (buy_price + sell_price) / 2
-            data.append([
-                market.display_name,
-                trading_pair,
-                float(sell_price),
-                float(buy_price),
-                float(mid_price)
-            ])
-        markets_df = pd.DataFrame(data=data, columns=columns)
-        lines = []
-        lines.extend(["", "  Markets:"] + ["    " + line for line in markets_df.to_string(index=False).split("\n")])
-
-        assets_df = self.wallet_balance_data_frame([self._market_info_1, self._market_info_2])
-        lines.extend(["", "  Assets:"] +
-                     ["    " + line for line in str(assets_df).split("\n")])
-
-        lines.extend(["", "  Profitability:"] + self.short_proposal_msg(self._arb_proposals))
-
-        warning_lines = self.network_warning([self._market_info_1])
-        warning_lines.extend(self.network_warning([self._market_info_2]))
-        warning_lines.extend(self.balance_warning([self._market_info_1]))
-        warning_lines.extend(self.balance_warning([self._market_info_2]))
-        if len(warning_lines) > 0:
-            lines.extend(["", "*** WARNINGS ***"] + warning_lines)
-
-        return "\n".join(lines)
+        return "Not implemented"
 
     def start(self, clock: Clock, timestamp: float):
         pass
@@ -125,26 +79,40 @@ class LiquidityMiningStrategy(StrategyPyBase):
     def stop(self, clock: Clock):
         pass
 
-    async def quote_in_eth_rate_fetch_loop(self):
-        while True:
-            try:
-                if self._market_info_1.market.name in ETH_WALLET_CONNECTORS and \
-                        "WETH" not in self._market_info_1.trading_pair.split("-"):
-                    self._market_1_quote_eth_rate = await self.request_rate_in_eth(self._market_info_1.quote_asset)
-                if self._market_info_2.market.name in ETH_WALLET_CONNECTORS and \
-                        "WETH" not in self._market_info_2.trading_pair.split("-"):
-                    self._market_2_quote_eth_rate = await self.request_rate_in_eth(self._market_info_2.quote_asset)
-                await asyncio.sleep(60 * 5)
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                self.logger().error(str(e), exc_info=True)
-                self.logger().network("Unexpected error while fetching account updates.",
-                                      exc_info=True,
-                                      app_warning_msg="Could not fetch balances from Gateway API.")
-                await asyncio.sleep(0.5)
+    def create_base_proposals(self):
+        proposals = []
+        for market, market_info in self._market_infos.items():
+            mid_price = market_info.get_mid_price()
+            buy_price = mid_price * (Decimal("1") - self._initial_spread)
+            buy_price = self._exchange.quantize_order_price(market, buy_price)
+            buy_size = Decimal("0.2")
+            buy_size = self._exchange.quantize_order_amount(market, buy_size)
 
-    async def request_rate_in_eth(self, quote: str) -> int:
-        if self._uniswap is None:
-            self._uniswap = UniswapConnector([f"{quote}-WETH"], "", None)
-        return await self._uniswap.get_quote_price(f"{quote}-WETH", True, 1)
+            sell_price = mid_price * (Decimal("1") + self._initial_spread)
+            sell_price = self._exchange.quantize_order_price(market, sell_price)
+            sell_size = Decimal("0.2")
+            sell_size = self._exchange.quantize_order_amount(market, sell_size)
+            proposals.append(Proposal(market, PriceSize(buy_price, buy_size), PriceSize(sell_price, sell_size)))
+        return proposals
+
+    def apply_volatility_adjustment(self, proposals):
+        return
+
+    def execute_orders_proposal(self, proposals):
+        for proposal in proposals:
+            if proposal.buy.size > 0:
+                self.logger().info(f"({proposal.market}) Creating a bid order {proposal.buy}")
+                self.buy_with_specific_market(
+                    self._market_infos[proposal.market],
+                    proposal.buy.size,
+                    order_type=OrderType.LIMIT_MAKER,
+                    price=proposal.buy.price
+                )
+            if proposal.sell.size > 0:
+                self.logger().info(f"({proposal.market}) Creating an ask order at {proposal.sell}")
+                self.sell_with_specific_market(
+                    self._market_infos[proposal.market],
+                    proposal.sell.size,
+                    order_type=OrderType.LIMIT_MAKER,
+                    price=proposal.sell.price
+                )

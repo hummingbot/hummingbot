@@ -27,7 +27,7 @@ liquidity_mining_config_map = {
                   prompt_on_new=True),
     "markets":
         ConfigVar(key="markets",
-                  prompt="Enter a list of markets",
+                  prompt="Enter a list of markets >>> ",
                   # validator=validate_exchange_trading_pair,
                   prompt_on_new=True),
     "initial_spread":
