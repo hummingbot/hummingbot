@@ -63,9 +63,6 @@ inventory_range_multiplier: null
 # Initial price of the base asset. Note: this setting is not affects anything, the price is kept in the database.
 inventory_price: null
 
-# Allow to place bids higher than inventory price?
-inventory_cost_allow_higher_bids: null
-
 # Number of levels of orders to place on each side of the order book.
 order_levels: null
 
