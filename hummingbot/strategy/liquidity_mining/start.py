@@ -9,7 +9,7 @@ def start(self):
     markets_text = c_map.get("markets").value
     initial_spread = c_map.get("initial_spread").value / Decimal("100")
     order_refresh_time = c_map.get("order_refresh_time").value
-    order_refresh_tolerance_pct = c_map.get("order_refresh_tolerance_pct").value
+    order_refresh_tolerance_pct = c_map.get("order_refresh_tolerance_pct").value / Decimal("100")
     markets = list(markets_text.split(","))
 
     self._initialize_markets([(exchange, markets)])

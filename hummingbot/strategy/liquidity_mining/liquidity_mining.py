@@ -1,14 +1,15 @@
 from decimal import Decimal
 import logging
 import asyncio
-from typing import Dict
+from typing import Dict, List
 from hummingbot.core.clock import Clock
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from .data_types import Proposal, PriceSize
-from ...core.event.events import OrderType
+from hummingbot.core.event.events import OrderType
+from hummingbot.core.data_type.limit_order import LimitOrder
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -46,7 +47,13 @@ class LiquidityMiningStrategy(StrategyPyBase):
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
         self._ready_to_trade = False
+        self._refresh_times = {market: 0 for market in market_infos}
         self.add_markets([exchange])
+
+    @property
+    def active_orders(self):
+        limit_orders = self.order_tracker.active_limit_orders
+        return [o[1] for o in limit_orders]
 
     def tick(self, timestamp: float):
         """
@@ -64,7 +71,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
         proposals = self.create_base_proposals()
         self.apply_volatility_adjustment(proposals)
         self.execute_orders_proposal(proposals)
-        # self.cancel_active_orders(proposal)
+        self.cancel_active_orders(proposals)
         # if self.c_to_create_orders(proposal):
         #     self.c_execute_orders_proposal(proposal)
 
@@ -98,8 +105,32 @@ class LiquidityMiningStrategy(StrategyPyBase):
     def apply_volatility_adjustment(self, proposals):
         return
 
+    def is_within_tolerance(self, cur_orders: List[LimitOrder], proposal: Proposal):
+        cur_buy = [o for o in cur_orders if o.is_buy]
+        cur_sell = [o for o in cur_orders if not o.is_buy]
+        if (cur_buy and proposal.buy.size == 0) or (cur_sell and proposal.sell.size == 0):
+            return False
+        if abs(proposal.buy.price - cur_buy[0].price) / cur_buy[0].price > self._order_refresh_tolerance_pct:
+            return False
+        if abs(proposal.sell.price - cur_sell[0].price) / cur_sell[0].price > self._order_refresh_tolerance_pct:
+            return False
+        return True
+
+    def cancel_active_orders(self, proposals):
+        for proposal in proposals:
+            if self._refresh_times[proposal.market] > self.current_timestamp:
+                continue
+            cur_orders = [o for o in self.active_orders if o.trading_pair == proposal.market]
+            if not cur_orders or self.is_within_tolerance(cur_orders, proposal):
+                continue
+            for order in cur_orders:
+                self.cancel_order(self._market_infos[proposal.market], order.client_order_id)
+
     def execute_orders_proposal(self, proposals):
         for proposal in proposals:
+            cur_orders = [o for o in self.active_orders if o.trading_pair == proposal.market]
+            if cur_orders:
+                continue
             if proposal.buy.size > 0:
                 self.logger().info(f"({proposal.market}) Creating a bid order {proposal.buy}")
                 self.buy_with_specific_market(
@@ -116,3 +147,5 @@ class LiquidityMiningStrategy(StrategyPyBase):
                     order_type=OrderType.LIMIT_MAKER,
                     price=proposal.sell.price
                 )
+            if proposal.buy.size > 0 or proposal.sell.size > 0:
+                self._refresh_times[proposal.market] = self.current_timestamp + self._order_refresh_time
