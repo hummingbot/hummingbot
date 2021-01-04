@@ -17,7 +17,6 @@ from hummingbot.client.settings import (
     ConnectorType
 )
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.core.utils.market_price import get_last_price
 from hummingbot.user.user_balances import UserBalances
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.performance import PerformanceMetrics, calculate_performance_metrics, smart_round
@@ -72,8 +71,7 @@ class HistoryCommand:
         for market, symbol in market_info:
             cur_trades = [t for t in trades if t.market == market and t.symbol == symbol]
             cur_balances = await self.get_current_balances(market)
-            cur_price = await get_last_price(market.replace("_PaperTrade", ""), symbol)
-            perf = calculate_performance_metrics(symbol, cur_trades, cur_balances, cur_price)
+            perf = await calculate_performance_metrics(market, symbol, cur_trades, cur_balances)
             if display_report:
                 self.report_performance_by_market(market, symbol, perf, precision)
             return_pcts.append(perf.return_pct)
@@ -88,6 +86,8 @@ class HistoryCommand:
             return self.markets[market].get_all_balances()
         elif "Paper" in market:
             paper_balances = global_config_map["paper_trade_account_balance"].value
+            if paper_balances is None:
+                return {}
             return {token: Decimal(str(bal)) for token, bal in paper_balances.items()}
         else:
             gateway_eth_connectors = [cs.name for cs in CONNECTOR_SETTINGS.values() if cs.use_ethereum_wallet and
@@ -164,11 +164,16 @@ class HistoryCommand:
         perf_data = [
             ["Hold portfolio value    ", f"{smart_round(perf.hold_value, precision)} {quote}"],
             ["Current portfolio value ", f"{smart_round(perf.cur_value, precision)} {quote}"],
-            ["Trade P&L               ", f"{smart_round(perf.trade_pnl, precision)} {quote}"],
-            ["Fees paid               ", f"{smart_round(perf.fee_paid, precision)} {perf.fee_token}"],
-            ["Total P&L               ", f"{smart_round(perf.total_pnl, precision)} {quote}"],
-            ["Return %                ", f"{perf.return_pct:.2%}"],
+            ["Trade P&L               ", f"{smart_round(perf.trade_pnl, precision)} {quote}"]
         ]
+        perf_data.extend(
+            ["Fees paid               ", f"{smart_round(fee_amount, precision)} {fee_token}"]
+            for fee_token, fee_amount in perf.fees.items()
+        )
+        perf_data.extend(
+            [["Total P&L               ", f"{smart_round(perf.total_pnl, precision)} {quote}"],
+             ["Return %                ", f"{perf.return_pct:.2%}"]]
+        )
         perf_df: pd.DataFrame = pd.DataFrame(data=perf_data)
         lines.extend(["", "  Performance:"] +
                      ["    " + line for line in perf_df.to_string(index=False, header=False).split("\n")])
