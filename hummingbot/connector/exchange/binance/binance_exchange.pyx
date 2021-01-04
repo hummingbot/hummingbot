@@ -472,12 +472,12 @@ cdef class BinanceExchange(ExchangeBase):
             # Then, will look for duplicated rows in local db to delete them too
             seen_order_ids = set()
             for tf in local_trades:
-                if tf.order_id in seen_order_ids:
+                if tf.exchange_trade_id in seen_order_ids:
                     rows_to_delete.add(tf.id)
                     self.logger().info(
                         f"The following trade fill was duplicated and will be deleted from local DB: {repr(tf)}")
                 else:
-                    seen_order_ids.add(tf.order_id)
+                    seen_order_ids.add(tf.exchange_trade_id)
 
             TradeFill.delete_rows(hb.trade_fill_db.get_shared_session(), rows_to_delete)
 
