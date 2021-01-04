@@ -58,6 +58,8 @@ class MarketsRecorder:
         self._markets: List[ConnectorBase] = markets
         self._config_file_path: str = config_file_path
         self._strategy_name: str = strategy_name
+        for market in self._markets:
+            market.add_trade_fills_from_market_recorder(self.get_trades_for_config(self._config_file_path, 2000))
 
         self._create_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_create_order)
         self._fill_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_fill_order)
@@ -237,6 +239,7 @@ class MarketsRecorder:
         self.save_market_states(self._config_file_path, market, no_commit=True)
         session.commit()
         self.append_to_csv(trade_fill_record)
+        market.add_trade_fills_from_market_recorder([trade_fill_record])
 
     def append_to_csv(self, trade: TradeFill):
         csv_file = "trades_" + trade.config_file_path[:-4] + ".csv"
