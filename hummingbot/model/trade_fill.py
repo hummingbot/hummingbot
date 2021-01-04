@@ -162,3 +162,8 @@ class TradeFill(HummingbotBase):
                 "trade_fee": trade_fill.trade_fee,
             }
         }
+
+    @staticmethod
+    def delete_rows(sql_session: Session, ids: List[int]):
+        if ids:
+            sql_session.query(TradeFill).filter(TradeFill.id.in_(ids)).delete(synchronize_session='fetch')

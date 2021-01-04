@@ -50,6 +50,7 @@ from hummingbot.core.event.events import (
     TradeType,
     TradeFee
 )
+from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.data_type.order_book cimport OrderBook
@@ -67,6 +68,7 @@ from .binance_utils import (
     convert_to_exchange_trading_pair)
 from hummingbot.core.data_type.common import OpenOrder
 from hummingbot.core.data_type.trade import Trade
+from hummingbot.model.trade_fill import TradeFill
 s_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_NaN = Decimal("nan")
@@ -434,6 +436,51 @@ cdef class BinanceExchange(ExchangeBase):
                                                      exchange_trade_id=trade["id"]
                                                  ))
 
+    async def _reconcile_local_history(self):
+        cdef:
+            # The minimum poll interval for order status is 120 seconds.
+            int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.LONG_POLL_INTERVAL)
+            int64_t current_tick = <int64_t>(self._current_timestamp / self.LONG_POLL_INTERVAL)
+
+        if current_tick > last_tick:
+            hb=HummingbotApplication.main_application()
+            trading_pairs = self._order_book_tracker._trading_pairs
+            tasks = [self.query_api(self._binance_client.get_my_trades, symbol=convert_to_exchange_trading_pair(trading_pair))
+                     for trading_pair in trading_pairs]
+            self.logger().debug("Polling for trades of %d trading pairs.", len(tasks))
+            results = await safe_gather(*tasks, return_exceptions=True)
+            local_trades = hb._get_trades_from_session(last_tick, config_file_path=hb.strategy_file_name)
+            local_trades = [t for t in local_trades if t.market == 'binance']
+            rows_to_delete=set()
+
+            # First, will mark for deletion those trades in local db which don't have a matching trade in binance api history
+            for trades, trading_pair in zip(results, trading_pairs):
+                if isinstance(trades, Exception):
+                    self.logger().network(
+                        f"Error fetching trades update for the order {trading_pair}: {trades}.",
+                        app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
+                    )
+                    continue
+                local_trades_with_trading_pair=[t for t in local_trades if t.symbol == trading_pair]
+                nonmatching_trades_ids= {t.exchange_trade_id for t in local_trades_with_trading_pair} - {str(t["id"]) for t in trades}
+                if nonmatching_trades_ids:
+                    trade_fills = [tf for tf in local_trades_with_trading_pair if tf.exchange_trade_id in nonmatching_trades_ids]
+                    for tf in trade_fills:
+                        self.logger().info(f"The following trade fill was not recorded in Binance history and will be deleted from local DB: {repr(tf)}")
+                    rows_to_delete.update(tf.id for tf in trade_fills)
+
+            # Then, will look for duplicated rows in local db to delete them too
+            seen_order_ids = set()
+            for tf in local_trades:
+                if tf.order_id in seen_order_ids:
+                    rows_to_delete.add(tf.id)
+                    self.logger().info(
+                        f"The following trade fill was duplicated and will be deleted from local DB: {repr(tf)}")
+                else:
+                    seen_order_ids.add(tf.order_id)
+
+            TradeFill.delete_rows(hb.trade_fill_db.get_shared_session(), rows_to_delete)
+
     async def _update_order_status(self):
         cdef:
             # This is intended to be a backup measure to close straggler orders, in case Binance's user stream events
@@ -673,6 +720,7 @@ cdef class BinanceExchange(ExchangeBase):
                     self._update_balances(),
                     self._update_order_fills_from_trades(),
                     self._update_order_status(),
+                    self._reconcile_local_history(),
                 )
                 self._last_poll_timestamp = self._current_timestamp
             except asyncio.CancelledError:
