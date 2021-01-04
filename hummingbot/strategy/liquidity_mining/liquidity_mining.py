@@ -1,7 +1,7 @@
 from decimal import Decimal
 import logging
 import asyncio
-from typing import Dict, List
+from typing import Dict, List, Set
 from hummingbot.core.clock import Clock
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
@@ -10,6 +10,7 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from .data_types import Proposal, PriceSize
 from hummingbot.core.event.events import OrderType
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.utils.estimate_fee import estimate_fee
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -36,6 +37,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
                  initial_spread: Decimal,
                  order_refresh_time: float,
                  order_refresh_tolerance_pct: Decimal,
+                 reserved_balances: Dict[str, Decimal],
                  status_report_interval: float = 900):
         super().__init__()
         self._exchange = exchange
@@ -43,11 +45,13 @@ class LiquidityMiningStrategy(StrategyPyBase):
         self._initial_spread = initial_spread
         self._order_refresh_time = order_refresh_time
         self._order_refresh_tolerance_pct = order_refresh_tolerance_pct
+        self._reserved_balances = reserved_balances
         self._ev_loop = asyncio.get_event_loop()
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
         self._ready_to_trade = False
         self._refresh_times = {market: 0 for market in market_infos}
+        self._token_balances = {}
         self.add_markets([exchange])
 
     @property
@@ -69,9 +73,12 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 self.logger().info(f"{self._exchange.name} is ready. Trading started.")
 
         proposals = self.create_base_proposals()
+        self._token_balances = self.adjusted_available_balances()
         self.apply_volatility_adjustment(proposals)
-        self.execute_orders_proposal(proposals)
+        self.allocate_capital(proposals)
         self.cancel_active_orders(proposals)
+        self.execute_orders_proposal(proposals)
+
         # if self.c_to_create_orders(proposal):
         #     self.c_execute_orders_proposal(proposal)
 
@@ -105,10 +112,29 @@ class LiquidityMiningStrategy(StrategyPyBase):
     def apply_volatility_adjustment(self, proposals):
         return
 
+    def allocate_capital(self, proposals: List[Proposal]):
+        # First let's assign all the sell order size based on the base token balance available
+        base_tokens = self.all_base_tokens()
+        for base in base_tokens:
+            base_proposals = [p for p in proposals if p.base() == base]
+            sell_size = self._token_balances[base] / len(base_proposals)
+            for proposal in base_proposals:
+                proposal.sell.size = self._exchange.quantize_order_amount(proposal.market, sell_size)
+
+        # Then assign all the buy order size based on the quote token balance available
+        quote_tokens = self.all_quote_tokens()
+        for quote in quote_tokens:
+            quote_proposals = [p for p in proposals if p.quote() == quote]
+            quote_size = self._token_balances[quote] / len(quote_proposals)
+            for proposal in quote_proposals:
+                buy_fee = estimate_fee(self._exchange.name, True)
+                buy_amount = quote_size / (proposal.buy.price * (Decimal("1") + buy_fee.percent))
+                proposal.buy.size = self._exchange.quantize_order_amount(proposal.market, buy_amount)
+
     def is_within_tolerance(self, cur_orders: List[LimitOrder], proposal: Proposal):
         cur_buy = [o for o in cur_orders if o.is_buy]
         cur_sell = [o for o in cur_orders if not o.is_buy]
-        if (cur_buy and proposal.buy.size == 0) or (cur_sell and proposal.sell.size == 0):
+        if (cur_buy and proposal.buy.size <= 0) or (cur_sell and proposal.sell.size <= 0):
             return False
         if abs(proposal.buy.price - cur_buy[0].price) / cur_buy[0].price > self._order_refresh_tolerance_pct:
             return False
@@ -149,3 +175,40 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 )
             if proposal.buy.size > 0 or proposal.sell.size > 0:
                 self._refresh_times[proposal.market] = self.current_timestamp + self._order_refresh_time
+
+    def all_base_tokens(self) -> Set[str]:
+        tokens = set()
+        for market in self._market_infos:
+            tokens.add(market.split("-")[0])
+        return tokens
+
+    def all_quote_tokens(self) -> Set[str]:
+        tokens = set()
+        for market in self._market_infos:
+            tokens.add(market.split("-")[1])
+        return tokens
+
+    def all_tokens(self) -> Set[str]:
+        tokens = set()
+        for market in self._market_infos:
+            tokens.update(market.split("-"))
+        return tokens
+
+    def adjusted_available_balances(self) -> Dict[str, Decimal]:
+        """
+        Calculates all available balances, account for amount attributed to orders and reserved balance.
+        :return: a dictionary of token and its available balance
+        """
+        tokens = self.all_tokens()
+        token_bals = {t: s_decimal_zero for t in tokens}
+        for token in tokens:
+            bal = self._exchange.get_available_balance(token)
+            reserved = self._reserved_balances.get(token, s_decimal_zero)
+            token_bals[token] = bal - reserved
+        for order in self.active_orders:
+            base, quote = order.trading_pair.split("-")
+            if order.is_buy:
+                token_bals[quote] += order.quantity * order.price
+            else:
+                token_bals[base] += order.quantity
+        return token_bals

@@ -19,3 +19,9 @@ class Proposal:
 
     def __repr__(self):
         return f"{self.market} buy: {self.buy} sell: {self.sell}"
+
+    def base(self):
+        return self.market.split("-")[0]
+
+    def quote(self):
+        return self.market.split("-")[1]

@@ -25,5 +25,7 @@ order_refresh_time: null
 # (Enter 1 to indicate 1%), value below 0, e.g. -1, is to disable this feature - not recommended.
 order_refresh_tolerance_pct: null
 
+reserved_balances:
+
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/pure-market-making/#configuration-parameters
