@@ -136,9 +136,11 @@ class LiquidityMiningStrategy(StrategyPyBase):
         cur_sell = [o for o in cur_orders if not o.is_buy]
         if (cur_buy and proposal.buy.size <= 0) or (cur_sell and proposal.sell.size <= 0):
             return False
-        if abs(proposal.buy.price - cur_buy[0].price) / cur_buy[0].price > self._order_refresh_tolerance_pct:
+        if cur_buy and \
+                abs(proposal.buy.price - cur_buy[0].price) / cur_buy[0].price > self._order_refresh_tolerance_pct:
             return False
-        if abs(proposal.sell.price - cur_sell[0].price) / cur_sell[0].price > self._order_refresh_tolerance_pct:
+        if cur_sell and \
+                abs(proposal.sell.price - cur_sell[0].price) / cur_sell[0].price > self._order_refresh_tolerance_pct:
             return False
         return True
 
@@ -151,14 +153,17 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 continue
             for order in cur_orders:
                 self.cancel_order(self._market_infos[proposal.market], order.client_order_id)
+                # To place new order on the next tick
+                self._refresh_times[order.trading_pair] = self.current_timestamp + 0.1
 
     def execute_orders_proposal(self, proposals):
         for proposal in proposals:
             cur_orders = [o for o in self.active_orders if o.trading_pair == proposal.market]
-            if cur_orders:
+            if cur_orders or self._refresh_times[proposal.market] > self.current_timestamp:
                 continue
             if proposal.buy.size > 0:
-                self.logger().info(f"({proposal.market}) Creating a bid order {proposal.buy}")
+                self.logger().info(f"({proposal.market}) Creating a bid order {proposal.buy} value: "
+                                   f"{proposal.buy.size * proposal.buy.price:.2f} {proposal.quote()}")
                 self.buy_with_specific_market(
                     self._market_infos[proposal.market],
                     proposal.buy.size,
@@ -200,15 +205,19 @@ class LiquidityMiningStrategy(StrategyPyBase):
         :return: a dictionary of token and its available balance
         """
         tokens = self.all_tokens()
-        token_bals = {t: s_decimal_zero for t in tokens}
+        adjusted_bals = {t: s_decimal_zero for t in tokens}
+        total_bals = self._exchange.get_all_balances()
         for token in tokens:
-            bal = self._exchange.get_available_balance(token)
-            reserved = self._reserved_balances.get(token, s_decimal_zero)
-            token_bals[token] = bal - reserved
+            adjusted_bals[token] = self._exchange.get_available_balance(token)
         for order in self.active_orders:
             base, quote = order.trading_pair.split("-")
             if order.is_buy:
-                token_bals[quote] += order.quantity * order.price
+                adjusted_bals[quote] += order.quantity * order.price
             else:
-                token_bals[base] += order.quantity
-        return token_bals
+                adjusted_bals[base] += order.quantity
+        for token in tokens:
+            adjusted_bals[token] = min(adjusted_bals[token], total_bals[token])
+            reserved = self._reserved_balances.get(token, s_decimal_zero)
+            adjusted_bals[token] -= reserved
+        # self.logger().info(f"token balances: {adjusted_bals}")
+        return adjusted_bals
