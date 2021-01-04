@@ -51,4 +51,10 @@ liquidity_mining_config_map = {
                   type_str="decimal",
                   default=Decimal("0.2"),
                   validator=lambda v: validate_decimal(v, -10, 10, inclusive=True)),
+    "reserved_balances":
+        ConfigVar(key="reserved_balances",
+                  prompt="Enter a list of token and its reserved balance (to not be used) e.g. BTC-0.1, BNB-1 >>> ",
+                  required_if=lambda: False,
+                  default={"BNB": 1},
+                  type_str="json"),
 }
