@@ -426,13 +426,11 @@ cdef class BinanceExchange(ExchangeBase):
                                                      order_type,
                                                      Decimal(trade["price"]),
                                                      Decimal(trade["qty"]),
-                                                     self.c_get_fee(
-                                                         tracked_order.base_asset,
-                                                         tracked_order.quote_asset,
-                                                         order_type,
-                                                         tracked_order.trade_type,
-                                                         Decimal(trade["price"]),
-                                                         Decimal(trade["qty"])),
+                                                     TradeFee(
+                                                         percent=Decimal(0.0),
+                                                         flat_fees=[(trade["commissionAsset"],
+                                                                     Decimal(trade["commission"]))]
+                                                     ),
                                                      exchange_trade_id=trade["id"]
                                                  ))
 
@@ -597,14 +595,6 @@ cdef class BinanceExchange(ExchangeBase):
                     if execution_type == "TRADE":
                         order_filled_event = OrderFilledEvent.order_filled_event_from_binance_execution_report(event_message)
                         order_filled_event = order_filled_event._replace(trading_pair=convert_from_exchange_trading_pair(order_filled_event.trading_pair))
-                        order_filled_event = order_filled_event._replace(trade_fee=self.c_get_fee(
-                            tracked_order.base_asset,
-                            tracked_order.quote_asset,
-                            BinanceExchange.to_hb_order_type(event_message["o"]),
-                            TradeType.BUY if event_message["S"] == "BUY" else TradeType.SELL,
-                            Decimal(event_message["l"]),
-                            Decimal(event_message["L"])
-                        ))
                         self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
                     if tracked_order.is_done:
