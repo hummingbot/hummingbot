@@ -426,6 +426,7 @@ cdef class ConnectorBase(NetworkIterator):
         Returns True if order to be filled is not already present in TradeFill entries.
         This is intended to avoid duplicated order fills in local DB.
         """
+        # Assume (exchange_trade_id, trading_pair) are unique
         return not any(tf for tf in self._current_trade_fills if (tf.market == self.display_name) and
                        (int(tf.exchange_trade_id) == exchange_trade_id) and
                        (tf.symbol == trading_pair))
