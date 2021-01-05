@@ -58,6 +58,7 @@ class MarketsRecorder:
         self._markets: List[ConnectorBase] = markets
         self._config_file_path: str = config_file_path
         self._strategy_name: str = strategy_name
+        # Internal collection of trade fills in connector will be used for remote/local history reconciliation
         for market in self._markets:
             market.add_trade_fills_from_market_recorder(self.get_trades_for_config(self._config_file_path, 2000))
 

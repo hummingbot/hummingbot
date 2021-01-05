@@ -436,40 +436,48 @@ cdef class BinanceExchange(ExchangeBase):
                                                          ),
                                                          exchange_trade_id=trade["id"]
                                                      ))
-            if not results:
-                tasks=[self.query_api(self._binance_client.get_my_trades, symbol=convert_to_exchange_trading_pair(trading_pair))
-                       for trading_pair in self._order_book_tracker._trading_pairs]
-                self.logger().debug("Polling for order fills of %d trading pairs.", len(tasks))
-                results = await safe_gather(*tasks, return_exceptions=True)
-            for trades, trading_pair in zip(results, self._order_book_tracker._trading_pairs):
-                if isinstance(trades, Exception):
-                    self.logger().network(
-                        f"Error fetching trades update for the order {trading_pair}: {trades}.",
-                        app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
-                    )
-                    continue
-                for trade in trades:
-                    if self.is_confirmed_new_order_filled_event(trade["id"], trading_pair):
-                        event_tag = self.MARKET_BUY_ORDER_CREATED_EVENT_TAG if trade["isBuyer"] \
-                            else self.MARKET_SELL_ORDER_CREATED_EVENT_TAG
-                        client_order_id=get_client_order_id("buy" if trade["isBuyer"] else "sell", trading_pair)
-                        self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
-                                             OrderFilledEvent(
-                                                 trade["time"],
-                                                 client_order_id,
-                                                 trading_pair,
-                                                 TradeType.BUY if trade["isBuyer"] else TradeType.SELL,
-                                                 OrderType.LIMIT_MAKER,  # defaulting to this value since trade info lacks field
-                                                 Decimal(trade["price"]),
-                                                 Decimal(trade["qty"]),
-                                                 TradeFee(
-                                                     percent=Decimal(0.0),
-                                                     flat_fees=[(trade["commissionAsset"],
-                                                                 Decimal(trade["commission"]))]
-                                                 ),
-                                                 exchange_trade_id=trade["id"]
-                                             ))
-                        self.logger().info(f"Recreating missing trade in TradeFill: {trade}")
+            await self._history_reconciliation(results)
+
+    async def _history_reconciliation(self, exchange_history):
+        """
+        Method looks in the exchange history to check for any missing trade in local history.
+        If found, it will trigger an order_filled event to record it in local DB.
+        """
+        if not exchange_history:
+            tasks = [self.query_api(self._binance_client.get_my_trades,
+                                    symbol=convert_to_exchange_trading_pair(trading_pair))
+                     for trading_pair in self._order_book_tracker._trading_pairs]
+            self.logger().debug("Polling for order fills of %d trading pairs.", len(tasks))
+            exchange_history = await safe_gather(*tasks, return_exceptions=True)
+        for trades, trading_pair in zip(exchange_history, self._order_book_tracker._trading_pairs):
+            if isinstance(trades, Exception):
+                self.logger().network(
+                    f"Error fetching trades update for the order {trading_pair}: {trades}.",
+                    app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
+                )
+                continue
+            for trade in trades:
+                if self.is_confirmed_new_order_filled_event(trade["id"], trading_pair):
+                    event_tag = self.MARKET_BUY_ORDER_CREATED_EVENT_TAG if trade["isBuyer"] \
+                        else self.MARKET_SELL_ORDER_CREATED_EVENT_TAG
+                    client_order_id = get_client_order_id("buy" if trade["isBuyer"] else "sell", trading_pair)
+                    self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
+                                         OrderFilledEvent(
+                                             trade["time"],
+                                             client_order_id,
+                                             trading_pair,
+                                             TradeType.BUY if trade["isBuyer"] else TradeType.SELL,
+                                             OrderType.LIMIT_MAKER,  # defaulting to this value since trade info lacks field
+                                             Decimal(trade["price"]),
+                                             Decimal(trade["qty"]),
+                                             TradeFee(
+                                                 percent=Decimal(0.0),
+                                                 flat_fees=[(trade["commissionAsset"],
+                                                             Decimal(trade["commission"]))]
+                                             ),
+                                             exchange_trade_id=trade["id"]
+                                         ))
+                    self.logger().info(f"Recreating missing trade in TradeFill: {trade}")
 
     async def _update_order_status(self):
         cdef:
