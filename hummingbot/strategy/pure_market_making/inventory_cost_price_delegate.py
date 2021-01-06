@@ -1,9 +1,11 @@
 from decimal import Decimal, InvalidOperation
+from typing import Optional
 
 from hummingbot.core.event.events import OrderFilledEvent, TradeType
-from hummingbot.exceptions import NoPrice
 from hummingbot.model.inventory_cost import InventoryCost
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
+
+s_decimal_0 = Decimal("0")
 
 
 class InventoryCostPriceDelegate:
@@ -15,15 +17,19 @@ class InventoryCostPriceDelegate:
     def ready(self) -> bool:
         return True
 
-    def get_price(self) -> Decimal:
+    def get_price(self) -> Optional[Decimal]:
         record = InventoryCost.get_record(
             self._session, self.base_asset, self.quote_asset
         )
+
+        if record is None or record.base_volume is None or record.base_volume is None:
+            return None
+
         try:
             price = record.quote_volume / record.base_volume
-        except (ZeroDivisionError, InvalidOperation, AttributeError):
-            raise NoPrice("Inventory cost delegate does not have price cost data yet")
-
+        except InvalidOperation:
+            # decimal.InvalidOperation: [<class 'decimal.DivisionUndefined'>] - both volumes are 0
+            return None
         return Decimal(price)
 
     def process_order_fill_event(self, fill_event: OrderFilledEvent) -> None:

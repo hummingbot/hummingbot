@@ -20,7 +20,6 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.event.events import OrderType
-from hummingbot.exceptions import NoPrice
 
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
@@ -565,9 +564,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             ref_price = float("nan")
             if market == self._market_info.market and self._inventory_cost_price_delegate is not None:
                 # We're using inventory_cost, show it's price
-                try:
-                    ref_price = self._inventory_cost_price_delegate.get_price()
-                except NoPrice:
+                ref_price = self._inventory_cost_price_delegate.get_price()
+                if ref_price is None:
                     ref_price = self.get_price()
             elif market == self._market_info.market and self._asset_price_delegate is None:
                 ref_price = self.get_price()
@@ -704,11 +702,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         buy_reference_price = sell_reference_price = self.get_price()
 
         if self._inventory_cost_price_delegate is not None:
-            try:
-                inventory_cost_price = self._inventory_cost_price_delegate.get_price()
-            except NoPrice:
-                pass
-            else:
+            inventory_cost_price = self._inventory_cost_price_delegate.get_price()
+            if inventory_cost_price is not None:
                 buy_reference_price = min(inventory_cost_price, buy_reference_price)
                 sell_reference_price = max(inventory_cost_price, sell_reference_price)
 
