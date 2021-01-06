@@ -3,7 +3,6 @@ from decimal import Decimal
 
 from hummingbot.core.event.events import OrderFilledEvent, TradeType
 from hummingbot.core.event.events import TradeFee, OrderType
-from hummingbot.exceptions import NoPrice
 from hummingbot.model.inventory_cost import InventoryCost
 from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
@@ -91,7 +90,7 @@ class TestInventoryCostPriceDelegate(unittest.TestCase):
         price = Decimal("9000")
 
         # Test when no records
-        self.assertRaises(NoPrice, self.delegate.get_price)
+        self.assertIsNone(self.delegate.get_price())
 
         record = InventoryCost(
             base_asset=self.base_asset,
@@ -105,15 +104,15 @@ class TestInventoryCostPriceDelegate(unittest.TestCase):
         self.assertEqual(delegate_price, price)
 
     def test_get_price_by_type_zero_division(self):
+        # Test for situation when position was fully closed with profit
         amount = Decimal("0")
-        price = Decimal("9000")
 
         record = InventoryCost(
             base_asset=self.base_asset,
             quote_asset=self.quote_asset,
             base_volume=amount,
-            quote_volume=amount * price,
+            quote_volume=amount,
         )
         self._session.add(record)
         self._session.commit()
-        self.assertRaises(NoPrice, self.delegate.get_price)
+        self.assertIsNone(self.delegate.get_price())
