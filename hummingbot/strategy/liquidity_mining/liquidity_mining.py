@@ -85,7 +85,8 @@ class LiquidityMiningStrategy(StrategyPyBase):
         self._last_timestamp = timestamp
 
     async def format_status(self) -> str:
-        return "Not implemented"
+        from hummingbot.client.hummingbot_application import HummingbotApplication
+        HummingbotApplication.main_application().open_orders(full_report=True)
 
     def start(self, clock: Clock, timestamp: float):
         pass
