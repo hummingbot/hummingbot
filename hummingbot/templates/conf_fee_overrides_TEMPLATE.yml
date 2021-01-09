@@ -67,3 +67,6 @@ okex_taker_fee:
 
 balancer_maker_fee_amount:
 balancer_taker_fee_amount:
+
+bitmax_maker_fee_amount:
+bitmax_taker_fee_amount:

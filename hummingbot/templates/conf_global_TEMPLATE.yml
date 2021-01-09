@@ -63,6 +63,9 @@ okex_api_key: null
 okex_secret_key: null
 okex_passphrase: null
 
+bitmax_api_key: null
+bitmax_secret_key: null
+
 celo_address: null
 celo_password: null
 
@@ -112,9 +115,9 @@ log_level: INFO
 debug_console: false
 strategy_report_interval: 900.0
 logger_override_whitelist:
-- hummingbot.strategy.arbitrage
-- hummingbot.strategy.cross_exchange_market_making
-- conf
+  - hummingbot.strategy.arbitrage
+  - hummingbot.strategy.cross_exchange_market_making
+  - conf
 key_file_path: conf/
 log_file_path: logs/
 on_chain_cancel_on_exit: false
@@ -130,7 +133,6 @@ min_quote_order_amount:
   BUSD: 11
   TUSD: 11
   TRY: 11
-
 
 # Advanced database options, currently supports SQLAlchemy's included dialects
 # Reference: https://docs.sqlalchemy.org/en/13/dialects/
