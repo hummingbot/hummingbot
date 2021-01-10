@@ -74,7 +74,7 @@ class HuobiAPIUserStreamDataSource(UserStreamTrackerDataSource):
         await self._websocket_connection.send_json(auth_request)
         resp: aiohttp.WSMessage = await self._websocket_connection.receive()
         msg = resp.json()
-        if msg["code"] != 200:
+        if msg.get("code", 0) != 200:
             self.logger().error(f"Error occurred authenticating to websocket API server. {msg}")
         self.logger().info("Successfully authenticated")
 
@@ -86,7 +86,7 @@ class HuobiAPIUserStreamDataSource(UserStreamTrackerDataSource):
         await self._websocket_connection.send_json(subscribe_request)
         resp = await self._websocket_connection.receive()
         msg = resp.json()
-        if msg["code"] != 200:
+        if msg.get("code", 0) != 200:
             self.logger().error(f"Error occurred subscribing to topic. {topic}. {msg}")
         self.logger().info(f"Successfully subscribed to {topic}")
 
@@ -118,8 +118,6 @@ class HuobiAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 await self._websocket_connection.send_json(pong_response)
                 continue
 
-            import sys
-            print(f"MSG: {message}", file=sys.stdout)
             yield message
 
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
