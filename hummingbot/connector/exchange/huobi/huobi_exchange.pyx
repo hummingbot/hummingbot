@@ -199,6 +199,7 @@ cdef class HuobiExchange(ExchangeBase):
         self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
         if self._trading_required:
             await self._update_account_id()
+            self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
 
     def _stop_network(self):
@@ -212,6 +213,9 @@ cdef class HuobiExchange(ExchangeBase):
         if self._user_stream_event_listener_task is not None:
             self._user_stream_event_listener_task.cancel()
             self._user_stream_event_listener_task = None
+        if self._user_stream_tracker_task is not None:
+            self._user_stream_tracker_task.cancel()
+            self._user_stream_tracker_task = None
 
     async def stop_network(self):
         self._stop_network()
@@ -577,8 +581,10 @@ cdef class HuobiExchange(ExchangeBase):
                 data = stream_message["data"]
                 if channel == HUOBI_ACCOUNT_UPDATE_TOPIC:
                     asset_name = data["currency"].upper()
-                    balance = data["balance"]
-                    available_balance = data["available"]
+                    # Huobi balance update can contain either balance or available_balance, or both.
+                    # Hence, the reason for the setting existing value(i.e assume no change) if get fails.
+                    balance = data.get("balance", self._account_balances.get(asset_name, "0"))
+                    available_balance = data.get("available", self._account_available_balances.get(asset_name, "0"))
 
                     self._account_balances.update({asset_name: Decimal(balance)})
                     self._account_available_balances.update({asset_name: Decimal(available_balance)})
@@ -599,8 +605,10 @@ cdef class HuobiExchange(ExchangeBase):
                         continue
 
                     execute_amount_diff = s_decimal_0
-                    execute_price = Decimal(data["tradePrice"])
-                    remaining_amount = Decimal(data["remainAmt"])
+                    # tradePrice is documented by Huobi but not sent.
+                    # However, orderprice isn't applicable to all order_types, so we assume tradePrice will be sent for such orders
+                    execute_price = Decimal(data.get("orderPrice", data.get("tradePrice", "0")))
+                    remaining_amount = Decimal(data.get("remainAmt", data["orderSize"]))
                     order_type = data["type"]
 
                     new_confirmed_amount = Decimal(tracked_order.amount - remaining_amount)
@@ -669,6 +677,8 @@ cdef class HuobiExchange(ExchangeBase):
 
                     if order_status == "canceled":
                         tracked_order.last_state = order_status
+                        self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled "
+                                           f"according to order delta websocket API.")
                         self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                              OrderCancelledEvent(self._current_timestamp,
                                                                  tracked_order.client_order_id))
@@ -680,7 +690,7 @@ cdef class HuobiExchange(ExchangeBase):
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                self.logger().error(f"Unexpected error in user stream listener lopp. {e}", exc_info=True)
+                self.logger().error(f"Unexpected error in user stream listener loop. {e}", exc_info=True)
                 await asyncio.sleep(5.0)
 
     @property
