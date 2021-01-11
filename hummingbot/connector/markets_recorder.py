@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 import os.path
 import pandas as pd
 import asyncio
@@ -239,8 +238,8 @@ class MarketsRecorder:
         session.add(trade_fill_record)
         self.save_market_states(self._config_file_path, market, no_commit=True)
         session.commit()
-        self.append_to_csv(trade_fill_record)
         market.add_trade_fills_from_market_recorder([trade_fill_record])
+        self.append_to_csv(trade_fill_record)
 
     def append_to_csv(self, trade: TradeFill):
         csv_file = "trades_" + trade.config_file_path[:-4] + ".csv"
