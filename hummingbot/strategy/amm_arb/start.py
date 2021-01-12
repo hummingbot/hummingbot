@@ -15,11 +15,6 @@ def start(self):
     market_2_slippage_buffer = amm_arb_config_map.get("market_2_slippage_buffer").value / Decimal("100")
     concurrent_orders_submission = amm_arb_config_map.get("concurrent_orders_submission").value
 
-    # ToDo: A known serious issue where prices are reported incorrectly for WBTC, USDC. To be fixed soon.
-    if (connector_1 in {"uniswap", "balancer"} and len({"WBTC", "USDC"} & set(market_1.split("-"))) > 0) or \
-            (connector_2 in {"uniswap", "balancer"} and len({"WBTC", "USDC"} & set(market_2.split("-"))) > 0):
-        raise Exception("\nWBTC, USDC and other tokens where decimal value is not 18 are currently not supported on "
-                        "Uniswap and Balancer (known issue), This will be fixed in the next release, sorry.")
     self._initialize_markets([(connector_1, [market_1]), (connector_2, [market_2])])
     base_1, quote_1 = market_1.split("-")
     base_2, quote_2 = market_2.split("-")
