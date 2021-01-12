@@ -50,9 +50,12 @@ class BalanceCommand:
                 amount = float(args[2])
                 if exchange not in config_var.value or config_var.value[exchange] is None:
                     config_var.value[exchange] = {}
-                config_var.value[exchange][asset] = amount
-
-                self._notify(f"Limit for {asset} on {exchange} exchange set to {amount}")
+                if amount < 0 and asset in config_var.value[exchange].keys():
+                    config_var.value[exchange].pop(asset)
+                    self._notify(f"Limit for {asset} on {exchange} exchange removed.")
+                elif amount >= 0:
+                    config_var.value[exchange][asset] = amount
+                    self._notify(f"Limit for {asset} on {exchange} exchange set to {amount}")
                 save_to_yml(file_path, config_map)
 
             elif option == "paper":
