@@ -63,8 +63,8 @@ class TokocryptoClientFactory(WebSocketClientFactory, TokocryptoReconnectingClie
 
 class TokocryptoSocketManager(threading.Thread):
 
-    STREAM_URL = 'wss://stream.binance.com:9443/'
-    FSTREAM_URL = 'wss://fstream.binance.com/'
+    STREAM_URL = 'wss://stream.binance.cc:9443/'
+    FSTREAM_URL = 'wss://fstream.binance.cc/'
 
     WEBSOCKET_DEPTH_5 = '5'
     WEBSOCKET_DEPTH_10 = '10'
