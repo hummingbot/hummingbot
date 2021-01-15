@@ -16,7 +16,7 @@ from typing import Optional, List, Dict, Any, AsyncIterable, Tuple
 
 from hummingbot.core.clock cimport Clock
 from hummingbot.connector.exchange_base cimport ExchangeBase
-from hummingbot.connector.exchange_base import NaN
+from hummingbot.connector.exchange_base import s_decimal_NaN
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.network_iterator import NetworkStatus
@@ -810,7 +810,7 @@ cdef class BlocktaneExchange(ExchangeBase):
                    str trading_pair,
                    object amount,
                    object order_type=OrderType.LIMIT,
-                   object price=NaN,
+                   object price=s_decimal_NaN,
                    dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t> get_tracking_nonce()
@@ -823,7 +823,7 @@ cdef class BlocktaneExchange(ExchangeBase):
                            trading_pair: str,
                            amount: Decimal,
                            order_type: OrderType = OrderType.LIMIT,
-                           price: Optional[Decimal] = NaN):
+                           price: Optional[Decimal] = s_decimal_NaN):
         cdef:
             TradingRule trading_rule = self._trading_rules[trading_pair]
             double quote_amount
@@ -1041,3 +1041,29 @@ cdef class BlocktaneExchange(ExchangeBase):
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
+
+    def get_order_book(self, trading_pair: str) -> OrderBook:
+        return self.c_get_order_book(trading_pair)
+
+    def get_price(self, trading_pair: str, is_buy: bool) -> Decimal:
+        return self.c_get_price(trading_pair, is_buy)
+
+    def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+            price: Decimal = s_decimal_NaN, **kwargs) -> str:
+        return self.c_buy(trading_pair, amount, order_type, price, kwargs)
+
+    def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+             price: Decimal = s_decimal_NaN, **kwargs) -> str:
+        return self.c_sell(trading_pair, amount, order_type, price, kwargs)
+
+    def cancel(self, trading_pair: str, client_order_id: str):
+        return self.c_cancel(trading_pair, client_order_id)
+
+    def get_fee(self,
+                base_currency: str,
+                quote_currency: str,
+                order_type: OrderType,
+                order_side: TradeType,
+                amount: Decimal,
+                price: Decimal = s_decimal_NaN) -> TradeFee:
+        return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
