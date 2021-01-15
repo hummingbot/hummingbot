@@ -3,9 +3,9 @@ import time
 import asyncio
 import aiohttp
 import copy
+import json
 import logging
 import pandas as pd
-import simplejson
 import traceback
 from decimal import Decimal
 from libc.stdint cimport int64_t
@@ -68,6 +68,7 @@ cdef class BlocktaneExchangeTransactionTracker(TransactionTracker):
     cdef c_did_timeout_tx(self, str tx_id):
         TransactionTracker.c_did_timeout_tx(self, tx_id)
         self._owner.c_did_timeout_tx(tx_id)
+
 
 cdef class BlocktaneExchange(ExchangeBase):
     MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset.value
@@ -378,7 +379,7 @@ cdef class BlocktaneExchange(ExchangeBase):
                     new_confirmed_amount = Decimal(order["executed_volume"])
                     executed_amount_base_diff = new_confirmed_amount - tracked_order.executed_amount_base
                     if executed_amount_base_diff > s_decimal_0:
-                        self.logger().info(f"Updated order status with fill from polling _update_order_status: {simplejson.dumps(order)}")
+                        self.logger().info(f"Updated order status with fill from polling _update_order_status: {json.dumps(order)}")
                         new_confirmed_quote_amount = new_confirmed_amount * avg_price
                         executed_amount_quote_diff = new_confirmed_quote_amount - tracked_order.executed_amount_quote
                         executed_price = executed_amount_quote_diff / executed_amount_base_diff
