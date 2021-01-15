@@ -457,9 +457,7 @@ cdef class BinanceExchange(ExchangeBase):
                 )
                 continue
             for trade in trades:
-                if self.is_confirmed_new_order_filled_event(trade["id"], trading_pair):
-                    event_tag = self.MARKET_BUY_ORDER_CREATED_EVENT_TAG if trade["isBuyer"] \
-                        else self.MARKET_SELL_ORDER_CREATED_EVENT_TAG
+                if self.is_confirmed_new_order_filled_event(str(trade["id"]), trading_pair):
                     client_order_id = get_client_order_id("buy" if trade["isBuyer"] else "sell", trading_pair)
                     self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
                                          OrderFilledEvent(
@@ -530,7 +528,7 @@ cdef class BinanceExchange(ExchangeBase):
                 if tracked_order.is_done:
                     if not tracked_order.is_failure:
                         exchange_order_id = next(iter(tracked_order.trade_id_set))
-                        if self.is_confirmed_new_order_filled_event(exchange_order_id,
+                        if self.is_confirmed_new_order_filled_event(str(exchange_order_id),
                                                                     tracked_order.trading_pair):
                             if tracked_order.trade_type is TradeType.BUY:
                                 self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
@@ -648,7 +646,7 @@ cdef class BinanceExchange(ExchangeBase):
                         order_filled_event = OrderFilledEvent.order_filled_event_from_binance_execution_report(event_message)
                         order_filled_event = order_filled_event._replace(trading_pair=convert_from_exchange_trading_pair(order_filled_event.trading_pair))
                         exchange_order_id = next(iter(tracked_order.trade_id_set))
-                        if self.is_confirmed_new_order_filled_event(exchange_order_id, tracked_order.trading_pair):
+                        if self.is_confirmed_new_order_filled_event(str(exchange_order_id), tracked_order.trading_pair):
                             self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
                         else:
                             self.logger().info(
@@ -913,7 +911,8 @@ cdef class BinanceExchange(ExchangeBase):
                                      trading_pair,
                                      amount,
                                      price,
-                                     order_id
+                                     order_id,
+                                     exchange_order_id
                                  ))
         except asyncio.CancelledError:
             raise
