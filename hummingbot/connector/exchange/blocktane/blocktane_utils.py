@@ -7,10 +7,9 @@ from hummingbot.client.config.config_methods import using_exchange
 
 CENTRALIZED = True
 
-EXAMPLE_PAIR = "BRL-BTC"
+EXAMPLE_PAIR = "BTC-BRL"
 
-# DEFAULT_FEES = [0.35, 0.45]  # The actual fees
-DEFAULT_FEES = [0.01, 0.01]  # Our special liquidity provider rates
+DEFAULT_FEES = [0.35, 0.45]  # The actual fees
 
 KEYS = {
     "blocktane_api_key":
