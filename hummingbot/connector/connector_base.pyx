@@ -2,7 +2,8 @@ from decimal import Decimal
 from typing import (
     Dict,
     List,
-    Tuple
+    Tuple,
+    Set,
 )
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.event.events import (
@@ -13,10 +14,10 @@ from hummingbot.core.event.events import (
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.network_iterator import NetworkIterator
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
+from hummingbot.connector.markets_recorder import TradeFill_order_details
 from hummingbot.core.event.events import OrderFilledEvent
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.estimate_fee import estimate_fee
-from hummingbot.model.trade_fill import TradeFill
 
 NaN = float("nan")
 s_decimal_NaN = Decimal("nan")
@@ -55,7 +56,8 @@ cdef class ConnectorBase(NetworkIterator):
         # for _in_flight_orders_snapshot and _in_flight_orders_snapshot_timestamp when the update user balances.
         self._in_flight_orders_snapshot = {}  # Dict[order_id:str, InFlightOrderBase]
         self._in_flight_orders_snapshot_timestamp = 0.0
-        self._current_trade_fills = []
+        self._current_trade_fills = set()
+        self._exchange_order_ids = set()
 
     @property
     def real_time_balance_update(self) -> bool:
@@ -415,18 +417,23 @@ cdef class ConnectorBase(NetworkIterator):
     def available_balances(self) -> Dict[str, Decimal]:
         return self._account_available_balances
 
-    def add_trade_fills_from_market_recorder(self, current_trade_fills: List[TradeFill]):
+    def add_trade_fills_from_market_recorder(self, current_trade_fills: Set[TradeFill_order_details]):
         """
         Gets updates from new records in TradeFill table. This is used in method is_confirmed_new_order_filled_event
         """
-        self._current_trade_fills.extend(current_trade_fills)
+        self._current_trade_fills.update(current_trade_fills)
 
-    def is_confirmed_new_order_filled_event(self, exchange_trade_id: int, trading_pair: str):
+    def add_exchange_order_ids_from_market_recorder(self, current_exchange_order_ids: Set[str]):
+        """
+        Gets updates from new orders in Order table. This is used in method connector _history_reconciliation
+        """
+        self._exchange_order_ids.update(current_exchange_order_ids)
+
+    def is_confirmed_new_order_filled_event(self, exchange_trade_id: str, trading_pair: str):
         """
         Returns True if order to be filled is not already present in TradeFill entries.
         This is intended to avoid duplicated order fills in local DB.
         """
-        # Assume (exchange_trade_id, trading_pair) are unique
-        return not any(tf for tf in self._current_trade_fills if (tf.market == self.display_name) and
-                       (int(tf.exchange_trade_id) == exchange_trade_id) and
-                       (tf.symbol == trading_pair))
+        # Assume (market, exchange_trade_id, trading_pair) are unique. Also order has to be recorded in Order table
+        return (not TradeFill_order_details(self.display_name, exchange_trade_id, trading_pair) in self._current_trade_fills) and \
+               (exchange_trade_id in self._exchange_order_ids)

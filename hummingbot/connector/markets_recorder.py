@@ -8,12 +8,13 @@ from sqlalchemy.orm import (
 )
 import time
 import threading
+from collections import namedtuple
 from typing import (
     Dict,
     List,
     Optional,
     Tuple,
-    Union
+    Union,
 )
 
 from hummingbot import data_path
@@ -37,6 +38,8 @@ from hummingbot.model.order_status import OrderStatus
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
 
+TradeFill_order_details = namedtuple("TradeFill_order_details", "market exchange_trade_id symbol")
+
 
 class MarketsRecorder:
     market_event_tag_map: Dict[int, MarketEvent] = {
@@ -59,7 +62,13 @@ class MarketsRecorder:
         self._strategy_name: str = strategy_name
         # Internal collection of trade fills in connector will be used for remote/local history reconciliation
         for market in self._markets:
-            market.add_trade_fills_from_market_recorder(self.get_trades_for_config(self._config_file_path, 2000))
+            trade_fills = self.get_trades_for_config(self._config_file_path, 2000)
+            market.add_trade_fills_from_market_recorder({TradeFill_order_details(tf.market,
+                                                                                 tf.exchange_trade_id,
+                                                                                 tf.symbol) for tf in trade_fills})
+
+            exchange_order_ids = self.get_orders_for_config_and_market(self._config_file_path, market, True, 2000)
+            market.add_exchange_order_ids_from_market_recorder({o.exchange_trade_id for o in exchange_order_ids})
 
         self._create_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_create_order)
         self._fill_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_fill_order)
@@ -109,14 +118,22 @@ class MarketsRecorder:
             for event_pair in self._event_pairs:
                 market.remove_listener(event_pair[0], event_pair[1])
 
-    def get_orders_for_config_and_market(self, config_file_path: str, market: ConnectorBase) -> List[Order]:
+    def get_orders_for_config_and_market(self, config_file_path: str, market: ConnectorBase,
+                                         with_exchange_trade_id_present: Optional[bool] = False,
+                                         number_of_rows: Optional[int] = None) -> List[Order]:
         session: Session = self.session
+        filters = [Order.config_file_path == config_file_path,
+                   Order.market == market.display_name]
+        if with_exchange_trade_id_present:
+            filters.append(Order.exchange_trade_id.isnot(None))
         query: Query = (session
                         .query(Order)
-                        .filter(Order.config_file_path == config_file_path,
-                                Order.market == market.display_name)
+                        .filter(*filters)
                         .order_by(Order.creation_timestamp))
-        return query.all()
+        if number_of_rows is None:
+            return query.all()
+        else:
+            return query.limit(number_of_rows).all()
 
     def get_trades_for_config(self, config_file_path: str, number_of_rows: Optional[int] = None) -> List[TradeFill]:
         session: Session = self.session
@@ -186,13 +203,15 @@ class MarketsRecorder:
                                     amount=float(evt.amount),
                                     price=float(evt.price) if evt.price == evt.price else 0,
                                     last_status=event_type.name,
-                                    last_update_timestamp=timestamp)
+                                    last_update_timestamp=timestamp,
+                                    exchange_trade_id=evt.exchange_order_id)
         order_status: OrderStatus = OrderStatus(order=order_record,
                                                 timestamp=timestamp,
                                                 status=event_type.name)
         session.add(order_record)
         session.add(order_status)
         self.save_market_states(self._config_file_path, market, no_commit=True)
+        market.add_exchange_order_ids_from_market_recorder({evt.exchange_order_id})
         session.commit()
 
     def _did_fill_order(self,
@@ -238,7 +257,7 @@ class MarketsRecorder:
         session.add(trade_fill_record)
         self.save_market_states(self._config_file_path, market, no_commit=True)
         session.commit()
-        market.add_trade_fills_from_market_recorder([trade_fill_record])
+        market.add_trade_fills_from_market_recorder({TradeFill_order_details(trade_fill_record.market, trade_fill_record.exchange_trade_id, trade_fill_record.symbol)})
         self.append_to_csv(trade_fill_record)
 
     def append_to_csv(self, trade: TradeFill):

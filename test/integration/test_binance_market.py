@@ -172,7 +172,8 @@ class BinanceExchangeUnitTest(unittest.TestCase):
             pass
 
         self.market_logger = EventLogger()
-        self.market._current_trade_fills = []
+        self.market._current_trade_fills = set()
+        self.market._exchange_order_ids = set()
         self.ev_loop.run_until_complete(self.wait_til_ready())
         for event_tag in self.events:
             self.market.add_listener(event_tag, self.market_logger)
@@ -373,6 +374,7 @@ class BinanceExchangeUnitTest(unittest.TestCase):
         else:
             order_id = self.market.sell(trading_pair, amount, order_type, price)
         if API_MOCK_ENABLED and fixture_ws_1 is not None and fixture_ws_2 is not None:
+            self.market.add_exchange_order_ids_from_market_recorder({str(fixture_ws_2['t'])})
             data = self.fixture(fixture_ws_1, c=order_id)
             HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.1)
             data = self.fixture(fixture_ws_2, c=order_id)
@@ -748,6 +750,7 @@ class BinanceExchangeUnitTest(unittest.TestCase):
                 'isMaker': True,
                 'isBestMatch': True,
             }]
+            self.market.add_exchange_order_ids_from_market_recorder({buy_id})
             self.web_app.update_response("get", self.base_api_url, "/api/v3/myTrades",
                                          binance_trades, params={'symbol': 'LINKETH'})
             [market_order_completed] = self.run_parallel(self.market_logger.wait_for(OrderFilledEvent))
