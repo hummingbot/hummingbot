@@ -22,8 +22,8 @@ def clean_ws_api_url(s: "Settings"):
 @dataclass
 class Settings:
 
-    rest_api_url: str = "https://api-sandbox.idex.io/v1"
-    ws_api_url: str = "wss://websocket-sandbox.idex.io/v1"
+    rest_api_url: str = "https://api.idex.io/v1"
+    ws_api_url: str = "wss://websocket.idex.io/v1"
 
     def __post_init__(self):
         inflect_env(self)
