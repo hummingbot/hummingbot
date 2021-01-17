@@ -146,6 +146,7 @@ cdef class BinanceExchange(ExchangeBase):
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
         self._trade_fees = {}  # Dict[trading_pair:str, (maker_fee_percent:Decimal, taken_fee_percent:Decimal)]
         self._last_update_trade_fees_timestamp = 0
+        self._last_update_history_reconciliation_timestamp = defaultdict(lambda: 0)
         self._status_polling_task = None
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
@@ -444,9 +445,13 @@ cdef class BinanceExchange(ExchangeBase):
         If found, it will trigger an order_filled event to record it in local DB.
         """
         if not exchange_history:
-            tasks = [self.query_api(self._binance_client.get_my_trades,
-                                    symbol=convert_to_exchange_trading_pair(trading_pair))
-                     for trading_pair in self._order_book_tracker._trading_pairs]
+            tasks=[]
+            for trading_pair in self._order_book_tracker._trading_pairs:
+                my_trades_query_args = {'symbol': convert_to_exchange_trading_pair(trading_pair)}
+                if self._last_update_history_reconciliation_timestamp[trading_pair]>0:
+                    my_trades_query_args.update({'startTime': self._last_update_history_reconciliation_timestamp[trading_pair]+1})
+            tasks.append(self.query_api(self._binance_client.get_my_trades,
+                                        **my_trades_query_args))
             self.logger().debug("Polling for order fills of %d trading pairs.", len(tasks))
             exchange_history = await safe_gather(*tasks, return_exceptions=True)
         for trades, trading_pair in zip(exchange_history, self._order_book_tracker._trading_pairs):
@@ -456,8 +461,9 @@ cdef class BinanceExchange(ExchangeBase):
                     app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
                 )
                 continue
+            self._last_update_history_reconciliation_timestamp[trading_pair] = max(trade["time"] for trade in trades)
             for trade in trades:
-                if self.is_confirmed_new_order_filled_event(str(trade["id"]), trading_pair):
+                if self.is_confirmed_new_order_filled_event(str(trade["id"]), str(trade["orderId"]), trading_pair):
                     client_order_id = get_client_order_id("buy" if trade["isBuyer"] else "sell", trading_pair)
                     self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
                                          OrderFilledEvent(
@@ -527,8 +533,10 @@ cdef class BinanceExchange(ExchangeBase):
 
                 if tracked_order.is_done:
                     if not tracked_order.is_failure:
-                        exchange_order_id = next(iter(tracked_order.trade_id_set))
-                        if self.is_confirmed_new_order_filled_event(str(exchange_order_id),
+                        exchange_trade_id = next(iter(tracked_order.trade_id_set))
+                        exchange_order_id = tracked_order.exchange_order_id
+                        if self.is_confirmed_new_order_filled_event(str(exchange_trade_id),
+                                                                    str(exchange_order_id),
                                                                     tracked_order.trading_pair):
                             if tracked_order.trade_type is TradeType.BUY:
                                 self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
@@ -560,7 +568,7 @@ cdef class BinanceExchange(ExchangeBase):
                                                                              order_type))
                         else:
                             self.logger().info(
-                                f"The market order {tracked_order.client_order_id} was already filled. "
+                                f"The market order {tracked_order.client_order_id} was already filled, or order was not submitted by hummingbot."
                                 f"Ignoring trade filled event in update_order_status.")
                     else:
                         # check if its a cancelled order
@@ -645,13 +653,13 @@ cdef class BinanceExchange(ExchangeBase):
                     if execution_type == "TRADE":
                         order_filled_event = OrderFilledEvent.order_filled_event_from_binance_execution_report(event_message)
                         order_filled_event = order_filled_event._replace(trading_pair=convert_from_exchange_trading_pair(order_filled_event.trading_pair))
-                        exchange_order_id = next(iter(tracked_order.trade_id_set))
-                        if self.is_confirmed_new_order_filled_event(str(exchange_order_id), tracked_order.trading_pair):
+                        exchange_trade_id = next(iter(tracked_order.trade_id_set))
+                        if self.is_confirmed_new_order_filled_event(str(exchange_trade_id), str(tracked_order.exchange_order_id), tracked_order.trading_pair):
                             self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
                         else:
                             self.logger().info(
-                                f"The market order {tracked_order.client_order_id} was already filled."
-                                f"Ignoring trade filled event in user stream.")
+                                f"The market order {tracked_order.client_order_id} was already filled or order was not submitted by hummingbot."
+                                f"Ignoring trade filled event of exchange trade id {str(exchange_trade_id)} in user stream.")
                             self.c_stop_tracking_order(tracked_order.client_order_id)
                             continue
 

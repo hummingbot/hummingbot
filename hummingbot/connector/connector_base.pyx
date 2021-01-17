@@ -429,11 +429,11 @@ cdef class ConnectorBase(NetworkIterator):
         """
         self._exchange_order_ids.update(current_exchange_order_ids)
 
-    def is_confirmed_new_order_filled_event(self, exchange_trade_id: str, trading_pair: str):
+    def is_confirmed_new_order_filled_event(self, exchange_trade_id: str, exchange_order_id: str, trading_pair: str):
         """
         Returns True if order to be filled is not already present in TradeFill entries.
         This is intended to avoid duplicated order fills in local DB.
         """
         # Assume (market, exchange_trade_id, trading_pair) are unique. Also order has to be recorded in Order table
         return (not TradeFill_order_details(self.display_name, exchange_trade_id, trading_pair) in self._current_trade_fills) and \
-               (exchange_trade_id in self._exchange_order_ids)
+               (exchange_order_id in self._exchange_order_ids)
