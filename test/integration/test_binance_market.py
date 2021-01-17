@@ -241,6 +241,7 @@ class BinanceExchangeUnitTest(unittest.TestCase):
 
         order_id = self.place_order(True, "LINK-ETH", amount, OrderType.LIMIT, bid_price, self.get_current_nonce(), FixtureBinance.BUY_MARKET_ORDER,
                                     FixtureBinance.WS_AFTER_BUY_1, FixtureBinance.WS_AFTER_BUY_2)
+        self.market.add_exchange_order_ids_from_market_recorder({str(FixtureBinance.BUY_MARKET_ORDER['orderId'])})
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -268,6 +269,7 @@ class BinanceExchangeUnitTest(unittest.TestCase):
         quantized_amount = order_completed_event.base_asset_amount
         order_id = self.place_order(False, "LINK-ETH", amount, OrderType.LIMIT, ask_price, 10002, FixtureBinance.SELL_MARKET_ORDER,
                                     FixtureBinance.WS_AFTER_SELL_1, FixtureBinance.WS_AFTER_SELL_2)
+        self.market.add_exchange_order_ids_from_market_recorder({str(FixtureBinance.SELL_MARKET_ORDER['orderId'])})
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         trade_events = [t for t in self.market_logger.event_log
@@ -374,10 +376,10 @@ class BinanceExchangeUnitTest(unittest.TestCase):
         else:
             order_id = self.market.sell(trading_pair, amount, order_type, price)
         if API_MOCK_ENABLED and fixture_ws_1 is not None and fixture_ws_2 is not None:
-            self.market.add_exchange_order_ids_from_market_recorder({str(fixture_ws_2['t'])})
-            data = self.fixture(fixture_ws_1, c=order_id)
+            exchange_order_id = str(resp['orderId'])
+            data = self.fixture(fixture_ws_1, c=order_id, i=exchange_order_id)
             HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.1)
-            data = self.fixture(fixture_ws_2, c=order_id)
+            data = self.fixture(fixture_ws_2, c=order_id, i=exchange_order_id)
             HummingWsServerFactory.send_json_threadsafe(self._ws_user_url, data, delay=0.11)
         return order_id
 
@@ -733,12 +735,12 @@ class BinanceExchangeUnitTest(unittest.TestCase):
             bid_price: Decimal = self.market.get_price("LINK-ETH", True)
             # Will temporarily change binance history request to return trades
             buy_id = "1580204166011219"
-            order_id = 123456
+            order_id = "123456"
             self._t_nonce_mock.return_value = 1234567890123456
             binance_trades = [{
                 'symbol': "LINKETH",
                 'id': buy_id,
-                'orderid': order_id,
+                'orderId': order_id,
                 'orderListId': -1,
                 'price': float(bid_price),
                 'qty': 1,
@@ -750,7 +752,7 @@ class BinanceExchangeUnitTest(unittest.TestCase):
                 'isMaker': True,
                 'isBestMatch': True,
             }]
-            self.market.add_exchange_order_ids_from_market_recorder({buy_id})
+            self.market.add_exchange_order_ids_from_market_recorder({order_id})
             self.web_app.update_response("get", self.base_api_url, "/api/v3/myTrades",
                                          binance_trades, params={'symbol': 'LINKETH'})
             [market_order_completed] = self.run_parallel(self.market_logger.wait_for(OrderFilledEvent))

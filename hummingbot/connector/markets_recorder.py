@@ -125,7 +125,7 @@ class MarketsRecorder:
         filters = [Order.config_file_path == config_file_path,
                    Order.market == market.display_name]
         if with_exchange_trade_id_present:
-            filters.append(Order.exchange_trade_id.isnot(None))
+            filters.append(Order.exchange_order_id.isnot(None))
         query: Query = (session
                         .query(Order)
                         .filter(*filters)
@@ -204,14 +204,14 @@ class MarketsRecorder:
                                     price=float(evt.price) if evt.price == evt.price else 0,
                                     last_status=event_type.name,
                                     last_update_timestamp=timestamp,
-                                    exchange_trade_id=evt.exchange_order_id)
+                                    exchange_order_id=evt.exchange_order_id)
         order_status: OrderStatus = OrderStatus(order=order_record,
                                                 timestamp=timestamp,
                                                 status=event_type.name)
         session.add(order_record)
         session.add(order_status)
-        self.save_market_states(self._config_file_path, market, no_commit=True)
         market.add_exchange_order_ids_from_market_recorder({evt.exchange_order_id})
+        self.save_market_states(self._config_file_path, market, no_commit=True)
         session.commit()
 
     def _did_fill_order(self,
