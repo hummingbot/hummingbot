@@ -68,7 +68,7 @@ class MarketsRecorder:
                                                                                  tf.symbol) for tf in trade_fills})
 
             exchange_order_ids = self.get_orders_for_config_and_market(self._config_file_path, market, True, 2000)
-            market.add_exchange_order_ids_from_market_recorder({o.exchange_trade_id for o in exchange_order_ids})
+            market.add_exchange_order_ids_from_market_recorder({o.exchange_order_id for o in exchange_order_ids})
 
         self._create_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_create_order)
         self._fill_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_fill_order)
@@ -119,12 +119,12 @@ class MarketsRecorder:
                 market.remove_listener(event_pair[0], event_pair[1])
 
     def get_orders_for_config_and_market(self, config_file_path: str, market: ConnectorBase,
-                                         with_exchange_trade_id_present: Optional[bool] = False,
+                                         with_exchange_order_id_present: Optional[bool] = False,
                                          number_of_rows: Optional[int] = None) -> List[Order]:
         session: Session = self.session
         filters = [Order.config_file_path == config_file_path,
                    Order.market == market.display_name]
-        if with_exchange_trade_id_present:
+        if with_exchange_order_id_present:
             filters.append(Order.exchange_order_id.isnot(None))
         query: Query = (session
                         .query(Order)
