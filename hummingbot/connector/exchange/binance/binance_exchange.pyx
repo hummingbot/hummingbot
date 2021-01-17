@@ -146,7 +146,6 @@ cdef class BinanceExchange(ExchangeBase):
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
         self._trade_fees = {}  # Dict[trading_pair:str, (maker_fee_percent:Decimal, taken_fee_percent:Decimal)]
         self._last_update_trade_fees_timestamp = 0
-        self._last_update_history_reconciliation_timestamp = defaultdict(lambda: 0)
         self._status_polling_task = None
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
@@ -448,8 +447,6 @@ cdef class BinanceExchange(ExchangeBase):
             tasks=[]
             for trading_pair in self._order_book_tracker._trading_pairs:
                 my_trades_query_args = {'symbol': convert_to_exchange_trading_pair(trading_pair)}
-                if self._last_update_history_reconciliation_timestamp[trading_pair]>0:
-                    my_trades_query_args.update({'startTime': self._last_update_history_reconciliation_timestamp[trading_pair]+1})
             tasks.append(self.query_api(self._binance_client.get_my_trades,
                                         **my_trades_query_args))
             self.logger().debug("Polling for order fills of %d trading pairs.", len(tasks))
@@ -461,7 +458,6 @@ cdef class BinanceExchange(ExchangeBase):
                     app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
                 )
                 continue
-            self._last_update_history_reconciliation_timestamp[trading_pair] = max(trade["time"] for trade in trades) if trades else 0
             for trade in trades:
                 if self.is_confirmed_new_order_filled_event(str(trade["id"]), str(trade["orderId"]), trading_pair):
                     client_order_id = get_client_order_id("buy" if trade["isBuyer"] else "sell", trading_pair)

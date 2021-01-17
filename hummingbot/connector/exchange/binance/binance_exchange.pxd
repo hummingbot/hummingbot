@@ -22,7 +22,6 @@ cdef class BinanceExchange(ExchangeBase):
         public object _user_stream_event_listener_task
         public object _user_stream_tracker_task
         public object _trading_rules_polling_task
-        public object _last_update_history_reconciliation_timestamp
         object _async_scheduler
         object _set_server_time_offset_task
         object _throttler
