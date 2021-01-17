@@ -461,7 +461,7 @@ cdef class BinanceExchange(ExchangeBase):
                     app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
                 )
                 continue
-            self._last_update_history_reconciliation_timestamp[trading_pair] = max(trade["time"] for trade in trades)
+            self._last_update_history_reconciliation_timestamp[trading_pair] = max(trade["time"] for trade in trades) if trades else 0
             for trade in trades:
                 if self.is_confirmed_new_order_filled_event(str(trade["id"]), str(trade["orderId"]), trading_pair):
                     client_order_id = get_client_order_id("buy" if trade["isBuyer"] else "sell", trading_pair)
