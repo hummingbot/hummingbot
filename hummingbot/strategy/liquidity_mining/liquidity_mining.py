@@ -2,6 +2,8 @@ from decimal import Decimal
 import logging
 import asyncio
 from typing import Dict, List, Set
+import pandas as pd
+import time
 from hummingbot.core.clock import Clock
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
@@ -11,6 +13,7 @@ from .data_types import Proposal, PriceSize
 from hummingbot.core.event.events import OrderType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.utils.estimate_fee import estimate_fee
+from hummingbot.core.utils.market_price import usd_value
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -84,9 +87,48 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
         self._last_timestamp = timestamp
 
+    async def active_orders_df(self) -> pd.DataFrame:
+        columns = ["Market", "Side", "Price", "Spread", "Size", "Size ($)", "Age"]
+        data = []
+        for order in self.active_orders:
+            mid_price = self._market_infos[order.trading_pair].get_mid_price()
+            spread = 0 if mid_price == 0 else abs(order.price - mid_price) / mid_price
+            size_usd = await usd_value(order.trading_pair.split("-")[0], order.quantity)
+            age = "n/a"
+            # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
+            if "//" not in order.client_order_id:
+                age = pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:]) / 1e6,
+                                   unit='s').strftime('%H:%M:%S')
+            data.append([
+                order.trading_pair,
+                "buy" if order.is_buy else "sell",
+                float(order.price),
+                f"{spread:.2%}",
+                float(order.quantity),
+                round(size_usd),
+                age
+            ])
+
+        return pd.DataFrame(data=data, columns=columns)
+
     async def format_status(self) -> str:
-        from hummingbot.client.hummingbot_application import HummingbotApplication
-        HummingbotApplication.main_application().open_orders(full_report=True)
+        if not self._ready_to_trade:
+            return "Market connectors are not ready."
+        lines = []
+        warning_lines = []
+        warning_lines.extend(self.network_warning(list(self._market_infos.values())))
+
+        # See if there're any open orders.
+        if len(self.active_orders) > 0:
+            df = await self.active_orders_df()
+            lines.extend(["", "  Orders:"] + ["    " + line for line in df.to_string(index=False).split("\n")])
+        else:
+            lines.extend(["", "  No active maker orders."])
+
+        warning_lines.extend(self.balance_warning(list(self._market_infos.values())))
+        if len(warning_lines) > 0:
+            lines.extend(["", "*** WARNINGS ***"] + warning_lines)
+        return "\n".join(lines)
 
     def start(self, clock: Clock, timestamp: float):
         pass
@@ -210,7 +252,8 @@ class LiquidityMiningStrategy(StrategyPyBase):
         """
         tokens = self.all_tokens()
         adjusted_bals = {t: s_decimal_zero for t in tokens}
-        total_bals = self._exchange.get_all_balances()
+        total_bals = {t: s_decimal_zero for t in tokens}
+        total_bals.update(self._exchange.get_all_balances())
         for token in tokens:
             adjusted_bals[token] = self._exchange.get_available_balance(token)
         for order in self.active_orders:
