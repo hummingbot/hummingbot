@@ -46,24 +46,6 @@ class BlocktaneOrderBookTracker(OrderBookTracker):
     def exchange_name(self) -> str:
         return "blocktane"
 
-    async def start(self):
-        super().start()
-        self._order_book_trade_listener_task = safe_ensure_future(
-            self.data_source.listen_for_trades(self._ev_loop, self._order_book_trade_stream)
-        )
-        self._order_book_diff_listener_task = safe_ensure_future(
-            self.data_source.listen_for_order_book_diffs(self._ev_loop, self._order_book_diff_stream)
-        )
-        self._order_book_snapshot_listener_task = safe_ensure_future(
-            self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
-        )
-        self._order_book_diff_router_task = safe_ensure_future(
-            self._order_book_diff_router()
-        )
-        self._order_book_snapshot_router_task = safe_ensure_future(
-            self._order_book_snapshot_router()
-        )
-
     async def _order_book_diff_router(self):
         """
         Route the real-time order book diff messages to the correct order book.
