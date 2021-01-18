@@ -20,9 +20,5 @@ class AddExchangeOrderIdColumnToOrders(DatabaseTransformation):
         return "AddExchangeOrderIdColumnToOrders"
 
     @property
-    def from_version(self):
-        return 20190614
-
-    @property
     def to_version(self):
-        return 20210114
+        return 20210118

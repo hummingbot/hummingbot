@@ -46,7 +46,7 @@ class SQLConnectionManager:
     _scm_trade_fills_instance: Optional["SQLConnectionManager"] = None
 
     LOCAL_DB_VERSION_KEY = "local_db_version"
-    LOCAL_DB_VERSION_VALUE = "20210114"
+    LOCAL_DB_VERSION_VALUE = "20210118"
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -168,7 +168,7 @@ class SQLConnectionManager:
             # There's no past db version to upgrade from at this moment. So we'll just update the version value
             # if needed.
             if local_db_version.value < self.LOCAL_DB_VERSION_VALUE:
-                was_migration_succesful = Migrator().migrate_db_to_version(self, int(self.LOCAL_DB_VERSION_VALUE))
+                was_migration_succesful = Migrator().migrate_db_to_version(self, int(local_db_version.value), int(self.LOCAL_DB_VERSION_VALUE))
                 if was_migration_succesful:
                     # Cannot use variable local_db_version because reference is not valid since Migrator changed it
                     self.get_local_db_version().value = self.LOCAL_DB_VERSION_VALUE
