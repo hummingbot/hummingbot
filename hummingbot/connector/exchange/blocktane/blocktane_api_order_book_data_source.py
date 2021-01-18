@@ -134,24 +134,19 @@ class BlocktaneAPIOrderBookDataSource(OrderBookTrackerDataSource):
             order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
             return order_book
 
-    async def _inner_messages(self,
-                              ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
+    def get_ws_connection(self, stream_url):
+        ws = websockets.connect(stream_url)
+        return ws
+
+    async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
-        try:
-            while True:
-                try:
-                    msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
-                    yield msg
-                except asyncio.TimeoutError:
-                    pong_waiter = await ws.ping()
-                    await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
-        except asyncio.TimeoutError:
-            self.logger().warning("WebSocket ping timed out. Going to reconnect...")
-            raise
-        except websockets.exceptions.ConnectionClosed:
-            raise
-        finally:
-            await ws.close()
+        while True:
+            try:
+                msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
+                yield msg
+            except asyncio.TimeoutError:
+                pong_waiter = await ws.ping()
+                await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
@@ -159,19 +154,22 @@ class BlocktaneAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 ws_path: str = "&stream=".join([f"{convert_to_exchange_trading_pair(trading_pair)}.trades" for trading_pair in self._trading_pairs])
                 stream_url: str = f"{DIFF_STREAM_URL}/?stream={ws_path}"
 
-                async with websockets.connect(stream_url) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
-                    async for raw_msg in self._inner_messages(ws):
-                        msg = ujson.loads(raw_msg)
-                        if (list(msg.keys())[0].endswith("trades")):
-                            trade_msg: OrderBookMessage = BlocktaneOrderBook.trade_message_from_exchange(msg)
-                            output.put_nowait(trade_msg)
+                ws: websockets.WebSocketClientProtocol = await self.get_ws_connection(stream_url)
+                async for raw_msg in self._inner_messages(ws):
+                    msg = ujson.loads(raw_msg)
+                    if (list(msg.keys())[0].endswith("trades")):
+                        trade_msg: OrderBookMessage = BlocktaneOrderBook.trade_message_from_exchange(msg)
+                        output.put_nowait(trade_msg)
             except asyncio.CancelledError:
                 raise
+            except asyncio.TimeoutError:
+                self.logger().warning("WebSocket ping timed out. Reconnecting after 30 seconds...")
             except Exception:
-                self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
-                                    exc_info=True)
-                await asyncio.sleep(30.0)
+                self.logger().error("Unexpected error while maintaining the user event listen key. Retrying after "
+                                    "30 seconds...", exc_info=True)
+            finally:
+                await ws.close()
+                await asyncio.sleep(30)
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
@@ -179,24 +177,27 @@ class BlocktaneAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 ws_path: str = "&stream=".join([f"{convert_to_exchange_trading_pair(trading_pair)}.ob-inc" for trading_pair in self._trading_pairs])
                 stream_url: str = f"{DIFF_STREAM_URL}/?stream={ws_path}"
 
-                async with websockets.connect(stream_url) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
-                    async for raw_msg in self._inner_messages(ws):
-                        msg = ujson.loads(raw_msg)
-                        key = list(msg.keys())[0]
-                        if ('ob-inc' in key):
-                            pair = re.sub(r'\.ob-inc', '', key)
-                            parsed_msg = {"pair": convert_from_exchange_trading_pair(pair),
-                                          "bids": msg[key]["bids"] if "bids" in msg[key] else [],
-                                          "asks": msg[key]["asks"] if "asks" in msg[key] else []}
-                            order_book_message: OrderBookMessage = BlocktaneOrderBook.diff_message_from_exchange(parsed_msg, time.time())
-                            output.put_nowait(order_book_message)
+                ws: websockets.WebSocketClientProtocol = await self.get_ws_connection(stream_url)
+                async for raw_msg in self._inner_messages(ws):
+                    msg = ujson.loads(raw_msg)
+                    key = list(msg.keys())[0]
+                    if ('ob-inc' in key):
+                        pair = re.sub(r'\.ob-inc', '', key)
+                        parsed_msg = {"pair": convert_from_exchange_trading_pair(pair),
+                                      "bids": msg[key]["bids"] if "bids" in msg[key] else [],
+                                      "asks": msg[key]["asks"] if "asks" in msg[key] else []}
+                        order_book_message: OrderBookMessage = BlocktaneOrderBook.diff_message_from_exchange(parsed_msg, time.time())
+                        output.put_nowait(order_book_message)
             except asyncio.CancelledError:
                 raise
+            except asyncio.TimeoutError:
+                self.logger().warning("WebSocket ping timed out. Reconnecting after 30 seconds...")
             except Exception:
-                self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
-                                    exc_info=True)
-                await asyncio.sleep(30.0)
+                self.logger().error("Unexpected error while maintaining the user event listen key. Retrying after "
+                                    "30 seconds...", exc_info=True)
+            finally:
+                await ws.close()
+                await asyncio.sleep(30)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
