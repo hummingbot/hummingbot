@@ -174,6 +174,7 @@ class BuyOrderCompletedEvent:
     fee_amount: Decimal
     order_type: OrderType
     exchange_order_id: Optional[str] = None
+    leverage: Optional[int] = 1
 
 
 @dataclass
@@ -188,6 +189,7 @@ class SellOrderCompletedEvent:
     fee_amount: Decimal
     order_type: OrderType
     exchange_order_id: Optional[str] = None
+    leverage: Optional[int] = 1
 
 
 @dataclass
@@ -294,6 +296,7 @@ class OrderFilledEvent(NamedTuple):
     amount: Decimal
     trade_fee: TradeFee
     exchange_trade_id: str = ""
+    leverage: Optional[int] = 1
 
     @classmethod
     def order_filled_events_from_order_book_rows(cls,
@@ -338,6 +341,7 @@ class BuyOrderCreatedEvent:
     price: Decimal
     order_id: str
     exchange_order_id: Optional[str] = None
+    leverage: Optional[int] = 1
 
 
 @dataclass
@@ -349,3 +353,4 @@ class SellOrderCreatedEvent:
     price: Decimal
     order_id: str
     exchange_order_id: Optional[str] = None
+    leverage: Optional[int] = 1
