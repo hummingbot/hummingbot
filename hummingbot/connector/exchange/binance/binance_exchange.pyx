@@ -461,23 +461,26 @@ cdef class BinanceExchange(ExchangeBase):
             for trade in trades:
                 if self.is_confirmed_new_order_filled_event(str(trade["id"]), str(trade["orderId"]), trading_pair):
                     client_order_id = get_client_order_id("buy" if trade["isBuyer"] else "sell", trading_pair)
-                    self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
-                                         OrderFilledEvent(
-                                             trade["time"],
-                                             client_order_id,
-                                             trading_pair,
-                                             TradeType.BUY if trade["isBuyer"] else TradeType.SELL,
-                                             OrderType.LIMIT_MAKER,  # defaulting to this value since trade info lacks field
-                                             Decimal(trade["price"]),
-                                             Decimal(trade["qty"]),
-                                             TradeFee(
-                                                 percent=Decimal(0.0),
-                                                 flat_fees=[(trade["commissionAsset"],
-                                                             Decimal(trade["commission"]))]
-                                             ),
-                                             exchange_trade_id=trade["id"]
-                                         ))
-                    self.logger().info(f"Recreating missing trade in TradeFill: {trade}")
+                    # Should check if this is a partial filling of a in_flight order.
+                    # In that case, user_stream or _update_order_fills_from_trades will take care when fully filled.
+                    if client_order_id not in self.in_flight_orders:
+                        self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
+                                             OrderFilledEvent(
+                                                 trade["time"],
+                                                 client_order_id,
+                                                 trading_pair,
+                                                 TradeType.BUY if trade["isBuyer"] else TradeType.SELL,
+                                                 OrderType.LIMIT_MAKER,  # defaulting to this value since trade info lacks field
+                                                 Decimal(trade["price"]),
+                                                 Decimal(trade["qty"]),
+                                                 TradeFee(
+                                                     percent=Decimal(0.0),
+                                                     flat_fees=[(trade["commissionAsset"],
+                                                                 Decimal(trade["commission"]))]
+                                                 ),
+                                                 exchange_trade_id=trade["id"]
+                                             ))
+                        self.logger().info(f"Recreating missing trade in TradeFill: {trade}")
 
     async def _update_order_status(self):
         cdef:
