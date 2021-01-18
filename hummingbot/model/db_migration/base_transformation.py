@@ -21,18 +21,20 @@ class DatabaseTransformation(ABC):
         return ""
 
     @property
-    @abstractmethod
     def from_version(self):
-        return None
+        return 0
 
     @property
     @abstractmethod
     def to_version(self):
         return None
 
-    def does_apply_to_version(self, version: int) -> bool:
-        if self.to_version is not None and self.from_version is not None:
-            return version <= self.to_version
+    def does_apply_to_version(self, original_version: int, target_version: int) -> bool:
+        if self.to_version is not None:
+            # from_version > 0 means from_version property was overridden by transformation class
+            if self.from_version > 0:
+                return (self.from_version >= original_version) and (self.to_version <= target_version)
+            return self.to_version <= target_version
         return False
 
     def __eq__(self, other):

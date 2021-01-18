@@ -20,7 +20,7 @@ class Migrator:
     def __init__(self):
         self.transformations = [t(self) for t in self._get_transformations()]
 
-    def migrate_db_to_version(self, db_handle, to_version):
+    def migrate_db_to_version(self, db_handle, from_version, to_version):
         original_db_path = db_handle.db_path
         original_db_name = Path(original_db_path).stem
         backup_db_path = original_db_path + '.backup_' + pd.Timestamp.utcnow().strftime("%Y%m%d-%H%M%S")
@@ -32,7 +32,7 @@ class Migrator:
         db_handle.engine.dispose()
         new_db_handle = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, new_db_path, original_db_name, True)
 
-        relevant_transformations = [t for t in self.transformations if t.does_apply_to_version(to_version)]
+        relevant_transformations = [t for t in self.transformations if t.does_apply_to_version(from_version, to_version)]
         if relevant_transformations:
             logging.getLogger().info(
                 f"Will run DB migration from {db_handle.get_local_db_version().value} to {to_version}")
