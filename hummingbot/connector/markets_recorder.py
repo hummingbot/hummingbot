@@ -182,6 +182,7 @@ class MarketsRecorder:
                                     creation_timestamp=timestamp,
                                     order_type=evt.type.name,
                                     amount=float(evt.amount),
+                                    leverage=evt.leverage if evt.leverage else 1,
                                     price=float(evt.price) if evt.price == evt.price else 0,
                                     last_status=event_type.name,
                                     last_update_timestamp=timestamp)
@@ -230,6 +231,7 @@ class MarketsRecorder:
                                                  order_type=evt.order_type.name,
                                                  price=float(evt.price) if evt.price == evt.price else 0,
                                                  amount=float(evt.amount),
+                                                 leverage=evt.leverage if evt.leverage else 1,
                                                  trade_fee=TradeFee.to_json(evt.trade_fee),
                                                  exchange_trade_id=evt.exchange_trade_id)
         session.add(order_status)
@@ -247,10 +249,10 @@ class MarketsRecorder:
             age = pd.Timestamp(int(trade.timestamp / 1e3 - int(trade.order_id[-16:]) / 1e6), unit='s').strftime('%H:%M:%S')
         if not os.path.exists(csv_path):
             df_header = pd.DataFrame([["Config File", "Strategy", "Exchange", "Timestamp", "Market", "Base", "Quote",
-                                       "Trade", "Type", "Price", "Amount", "Fee", "Age", "Order ID", "Exchange Trade ID"]])
+                                       "Trade", "Type", "Price", "Amount", "Leverage", "Fee", "Age", "Order ID", "Exchange Trade ID"]])
             df_header.to_csv(csv_path, mode='a', header=False, index=False)
         df = pd.DataFrame([[trade.config_file_path, trade.strategy, trade.market, trade.timestamp, trade.symbol, trade.base_asset, trade.quote_asset,
-                            trade.trade_type, trade.order_type, trade.price, trade.amount, trade.trade_fee, age, trade.order_id, trade.exchange_trade_id]])
+                            trade.trade_type, trade.order_type, trade.price, trade.amount, trade.leverage, trade.trade_fee, age, trade.order_id, trade.exchange_trade_id]])
         df.to_csv(csv_path, mode='a', header=False, index=False)
 
     def _update_order_status(self,

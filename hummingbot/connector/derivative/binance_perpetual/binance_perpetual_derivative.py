@@ -134,6 +134,7 @@ class BinancePerpetualDerivative(DerivativeBase):
         self._funding_rate = 0
         self._account_positions = {}
         self._position_mode = None
+        self._leverage = 1
 
     @property
     def name(self) -> str:
@@ -274,7 +275,8 @@ class BinancePerpetualDerivative(DerivativeBase):
                                            trading_pair,
                                            amount,
                                            price,
-                                           order_id))
+                                           order_id,
+                                           leverage=self._leverage))
             return order_result
         except asyncio.CancelledError:
             raise
@@ -496,6 +498,7 @@ class BinancePerpetualDerivative(DerivativeBase):
                             order_type=OrderType.LIMIT if order_message.get("o") == "LIMIT" else OrderType.MARKET,
                             price=Decimal(order_message.get("L")),
                             amount=Decimal(order_message.get("l")),
+                            leverage=self._leverage,
                             trade_fee=self.get_fee(
                                 base_currency=tracked_order.base_asset,
                                 quote_currency=tracked_order.quote_asset,
@@ -771,6 +774,8 @@ class BinancePerpetualDerivative(DerivativeBase):
                         order_type = tracked_order.order_type
                         applied_trade = tracked_order.update_with_trade_updates(trade)
                         if applied_trade:
+                            self.logger().info(f"The {order_type.name.lower()} {tracked_order.trade_type.name.lower()} order {order_id} has "
+                                               f"been filled according to order status API.")
                             self.trigger_event(
                                 self.MARKET_ORDER_FILLED_EVENT_TAG,
                                 OrderFilledEvent(
@@ -788,7 +793,8 @@ class BinancePerpetualDerivative(DerivativeBase):
                                         tracked_order.trade_type,
                                         Decimal(trade["price"]),
                                         Decimal(trade["qty"])),
-                                    exchange_trade_id=trade["id"]
+                                    exchange_trade_id=trade["id"],
+                                    leverage=self._leverage
                                 )
                             )
 
@@ -886,6 +892,7 @@ class BinancePerpetualDerivative(DerivativeBase):
             is_signed=True
         )
         if set_leverage["leverage"] == leverage:
+            self._leverage = leverage
             self.logger().info(f"Leverage Successfully set to {leverage}.")
         else:
             self.logger().error("Unable to set leverage.")

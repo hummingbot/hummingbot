@@ -47,7 +47,8 @@ class SQLConnectionManager:
     _scm_trade_fills_instance: Optional["SQLConnectionManager"] = None
 
     LOCAL_DB_VERSION_KEY = "local_db_version"
-    LOCAL_DB_VERSION_VALUE = "20190614"
+    # LOCAL_DB_VERSION_VALUE = "20190614"
+    LOCAL_DB_VERSION_VALUE = "20210114"
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -162,11 +163,11 @@ class SQLConnectionManager:
                 self._shared_session.add(version_info)
                 self._shared_session.commit()
             else:
-                # There's no past db version to upgrade from at this moment. So we'll just update the version value
-                # if needed.
                 if result.value < self.LOCAL_DB_VERSION_VALUE:
                     result.value = self.LOCAL_DB_VERSION_VALUE
                     self._shared_session.commit()
+                    self._shared_session.execute("ALTER TABLE `TradeFill` ADD COLUMN leverage INTEGER AFTER amount DEFAULT 1;")
+                    self._shared_session.execute("ALTER TABLE `Order` ADD COLUMN leverage INTEGER AFTER amount DEFAULT 1;")
         except SQLAlchemyError:
             self.logger().error("Unexpected error while checking and upgrading the local database.",
                                 exc_info=True)
