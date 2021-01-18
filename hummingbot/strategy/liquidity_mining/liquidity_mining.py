@@ -111,6 +111,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
         return proposals
 
     def apply_volatility_adjustment(self, proposals):
+        # Todo: apply volatility spread adjustment, the volatility can be calculated from OHLC
+        #  (maybe ATR or hourly candle?) or from the mid price movement (see
+        #  scripts/spreads_adjusted_on_volatility_script.py).
         return
 
     def allocate_capital(self, proposals: List[Proposal]):
