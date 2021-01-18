@@ -168,9 +168,11 @@ class SQLConnectionManager:
             # There's no past db version to upgrade from at this moment. So we'll just update the version value
             # if needed.
             if local_db_version.value < self.LOCAL_DB_VERSION_VALUE:
-                Migrator().migrate_db_to_version(self, int(self.LOCAL_DB_VERSION_VALUE))
-                local_db_version.value = self.LOCAL_DB_VERSION_VALUE
-                self._shared_session.commit()
+                was_migration_succesful = Migrator().migrate_db_to_version(self, int(self.LOCAL_DB_VERSION_VALUE))
+                if was_migration_succesful:
+                    # Cannot use variable local_db_version because reference is not valid since Migrator changed it
+                    self.get_local_db_version().value = self.LOCAL_DB_VERSION_VALUE
+                    self._shared_session.commit()
 
     def commit(self):
         self._shared_session.commit()

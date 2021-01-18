@@ -57,4 +57,4 @@ class Migrator:
             except Exception as e:
                 logging.getLogger().error(f"Fatal error migrating DB {original_db_path}")
                 raise e
-        return db_handle
+        return migration_succesful
