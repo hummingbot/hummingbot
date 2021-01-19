@@ -42,6 +42,7 @@ class Order(HummingbotBase):
     price = Column(Float, nullable=False)
     last_status = Column(Text, nullable=False)
     last_update_timestamp = Column(BigInteger, nullable=False)
+    exchange_order_id = Column(Text, nullable=True)
     status = relationship("OrderStatus", back_populates="order")
     trade_fills = relationship("TradeFill", back_populates="order")
 
@@ -51,7 +52,8 @@ class Order(HummingbotBase):
                f"quote_asset='{self.quote_asset}', creation_timestamp={self.creation_timestamp}, " \
                f"order_type='{self.order_type}', amount={self.amount}, leverage={self.leverage}, " \
                f"price={self.price}, last_status='{self.last_status}', " \
-               f"last_update_timestamp={self.last_update_timestamp})"
+               f"last_update_timestamp={self.last_update_timestamp}), " \
+               f"exchange_order_id°={self.exchange_order_id}"
 
     @staticmethod
     def to_bounty_api_json(order: "Order") -> Dict[str, Any]:
