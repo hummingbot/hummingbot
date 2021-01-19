@@ -42,8 +42,6 @@ class K2APIOrderBookDataSource(OrderBookTrackerDataSource):
         result = {}
         async with aiohttp.ClientSession() as client:
             async with client.get(f"{constants.REST_URL}/Public/GetPairStats") as resp:
-                print(f"URL: {constants.REST_URL}/Public/GetPairStats")
-                print(f"Raw Response: {resp}")
                 resp_json = await resp.json()
                 if resp_json["success"] is False:
                     raise IOError(
@@ -53,7 +51,7 @@ class K2APIOrderBookDataSource(OrderBookTrackerDataSource):
                     )
                 for t_pair in trading_pairs:
                     last_trade = [o["lastprice"]
-                                  for o in resp_json["data"] if o["symbol"] == k2_utils.convert_orto_exchange_trading_pair(t_pair)]
+                                  for o in resp_json["data"] if o["symbol"] == k2_utils.convert_to_exchange_trading_pair(t_pair)]
                     if last_trade and last_trade[0] is not None:
                         result[t_pair] = last_trade[0]
         return result
@@ -65,7 +63,6 @@ class K2APIOrderBookDataSource(OrderBookTrackerDataSource):
                 if response.status == 200:
                     try:
                         data: Dict[str, Any] = await response.json()
-                        print(f"Data: {data}")
                         return [k2_utils.convert_from_exchange_trading_pair(item["symbol"]) for item in data["data"]]
                     except Exception:
                         pass
@@ -120,7 +117,7 @@ class K2APIOrderBookDataSource(OrderBookTrackerDataSource):
         finally:
             await ws.close()
 
-    async def listen_for_trades(self, output: asyncio.Queue):
+    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
         Listen for trades using websocket trade channel
         """
@@ -155,8 +152,8 @@ class K2APIOrderBookDataSource(OrderBookTrackerDataSource):
         Listen for orderbook diffs using websocket book channel
         """
         while True:
-            try:
-                async with websockets.connect(constants.WSS_URL) as ws:
+            async with websockets.connect(constants.WSS_URL) as ws:
+                try:
                     ws: websockets.WebSocketClientProtocol = ws
                     for trading_pair in self._trading_pairs:
                         params: Dict[str, Any] = {
@@ -165,22 +162,35 @@ class K2APIOrderBookDataSource(OrderBookTrackerDataSource):
                         }
                         await ws.send(ujson.dumps(params))
                     async for raw_msg in self._inner_messages(ws):
-                        msg = ujson.loads(raw_msg)
-                        if msg["methods"] != "orderbookchanged":
-                            diff_message: OrderBookMessage = K2OrderBook.diff_message_from_exchange(msg)
-                            output.put_nowait(diff_message)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().network(
-                    "Unexpected error with WebSocket connection.",
-                    exc_info=True,
-                    app_warning_msg="Unexpected error with WebSocket connection. Retrying in 30 seconds. "
-                                    "Check network connection."
-                )
-                await asyncio.sleep(30.0)
-            finally:
-                await ws.disconnect()
+                        response = ujson.loads(raw_msg)
+                        timestamp = int(time.time() * 1e3)
+                        if response["method"] == "SubscribeOrderBook":
+                            message: OrderBookMessage = K2OrderBook.snapshot_message_from_exchange(
+                                msg=response,
+                                timestamp=timestamp,
+                                metadata={"trading_pair": k2_utils.convert_from_exchange_trading_pair(response["pair"])})
+                        elif response["method"] == "orderbookchanged":
+                            data = ujson.loads(response["data"])
+                            message: OrderBookMessage = K2OrderBook.diff_message_from_exchange(
+                                msg=data,
+                                timestamp=timestamp,
+                                metadata={"trading_pair": k2_utils.convert_from_exchange_trading_pair(data["pair"])})
+                        else:
+                            # Ignores all other messages
+                            continue
+                        output.put_nowait(message)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    self.logger().network(
+                        "Unexpected error with WebSocket connection.",
+                        exc_info=True,
+                        app_warning_msg="Unexpected error with WebSocket connection. Retrying in 30 seconds. "
+                                        "Check network connection."
+                    )
+                    await asyncio.sleep(30.0)
+                finally:
+                    await ws.close()
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
@@ -205,10 +215,13 @@ class K2APIOrderBookDataSource(OrderBookTrackerDataSource):
                         raise
                     except Exception:
                         self.logger().network(
-                            "Unexpected error with WebSocket connection.",
+                            "Unexpected error occured retrieving Order Book Data using REST API.",
                             exc_info=True,
-                            app_warning_msg="Unexpected error with WebSocket connection. Retrying in 5 seconds. "
-                                            "Check network connection."
+                            app_warning_msg="""
+                                Unexpected error occured retrieving Order Book Data using REST API.
+                                Retrying in 5 seconds.
+                                Check network connection.
+                                """
                         )
                         await asyncio.sleep(5.0)
                 this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
@@ -218,5 +231,5 @@ class K2APIOrderBookDataSource(OrderBookTrackerDataSource):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error.", exc_info=True)
+                self.logger().error("Unexpected error occured.", exc_info=True)
                 await asyncio.sleep(5.0)
