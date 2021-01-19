@@ -134,7 +134,7 @@ class BinanceExchangeUnitTest(unittest.TestCase):
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
         cls.current_nonce = 1000000000000000
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.market: BinanceExchange = BinanceExchange(API_KEY, API_SECRET, ["LINK-ETH", "ZRX-ETH"], -True)
+        cls.market: BinanceExchange = BinanceExchange(API_KEY, API_SECRET, ["LINK-ETH", "ZRX-ETH"], True)
         print("Initializing Binance market... this will take about a minute.")
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.market)
