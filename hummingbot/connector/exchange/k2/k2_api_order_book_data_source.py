@@ -165,16 +165,18 @@ class K2APIOrderBookDataSource(OrderBookTrackerDataSource):
                         response = ujson.loads(raw_msg)
                         timestamp = int(time.time() * 1e3)
                         if response["method"] == "SubscribeOrderBook":
+                            trading_pair = k2_utils.convert_from_exchange_trading_pair(response["pair"])
                             message: OrderBookMessage = K2OrderBook.snapshot_message_from_exchange(
                                 msg=response,
                                 timestamp=timestamp,
-                                metadata={"trading_pair": k2_utils.convert_from_exchange_trading_pair(response["pair"])})
+                                metadata={"trading_pair": trading_pair})
                         elif response["method"] == "orderbookchanged":
                             data = ujson.loads(response["data"])
+                            trading_pair = k2_utils.convert_from_exchange_trading_pair(data["pair"])
                             message: OrderBookMessage = K2OrderBook.diff_message_from_exchange(
                                 msg=data,
                                 timestamp=timestamp,
-                                metadata={"trading_pair": k2_utils.convert_from_exchange_trading_pair(data["pair"])})
+                                metadata={"trading_pair": trading_pair})
                         else:
                             # Ignores all other messages
                             continue
