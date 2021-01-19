@@ -1,6 +1,10 @@
-import ujson
 import dateutil.parser
-from typing import List, Tuple
+from typing import (
+    Any,
+    Dict,
+    List,
+    Tuple
+)
 
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.data_type.order_book_row import OrderBookRow
@@ -46,13 +50,14 @@ def convert_snapshot_message_to_order_book_row(message: OrderBookMessage) -> Tup
 
 def convert_diff_message_to_order_book_row(message: OrderBookMessage) -> Tuple[List[OrderBookRow], List[OrderBookRow]]:
     update_id = message.update_id
-    data = ujson.loads(message.content)
-    bids, asks = [], []
+    data = message.content["data"]
+    bids = []
+    asks = []
 
-    bid_entries = data[0]
-    ask_entries = data[1]
+    bid_entries: Dict[str, Any] = data[0]
+    ask_entries: Dict[str, Any] = data[1]
 
-    for key, orders in enumerate(bid_entries):
+    for key, orders in bid_entries.items():
         if key == "side":
             continue
         elif key == "remove":
@@ -64,13 +69,13 @@ def convert_diff_message_to_order_book_row(message: OrderBookMessage) -> Tuple[L
                 order_row = OrderBookRow(order["p"], order["q"], update_id)
                 bids.append(order_row)
 
-    for key, orders in enumerate(ask_entries):
+    for key, orders in ask_entries.items():
         if key == "side":
             continue
         elif key == "remove":
             for price in orders:
                 order_row = OrderBookRow(price, float(0), update_id)
-                bids.append(order_row)
+                asks.append(order_row)
         else:  # key == "update" or key == "add":
             for order in orders:
                 order_row = OrderBookRow(order["p"], order["q"], update_id)
