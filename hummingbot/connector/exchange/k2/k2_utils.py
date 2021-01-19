@@ -46,7 +46,7 @@ def convert_snapshot_message_to_order_book_row(message: OrderBookMessage) -> Tup
 
 def convert_diff_message_to_order_book_row(message: OrderBookMessage) -> Tuple[List[OrderBookRow], List[OrderBookRow]]:
     update_id = message.update_id
-    data = ujson.loads(message.content["data"])  # Websocket data is a string
+    data = ujson.loads(message.content)
     bids, asks = [], []
 
     bid_entries = data[0]
