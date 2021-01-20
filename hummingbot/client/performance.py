@@ -68,9 +68,9 @@ def derivative_pnl(long: list, short: list):
     # It is assumed that the amount and leverage for both open and close orders are thesame.
     pnls = []
     for lg in long:
-        pnls.append((lg[1].price - lg[0].price) * (lg[1].amount * lg[1].leverage))
+        pnls.append((lg[1].price - lg[0].price) * lg[1].amount)
     for st in short:
-        pnls.append((st[0].price - st[1].price) * (st[1].amount * st[1].leverage))
+        pnls.append((st[0].price - st[1].price) * st[1].amount)
     return pnls
 
 
