@@ -37,7 +37,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
     def __init__(self,
                  exchange: ExchangeBase,
                  market_infos: Dict[str, MarketTradingPairTuple],
-                 initial_spread: Decimal,
+                 custom_spread_pct: Decimal,
                  order_refresh_time: float,
                  order_refresh_tolerance_pct: Decimal,
                  reserved_balances: Dict[str, Decimal],
@@ -45,7 +45,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
         super().__init__()
         self._exchange = exchange
         self._market_infos = market_infos
-        self._initial_spread = initial_spread
+        self._custom_spread_pct = custom_spread_pct
         self._order_refresh_time = order_refresh_time
         self._order_refresh_tolerance_pct = order_refresh_tolerance_pct
         self._reserved_balances = reserved_balances
@@ -144,9 +144,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
         proposals = []
         for market, market_info in self._market_infos.items():
             mid_price = market_info.get_mid_price()
-            buy_price = mid_price * (Decimal("1") - self._initial_spread)
+            buy_price = mid_price * (Decimal("1") - self._custom_spread_pct)
             buy_price = self._exchange.quantize_order_price(market, buy_price)
-            sell_price = mid_price * (Decimal("1") + self._initial_spread)
+            sell_price = mid_price * (Decimal("1") + self._custom_spread_pct)
             sell_price = self._exchange.quantize_order_price(market, sell_price)
             proposals.append(Proposal(market, PriceSize(buy_price, s_decimal_zero),
                                       PriceSize(sell_price, s_decimal_zero)))
