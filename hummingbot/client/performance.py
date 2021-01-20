@@ -64,6 +64,28 @@ def position_order(open: list, close: list):
     return None
 
 
+def aggregate_position_order(buys: list, sells: list):
+    aggregated_buys = []
+    aggregated_sells = []
+    for buy in buys:
+        if buy.order_id not in [ag.order_id for ag in aggregated_buys]:
+            aggregate_price = [b.price for b in buys if b.order_id == buy.order_id]
+            aggregate_amount = [b.amount for b in buys if b.order_id == buy.order_id]
+            buy.price = sum(aggregate_price) / len(aggregate_price)
+            buy.amount = sum(aggregate_amount)
+            aggregated_buys.append(buy)
+
+    for sell in sells:
+        if sell.order_id not in [ag.order_id for ag in aggregated_sells]:
+            aggregate_price = [s.price for s in sells if s.order_id == sell.order_id]
+            aggregate_amount = [s.amount for s in sells if s.order_id == sell.order_id]
+            sell.price = sum(aggregate_price) / len(aggregate_price)
+            sell.amount = sum(aggregate_amount)
+            aggregated_sells.append(sell)
+
+    return aggregated_buys, aggregated_sells
+
+
 def derivative_pnl(long: list, short: list):
     # It is assumed that the amount and leverage for both open and close orders are thesame.
     pnls = []
@@ -138,8 +160,7 @@ async def calculate_performance_metrics(exchange: str,
 
     # Handle trade_pnl differently for derivatives
     if derivative:
-        buys_copy = buys.copy()
-        sells_copy = sells.copy()
+        buys_copy, sells_copy = aggregate_position_order(buys.copy(), sells.copy())
         long = []
         short = []
 
