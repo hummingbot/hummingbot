@@ -53,6 +53,27 @@ class PerformanceMetrics:
         self.fees: Dict[str, Decimal] = {}
 
 
+def position_order(open: list, close: list):
+    # pair open position order with close position OrderStatus
+    for o in open:
+        for c in close:
+            if o.position == "OPEN" and c.position == "CLOSE":
+                open.remove(o)
+                close.remove(c)
+                return (o, c)
+    return None
+
+
+def derivative_pnl(long: list, short: list):
+    # It is assumed that the amount and leverage for both open and close orders are thesame.
+    pnls = []
+    for lg in long:
+        pnls.append((lg[1].price - lg[0].price) * (lg[1].amount * lg[1].leverage))
+    for st in short:
+        pnls.append((st[0].price - st[1].price) * (st[1].amount * st[1].leverage))
+    return pnls
+
+
 async def calculate_performance_metrics(exchange: str,
                                         trading_pair: str,
                                         trades: List[Any],
@@ -77,6 +98,7 @@ async def calculate_performance_metrics(exchange: str,
     perf = PerformanceMetrics()
     buys = [t for t in trades if t.trade_type.upper() == "BUY"]
     sells = [t for t in trades if t.trade_type.upper() == "SELL"]
+    derivative = True if "NILL" not in [t.position for t in trades] else False
     perf.num_buys = len(buys)
     perf.num_sells = len(sells)
     perf.num_trades = perf.num_buys + perf.num_sells
@@ -113,6 +135,26 @@ async def calculate_performance_metrics(exchange: str,
     perf.hold_value = (perf.start_base_bal * perf.cur_price) + perf.start_quote_bal
     perf.cur_value = (perf.cur_base_bal * perf.cur_price) + perf.cur_quote_bal
     perf.trade_pnl = perf.cur_value - perf.hold_value
+
+    # Handle trade_pnl differently for derivatives
+    if derivative:
+        buys_copy = buys.copy()
+        sells_copy = sells.copy()
+        long = []
+        short = []
+
+        while True:
+            lng = position_order(buys_copy, sells_copy)
+            if lng is not None:
+                long.append(lng)
+
+            sht = position_order(sells_copy, buys_copy)
+            if sht is not None:
+                short.append(sht)
+            if lng is None and sht is None:
+                break
+
+        perf.trade_pnl = Decimal(str(sum(derivative_pnl(long, short))))
 
     for trade in trades:
         if type(trade) is TradeFill:
