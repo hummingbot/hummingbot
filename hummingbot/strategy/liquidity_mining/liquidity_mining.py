@@ -55,6 +55,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
         self._ready_to_trade = False
         self._refresh_times = {market: 0 for market in market_infos}
         self._token_balances = {}
+        self._sell_budgets = {}
+        self._buy_budgets = {}
+
         self.add_markets([exchange])
 
     @property
@@ -74,11 +77,12 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 return
             else:
                 self.logger().info(f"{self._exchange.name} is ready. Trading started.")
+                self.assign_balanced_budgets()
 
         proposals = self.create_base_proposals()
         self._token_balances = self.adjusted_available_balances()
         self.apply_volatility_adjustment(proposals)
-        self.allocate_capital(proposals)
+        self.allocate_order_size(proposals)
         self.cancel_active_orders(proposals)
         self.execute_orders_proposal(proposals)
 
@@ -142,14 +146,10 @@ class LiquidityMiningStrategy(StrategyPyBase):
             mid_price = market_info.get_mid_price()
             buy_price = mid_price * (Decimal("1") - self._initial_spread)
             buy_price = self._exchange.quantize_order_price(market, buy_price)
-            buy_size = Decimal("0.2")
-            buy_size = self._exchange.quantize_order_amount(market, buy_size)
-
             sell_price = mid_price * (Decimal("1") + self._initial_spread)
             sell_price = self._exchange.quantize_order_price(market, sell_price)
-            sell_size = Decimal("0.2")
-            sell_size = self._exchange.quantize_order_amount(market, sell_size)
-            proposals.append(Proposal(market, PriceSize(buy_price, buy_size), PriceSize(sell_price, sell_size)))
+            proposals.append(Proposal(market, PriceSize(buy_price, s_decimal_zero),
+                                      PriceSize(sell_price, s_decimal_zero)))
         return proposals
 
     def apply_volatility_adjustment(self, proposals):
@@ -158,24 +158,58 @@ class LiquidityMiningStrategy(StrategyPyBase):
         #  scripts/spreads_adjusted_on_volatility_script.py).
         return
 
-    def allocate_capital(self, proposals: List[Proposal]):
-        # First let's assign all the sell order size based on the base token balance available
+    def assign_balanced_budgets(self):
+        # Equally assign buy and sell budgets to all markets
         base_tokens = self.all_base_tokens()
+        self._sell_budgets = {m: s_decimal_zero for m in self._market_infos}
         for base in base_tokens:
-            base_proposals = [p for p in proposals if p.base() == base]
-            sell_size = self._token_balances[base] / len(base_proposals)
-            for proposal in base_proposals:
-                proposal.sell.size = self._exchange.quantize_order_amount(proposal.market, sell_size)
-
+            base_markets = [m for m in self._market_infos if m.split("-")[0] == base]
+            sell_size = self._exchange.get_available_balance(base) / len(base_markets)
+            for market in base_markets:
+                self._sell_budgets[market] = sell_size
         # Then assign all the buy order size based on the quote token balance available
         quote_tokens = self.all_quote_tokens()
+        self._buy_budgets = {m: s_decimal_zero for m in self._market_infos}
         for quote in quote_tokens:
-            quote_proposals = [p for p in proposals if p.quote() == quote]
-            quote_size = self._token_balances[quote] / len(quote_proposals)
-            for proposal in quote_proposals:
-                buy_fee = estimate_fee(self._exchange.name, True)
-                buy_amount = quote_size / (proposal.buy.price * (Decimal("1") + buy_fee.percent))
-                proposal.buy.size = self._exchange.quantize_order_amount(proposal.market, buy_amount)
+            quote_markets = [m for m in self._market_infos if m.split("-")[1] == quote]
+            buy_size = self._exchange.get_available_balance(quote) / len(quote_markets)
+            for market in quote_markets:
+                self._buy_budgets[market] = buy_size
+
+    def allocate_order_size(self, proposals: List[Proposal]):
+        balances = self._token_balances.copy()
+        for proposal in proposals:
+            sell_size = balances[proposal.base()] if balances[proposal.base()] < self._sell_budgets[proposal.market] \
+                else self._sell_budgets[proposal.market]
+            sell_size = self._exchange.quantize_order_amount(proposal.market, sell_size)
+            if sell_size > s_decimal_zero:
+                proposal.sell.size = sell_size
+                balances[proposal.base()] -= sell_size
+
+            quote_size = balances[proposal.quote()] if balances[proposal.quote()] < self._buy_budgets[proposal.market] \
+                else self._buy_budgets[proposal.market]
+            buy_fee = estimate_fee(self._exchange.name, True)
+            buy_size = quote_size / (proposal.buy.price * (Decimal("1") + buy_fee.percent))
+            if buy_size > s_decimal_zero:
+                proposal.buy.size = self._exchange.quantize_order_amount(proposal.market, buy_size)
+                balances[proposal.quote()] -= quote_size
+
+        # base_tokens = self.all_base_tokens()
+        # for base in base_tokens:
+        #     base_proposals = [p for p in proposals if p.base() == base]
+        #     sell_size = self._token_balances[base] / len(base_proposals)
+        #     for proposal in base_proposals:
+        #         proposal.sell.size = self._exchange.quantize_order_amount(proposal.market, sell_size)
+        #
+        # # Then assign all the buy order size based on the quote token balance available
+        # quote_tokens = self.all_quote_tokens()
+        # for quote in quote_tokens:
+        #     quote_proposals = [p for p in proposals if p.quote() == quote]
+        #     quote_size = self._token_balances[quote] / len(quote_proposals)
+        #     for proposal in quote_proposals:
+        #         buy_fee = estimate_fee(self._exchange.name, True)
+        #         buy_amount = quote_size / (proposal.buy.price * (Decimal("1") + buy_fee.percent))
+        #         proposal.buy.size = self._exchange.quantize_order_amount(proposal.market, buy_amount)
 
     def is_within_tolerance(self, cur_orders: List[LimitOrder], proposal: Proposal):
         cur_buy = [o for o in cur_orders if o.is_buy]
