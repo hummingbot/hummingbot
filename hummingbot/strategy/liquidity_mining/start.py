@@ -8,7 +8,7 @@ def start(self):
     exchange = c_map.get("exchange").value.lower()
     markets_text = c_map.get("markets").value
     if c_map.get("auto_campaigns_participation").value:
-        markets_text = "HARD-USDT,RLC-USDT,AVAX-USDT,ALGO-USDT,XEM-USDT,MFT-USDT,AVAX-BNB,MFT-BNB"
+        markets_text = "HARD-USDT,RLC-USDT,AVAX-USDT,EOS-USDT,EOS-BTC,MFT-USDT,AVAX-BNB,MFT-BNB"
     reserved_bals_text = c_map.get("reserved_balances").value or ""
     reserved_bals = reserved_bals_text.split(",")
     reserved_bals = {r.split(":")[0]: Decimal(r.split(":")[1]) for r in reserved_bals}
