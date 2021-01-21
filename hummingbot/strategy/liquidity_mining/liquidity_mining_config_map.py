@@ -48,9 +48,10 @@ liquidity_mining_config_map = {
         ConfigVar(key="reserved_balances",
                   prompt="Enter a list of tokens and their reserved balance (to not be used by the bot), "
                          "This can be used for an asset amount you want to set a side to pay for fee (e.g. BNB for "
-                         "Binance), to limit exposure or in anticipation of withdrawal. The format is TOKEN-amount "
-                         "e.g. BTC-0.1, BNB-1 >>> ",
+                         "Binance), to limit exposure or in anticipation of withdrawal, e.g. BTC:0.1,BNB:1 >>> ",
                   type_str="str",
+                  default="",
+                  validator=lambda s: None,
                   prompt_on_new=True),
     "auto_assign_campaign_budgets":
         ConfigVar(key="auto_assign_campaign_budgets",
