@@ -51,7 +51,7 @@ class Order(HummingbotBase):
                f"order_type='{self.order_type}', amount={self.amount}, " \
                f"price={self.price}, last_status='{self.last_status}', " \
                f"last_update_timestamp={self.last_update_timestamp}), " \
-               f"exchange_order_id°={self.exchange_order_id}"
+               f"exchange_order_id={self.exchange_order_id}"
 
     @staticmethod
     def to_bounty_api_json(order: "Order") -> Dict[str, Any]:
