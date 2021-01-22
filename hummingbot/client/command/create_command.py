@@ -92,7 +92,6 @@ class CreateCommand:
         self.app.hide_input = False
         if await self.status_check_all():
             self._notify("\nEnter \"start\" to start market making.")
-            self.app.set_text("start")
 
     async def prompt_a_config(self,  # type: HummingbotApplication
                               config: ConfigVar,
