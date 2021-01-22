@@ -291,7 +291,7 @@ class MarketsRecorder:
         field_names += ("age",)
         field_data += (age,)
 
-        if(not self._csv_matches_header(csv_path, field_names)):
+        if(os.path.exists(csv_path) and (not self._csv_matches_header(csv_path, field_names))):
             move(csv_path, csv_path[:-4] + '_old_' + pd.Timestamp.utcnow().strftime("%Y%m%d-%H%M%S") + ".csv")
 
         if not os.path.exists(csv_path):
