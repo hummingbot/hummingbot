@@ -678,10 +678,10 @@ cdef class KrakenExchange(ExchangeBase):
 
     async def get_open_orders_with_userref(self, userref: int):
         data = {'userref': userref}
-        return await self._api_request("POST",
-                                       OPEN_ORDERS_URI,
-                                       is_auth_required=True,
-                                       data = data)
+        return await self._api_request_with_retry("POST",
+                                                  OPEN_ORDERS_URI,
+                                                  is_auth_required=True,
+                                                  data=data)
 
     async def _api_request_with_retry(self,
                                       method: str,
@@ -690,7 +690,9 @@ cdef class KrakenExchange(ExchangeBase):
                                       data: Optional[Dict[str, Any]] = None,
                                       is_auth_required: bool = False,
                                       request_weight: int = 1,
-                                      retry_count = 5) -> Dict[str, Any]:
+                                      retry_count = 5,
+                                      retry_interval = 1.0) -> Dict[str, Any]:
+        request_weight = self.API_COUNTER_POINTS.get(path_url, 0)
         if retry_count == 0:
             return await self._api_request(method, path_url, params, data, is_auth_required, request_weight)
 
@@ -703,11 +705,12 @@ cdef class KrakenExchange(ExchangeBase):
                 if self.is_cloudflare_exception(e):
                     if path_url == ADD_ORDER_URI:
                         self.logger().info(f"Retrying {path_url}")
-                        # Order placement could have been successful despite the IOError, so we check for the open order.
+                        # Order placement could have been successful despite the IOError, so check for the open order.
                         response = self.get_open_orders_with_userref(data.get('userref'))
                         if any(response.get("open").values()):
                             return response
                     self.logger().warning(f"Cloudflare error. Attempt {retry_attempt+1}/{retry_count} API command {method}: {path_url}")
+                    await asyncio.sleep(retry_interval)
                     continue
                 else:
                     raise e
@@ -722,8 +725,7 @@ cdef class KrakenExchange(ExchangeBase):
                            data: Optional[Dict[str, Any]] = None,
                            is_auth_required: bool = False,
                            request_weight: int = 1) -> Dict[str, Any]:
-        current_api_cost = self.API_COUNTER_POINTS.get(path_url, 0)
-        async with self._throttler.weighted_task(request_weight=current_api_cost):
+        async with self._throttler.weighted_task(request_weight=request_weight):
             url = KRAKEN_ROOT_API + path_url
             client = await self._http_client()
             headers = {}
