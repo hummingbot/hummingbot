@@ -280,8 +280,8 @@ class MarketsRecorder:
 
         field_names = ("id",)   # id field should be first
         field_names += tuple(attr for attr in dir(trade) if (not self._is_protected_method(attr) and
-                                                       self._is_primitive_type(getattr(trade, attr)) and
-                                                             (not attr in field_names)))
+                                                             self._is_primitive_type(getattr(trade, attr)) and
+                                                             (attr not in field_names)))
         field_data = tuple(getattr(trade, attr) for attr in field_names)
 
         # adding extra field "age"
@@ -292,7 +292,7 @@ class MarketsRecorder:
         field_data += (age,)
 
         if(not self._csv_matches_header(csv_path, field_names)):
-            move(csv_path, csv_path[:-4]+'_old_' + pd.Timestamp.utcnow().strftime("%Y%m%d-%H%M%S")+".csv")
+            move(csv_path, csv_path[:-4] + '_old_' + pd.Timestamp.utcnow().strftime("%Y%m%d-%H%M%S") + ".csv")
 
         if not os.path.exists(csv_path):
             df_header = pd.DataFrame([field_names])
