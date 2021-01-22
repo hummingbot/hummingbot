@@ -1,7 +1,8 @@
+import random
+import string
 import math
-# from typing import Dict, List
+from typing import Tuple
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce_low_res
-# from . import crypto_com_constants as Constants
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
@@ -13,8 +14,6 @@ EXAMPLE_PAIR = "BTC-USDT"
 
 DEFAULT_FEES = [0.1, 0.1]
 
-# HBOT_BROKER_ID = "HBOT-"
-
 
 def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
     return exchange_trading_pair.replace("/", "-")
@@ -22,23 +21,6 @@ def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
 
 def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
     return hb_trading_pair.replace("-", "/")
-
-# # deeply merge two dictionaries
-# def merge_dicts(source: Dict, destination: Dict) -> Dict:
-#     for key, value in source.items():
-#         if isinstance(value, dict):
-#             # get node or create one
-#             node = destination.setdefault(key, {})
-#             merge_dicts(value, node)
-#         else:
-#             destination[key] = value
-
-#     return destination
-
-
-# # join paths
-# def join_paths(*paths: List[str]) -> str:
-#     return "/".join(paths)
 
 
 # get timestamp in milliseconds
@@ -49,6 +31,39 @@ def get_ms_timestamp() -> int:
 # convert milliseconds timestamp to seconds
 def ms_timestamp_to_s(ms: int) -> int:
     return math.floor(ms / 1e3)
+
+
+def uuid32():
+    return ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for _ in range(32))
+
+
+def derive_order_id(user_uid: str, cl_order_id: str, ts: int, order_src='a') -> str:
+    """
+    Server order generator based on user info and input.
+    :param user_uid: user uid
+    :param cl_order_id: user random digital and number id
+    :param ts: order timestamp in milliseconds
+    :param order_src: 'a' for rest api order, 's' for websocket order.
+    :return: order id of length 32
+    """
+    return (order_src + format(ts, 'x')[-11:] + user_uid[-11:] + cl_order_id[-9:])[:32]
+
+
+def gen_order_id(userUid: str) -> Tuple[str, int]:
+    """
+    Generate an order id
+    :param user_uid: user uid
+    :return: order id of length 32
+    """
+    time = get_ms_timestamp()
+    return [
+        derive_order_id(
+            userUid,
+            uuid32(),
+            time
+        ),
+        time
+    ]
 
 
 KEYS = {
