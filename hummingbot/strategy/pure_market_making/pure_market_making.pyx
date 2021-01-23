@@ -622,7 +622,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         # See if there're any open orders.
         if len(self.active_orders) > 0:
             df = self.active_orders_df()
-            equity_df= self.equity_orders_df()
+            equity_df= self.equity_orders_df([self._market_info])
             lines.extend(["", "  Orders:"] + ["    " + line for line in df.to_string(index=False).split("\n")])
             lines.extend(["", "  Equity:"] + ["    " + line for line in equity_df.to_string(index=False).split("\n")])
         else:
