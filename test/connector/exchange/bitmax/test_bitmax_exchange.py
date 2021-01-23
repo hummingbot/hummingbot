@@ -230,21 +230,21 @@ class BitmaxExchangeUnitTest(unittest.TestCase):
         event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
         self.assertEqual(cl_order_id, event.order_id)
 
-    # @TODO: find a way to create "rejected"
-    def test_limit_maker_rejections(self):
-        price = self.connector.get_price(self.trading_pair, True) * Decimal("1.2")
-        price = self.connector.quantize_order_price(self.trading_pair, price)
-        amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.000001"))
-        cl_order_id = self._place_order(True, amount, OrderType.LIMIT_MAKER, price, 1)
-        event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
-        self.assertEqual(cl_order_id, event.order_id)
+    # # @TODO: find a way to create "rejected"
+    # def test_limit_maker_rejections(self):
+    #     price = self.connector.get_price(self.trading_pair, True) * Decimal("1.2")
+    #     price = self.connector.quantize_order_price(self.trading_pair, price)
+    #     amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.000001"))
+    #     cl_order_id = self._place_order(True, amount, OrderType.LIMIT_MAKER, price, 1)
+    #     event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
+    #     self.assertEqual(cl_order_id, event.order_id)
 
-        price = self.connector.get_price(self.trading_pair, False) * Decimal("0.8")
-        price = self.connector.quantize_order_price(self.trading_pair, price)
-        amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.000001"))
-        cl_order_id = self._place_order(False, amount, OrderType.LIMIT_MAKER, price, 2)
-        event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
-        self.assertEqual(cl_order_id, event.order_id)
+    #     price = self.connector.get_price(self.trading_pair, False) * Decimal("0.8")
+    #     price = self.connector.quantize_order_price(self.trading_pair, price)
+    #     amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.000001"))
+    #     cl_order_id = self._place_order(False, amount, OrderType.LIMIT_MAKER, price, 2)
+    #     event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
+    #     self.assertEqual(cl_order_id, event.order_id)
 
     def test_cancel_all(self):
         bid_price = self.connector.get_price(self.trading_pair, True)

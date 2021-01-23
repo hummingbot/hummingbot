@@ -67,7 +67,7 @@ class BitmaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         async for raw_msg in self._inner_messages(ws):
                             try:
                                 msg = ujson.loads(raw_msg)
-                                if (msg is None or (msg.get("m") != "order" and msg.get("m") != "cash")):
+                                if msg is None:
                                     continue
 
                                 output.put_nowait(msg)
