@@ -12,6 +12,7 @@ import json
 import aiohttp
 import math
 import time
+from collections import namedtuple
 
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
@@ -21,6 +22,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.limit_order import LimitOrder
+
 from hummingbot.core.event.events import (
     MarketEvent,
     BuyOrderCompletedEvent,
@@ -44,6 +46,9 @@ from hummingbot.connector.exchange.bitmax.bitmax_constants import EXCHANGE_NAME,
 from hummingbot.core.data_type.common import OpenOrder
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
+
+
+BitmaxTradingRule = namedtuple("BitmaxTradingRule", "minNotional maxNotional")
 
 
 class BitmaxExchange(ExchangeBase):
@@ -88,6 +93,7 @@ class BitmaxExchange(ExchangeBase):
         self._in_flight_orders = {}  # Dict[client_order_id:str, BitmaxInFlightOrder]
         self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
+        self._bitmax_trading_rules = {}  # Dict[trading_pair:str, BitmaxTradingRule]
         self._status_polling_task = None
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
@@ -119,7 +125,7 @@ class BitmaxExchange(ExchangeBase):
         return {
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "trading_rule_initialized": len(self._trading_rules) > 0,
+            "trading_rule_initialized": len(self._trading_rules) > 0 and len(self._bitmax_trading_rules) > 0,
             "user_stream_initialized":
                 self._user_stream_tracker.data_source.last_recv_time > 0 if self._trading_required else True,
             "account_data": self._account_group is not None and self._account_uid is not None
@@ -257,10 +263,16 @@ class BitmaxExchange(ExchangeBase):
 
     async def _update_trading_rules(self):
         instruments_info = await self._api_request("get", path_url="products")
+        [trading_rules, bitmax_trading_rules] = self._format_trading_rules(instruments_info)
         self._trading_rules.clear()
-        self._trading_rules = self._format_trading_rules(instruments_info)
+        self._trading_rules = trading_rules
+        self._bitmax_trading_rules.clear()
+        self._bitmax_trading_rules = bitmax_trading_rules
 
-    def _format_trading_rules(self, instruments_info: Dict[str, Any]) -> Dict[str, TradingRule]:
+    def _format_trading_rules(
+        self,
+        instruments_info: Dict[str, Any]
+    ) -> [Dict[str, TradingRule], Dict[str, Dict[str, BitmaxTradingRule]]]:
         """
         Converts json API response into a dictionary of trading rules.
         :param instruments_info: The json API response
@@ -285,21 +297,23 @@ class BitmaxExchange(ExchangeBase):
             ]
         }
         """
-        result = {}
+        trading_rules = {}
+        bitmax_trading_rules = {}
         for rule in instruments_info["data"]:
             try:
                 trading_pair = bitmax_utils.convert_from_exchange_trading_pair(rule["symbol"])
-                # TODO: investigate https://bitmax-exchange.github.io/bitmax-pro-api/#place-order
-                result[trading_pair] = TradingRule(
+                trading_rules[trading_pair] = TradingRule(
                     trading_pair,
-                    # min_order_size=Decimal(rule["minNotional"]),
-                    # max_order_size=Decimal(rule["maxNotional"]),
                     min_price_increment=Decimal(rule["tickSize"]),
                     min_base_amount_increment=Decimal(rule["lotSize"])
                 )
+                bitmax_trading_rules[trading_pair] = BitmaxTradingRule(
+                    minNotional=Decimal(rule["minNotional"]),
+                    maxNotional=Decimal(rule["maxNotional"])
+                )
             except Exception:
                 self.logger().error(f"Error parsing the trading pair rule {rule}. Skipping.", exc_info=True)
-        return result
+        return [trading_rules, bitmax_trading_rules]
 
     async def _update_account_data(self):
         headers = {
@@ -341,6 +355,9 @@ class BitmaxExchange(ExchangeBase):
         headers = None
 
         if is_auth_required:
+            if (self._account_group) is None:
+                await self._update_account_data()
+
             url = f"{getRestUrlPriv(self._account_group)}/{path_url}"
             headers = {
                 **self._bitmax_auth.get_headers(),
@@ -372,9 +389,6 @@ class BitmaxExchange(ExchangeBase):
             )
         else:
             raise NotImplementedError
-
-        if response.status != 200:
-            print(url, path_url, force_auth_path_url, response)
 
         try:
             parsed_response = json.loads(await response.text())
@@ -418,9 +432,9 @@ class BitmaxExchange(ExchangeBase):
         :param price: The price (note: this is no longer optional)
         :returns A new internal order id
         """
-        [order_id, timestamp] = bitmax_utils.gen_order_id(self._account_uid)
-        safe_ensure_future(self._create_order(TradeType.BUY, order_id, timestamp, trading_pair, amount, order_type, price))
-        return order_id
+        client_order_id = bitmax_utils.gen_client_order_id(True, trading_pair)
+        safe_ensure_future(self._create_order(TradeType.BUY, client_order_id, trading_pair, amount, order_type, price))
+        return client_order_id
 
     def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
              price: Decimal = s_decimal_NaN, **kwargs) -> str:
@@ -433,9 +447,9 @@ class BitmaxExchange(ExchangeBase):
         :param price: The price (note: this is no longer optional)
         :returns A new internal order id
         """
-        [order_id, timestamp] = bitmax_utils.gen_order_id(self._account_uid)
-        safe_ensure_future(self._create_order(TradeType.SELL, order_id, timestamp, trading_pair, amount, order_type, price))
-        return order_id
+        client_order_id = bitmax_utils.gen_client_order_id(False, trading_pair)
+        safe_ensure_future(self._create_order(TradeType.SELL, client_order_id, trading_pair, amount, order_type, price))
+        return client_order_id
 
     def cancel(self, trading_pair: str, order_id: str):
         """
@@ -450,7 +464,6 @@ class BitmaxExchange(ExchangeBase):
     async def _create_order(self,
                             trade_type: TradeType,
                             order_id: str,
-                            timestamp: int,
                             trading_pair: str,
                             amount: Decimal,
                             order_type: OrderType,
@@ -458,7 +471,7 @@ class BitmaxExchange(ExchangeBase):
         """
         Calls create-order API end point to place an order, starts tracking the order and triggers order created event.
         :param trade_type: BUY or SELL
-        :param order_id: Internal order id (also called client_order_id)
+        :param order_id: Internal order id (aka client_order_id)
         :param trading_pair: The market to place order
         :param amount: The order amount (in base token value)
         :param order_type: The order type
@@ -466,18 +479,22 @@ class BitmaxExchange(ExchangeBase):
         """
         if not order_type.is_limit_type():
             raise Exception(f"Unsupported order type: {order_type}")
-        trading_rule = self._trading_rules[trading_pair]
+        bitmax_trading_rule = self._bitmax_trading_rules[trading_pair]
 
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
-        if amount < trading_rule.min_order_size:
-            raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
-                             f"{trading_rule.min_order_size}.")
+
+        # bitmax has a unique way of determening if the order has enough "worth" to be posted
+        # see https://bitmax-exchange.github.io/bitmax-pro-api/#place-order
+        notional = Decimal(price * amount)
+        if notional < bitmax_trading_rule.minNotional or notional > bitmax_trading_rule.maxNotional:
+            raise ValueError(f"Notional amount {notional} is not withing the range of {bitmax_trading_rule.minNotional}-{bitmax_trading_rule.maxNotional}.")
 
         # TODO: check balance
+        [exchange_order_id, timestamp] = bitmax_utils.gen_exchange_order_id(self._account_uid)
 
         api_params = {
-            "id": order_id,
+            "id": exchange_order_id,
             "time": timestamp,
             "symbol": bitmax_utils.convert_to_exchange_trading_pair(trading_pair),
             "orderPrice": f"{price:f}",
@@ -488,7 +505,7 @@ class BitmaxExchange(ExchangeBase):
 
         self.start_tracking_order(
             order_id,
-            order_id,
+            exchange_order_id,
             trading_pair,
             trade_type,
             price,
@@ -498,12 +515,12 @@ class BitmaxExchange(ExchangeBase):
 
         try:
             await self._api_request("post", "cash/order", api_params, True, force_auth_path_url="order")
-            # exchange_order_id = order_id
             tracked_order = self._in_flight_orders.get(order_id)
+            # tracked_order.update_exchange_order_id(exchange_order_id)
+
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
                                    f"{amount} {trading_pair}.")
-                # tracked_order.update_exchange_order_id(exchange_order_id)
 
             event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
             event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
@@ -514,7 +531,8 @@ class BitmaxExchange(ExchangeBase):
                                    trading_pair,
                                    amount,
                                    price,
-                                   order_id
+                                   order_id,
+                                   exchange_order_id=exchange_order_id
                                ))
         except asyncio.CancelledError:
             raise
@@ -541,6 +559,7 @@ class BitmaxExchange(ExchangeBase):
         """
         Starts tracking an order by simply adding it into _in_flight_orders dictionary.
         """
+        print("start_tracking_order", order_id, exchange_order_id)
         self._in_flight_orders[order_id] = BitmaxInFlightOrder(
             client_order_id=order_id,
             exchange_order_id=exchange_order_id,
@@ -623,14 +642,13 @@ class BitmaxExchange(ExchangeBase):
         """
         Calls REST API to update total and available balances.
         """
-        print("-----> _update_balances")
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
         response = await self._api_request("get", "cash/balance", {}, True, force_auth_path_url="balance")
         for account in response["data"]:
             asset_name = account["asset"]
-            self._account_available_balances[asset_name] = Decimal(str(account["availableBalance"]))
-            self._account_balances[asset_name] = Decimal(str(account["totalBalance"]))
+            self._account_available_balances[asset_name] = Decimal(account["availableBalance"])
+            self._account_balances[asset_name] = Decimal(account["totalBalance"])
             remote_asset_names.add(asset_name)
 
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
@@ -644,8 +662,6 @@ class BitmaxExchange(ExchangeBase):
         """
         last_tick = int(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
         current_tick = int(self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
-
-        print("_update_order_status")
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
@@ -662,8 +678,6 @@ class BitmaxExchange(ExchangeBase):
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
             update_results = await safe_gather(*tasks, return_exceptions=True)
             for update_result in update_results:
-                print("update_result", update_result)
-
                 if isinstance(update_result, Exception):
                     raise update_result
                 if "data" not in update_result:
@@ -672,7 +686,6 @@ class BitmaxExchange(ExchangeBase):
                 # for trade_msg in update_result["data"]["trade_list"]:
                 #     await self._process_trade_message(trade_msg)
                 for order_data in update_result["data"]:
-                    print("update_result order_data", order_data)
                     self._process_order_message(order_data)
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
@@ -680,14 +693,14 @@ class BitmaxExchange(ExchangeBase):
         Updates in-flight order and triggers cancellation or failure event if needed.
         :param order_msg: The order response from either REST or web socket API (they are of the same format)
         """
-        client_order_id = order_msg["orderId"]
+        exchange_order_id = order_msg["orderId"]
+        client_order_id = None
 
-        print("_process_order_message", order_msg)
-        print("client_order_id", client_order_id)
-        print("in flight", self._in_flight_orders)
+        for in_flight_order in self._in_flight_orders.values():
+            if in_flight_order.exchange_order_id == exchange_order_id:
+                client_order_id = in_flight_order.client_order_id
 
-        if self._in_flight_orders.get(client_order_id, None) is None:
-            print("NOT IN FLIGHT ORDERS")
+        if client_order_id is None:
             return
 
         tracked_order = self._in_flight_orders[client_order_id]
@@ -699,7 +712,8 @@ class BitmaxExchange(ExchangeBase):
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(
                                    self.current_timestamp,
-                                   client_order_id))
+                                   client_order_id,
+                                   exchange_order_id))
             tracked_order.cancelled_event.set()
             self.stop_tracking_order(client_order_id)
         elif tracked_order.is_failure:
@@ -713,8 +727,6 @@ class BitmaxExchange(ExchangeBase):
                                ))
             self.stop_tracking_order(client_order_id)
         elif tracked_order.is_done:
-            print("----> order is done", )
-
             price = Decimal(order_msg["ap"])
             tracked_order.executed_amount_base = Decimal(order_msg["cfq"])
             tracked_order.executed_amount_quote = price * tracked_order.executed_amount_base
@@ -725,14 +737,14 @@ class BitmaxExchange(ExchangeBase):
                 MarketEvent.OrderFilled,
                 OrderFilledEvent(
                     self.current_timestamp,
-                    tracked_order.client_order_id,
+                    client_order_id,
                     tracked_order.trading_pair,
                     tracked_order.trade_type,
                     tracked_order.order_type,
                     price,
                     tracked_order.executed_amount_base,
                     TradeFee(0.0, [(tracked_order.fee_asset, tracked_order.fee_paid)]),
-                    exchange_trade_id=order_msg["orderId"]
+                    exchange_order_id
                 )
             )
             event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY else MarketEvent.SellOrderCompleted
@@ -741,14 +753,15 @@ class BitmaxExchange(ExchangeBase):
                 event_tag,
                 event_class(
                     self.current_timestamp,
-                    tracked_order.client_order_id,
+                    client_order_id,
                     tracked_order.base_asset,
                     tracked_order.quote_asset,
                     tracked_order.fee_asset,
                     tracked_order.executed_amount_base,
                     tracked_order.executed_amount_quote,
                     tracked_order.fee_paid,
-                    tracked_order.order_type
+                    tracked_order.order_type,
+                    exchange_order_id
                 )
             )
             self.stop_tracking_order(client_order_id)
@@ -778,7 +791,7 @@ class BitmaxExchange(ExchangeBase):
                 Decimal(str(trade_msg["traded_price"])),
                 Decimal(str(trade_msg["traded_quantity"])),
                 TradeFee(0.0, [(trade_msg["fee_currency"], Decimal(str(trade_msg["fee"])))]),
-                exchange_trade_id=trade_msg["order_id"]
+                trade_msg["order_id"]
             )
         )
         if math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or \
@@ -814,17 +827,20 @@ class BitmaxExchange(ExchangeBase):
             raise Exception("cancel_all can only be used when trading_pairs are specified.")
         cancellation_results = []
         try:
-            for trading_pair in self._trading_pairs:
-                await self._api_request(
-                    "delete",
-                    "cash/order/all",
-                    {"symbol": bitmax_utils.convert_to_exchange_trading_pair(trading_pair)},
-                    True,
-                    force_auth_path_url="order/all"
-                )
+            await self._api_request(
+                "delete",
+                "cash/order/all",
+                {},
+                True,
+                force_auth_path_url="order/all"
+            )
+
             open_orders = await self.get_open_orders()
+
             for cl_order_id, tracked_order in self._in_flight_orders.items():
                 open_order = [o for o in open_orders if o.client_order_id == cl_order_id]
+                print("cancel all tracked_order", tracked_order)
+                print("cancel all", cl_order_id)
                 if not open_order:
                     cancellation_results.append(CancellationResult(cl_order_id, True))
                     self.trigger_event(MarketEvent.OrderCancelled,
@@ -891,26 +907,13 @@ class BitmaxExchange(ExchangeBase):
         """
         async for event_message in self._iter_user_event_queue():
             try:
-                print("event_message", event_message)
                 if event_message.get("m") == "order":
-                    print("in order")
                     self._process_order_message(event_message.get("data"))
-
-                # if "result" not in event_message or "channel" not in event_message["result"]:
-                #     continue
-                # channel = event_message["result"]["channel"]
-                # if "user.trade" in channel:
-                #     for trade_msg in event_message["result"]["data"]:
-                #         await self._process_trade_message(trade_msg)
-                # elif "user.order" in channel:
-                #     for order_msg in event_message["result"]["data"]:
-                #         self._process_order_message(order_msg)
-                # elif channel == "user.balance":
-                #     balances = event_message["result"]["data"]
-                #     for balance_entry in balances:
-                #         asset_name = balance_entry["currency"]
-                #         self._account_balances[asset_name] = Decimal(str(balance_entry["balance"]))
-                #         self._account_available_balances[asset_name] = Decimal(str(balance_entry["available"]))
+                elif event_message.get("m") == "balance":
+                    data = event_message.get("data")
+                    asset_name = data["a"]
+                    self._account_available_balances[asset_name] = Decimal(data["ab"])
+                    self._data_balances[asset_name] = Decimal(data["tb"])
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -929,9 +932,21 @@ class BitmaxExchange(ExchangeBase):
         for order in result["data"]:
             if order["type"] != "LIMIT":
                 raise Exception(f"Unsupported order type {order['type']}")
+
+            exchange_order_id = order["orderId"]
+            client_order_id = None
+            for in_flight_order in self._in_flight_orders.values():
+                if in_flight_order.exchange_order_id == exchange_order_id:
+                    client_order_id = in_flight_order.client_order_id
+
+            if client_order_id is None:
+                raise Exception(f"Client order id for {exchange_order_id} not found.")
+
+            print("open order", client_order_id)
+
             ret_val.append(
                 OpenOrder(
-                    client_order_id=order["orderId"],
+                    client_order_id=client_order_id,
                     trading_pair=bitmax_utils.convert_from_exchange_trading_pair(order["symbol"]),
                     price=Decimal(str(order["price"])),
                     amount=Decimal(str(order["orderQty"])),
@@ -940,7 +955,7 @@ class BitmaxExchange(ExchangeBase):
                     order_type=OrderType.LIMIT,
                     is_buy=True if order["side"].lower() == "buy" else False,
                     time=int(order["lastExecTime"]),
-                    exchange_order_id=order["orderId"]
+                    exchange_order_id=exchange_order_id
                 )
             )
         return ret_val

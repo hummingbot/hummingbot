@@ -6,6 +6,7 @@ from hummingbot.core.utils.tracking_nonce import get_tracking_nonce_low_res
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 
 CENTRALIZED = True
@@ -13,6 +14,9 @@ CENTRALIZED = True
 EXAMPLE_PAIR = "BTC-USDT"
 
 DEFAULT_FEES = [0.1, 0.1]
+
+
+HBOT_BROKER_ID = "hbot-"
 
 
 def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
@@ -49,7 +53,7 @@ def derive_order_id(user_uid: str, cl_order_id: str, ts: int, order_src='a') -> 
     return (order_src + format(ts, 'x')[-11:] + user_uid[-11:] + cl_order_id[-9:])[:32]
 
 
-def gen_order_id(userUid: str) -> Tuple[str, int]:
+def gen_exchange_order_id(userUid: str) -> Tuple[str, int]:
     """
     Generate an order id
     :param user_uid: user uid
@@ -64,6 +68,11 @@ def gen_order_id(userUid: str) -> Tuple[str, int]:
         ),
         time
     ]
+
+
+def gen_client_order_id(is_buy: bool, trading_pair: str) -> str:
+    side = "B" if is_buy else "S"
+    return f"{HBOT_BROKER_ID}{side}-{trading_pair}-{get_tracking_nonce()}"
 
 
 KEYS = {
