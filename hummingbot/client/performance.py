@@ -43,6 +43,8 @@ class PerformanceMetrics:
     hold_value: Decimal = s_decimal_0
     cur_value: Decimal = s_decimal_0
     trade_pnl: Decimal = s_decimal_0
+    start_value: Decimal = s_decimal_0
+    rel_value: Decimal = s_decimal_0
 
     fee_in_quote: Decimal = s_decimal_0
     total_pnl: Decimal = s_decimal_0
@@ -113,6 +115,8 @@ async def calculate_performance_metrics(exchange: str,
     perf.hold_value = (perf.start_base_bal * perf.cur_price) + perf.start_quote_bal
     perf.cur_value = (perf.cur_base_bal * perf.cur_price) + perf.cur_quote_bal
     perf.trade_pnl = perf.cur_value - perf.hold_value
+    perf.start_value = (perf.start_base_bal * perf.start_price) + perf.start_quote_bal
+    perf.rel_value = (perf.cur_base_bal * perf.start_price) + perf.cur_quote_bal
 
     for trade in trades:
         if type(trade) is TradeFill:

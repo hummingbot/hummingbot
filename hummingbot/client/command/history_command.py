@@ -150,9 +150,9 @@ class HistoryCommand:
              smart_round(perf.cur_quote_bal, precision),
              smart_round(perf.tot_vol_quote, precision)],
             [f"{trading_pair + ' price':<17}",
-             smart_round(perf.start_price),
-             smart_round(perf.cur_price),
-             smart_round(perf.cur_price - perf.start_price)],
+             smart_round(perf.start_price, precision),
+             smart_round(perf.cur_price, precision),
+             smart_round(perf.cur_price - perf.start_price, precision)],
             [f"{'Base asset %':<17}",
              f"{perf.start_base_ratio_pct:.2%}",
              f"{perf.cur_base_ratio_pct:.2%}",
@@ -164,7 +164,9 @@ class HistoryCommand:
         perf_data = [
             ["Hold portfolio value    ", f"{smart_round(perf.hold_value, precision)} {quote}"],
             ["Current portfolio value ", f"{smart_round(perf.cur_value, precision)} {quote}"],
-            ["Trade P&L               ", f"{smart_round(perf.trade_pnl, precision)} {quote}"]
+            ["Trade P&L               ", f"{smart_round(perf.trade_pnl, precision)} {quote}"],
+            ["Start portfolio value   ", f"{smart_round(perf.start_value, precision)} {quote}"],
+            ["Relative portfolio value", f"{smart_round(perf.rel_value, precision)} {quote}"],
         ]
         perf_data.extend(
             ["Fees paid               ", f"{smart_round(fee_amount, precision)} {fee_token}"]
