@@ -541,10 +541,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     def equity_orders_df(self) -> pd.DataFrame:
         price = self.get_price()
         active_orders = self.active_orders
-        no_sells = len([o for o in active_orders if not o.is_buy and o.client_order_id not in self._hanging_order_ids])
         active_orders.sort(key=lambda x: x.price, reverse=True)
-        unclosed_value = None
-        equity_value = None
+        unclosed_value = 0
+        equity_value = 0
 
         market, trading_pair, base_asset, quote_asset = self._market_info
         base_balance = float(market.get_balance(base_asset))
@@ -569,7 +568,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             ["delta", round(unclosed_value, 4)]
         ]
 
-        return pd.DataFrame(data=data, columns=columns)
+        return pd.DataFrame(data=data)
 
     def market_status_data_frame(self, market_trading_pair_tuples: List[MarketTradingPairTuple]) -> pd.DataFrame:
         markets_data = []
