@@ -542,11 +542,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         price = self.get_price()
         active_orders = self.active_orders
         active_orders.sort(key=lambda x: x.price, reverse=True)
-        quote_unclosed_value = 0
-        equity_value = 0
-        unclosed_value_quote = 0
-        unclosed_value_base = 0
-        fee = 0.001
 
         market, trading_pair, base_asset, quote_asset = self._market_info
         base_balance = float(market.get_balance(base_asset))
@@ -554,14 +549,22 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         base_value = base_balance * float(price)
         total_in_quote = base_value + quote_balance
 
-        lvl_buy, lvl_sell = 0, 0
+        quote_unclosed_value = Decimal(0)
+        equity_value = Decimal(0)
+        unclosed_value_quote = Decimal(0)
+        unclosed_value_base = Decimal(0)
+
         for idx in range(0, len(active_orders)):
             order = active_orders[idx]
             if order.is_buy:
+                fee = self.market.get_fee(self.base_asset, self.quote_asset,
+                                          self._limit_order_type, TradeType.BUY, order_quantity, order.price)
                 unclosed_value_quote -= (float(order.quantity) * float(order.price))
-                unclosed_value_base += float(order.quantity) * (1 - fee)
+                unclosed_value_base += float(order.quantity) * (1 - fee.percent)
             else:
-                unclosed_value_quote += (float(order.quantity) * float(order.price)) * (1 - fee)
+                fee = self.market.get_fee(self.base_asset, self.quote_asset,
+                                          self._limit_order_type, TradeType.SELL, order_quantity, order.price)
+                unclosed_value_quote += (float(order.quantity) * float(order.price)) * (1 - fee.percent)
                 unclosed_value_base -= float(order.quantity)
 
         quote_unclosed_value = float(unclosed_value_quote) + (float(unclosed_value_base) * float(price))
