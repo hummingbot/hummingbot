@@ -563,9 +563,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         data=[
             ["", quote_asset],
-            ["Current Value", round(total_in_quote, 4)],
-            ["Equity", round(equity_value, 4)],
-            ["delta", round(unclosed_value, 4)]
+            ["Current Value", round(total_in_quote, 6)],
+            ["Equity", round(equity_value, 6)],
+            ["delta", round(unclosed_value, 6)]
         ]
 
         return pd.DataFrame(data=data)
@@ -621,9 +621,11 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         # See if there're any open orders.
         if len(self.active_orders) > 0:
             df = self.active_orders_df()
-            equity_df = self.equity_orders_df()
             lines.extend(["", "  Orders:"] + ["    " + line for line in df.to_string(index=False).split("\n")])
-            lines.extend(["", "  Equity:"] + ["    " + line for line in equity_df.to_string(index=False).split("\n")])
+            
+            if global_config_map.get("advanced_stats").value:
+                equity_df = self.equity_orders_df()
+                lines.extend(["", "  Equity:"] + ["    " + line for line in equity_df.to_string(index=False, header=False).split("\n")])
         else:
             lines.extend(["", "  No active maker orders."])
 

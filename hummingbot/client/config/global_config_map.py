@@ -109,6 +109,13 @@ main_config_map = {
                   required_if=lambda: False,
                   type_str="json",
                   ),
+    "advanced_stats":
+        ConfigVar(key="advanced_stats",
+                  prompt="Would you like to enable advanced stats? (Yes/No) >>> ",
+                  required_if=lambda: True,
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool),
     "celo_address":
         ConfigVar(key="celo_address",
                   prompt="Enter your Celo account address >>> ",
