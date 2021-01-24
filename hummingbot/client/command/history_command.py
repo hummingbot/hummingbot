@@ -169,8 +169,8 @@ class HistoryCommand:
         ]
         if global_config_map.get("advanced_stats").value:
             perf_data.extend(
-                ["*Start portfolio value  ", f"{smart_round(perf.start_value, precision)} {quote}"],
-                ["*Relative to start value", f"{smart_round(perf.rel_value, precision)} {quote}"],
+                [["*Start portfolio value  ", f"{smart_round(perf.start_value, precision)} {quote}"],
+                ["*Relative to start value", f"{smart_round(perf.rel_value, precision)} {quote}"]]
             )
         perf_data.extend(
             ["Fees paid               ", f"{smart_round(fee_amount, precision)} {fee_token}"]
