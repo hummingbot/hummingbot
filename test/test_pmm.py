@@ -803,13 +803,12 @@ class PMMUnitTest(unittest.TestCase):
         strategy = self.one_level_strategy
         strategy.inventory_cost_price_delegate = self.inventory_cost_price_del
         self.clock.add_iterator(strategy)
+        self.market.set_balance("HBOT", 0)
         self.clock.backtest_til(self.start_timestamp + 1)
 
         # Expecting to have orders set according to mid_price as there is no inventory cost data yet
         first_bid_order = strategy.active_buys[0]
-        first_ask_order = strategy.active_sells[0]
         self.assertEqual(Decimal("99"), first_bid_order.price)
-        self.assertEqual(Decimal("101"), first_ask_order.price)
 
         self.simulate_maker_market_trade(
             is_buy=False, quantity=Decimal("10"), price=Decimal("98.9"),

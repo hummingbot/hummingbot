@@ -706,6 +706,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             if inventory_cost_price is not None:
                 buy_reference_price = min(inventory_cost_price, buy_reference_price)
                 sell_reference_price = max(inventory_cost_price, sell_reference_price)
+            else:
+                base_balance = float(market.get_balance(self._market_info.base_asset))
+                if base_balance > 0:
+                    raise RuntimeError("Initial inventory price is not set while inventory_cost feature is active.")
 
         # First to check if a customized order override is configured, otherwise the proposal will be created according
         # to order spread, amount, and levels setting.
