@@ -555,12 +555,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         for idx in range(0, len(active_orders)):
             order = active_orders[idx]
             if order.is_buy:
-                float fee = 0.001
                 unclosed_value_quote -= (float(order.quantity) * float(order.price))
-                unclosed_value_base += float(order.quantity) * (Decimal(1) - fee)
+                unclosed_value_base += float(order.quantity)
             else:
-                float fee = 0.001
-                unclosed_value_quote += (float(order.quantity) * float(order.price)) * (Decimal(1) - fee)
+                unclosed_value_quote += (float(order.quantity) * float(order.price))
                 unclosed_value_base -= float(order.quantity)
 
         quote_unclosed_value = float(unclosed_value_quote) + (float(unclosed_value_base) * float(price))
