@@ -555,20 +555,20 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         for idx in range(0, len(active_orders)):
             order = active_orders[idx]
             if order.is_buy:
-                unclosed_value[quote_asset] -= (float(order.quantity) * float(order.price))
-                unclosed_value[base_asset] += float(order.quantity) * (Decimal(1) - fee.percent)
+                unclosed_value_quote -= (float(order.quantity) * float(order.price))
+                unclosed_value_base += float(order.quantity) * (Decimal(1) - fee.percent)
             else:
-                unclosed_value[quote_asset] += (float(order.quantity) * float(order.price)) * (Decimal(1) - fee.percent)
-                unclosed_value[base_asset] -= float(order.quantity)
+                unclosed_value_quote += (float(order.quantity) * float(order.price)) * (Decimal(1) - fee.percent)
+                unclosed_value_base -= float(order.quantity)
 
-        quote_unclosed_value = unclosed_value[quote_asset] + (unclosed_value[base_asset] * float(price))
+        quote_unclosed_value = float(unclosed_value_quote) + (float(unclosed_value_base) * float(price))
         equity_value = float(quote_unclosed_value) + float(total_in_quote)
 
         data=[
             ["", base_asset, quote_asset, f"Total in ({quote_asset})"],
             ["Current Value", round(base_balance, 6), round(quote_balance, 6), round(total_in_quote, 6)],
-            ["Equity", round(base_balance + unclosed_value[base_asset], 6), round(quote_balance + unclosed_value[quote_asset], 6), round(equity_value, 6)],
-            ["delta", round(unclosed_value[base_asset], 6), round(unclosed_value[quote_asset], 6), round(quote_unclosed_value, 6)]
+            ["Equity", round(base_balance + unclosed_value_base, 6), round(quote_balance + unclosed_value_quote, 6), round(equity_value, 6)],
+            ["delta", round(unclosed_value_base, 6), round(unclosed_value_quote, 6), round(quote_unclosed_value, 6)]
         ]
 
         return pd.DataFrame(data=data)
