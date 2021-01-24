@@ -164,8 +164,7 @@ class HistoryCommand:
         perf_data = [
             ["Hold portfolio value    ", f"{smart_round(perf.hold_value, precision)} {quote}"],
             ["Current portfolio value ", f"{smart_round(perf.cur_value, precision)} {quote}"],
-            ["Trade P&L               ", f"{smart_round(perf.trade_pnl, precision)} {quote}"],
-            
+            ["Trade P&L               ", f"{smart_round(perf.trade_pnl, precision)} {quote}"]
         ]
         if global_config_map.get("advanced_stats").value:
             perf_data.extend(
