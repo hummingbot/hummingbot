@@ -631,7 +631,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         if len(self.active_orders) > 0:
             df = self.active_orders_df()
             lines.extend(["", "  Orders:"] + ["    " + line for line in df.to_string(index=False).split("\n")])
-            
+
             if global_config_map.get("advanced_stats").value:
                 equity_df = self.equity_orders_df()
                 lines.extend(["", "  Equity:"] + ["    " + line for line in equity_df.to_string(index=False, header=False).split("\n")])
