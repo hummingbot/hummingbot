@@ -165,9 +165,13 @@ class HistoryCommand:
             ["Hold portfolio value    ", f"{smart_round(perf.hold_value, precision)} {quote}"],
             ["Current portfolio value ", f"{smart_round(perf.cur_value, precision)} {quote}"],
             ["Trade P&L               ", f"{smart_round(perf.trade_pnl, precision)} {quote}"],
-            ["Start portfolio value   ", f"{smart_round(perf.start_value, precision)} {quote}"],
-            ["Relative portfolio value", f"{smart_round(perf.rel_value, precision)} {quote}"],
+            
         ]
+        if global_config_map.get("advanced_stats").value:
+            perf_data.extend(
+                ["*Start portfolio value  ", f"{smart_round(perf.start_value, precision)} {quote}"],
+                ["*Relative to start value", f"{smart_round(perf.rel_value, precision)} {quote}"],
+            )
         perf_data.extend(
             ["Fees paid               ", f"{smart_round(fee_amount, precision)} {fee_token}"]
             for fee_token, fee_amount in perf.fees.items()
