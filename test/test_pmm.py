@@ -813,9 +813,21 @@ class PMMUnitTest(unittest.TestCase):
         self.simulate_maker_market_trade(
             is_buy=False, quantity=Decimal("10"), price=Decimal("98.9"),
         )
+        new_mid_price = Decimal("96")
+        self.book_data.set_balanced_order_book(
+            mid_price=new_mid_price,
+            min_price=1,
+            max_price=200,
+            price_step_size=1,
+            volume_step_size=10,
+        )
         self.clock.backtest_til(self.start_timestamp + 7)
         first_bid_order = strategy.active_buys[0]
-        self.assertEqual(Decimal("98.01"), first_bid_order.price)
+        first_ask_order = strategy.active_sells[0]
+        expected_bid_price = new_mid_price / Decimal(1 + self.bid_spread)
+        self.assertAlmostEqual(expected_bid_price, first_bid_order.price, places=1)
+        expected_ask_price = Decimal("99") * Decimal(1 + self.ask_spread)
+        self.assertAlmostEqual(expected_ask_price, first_ask_order.price)
 
     def test_order_book_asset_del(self):
         strategy = self.one_level_strategy

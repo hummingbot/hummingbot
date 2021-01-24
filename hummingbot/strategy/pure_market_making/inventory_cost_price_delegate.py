@@ -50,24 +50,20 @@ class InventoryCostPriceDelegate:
                 if fee_asset == base_asset:
                     base_volume += fee_amount
                 elif fee_asset == quote_asset:
+                    # TODO: with new logic, this quote volume adjustment does not impacts anything
                     quote_volume -= fee_amount
                 else:
-                    # Ok, some other asset used (like BNB), assume that we paid in quote asset for simplicity
-                    quote_volume /= 1 + fill_event.trade_fee.percent
+                    # Ok, some other asset used (like BNB), assume that we paid in base asset for simplicity
+                    base_volume /= 1 + fill_event.trade_fee.percent
 
         if fill_event.trade_type == TradeType.SELL:
-            base_volume = -base_volume
-            quote_volume = -quote_volume
-
-            # Make sure we're not going to create negative inventory cost here. If user didn't properly set cost,
-            # just assume 0 cost, so consequent buys will set cost correctly
             record = InventoryCost.get_record(self._session, base_asset, quote_asset)
-            if record:
-                base_volume = max(-record.base_volume, base_volume)
-                quote_volume = max(-record.quote_volume, quote_volume)
-            else:
-                base_volume = Decimal("0")
-                quote_volume = Decimal("0")
+            if not record:
+                raise RuntimeError("Sold asset without having inventory price set. This should not happen.")
+
+            # We're keeping initial buy price intact. Profits are not changing inventory price intentionally.
+            quote_volume = -(Decimal(record.quote_volume / record.base_volume) * base_volume)
+            base_volume = -base_volume
 
         InventoryCost.add_volume(
             self._session, base_asset, quote_asset, base_volume, quote_volume

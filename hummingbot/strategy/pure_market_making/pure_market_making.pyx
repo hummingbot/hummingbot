@@ -704,7 +704,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         if self._inventory_cost_price_delegate is not None:
             inventory_cost_price = self._inventory_cost_price_delegate.get_price()
             if inventory_cost_price is not None:
-                buy_reference_price = min(inventory_cost_price, buy_reference_price)
+                # Only limit sell price. Buy are always allowed.
                 sell_reference_price = max(inventory_cost_price, sell_reference_price)
             else:
                 base_balance = float(market.get_balance(self._market_info.base_asset))
