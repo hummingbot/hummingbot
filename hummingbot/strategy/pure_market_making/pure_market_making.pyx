@@ -555,9 +555,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         for idx in range(0, len(active_orders)):
             order = active_orders[idx]
             if order.is_buy:
-                unclosed_value -= (float(order.price) * float(order.quantity)) * float(price)
+                unclosed_value -= (float(order.quantity) * float(order.price))
             else:
-                unclosed_value += (float(order.price) * float(order.quantity)) * float(price)
+                unclosed_value += (float(order.quantity) * float(order.price))
 
         equity_value = float(unclosed_value) + float(total_in_quote)
 
