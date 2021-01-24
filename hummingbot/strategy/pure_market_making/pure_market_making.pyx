@@ -601,7 +601,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         cdef:
             list lines = []
             list warning_lines = []
-        warning_lines.extend(self._peing_pong_warning_lines)
+        warning_lines.extend(self._ping_pong_warning_lines)
         warning_lines.extend(self.network_warning([self._market_info]))
 
         markets_df = self.market_status_data_frame([self._market_info])
