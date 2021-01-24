@@ -542,8 +542,11 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         price = self.get_price()
         active_orders = self.active_orders
         active_orders.sort(key=lambda x: x.price, reverse=True)
-        unclosed_value = 0
+        quote_unclosed_value = 0
         equity_value = 0
+        unclosed_value_quote = 0
+        unclosed_value_base = 0
+        fee = 0.001
 
         market, trading_pair, base_asset, quote_asset = self._market_info
         base_balance = float(market.get_balance(base_asset))
@@ -556,9 +559,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             order = active_orders[idx]
             if order.is_buy:
                 unclosed_value_quote -= (float(order.quantity) * float(order.price))
-                unclosed_value_base += float(order.quantity)
+                unclosed_value_base += float(order.quantity) * (1 - fee)
             else:
-                unclosed_value_quote += (float(order.quantity) * float(order.price))
+                unclosed_value_quote += (float(order.quantity) * float(order.price)) * (1 - fee)
                 unclosed_value_base -= float(order.quantity)
 
         quote_unclosed_value = float(unclosed_value_quote) + (float(unclosed_value_base) * float(price))
