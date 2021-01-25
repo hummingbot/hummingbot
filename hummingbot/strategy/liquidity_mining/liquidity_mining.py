@@ -37,18 +37,18 @@ class LiquidityMiningStrategy(StrategyPyBase):
     def __init__(self,
                  exchange: ExchangeBase,
                  market_infos: Dict[str, MarketTradingPairTuple],
-                 custom_spread_pct: Decimal,
+                 spread: Decimal,
+                 target_base_pcts: Dict[str, Decimal],
                  order_refresh_time: float,
                  order_refresh_tolerance_pct: Decimal,
-                 reserved_balances: Dict[str, Decimal],
                  status_report_interval: float = 900):
         super().__init__()
         self._exchange = exchange
         self._market_infos = market_infos
-        self._custom_spread_pct = custom_spread_pct
+        self._spread = spread
         self._order_refresh_time = order_refresh_time
         self._order_refresh_tolerance_pct = order_refresh_tolerance_pct
-        self._reserved_balances = reserved_balances
+        self._target_base_pcts = target_base_pcts
         self._ev_loop = asyncio.get_event_loop()
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
