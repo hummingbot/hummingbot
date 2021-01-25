@@ -53,7 +53,7 @@ class PerformanceMetrics:
         self.fees: Dict[str, Decimal] = {}
 
 
-def position_order(open: list, close: list): 
+def position_order(open: list, close: list):
     """
     Pair open position order with close position orders
     :param open: a list of orders that may have an open position order
