@@ -3,6 +3,7 @@ from typing import (
     List,
     Any,
 )
+from collections import OrderedDict
 from decimal import Decimal
 import pandas as pd
 from os.path import join
@@ -25,6 +26,7 @@ from hummingbot.strategy.pure_market_making import (
 from hummingbot.strategy.perpetual_market_making import (
     PerpetualMarketMakingStrategy
 )
+from hummingbot.strategy.liquidity_mining.liquidity_mining_config_map import liquidity_mining_config_map
 from hummingbot.user.user_balances import UserBalances
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -76,14 +78,14 @@ class ConfigCommand:
                 if cv.key in global_configs_to_display and not cv.is_secure]
         df = pd.DataFrame(data=data, columns=columns)
         self._notify("\nGlobal Configurations:")
-        lines = ["    " + line for line in df.to_string(index=False).split("\n")]
+        lines = ["    " + line for line in df.to_string(index=False, max_colwidth=50).split("\n")]
         self._notify("\n".join(lines))
 
         if self.strategy_name is not None:
             data = [[cv.key, cv.value] for cv in self.strategy_config_map.values() if not cv.is_secure]
             df = pd.DataFrame(data=data, columns=columns)
             self._notify("\nStrategy Configurations:")
-            lines = ["    " + line for line in df.to_string(index=False).split("\n")]
+            lines = ["    " + line for line in df.to_string(index=False, max_colwidth=50).split("\n")]
             self._notify("\n".join(lines))
 
     def config_able_keys(self  # type: HummingbotApplication
@@ -141,6 +143,8 @@ class ConfigCommand:
                 self._notify("Please follow the prompt to complete configurations: ")
             if config_var.key == "inventory_target_base_pct":
                 await self.asset_ratio_maintenance_prompt(config_map, input_value)
+            elif config_var.key == "target_base_pct":
+                await self.lm_target_base_pct_prompt(config_map, input_value)
             else:
                 await self.prompt_a_config(config_var, input_value=input_value, assign_default=False)
             if self.app.to_stop_config:
@@ -219,3 +223,26 @@ class ConfigCommand:
                     self.app.to_stop_config = False
                     return
                 await self.prompt_a_config(config_map["inventory_target_base_pct"])
+
+    async def lm_target_base_pct_prompt(self,  # type: HummingbotApplication
+                                        input_value=None):
+        config_map = liquidity_mining_config_map
+        if input_value:
+            config_map['target_base_pct'].value = input_value
+        else:
+            markets = config_map["markets"].value
+            markets = list(markets.split(","))
+            target_base_pcts = OrderedDict()
+            for market in markets:
+                cvar = ConfigVar(key="temp_config",
+                                 prompt=f"For {market} market, what is the target base asset pct?  >>> ",
+                                 required_if=lambda: True,
+                                 type_str="float")
+                await self.prompt_a_config(cvar)
+                if cvar.value:
+                    target_base_pcts[market] = cvar.value
+                else:
+                    if self.app.to_stop_config:
+                        self.app.to_stop_config = False
+                        return
+            config_map['target_base_pct'].value = target_base_pcts
