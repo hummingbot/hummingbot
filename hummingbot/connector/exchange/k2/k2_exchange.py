@@ -665,6 +665,12 @@ class K2Exchange(ExchangeBase):
 
         current_executed_amount: Decimal = tracked_order.executed_amount_base - last_executed_amount
 
+        fee_currency: str = ""
+        if tracked_order.order_type == TradeType.BUY:
+            fee_currency = tracked_order.trading_pair.split("/")[0]
+        else:
+            fee_currency = tracked_order.trading_pair.split("/")[1]
+
         # TODO: Check in with K2 dev for a possible "Traded Qty & Price" and "Cumulative Qty & Price" entry
         self.trigger_event(
             MarketEvent.OrderFilled,
@@ -676,7 +682,7 @@ class K2Exchange(ExchangeBase):
                 tracked_order.order_type,
                 Decimal(str(trade_msg["price"])),
                 current_executed_amount,
-                TradeFee(0.0, [(trade_msg["fee_currency"], Decimal(str(trade_msg["fee"])))]),
+                TradeFee(0.0, [(fee_currency, Decimal(str(0)))]),  # TODO: Determine Trading Fees
                 exchange_trade_id=trade_msg["orderid"]
             )
         )
@@ -789,21 +795,26 @@ class K2Exchange(ExchangeBase):
         """
         async for event_message in self._iter_user_event_queue():
             try:
-                if "result" not in event_message or "channel" not in event_message["result"]:
+                if not event_message.get("method", None):
+                    self.logger().info(f"Unexpected websocket message received. Message:{event_message}")
                     continue
-                channel = event_message["result"]["channel"]
-                if "user.trade" in channel:
-                    for trade_msg in event_message["result"]["data"]:
+
+                method: str = event_message.get("method")
+
+                if method == "mytradeschanged":
+                    for trade_msg in event_message["data"]:
                         await self._process_trade_message(trade_msg)
-                elif "user.order" in channel:
-                    for order_msg in event_message["result"]["data"]:
+                elif method == "myorderschanged":
+                    for order_msg in event_message["data"]:
                         self._process_order_message(order_msg)
-                elif channel == "user.balance":
-                    balances = event_message["result"]["data"]
+                elif method == "mybalanceschanged":
+                    balances: List[Dict[str, Any]] = event_message["data"]
                     for balance_entry in balances:
-                        asset_name = balance_entry["currency"]
-                        self._account_balances[asset_name] = Decimal(str(balance_entry["balance"]))
-                        self._account_available_balances[asset_name] = Decimal(str(balance_entry["available"]))
+                        asset_name = balance_entry["coin"]
+                        self._account_balances[asset_name] += Decimal(str(balance_entry["quantity"]))
+                        # K2 has not available_balance entry
+                        # self._account_available_balances[asset_name]
+
             except asyncio.CancelledError:
                 raise
             except Exception:
