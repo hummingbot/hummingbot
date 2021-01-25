@@ -37,6 +37,8 @@ class LiquidityMiningStrategy(StrategyPyBase):
     def __init__(self,
                  exchange: ExchangeBase,
                  market_infos: Dict[str, MarketTradingPairTuple],
+                 token: str,
+                 order_size: Decimal,
                  spread: Decimal,
                  target_base_pcts: Dict[str, Decimal],
                  order_refresh_time: float,
@@ -45,6 +47,8 @@ class LiquidityMiningStrategy(StrategyPyBase):
         super().__init__()
         self._exchange = exchange
         self._market_infos = market_infos
+        self._token = token
+        self._order_size = order_size
         self._spread = spread
         self._order_refresh_time = order_refresh_time
         self._order_refresh_tolerance_pct = order_refresh_tolerance_pct
@@ -144,9 +148,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
         proposals = []
         for market, market_info in self._market_infos.items():
             mid_price = market_info.get_mid_price()
-            buy_price = mid_price * (Decimal("1") - self._custom_spread_pct)
+            buy_price = mid_price * (Decimal("1") - self._spread)
             buy_price = self._exchange.quantize_order_price(market, buy_price)
-            sell_price = mid_price * (Decimal("1") + self._custom_spread_pct)
+            sell_price = mid_price * (Decimal("1") + self._spread)
             sell_price = self._exchange.quantize_order_price(market, sell_price)
             proposals.append(Proposal(market, PriceSize(buy_price, s_decimal_zero),
                                       PriceSize(sell_price, s_decimal_zero)))
@@ -179,37 +183,36 @@ class LiquidityMiningStrategy(StrategyPyBase):
     def allocate_order_size(self, proposals: List[Proposal]):
         balances = self._token_balances.copy()
         for proposal in proposals:
-            sell_size = balances[proposal.base()] if balances[proposal.base()] < self._sell_budgets[proposal.market] \
-                else self._sell_budgets[proposal.market]
-            sell_size = self._exchange.quantize_order_amount(proposal.market, sell_size)
+            base_size = self._order_size if self._token == proposal.base() else self._order_size / proposal.sell.price
+            base_size = balances[proposal.base()] if balances[proposal.base()] < base_size else base_size
+            sell_size = self._exchange.quantize_order_amount(proposal.market, base_size)
             if sell_size > s_decimal_zero:
                 proposal.sell.size = sell_size
                 balances[proposal.base()] -= sell_size
 
-            quote_size = balances[proposal.quote()] if balances[proposal.quote()] < self._buy_budgets[proposal.market] \
-                else self._buy_budgets[proposal.market]
+            quote_size = self._order_size if self._token == proposal.quote() else self._order_size * proposal.buy.price
+            quote_size = balances[proposal.quote()] if balances[proposal.quote()] < quote_size else quote_size
             buy_fee = estimate_fee(self._exchange.name, True)
             buy_size = quote_size / (proposal.buy.price * (Decimal("1") + buy_fee.percent))
             if buy_size > s_decimal_zero:
                 proposal.buy.size = self._exchange.quantize_order_amount(proposal.market, buy_size)
                 balances[proposal.quote()] -= quote_size
-
-        # base_tokens = self.all_base_tokens()
-        # for base in base_tokens:
-        #     base_proposals = [p for p in proposals if p.base() == base]
-        #     sell_size = self._token_balances[base] / len(base_proposals)
-        #     for proposal in base_proposals:
-        #         proposal.sell.size = self._exchange.quantize_order_amount(proposal.market, sell_size)
+        # balances = self._token_balances.copy()
+        # for proposal in proposals:
+        #     sell_size = balances[proposal.base()] if balances[proposal.base()] < self._sell_budgets[proposal.market] \
+        #         else self._sell_budgets[proposal.market]
+        #     sell_size = self._exchange.quantize_order_amount(proposal.market, sell_size)
+        #     if sell_size > s_decimal_zero:
+        #         proposal.sell.size = sell_size
+        #         balances[proposal.base()] -= sell_size
         #
-        # # Then assign all the buy order size based on the quote token balance available
-        # quote_tokens = self.all_quote_tokens()
-        # for quote in quote_tokens:
-        #     quote_proposals = [p for p in proposals if p.quote() == quote]
-        #     quote_size = self._token_balances[quote] / len(quote_proposals)
-        #     for proposal in quote_proposals:
-        #         buy_fee = estimate_fee(self._exchange.name, True)
-        #         buy_amount = quote_size / (proposal.buy.price * (Decimal("1") + buy_fee.percent))
-        #         proposal.buy.size = self._exchange.quantize_order_amount(proposal.market, buy_amount)
+        #     quote_size = balances[proposal.quote()] if balances[proposal.quote()] < self._buy_budgets[proposal.market] \
+        #         else self._buy_budgets[proposal.market]
+        #     buy_fee = estimate_fee(self._exchange.name, True)
+        #     buy_size = quote_size / (proposal.buy.price * (Decimal("1") + buy_fee.percent))
+        #     if buy_size > s_decimal_zero:
+        #         proposal.buy.size = self._exchange.quantize_order_amount(proposal.market, buy_size)
+        #         balances[proposal.quote()] -= quote_size
 
     def is_within_tolerance(self, cur_orders: List[LimitOrder], proposal: Proposal):
         cur_buy = [o for o in cur_orders if o.is_buy]
@@ -296,9 +299,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 adjusted_bals[quote] += order.quantity * order.price
             else:
                 adjusted_bals[base] += order.quantity
-        for token in tokens:
-            adjusted_bals[token] = min(adjusted_bals[token], total_bals[token])
-            reserved = self._reserved_balances.get(token, s_decimal_zero)
-            adjusted_bals[token] -= reserved
+        # for token in tokens:
+        #     adjusted_bals[token] = min(adjusted_bals[token], total_bals[token])
+        #     reserved = self._reserved_balances.get(token, s_decimal_zero)
+        #     adjusted_bals[token] -= reserved
         # self.logger().info(f"token balances: {adjusted_bals}")
         return adjusted_bals

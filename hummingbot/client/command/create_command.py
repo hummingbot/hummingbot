@@ -97,6 +97,9 @@ class CreateCommand:
                               config: ConfigVar,
                               input_value=None,
                               assign_default=True):
+        if config.key == "target_base_pct":
+            await self.lm_target_base_pct_prompt(input_value)
+            return
         if input_value is None:
             if assign_default:
                 self.app.set_text(parse_config_default_to_text(config))
