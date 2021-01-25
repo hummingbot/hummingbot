@@ -1,10 +1,9 @@
 from decimal import Decimal
-
+from typing import Optional
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     validate_exchange,
-    validate_decimal,
-    validate_bool
+    validate_decimal
 )
 from hummingbot.client.settings import (
     required_exchanges,
@@ -15,9 +14,27 @@ def exchange_on_validated(value: str) -> None:
     required_exchanges.append(value)
 
 
-def auto_campaigns_participation_on_validated(value: bool) -> None:
-    if value:
-        liquidity_mining_config_map["markets"].value = "HARD-USDT,RLC-USDT,AVAX-USDT,ALGO-USDT,XEM-USDT,MFT-USDT,ETH-USDT"
+def token_validate(value: str) -> Optional[str]:
+    markets = list(liquidity_mining_config_map["markets"].value.split(","))
+    tokens = set()
+    for market in markets:
+        tokens.update(set(market.split("-")))
+    if value not in tokens:
+        return f"Invalid token. {value} is not one of {','.join(tokens)}"
+
+
+def order_size_prompt() -> str:
+    token = liquidity_mining_config_map["token"].value
+    return f"What is the size of each order (in {token} amount)? >>> "
+
+
+def target_base_pct_prompt() -> str:
+    markets = list(liquidity_mining_config_map["markets"].value.split(","))
+    token = liquidity_mining_config_map["token"].value
+    markets = [m for m in markets if token in m.split("-")]
+    example = ",".join([f"{m}:10%" for m in markets[:2]])
+    return f"For each of {token} markets, what is the target base asset pct? (Enter a list of markets and" \
+           f" their target e.g. {example}) >>> "
 
 
 liquidity_mining_config_map = {
@@ -31,57 +48,34 @@ liquidity_mining_config_map = {
                   validator=validate_exchange,
                   on_validated=exchange_on_validated,
                   prompt_on_new=True),
-    "auto_campaigns_participation":
-        ConfigVar(key="auto_campaigns_participation",
-                  prompt="Do you want the bot to automatically participate in as many mining campaign as possible "
-                         "(Yes/No)  >>> ",
-                  type_str="bool",
-                  validator=validate_bool,
-                  on_validated=auto_campaigns_participation_on_validated,
-                  prompt_on_new=True),
     "markets":
         ConfigVar(key="markets",
-                  prompt="Enter a list of markets >>> ",
-                  required_if=lambda: not liquidity_mining_config_map.get("auto_campaigns_participation").value,
-                  prompt_on_new=True),
-    "reserved_balances":
-        ConfigVar(key="reserved_balances",
-                  prompt="Enter a list of tokens and their reserved balance (to not be used by the bot), "
-                         "This can be used for an asset amount you want to set a side to pay for fee (e.g. BNB for "
-                         "Binance), to limit exposure or in anticipation of withdrawal, e.g. BTC:0.1,BNB:1 >>> ",
+                  prompt="Enter a list of markets (comma separated, e.g. LTC-USDT,ETH-USDT) >>> ",
                   type_str="str",
-                  default="",
-                  validator=lambda s: None,
                   prompt_on_new=True),
-    "auto_assign_campaign_budgets":
-        ConfigVar(key="auto_assign_campaign_budgets",
-                  prompt="Do you want the bot to automatically assign budgets (equal weight) for all campaign markets? "
-                         "The assignment assumes full allocation of your assets (after accounting for reserved balance)"
-                         " (Yes/No)  >>> ",
-                  type_str="bool",
-                  validator=validate_bool,
-                  prompt_on_new=True),
-    "campaign_budgets":
-        ConfigVar(key="campaign_budgets",
-                  prompt="Enter a list of campaigns and their buy and sell budgets. For example "
-                         "XEM-ETH:500-2, XEM-USDT:300-250 (this means on XEM-ETH campaign sell budget is 500 XEM, "
-                         "and buy budget is 2 ETH) >>> ",
-                  required_if=lambda: not liquidity_mining_config_map.get("auto_assign_campaign_budgets").value,
-                  type_str="json"),
-    "spread_level":
-        ConfigVar(key="spread_level",
-                  prompt="Enter spread level (tight/medium/wide/custom) >>> ",
+    "token":
+        ConfigVar(key="token",
+                  prompt="What asset (base or quote) do you want to use to provide liquidity? >>> ",
                   type_str="str",
-                  default="medium",
-                  validator=lambda s: None if s in {"tight", "medium", "wide", "custom"} else "Invalid spread level.",
+                  validator=token_validate,
                   prompt_on_new=True),
-    "custom_spread_pct":
-        ConfigVar(key="custom_spread_pct",
+    "order_size":
+        ConfigVar(key="order_size",
+                  prompt=order_size_prompt,
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, 0, inclusive=False),
+                  prompt_on_new=True),
+    "spread":
+        ConfigVar(key="spread",
                   prompt="How far away from the mid price do you want to place bid order and ask order? "
                          "(Enter 1 to indicate 1%) >>> ",
                   type_str="decimal",
-                  required_if=lambda: liquidity_mining_config_map.get("spread_level").value == "custom",
                   validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
+                  prompt_on_new=True),
+    "target_base_pct":
+        ConfigVar(key="spread",
+                  prompt=target_base_pct_prompt,
+                  type_str="str",
                   prompt_on_new=True),
     "order_refresh_time":
         ConfigVar(key="order_refresh_time",
