@@ -53,8 +53,13 @@ class PerformanceMetrics:
         self.fees: Dict[str, Decimal] = {}
 
 
-def position_order(open: list, close: list):
-    # pair open position order with close position OrderStatus
+def position_order(open: list, close: list): 
+    """
+    Pair open position order with close position orders
+    :param open: a list of orders that may have an open position order
+    :param close: a list of orders that may have an close position order
+    :return: A tuple containing a pair of an open order with a close position order
+    """
     for o in open:
         for c in close:
             if o.position == "OPEN" and c.position == "CLOSE":
@@ -65,6 +70,12 @@ def position_order(open: list, close: list):
 
 
 def aggregate_position_order(buys: list, sells: list):
+    """
+    Aggregate the amount field for orders with multiple fills
+    :param buys: a list of buy orders
+    :param sells: a list of sell orders
+    :return: 2 lists containing aggregated amounts for buy and sell orders.
+    """
     aggregated_buys = []
     aggregated_sells = []
     for buy in buys:
@@ -88,6 +99,12 @@ def aggregate_position_order(buys: list, sells: list):
 
 def derivative_pnl(long: list, short: list):
     # It is assumed that the amount and leverage for both open and close orders are thesame.
+    """
+    Calculates PnL for a close position
+    :param long: a list containing pairs of open and closed long position orders
+    :param short: a list containing pairs of open and closed short position orders
+    :return: A list containing PnL for each closed positions
+    """
     pnls = []
     for lg in long:
         pnls.append((lg[1].price - lg[0].price) * lg[1].amount)
