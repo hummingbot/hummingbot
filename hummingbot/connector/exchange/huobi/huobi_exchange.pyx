@@ -4,6 +4,7 @@ import asyncio
 from decimal import Decimal
 from libc.stdint cimport int64_t
 import logging
+import time
 import pandas as pd
 from typing import (
     Any,
@@ -94,6 +95,8 @@ cdef class HuobiExchange(ExchangeBase):
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
     API_CALL_TIMEOUT = 10.0
     UPDATE_ORDERS_INTERVAL = 10.0
+    SHORT_POLL_INTERVAL = 5.0
+    LONG_POLL_INTERVAL = 120.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -105,7 +108,6 @@ cdef class HuobiExchange(ExchangeBase):
     def __init__(self,
                  huobi_api_key: str,
                  huobi_secret_key: str,
-                 poll_interval: float = 5.0,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
 
@@ -121,7 +123,6 @@ cdef class HuobiExchange(ExchangeBase):
             trading_pairs=trading_pairs
         )
         self._poll_notifier = asyncio.Event()
-        self._poll_interval = poll_interval
         self._shared_client = None
         self._status_polling_task = None
         self._trading_required = trading_required
@@ -231,8 +232,12 @@ cdef class HuobiExchange(ExchangeBase):
 
     cdef c_tick(self, double timestamp):
         cdef:
-            int64_t last_tick = <int64_t>(self._last_timestamp / self._poll_interval)
-            int64_t current_tick = <int64_t>(timestamp / self._poll_interval)
+            double now = time.time()
+            double poll_interval = (self.SHORT_POLL_INTERVAL
+                                    if now - self._user_stream_tracker.last_recv_time > 60.0
+                                    else self.LONG_POLL_INTERVAL)
+            int64_t last_tick = <int64_t>(self._last_timestamp / poll_interval)
+            int64_t current_tick = <int64_t>(timestamp / poll_interval)
         ExchangeBase.c_tick(self, timestamp)
         self._tx_tracker.c_tick(timestamp)
         if current_tick > last_tick:
@@ -579,12 +584,15 @@ cdef class HuobiExchange(ExchangeBase):
                     continue
 
                 data = stream_message["data"]
+                if len(data) == 0 and stream_message["code"] == 200:
+                    # This is a subcribtion confirmation.
+                    self.logger().info(f"Successfully subscribed to {channel}")
+                    continue
+
                 if channel == HUOBI_ACCOUNT_UPDATE_TOPIC:
                     asset_name = data["currency"].upper()
-                    # Huobi balance update can contain either balance or available_balance, or both.
-                    # Hence, the reason for the setting existing value(i.e assume no change) if get fails.
-                    balance = data.get("balance", self._account_balances.get(asset_name, "0"))
-                    available_balance = data.get("available", self._account_available_balances.get(asset_name, "0"))
+                    balance = data["balance"]
+                    available_balance = data["available"]
 
                     self._account_balances.update({asset_name: Decimal(balance)})
                     self._account_available_balances.update({asset_name: Decimal(available_balance)})
