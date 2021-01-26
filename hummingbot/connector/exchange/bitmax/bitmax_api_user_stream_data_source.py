@@ -82,7 +82,7 @@ class BitmaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         )
                         raise
                     finally:
-                        ws.close()
+                        await ws.close()
             except asyncio.CancelledError:
                 raise
             except Exception:
