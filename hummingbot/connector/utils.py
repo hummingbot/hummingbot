@@ -6,10 +6,6 @@ from typing import (
     Optional
 )
 from zero_ex.order_utils import Order as ZeroExOrder
-from collections import namedtuple
-
-
-TradeFill_order_details = namedtuple("TradeFill_order_details", "market exchange_trade_id symbol")
 
 
 def zrx_order_to_json(order: Optional[ZeroExOrder]) -> Optional[Dict[str, any]]:

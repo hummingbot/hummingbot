@@ -771,8 +771,6 @@ class BitmaxExchange(ExchangeBase):
         :param timeout_seconds: The timeout at which the operation will be canceled.
         :returns List of CancellationResult which indicates whether each order is successfully cancelled.
         """
-        if self._trading_pairs is None:
-            raise Exception("cancel_all can only be used when trading_pairs are specified.")
         cancellation_results = []
         try:
             await self._api_request(
@@ -787,8 +785,6 @@ class BitmaxExchange(ExchangeBase):
 
             for cl_order_id, tracked_order in self._in_flight_orders.items():
                 open_order = [o for o in open_orders if o.client_order_id == cl_order_id]
-                print("cancel all tracked_order", tracked_order)
-                print("cancel all", cl_order_id)
                 if not open_order:
                     cancellation_results.append(CancellationResult(cl_order_id, True))
                     self.trigger_event(MarketEvent.OrderCancelled,
