@@ -627,6 +627,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         cdef:
             ExchangeBase market = self._market_info.market
             list active_orders = self.active_orders
+            list unwanted_exit_orders = [o for o in active_orders if o.client_order_id not in self._ts_exit_orders]
             list buys = []
             list sells = []
 
@@ -636,7 +637,6 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                 self.logger().error(f"Kindly ensure you do not interract with the exchange through other platforms and restart this strategy.")
             else:
                 # Cancel open order that could potentially close position before reaching take_profit_limit
-                unwanted_exit_orders = [o for o in active_orders if o.client_order_id not in self._ts_exit_orders]
                 for order in unwanted_exit_orders:
                     if active_positions[0].amount < 0 and order.is_buy:
                         self.c_cancel_order(self._market_info, order.client_order_id)
@@ -651,6 +651,11 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
             take_profit_price = position.entry_price * (Decimal("1") + profit_spread) if position.amount > 0 \
                 else position.entry_price * (Decimal("1") - profit_spread)
             price = market.c_quantize_order_price(self.trading_pair, take_profit_price)
+            old_exit_orders = [o for o in active_orders if (o.price > price and position.amount < 0 and o.client_order_id in self._ts_exit_orders)
+                               or (o.price < price and position.amount > 0 and o.client_order_id in self._ts_exit_orders)]
+            for old_order in old_exit_orders:
+                self.c_cancel_order(self._market_info, old_order.client_order_id)
+                self.logger().info(f"Cancelled previous take profit order {old_order.client_order_id} in favour of new take profit order.")
             exit_order_exists = [o for o in active_orders if o.price == price]
             if len(exit_order_exists) == 0:
                 size = market.c_quantize_order_amount(self.trading_pair, abs(position.amount))
