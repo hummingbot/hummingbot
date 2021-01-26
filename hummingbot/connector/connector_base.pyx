@@ -14,7 +14,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.network_iterator import NetworkIterator
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.connector.utils import TradeFill_order_details
+from hummingbot.connector.markets_recorder import TradeFill_order_details
 from hummingbot.core.event.events import OrderFilledEvent
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.estimate_fee import estimate_fee

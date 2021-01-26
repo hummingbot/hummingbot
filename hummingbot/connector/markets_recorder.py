@@ -8,6 +8,7 @@ from sqlalchemy.orm import (
 )
 import time
 import threading
+from collections import namedtuple
 from typing import (
     Dict,
     List,
@@ -36,7 +37,9 @@ from hummingbot.model.order import Order
 from hummingbot.model.order_status import OrderStatus
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.connector.utils import TradeFill_order_details
+
+
+TradeFill_order_details = namedtuple("TradeFill_order_details", "market exchange_trade_id symbol")
 
 
 class MarketsRecorder:
