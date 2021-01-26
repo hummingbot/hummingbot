@@ -72,9 +72,17 @@ class BitmaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
                                 output.put_nowait(msg)
                             except Exception:
+                                self.logger().error(
+                                    "Unexpected error when parsing Bitmax message. ", exc_info=True
+                                )
                                 raise
                     except Exception:
+                        self.logger().error(
+                            "Unexpected error while listening to Bitmax messages. ", exc_info=True
+                        )
                         raise
+                    finally:
+                        ws.close()
             except asyncio.CancelledError:
                 raise
             except Exception:
