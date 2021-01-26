@@ -10,7 +10,6 @@ from decimal import Decimal
 import asyncio
 import json
 import aiohttp
-import math
 import time
 from collections import namedtuple
 
@@ -683,8 +682,7 @@ class BitmaxExchange(ExchangeBase):
                 if "data" not in update_result:
                     self.logger().info(f"_update_order_status result not in resp: {update_result}")
                     continue
-                # for trade_msg in update_result["data"]["trade_list"]:
-                #     await self._process_trade_message(trade_msg)
+
                 for order_data in update_result["data"]:
                     self._process_order_message(order_data)
 
@@ -765,56 +763,6 @@ class BitmaxExchange(ExchangeBase):
                 )
             )
             self.stop_tracking_order(client_order_id)
-
-    async def _process_trade_message(self, trade_msg: Dict[str, Any]):
-        """
-        Updates in-flight order and trigger order filled event for trade message received. Triggers order completed
-        event if the total executed amount equals to the specified order amount.
-        """
-        for order in self._in_flight_orders.values():
-            await order.get_exchange_order_id()
-        track_order = [o for o in self._in_flight_orders.values() if trade_msg["order_id"] == o.exchange_order_id]
-        if not track_order:
-            return
-        tracked_order = track_order[0]
-        updated = tracked_order.update_with_trade_update(trade_msg)
-        if not updated:
-            return
-        self.trigger_event(
-            MarketEvent.OrderFilled,
-            OrderFilledEvent(
-                self.current_timestamp,
-                tracked_order.client_order_id,
-                tracked_order.trading_pair,
-                tracked_order.trade_type,
-                tracked_order.order_type,
-                Decimal(str(trade_msg["traded_price"])),
-                Decimal(str(trade_msg["traded_quantity"])),
-                TradeFee(0.0, [(trade_msg["fee_currency"], Decimal(str(trade_msg["fee"])))]),
-                trade_msg["order_id"]
-            )
-        )
-        if math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or \
-                tracked_order.executed_amount_base >= tracked_order.amount:
-            tracked_order.last_state = "FILLED"
-            self.logger().info(f"The {tracked_order.trade_type.name} order "
-                               f"{tracked_order.client_order_id} has completed "
-                               f"according to order status API.")
-            event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY \
-                else MarketEvent.SellOrderCompleted
-            event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY \
-                else SellOrderCompletedEvent
-            self.trigger_event(event_tag,
-                               event_class(self.current_timestamp,
-                                           tracked_order.client_order_id,
-                                           tracked_order.base_asset,
-                                           tracked_order.quote_asset,
-                                           tracked_order.fee_asset,
-                                           tracked_order.executed_amount_base,
-                                           tracked_order.executed_amount_quote,
-                                           tracked_order.fee_paid,
-                                           tracked_order.order_type))
-            self.stop_tracking_order(tracked_order.client_order_id)
 
     async def cancel_all(self, timeout_seconds: float):
         """
