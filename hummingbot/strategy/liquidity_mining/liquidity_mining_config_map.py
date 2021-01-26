@@ -34,15 +34,6 @@ def order_size_prompt() -> str:
     return f"What is the size of each order (in {token} amount)? >>> "
 
 
-def target_base_pct_prompt() -> str:
-    markets = list(liquidity_mining_config_map["markets"].value.split(","))
-    token = liquidity_mining_config_map["token"].value
-    markets = [m for m in markets if token in m.split("-")]
-    example = ",".join([f"{m}:10%" for m in markets[:2]])
-    return f"For each of {token} markets, what is the target base asset pct? (Enter a list of markets and" \
-           f" their target e.g. {example}) >>> "
-
-
 liquidity_mining_config_map = {
     "strategy": ConfigVar(
         key="strategy",
@@ -85,8 +76,9 @@ liquidity_mining_config_map = {
                   prompt_on_new=True),
     "target_base_pct":
         ConfigVar(key="target_base_pct",
-                  prompt=None,
-                  type_str="json",
+                  prompt=" For each pair, what is your target base asset percentage? (Enter 1 to indicate 1%) >>> ",
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
                   prompt_on_new=True),
     "order_refresh_time":
         ConfigVar(key="order_refresh_time",
