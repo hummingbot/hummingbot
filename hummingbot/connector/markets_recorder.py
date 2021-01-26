@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import os.path
 import pandas as pd
+from shutil import move
 import asyncio
 from sqlalchemy.orm import (
     Session,
@@ -260,19 +261,43 @@ class MarketsRecorder:
         market.add_trade_fills_from_market_recorder({TradeFill_order_details(trade_fill_record.market, trade_fill_record.exchange_trade_id, trade_fill_record.symbol)})
         self.append_to_csv(trade_fill_record)
 
+    @staticmethod
+    def _is_primitive_type(obj: object) -> bool:
+        return not hasattr(obj, '__dict__')
+
+    @staticmethod
+    def _is_protected_method(method_name: str) -> bool:
+        return method_name.startswith('_')
+
+    @staticmethod
+    def _csv_matches_header(file_path: str, header: tuple) -> bool:
+        df = pd.read_csv(file_path, header=None)
+        return tuple(df.iloc[0].values) == header
+
     def append_to_csv(self, trade: TradeFill):
-        csv_file = "trades_" + trade.config_file_path[:-4] + ".csv"
-        csv_path = os.path.join(data_path(), csv_file)
+        csv_filename = "trades_" + trade.config_file_path[:-4] + ".csv"
+        csv_path = os.path.join(data_path(), csv_filename)
+
+        field_names = ("id",)   # id field should be first
+        field_names += tuple(attr for attr in dir(trade) if (not self._is_protected_method(attr) and
+                                                             self._is_primitive_type(getattr(trade, attr)) and
+                                                             (attr not in field_names)))
+        field_data = tuple(getattr(trade, attr) for attr in field_names)
+
+        # adding extra field "age"
         # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
-        age = "n/a"
-        if "//" not in trade.order_id:
-            age = pd.Timestamp(int(trade.timestamp / 1e3 - int(trade.order_id[-16:]) / 1e6), unit='s').strftime('%H:%M:%S')
+        age = pd.Timestamp(int(trade.timestamp / 1e3 - int(trade.order_id[-16:]) / 1e6), unit='s').strftime(
+            '%H:%M:%S') if "//" not in trade.order_id else "n/a"
+        field_names += ("age",)
+        field_data += (age,)
+
+        if(os.path.exists(csv_path) and (not self._csv_matches_header(csv_path, field_names))):
+            move(csv_path, csv_path[:-4] + '_old_' + pd.Timestamp.utcnow().strftime("%Y%m%d-%H%M%S") + ".csv")
+
         if not os.path.exists(csv_path):
-            df_header = pd.DataFrame([["Config File", "Strategy", "Exchange", "Timestamp", "Market", "Base", "Quote",
-                                       "Trade", "Type", "Price", "Amount", "Fee", "Age", "Order ID", "Exchange Trade ID"]])
+            df_header = pd.DataFrame([field_names])
             df_header.to_csv(csv_path, mode='a', header=False, index=False)
-        df = pd.DataFrame([[trade.config_file_path, trade.strategy, trade.market, trade.timestamp, trade.symbol, trade.base_asset, trade.quote_asset,
-                            trade.trade_type, trade.order_type, trade.price, trade.amount, trade.trade_fee, age, trade.order_id, trade.exchange_trade_id]])
+        df = pd.DataFrame([field_data])
         df.to_csv(csv_path, mode='a', header=False, index=False)
 
     def _update_order_status(self,
