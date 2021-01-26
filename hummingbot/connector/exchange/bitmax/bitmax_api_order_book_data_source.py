@@ -39,32 +39,30 @@ class BitmaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
         result = {}
 
-        async with aiohttp.ClientSession() as client:
-            resp = await client.get(f"{REST_URL}/ticker")
-            if resp.status != 200:
-                raise IOError(
-                    f"Error fetching last traded prices at {EXCHANGE_NAME}. "
-                    f"HTTP status is {resp.status}."
-                )
+        for trading_pair in trading_pairs:
+            async with aiohttp.ClientSession() as client:
+                resp = await client.get(f"{REST_URL}/trades?symbol={convert_to_exchange_trading_pair(trading_pair)}")
+                if resp.status != 200:
+                    raise IOError(
+                        f"Error fetching last traded prices at {EXCHANGE_NAME}. "
+                        f"HTTP status is {resp.status}."
+                    )
 
-            resp_json = await resp.json()
-            if resp_json.get("code") != 0:
-                raise IOError(
-                    f"Error fetching last traded prices at {EXCHANGE_NAME}. "
-                    f"Error is {resp_json.message}."
-                )
+                resp_json = await resp.json()
+                if resp_json.get("code") != 0:
+                    raise IOError(
+                        f"Error fetching last traded prices at {EXCHANGE_NAME}. "
+                        f"Error is {resp_json.message}."
+                    )
 
-            for item in resp_json.get("data"):
-                trading_pair: str = convert_from_exchange_trading_pair(item.get("symbol"))
-                if trading_pair not in trading_pairs:
+                trades = resp_json.get("data").get("data")
+                if (len(trades) == 0):
                     continue
 
-                # we had to calculate mid price
-                ask = float(item.get("ask")[0])
-                bid = float(item.get("bid")[0])
-                result[trading_pair] = (ask + bid) / 2
+                # last trade is the most recent trade
+                result[trading_pair] = float(trades[-1].get("p"))
 
-            return result
+        return result
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
