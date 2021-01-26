@@ -77,8 +77,7 @@ class BitmaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         raise
             except asyncio.CancelledError:
                 raise
-            except Exception as e:
-                print(str(e))
+            except Exception:
                 self.logger().error(
                     "Unexpected error with Bitmax WebSocket connection. " "Retrying after 30 seconds...", exc_info=True
                 )
