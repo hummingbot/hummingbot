@@ -1,6 +1,5 @@
 import random
 import string
-import math
 from typing import Tuple
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce_low_res
 
@@ -30,11 +29,6 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
 # get timestamp in milliseconds
 def get_ms_timestamp() -> int:
     return get_tracking_nonce_low_res()
-
-
-# convert milliseconds timestamp to seconds
-def ms_timestamp_to_s(ms: int) -> int:
-    return math.floor(ms / 1e3)
 
 
 def uuid32():

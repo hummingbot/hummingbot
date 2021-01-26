@@ -78,8 +78,8 @@ class BitmaxOrderBookTrackerUnitTest(unittest.TestCase):
             self.assertTrue(type(ob_trade_event.amount) == float)
             self.assertTrue(type(ob_trade_event.price) == float)
             self.assertTrue(type(ob_trade_event.type) == TradeType)
-            # datetime is in seconds
-            self.assertTrue(math.ceil(math.log10(ob_trade_event.timestamp)) == 10)
+            # datetime is in milliseconds
+            self.assertTrue(math.ceil(math.log10(ob_trade_event.timestamp)) == 13)
             self.assertTrue(ob_trade_event.amount > 0)
             self.assertTrue(ob_trade_event.price > 0)
 

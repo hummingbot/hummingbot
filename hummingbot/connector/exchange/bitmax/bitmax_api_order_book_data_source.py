@@ -13,7 +13,7 @@ from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.bitmax.bitmax_active_order_tracker import BitmaxActiveOrderTracker
 from hummingbot.connector.exchange.bitmax.bitmax_order_book import BitmaxOrderBook
-from hummingbot.connector.exchange.bitmax.bitmax_utils import convert_from_exchange_trading_pair, convert_to_exchange_trading_pair, ms_timestamp_to_s
+from hummingbot.connector.exchange.bitmax.bitmax_utils import convert_from_exchange_trading_pair, convert_to_exchange_trading_pair
 from hummingbot.connector.exchange.bitmax.bitmax_constants import EXCHANGE_NAME, REST_URL, WS_URL
 
 
@@ -139,7 +139,7 @@ class BitmaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             trading_pair: str = convert_from_exchange_trading_pair(msg.get("symbol"))
 
                             for trade in msg.get("data"):
-                                trade_timestamp: int = ms_timestamp_to_s(trade.get("ts"))
+                                trade_timestamp: int = trade.get("ts")
                                 trade_msg: OrderBookMessage = BitmaxOrderBook.trade_message_from_exchange(
                                     trade,
                                     trade_timestamp,
@@ -178,7 +178,7 @@ class BitmaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             if (msg is None or msg.get("m") != "bbo"):
                                 continue
 
-                            msg_timestamp: int = ms_timestamp_to_s(msg.get("data").get("ts"))
+                            msg_timestamp: int = msg.get("data").get("ts")
                             trading_pair: str = convert_from_exchange_trading_pair(msg.get("symbol"))
                             order_book_message: OrderBookMessage = BitmaxOrderBook.diff_message_from_exchange(
                                 msg.get("data"),
@@ -218,7 +218,7 @@ class BitmaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             if (msg is None or msg.get("m") != "depth"):
                                 continue
 
-                            msg_timestamp: int = ms_timestamp_to_s(msg.get("data").get("ts"))
+                            msg_timestamp: int = msg.get("data").get("ts")
                             trading_pair: str = convert_from_exchange_trading_pair(msg.get("symbol"))
                             order_book_message: OrderBookMessage = BitmaxOrderBook.snapshot_message_from_exchange(
                                 msg.get("data"),
