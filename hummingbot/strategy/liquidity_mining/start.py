@@ -10,8 +10,7 @@ def start(self):
     token = c_map.get("token").value
     order_size = c_map.get("order_size").value
     spread = c_map.get("spread").value / Decimal("100")
-    base_targets = c_map.get("target_base_pct").value
-    base_targets = {k: Decimal(str(v)) / Decimal("100") for k, v in base_targets.items()}
+    target_base_pct = c_map.get("target_base_pct").value / Decimal("100")
     order_refresh_time = c_map.get("order_refresh_time").value
     order_refresh_tolerance_pct = c_map.get("order_refresh_tolerance_pct").value / Decimal("100")
 
@@ -27,7 +26,7 @@ def start(self):
         token=token,
         order_size=order_size,
         spread=spread,
-        target_base_pcts=base_targets,
+        target_base_pct=target_base_pct,
         order_refresh_time=order_refresh_time,
         order_refresh_tolerance_pct=order_refresh_tolerance_pct
     )

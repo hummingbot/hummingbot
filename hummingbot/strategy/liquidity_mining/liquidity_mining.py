@@ -40,7 +40,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
                  token: str,
                  order_size: Decimal,
                  spread: Decimal,
-                 target_base_pcts: Dict[str, Decimal],
+                 target_base_pct: Decimal,
                  order_refresh_time: float,
                  order_refresh_tolerance_pct: Decimal,
                  status_report_interval: float = 900):
@@ -52,7 +52,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
         self._spread = spread
         self._order_refresh_time = order_refresh_time
         self._order_refresh_tolerance_pct = order_refresh_tolerance_pct
-        self._target_base_pcts = target_base_pcts
+        self._target_base_pct = target_base_pct
         self._ev_loop = asyncio.get_event_loop()
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
