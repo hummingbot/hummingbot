@@ -20,6 +20,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         object _ts_callback_rate
         object _stop_loss_spread
         object _close_position_order_type
+        object _close_order_type
         int _order_levels
         int _buy_levels
         int _sell_levels
@@ -62,6 +63,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
     cdef c_manage_positions(self, list session_positions)
     cdef c_profit_taking_feature(self, object mode, list active_positions)
     cdef c_trailing_stop_feature(self, object mode, list active_positions)
+    cdef c_stop_loss_feature(self, object mode, list active_positions)
     cdef c_apply_initial_settings(self, str trading_pair, object position, int64_t leverage)
     cdef object c_get_mid_price(self)
     cdef object c_create_base_proposal(self)
