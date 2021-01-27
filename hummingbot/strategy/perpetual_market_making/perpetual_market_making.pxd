@@ -58,7 +58,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         object _last_own_trade_price
         object _ts_peak_bid_price
         object _ts_peak_ask_price
-        list _ts_exit_orders
+        list _exit_orders
     cdef c_manage_positions(self, list session_positions)
     cdef c_profit_taking_feature(self, object mode, list active_positions)
     cdef c_trailing_stop_feature(self, object mode, list active_positions)
