@@ -76,6 +76,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                  short_profit_taking_spread: Decimal,
                  ts_activation_spread: Decimal,
                  ts_callback_rate: Decimal,
+                 stop_loss_spread: Decimal,
                  close_position_order_type: str,
                  order_levels: int = 1,
                  order_level_spread: Decimal = s_decimal_zero,
@@ -119,6 +120,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         self._short_profit_taking_spread = short_profit_taking_spread
         self._ts_activation_spread = ts_activation_spread
         self._ts_callback_rate = ts_callback_rate
+        self._stop_loss_spread = stop_loss_spread
         self._close_position_order_type = OrderType.MARKET if close_position_order_type == "MARKET" else OrderType.LIMIT
         self._order_levels = order_levels
         self._buy_levels = order_levels
