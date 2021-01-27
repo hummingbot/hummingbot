@@ -18,6 +18,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         object _short_profit_taking_spread
         object _ts_activation_spread
         object _ts_callback_rate
+        object _stop_loss_spread
         object _close_position_order_type
         int _order_levels
         int _buy_levels
