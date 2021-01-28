@@ -99,7 +99,8 @@ cdef class ScriptIterator(TimeIterator):
                 param_value = getattr(self._strategy, attr)
                 setattr(pmm_strategy, attr, param_value)
         cdef object on_tick = OnTick(self.strategy.get_mid_price(), pmm_strategy,
-                                     self.all_total_balances(), self.all_available_balances())
+                                     self.all_total_balances(), self.all_available_balances(),
+                                     self.all_order_books())
         self._parent_queue.put(on_tick)
 
     def _did_complete_buy_order(self,
@@ -153,3 +154,6 @@ cdef class ScriptIterator(TimeIterator):
             connector = [c for c in self._markets if c.name == exchange][0]
             ret_val[exchange] = {token: connector.get_available_balance(token) for token in balances.keys()}
         return ret_val
+
+    def all_order_books(self):
+        return {market.name: market.order_book_tracker.snapshot for market in self._markets if hasattr(market, "order_book_tracker")}

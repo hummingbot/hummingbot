@@ -986,3 +986,7 @@ class BinancePerpetualDerivative(DerivativeBase):
                 self.logger().error(f"Error fetching {path}", exc_info=True)
                 self.logger().warning(f"{e}")
                 raise e
+
+    @property
+    def order_book_tracker(self) -> BinancePerpetualOrderBookTracker:
+        return self._order_book_tracker

@@ -1,10 +1,11 @@
 import asyncio
 import traceback
 from multiprocessing import Queue
-from typing import List, Optional, Dict, Any, Callable
+from typing import List, Optional, Dict, Any, Callable, Tuple
 from decimal import Decimal
 from statistics import mean, median
 from operator import itemgetter
+import pandas as pd
 from .script_interface import OnTick, OnStatus, PMMParameters, CallNotify, CallLog, PmmMarketInfo, ScriptError
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -29,6 +30,7 @@ class ScriptBase:
         self.all_total_balances: Dict[str, Dict[str, Decimal]] = None
         # all_available_balances has the same data structure as all_total_balances
         self.all_available_balances: Dict[str, Dict[str, Decimal]] = None
+        self.all_order_books: Dict[str, Dict[str, Tuple[pd.DataFrame, pd.DataFrame]]]
 
     def assign_init(self, parent_queue: Queue, child_queue: Queue, queue_check_interval: float):
         self._parent_queue = parent_queue
@@ -62,6 +64,7 @@ class ScriptBase:
                     self.pmm_parameters = item.pmm_parameters
                     self.all_total_balances = item.all_total_balances
                     self.all_available_balances = item.all_available_balances
+                    self.all_order_books = item.all_order_books
                     self.on_tick()
                 elif isinstance(item, BuyOrderCompletedEvent):
                     self.on_buy_order_completed(item)

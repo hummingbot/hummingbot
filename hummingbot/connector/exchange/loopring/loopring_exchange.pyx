@@ -964,3 +964,7 @@ cdef class LoopringExchange(ExchangeBase):
                 amount: Decimal,
                 price: Decimal = s_decimal_NaN) -> TradeFee:
         return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
+
+    @property
+    def order_book_tracker(self) -> LoopringOrderBookTracker:
+        return self._order_book_tracker

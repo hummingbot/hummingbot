@@ -829,3 +829,7 @@ class CryptoComExchange(ExchangeBase):
                 )
             )
         return ret_val
+
+    @property
+    def order_book_tracker(self) -> CryptoComOrderBookTracker:
+        return self._order_book_tracker

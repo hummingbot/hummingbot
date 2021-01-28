@@ -1258,3 +1258,7 @@ cdef class EterbaseExchange(ExchangeBase):
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)
+
+    @property
+    def order_book_tracker(self) -> EterbaseOrderBookTracker:
+        return self._order_book_tracker

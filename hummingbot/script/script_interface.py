@@ -1,5 +1,6 @@
-from typing import Dict
+from typing import Dict, Tuple
 from decimal import Decimal
+import pandas as pd
 
 child_queue = None
 
@@ -117,11 +118,13 @@ class OnTick:
                  pmm_parameters: PMMParameters,
                  all_total_balances: Dict[str, Dict[str, Decimal]],
                  all_available_balances: Dict[str, Dict[str, Decimal]],
+                 all_order_books: Dict[str, Dict[str, Tuple[pd.DataFrame, pd.DataFrame]]]
                  ):
         self.mid_price = mid_price
         self.pmm_parameters = pmm_parameters
         self.all_total_balances = all_total_balances
         self.all_available_balances = all_available_balances
+        self.all_order_books = all_order_books
 
     def __repr__(self):
         return f"{self.__class__.__name__} {str(self.__dict__)}"

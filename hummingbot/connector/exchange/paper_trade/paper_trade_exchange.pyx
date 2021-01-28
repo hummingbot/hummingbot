@@ -995,3 +995,7 @@ cdef class PaperTradeExchange(ExchangeBase):
 
     def get_taker_order_type(self):
         return OrderType.LIMIT
+
+    @property
+    def order_book_tracker(self) -> OrderBookTracker:
+        return self._order_book_tracker

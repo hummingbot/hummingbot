@@ -1110,3 +1110,7 @@ cdef class KrakenExchange(ExchangeBase):
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)
+
+    @property
+    def order_book_tracker(self) -> KrakenOrderBookTracker:
+        return self._order_book_tracker
