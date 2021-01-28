@@ -87,33 +87,32 @@ class LoopringAPITokenConfigurationDataSource():
         """ Returns the buying and selling amounts for unidirectional orders, based on the order
             side, price and amount and returns the padded values.
         """
-        
+
         quote_amount = amount * price
         padded_amount = int(self.pad(amount, baseid))
         padded_quote_amount = int(self.pad(quote_amount, quoteid))
 
         if side is TradeType.SELL:
             return {
-              "sellToken": {
-                  "tokenId": str(baseid),
-                  "volume": str(padded_amount)
-              },
-              "buyToken": {
-                  "tokenId": str(quoteid),
-                  "volume": str(padded_quote_amount)
-              },
-              "fillAmountBOrS": False
+                "sellToken": {
+                    "tokenId": str(baseid),
+                    "volume": str(padded_amount)
+                },
+                "buyToken": {
+                    "tokenId": str(quoteid),
+                    "volume": str(padded_quote_amount)
+                },
+                "fillAmountBOrS": False
             }
         else:
             return {
-              "sellToken": {
-                  "tokenId": str(quoteid),
-                  "volume": str(padded_quote_amount)
-              },
-              "buyToken": {
-                  "tokenId": str(baseid),
-                  "volume": str(padded_amount)
-              },
-              "fillAmountBOrS": True
+                "sellToken": {
+                    "tokenId": str(quoteid),
+                    "volume": str(padded_quote_amount)
+                },
+                "buyToken": {
+                    "tokenId": str(baseid),
+                    "volume": str(padded_amount)
+                },
+                "fillAmountBOrS": True
             }
-            

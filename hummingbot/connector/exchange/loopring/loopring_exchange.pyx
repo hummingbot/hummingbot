@@ -330,12 +330,10 @@ cdef class LoopringExchange(ExchangeBase):
         signed_message = PoseidonEdDSA.sign(msgHash, fq_obj)
         # Update with signature
 
-        eddsa = "0x" + "".join([
-                        hex(int(signed_message.sig.R.x))[2:].zfill(64),
-                        hex(int(signed_message.sig.R.y))[2:].zfill(64),
-                        hex(int(signed_message.sig.s))[2:].zfill(64)
-                    ])
-        
+        eddsa = "0x" + "".join([hex(int(signed_message.sig.R.x))[2:].zfill(64),
+                                hex(int(signed_message.sig.R.y))[2:].zfill(64),
+                                hex(int(signed_message.sig.s))[2:].zfill(64)])
+
         order.update({
             "hash": str(msgHash),
             "eddsaSignature": eddsa
@@ -468,14 +466,14 @@ cdef class LoopringExchange(ExchangeBase):
             }
 
             res = await self.api_request("DELETE", ORDER_CANCEL_ROUTE, params=cancellation_payload, secure=True)
-            
+
             if 'resultInfo' in res:
                 code = res['resultInfo']['code']
                 if code == 102117 and in_flight_order.created_at < (int(time.time()) - UNRECOGNIZED_ORDER_DEBOUCE):
                     # Order doesn't exist and enough time has passed so we are safe to mark this as canceled
                     self.c_trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
                     self.c_stop_tracking_order(client_order_id)
-                elif code != None and code != 0 and (code != 100001 or message != "order in status CANCELLED can't be cancelled"):
+                elif code is not None and code != 0 and (code != 100001 or message != "order in status CANCELLED can't be cancelled"):
                     raise Exception(f"Cancel order returned code {res['resultInfo']['code']} ({res['resultInfo']['message']})")
 
             return True
@@ -919,7 +917,7 @@ cdef class LoopringExchange(ExchangeBase):
 
         headers.update(self._loopring_auth.generate_auth_dict())
         full_url = f"{self.API_REST_ENDPOINT}{url}"
-        
+
         # Signs requests for secure requests
         if secure:
             ordered_data = self._encode_request(full_url, http_method, params)
@@ -927,11 +925,9 @@ cdef class LoopringExchange(ExchangeBase):
             hasher.update(ordered_data.encode('utf-8'))
             msgHash = int(hasher.hexdigest(), 16) % SNARK_SCALAR_FIELD
             signed = PoseidonEdDSA.sign(msgHash, FQ(int(self._loopring_private_key, 16)))
-            signature = "0x" + "".join([
-                        hex(int(signed.sig.R.x))[2:].zfill(64),
-                        hex(int(signed.sig.R.y))[2:].zfill(64),
-                        hex(int(signed.sig.s))[2:].zfill(64)
-                    ])
+            signature = "0x" + "".join([hex(int(signed.sig.R.x))[2:].zfill(64),
+                                        hex(int(signed.sig.R.y))[2:].zfill(64),
+                                        hex(int(signed.sig.s))[2:].zfill(64)])
             headers.update({"X-API-SIG": signature})
         async with self._shared_client.request(http_method, url=full_url,
                                                timeout=API_CALL_TIMEOUT,
