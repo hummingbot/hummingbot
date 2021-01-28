@@ -13,7 +13,6 @@ from typing import (
 
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.connector.exchange.blocktane.blocktane_api_order_book_data_source import BlocktaneAPIOrderBookDataSource
 from hummingbot.connector.exchange.blocktane.blocktane_active_order_tracker import BlocktaneActiveOrderTracker
 from hummingbot.core.data_type.order_book import OrderBook
