@@ -10,14 +10,17 @@ from hummingbot.strategy.strategy_py_base import StrategyPyBase
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from .data_types import Proposal, PriceSize
-from hummingbot.core.event.events import OrderType
+from hummingbot.core.event.events import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.market_price import usd_value
-
+from hummingbot.strategy.pure_market_making.inventory_skew_calculator import (
+    calculate_bid_ask_ratios_from_base_asset_ratio
+)
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
 lms_logger = None
+INVENTORY_RANGE_MULTIPLIER = 1
 
 
 class LiquidityMiningStrategy(StrategyPyBase):
@@ -81,12 +84,13 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 return
             else:
                 self.logger().info(f"{self._exchange.name} is ready. Trading started.")
-                self.assign_balanced_budgets()
+                self.create_budget_allocation()
 
         proposals = self.create_base_proposals()
         self._token_balances = self.adjusted_available_balances()
         self.apply_volatility_adjustment(proposals)
-        self.allocate_order_size(proposals)
+        self.apply_inventory_skew(proposals)
+        self.apply_budget_constraint(proposals)
         self.cancel_active_orders(proposals)
         self.execute_orders_proposal(proposals)
 
@@ -150,10 +154,11 @@ class LiquidityMiningStrategy(StrategyPyBase):
             mid_price = market_info.get_mid_price()
             buy_price = mid_price * (Decimal("1") - self._spread)
             buy_price = self._exchange.quantize_order_price(market, buy_price)
+            buy_size = self.base_order_size(market, buy_price)
             sell_price = mid_price * (Decimal("1") + self._spread)
             sell_price = self._exchange.quantize_order_price(market, sell_price)
-            proposals.append(Proposal(market, PriceSize(buy_price, s_decimal_zero),
-                                      PriceSize(sell_price, s_decimal_zero)))
+            sell_size = self.base_order_size(market, sell_price)
+            proposals.append(Proposal(market, PriceSize(buy_price, buy_size), PriceSize(sell_price, sell_size)))
         return proposals
 
     def apply_volatility_adjustment(self, proposals):
@@ -161,6 +166,23 @@ class LiquidityMiningStrategy(StrategyPyBase):
         #  (maybe ATR or hourly candle?) or from the mid price movement (see
         #  scripts/spreads_adjusted_on_volatility_script.py).
         return
+
+    def create_budget_allocation(self):
+        # Equally assign buy and sell budgets to all markets
+        self._sell_budgets = {m: s_decimal_zero for m in self._market_infos}
+        self._buy_budgets = {m: s_decimal_zero for m in self._market_infos}
+        if self._token == list(self._market_infos.keys())[0].split("-")[0]:
+            base_markets = [m for m in self._market_infos if m.split("-")[0] == self._token]
+            sell_size = self._exchange.get_available_balance(self._token) / len(base_markets)
+            for market in base_markets:
+                self._sell_budgets[market] = sell_size
+                self._buy_budgets[market] = self._exchange.get_available_balance(market.split("-")[1])
+        else:
+            quote_markets = [m for m in self._market_infos if m.split("-")[1] == self._token]
+            buy_size = self._exchange.get_available_balance(self._token) / len(quote_markets)
+            for market in quote_markets:
+                self._buy_budgets[market] = buy_size
+                self._sell_budgets[market] = self._exchange.get_available_balance(market.split("-")[0])
 
     def assign_balanced_budgets(self):
         # Equally assign buy and sell budgets to all markets
@@ -180,39 +202,28 @@ class LiquidityMiningStrategy(StrategyPyBase):
             for market in quote_markets:
                 self._buy_budgets[market] = buy_size
 
-    def allocate_order_size(self, proposals: List[Proposal]):
+    def base_order_size(self, trading_pair: str, price: Decimal = s_decimal_zero):
+        base, quote = trading_pair.split("-")
+        if self._token == base:
+            return self._order_size
+        if price == s_decimal_zero:
+            price = self._market_infos[trading_pair].get_mid_price()
+        return self._order_size / price
+
+    def apply_budget_constraint(self, proposals: List[Proposal]):
         balances = self._token_balances.copy()
         for proposal in proposals:
-            base_size = self._order_size if self._token == proposal.base() else self._order_size / proposal.sell.price
-            base_size = balances[proposal.base()] if balances[proposal.base()] < base_size else base_size
-            sell_size = self._exchange.quantize_order_amount(proposal.market, base_size)
-            if sell_size > s_decimal_zero:
-                proposal.sell.size = sell_size
-                balances[proposal.base()] -= sell_size
+            if balances[proposal.base()] < proposal.sell.size:
+                proposal.sell.size = balances[proposal.base()]
+            proposal.sell.size = self._exchange.quantize_order_amount(proposal.market, proposal.sell.size)
+            balances[proposal.base()] -= proposal.sell.size
 
-            quote_size = self._order_size if self._token == proposal.quote() else self._order_size * proposal.buy.price
+            quote_size = proposal.buy.size * proposal.buy.price
             quote_size = balances[proposal.quote()] if balances[proposal.quote()] < quote_size else quote_size
             buy_fee = estimate_fee(self._exchange.name, True)
             buy_size = quote_size / (proposal.buy.price * (Decimal("1") + buy_fee.percent))
-            if buy_size > s_decimal_zero:
-                proposal.buy.size = self._exchange.quantize_order_amount(proposal.market, buy_size)
-                balances[proposal.quote()] -= quote_size
-        # balances = self._token_balances.copy()
-        # for proposal in proposals:
-        #     sell_size = balances[proposal.base()] if balances[proposal.base()] < self._sell_budgets[proposal.market] \
-        #         else self._sell_budgets[proposal.market]
-        #     sell_size = self._exchange.quantize_order_amount(proposal.market, sell_size)
-        #     if sell_size > s_decimal_zero:
-        #         proposal.sell.size = sell_size
-        #         balances[proposal.base()] -= sell_size
-        #
-        #     quote_size = balances[proposal.quote()] if balances[proposal.quote()] < self._buy_budgets[proposal.market] \
-        #         else self._buy_budgets[proposal.market]
-        #     buy_fee = estimate_fee(self._exchange.name, True)
-        #     buy_size = quote_size / (proposal.buy.price * (Decimal("1") + buy_fee.percent))
-        #     if buy_size > s_decimal_zero:
-        #         proposal.buy.size = self._exchange.quantize_order_amount(proposal.market, buy_size)
-        #         balances[proposal.quote()] -= quote_size
+            proposal.buy.size = self._exchange.quantize_order_amount(proposal.market, buy_size)
+            balances[proposal.quote()] -= quote_size
 
     def is_within_tolerance(self, cur_orders: List[LimitOrder], proposal: Proposal):
         cur_buy = [o for o in cur_orders if o.is_buy]
@@ -227,7 +238,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
             return False
         return True
 
-    def cancel_active_orders(self, proposals):
+    def cancel_active_orders(self, proposals: List[Proposal]):
         for proposal in proposals:
             if self._refresh_times[proposal.market] > self.current_timestamp:
                 continue
@@ -239,7 +250,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 # To place new order on the next tick
                 self._refresh_times[order.trading_pair] = self.current_timestamp + 0.1
 
-    def execute_orders_proposal(self, proposals):
+    def execute_orders_proposal(self, proposals: List[Proposal]):
         for proposal in proposals:
             cur_orders = [o for o in self.active_orders if o.trading_pair == proposal.market]
             if cur_orders or self._refresh_times[proposal.market] > self.current_timestamp:
@@ -305,3 +316,42 @@ class LiquidityMiningStrategy(StrategyPyBase):
         #     adjusted_bals[token] -= reserved
         # self.logger().info(f"token balances: {adjusted_bals}")
         return adjusted_bals
+
+    def apply_inventory_skew(self, proposals: List[Proposal]):
+        balances = self.adjusted_available_balances()
+        for proposal in proposals:
+            mid_price = self._market_infos[proposal.market].get_mid_price()
+            total_order_size = proposal.sell.size + proposal.buy.size
+            bid_ask_ratios = calculate_bid_ask_ratios_from_base_asset_ratio(
+                float(balances[proposal.base()]),
+                float(balances[proposal.quote()]),
+                float(mid_price),
+                float(self._target_base_pct),
+                float(total_order_size * INVENTORY_RANGE_MULTIPLIER)
+            )
+            proposal.buy.size *= Decimal(bid_ask_ratios.bid_ratio)
+            # proposal.buy.size = self._exchange.quantize_order_amount(proposal.market, proposal.buy.size)
+
+            proposal.sell.size *= Decimal(bid_ask_ratios.ask_ratio)
+            # proposal.sell.size = self._exchange.quantize_order_amount(proposal.market, proposal.sell.size)
+
+    def did_fill_order(self, order_filled_event):
+        order_id = order_filled_event.order_id
+        market_info = self.order_tracker.get_shadow_market_pair_from_order_id(order_id)
+        if market_info is not None:
+            if order_filled_event.trade_type is TradeType.BUY:
+                self.log_with_clock(
+                    logging.INFO,
+                    f"({market_info.trading_pair}) Maker buy order of "
+                    f"{order_filled_event.amount} {market_info.base_asset} filled."
+                )
+                self._buy_budgets[market_info.trading_pair] -= (order_filled_event.amount * order_filled_event.price)
+                self._sell_budgets[market_info.trading_pair] += (order_filled_event.amount)
+            else:
+                self.log_with_clock(
+                    logging.INFO,
+                    f"({market_info.trading_pair}) Maker sell order of "
+                    f"{order_filled_event.amount} {market_info.base_asset} filled."
+                )
+                self._sell_budgets[market_info.trading_pair] -= (order_filled_event.amount)
+                self._buy_budgets[market_info.trading_pair] += (order_filled_event.amount * order_filled_event.price)

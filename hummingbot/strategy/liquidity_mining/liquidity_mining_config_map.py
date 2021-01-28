@@ -15,6 +15,7 @@ def exchange_on_validated(value: str) -> None:
 
 
 def token_validate(value: str) -> Optional[str]:
+    value = value.upper()
     markets = list(liquidity_mining_config_map["eligible_markets"].value.split(","))
     tokens = set()
     for market in markets:
@@ -24,6 +25,8 @@ def token_validate(value: str) -> Optional[str]:
 
 
 def token_on_validated(value: str) -> None:
+    value = value.upper()
+    liquidity_mining_config_map["token"].value = value
     el_markets = list(liquidity_mining_config_map["eligible_markets"].value.split(","))
     markets = [m for m in el_markets if value in m.split("-")]
     liquidity_mining_config_map["markets"].value = ",".join(markets)
