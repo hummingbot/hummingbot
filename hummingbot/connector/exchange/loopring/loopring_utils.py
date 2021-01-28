@@ -6,11 +6,11 @@ from hummingbot.client.config.config_methods import using_exchange
 
 CENTRALIZED = True
 
-EXAMPLE_PAIR = "LRC-ETH"
+EXAMPLE_PAIR = "LRC-USDT"
 
 DEFAULT_FEES = [0.0, 0.2]
 
-LOOPRING_ROOT_API = "https://api.loopring.io"
+LOOPRING_ROOT_API = "https://api3.loopring.io"
 LOOPRING_WS_KEY_PATH = "/v2/ws/key"
 
 KEYS = {

@@ -33,12 +33,12 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 
 
-MARKETS_URL = "/api/v2/exchange/markets"
-TICKER_URL = "/api/v2/ticker?market=:markets"
-SNAPSHOT_URL = "/api/v2/depth?market=:trading_pair"
-TOKEN_INFO_URL = "/api/v2/exchange/tokens"
-WS_URL = "wss://ws.loopring.io/v2/ws"
-LOOPRING_PRICE_URL = "https://api.loopring.io/api/v2/ticker"
+MARKETS_URL = "/api/v3/exchange/markets"
+TICKER_URL = "/api/v3/ticker?market=:markets"
+SNAPSHOT_URL = "/api/v3/depth?market=:trading_pair"
+TOKEN_INFO_URL = "/api/v3/exchange/tokens"
+WS_URL = "wss://ws.api3.loopring.io/v3/ws"
+LOOPRING_PRICE_URL = "https://api3.loopring.io/api/v3/ticker"
 
 
 class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -65,7 +65,7 @@ class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
         async with aiohttp.ClientSession() as client:
-            resp = await client.get(f"https://api.loopring.io{TICKER_URL}".replace(":markets", ",".join(trading_pairs)))
+            resp = await client.get(f"https://api3.loopring.io{TICKER_URL}".replace(":markets", ",".join(trading_pairs)))
             resp_json = await resp.json()
             return {x[0]: float(x[7]) for x in resp_json.get("data", [])}
 
@@ -78,7 +78,7 @@ class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return self._trading_pairs
 
     async def get_snapshot(self, client: aiohttp.ClientSession, trading_pair: str, level: int = 0) -> Dict[str, any]:
-        async with client.get(f"https://api.loopring.io{SNAPSHOT_URL}&level={level}".replace(":trading_pair", trading_pair)) as response:
+        async with client.get(f"https://api3.loopring.io{SNAPSHOT_URL}&level={level}".replace(":trading_pair", trading_pair)) as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
                 raise IOError(
@@ -91,6 +91,7 @@ class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         async with aiohttp.ClientSession() as client:
             snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, 1000)
+            snapshot["data"] = {"bids": snapshot["bids"], "asks": snapshot["asks"]}
             snapshot_timestamp: float = time.time()
             snapshot_msg: OrderBookMessage = LoopringOrderBook.snapshot_message_from_exchange(
                 snapshot,
@@ -137,7 +138,7 @@ class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def fetch_trading_pairs() -> List[str]:
         try:
             async with aiohttp.ClientSession() as client:
-                async with client.get(f"https://api.loopring.io{MARKETS_URL}", timeout=5) as response:
+                async with client.get(f"https://api3.loopring.io{MARKETS_URL}", timeout=5) as response:
                     if response.status == 200:
                         all_trading_pairs: Dict[str, Any] = await response.json()
                         valid_trading_pairs: list = []
