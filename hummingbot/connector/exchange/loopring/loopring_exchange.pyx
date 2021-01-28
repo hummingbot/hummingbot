@@ -81,17 +81,17 @@ API_CALL_TIMEOUT = 10.0
 
 # ==========================================================
 
-GET_ORDER_ROUTE = "/api/v2/order"
-MAINNET_API_REST_ENDPOINT = "https://api.loopring.io/"
-MAINNET_WS_ENDPOINT = "wss://ws.loopring.io/v2/ws"
-EXCHANGE_INFO_ROUTE = "api/v2/timestamp"
-BALANCES_INFO_ROUTE = "api/v2/user/balances"
-ACCOUNT_INFO_ROUTE = "api/v2/account"
-MARKETS_INFO_ROUTE = "api/v2/exchange/markets"
-TOKENS_INFO_ROUTE = "api/v2/exchange/tokens"
-NEXT_ORDER_ID = "api/v2/orderId"
+GET_ORDER_ROUTE = "/api/v3/order"
+MAINNET_API_REST_ENDPOINT = "https://api3.loopring.io/"
+MAINNET_WS_ENDPOINT = "wss://ws.api3.loopring.io/v2/ws"
+EXCHANGE_INFO_ROUTE = "api/v3/timestamp"
+BALANCES_INFO_ROUTE = "api/v3/user/balances"
+ACCOUNT_INFO_ROUTE = "api/v3/account"
+MARKETS_INFO_ROUTE = "api/v3/exchange/markets"
+TOKENS_INFO_ROUTE = "api/v3/exchange/tokens"
+NEXT_ORDER_ID = "api/v3/storageId"
 ORDER_ROUTE = "api/v3/order"
-ORDER_CANCEL_ROUTE = "api/v2/orders"
+ORDER_CANCEL_ROUTE = "api/v3/order"
 MAXIMUM_FILL_COUNT = 16
 UNRECOGNIZED_ORDER_DEBOUCE = 20  # seconds
 
@@ -145,7 +145,7 @@ cdef class LoopringExchange(ExchangeBase):
 
     def __init__(self,
                  loopring_accountid: int,
-                 loopring_exchangeid: int,
+                 loopring_exchangeid: str,
                  loopring_private_key: str,
                  loopring_api_key: str,
                  poll_interval: float = 10.0,
@@ -182,7 +182,7 @@ cdef class LoopringExchange(ExchangeBase):
         self._polling_update_task = None
 
         self._loopring_accountid = int(loopring_accountid)
-        self._loopring_exchangeid = int(loopring_exchangeid)
+        self._loopring_exchangeid = loopring_exchangeid
         self._loopring_private_key = loopring_private_key
 
         # State
@@ -192,7 +192,7 @@ cdef class LoopringExchange(ExchangeBase):
         self._in_flight_orders = {}
         self._next_order_id = {}
         self._trading_pairs = trading_pairs
-        self._order_sign_param = poseidon_params(SNARK_SCALAR_FIELD, 14, 6, 53, b'poseidon', 5, security_target=128)
+        self._order_sign_param = poseidon_params(SNARK_SCALAR_FIELD, 12, 6, 53, b'poseidon', 5, security_target=128)
 
         self._order_id_lock = asyncio.Lock()
 
@@ -266,33 +266,31 @@ cdef class LoopringExchange(ExchangeBase):
             next_id = self._next_order_id
             if force_sync or self._next_order_id.get(token) is None:
                 try:
-                    response = await self.api_request("GET", NEXT_ORDER_ID, params={"accountId": self._loopring_accountid, "tokenSId": token})
-                    next_id = response["data"]
+                    response = await self.api_request("GET", NEXT_ORDER_ID, params={"accountId": self._loopring_accountid, "sellTokenId": token})
+                    next_id = response["orderId"]
                     self._next_order_id[token] = next_id
                 except Exception as e:
                     self.logger().info(str(e))
                     self.logger().info("Error getting the next order id from Loopring")
             else:
                 next_id = self._next_order_id[token]
-                self._next_order_id[token] = next_id + 1
+                self._next_order_id[token] = (next_id + 2) % 4294967294
 
         return next_id
 
     async def _serialize_order(self, order):
         return [
-            int(order["exchangeId"]),
-            int(order["orderId"]),
+            int(order["exchange"], 16),
+            int(order["storageId"]),
             int(order["accountId"]),
-            int(order["tokenSId"]),
-            int(order["tokenBId"]),
-            int(order["amountS"]),
-            int(order["amountB"]),
-            int(order["allOrNone"] == 'true'),
-            int(order["validSince"]),
+            int(order["sellToken"]['tokenId']),
+            int(order["buyToken"]['tokenId']),
+            int(order["sellToken"]['volume']),
+            int(order["buyToken"]['volume']),
             int(order["validUntil"]),
             int(order["maxFeeBips"]),
-            int(order["buy"] == 'true'),
-            int(order["label"])
+            int(order["fillAmountBOrS"]),
+            int(order.get("taker", "0x0"), 16)
         ]
 
     def supported_order_types(self):
@@ -311,38 +309,39 @@ cdef class LoopringExchange(ExchangeBase):
 
         validSince = int(time.time()) - 3600
         order_details = self._token_configuration.sell_buy_amounts(baseid, quoteid, amount, price, order_side)
-        token_s_id = int(order_details["tokenSId"])
-        order_id = await self._get_next_order_id(token_s_id)
+        token_s_id = order_details["sellToken"]["tokenId"]
+        order_id = await self._get_next_order_id(int(token_s_id))
         order = {
-            "exchangeId": self._loopring_exchangeid,
-            "orderId": order_id,
+            "exchange": str(self._loopring_exchangeid),
+            "storageId": order_id,
             "accountId": self._loopring_accountid,
             "allOrNone": "false",
             "validSince": validSince,
             "validUntil": validSince + (604800 * 5),  # Until week later
-            "maxFeeBips": 63,
-            "label": 20,
-            "buy": "true" if order_side is TradeType.BUY else "false",
+            "maxFeeBips": 50,
             "clientOrderId": client_order_id,
             **order_details
         }
         if order_type is OrderType.LIMIT_MAKER:
             order["orderType"] = "MAKER_ONLY"
-
         serialized_message = await self._serialize_order(order)
         msgHash = poseidon(serialized_message, self._order_sign_param)
-        fq_obj = FQ(int(self._loopring_private_key))
+        fq_obj = FQ(int(self._loopring_private_key, 16))
         signed_message = PoseidonEdDSA.sign(msgHash, fq_obj)
-
         # Update with signature
+
+        eddsa = "0x" + "".join([
+                        hex(int(signed_message.sig.R.x))[2:].zfill(64),
+                        hex(int(signed_message.sig.R.y))[2:].zfill(64),
+                        hex(int(signed_message.sig.s))[2:].zfill(64)
+                    ])
+        
         order.update({
             "hash": str(msgHash),
-            "signatureRx": str(signed_message.sig.R.x),
-            "signatureRy": str(signed_message.sig.R.y),
-            "signatureS": str(signed_message.sig.s)
+            "eddsaSignature": eddsa
         })
 
-        return await self.api_request("POST", ORDER_ROUTE, params=order, data=order)
+        return await self.api_request("POST", ORDER_ROUTE, data=order)
 
     async def execute_order(self, order_side, client_order_id, trading_pair, amount, order_type, price):
         """
@@ -350,6 +349,7 @@ cdef class LoopringExchange(ExchangeBase):
         validates the order against the trading rules before placing this order.
         """
         # Quantize order
+
         amount = self.c_quantize_order_amount(trading_pair, amount)
         price = self.c_quantize_order_price(trading_pair, price)
 
@@ -374,21 +374,22 @@ cdef class LoopringExchange(ExchangeBase):
 
             try:
                 creation_response = await self.place_order(client_order_id, trading_pair, amount, order_side is TradeType.BUY, order_type, price)
-            except asyncio.exceptions.TimeoutError:
+            except asyncio.TimeoutError:
                 # We timed out while placing this order. We may have successfully submitted the order, or we may have had connection
                 # issues that prevented the submission from taking place. We'll assume that the order is live and let our order status
                 # updates mark this as cancelled if it doesn't actually exist.
+                self.logger().warning(f"Order {client_order_id} has timed out and putatively failed. Order will be tracked until reconciled.")
                 return True
 
             # Verify the response from the exchange
-            if "data" not in creation_response.keys():
-                raise Exception(creation_response['resultInfo']['message'])
+            if "status" not in creation_response.keys():
+                raise Exception(creation_response)
 
-            status = creation_response["data"]["status"]
-            if status != 'NEW_ACTIVED':
+            status = creation_response["status"]
+            if status != 'processing':
                 raise Exception(status)
 
-            loopring_order_hash = creation_response["data"]["orderHash"]
+            loopring_order_hash = creation_response["hash"]
             in_flight_order.update_exchange_order_id(loopring_order_hash)
 
             # Begin tracking order
@@ -467,14 +468,15 @@ cdef class LoopringExchange(ExchangeBase):
             }
 
             res = await self.api_request("DELETE", ORDER_CANCEL_ROUTE, params=cancellation_payload, secure=True)
-            code = res['resultInfo']['code']
-            message = res['resultInfo']['message']
-            if code == 102117 and in_flight_order.created_at < (int(time.time()) - UNRECOGNIZED_ORDER_DEBOUCE):
-                # Order doesn't exist and enough time has passed so we are safe to mark this as canceled
-                self.c_trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
-                self.c_stop_tracking_order(client_order_id)
-            elif code != 0 and (code != 100001 or message != "order in status CANCELLED can't be cancelled"):
-                raise Exception(f"Cancel order returned code {res['resultInfo']['code']} ({res['resultInfo']['message']})")
+            
+            if 'resultInfo' in res:
+                code = res['resultInfo']['code']
+                if code == 102117 and in_flight_order.created_at < (int(time.time()) - UNRECOGNIZED_ORDER_DEBOUCE):
+                    # Order doesn't exist and enough time has passed so we are safe to mark this as canceled
+                    self.c_trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
+                    self.c_stop_tracking_order(client_order_id)
+                elif code != None and code != 0 and (code != 100001 or message != "order in status CANCELLED can't be cancelled"):
+                    raise Exception(f"Cancel order returned code {res['resultInfo']['code']} ({res['resultInfo']['message']})")
 
             return True
 
@@ -681,14 +683,13 @@ cdef class LoopringExchange(ExchangeBase):
             if len(tokens) == 0:
                 await self.token_configuration._configure()
                 tokens = set(self.token_configuration.get_tokens())
-
             async with self._lock:
                 completed_tokens = set()
                 for data in updates:
-                    padded_total_amount: str = data['totalAmount']
+                    padded_total_amount: str = data['total']
                     token_id: int = data['tokenId']
                     completed_tokens.add(token_id)
-                    padded_amount_locked: string = data['amountLocked']
+                    padded_amount_locked: string = data['locked']
 
                     token_symbol: str = self._token_configuration.get_symbol(token_id)
                     total_amount: Decimal = self._token_configuration.unpad(padded_total_amount, token_id)
@@ -731,6 +732,8 @@ cdef class LoopringExchange(ExchangeBase):
                 topic: str = event['topic']['topic']
                 data: Dict[str, Any] = event['data']
                 if topic == 'account':
+                    data['total'] = data['totalAmount']
+                    data['locked'] = data['amountLocked']
                     await self._set_balances([data], is_snapshot=False)
                 elif topic == 'order':
                     client_order_id: str = data['clientOrderId']
@@ -777,37 +780,31 @@ cdef class LoopringExchange(ExchangeBase):
                 self.logger().info(e)
 
     async def _update_balances(self):
-        balances_response = await self.api_request("GET", BALANCES_INFO_ROUTE,
-                                                   params = {
-                                                       "accountId": self._loopring_accountid
-                                                   })
-        await self._set_balances(balances_response["data"])
+        balances_response = await self.api_request("GET", f"{BALANCES_INFO_ROUTE}?accountId={self._loopring_accountid}")
+        await self._set_balances(balances_response)
 
     async def _update_trading_rules(self):
         markets_info, tokens_info = await asyncio.gather(
             self.api_request("GET", MARKETS_INFO_ROUTE),
             self.api_request("GET", TOKENS_INFO_ROUTE)
         )
-
         # Loopring fees not available from api
 
-        markets_info = markets_info["data"]
-        tokens_info = tokens_info["data"]
         tokens_info = {t['tokenId']: t for t in tokens_info}
 
-        for market in markets_info:
+        for market in markets_info['markets']:
             if market['enabled'] is True:
                 baseid, quoteid = market['baseTokenId'], market['quoteTokenId']
 
                 try:
                     self._trading_rules[market["market"]] = TradingRule(
                         trading_pair=market["market"],
-                        min_order_size = self.token_configuration.unpad(tokens_info[baseid]['minOrderAmount'], baseid),
-                        max_order_size = self.token_configuration.unpad(tokens_info[baseid]['maxOrderAmount'], baseid),
+                        min_order_size = self.token_configuration.unpad(tokens_info[baseid]['orderAmounts']['minimum'], baseid),
+                        max_order_size = self.token_configuration.unpad(tokens_info[baseid]['orderAmounts']['maximum'], baseid),
                         min_price_increment=Decimal(f"1e-{market['precisionForPrice']}"),
                         min_base_amount_increment=Decimal(f"1e-{tokens_info[baseid]['precision']}"),
                         min_quote_amount_increment=Decimal(f"1e-{tokens_info[quoteid]['precision']}"),
-                        min_notional_size = self.token_configuration.unpad(tokens_info[quoteid]['minOrderAmount'], quoteid),
+                        min_notional_size = self.token_configuration.unpad(tokens_info[quoteid]['orderAmounts']['minimum'], quoteid),
                         supports_limit_orders = True,
                         supports_market_orders = False
                     )
@@ -838,13 +835,14 @@ cdef class LoopringExchange(ExchangeBase):
                                                                     "accountId": self._loopring_accountid,
                                                                     "orderHash": tracked_order.exchange_order_id
                                                                 })
-                data = loopring_order_request["data"]
+                data = loopring_order_request
             except Exception:
                 self.logger().warning(f"Failed to fetch tracked Loopring order "
-                                      f"{client_order_id }({tracked_order.exchange_order_id}) from api (code: {loopring_order_request['resultInfo']['code']})")
+                                      f"{client_order_id }({tracked_order.exchange_order_id}) from api (code: {loopring_order_request})")
 
                 # check if this error is because the api cliams to be unaware of this order. If so, and this order
                 # is reasonably old, mark the order as cancelled
+                print(loopring_order_request)
                 if loopring_order_request['resultInfo']['code'] == 107003:
                     if tracked_order.created_at < (int(time.time()) - UNRECOGNIZED_ORDER_DEBOUCE):
                         self.logger().warning(f"marking {client_order_id} as cancelled")
@@ -854,6 +852,9 @@ cdef class LoopringExchange(ExchangeBase):
                 continue
 
             try:
+                data["filledSize"] = data["volumes"]["baseFilled"]
+                data["filledVolume"] = data["volumes"]["quoteFilled"]
+                data["filledFee"] = data["volumes"]["fee"]
                 self._update_inflight_order(tracked_order, data)
             except Exception as e:
                 self.logger().error(f"Failed to update Loopring order {tracked_order.exchange_order_id}")
@@ -918,23 +919,29 @@ cdef class LoopringExchange(ExchangeBase):
 
         headers.update(self._loopring_auth.generate_auth_dict())
         full_url = f"{self.API_REST_ENDPOINT}{url}"
-
+        
         # Signs requests for secure requests
         if secure:
             ordered_data = self._encode_request(full_url, http_method, params)
             hasher = hashlib.sha256()
             hasher.update(ordered_data.encode('utf-8'))
             msgHash = int(hasher.hexdigest(), 16) % SNARK_SCALAR_FIELD
-            signed = PoseidonEdDSA.sign(msgHash, FQ(int(self._loopring_private_key)))
-            signature = ','.join(str(_) for _ in [signed.sig.R.x, signed.sig.R.y, signed.sig.s])
+            signed = PoseidonEdDSA.sign(msgHash, FQ(int(self._loopring_private_key, 16)))
+            signature = "0x" + "".join([
+                        hex(int(signed.sig.R.x))[2:].zfill(64),
+                        hex(int(signed.sig.R.y))[2:].zfill(64),
+                        hex(int(signed.sig.s))[2:].zfill(64)
+                    ])
             headers.update({"X-API-SIG": signature})
-
         async with self._shared_client.request(http_method, url=full_url,
                                                timeout=API_CALL_TIMEOUT,
                                                data=data, params=params, headers=headers) as response:
             if response.status != 200:
                 self.logger().info(f"Issue with Loopring API {http_method} to {url}, response: ")
                 self.logger().info(await response.text())
+                data = await response.json()
+                if 'resultInfo' in data:
+                    return data
                 raise IOError(f"Error fetching data from {full_url}. HTTP status is {response.status}.")
             data = await response.json()
             return data
