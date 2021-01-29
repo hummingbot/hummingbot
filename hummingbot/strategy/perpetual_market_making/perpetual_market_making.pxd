@@ -21,6 +21,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         object _stop_loss_spread
         object _close_position_order_type
         object _close_order_type
+        double _market_position_close_timestamp
         int _order_levels
         int _buy_levels
         int _sell_levels
@@ -52,7 +53,6 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         int _filled_buys_balance
         int _filled_sells_balance
         list _hanging_order_ids
-        list _exit_order_ids
         double _last_timestamp
         double _status_report_interval
         int64_t _logging_options
