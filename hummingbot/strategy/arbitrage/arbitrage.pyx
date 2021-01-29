@@ -129,12 +129,18 @@ cdef class ArbitrageStrategy(StrategyBase):
                  f"take bid on {market_pair.second.market.name}: {round(self._current_profitability[1] * 100, 4)} %"])
 
             # See if there're any pending limit orders.
-            tracked_limit_orders_df = self.tracked_limit_orders_data_frame
-            tracked_market_orders_df = self.tracked_market_orders_data_frame
+            tracked_limit_orders = self.tracked_limit_orders
+            tracked_market_orders = self.tracked_market_orders
 
-            if len(tracked_limit_orders_df) > 0 or len(tracked_market_orders_df) > 0:
-                df_limit_lines = str(tracked_limit_orders_df).split("\n")
-                df_market_lines = str(tracked_market_orders_df).split("\n")
+            if len(tracked_limit_orders) > 0 or len(tracked_market_orders) > 0:
+                tracked_limit_orders_df = self.tracked_limit_orders_data_frame
+                tracked_market_orders_df = self.tracked_market_orders_data_frame
+                df_limit_lines = (str(tracked_limit_orders_df).split("\n")
+                                  if len(tracked_limit_orders) > 0
+                                  else list())
+                df_market_lines = (str(tracked_market_orders_df).split("\n")
+                                   if len(tracked_market_orders) > 0
+                                   else list())
                 lines.extend(["", "  Pending limit orders:"] +
                              ["    " + line for line in df_limit_lines] +
                              ["    " + line for line in df_market_lines])
