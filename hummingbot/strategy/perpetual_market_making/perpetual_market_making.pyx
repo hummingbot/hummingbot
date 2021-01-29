@@ -460,8 +460,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         market, trading_pair = self._market_info.market, self._market_info.trading_pair
         for idx in self.active_positions.values():
             is_buy = True if idx.amount > 0 else False
-            unrealized_profit = ((market.get_price(trading_pair, is_buy) - idx.entry_price) * idx.amount) if is_buy \
-                else ((market.get_price(trading_pair, is_buy) - idx.entry_price) * idx.amount)
+            unrealized_profit = ((market.get_price(trading_pair, is_buy) - idx.entry_price) * idx.amount)
             data.append([
                 idx.trading_pair,
                 idx.position_side.name,
