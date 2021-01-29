@@ -202,7 +202,9 @@ class MarketsRecorder:
                                     creation_timestamp=timestamp,
                                     order_type=evt.type.name,
                                     amount=float(evt.amount),
+                                    leverage=evt.leverage if evt.leverage else 1,
                                     price=float(evt.price) if evt.price == evt.price else 0,
+                                    position=evt.position if evt.position else "NILL",
                                     last_status=event_type.name,
                                     last_update_timestamp=timestamp,
                                     exchange_order_id=evt.exchange_order_id)
@@ -252,8 +254,10 @@ class MarketsRecorder:
                                                  order_type=evt.order_type.name,
                                                  price=float(evt.price) if evt.price == evt.price else 0,
                                                  amount=float(evt.amount),
+                                                 leverage=evt.leverage if evt.leverage else 1,
                                                  trade_fee=TradeFee.to_json(evt.trade_fee),
-                                                 exchange_trade_id=evt.exchange_trade_id)
+                                                 exchange_trade_id=evt.exchange_trade_id,
+                                                 position=evt.position if evt.position else "NILL",)
         session.add(order_status)
         session.add(trade_fill_record)
         self.save_market_states(self._config_file_path, market, no_commit=True)
