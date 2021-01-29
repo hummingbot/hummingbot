@@ -142,7 +142,7 @@ class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     if response.status == 200:
                         all_trading_pairs: Dict[str, Any] = await response.json()
                         valid_trading_pairs: list = []
-                        for item in all_trading_pairs["data"]:
+                        for item in all_trading_pairs["markets"]:
                             valid_trading_pairs.append(item["market"])
                         trading_pair_list: List[str] = []
                         for raw_trading_pair in valid_trading_pairs:
