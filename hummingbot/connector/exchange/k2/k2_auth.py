@@ -23,8 +23,8 @@ class K2Auth():
         :return: a dictionary of request info including the request signature
         """
 
-        nonce = int(time.time() * 1e3)
-        auth_payload = path_url + str(nonce)
+        nonce = str(int(time.time() * 1e3))
+        auth_payload = path_url + nonce
         signature = rsa.sign(auth_payload.encode(), self.secret_key, "SHA-256").hex()
 
         headers = self.get_headers()

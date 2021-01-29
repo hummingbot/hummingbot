@@ -11,7 +11,6 @@ import asyncio
 import aiohttp
 import math
 import time
-import ujson
 
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
@@ -302,7 +301,7 @@ class K2Exchange(ExchangeBase):
     async def _api_request(self,
                            method: str,
                            path_url: str,
-                           params: Dict[str, Any] = {},
+                           params: Dict[str, Any] = None,
                            is_auth_required: bool = False) -> Dict[str, Any]:
         """
         Sends an aiohttp request and waits for a response.
@@ -319,21 +318,23 @@ class K2Exchange(ExchangeBase):
         else:
             headers = self._k2_auth.get_headers()
 
+        http_client = await self._http_client()
+
         if method == "GET":
-            response = await self._http_client().get(url, headers=headers, params=params)
+            response = await http_client.get(url, headers=headers, params=params)
         elif method == "POST":
-            response = await self._http_client().post(url, headers=headers, params=params)
+            response = await http_client.post(url, headers=headers, params=params)
         else:
             raise NotImplementedError
 
-        try:
-            parsed_response = await ujson.loads(response)
-        except Exception as e:
-            raise IOError(f"Error parsing data from {method} {url}. Error: {str(e)}")
-
         if response.status != 200:
             raise IOError(f"Error fetching data from {method} {url}. HTTP status is {response.status}. "
-                          f"Message: {parsed_response}")
+                          f"Message: {response.reason}")
+
+        try:
+            parsed_response = await response.json()
+        except Exception as e:
+            raise IOError(f"Error parsing data from {method} {url}. Error: {str(e)}")
 
         if parsed_response["success"] is not True:
             raise IOError(f"{method} {url} API call failed, response: {parsed_response}")
