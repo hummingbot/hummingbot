@@ -3,6 +3,7 @@ import logging
 import asyncio
 from typing import Dict, List, Set
 import pandas as pd
+import numpy as np
 import time
 from hummingbot.core.clock import Clock
 from hummingbot.logger import HummingbotLogger
@@ -19,6 +20,7 @@ from hummingbot.strategy.pure_market_making.inventory_skew_calculator import (
 )
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
+s_decimal_nan = Decimal("NaN")
 lms_logger = None
 INVENTORY_RANGE_MULTIPLIER = 1
 
@@ -123,12 +125,36 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
         return pd.DataFrame(data=data, columns=columns)
 
+    def market_status_df(self) -> pd.DataFrame:
+        data = []
+        columns = ["Exchange", "Market", "Mid Price", "Base Balance", "Quote Balance", " Base / Quote %"]
+        balances = self.adjusted_available_balances()
+        for market, market_info in self._market_infos.items():
+            base, quote = market.split("-")
+            mid_price = market_info.get_mid_price()
+            adj_base_bal = balances[base] * mid_price
+            total_bal = adj_base_bal + balances[quote]
+            base_pct = adj_base_bal / total_bal if total_bal > 0 else s_decimal_zero
+            quote_pct = balances[quote] / total_bal if total_bal > 0 else s_decimal_zero
+            data.append([
+                self._exchange.display_name,
+                market,
+                float(mid_price),
+                float(balances[base]),
+                float(balances[quote]),
+                f"{f'{base_pct:.0%}':>5s} /{f'{quote_pct:.0%}':>5s}"
+            ])
+        return pd.DataFrame(data=data, columns=columns).replace(np.nan, '', regex=True)
+
     async def format_status(self) -> str:
         if not self._ready_to_trade:
             return "Market connectors are not ready."
         lines = []
         warning_lines = []
         warning_lines.extend(self.network_warning(list(self._market_infos.values())))
+
+        lines.extend(["", "  Markets:"] + ["    " + line for line in
+                                           self.market_status_df().to_string(index=False).split("\n")])
 
         # See if there're any open orders.
         if len(self.active_orders) > 0:
@@ -318,13 +344,15 @@ class LiquidityMiningStrategy(StrategyPyBase):
         return adjusted_bals
 
     def apply_inventory_skew(self, proposals: List[Proposal]):
-        balances = self.adjusted_available_balances()
+        # balances = self.adjusted_available_balances()
         for proposal in proposals:
+            buy_budget = self._buy_budgets[proposal.market]
+            sell_budget = self._sell_budgets[proposal.market]
             mid_price = self._market_infos[proposal.market].get_mid_price()
             total_order_size = proposal.sell.size + proposal.buy.size
             bid_ask_ratios = calculate_bid_ask_ratios_from_base_asset_ratio(
-                float(balances[proposal.base()]),
-                float(balances[proposal.quote()]),
+                float(sell_budget),
+                float(buy_budget),
                 float(mid_price),
                 float(self._target_base_pct),
                 float(total_order_size * INVENTORY_RANGE_MULTIPLIER)
@@ -346,12 +374,12 @@ class LiquidityMiningStrategy(StrategyPyBase):
                     f"{order_filled_event.amount} {market_info.base_asset} filled."
                 )
                 self._buy_budgets[market_info.trading_pair] -= (order_filled_event.amount * order_filled_event.price)
-                self._sell_budgets[market_info.trading_pair] += (order_filled_event.amount)
+                self._sell_budgets[market_info.trading_pair] += order_filled_event.amount
             else:
                 self.log_with_clock(
                     logging.INFO,
                     f"({market_info.trading_pair}) Maker sell order of "
                     f"{order_filled_event.amount} {market_info.base_asset} filled."
                 )
-                self._sell_budgets[market_info.trading_pair] -= (order_filled_event.amount)
+                self._sell_budgets[market_info.trading_pair] -= order_filled_event.amount
                 self._buy_budgets[market_info.trading_pair] += (order_filled_event.amount * order_filled_event.price)
