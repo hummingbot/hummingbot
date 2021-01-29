@@ -34,7 +34,7 @@ class DatabaseTransformation(ABC):
             # from_version > 0 means from_version property was overridden by transformation class
             if self.from_version > 0:
                 return (self.from_version >= original_version) and (self.to_version <= target_version)
-            return self.to_version <= target_version
+            return (self.to_version > original_version) and (self.to_version <= target_version)
         return False
 
     def __eq__(self, other):
