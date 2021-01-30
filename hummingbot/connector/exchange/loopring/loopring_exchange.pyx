@@ -145,7 +145,7 @@ cdef class LoopringExchange(ExchangeBase):
 
     def __init__(self,
                  loopring_accountid: int,
-                 loopring_exchangeid: str,
+                 loopring_exchangeaddress: str,
                  loopring_private_key: str,
                  loopring_api_key: str,
                  poll_interval: float = 10.0,
@@ -182,7 +182,7 @@ cdef class LoopringExchange(ExchangeBase):
         self._polling_update_task = None
 
         self._loopring_accountid = int(loopring_accountid)
-        self._loopring_exchangeid = loopring_exchangeid
+        self._loopring_exchangeid = loopring_exchangeaddress
         self._loopring_private_key = loopring_private_key
 
         # State
