@@ -20,9 +20,9 @@ KEYS = {
                   required_if=using_exchange("loopring"),
                   is_secure=True,
                   is_connect_key=True),
-    "loopring_exchangeid":
-        ConfigVar(key="loopring_exchangeid",
-                  prompt="Enter the Loopring exchange id >>> ",
+    "loopring_exchangeaddress":
+        ConfigVar(key="loopring_exchangeaddress",
+                  prompt="Enter the Loopring exchange address >>> ",
                   required_if=using_exchange("loopring"),
                   is_secure=True,
                   is_connect_key=True),
