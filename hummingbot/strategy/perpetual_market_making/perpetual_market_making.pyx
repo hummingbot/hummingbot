@@ -787,7 +787,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                 else position.entry_price * (Decimal("1") - self._stop_loss_spread)
             if (top_ask <= stop_loss_price and position.amount > 0):
                 price = market.c_quantize_order_price(self.trading_pair, stop_loss_price)
-                take_profit_orders = [o for o in active_orders if (o.is_buy and position.amount < 0 and o.client_order_id in self._exit_orders)]
+                take_profit_orders = [o for o in active_orders if (not o.is_buy and o.price > stop_loss_price and o.client_order_id in self._exit_orders)]
                 # cancel take profit orders if they exist
                 for old_order in take_profit_orders:
                     self.c_cancel_order(self._market_info, old_order.client_order_id)
@@ -803,7 +803,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                         sells.append(PriceSize(price, size))
             elif (top_bid >= stop_loss_price and position.amount < 0):
                 price = market.c_quantize_order_price(self.trading_pair, stop_loss_price)
-                take_profit_orders = [o for o in active_orders if (not o.is_buy and position.amount > 0 and o.client_order_id in self._exit_orders)]
+                take_profit_orders = [o for o in active_orders if (o.is_buy and o.price < stop_loss_price and o.client_order_id in self._exit_orders)]
                 # cancel take profit orders if they exist
                 for old_order in take_profit_orders:
                     self.c_cancel_order(self._market_info, old_order.client_order_id)
