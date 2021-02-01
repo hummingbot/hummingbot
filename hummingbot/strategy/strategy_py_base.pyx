@@ -55,7 +55,6 @@ cdef class StrategyPyBase(StrategyBase):
         pass
 
     cdef c_did_fill_order(self, object order_filled_event):
-        print(f"c_did_fill_order {order_filled_event}")
         self.did_fill_order(order_filled_event)
 
     def did_fill_order(self, order_filled_event):
