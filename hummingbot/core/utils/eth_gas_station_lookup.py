@@ -41,7 +41,7 @@ def request_gas_limit(connector_name: str) -> int:
     balancer_max_swaps = global_config_map["balancer_max_swaps"].value
 
     base_url = ':'.join(['https://' + host, port])
-    url = f"{base_url}/{connector_name}/gas-limit"
+    url = f"{base_url}/eth/{connector_name}/gas-limit"
 
     ca_certs = GATEAWAY_CA_CERT_PATH
     client_certs = (GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH)

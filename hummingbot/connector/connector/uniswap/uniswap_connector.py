@@ -88,6 +88,7 @@ class UniswapConnector(ConnectorBase):
         self._allowances = {}
         self._status_polling_task = None
         self._auto_approve_task = None
+        self._initiate_pool_task = None
         self._real_time_balance_update = False
         self._poll_notifier = None
 
@@ -137,9 +138,8 @@ class UniswapConnector(ConnectorBase):
         """
         resp = await self._api_request("post",
                                        "eth/approve",
-                                       {"tokenAddress": self._token_addresses[token_symbol],
+                                       {"token": token_symbol,
                                         "gasPrice": str(get_gas_price()),
-                                        "decimals": self._token_decimals[token_symbol],  # if not supplied, gateway would treat it eth-like with 18 decimals
                                         "connector": self.name})
         amount_approved = Decimal(str(resp["amount"]))
         if amount_approved > 0:
@@ -154,9 +154,8 @@ class UniswapConnector(ConnectorBase):
         :return: A dictionary of token and its allowance (how much Uniswap can spend).
         """
         ret_val = {}
-        resp = await self._api_request("post", "eth/allowances-2",
-                                       {"tokenAddressList": ("".join([tok + "," for tok in self._token_addresses.values()])).rstrip(","),
-                                        "tokenDecimalList": ("".join([str(dec) + "," for dec in self._token_decimals.values()])).rstrip(","),
+        resp = await self._api_request("post", "eth/allowances",
+                                       {"tokenList": "[" + ("".join(['"' + tok + '"' + "," for tok in self._token_addresses.keys()])).rstrip(",") + "]",
                                         "connector": self.name})
         for address, amount in resp["approvals"].items():
             ret_val[self.get_token(address)] = Decimal(str(amount))
@@ -176,9 +175,10 @@ class UniswapConnector(ConnectorBase):
             base, quote = trading_pair.split("-")
             side = "buy" if is_buy else "sell"
             resp = await self._api_request("post",
-                                           f"uniswap/{side}-price",
-                                           {"base": self._token_addresses[base],
-                                            "quote": self._token_addresses[quote],
+                                           "eth/uniswap/price",
+                                           {"base": base,
+                                            "quote": quote,
+                                            "side": side.upper(),
                                             "amount": amount})
             if resp["price"] is not None:
                 return Decimal(str(resp["price"]))
@@ -252,15 +252,16 @@ class UniswapConnector(ConnectorBase):
         price = self.quantize_order_price(trading_pair, price)
         base, quote = trading_pair.split("-")
         gas_price = get_gas_price()
-        api_params = {"base": self._token_addresses[base],
-                      "quote": self._token_addresses[quote],
+        api_params = {"base": base,
+                      "quote": quote,
+                      "side": trade_type.name.upper(),
                       "amount": str(amount),
-                      "maxPrice": str(price),
+                      "limitPrice": str(price),
                       "gasPrice": str(gas_price),
                       }
         self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, gas_price)
         try:
-            order_result = await self._api_request("post", f"uniswap/{trade_type.name.lower()}", api_params)
+            order_result = await self._api_request("post", "eth/uniswap/trade", api_params)
             hash = order_result.get("txHash")
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
@@ -333,7 +334,7 @@ class UniswapConnector(ConnectorBase):
             for tracked_order in tracked_orders:
                 order_id = await tracked_order.get_exchange_order_id()
                 tasks.append(self._api_request("post",
-                                               "eth/get-receipt",
+                                               "eth/poll",
                                                {"txHash": order_id}))
             update_results = await safe_gather(*tasks, return_exceptions=True)
             for update_result in update_results:
@@ -422,6 +423,7 @@ class UniswapConnector(ConnectorBase):
     async def start_network(self):
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
+            self._initiate_pool_task = safe_ensure_future(self.initiate_pool())
             self._auto_approve_task = safe_ensure_future(self.auto_approve())
 
     async def stop_network(self):
@@ -431,6 +433,9 @@ class UniswapConnector(ConnectorBase):
         if self._auto_approve_task is not None:
             self._auto_approve_task.cancel()
             self._auto_approve_task = None
+        if self._initiate_pool_task is not None:
+            self._initiate_pool_task.cancel()
+            self._initiate_pool_task = None
 
     async def check_network(self) -> NetworkStatus:
         try:
@@ -485,9 +490,8 @@ class UniswapConnector(ConnectorBase):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
         resp_json = await self._api_request("post",
-                                            "eth/balances-2",
-                                            {"tokenAddressList": ("".join([tok + "," for tok in self._token_addresses.values()])).rstrip(","),
-                                             "tokenDecimalList": ("".join([str(dec) + "," for dec in self._token_decimals.values()])).rstrip(",")})
+                                            "eth/balances",
+                                            {"tokenList": "[" + ("".join(['"' + tok + '"' + "," for tok in self._token_addresses.keys()])).rstrip(",") + "]"})
         for token, bal in resp_json["balances"].items():
             if len(token) > 4:
                 token = self.get_token(token)
