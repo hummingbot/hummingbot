@@ -134,6 +134,7 @@ class BinancePerpetualDerivative(DerivativeBase):
         self._funding_rate = 0
         self._account_positions = {}
         self._position_mode = None
+        self._leverage = 1
 
     @property
     def name(self) -> str:
@@ -250,7 +251,7 @@ class BinancePerpetualDerivative(DerivativeBase):
             else:
                 api_params["positionSide"] = "SHORT" if trade_type is TradeType.BUY else "LONG"
 
-        self.start_tracking_order(order_id, "", trading_pair, trade_type, price, amount, order_type)
+        self.start_tracking_order(order_id, "", trading_pair, trade_type, price, amount, order_type, self._leverage, position_action.name)
 
         try:
             order_result = await self.request(path="/fapi/v1/order",
@@ -274,7 +275,9 @@ class BinancePerpetualDerivative(DerivativeBase):
                                            trading_pair,
                                            amount,
                                            price,
-                                           order_id))
+                                           order_id,
+                                           leverage=self._leverage,
+                                           position=position_action.name))
             return order_result
         except asyncio.CancelledError:
             raise
@@ -439,7 +442,7 @@ class BinancePerpetualDerivative(DerivativeBase):
 
     # ORDER TRACKING ---
     def start_tracking_order(self, order_id: str, exchange_order_id: str, trading_pair: str, trading_type: object,
-                             price: object, amount: object, order_type: object):
+                             price: object, amount: object, order_type: object, leverage: int, position: str):
         self._in_flight_orders[order_id] = BinancePerpetualsInFlightOrder(
             client_order_id=order_id,
             exchange_order_id=exchange_order_id,
@@ -447,7 +450,10 @@ class BinancePerpetualDerivative(DerivativeBase):
             order_type=order_type,
             trade_type=trading_type,
             price=price,
-            amount=amount
+            amount=amount,
+            leverage=leverage,
+            position=position
+
         )
 
     def stop_tracking_order(self, order_id: str):
@@ -496,6 +502,7 @@ class BinancePerpetualDerivative(DerivativeBase):
                             order_type=OrderType.LIMIT if order_message.get("o") == "LIMIT" else OrderType.MARKET,
                             price=Decimal(order_message.get("L")),
                             amount=Decimal(order_message.get("l")),
+                            leverage=self._leverage,
                             trade_fee=self.get_fee(
                                 base_currency=tracked_order.base_asset,
                                 quote_currency=tracked_order.quote_asset,
@@ -504,7 +511,8 @@ class BinancePerpetualDerivative(DerivativeBase):
                                 amount=Decimal(order_message.get("q")),
                                 price=Decimal(order_message.get("p"))
                             ),
-                            exchange_trade_id=order_message.get("t")
+                            exchange_trade_id=order_message.get("t"),
+                            position=tracked_order.position
                         )
                         self.trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
@@ -596,8 +604,8 @@ class BinancePerpetualDerivative(DerivativeBase):
         poll_interval = (self.SHORT_POLL_INTERVAL
                          if now - self._user_stream_tracker.last_recv_time > 60.0
                          else self.LONG_POLL_INTERVAL)
-        last_tick = self._last_timestamp / poll_interval
-        current_tick = timestamp / poll_interval
+        last_tick = int(self._last_timestamp / poll_interval)
+        current_tick = int(timestamp / poll_interval)
         if current_tick > last_tick:
             if not self._poll_notifier.is_set():
                 self._poll_notifier.set()
@@ -680,10 +688,10 @@ class BinancePerpetualDerivative(DerivativeBase):
                 await self._poll_notifier.wait()
                 await safe_gather(
                     self._update_balances(),
-                    self._update_positions(),
-                    self._update_order_fills_from_trades(),
-                    self._update_order_status()
+                    self._update_positions()
                 )
+                await self._update_order_fills_from_trades(),
+                await self._update_order_status()
                 self._last_poll_timestamp = self.current_timestamp
             except asyncio.CancelledError:
                 raise
@@ -738,8 +746,8 @@ class BinancePerpetualDerivative(DerivativeBase):
                     del self._account_positions[trading_pair + position_side.name]
 
     async def _update_order_fills_from_trades(self):
-        last_tick = self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
-        current_tick = self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
+        last_tick = int(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
+        current_tick = int(self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             trading_pairs_to_order_map = defaultdict(lambda: {})
             for order in self._in_flight_orders.values():
@@ -788,13 +796,15 @@ class BinancePerpetualDerivative(DerivativeBase):
                                         tracked_order.trade_type,
                                         Decimal(trade["price"]),
                                         Decimal(trade["qty"])),
-                                    exchange_trade_id=trade["id"]
+                                    exchange_trade_id=trade["id"],
+                                    leverage=self._leverage,
+                                    position=tracked_order.position
                                 )
                             )
 
     async def _update_order_status(self):
-        last_tick = self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
-        current_tick = self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
+        last_tick = int(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
+        current_tick = int(self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
             tasks = [self.request(path="/fapi/v1/order",
@@ -886,6 +896,7 @@ class BinancePerpetualDerivative(DerivativeBase):
             is_signed=True
         )
         if set_leverage["leverage"] == leverage:
+            self._leverage = leverage
             self.logger().info(f"Leverage Successfully set to {leverage}.")
         else:
             self.logger().error("Unable to set leverage.")
