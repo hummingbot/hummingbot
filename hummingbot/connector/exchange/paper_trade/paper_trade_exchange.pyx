@@ -10,6 +10,7 @@ from libcpp.vector cimport vector
 import math
 import pandas as pd
 import random
+import time
 from typing import (
     Dict,
     List,
@@ -569,6 +570,7 @@ cdef class PaperTradeExchange(ExchangeBase):
             orders_collection_ptr.erase(orders_it)
             if orders_collection_ptr.empty():
                 map_it_ptr[0] = limit_orders_map_ptr.erase(deref(map_it_ptr))
+            time.sleep(0.01)
             return True
         except Exception as err:
             self.logger().error("Error deleting limit order.", exc_info=True)
@@ -867,12 +869,14 @@ cdef class PaperTradeExchange(ExchangeBase):
                 limit_order_ptr = address(deref(orders_it))
                 limit_order_cid = limit_order_ptr.getClientOrderID().decode("utf8")
                 delete_success = self.c_delete_limit_order(orders_map, address(map_it), orders_it)
+                self.logger().info(f"Successfully cancelled order {limit_order_cid}.")
                 cancellation_results.append(CancellationResult(limit_order_cid,
                                                                delete_success))
                 self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp,
                                                          limit_order_cid)
                                      )
+                time.sleep(0.001)
             return cancellation_results
         except Exception as err:
             self.logger().error(f"Error canceling order.", exc_info=True)
