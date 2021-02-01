@@ -13,6 +13,10 @@ def start(self):
     target_base_pct = c_map.get("target_base_pct").value / Decimal("100")
     order_refresh_time = c_map.get("order_refresh_time").value
     order_refresh_tolerance_pct = c_map.get("order_refresh_tolerance_pct").value / Decimal("100")
+    inventory_range_multiplier = c_map.get("inventory_range_multiplier").value
+    volatility_interval = c_map.get("volatility_interval").value
+    avg_volatility_period = c_map.get("avg_volatility_period").value
+    volatility_to_spread_multiplier = c_map.get("volatility_to_spread_multiplier").value
 
     self._initialize_markets([(exchange, markets)])
     exchange = self.markets[exchange]
@@ -28,5 +32,9 @@ def start(self):
         spread=spread,
         target_base_pct=target_base_pct,
         order_refresh_time=order_refresh_time,
-        order_refresh_tolerance_pct=order_refresh_tolerance_pct
+        order_refresh_tolerance_pct=order_refresh_tolerance_pct,
+        inventory_range_multiplier=inventory_range_multiplier,
+        volatility_interval=volatility_interval,
+        avg_volatility_period=avg_volatility_period,
+        volatility_to_spread_multiplier=volatility_to_spread_multiplier
     )
