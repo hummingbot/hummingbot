@@ -68,7 +68,7 @@ class CryptoComExchangeUnitTest(unittest.TestCase):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.connector: CryptoComExchange = CryptoComExchange(
             crypto_com_api_key=API_KEY,
-            crypto_com_api_secret=API_SECRET,
+            crypto_com_secret_key=API_SECRET,
             trading_pairs=[cls.trading_pair],
             trading_required=True
         )
