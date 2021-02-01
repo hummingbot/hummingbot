@@ -1,9 +1,10 @@
 from decimal import Decimal
 import logging
 import asyncio
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Optional
 import pandas as pd
 import numpy as np
+from statistics import mean
 import time
 from hummingbot.core.clock import Clock
 from hummingbot.logger import HummingbotLogger
@@ -23,6 +24,8 @@ s_decimal_zero = Decimal(0)
 s_decimal_nan = Decimal("NaN")
 lms_logger = None
 INVENTORY_RANGE_MULTIPLIER = 1
+VOLATILITY_INTERVAL = 5 * 60  # 5 minutes interval
+VOLATILITY_AVG_PERIOD = 10
 
 
 class LiquidityMiningStrategy(StrategyPyBase):
@@ -66,6 +69,8 @@ class LiquidityMiningStrategy(StrategyPyBase):
         self._token_balances = {}
         self._sell_budgets = {}
         self._buy_budgets = {}
+        self._mid_prices = {market: [] for market in market_infos}
+        self._last_vol_reported = 0.
 
         self.add_markets([exchange])
 
@@ -88,9 +93,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 self.logger().info(f"{self._exchange.name} is ready. Trading started.")
                 self.create_budget_allocation()
 
+        self.update_mid_prices()
         proposals = self.create_base_proposals()
         self._token_balances = self.adjusted_available_balances()
-        self.apply_volatility_adjustment(proposals)
         self.apply_inventory_skew(proposals)
         self.apply_budget_constraint(proposals)
         self.cancel_active_orders(proposals)
@@ -176,22 +181,20 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
     def create_base_proposals(self):
         proposals = []
+        volatility = self.calculate_volatility()
         for market, market_info in self._market_infos.items():
+            spread = self._spread
+            if volatility.get(market) is not None:
+                spread = max(spread, volatility[market])
             mid_price = market_info.get_mid_price()
-            buy_price = mid_price * (Decimal("1") - self._spread)
+            buy_price = mid_price * (Decimal("1") - spread)
             buy_price = self._exchange.quantize_order_price(market, buy_price)
             buy_size = self.base_order_size(market, buy_price)
-            sell_price = mid_price * (Decimal("1") + self._spread)
+            sell_price = mid_price * (Decimal("1") + spread)
             sell_price = self._exchange.quantize_order_price(market, sell_price)
             sell_size = self.base_order_size(market, sell_price)
             proposals.append(Proposal(market, PriceSize(buy_price, buy_size), PriceSize(sell_price, sell_size)))
         return proposals
-
-    def apply_volatility_adjustment(self, proposals):
-        # Todo: apply volatility spread adjustment, the volatility can be calculated from OHLC
-        #  (maybe ATR or hourly candle?) or from the mid price movement (see
-        #  scripts/spreads_adjusted_on_volatility_script.py).
-        return
 
     def create_budget_allocation(self):
         # Equally assign buy and sell budgets to all markets
@@ -281,9 +284,12 @@ class LiquidityMiningStrategy(StrategyPyBase):
             cur_orders = [o for o in self.active_orders if o.trading_pair == proposal.market]
             if cur_orders or self._refresh_times[proposal.market] > self.current_timestamp:
                 continue
+            mid_price = self._market_infos[proposal.market].get_mid_price()
             if proposal.buy.size > 0:
+                spread = abs(proposal.buy.price - mid_price) / mid_price
                 self.logger().info(f"({proposal.market}) Creating a bid order {proposal.buy} value: "
-                                   f"{proposal.buy.size * proposal.buy.price:.2f} {proposal.quote()}")
+                                   f"{proposal.buy.size * proposal.buy.price:.2f} {proposal.quote()} spread: "
+                                   f"{spread:.2%}")
                 self.buy_with_specific_market(
                     self._market_infos[proposal.market],
                     proposal.buy.size,
@@ -291,7 +297,10 @@ class LiquidityMiningStrategy(StrategyPyBase):
                     price=proposal.buy.price
                 )
             if proposal.sell.size > 0:
-                self.logger().info(f"({proposal.market}) Creating an ask order at {proposal.sell}")
+                spread = abs(proposal.sell.price - mid_price) / mid_price
+                self.logger().info(f"({proposal.market}) Creating an ask order at {proposal.sell} value: "
+                                   f"{proposal.sell.size * proposal.sell.price:.2f} {proposal.quote()} spread: "
+                                   f"{spread:.2%}")
                 self.sell_with_specific_market(
                     self._market_infos[proposal.market],
                     proposal.sell.size,
@@ -336,15 +345,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 adjusted_bals[quote] += order.quantity * order.price
             else:
                 adjusted_bals[base] += order.quantity
-        # for token in tokens:
-        #     adjusted_bals[token] = min(adjusted_bals[token], total_bals[token])
-        #     reserved = self._reserved_balances.get(token, s_decimal_zero)
-        #     adjusted_bals[token] -= reserved
-        # self.logger().info(f"token balances: {adjusted_bals}")
         return adjusted_bals
 
     def apply_inventory_skew(self, proposals: List[Proposal]):
-        # balances = self.adjusted_available_balances()
         for proposal in proposals:
             buy_budget = self._buy_budgets[proposal.market]
             sell_budget = self._sell_budgets[proposal.market]
@@ -358,10 +361,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 float(total_order_size * INVENTORY_RANGE_MULTIPLIER)
             )
             proposal.buy.size *= Decimal(bid_ask_ratios.bid_ratio)
-            # proposal.buy.size = self._exchange.quantize_order_amount(proposal.market, proposal.buy.size)
-
             proposal.sell.size *= Decimal(bid_ask_ratios.ask_ratio)
-            # proposal.sell.size = self._exchange.quantize_order_amount(proposal.market, proposal.sell.size)
 
     def did_fill_order(self, order_filled_event):
         order_id = order_filled_event.order_id
@@ -383,3 +383,31 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 )
                 self._sell_budgets[market_info.trading_pair] -= order_filled_event.amount
                 self._buy_budgets[market_info.trading_pair] += (order_filled_event.amount * order_filled_event.price)
+
+    def update_mid_prices(self):
+        for market in self._market_infos:
+            mid_price = self._market_infos[market].get_mid_price()
+            self._mid_prices[market].append(mid_price)
+            # To avoid memory leak, we store only the last part of the list needed for volatility calculation
+            self._mid_prices[market] = self._mid_prices[market][-1 * VOLATILITY_INTERVAL * VOLATILITY_AVG_PERIOD:]
+
+    def calculate_volatility(self) -> Dict[str, Optional[Decimal]]:
+        volatility = {market: None for market in self._market_infos}
+        for market, mid_prices in self._mid_prices.items():
+            last_index = len(mid_prices) - 1
+            atr = []
+            first_index = last_index - (VOLATILITY_INTERVAL * VOLATILITY_AVG_PERIOD)
+            first_index = max(first_index, 0)
+            for i in range(last_index, first_index, VOLATILITY_INTERVAL * -1):
+                prices = mid_prices[i - VOLATILITY_INTERVAL + 1: i + 1]
+                if not prices:
+                    break
+                atr.append((max(prices) - min(prices)) / min(prices))
+            if atr:
+                volatility[market] = mean(atr)
+        if self._last_vol_reported < self.current_timestamp - 60.:
+            for market, vol in volatility.items():
+                if vol is not None:
+                    self.logger().info(f"{market} volatility: {vol:.2%}")
+            self._last_vol_reported = self.current_timestamp
+        return volatility
