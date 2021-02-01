@@ -27,11 +27,6 @@ VOLATILITY_AVG_PERIOD = 10
 
 
 class LiquidityMiningStrategy(StrategyPyBase):
-    """
-    This is a basic arbitrage strategy which can be used for most types of connectors (CEX, DEX or AMM).
-    For a given order amount, the strategy checks both sides of the trade (market_1 and market_2) for arb opportunity.
-    If presents, the strategy submits taker orders to both market.
-    """
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -106,9 +101,6 @@ class LiquidityMiningStrategy(StrategyPyBase):
         self.apply_budget_constraint(proposals)
         self.cancel_active_orders(proposals)
         self.execute_orders_proposal(proposals)
-
-        # if self.c_to_create_orders(proposal):
-        #     self.c_execute_orders_proposal(proposal)
 
         self._last_timestamp = timestamp
 
@@ -219,24 +211,6 @@ class LiquidityMiningStrategy(StrategyPyBase):
             for market in quote_markets:
                 self._buy_budgets[market] = buy_size
                 self._sell_budgets[market] = self._exchange.get_available_balance(market.split("-")[0])
-
-    def assign_balanced_budgets(self):
-        # Equally assign buy and sell budgets to all markets
-        base_tokens = self.all_base_tokens()
-        self._sell_budgets = {m: s_decimal_zero for m in self._market_infos}
-        for base in base_tokens:
-            base_markets = [m for m in self._market_infos if m.split("-")[0] == base]
-            sell_size = self._exchange.get_available_balance(base) / len(base_markets)
-            for market in base_markets:
-                self._sell_budgets[market] = sell_size
-        # Then assign all the buy order size based on the quote token balance available
-        quote_tokens = self.all_quote_tokens()
-        self._buy_budgets = {m: s_decimal_zero for m in self._market_infos}
-        for quote in quote_tokens:
-            quote_markets = [m for m in self._market_infos if m.split("-")[1] == quote]
-            buy_size = self._exchange.get_available_balance(quote) / len(quote_markets)
-            for market in quote_markets:
-                self._buy_budgets[market] = buy_size
 
     def base_order_size(self, trading_pair: str, price: Decimal = s_decimal_zero):
         base, quote = trading_pair.split("-")
