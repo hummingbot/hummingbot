@@ -8,7 +8,6 @@ import contextlib
 import time
 import os
 from typing import List
-from unittest import mock
 import conf
 import math
 
@@ -35,15 +34,11 @@ from hummingbot.model.order import Order
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.connector.exchange.crypto_com.crypto_com_exchange import CryptoComExchange
-from hummingbot.connector.exchange.crypto_com.crypto_com_constants import WSS_PUBLIC_URL, WSS_PRIVATE_URL
-from test.integration.humming_web_app import HummingWebApp
-from test.integration.humming_ws_server import HummingWsServerFactory
 from . import fixture
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
-API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
-API_KEY = "XXX" if API_MOCK_ENABLED else conf.crypto_com_api_key
-API_SECRET = "YYY" if API_MOCK_ENABLED else conf.crypto_com_secret_key
+API_KEY = conf.crypto_com_api_key
+API_SECRET = conf.crypto_com_secret_key
 BASE_API_URL = "api.crypto.com"
 
 
@@ -70,26 +65,6 @@ class CryptoComExchangeUnitTest(unittest.TestCase):
 
         cls.ev_loop = asyncio.get_event_loop()
 
-        if API_MOCK_ENABLED:
-            cls.web_app = HummingWebApp.get_instance()
-            cls.web_app.add_host_to_mock(BASE_API_URL, [])
-            cls.web_app.start()
-            cls.ev_loop.run_until_complete(cls.web_app.wait_til_started())
-            cls._patcher = mock.patch("aiohttp.client.URL")
-            cls._url_mock = cls._patcher.start()
-            cls._url_mock.side_effect = cls.web_app.reroute_local
-            cls.web_app.update_response("get", BASE_API_URL, "/v2/public/get-ticker", fixture.TICKERS)
-            cls.web_app.update_response("get", BASE_API_URL, "/v2/public/get-instruments", fixture.INSTRUMENTS)
-            cls.web_app.update_response("get", BASE_API_URL, "/v2/public/get-book", fixture.GET_BOOK)
-            cls.web_app.update_response("post", BASE_API_URL, "/v2/private/get-account-summary", fixture.BALANCES)
-            cls.web_app.update_response("post", BASE_API_URL, "/v2/private/cancel-order", fixture.CANCEL)
-
-            HummingWsServerFactory.start_new_server(WSS_PRIVATE_URL)
-            HummingWsServerFactory.start_new_server(WSS_PUBLIC_URL)
-            cls._ws_patcher = unittest.mock.patch("websockets.connect", autospec=True)
-            cls._ws_mock = cls._ws_patcher.start()
-            cls._ws_mock.side_effect = HummingWsServerFactory.reroute_ws_connect
-
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.connector: CryptoComExchange = CryptoComExchange(
             crypto_com_api_key=API_KEY,
@@ -101,20 +76,12 @@ class CryptoComExchangeUnitTest(unittest.TestCase):
         cls.clock.add_iterator(cls.connector)
         cls.stack: contextlib.ExitStack = contextlib.ExitStack()
         cls._clock = cls.stack.enter_context(cls.clock)
-        if API_MOCK_ENABLED:
-            HummingWsServerFactory.send_json_threadsafe(WSS_PRIVATE_URL, fixture.WS_INITIATED, delay=0.5)
-            HummingWsServerFactory.send_json_threadsafe(WSS_PRIVATE_URL, fixture.WS_SUBSCRIBE, delay=0.51)
-            HummingWsServerFactory.send_json_threadsafe(WSS_PRIVATE_URL, fixture.WS_HEARTBEAT, delay=0.52)
         cls.ev_loop.run_until_complete(cls.wait_til_ready())
         print("Ready.")
 
     @classmethod
     def tearDownClass(cls) -> None:
         cls.stack.close()
-        if API_MOCK_ENABLED:
-            cls.web_app.stop()
-            cls._patcher.stop()
-            cls._ws_patcher.stop()
 
     @classmethod
     async def wait_til_ready(cls, connector = None):
@@ -165,37 +132,14 @@ class CryptoComExchangeUnitTest(unittest.TestCase):
 
     def _place_order(self, is_buy, amount, order_type, price, ex_order_id, get_order_fixture=None,
                      ws_trade_fixture=None, ws_order_fixture=None) -> str:
-        if API_MOCK_ENABLED:
-            data = fixture.PLACE_ORDER.copy()
-            data["result"]["order_id"] = str(ex_order_id)
-            self.web_app.update_response("post", BASE_API_URL, "/v2/private/create-order", data)
         if is_buy:
             cl_order_id = self.connector.buy(self.trading_pair, amount, order_type, price)
         else:
             cl_order_id = self.connector.sell(self.trading_pair, amount, order_type, price)
-        if API_MOCK_ENABLED:
-            if get_order_fixture is not None:
-                data = get_order_fixture.copy()
-                data["result"]["order_info"]["client_oid"] = cl_order_id
-                data["result"]["order_info"]["order_id"] = ex_order_id
-                self.web_app.update_response("post", BASE_API_URL, "/v2/private/get-order-detail", data)
-            if ws_trade_fixture is not None:
-                data = ws_trade_fixture.copy()
-                data["result"]["data"][0]["order_id"] = str(ex_order_id)
-                HummingWsServerFactory.send_json_threadsafe(WSS_PRIVATE_URL, data, delay=0.1)
-            if ws_order_fixture is not None:
-                data = ws_order_fixture.copy()
-                data["result"]["data"][0]["order_id"] = str(ex_order_id)
-                data["result"]["data"][0]["client_oid"] = cl_order_id
-                HummingWsServerFactory.send_json_threadsafe(WSS_PRIVATE_URL, data, delay=0.12)
         return cl_order_id
 
     def _cancel_order(self, cl_order_id):
         self.connector.cancel(self.trading_pair, cl_order_id)
-        if API_MOCK_ENABLED:
-            data = fixture.WS_ORDER_CANCELLED.copy()
-            data["result"]["data"][0]["client_oid"] = cl_order_id
-            HummingWsServerFactory.send_json_threadsafe(WSS_PRIVATE_URL, data, delay=0.1)
 
     def test_buy_and_sell(self):
         price = self.connector.get_price(self.trading_pair, True) * Decimal("1.05")
@@ -291,12 +235,8 @@ class CryptoComExchangeUnitTest(unittest.TestCase):
         self.assertEqual(cl_order_id, event.order_id)
 
     def _mock_ws_bal_update(self, token, available):
-        if API_MOCK_ENABLED:
-            available = float(available)
-            data = fixture.WS_BALANCE.copy()
-            data["result"]["data"][0]["currency"] = token
-            data["result"]["data"][0]["available"] = available
-            HummingWsServerFactory.send_json_threadsafe(WSS_PRIVATE_URL, fixture.WS_BALANCE, delay=0.1)
+        # TODO: Determine best way to test balance via ws
+        pass
 
     def test_limit_maker_rejections(self):
         price = self.connector.get_price(self.trading_pair, True) * Decimal("1.2")
@@ -327,16 +267,6 @@ class CryptoComExchangeUnitTest(unittest.TestCase):
 
         self.ev_loop.run_until_complete(asyncio.sleep(1))
         asyncio.ensure_future(self.connector.cancel_all(3))
-        if API_MOCK_ENABLED:
-            data = fixture.WS_ORDER_CANCELLED.copy()
-            data["result"]["data"][0]["client_oid"] = buy_id
-            data["result"]["data"][0]["order_id"] = 1
-            HummingWsServerFactory.send_json_threadsafe(WSS_PRIVATE_URL, data, delay=0.1)
-            self.ev_loop.run_until_complete(asyncio.sleep(1))
-            data = fixture.WS_ORDER_CANCELLED.copy()
-            data["result"]["data"][0]["client_oid"] = sell_id
-            data["result"]["data"][0]["order_id"] = 2
-            HummingWsServerFactory.send_json_threadsafe(WSS_PRIVATE_URL, data, delay=0.11)
         self.ev_loop.run_until_complete(asyncio.sleep(3))
         cancel_events = [t for t in self.event_logger.event_log if isinstance(t, OrderCancelledEvent)]
         self.assertEqual({buy_id, sell_id}, {o.order_id for o in cancel_events})
@@ -434,8 +364,6 @@ class CryptoComExchangeUnitTest(unittest.TestCase):
             recorder.start()
             saved_market_states = recorder.get_market_states(config_path, new_connector)
             self.clock.add_iterator(new_connector)
-            if not API_MOCK_ENABLED:
-                self.ev_loop.run_until_complete(self.wait_til_ready(new_connector))
             self.assertEqual(0, len(new_connector.limit_orders))
             self.assertEqual(0, len(new_connector.tracking_states))
             new_connector.restore_tracking_states(saved_market_states.saved_state)
