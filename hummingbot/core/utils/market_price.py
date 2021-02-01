@@ -29,7 +29,7 @@ async def token_usd_values() -> Dict[str, Decimal]:
     for token in tokens:
         token_usd_pairs = [t for t in prices if t.split("-")[0] == token and t.split("-")[1] in USD_QUOTES]
         if token_usd_pairs:
-            ret_val[token] = prices[token_usd_pairs[0]]
+            ret_val[token] = max([prices[usd_pair] for usd_pair in token_usd_pairs])
         else:
             token_any_pairs = [t for t, price in prices.items() if t.split("-")[0] == token and price > 0]
             if not token_any_pairs:

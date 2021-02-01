@@ -9,7 +9,6 @@ from sqlalchemy import (
     MetaData,
 )
 from sqlalchemy.engine.base import Engine
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import (
     sessionmaker,
     Session,
@@ -47,7 +46,7 @@ class SQLConnectionManager:
     _scm_trade_fills_instance: Optional["SQLConnectionManager"] = None
 
     LOCAL_DB_VERSION_KEY = "local_db_version"
-    LOCAL_DB_VERSION_VALUE = "20190614"
+    LOCAL_DB_VERSION_VALUE = "20210119"
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -101,7 +100,8 @@ class SQLConnectionManager:
     def __init__(self,
                  connection_type: SQLConnectionType,
                  db_path: Optional[str] = None,
-                 db_name: Optional[str] = None):
+                 db_name: Optional[str] = None,
+                 called_from_migrator = False):
         db_path = self.create_db_path(db_path, db_name)
         self.db_path = db_path
 
@@ -140,8 +140,8 @@ class SQLConnectionManager:
         self._session_cls = sessionmaker(bind=self._engine)
         self._shared_session: Session = self._session_cls()
 
-        if connection_type is SQLConnectionType.TRADE_FILLS:
-            self.check_and_upgrade_trade_fills_db()
+        if connection_type is SQLConnectionType.TRADE_FILLS and (not called_from_migrator):
+            self.check_and_migrate_db()
 
     @property
     def engine(self) -> Engine:
@@ -150,26 +150,29 @@ class SQLConnectionManager:
     def get_shared_session(self) -> Session:
         return self._shared_session
 
-    def check_and_upgrade_trade_fills_db(self):
-        try:
-            query: Query = (self._shared_session.query(LocalMetadata)
-                            .filter(LocalMetadata.key == self.LOCAL_DB_VERSION_KEY))
-            result: Optional[LocalMetadata] = query.one_or_none()
+    def get_local_db_version(self):
+        query: Query = (self._shared_session.query(LocalMetadata)
+                        .filter(LocalMetadata.key == self.LOCAL_DB_VERSION_KEY))
+        result: Optional[LocalMetadata] = query.one_or_none()
+        return result
 
-            if result is None:
-                version_info: LocalMetadata = LocalMetadata(key=self.LOCAL_DB_VERSION_KEY,
-                                                            value=self.LOCAL_DB_VERSION_VALUE)
-                self._shared_session.add(version_info)
-                self._shared_session.commit()
-            else:
-                # There's no past db version to upgrade from at this moment. So we'll just update the version value
-                # if needed.
-                if result.value < self.LOCAL_DB_VERSION_VALUE:
-                    result.value = self.LOCAL_DB_VERSION_VALUE
+    def check_and_migrate_db(self):
+        from hummingbot.model.db_migration.migrator import Migrator
+        local_db_version = self.get_local_db_version()
+        if local_db_version is None:
+            version_info: LocalMetadata = LocalMetadata(key=self.LOCAL_DB_VERSION_KEY,
+                                                        value=self.LOCAL_DB_VERSION_VALUE)
+            self._shared_session.add(version_info)
+            self._shared_session.commit()
+        else:
+            # There's no past db version to upgrade from at this moment. So we'll just update the version value
+            # if needed.
+            if local_db_version.value < self.LOCAL_DB_VERSION_VALUE:
+                was_migration_succesful = Migrator().migrate_db_to_version(self, int(local_db_version.value), int(self.LOCAL_DB_VERSION_VALUE))
+                if was_migration_succesful:
+                    # Cannot use variable local_db_version because reference is not valid since Migrator changed it
+                    self.get_local_db_version().value = self.LOCAL_DB_VERSION_VALUE
                     self._shared_session.commit()
-        except SQLAlchemyError:
-            self.logger().error("Unexpected error while checking and upgrading the local database.",
-                                exc_info=True)
 
     def commit(self):
         self._shared_session.commit()
