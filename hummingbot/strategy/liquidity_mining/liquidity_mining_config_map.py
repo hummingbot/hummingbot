@@ -3,7 +3,8 @@ from typing import Optional
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     validate_exchange,
-    validate_decimal
+    validate_decimal,
+    validate_int
 )
 from hummingbot.client.settings import (
     required_exchanges,
@@ -72,14 +73,14 @@ liquidity_mining_config_map = {
                   prompt_on_new=True),
     "spread":
         ConfigVar(key="spread",
-                  prompt="How far away from the mid price do you want to place bid order and ask order? "
+                  prompt="How far away from the mid price do you want to place bid and ask orders? "
                          "(Enter 1 to indicate 1%) >>> ",
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
                   prompt_on_new=True),
     "target_base_pct":
         ConfigVar(key="target_base_pct",
-                  prompt=" For each pair, what is your target base asset percentage? (Enter 1 to indicate 1%) >>> ",
+                  prompt="For each pair, what is your target base asset percentage? (Enter 20 to indicate 20%) >>> ",
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
                   prompt_on_new=True),
@@ -89,7 +90,7 @@ liquidity_mining_config_map = {
                          "(in seconds)? >>> ",
                   type_str="float",
                   validator=lambda v: validate_decimal(v, 0, inclusive=False),
-                  default=5.),
+                  default=10.),
     "order_refresh_tolerance_pct":
         ConfigVar(key="order_refresh_tolerance_pct",
                   prompt="Enter the percent change in price needed to refresh orders at each cycle "
@@ -97,5 +98,31 @@ liquidity_mining_config_map = {
                   type_str="decimal",
                   default=Decimal("0.2"),
                   validator=lambda v: validate_decimal(v, -10, 10, inclusive=True)),
-
+    "inventory_range_multiplier":
+        ConfigVar(key="inventory_range_multiplier",
+                  prompt="What is your tolerable range of inventory around the target, "
+                         "expressed in multiples of your total order size? ",
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, min_value=0, inclusive=False),
+                  default=Decimal("1")),
+    "volatility_interval":
+        ConfigVar(key="volatility_interval",
+                  prompt="What is an interval, in second, in which to pick historical mid price data from to calculate "
+                         "market volatility? >>> ",
+                  type_str="int",
+                  validator=lambda v: validate_int(v, min_value=1, inclusive=False),
+                  default=60 * 5),
+    "avg_volatility_period":
+        ConfigVar(key="avg_volatility_period",
+                  prompt="How many interval does it take to calculate average market volatility? >>> ",
+                  type_str="int",
+                  validator=lambda v: validate_int(v, min_value=1, inclusive=False),
+                  default=10),
+    "volatility_to_spread_multiplier":
+        ConfigVar(key="volatility_to_spread_multiplier",
+                  prompt="Enter a multiplier used to convert average volatility to spread "
+                         "(enter 1 for 1 to 1 conversion) >>> ",
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, min_value=0, inclusive=False),
+                  default=Decimal("1")),
 }

@@ -23,8 +23,6 @@ NaN = float("nan")
 s_decimal_zero = Decimal(0)
 s_decimal_nan = Decimal("NaN")
 lms_logger = None
-INVENTORY_RANGE_MULTIPLIER = 1
-VOLATILITY_INTERVAL = 5 * 60  # 5 minutes interval
 VOLATILITY_AVG_PERIOD = 10
 
 
@@ -51,6 +49,10 @@ class LiquidityMiningStrategy(StrategyPyBase):
                  target_base_pct: Decimal,
                  order_refresh_time: float,
                  order_refresh_tolerance_pct: Decimal,
+                 inventory_range_multiplier: Decimal = Decimal("1"),
+                 volatility_interval: int = 60 * 5,
+                 avg_volatility_period: int = 10,
+                 volatility_to_spread_multiplier: Decimal = Decimal("1"),
                  status_report_interval: float = 900):
         super().__init__()
         self._exchange = exchange
@@ -61,6 +63,10 @@ class LiquidityMiningStrategy(StrategyPyBase):
         self._order_refresh_time = order_refresh_time
         self._order_refresh_tolerance_pct = order_refresh_tolerance_pct
         self._target_base_pct = target_base_pct
+        self._inventory_range_multiplier = inventory_range_multiplier
+        self._volatility_interval = volatility_interval
+        self._avg_volatility_period = avg_volatility_period
+        self._volatility_to_spread_multiplier = volatility_to_spread_multiplier
         self._ev_loop = asyncio.get_event_loop()
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
@@ -185,7 +191,8 @@ class LiquidityMiningStrategy(StrategyPyBase):
         for market, market_info in self._market_infos.items():
             spread = self._spread
             if volatility.get(market) is not None:
-                spread = max(spread, volatility[market])
+                # volatility applies only when it is higher than the spread setting.
+                spread = max(spread, volatility[market] * self._volatility_to_spread_multiplier)
             mid_price = market_info.get_mid_price()
             buy_price = mid_price * (Decimal("1") - spread)
             buy_price = self._exchange.quantize_order_price(market, buy_price)
@@ -358,7 +365,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 float(buy_budget),
                 float(mid_price),
                 float(self._target_base_pct),
-                float(total_order_size * INVENTORY_RANGE_MULTIPLIER)
+                float(total_order_size * self._inventory_range_multiplier)
             )
             proposal.buy.size *= Decimal(bid_ask_ratios.bid_ratio)
             proposal.sell.size *= Decimal(bid_ask_ratios.ask_ratio)
@@ -389,17 +396,18 @@ class LiquidityMiningStrategy(StrategyPyBase):
             mid_price = self._market_infos[market].get_mid_price()
             self._mid_prices[market].append(mid_price)
             # To avoid memory leak, we store only the last part of the list needed for volatility calculation
-            self._mid_prices[market] = self._mid_prices[market][-1 * VOLATILITY_INTERVAL * VOLATILITY_AVG_PERIOD:]
+            max_len = self._volatility_interval * self._avg_volatility_period
+            self._mid_prices[market] = self._mid_prices[market][-1 * max_len:]
 
     def calculate_volatility(self) -> Dict[str, Optional[Decimal]]:
         volatility = {market: None for market in self._market_infos}
         for market, mid_prices in self._mid_prices.items():
             last_index = len(mid_prices) - 1
             atr = []
-            first_index = last_index - (VOLATILITY_INTERVAL * VOLATILITY_AVG_PERIOD)
+            first_index = last_index - (self._volatility_interval * self._avg_volatility_period)
             first_index = max(first_index, 0)
-            for i in range(last_index, first_index, VOLATILITY_INTERVAL * -1):
-                prices = mid_prices[i - VOLATILITY_INTERVAL + 1: i + 1]
+            for i in range(last_index, first_index, self._volatility_interval * -1):
+                prices = mid_prices[i - self._volatility_interval + 1: i + 1]
                 if not prices:
                     break
                 atr.append((max(prices) - min(prices)) / min(prices))
