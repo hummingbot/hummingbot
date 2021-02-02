@@ -6,6 +6,7 @@ from decimal import Decimal
 import logging
 import pandas as pd
 from collections import defaultdict
+import re
 from typing import (
     Any,
     Dict,
@@ -100,6 +101,14 @@ cdef class KrakenExchange(ExchangeBase):
 
     ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
 
+    API_MAX_COUNTER = 20
+    API_COUNTER_DECREASE_RATE_PER_SEC = 0.33
+    API_COUNTER_POINTS = {ADD_ORDER_URI: 0,
+                          CANCEL_ORDER_URI: 0,
+                          BALANCE_URI: 1,
+                          OPEN_ORDERS_URI: 1,
+                          QUERY_ORDERS_URI: 1}
+
     @classmethod
     def logger(cls) -> HummingbotLogger:
         global s_logger
@@ -134,7 +143,8 @@ cdef class KrakenExchange(ExchangeBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
-        self._throttler = Throttler(rate_limit = (10.0, 1.0))
+        self._throttler = Throttler(rate_limit=(self.API_MAX_COUNTER, self.API_MAX_COUNTER/self.API_COUNTER_DECREASE_RATE_PER_SEC),
+                                    retry_interval=1.0/self.API_COUNTER_DECREASE_RATE_PER_SEC)
         self._last_pull_timestamp = 0
         self._shared_client = None
         self._asset_pairs = {}
@@ -206,13 +216,8 @@ cdef class KrakenExchange(ExchangeBase):
             set remote_asset_names = set()
             set asset_names_to_remove
 
-        balances = await self._api_request("POST",
-                                           BALANCE_URI,
-                                           is_auth_required=True)
-
-        open_orders = await self._api_request("POST",
-                                              OPEN_ORDERS_URI,
-                                              is_auth_required=True)
+        balances = await self._api_request_with_retry("POST", BALANCE_URI, is_auth_required=True)
+        open_orders = await self._api_request_with_retry("POST", OPEN_ORDERS_URI, is_auth_required=True)
 
         locked = defaultdict(Decimal)
 
@@ -337,10 +342,10 @@ cdef class KrakenExchange(ExchangeBase):
 
         if len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
-            tasks = [self._api_request("POST",
-                                       QUERY_ORDERS_URI,
-                                       data={"txid": o.exchange_order_id},
-                                       is_auth_required=True)
+            tasks = [self._api_request_with_retry("POST",
+                                                  QUERY_ORDERS_URI,
+                                                  data={"txid": o.exchange_order_id},
+                                                  is_auth_required=True)
                      for o in tracked_orders]
             results = await safe_gather(*tasks, return_exceptions=True)
 
@@ -663,6 +668,56 @@ cdef class KrakenExchange(ExchangeBase):
             self._shared_client = aiohttp.ClientSession()
         return self._shared_client
 
+    @staticmethod
+    def is_cloudflare_exception(exception: Exception):
+        """
+        Error status 5xx or 10xx are related to Cloudflare.
+        https://support.kraken.com/hc/en-us/articles/360001491786-API-error-messages#6
+        """
+        return bool(re.search(r"HTTP status is (5|10)\d\d\.", str(exception)))
+
+    async def get_open_orders_with_userref(self, userref: int):
+        data = {'userref': userref}
+        return await self._api_request_with_retry("POST",
+                                                  OPEN_ORDERS_URI,
+                                                  is_auth_required=True,
+                                                  data=data)
+
+    async def _api_request_with_retry(self,
+                                      method: str,
+                                      path_url: str,
+                                      params: Optional[Dict[str, Any]] = None,
+                                      data: Optional[Dict[str, Any]] = None,
+                                      is_auth_required: bool = False,
+                                      request_weight: int = 1,
+                                      retry_count = 5,
+                                      retry_interval = 1.0) -> Dict[str, Any]:
+        request_weight = self.API_COUNTER_POINTS.get(path_url, 0)
+        if retry_count == 0:
+            return await self._api_request(method, path_url, params, data, is_auth_required, request_weight)
+
+        result = None
+        for retry_attempt in range(retry_count):
+            try:
+                result= await self._api_request(method, path_url, params, data, is_auth_required, request_weight)
+                break
+            except IOError as e:
+                if self.is_cloudflare_exception(e):
+                    if path_url == ADD_ORDER_URI:
+                        self.logger().info(f"Retrying {path_url}")
+                        # Order placement could have been successful despite the IOError, so check for the open order.
+                        response = self.get_open_orders_with_userref(data.get('userref'))
+                        if any(response.get("open").values()):
+                            return response
+                    self.logger().warning(f"Cloudflare error. Attempt {retry_attempt+1}/{retry_count} API command {method}: {path_url}")
+                    await asyncio.sleep(retry_interval)
+                    continue
+                else:
+                    raise e
+        if result is None:
+            raise IOError(f"Error fetching data from {KRAKEN_ROOT_API + path_url}.")
+        return result
+
     async def _api_request(self,
                            method: str,
                            path_url: str,
@@ -672,9 +727,7 @@ cdef class KrakenExchange(ExchangeBase):
                            request_weight: int = 1) -> Dict[str, Any]:
         async with self._throttler.weighted_task(request_weight=request_weight):
             url = KRAKEN_ROOT_API + path_url
-
             client = await self._http_client()
-
             headers = {}
             data_dict = data if data is not None else {}
 
@@ -722,10 +775,10 @@ cdef class KrakenExchange(ExchangeBase):
 
     async def get_order(self, client_order_id: str) -> Dict[str, Any]:
         o = self._in_flight_orders.get(client_order_id)
-        result = await self._api_request("POST",
-                                         QUERY_ORDERS_URI,
-                                         data={"txid": o.exchange_order_id},
-                                         is_auth_required=True)
+        result = await self._api_request_with_retry("POST",
+                                                    QUERY_ORDERS_URI,
+                                                    data={"txid": o.exchange_order_id},
+                                                    is_auth_required=True)
         return result
 
     def supported_order_types(self):
@@ -750,10 +803,10 @@ cdef class KrakenExchange(ExchangeBase):
         }
         if order_type is OrderType.LIMIT_MAKER:
             data["oflags"] = "post"
-        return await self._api_request("post",
-                                       ADD_ORDER_URI,
-                                       data=data,
-                                       is_auth_required=True)
+        return await self._api_request_with_retry("post",
+                                                  ADD_ORDER_URI,
+                                                  data=data,
+                                                  is_auth_required=True)
 
     async def execute_buy(self,
                           order_id: str,
@@ -926,10 +979,10 @@ cdef class KrakenExchange(ExchangeBase):
             if tracked_order is None:
                 raise ValueError(f"Failed to cancel order – {order_id}. Order not found.")
             data: Dict[str, str] = {"txid": tracked_order.exchange_order_id}
-            cancel_result = await self._api_request("POST",
-                                                    CANCEL_ORDER_URI,
-                                                    data=data,
-                                                    is_auth_required=True)
+            cancel_result = await self._api_request_with_retry("POST",
+                                                               CANCEL_ORDER_URI,
+                                                               data=data,
+                                                               is_auth_required=True)
 
             if isinstance(cancel_result, dict) and (cancel_result.get("count") == 1 or cancel_result.get("error") is not None):
                 self.logger().info(f"Successfully cancelled order {order_id}.")
