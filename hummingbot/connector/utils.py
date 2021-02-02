@@ -1,11 +1,15 @@
 #!/usr/bin/env python
 
 import base64
+from collections import namedtuple
 from typing import (
     Dict,
     Optional
 )
 from zero_ex.order_utils import Order as ZeroExOrder
+
+
+TradeFillOrderDetails = namedtuple("TradeFillOrderDetails", "market exchange_trade_id symbol")
 
 
 def zrx_order_to_json(order: Optional[ZeroExOrder]) -> Optional[Dict[str, any]]:
