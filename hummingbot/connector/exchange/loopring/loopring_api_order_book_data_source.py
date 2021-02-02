@@ -67,7 +67,7 @@ class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
         async with aiohttp.ClientSession() as client:
             resp = await client.get(f"https://api3.loopring.io{TICKER_URL}".replace(":markets", ",".join(trading_pairs)))
             resp_json = await resp.json()
-            return {x[0]: float(x[7]) for x in resp_json.get("data", [])}
+            return {x[0]: float(x[7]) for x in resp_json.get("tickers", [])}
 
     @property
     def order_book_class(self) -> LoopringOrderBook:
