@@ -173,7 +173,7 @@ class BinanceExchangeUnitTest(unittest.TestCase):
 
         self.market_logger = EventLogger()
         self.market._current_trade_fills = set()
-        self.market._exchange_order_ids = set()
+        self.market._exchange_order_ids = dict()
         self.ev_loop.run_until_complete(self.wait_til_ready())
         for event_tag in self.events:
             self.market.add_listener(event_tag, self.market_logger)
@@ -241,7 +241,7 @@ class BinanceExchangeUnitTest(unittest.TestCase):
 
         order_id = self.place_order(True, "LINK-ETH", amount, OrderType.LIMIT, bid_price, self.get_current_nonce(), FixtureBinance.BUY_MARKET_ORDER,
                                     FixtureBinance.WS_AFTER_BUY_1, FixtureBinance.WS_AFTER_BUY_2)
-        self.market.add_exchange_order_ids_from_market_recorder({str(FixtureBinance.BUY_MARKET_ORDER['orderId'])})
+        self.market.add_exchange_order_ids_from_market_recorder({str(FixtureBinance.BUY_MARKET_ORDER['orderId']): "buy-LINKETH-1580093594011279"})
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -269,7 +269,7 @@ class BinanceExchangeUnitTest(unittest.TestCase):
         quantized_amount = order_completed_event.base_asset_amount
         order_id = self.place_order(False, "LINK-ETH", amount, OrderType.LIMIT, ask_price, 10002, FixtureBinance.SELL_MARKET_ORDER,
                                     FixtureBinance.WS_AFTER_SELL_1, FixtureBinance.WS_AFTER_SELL_2)
-        self.market.add_exchange_order_ids_from_market_recorder({str(FixtureBinance.SELL_MARKET_ORDER['orderId'])})
+        self.market.add_exchange_order_ids_from_market_recorder({str(FixtureBinance.SELL_MARKET_ORDER['orderId']): "sell-LINKETH-1580194659898896"})
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         trade_events = [t for t in self.market_logger.event_log
@@ -752,7 +752,7 @@ class BinanceExchangeUnitTest(unittest.TestCase):
                 'isMaker': True,
                 'isBestMatch': True,
             }]
-            self.market.add_exchange_order_ids_from_market_recorder({order_id})
+            self.market.add_exchange_order_ids_from_market_recorder({order_id: "buy-LINKETH-1580093594011279"})
             self.web_app.update_response("get", self.base_api_url, "/api/v3/myTrades",
                                          binance_trades, params={'symbol': 'LINKETH'})
             [market_order_completed] = self.run_parallel(self.market_logger.wait_for(OrderFilledEvent))
