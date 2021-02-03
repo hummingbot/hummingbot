@@ -466,7 +466,8 @@ cdef class BinanceExchange(ExchangeBase):
                         self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
                                              OrderFilledEvent(
                                                  trade["time"],
-                                                 get_client_order_id("buy" if trade["isBuyer"] else "sell", trading_pair),
+                                                 self._exchange_order_ids.get(str(trade["orderId"]),
+                                                                              get_client_order_id("buy" if trade["isBuyer"] else "sell", trading_pair)),
                                                  trading_pair,
                                                  TradeType.BUY if trade["isBuyer"] else TradeType.SELL,
                                                  OrderType.LIMIT_MAKER,  # defaulting to this value since trade info lacks field
