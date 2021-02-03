@@ -8,17 +8,15 @@ strategy: null
 # The exchange to run this strategy.
 exchange: null
 
-# The list of eligible markets, comma separated, e.g. LTC-USDT,ETH-USDT
-eligible_markets: null
-
-# The actual markets to run liquidity mining, this is auto populated based on eligible_markets and token
+# The list of markets, comma separated, e.g. LTC-USDT,ETH-USDT
+# Note: The actual markets will be determined by token below, only markets with the token specified below.
 markets: null
 
 # The asset (base or quote) to use to provide liquidity
 token: null
 
 # The size of each order in specified token amount
-order_size: null
+order_amount: null
 
 # The spread from mid price to place bid and ask orders, enter 1 to indicate 1%
 spread: null

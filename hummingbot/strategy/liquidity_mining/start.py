@@ -6,9 +6,13 @@ from hummingbot.strategy.liquidity_mining.liquidity_mining_config_map import liq
 
 def start(self):
     exchange = c_map.get("exchange").value.lower()
-    markets = list(c_map.get("markets").value.split(","))
-    token = c_map.get("token").value
-    order_size = c_map.get("order_size").value
+    el_markets = list(c_map.get("markets").value.split(","))
+    token = c_map.get("token").value.upper()
+    el_markets = [m.upper() for m in el_markets]
+    quote_markets = [m for m in el_markets if m.split("-")[1] == token]
+    base_markets = [m for m in el_markets if m.split("-")[0] == token]
+    markets = quote_markets if quote_markets else base_markets
+    order_amount = c_map.get("order_amount").value
     spread = c_map.get("spread").value / Decimal("100")
     target_base_pct = c_map.get("target_base_pct").value / Decimal("100")
     order_refresh_time = c_map.get("order_refresh_time").value
@@ -28,7 +32,7 @@ def start(self):
         exchange=exchange,
         market_infos=market_infos,
         token=token,
-        order_size=order_size,
+        order_amount=order_amount,
         spread=spread,
         target_base_pct=target_base_pct,
         order_refresh_time=order_refresh_time,

@@ -17,20 +17,12 @@ def exchange_on_validated(value: str) -> None:
 
 def token_validate(value: str) -> Optional[str]:
     value = value.upper()
-    markets = list(liquidity_mining_config_map["eligible_markets"].value.split(","))
+    markets = list(liquidity_mining_config_map["markets"].value.split(","))
     tokens = set()
     for market in markets:
         tokens.update(set(market.split("-")))
     if value not in tokens:
         return f"Invalid token. {value} is not one of {','.join(tokens)}"
-
-
-def token_on_validated(value: str) -> None:
-    value = value.upper()
-    liquidity_mining_config_map["token"].value = value
-    el_markets = list(liquidity_mining_config_map["eligible_markets"].value.split(","))
-    markets = [m for m in el_markets if value in m.split("-")]
-    liquidity_mining_config_map["markets"].value = ",".join(markets)
 
 
 def order_size_prompt() -> str:
@@ -49,24 +41,19 @@ liquidity_mining_config_map = {
                   validator=validate_exchange,
                   on_validated=exchange_on_validated,
                   prompt_on_new=True),
-    "eligible_markets":
-        ConfigVar(key="eligible_markets",
+    "markets":
+        ConfigVar(key="markets",
                   prompt="Enter a list of markets (comma separated, e.g. LTC-USDT,ETH-USDT) >>> ",
                   type_str="str",
                   prompt_on_new=True),
-    "markets":
-        ConfigVar(key="markets",
-                  prompt=None,
-                  type_str="str"),
     "token":
         ConfigVar(key="token",
                   prompt="What asset (base or quote) do you want to use to provide liquidity? >>> ",
                   type_str="str",
                   validator=token_validate,
-                  on_validated=token_on_validated,
                   prompt_on_new=True),
-    "order_size":
-        ConfigVar(key="order_size",
+    "order_amount":
+        ConfigVar(key="order_amount",
                   prompt=order_size_prompt,
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, 0, inclusive=False),
