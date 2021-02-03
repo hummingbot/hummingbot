@@ -25,7 +25,6 @@ lms_logger = None
 
 
 class LiquidityMiningStrategy(StrategyPyBase):
-    VOLATILITY_REPORT_INTERVAL = 60.
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -38,7 +37,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
                  exchange: ExchangeBase,
                  market_infos: Dict[str, MarketTradingPairTuple],
                  token: str,
-                 order_size: Decimal,
+                 order_amount: Decimal,
                  spread: Decimal,
                  target_base_pct: Decimal,
                  order_refresh_time: float,
@@ -53,7 +52,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
         self._exchange = exchange
         self._market_infos = market_infos
         self._token = token
-        self._order_size = order_size
+        self._order_amount = order_amount
         self._spread = spread
         self._order_refresh_time = order_refresh_time
         self._order_refresh_tolerance_pct = order_refresh_tolerance_pct
@@ -219,10 +218,10 @@ class LiquidityMiningStrategy(StrategyPyBase):
     def base_order_size(self, trading_pair: str, price: Decimal = s_decimal_zero):
         base, quote = trading_pair.split("-")
         if self._token == base:
-            return self._order_size
+            return self._order_amount
         if price == s_decimal_zero:
             price = self._market_infos[trading_pair].get_mid_price()
-        return self._order_size / price
+        return self._order_amount / price
 
     def apply_budget_constraint(self, proposals: List[Proposal]):
         balances = self._token_balances.copy()
@@ -402,7 +401,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 atr.append((max(prices) - min(prices)) / min(prices))
             if atr:
                 self._volatility[market] = mean(atr)
-        if self._last_vol_reported < self.current_timestamp - self.VOLATILITY_REPORT_INTERVAL:
+        if self._last_vol_reported < self.current_timestamp - self._volatility_interval:
             for market, vol in self._volatility.items():
                 if not vol.is_nan():
                     self.logger().info(f"{market} volatility: {vol:.2%}")
