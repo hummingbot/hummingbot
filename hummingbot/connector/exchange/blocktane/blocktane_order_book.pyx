@@ -16,18 +16,17 @@ from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType
 )
-from hummingbot.connector.exchange.kucoin.kucoin_order_book_message import KucoinOrderBookMessage
+from hummingbot.connector.exchange.blocktane.blocktane_utils import convert_to_exchange_trading_pair, convert_from_exchange_trading_pair
 
-_kob_logger = None
+_bob_logger = None
 
-
-cdef class KucoinOrderBook(OrderBook):
+cdef class BlocktaneOrderBook(OrderBook):
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global _kob_logger
-        if _kob_logger is None:
-            _kob_logger = logging.getLogger(__name__)
-        return _kob_logger
+        global _bob_logger
+        if _bob_logger is None:
+            _bob_logger = logging.getLogger(__name__)
+        return _bob_logger
 
     @classmethod
     def snapshot_message_from_exchange(cls,
@@ -36,11 +35,11 @@ cdef class KucoinOrderBook(OrderBook):
                                        metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
-        return KucoinOrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": msg["symbol"],
-            "update_id": int(msg["data"]["sequence"]),
-            "bids": msg["data"]["bids"],
-            "asks": msg["data"]["asks"]
+        return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
+            "trading_pair": msg["trading_pair"],
+            "update_id": timestamp,  # not sure whether this is correct
+            "bids": msg["bids"],
+            "asks": msg["asks"]
         }, timestamp=timestamp)
 
     @classmethod
@@ -48,54 +47,60 @@ cdef class KucoinOrderBook(OrderBook):
                                    msg: Dict[str, any],
                                    timestamp: Optional[float] = None,
                                    metadata: Optional[Dict] = None) -> OrderBookMessage:
+        def adjust_empty_amounts(levels):
+            result = []
+            for level in levels:
+                if len(level) == 0:
+                    continue
+                if len(level) < 2 or level[1] == '':
+                    result.append([level[0], "0"])
+                else:
+                    result.append(level)
+            return result
+
         if metadata:
             msg.update(metadata)
-        return KucoinOrderBookMessage(OrderBookMessageType.DIFF, {
-            "trading_pair": msg["data"]["symbol"],
-            "first_update_id": msg["data"]["sequenceStart"],
-            "update_id": msg["data"]["sequenceEnd"],
-            "bids": msg["data"]["changes"]["bids"],
-            "asks": msg["data"]["changes"]["asks"]
+        return OrderBookMessage(OrderBookMessageType.DIFF, {
+            "trading_pair": msg["pair"],
+            "update_id": timestamp,
+            "bids": adjust_empty_amounts([msg["bids"]]),
+            "asks": adjust_empty_amounts([msg["asks"]])
         }, timestamp=timestamp)
 
     @classmethod
     def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        ts = int(record["timestamp"])
-        msg = record["json"] if type(record["json"]) == dict else ujson.loads(record["json"])
+        msg = record["json"] if type(record["json"])==dict else ujson.loads(record["json"])
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": msg["s"],
-            "update_id": ts,
+            "trading_pair": msg["pair"],
+            "update_id": record.timestamp,
             "bids": msg["bids"],
             "asks": msg["asks"]
         }, timestamp=record["timestamp"] * 1e-3)
 
     @classmethod
     def diff_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        ts = int(record["timestamp"])
-        msg = ujson.loads(record["json"])  # Kucoin json in DB is TEXT
+        msg = ujson.loads(record["json"])
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "trading_pair": msg["s"],
-            "first_update_id": msg.get("first_update_id", ts),
-            "update_id": ts,
+            "trading_pair": msg["pair"],
+            "update_id": record.timestamp,
             "bids": msg["bids"],
             "asks": msg["asks"]
         }, timestamp=record["timestamp"] * 1e-3)
 
     @classmethod
     def snapshot_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        ts = record.timestamp
         msg = ujson.loads(record.value.decode("utf-8"))
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": msg["symbol"],
-            "update_id": ts,
-            "bids": msg["data"]["bids"],
-            "asks": msg["data"]["asks"]
+            "trading_pair": msg["pair"],
+            "update_id": record.timestamp,
+            "bids": msg["bids"],
+            "asks": msg["asks"]
         }, timestamp=record.timestamp * 1e-3)
 
     @classmethod
@@ -104,44 +109,54 @@ cdef class KucoinOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "trading_pair": msg["symbol"],
+            "trading_pair": msg["pair"],
             "update_id": record.timestamp,
-            "bids": msg["data"]["bids"],
-            "asks": msg["data"]["asks"]
+            "bids": msg["bids"],
+            "asks": msg["asks"],
 
         }, timestamp=record.timestamp * 1e-3)
 
     @classmethod
     def trade_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
-        ts = int(record["timestamp"])
         msg = record["json"]
         if metadata:
             msg.update(metadata)
+        ts = record.timestamp
         return OrderBookMessage(OrderBookMessageType.TRADE, {
-            "trading_pair": msg["s"],
-            "trade_type": msg["trade_type"],
-            "trade_id": ts,
-            "update_id": msg["update_id"],
+            "trading_pair": msg["market"],
+            "trade_type": msg["taker_type"],
+            "trade_id": msg["id"],
+            "update_id": ts,
             "price": msg["price"],
             "amount": msg["amount"]
-        }, timestamp=ts * 1e-3)
+        }, timestamp=ts * 1e-3)  # not sure about this
 
     @classmethod
     def trade_message_from_exchange(cls, msg: Dict[str, any], metadata: Optional[Dict] = None):
+        # {'fthusd.trades': {'trades': [{'tid': 9, 'taker_type': 'sell', 'date': 1586958619, 'price': '51.0', 'amount': '0.02'}]}}
         if metadata:
             msg.update(metadata)
+
+        # cls.logger().error("Message from exchange: " + str(msg))
+
+        msg = msg.popitem()
+        # cls.logger().error(str(msg))
+
+        market = convert_from_exchange_trading_pair(msg[0].split('.')[0])
+        trade = msg[1]["trades"][0]
+        ts = trade['date']
+        # cls.logger().error(str(market) + " " + str(trade) + " " + str(ts))
         return OrderBookMessage(OrderBookMessageType.TRADE, {
-            "trading_pair": msg["symbol"],
-            "trade_type": float(TradeType.BUY.value) if msg["side"] == "buy"
-            else float(TradeType.SELL.value),
-            "trade_id": msg["tradeId"],
-            "update_id": msg["sequence"],
-            "price": msg["price"],
-            "amount": msg["size"]
-        }, timestamp=(int(msg["time"]) * 1e-9))
+            "trading_pair": market,
+            "trade_type": trade['taker_type'],
+            "trade_id": trade["tid"],
+            "update_id": ts,
+            "price": trade["price"],
+            "amount": trade["amount"]
+        }, timestamp=ts)
 
     @classmethod
     def from_snapshot(cls, msg: OrderBookMessage) -> "OrderBook":
-        retval = KucoinOrderBook()
+        retval = BlocktaneOrderBook()
         retval.apply_snapshot(msg.bids, msg.asks, msg.update_id)
         return retval
