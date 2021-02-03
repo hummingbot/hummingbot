@@ -9,7 +9,6 @@ from sqlalchemy.orm import (
 )
 import time
 import threading
-from collections import namedtuple
 from typing import (
     Dict,
     List,
@@ -33,13 +32,12 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.utils import TradeFillOrderDetails
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.order_status import OrderStatus
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
-
-TradeFill_order_details = namedtuple("TradeFill_order_details", "market exchange_trade_id symbol")
 
 
 class MarketsRecorder:
@@ -64,12 +62,12 @@ class MarketsRecorder:
         # Internal collection of trade fills in connector will be used for remote/local history reconciliation
         for market in self._markets:
             trade_fills = self.get_trades_for_config(self._config_file_path, 2000)
-            market.add_trade_fills_from_market_recorder({TradeFill_order_details(tf.market,
-                                                                                 tf.exchange_trade_id,
-                                                                                 tf.symbol) for tf in trade_fills})
+            market.add_trade_fills_from_market_recorder({TradeFillOrderDetails(tf.market,
+                                                                               tf.exchange_trade_id,
+                                                                               tf.symbol) for tf in trade_fills})
 
             exchange_order_ids = self.get_orders_for_config_and_market(self._config_file_path, market, True, 2000)
-            market.add_exchange_order_ids_from_market_recorder({o.exchange_order_id for o in exchange_order_ids})
+            market.add_exchange_order_ids_from_market_recorder({o.exchange_order_id: o.id for o in exchange_order_ids})
 
         self._create_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_create_order)
         self._fill_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_fill_order)
@@ -213,7 +211,7 @@ class MarketsRecorder:
                                                 status=event_type.name)
         session.add(order_record)
         session.add(order_status)
-        market.add_exchange_order_ids_from_market_recorder({evt.exchange_order_id})
+        market.add_exchange_order_ids_from_market_recorder({evt.exchange_order_id: evt.order_id})
         self.save_market_states(self._config_file_path, market, no_commit=True)
         session.commit()
 
@@ -262,7 +260,7 @@ class MarketsRecorder:
         session.add(trade_fill_record)
         self.save_market_states(self._config_file_path, market, no_commit=True)
         session.commit()
-        market.add_trade_fills_from_market_recorder({TradeFill_order_details(trade_fill_record.market, trade_fill_record.exchange_trade_id, trade_fill_record.symbol)})
+        market.add_trade_fills_from_market_recorder({TradeFillOrderDetails(trade_fill_record.market, trade_fill_record.exchange_trade_id, trade_fill_record.symbol)})
         self.append_to_csv(trade_fill_record)
 
     @staticmethod

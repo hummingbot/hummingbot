@@ -447,8 +447,8 @@ cdef class BinanceExchange(ExchangeBase):
             tasks=[]
             for trading_pair in self._order_book_tracker._trading_pairs:
                 my_trades_query_args = {'symbol': convert_to_exchange_trading_pair(trading_pair)}
-            tasks.append(self.query_api(self._binance_client.get_my_trades,
-                                        **my_trades_query_args))
+                tasks.append(self.query_api(self._binance_client.get_my_trades,
+                                            **my_trades_query_args))
             self.logger().debug("Polling for order fills of %d trading pairs.", len(tasks))
             exchange_history = await safe_gather(*tasks, return_exceptions=True)
         for trades, trading_pair in zip(exchange_history, self._order_book_tracker._trading_pairs):
@@ -460,14 +460,14 @@ cdef class BinanceExchange(ExchangeBase):
                 continue
             for trade in trades:
                 if self.is_confirmed_new_order_filled_event(str(trade["id"]), str(trade["orderId"]), trading_pair):
-                    client_order_id = get_client_order_id("buy" if trade["isBuyer"] else "sell", trading_pair)
                     # Should check if this is a partial filling of a in_flight order.
                     # In that case, user_stream or _update_order_fills_from_trades will take care when fully filled.
-                    if client_order_id not in self.in_flight_orders:
+                    if not any(trade["id"] in in_flight_order.trade_id_set for in_flight_order in self._in_flight_orders.values()):
                         self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
                                              OrderFilledEvent(
                                                  trade["time"],
-                                                 client_order_id,
+                                                 self._exchange_order_ids.get(str(trade["orderId"]),
+                                                                              get_client_order_id("buy" if trade["isBuyer"] else "sell", trading_pair)),
                                                  trading_pair,
                                                  TradeType.BUY if trade["isBuyer"] else TradeType.SELL,
                                                  OrderType.LIMIT_MAKER,  # defaulting to this value since trade info lacks field
