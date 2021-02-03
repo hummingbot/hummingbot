@@ -57,7 +57,7 @@ cdef class ConnectorBase(NetworkIterator):
         self._in_flight_orders_snapshot = {}  # Dict[order_id:str, InFlightOrderBase]
         self._in_flight_orders_snapshot_timestamp = 0.0
         self._current_trade_fills = set()
-        self._exchange_order_ids = set()
+        self._exchange_order_ids = dict()
 
     @property
     def real_time_balance_update(self) -> bool:
@@ -423,7 +423,7 @@ cdef class ConnectorBase(NetworkIterator):
         """
         self._current_trade_fills.update(current_trade_fills)
 
-    def add_exchange_order_ids_from_market_recorder(self, current_exchange_order_ids: Set[str]):
+    def add_exchange_order_ids_from_market_recorder(self, current_exchange_order_ids: Dict[str, str]):
         """
         Gets updates from new orders in Order table. This is used in method connector _history_reconciliation
         """
@@ -436,4 +436,4 @@ cdef class ConnectorBase(NetworkIterator):
         """
         # Assume (market, exchange_trade_id, trading_pair) are unique. Also order has to be recorded in Order table
         return (not TradeFillOrderDetails(self.display_name, exchange_trade_id, trading_pair) in self._current_trade_fills) and \
-               (exchange_order_id in self._exchange_order_ids)
+               (exchange_order_id in set(self._exchange_order_ids.keys()))

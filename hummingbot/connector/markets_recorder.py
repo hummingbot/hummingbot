@@ -67,7 +67,7 @@ class MarketsRecorder:
                                                                                tf.symbol) for tf in trade_fills})
 
             exchange_order_ids = self.get_orders_for_config_and_market(self._config_file_path, market, True, 2000)
-            market.add_exchange_order_ids_from_market_recorder({o.exchange_order_id for o in exchange_order_ids})
+            market.add_exchange_order_ids_from_market_recorder({o.exchange_order_id: o.id for o in exchange_order_ids})
 
         self._create_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_create_order)
         self._fill_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_fill_order)
@@ -211,7 +211,7 @@ class MarketsRecorder:
                                                 status=event_type.name)
         session.add(order_record)
         session.add(order_status)
-        market.add_exchange_order_ids_from_market_recorder({evt.exchange_order_id})
+        market.add_exchange_order_ids_from_market_recorder({evt.exchange_order_id: evt.order_id})
         self.save_market_states(self._config_file_path, market, no_commit=True)
         session.commit()
 
