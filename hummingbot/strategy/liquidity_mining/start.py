@@ -36,5 +36,6 @@ def start(self):
         inventory_range_multiplier=inventory_range_multiplier,
         volatility_interval=volatility_interval,
         avg_volatility_period=avg_volatility_period,
-        volatility_to_spread_multiplier=volatility_to_spread_multiplier
+        volatility_to_spread_multiplier=volatility_to_spread_multiplier,
+        hb_app_notification=True
     )
