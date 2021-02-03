@@ -230,10 +230,16 @@ perpetual_market_making_config_map = {
                   default=Decimal("0"),
                   validator=lambda v: validate_decimal(v, 0, 100, True),
                   prompt_on_new=True),
+    "stop_loss_spread":
+        ConfigVar(key="stop_loss_spread",
+                  prompt="At what spread from position entry price do you want to place stop_loss order? (Enter 1 for 1%) >>> ",
+                  type_str="decimal",
+                  default=Decimal("0"),
+                  validator=lambda v: validate_decimal(v, 0, 101, False),
+                  prompt_on_new=True),
     "close_position_order_type":
         ConfigVar(key="close_position_order_type",
-                  prompt="What order type do you want to use for closing positions? (LIMIT/MARKET) >>> ",
-                  required_if=lambda: perpetual_market_making_config_map.get("position_management").value == "Trailing_stop",
+                  prompt="What order type do you want trailing stop and/or stop loss features to use for closing positions? (LIMIT/MARKET) >>> ",
                   type_str="str",
                   default="LIMIT",
                   validator=lambda s: None if s in {"LIMIT", "MARKET"} else
