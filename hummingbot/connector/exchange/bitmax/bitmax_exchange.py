@@ -48,6 +48,8 @@ s_decimal_NaN = Decimal("nan")
 
 
 BitmaxTradingRule = namedtuple("BitmaxTradingRule", "minNotional maxNotional")
+BitmaxOrder = namedtuple("BitmaxOrder", "symbol price orderQty orderType avgPx cumFee cumFilledQty errorCode feeAsset lastExecTime orderId seqNum side status stopPrice execInst")
+BitmaxBalance = namedtuple("BitmaxBalance", "asset totalBalance availableBalance")
 
 
 class BitmaxExchange(ExchangeBase):
@@ -558,7 +560,6 @@ class BitmaxExchange(ExchangeBase):
         """
         Starts tracking an order by simply adding it into _in_flight_orders dictionary.
         """
-        print("start_tracking_order", order_id, exchange_order_id)
         self._in_flight_orders[order_id] = BitmaxInFlightOrder(
             client_order_id=order_id,
             exchange_order_id=exchange_order_id,
@@ -606,6 +607,9 @@ class BitmaxExchange(ExchangeBase):
         except asyncio.CancelledError:
             raise
         except Exception as e:
+            if str(e).find("Order not found") != -1:
+                return
+
             self.logger().network(
                 f"Failed to cancel order {order_id}: {str(e)}",
                 exc_info=True,
@@ -641,19 +645,16 @@ class BitmaxExchange(ExchangeBase):
         """
         Calls REST API to update total and available balances.
         """
-        local_asset_names = set(self._account_balances.keys())
-        remote_asset_names = set()
         response = await self._api_request("get", "cash/balance", {}, True, force_auth_path_url="balance")
-        for account in response["data"]:
-            asset_name = account["asset"]
-            self._account_available_balances[asset_name] = Decimal(account["availableBalance"])
-            self._account_balances[asset_name] = Decimal(account["totalBalance"])
-            remote_asset_names.add(asset_name)
-
-        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-        for asset_name in asset_names_to_remove:
-            del self._account_available_balances[asset_name]
-            del self._account_balances[asset_name]
+        balances = list(map(
+            lambda balance: BitmaxBalance(
+                balance["asset"],
+                balance["availableBalance"],
+                balance["totalBalance"]
+            ),
+            response.get("data", list())
+        ))
+        self._process_balances(balances)
 
     async def _update_order_status(self):
         """
@@ -675,94 +676,33 @@ class BitmaxExchange(ExchangeBase):
                     force_auth_path_url="order/status")
                 )
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
-            update_results = await safe_gather(*tasks, return_exceptions=True)
-            for update_result in update_results:
-                if isinstance(update_result, Exception):
-                    raise update_result
-                if "data" not in update_result:
-                    self.logger().info(f"_update_order_status result not in resp: {update_result}")
+            responses = await safe_gather(*tasks, return_exceptions=True)
+            for response in responses:
+                if isinstance(response, Exception):
+                    raise response
+                if "data" not in response:
+                    self.logger().info(f"_update_order_status result not in resp: {response}")
                     continue
 
-                for order_data in update_result["data"]:
-                    self._process_order_message(order_data)
-
-    def _process_order_message(self, order_msg: Dict[str, Any]):
-        """
-        Updates in-flight order and triggers cancellation or failure event if needed.
-        :param order_msg: The order response from either REST or web socket API (they are of the same format)
-        """
-        exchange_order_id = order_msg["orderId"]
-        client_order_id = None
-
-        for in_flight_order in self._in_flight_orders.values():
-            if in_flight_order.exchange_order_id == exchange_order_id:
-                client_order_id = in_flight_order.client_order_id
-
-        if client_order_id is None:
-            return
-
-        tracked_order = self._in_flight_orders[client_order_id]
-        # Update order execution status
-        tracked_order.last_state = order_msg["st"]
-
-        if tracked_order.is_cancelled:
-            self.logger().info(f"Successfully cancelled order {client_order_id}.")
-            self.trigger_event(MarketEvent.OrderCancelled,
-                               OrderCancelledEvent(
-                                   self.current_timestamp,
-                                   client_order_id,
-                                   exchange_order_id))
-            tracked_order.cancelled_event.set()
-            self.stop_tracking_order(client_order_id)
-        elif tracked_order.is_failure:
-            self.logger().info(f"The market order {client_order_id} has failed according to order status API. "
-                               f"Reason: {bitmax_utils.get_api_reason(order_msg['reason'])}")
-            self.trigger_event(MarketEvent.OrderFailure,
-                               MarketOrderFailureEvent(
-                                   self.current_timestamp,
-                                   client_order_id,
-                                   tracked_order.order_type
-                               ))
-            self.stop_tracking_order(client_order_id)
-        elif tracked_order.is_done:
-            price = Decimal(order_msg["ap"])
-            tracked_order.executed_amount_base = Decimal(order_msg["cfq"])
-            tracked_order.executed_amount_quote = price * tracked_order.executed_amount_base
-            tracked_order.fee_paid = Decimal(order_msg["cf"])
-            tracked_order.fee_asset = order_msg["fa"]
-
-            self.trigger_event(
-                MarketEvent.OrderFilled,
-                OrderFilledEvent(
-                    self.current_timestamp,
-                    client_order_id,
-                    tracked_order.trading_pair,
-                    tracked_order.trade_type,
-                    tracked_order.order_type,
-                    price,
-                    tracked_order.executed_amount_base,
-                    TradeFee(0.0, [(tracked_order.fee_asset, tracked_order.fee_paid)]),
-                    exchange_order_id
-                )
-            )
-            event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY else MarketEvent.SellOrderCompleted
-            event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY else SellOrderCompletedEvent
-            self.trigger_event(
-                event_tag,
-                event_class(
-                    self.current_timestamp,
-                    client_order_id,
-                    tracked_order.base_asset,
-                    tracked_order.quote_asset,
-                    tracked_order.fee_asset,
-                    tracked_order.executed_amount_base,
-                    tracked_order.executed_amount_quote,
-                    tracked_order.fee_paid,
-                    tracked_order.order_type,
-                    exchange_order_id
-                )
-            )
-            self.stop_tracking_order(client_order_id)
+                order_data = response.get("data")
+                self._process_order_message(BitmaxOrder(
+                    order_data["symbol"],
+                    order_data["price"],
+                    order_data["orderQty"],
+                    order_data["orderType"],
+                    order_data["avgPx"],
+                    order_data["cumFee"],
+                    order_data["cumFilledQty"],
+                    order_data["errorCode"],
+                    order_data["feeAsset"],
+                    order_data["lastExecTime"],
+                    order_data["orderId"],
+                    order_data["seqNum"],
+                    order_data["side"],
+                    order_data["status"],
+                    order_data["stopPrice"],
+                    order_data["execInst"]
+                ))
 
     async def cancel_all(self, timeout_seconds: float):
         """
@@ -852,12 +792,34 @@ class BitmaxExchange(ExchangeBase):
         async for event_message in self._iter_user_event_queue():
             try:
                 if event_message.get("m") == "order":
-                    self._process_order_message(event_message.get("data"))
+                    order_data = event_message.get("data")
+                    self._process_order_message(BitmaxOrder(
+                        order_data["s"],
+                        order_data["p"],
+                        order_data["q"],
+                        order_data["ot"],
+                        order_data["ap"],
+                        order_data["cf"],
+                        order_data["cfq"],
+                        order_data["err"],
+                        order_data["fa"],
+                        order_data["t"],
+                        order_data["orderId"],
+                        order_data["sn"],
+                        order_data["sd"],
+                        order_data["st"],
+                        order_data["sp"],
+                        order_data["ei"]
+                    ))
                 elif event_message.get("m") == "balance":
-                    data = event_message.get("data")
-                    asset_name = data["a"]
-                    self._account_available_balances[asset_name] = Decimal(data["ab"])
-                    self._data_balances[asset_name] = Decimal(data["tb"])
+                    balance_data = event_message.get("data")
+                    balance = BitmaxBalance(
+                        balance_data["a"],
+                        balance_data["ab"],
+                        balance_data["tb"]
+                    )
+                    self._process_balances(list(balance))
+
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -886,8 +848,6 @@ class BitmaxExchange(ExchangeBase):
             if client_order_id is None:
                 raise Exception(f"Client order id for {exchange_order_id} not found.")
 
-            print("open order", client_order_id)
-
             ret_val.append(
                 OpenOrder(
                     client_order_id=client_order_id,
@@ -903,3 +863,101 @@ class BitmaxExchange(ExchangeBase):
                 )
             )
         return ret_val
+
+    def _process_order_message(self, order_msg: BitmaxOrder):
+        """
+        Updates in-flight order and triggers cancellation or failure event if needed.
+        :param order_msg: The order response from either REST or web socket API (they are of the same format)
+        """
+        exchange_order_id = order_msg.orderId
+        client_order_id = None
+
+        for in_flight_order in self._in_flight_orders.values():
+            if in_flight_order.exchange_order_id == exchange_order_id:
+                client_order_id = in_flight_order.client_order_id
+
+        if client_order_id is None:
+            return
+
+        tracked_order = self._in_flight_orders[client_order_id]
+
+        # update order
+        tracked_order.last_state = order_msg.status
+        tracked_order.fee_paid = Decimal(order_msg.cumFee)
+        tracked_order.fee_asset = order_msg.feeAsset
+        tracked_order.executed_amount_base = Decimal(order_msg.cumFilledQty)
+        tracked_order.executed_amount_quote = Decimal(order_msg.price) * Decimal(order_msg.cumFilledQty)
+
+        if tracked_order.is_cancelled:
+            self.logger().info(f"Successfully cancelled order {client_order_id}.")
+            self.trigger_event(MarketEvent.OrderCancelled,
+                               OrderCancelledEvent(
+                                   self.current_timestamp,
+                                   client_order_id,
+                                   exchange_order_id))
+            tracked_order.cancelled_event.set()
+            self.stop_tracking_order(client_order_id)
+        elif tracked_order.is_failure:
+            self.logger().info(f"The market order {client_order_id} has failed according to order status API. "
+                               f"Reason: {bitmax_utils.get_api_reason(order_msg.errorCode)}")
+            self.trigger_event(MarketEvent.OrderFailure,
+                               MarketOrderFailureEvent(
+                                   self.current_timestamp,
+                                   client_order_id,
+                                   tracked_order.order_type
+                               ))
+            self.stop_tracking_order(client_order_id)
+        elif tracked_order.is_done:
+            price = Decimal(order_msg.price)
+            tracked_order.executed_amount_base = Decimal(order_msg.cumFilledQty)
+            tracked_order.executed_amount_quote = price * tracked_order.executed_amount_base
+            tracked_order.fee_paid = Decimal(order_msg.cumFee)
+            tracked_order.fee_asset = order_msg.feeAsset
+
+            self.trigger_event(
+                MarketEvent.OrderFilled,
+                OrderFilledEvent(
+                    self.current_timestamp,
+                    client_order_id,
+                    tracked_order.trading_pair,
+                    tracked_order.trade_type,
+                    tracked_order.order_type,
+                    price,
+                    tracked_order.executed_amount_base,
+                    TradeFee(0.0, [(tracked_order.fee_asset, tracked_order.fee_paid)]),
+                    exchange_order_id
+                )
+            )
+            event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY else MarketEvent.SellOrderCompleted
+            event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY else SellOrderCompletedEvent
+            self.trigger_event(
+                event_tag,
+                event_class(
+                    self.current_timestamp,
+                    client_order_id,
+                    tracked_order.base_asset,
+                    tracked_order.quote_asset,
+                    tracked_order.fee_asset,
+                    tracked_order.executed_amount_base,
+                    tracked_order.executed_amount_quote,
+                    tracked_order.fee_paid,
+                    tracked_order.order_type,
+                    exchange_order_id
+                )
+            )
+            self.stop_tracking_order(client_order_id)
+
+    def _process_balances(self, balances: List[BitmaxBalance]):
+        local_asset_names = set(self._account_balances.keys())
+        remote_asset_names = set()
+
+        for balance in balances:
+            asset_name = balance.asset
+            self._account_available_balances[asset_name] = Decimal(balance.availableBalance)
+            self._account_balances[asset_name] = Decimal(balance.totalBalance)
+            remote_asset_names.add(asset_name)
+
+        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+        for asset_name in asset_names_to_remove:
+            del self._account_available_balances[asset_name]
+            del self._account_balances[asset_name]
