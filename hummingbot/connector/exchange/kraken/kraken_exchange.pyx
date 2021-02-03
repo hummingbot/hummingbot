@@ -710,7 +710,7 @@ cdef class KrakenExchange(ExchangeBase):
                         if any(response.get("open").values()):
                             return response
                     self.logger().warning(f"Cloudflare error. Attempt {retry_attempt+1}/{retry_count} API command {method}: {path_url}")
-                    await asyncio.sleep(retry_interval ** retry_interval)
+                    await asyncio.sleep(retry_interval ** retry_attempt)
                     continue
                 else:
                     raise e
