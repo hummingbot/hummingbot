@@ -871,14 +871,19 @@ cdef class LoopringExchange(ExchangeBase):
     cdef object c_quantize_order_price(self, str trading_pair, object price):
         return price.quantize(self.c_get_order_price_quantum(trading_pair, price), rounding=ROUND_DOWN)
 
-    cdef object c_quantize_order_amount(self, str trading_pair, object amount, object price = 0.0):
+    cdef object c_quantize_order_amount(self, str trading_pair, object amount, object price = s_decimal_0):
+        cdef:
+            object current_price = self.c_get_price(trading_pair, False)
         quantized_amount = amount.quantize(self.c_get_order_size_quantum(trading_pair, amount), rounding=ROUND_DOWN)
         rules = self._trading_rules[trading_pair]
-
         if quantized_amount < rules.min_order_size:
             return s_decimal_0
 
-        if price > 0 and price * quantized_amount < rules.min_notional_size:
+        if price == s_decimal_0:
+            notional_size = current_price * quantized_amount
+            if notional_size < rules.min_notional_size:
+                return s_decimal_0
+        elif price > 0 and price * quantized_amount < rules.min_notional_size:
             return s_decimal_0
 
         return quantized_amount
