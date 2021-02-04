@@ -437,14 +437,12 @@ cdef class BinanceExchange(ExchangeBase):
                                                      ))
 
     async def _history_reconciliation(self):
-        """
-        Method looks in the exchange history to check for any missing trade in local history.
-        If found, it will trigger an order_filled event to record it in local DB.
-        """
         cdef:
-            # The minimum poll interval for order status is 10 seconds.
-            int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
-            int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
+            # Method looks in the exchange history to check for any missing trade in local history.
+            # If found, it will trigger an order_filled event to record it in local DB.
+            # The minimum poll interval for order status is 120 seconds.
+            int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.LONG_POLL_INTERVAL)
+            int64_t current_tick = <int64_t>(self._current_timestamp / self.LONG_POLL_INTERVAL)
 
         if current_tick > last_tick:
             trading_pairs = self._order_book_tracker._trading_pairs
