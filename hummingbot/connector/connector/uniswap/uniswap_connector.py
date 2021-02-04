@@ -115,6 +115,21 @@ class UniswapConnector(ConnectorBase):
             for in_flight_order in self._in_flight_orders.values()
         ]
 
+    async def initiate_pool(self) -> str:
+        """
+        Initiate to cache pools and auto approve allowances for token in trading_pairs
+        :return: A success/fail status for initiation
+        """
+        self.logger().info("Initializing strategy and caching swap pools ...")
+        base, quote = self._trading_pairs[0].split("-")
+        resp = await self._api_request("post", "eth/uniswap/start",
+                                       {"base": base,
+                                        "quote": quote,
+                                        "gasPrice": str(get_gas_price())
+                                        })
+        status = resp["success"]
+        return status
+
     async def auto_approve(self):
         """
         Automatically approves Uniswap contract as a spender for token in trading pairs.
