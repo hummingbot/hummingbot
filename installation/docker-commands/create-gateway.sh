@@ -100,6 +100,19 @@ do
   then
     ETHEREUM_RPC_URL="$(echo -e "${value}" | tr -d '[:space:]')"
   fi
+  # ethergas station config
+  if [ "$key" == "ethgasstation_api_key" ]
+  then
+    ETH_GAS_STATION_API_KEY="$(echo -e "${value}" | tr -d '[:space:]')"
+  fi
+  if [ "$key" == "ethgasstation_gas_level" ]
+  then
+    ETH_GAS_STATION_GAS_LEVEL="$(echo -e "${value}" | tr -d '[:space:]')"
+  fi
+  if [ "$key" == "ethgasstation_refresh_time" ]
+  then
+    ETH_GAS_STATION_REFRESH_TIME="$(echo -e "${value}" | tr -d '[:space:]')"
+  fi
 done < "$GLOBAL_CONFIG"
 }
 read_global_config
@@ -115,6 +128,22 @@ prompt_ethereum_setup () {
   fi
 }
 prompt_ethereum_setup
+
+prompt_balancer_setup () {
+  # Ask the user for the max balancer pool to use
+  read -p "   Enter the maximum balancer swap pool (default = \"4\") >>> " BALANCER_MAX_SWAPS
+  if [ "$BALANCER_MAX_SWAPS" == "" ]
+  then
+    BALANCER_MAX_SWAPS="4"
+    echo
+  fi
+}
+
+
+if [[ "$ETHEREUM_SETUP" == true ]]
+then
+  prompt_balancer_setup
+fi
 
 # Ask the user for ethereum network
 prompt_terra_network () {
@@ -227,6 +256,13 @@ echo "EXCHANGE_PROXY=$EXCHANGE_PROXY" >> $ENV_FILE
 echo "UNISWAP_ROUTER=$UNISWAP_ROUTER" >> $ENV_FILE
 echo "TERRA_LCD_URL=$TERRA_LCD_URL" >> $ENV_FILE
 echo "TERRA_CHAIN=$TERRA_CHAIN" >> $ENV_FILE
+
+echo "ETH_GAS_STATION_API_KEY=$ETH_GAS_STATION_API_KEY" >> $ENV_FILE
+echo "ETH_GAS_STATION_GAS_LEVEL=$ETH_GAS_STATION_GAS_LEVEL" >> $ENV_FILE
+echo "ETH_GAS_STATION_REFRESH_TIME=$ETH_GAS_STATION_REFRESH_TIME" >> $ENV_FILE
+
+echo "BALANCER_MAX_SWAPS=$BALANCER_MAX_SWAPS" >> $ENV_FILE
+
 echo "" >> $ENV_FILE
 
 prompt_proceed () {
