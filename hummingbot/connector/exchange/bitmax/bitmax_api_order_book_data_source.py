@@ -4,6 +4,8 @@ import logging
 import aiohttp
 import websockets
 import ujson
+import time
+import pandas as pd
 
 from typing import Optional, List, Dict, Any, AsyncIterable
 from hummingbot.core.data_type.order_book import OrderBook
@@ -160,7 +162,7 @@ class BitmaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 trading_pairs = ",".join(list(
                     map(lambda trading_pair: convert_to_exchange_trading_pair(trading_pair), self._trading_pairs)
                 ))
-                ch = f"bbo:{trading_pairs}"
+                ch = f"depth:{trading_pairs}"
                 payload = {
                     "op": "sub",
                     "ch": ch
@@ -173,7 +175,7 @@ class BitmaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     async for raw_msg in self._inner_messages(ws):
                         try:
                             msg = ujson.loads(raw_msg)
-                            if (msg is None or msg.get("m") != "bbo"):
+                            if (msg is None or msg.get("m") != "depth"):
                                 continue
 
                             msg_timestamp: int = msg.get("data").get("ts")
@@ -195,43 +197,43 @@ class BitmaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await asyncio.sleep(30.0)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        """
+        Listen for orderbook snapshots by fetching orderbook
+        """
         while True:
             try:
-                trading_pairs = ",".join(list(
-                    map(lambda trading_pair: convert_to_exchange_trading_pair(trading_pair), self._trading_pairs)
-                ))
-                ch = f"depth:{trading_pairs}"
-                payload = {
-                    "op": "sub",
-                    "ch": ch
-                }
-
-                async with websockets.connect(WS_URL) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
-                    await ws.send(ujson.dumps(payload))
-
-                    async for raw_msg in self._inner_messages(ws):
-                        try:
-                            msg = ujson.loads(raw_msg)
-                            if (msg is None or msg.get("m") != "depth"):
-                                continue
-
-                            msg_timestamp: int = msg.get("data").get("ts")
-                            trading_pair: str = convert_from_exchange_trading_pair(msg.get("symbol"))
-                            order_book_message: OrderBookMessage = BitmaxOrderBook.snapshot_message_from_exchange(
-                                msg.get("data"),
-                                msg_timestamp,
-                                metadata={"trading_pair": trading_pair}
-                            )
-                            output.put_nowait(order_book_message)
-                        except Exception:
-                            raise
+                for trading_pair in self._trading_pairs:
+                    try:
+                        snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair)
+                        snapshot_timestamp: float = snapshot.get("data").get("ts")
+                        snapshot_msg: OrderBookMessage = BitmaxOrderBook.snapshot_message_from_exchange(
+                            snapshot.get("data"),
+                            snapshot_timestamp,
+                            metadata={"trading_pair": trading_pair}
+                        )
+                        output.put_nowait(snapshot_msg)
+                        self.logger().debug(f"Saved order book snapshot for {trading_pair}")
+                        # Be careful not to go above API rate limits.
+                        await asyncio.sleep(5.0)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception:
+                        self.logger().network(
+                            "Unexpected error with WebSocket connection.",
+                            exc_info=True,
+                            app_warning_msg="Unexpected error with WebSocket connection. Retrying in 5 seconds. "
+                                            "Check network connection."
+                        )
+                        await asyncio.sleep(5.0)
+                this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
+                next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
+                delta: float = next_hour.timestamp() - time.time()
+                await asyncio.sleep(delta)
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
-                                    exc_info=True)
-                await asyncio.sleep(30.0)
+                self.logger().error("Unexpected error.", exc_info=True)
+                await asyncio.sleep(5.0)
 
     async def _inner_messages(
         self,

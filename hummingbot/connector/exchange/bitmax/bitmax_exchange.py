@@ -603,11 +603,15 @@ class BitmaxExchange(ExchangeBase):
                 True,
                 force_auth_path_url="order"
             )
+
+            self.stop_tracking_order(order_id)
+
             return order_id
         except asyncio.CancelledError:
             raise
         except Exception as e:
             if str(e).find("Order not found") != -1:
+                self.stop_tracking_order(order_id)
                 return
 
             self.logger().network(
@@ -729,6 +733,7 @@ class BitmaxExchange(ExchangeBase):
                     cancellation_results.append(CancellationResult(cl_order_id, True))
                     self.trigger_event(MarketEvent.OrderCancelled,
                                        OrderCancelledEvent(self.current_timestamp, cl_order_id))
+                    self.stop_tracking_order(cl_order_id)
                 else:
                     cancellation_results.append(CancellationResult(cl_order_id, False))
         except Exception:
