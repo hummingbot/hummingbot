@@ -76,11 +76,6 @@ class BitmaxOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
 
-        msg.update({
-            "bids": [msg.get("bid")],
-            "asks": [msg.get("ask")],
-        })
-
         return BitmaxOrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
             content=msg,

@@ -34,15 +34,12 @@ class BitmaxOrderBookMessage(OrderBookMessage):
     @property
     def update_id(self) -> int:
         if self.type in [OrderBookMessageType.DIFF, OrderBookMessageType.SNAPSHOT]:
-            # return int(self.content["seqnum"])
             return int(self.timestamp)
-        else:
-            return -1
+        return -1
 
     @property
     def trade_id(self) -> int:
         if self.type is OrderBookMessageType.TRADE:
-            # return int(self.content["seqnum"])
             return int(self.timestamp)
         return -1
 
