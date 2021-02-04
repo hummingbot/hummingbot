@@ -394,7 +394,6 @@ cdef class BinanceExchange(ExchangeBase):
             int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
 
         if current_tick > last_tick:
-            results = None
             if len(self._in_flight_orders) > 0:
                 trading_pairs_to_order_map = defaultdict(lambda: {})
                 for o in self._in_flight_orders.values():
@@ -436,22 +435,18 @@ cdef class BinanceExchange(ExchangeBase):
                                                          ),
                                                          exchange_trade_id=trade["id"]
                                                      ))
-            await self._history_reconciliation(results)
 
-    async def _history_reconciliation(self, exchange_history):
+    async def _history_reconciliation(self):
         """
         Method looks in the exchange history to check for any missing trade in local history.
         If found, it will trigger an order_filled event to record it in local DB.
         """
-        if not exchange_history:
-            tasks=[]
-            for trading_pair in self._order_book_tracker._trading_pairs:
-                my_trades_query_args = {'symbol': convert_to_exchange_trading_pair(trading_pair)}
-                tasks.append(self.query_api(self._binance_client.get_my_trades,
-                                            **my_trades_query_args))
-            self.logger().debug("Polling for order fills of %d trading pairs.", len(tasks))
-            exchange_history = await safe_gather(*tasks, return_exceptions=True)
-        for trades, trading_pair in zip(exchange_history, self._order_book_tracker._trading_pairs):
+        trading_pairs = self._order_book_tracker._trading_pairs
+        tasks = [self.query_api(self._binance_client.get_my_trades, symbol=convert_to_exchange_trading_pair(trading_pair))
+                 for trading_pair in trading_pairs]
+        self.logger().debug("Polling for order fills of %d trading pairs.", len(tasks))
+        exchange_history = await safe_gather(*tasks, return_exceptions=True)
+        for trades, trading_pair in zip(exchange_history, trading_pairs):
             if isinstance(trades, Exception):
                 self.logger().network(
                     f"Error fetching trades update for the order {trading_pair}: {trades}.",
@@ -738,6 +733,7 @@ cdef class BinanceExchange(ExchangeBase):
                     self._update_balances(),
                     self._update_order_fills_from_trades()
                 )
+                await self._history_reconciliation()
                 await self._update_order_status()
                 self._last_poll_timestamp = self._current_timestamp
             except asyncio.CancelledError:
