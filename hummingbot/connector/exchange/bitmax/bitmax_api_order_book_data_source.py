@@ -16,13 +16,14 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.bitmax.bitmax_active_order_tracker import BitmaxActiveOrderTracker
 from hummingbot.connector.exchange.bitmax.bitmax_order_book import BitmaxOrderBook
 from hummingbot.connector.exchange.bitmax.bitmax_utils import convert_from_exchange_trading_pair, convert_to_exchange_trading_pair
-from hummingbot.connector.exchange.bitmax.bitmax_constants import EXCHANGE_NAME, REST_URL, WS_URL
+from hummingbot.connector.exchange.bitmax.bitmax_constants import EXCHANGE_NAME, REST_URL, WS_URL, PONG_PAYLOAD
 
 
 class BitmaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
     MAX_RETRIES = 20
     MESSAGE_TIMEOUT = 30.0
     SNAPSHOT_TIMEOUT = 10.0
+    PING_TIMEOUT = 15.0
 
     _logger: Optional[HummingbotLogger] = None
 
@@ -247,8 +248,9 @@ class BitmaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     yield raw_msg
                 except asyncio.TimeoutError:
                     try:
-                        pong_waiter = await ws.ping()
+                        pong_waiter = ws.send(ujson.dumps(PONG_PAYLOAD))
                         await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
+                        self._last_recv_time = time.time()
                     except asyncio.TimeoutError:
                         raise
         except asyncio.TimeoutError:
