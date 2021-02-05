@@ -49,7 +49,7 @@ s_decimal_NaN = Decimal("nan")
 
 BitmaxTradingRule = namedtuple("BitmaxTradingRule", "minNotional maxNotional")
 BitmaxOrder = namedtuple("BitmaxOrder", "symbol price orderQty orderType avgPx cumFee cumFilledQty errorCode feeAsset lastExecTime orderId seqNum side status stopPrice execInst")
-BitmaxBalance = namedtuple("BitmaxBalance", "asset totalBalance availableBalance")
+BitmaxBalance = namedtuple("BitmaxBalance", "asset availableBalance totalBalance")
 
 
 class BitmaxExchange(ExchangeBase):
@@ -604,8 +604,6 @@ class BitmaxExchange(ExchangeBase):
                 force_auth_path_url="order"
             )
 
-            self.stop_tracking_order(order_id)
-
             return order_id
         except asyncio.CancelledError:
             raise
@@ -798,8 +796,10 @@ class BitmaxExchange(ExchangeBase):
             try:
                 if event_message.get("m") == "order":
                     order_data = event_message.get("data")
+                    trading_pair = order_data["s"]
+                    base_asset, quote_asset = tuple(asset for asset in trading_pair.split("/"))
                     self._process_order_message(BitmaxOrder(
-                        order_data["s"],
+                        trading_pair,
                         order_data["p"],
                         order_data["q"],
                         order_data["ot"],
@@ -816,7 +816,20 @@ class BitmaxExchange(ExchangeBase):
                         order_data["sp"],
                         order_data["ei"]
                     ))
+                    # Handles balance updates from orders.
+                    base_asset_balance = BitmaxBalance(
+                        base_asset,
+                        order_data["bab"],
+                        order_data["btb"]
+                    )
+                    quote_asset_balance = BitmaxBalance(
+                        quote_asset,
+                        order_data["qab"],
+                        order_data["qtb"]
+                    )
+                    self._process_balances([base_asset_balance, quote_asset_balance])
                 elif event_message.get("m") == "balance":
+                    # Handles balance updates from Deposits/Withdrawals, Transfers between Cash and Margin Accounts
                     balance_data = event_message.get("data")
                     balance = BitmaxBalance(
                         balance_data["a"],

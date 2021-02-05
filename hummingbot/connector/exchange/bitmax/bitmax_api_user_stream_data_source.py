@@ -10,12 +10,13 @@ from typing import Optional, List, AsyncIterable, Any
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.bitmax.bitmax_auth import BitmaxAuth
-from hummingbot.connector.exchange.bitmax.bitmax_constants import REST_URL, getWsUrlPriv
+from hummingbot.connector.exchange.bitmax.bitmax_constants import REST_URL, getWsUrlPriv, PONG_PAYLOAD
 
 
 class BitmaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
     MAX_RETRIES = 20
-    MESSAGE_TIMEOUT = 30.0
+    MESSAGE_TIMEOUT = 10.0
+    PING_TIMEOUT = 5.0
 
     _logger: Optional[HummingbotLogger] = None
 
@@ -31,6 +32,7 @@ class BitmaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
         self._last_recv_time: float = 0
+        self._ws_client: websockets.WebSocketClientProtocol = None
         super().__init__()
 
     @property
@@ -104,7 +106,7 @@ class BitmaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     yield raw_msg
                 except asyncio.TimeoutError:
                     try:
-                        pong_waiter = await ws.ping()
+                        pong_waiter = ws.send(ujson.dumps(PONG_PAYLOAD))
                         await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
                         self._last_recv_time = time.time()
                     except asyncio.TimeoutError:
