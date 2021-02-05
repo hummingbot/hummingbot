@@ -13,6 +13,9 @@ CENTRALIZED = True
 
 EXAMPLE_PAIR = "ETH-USD"
 
+# BitFinex list Tether(USDT) as 'UST'
+EXCHANGE_TO_HB_CONVERSION = {"UST": "USDT"}
+HB_TO_EXCHANGE_CONVERSION = {v: k for k, v in EXCHANGE_TO_HB_CONVERSION.items()}
 
 DEFAULT_FEES = [0.1, 0.2]
 
@@ -87,15 +90,38 @@ def valid_exchange_trading_pair(trading_pair: str) -> bool:
         return False
 
 
+def convert_from_exchange_token(token: str) -> str:
+    if token in EXCHANGE_TO_HB_CONVERSION:
+        token = EXCHANGE_TO_HB_CONVERSION[token]
+    return token
+
+
+def convert_to_exchange_token(token: str) -> str:
+    if token in HB_TO_EXCHANGE_CONVERSION:
+        token = HB_TO_EXCHANGE_CONVERSION[token]
+    return token
+
+
 def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
     try:
-        # exchange does not split BASEQUOTE (BTCUSDT)
         base_asset, quote_asset = split_trading_pair_from_exchange(exchange_trading_pair)
+
+        base_asset = convert_from_exchange_token(base_asset)
+        quote_asset = convert_from_exchange_token(quote_asset)
+
         return f"{base_asset}-{quote_asset}"
     except Exception as e:
         raise e
 
 
 def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-    # exchange does not split BASEQUOTE (BTCUSDT)
-    return f't{hb_trading_pair.replace("-", "")}'
+    base_asset, quote_asset = hb_trading_pair.split("-")
+
+    base_asset = convert_to_exchange_token(base_asset)
+    quote_asset = convert_to_exchange_token(quote_asset)
+
+    if len(base_asset) > 3:  # Adds ':' delimiter if base asset > 3 characters
+        trading_pair = f"t{base_asset}:{quote_asset}"
+    else:
+        trading_pair = f"t{base_asset}{quote_asset}"
+    return trading_pair
