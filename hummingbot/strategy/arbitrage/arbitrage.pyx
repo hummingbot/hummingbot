@@ -409,6 +409,8 @@ cdef class ArbitrageStrategy(StrategyBase):
             object total_bid_value_adjusted = s_decimal_0  # total revenue adjusted with exchange rate conversion
             object total_ask_value_adjusted = s_decimal_0  # total cost adjusted with exchange rate conversion
             object total_previous_step_base_amount = s_decimal_0
+            object bid_price = s_decimal_0  # bid price
+            object ask_price = s_decimal_0  # ask price
             object profitability
             object best_profitable_order_amount = s_decimal_0
             object best_profitable_order_profitability = s_decimal_0
