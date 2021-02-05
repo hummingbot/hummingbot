@@ -6,6 +6,7 @@ connector_status = {
     'binance_perpetual_testnet': 'yellow',
     'binance_us': 'yellow',
     'bitfinex': 'green',
+    'bitmax': 'yellow',
     'bittrex': 'yellow',
     'celo': 'green',
     'coinbase_pro': 'green',
