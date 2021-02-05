@@ -5,13 +5,14 @@ connector_status = {
     'binance_perpetual': 'yellow',
     'binance_perpetual_testnet': 'yellow',
     'binance_us': 'yellow',
-    'bitfinex': 'green',
+    'bitfinex': 'yellow',
     'bitmax': 'yellow',
     'bittrex': 'yellow',
+    'blocktane': 'yellow',
     'celo': 'green',
     'coinbase_pro': 'green',
     'crypto_com': 'yellow',
-    'dydx': 'yellow',
+    'dydx': 'green',
     'eterbase': 'red',
     'ethereum': 'red',
     'huobi': 'green',
@@ -19,13 +20,12 @@ connector_status = {
     'kucoin': 'green',
     'liquid': 'green',
     'loopring': 'yellow',
-    'okex': 'red',
-    'terra': 'yellow'
+    'okex': 'green',
+    'terra': 'green'
 }
 
 warning_messages = {
-    'eterbase': 'Hack investigation and security audit is ongoing for Eterbase. Trading is currently disabled.',
-    'okex': 'OKEx is reportedly being investigated by Chinese authorities and has stopped withdrawals.'
+    'eterbase': 'Hack investigation and security audit is ongoing for Eterbase. Trading is currently disabled.'
 }
 
 
