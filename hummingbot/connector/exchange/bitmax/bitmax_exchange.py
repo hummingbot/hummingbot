@@ -727,7 +727,7 @@ class BitmaxExchange(ExchangeBase):
 
             open_orders = await self.get_open_orders()
 
-            for cl_order_id, tracked_order in self._in_flight_orders.items():
+            for cl_order_id, tracked_order in self._in_flight_orders.copy().items():
                 open_order = [o for o in open_orders if o.client_order_id == cl_order_id]
                 if not open_order:
                     cancellation_results.append(CancellationResult(cl_order_id, True))
