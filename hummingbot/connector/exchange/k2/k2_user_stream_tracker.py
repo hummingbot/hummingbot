@@ -48,7 +48,7 @@ class K2UserStreamTracker(UserStreamTracker):
         """
         if not self._data_source:
             self._data_source = K2APIUserStreamDataSource(
-                k2_auth=self._k2_auth,
+                auth=self._k2_auth,
                 trading_pairs=self._trading_pairs
             )
         return self._data_source
