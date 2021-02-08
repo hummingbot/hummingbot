@@ -131,10 +131,6 @@ class BinancePerpetualDerivative(DerivativeBase):
         self._trading_rules_polling_task = None
         self._last_poll_timestamp = 0
         self._throttler = Throttler((10.0, 1.0))
-        self._funding_rate = 0
-        self._account_positions = {}
-        self._position_mode = None
-        self._leverage = 1
 
     @property
     def name(self) -> str:
@@ -407,10 +403,6 @@ class BinancePerpetualDerivative(DerivativeBase):
             self.trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                OrderCancelledEvent(self.current_timestamp, client_order_id))
         return response
-
-    # TODO: Implement
-    async def close_position(self, trading_pair: str):
-        pass
 
     def quantize_order_amount(self, trading_pair: str, amount: object, price: object = Decimal(0)):
         trading_rule: TradingRule = self._trading_rules[trading_pair]
@@ -883,7 +875,7 @@ class BinancePerpetualDerivative(DerivativeBase):
                                                                        order_type))
                     self.stop_tracking_order(client_order_id)
 
-    async def _set_margin(self, trading_pair: str, leverage: int = 1):
+    async def _set_leverage(self, trading_pair: str, leverage: int = 1):
         params = {
             "symbol": convert_to_exchange_trading_pair(trading_pair),
             "leverage": leverage
@@ -902,23 +894,16 @@ class BinancePerpetualDerivative(DerivativeBase):
             self.logger().error("Unable to set leverage.")
         return leverage
 
-    def set_margin(self, trading_pair: str, leverage: int = 1):
-        safe_ensure_future(self._set_margin(trading_pair, leverage))
+    def set_leverage(self, trading_pair: str, leverage: int = 1):
+        safe_ensure_future(self._set_leverage(trading_pair, leverage))
 
-    """
-    async def get_position_pnl(self, trading_pair: str):
-        await self._update_positions()
-        return self._account_positions.get(trading_pair)
-    """
-
-    async def _get_funding_rate(self, trading_pair):
-        # TODO: Note --- the "premiumIndex" endpoint can get markPrice, indexPrice, and nextFundingTime as well
+    async def _get_funding_info(self, trading_pair):
         prem_index = await self.request("/fapi/v1/premiumIndex", params={"symbol": convert_to_exchange_trading_pair(trading_pair)})
-        self._funding_rate = Decimal(prem_index.get("lastFundingRate", "0"))
+        self._funding_info = Decimal(prem_index.get("lastFundingRate", "0"))
 
-    def get_funding_rate(self, trading_pair):
-        safe_ensure_future(self._get_funding_rate(trading_pair))
-        return self._funding_rate
+    def get_funding_info(self, trading_pair):
+        safe_ensure_future(self._get_funding_info(trading_pair))
+        return self._funding_info
 
     async def _set_position_mode(self, position_mode: PositionMode):
         initial_mode = await self._get_position_mode()
@@ -941,6 +926,7 @@ class BinancePerpetualDerivative(DerivativeBase):
             self.logger().info(f"Using {position_mode.name} position mode.")
 
     async def _get_position_mode(self):
+        # To-do: ensure there's no active order or contract before changing position mode
         if self._position_mode is None:
             mode = await self.request(
                 path="/fapi/v1/positionSide/dual",
@@ -954,6 +940,9 @@ class BinancePerpetualDerivative(DerivativeBase):
 
     def set_position_mode(self, position_mode: PositionMode):
         safe_ensure_future(self._set_position_mode(position_mode))
+
+    def supported_position_modes(self):
+        return [PositionMode.ONEWAY, PositionMode.HEDGE]
 
     async def request(self, path: str, params: Dict[str, Any] = {}, method: MethodType = MethodType.GET,
                       add_timestamp: bool = False, is_signed: bool = False, request_weight: int = 1, return_err: bool = False):
