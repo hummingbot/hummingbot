@@ -824,7 +824,7 @@ class K2Exchange(ExchangeBase):
 
     async def get_open_orders(self) -> List[OpenOrder]:
         result = await self._api_request(
-            "GET",
+            "POST",
             constants.GET_OPEN_ORDERS,
             {},
             True
