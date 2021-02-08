@@ -4,6 +4,9 @@ import time
 
 from typing import Dict, Any
 
+SECRET_BEGIN_SUBSTRING = "-----BEGIN RSA PRIVATE KEY-----\n"
+SECRET_KEY_END_SUBSTRING = "\n-----END RSA PRIVATE KEY-----"
+
 
 class K2Auth():
     """
@@ -12,7 +15,7 @@ class K2Auth():
     def __init__(self, api_key: str, secret_key: str):
         self.api_key = api_key
         # TODO: Determine if there is a way to include both PKCS1 and PKCS8 keys
-        self.secret_key = rsa.PrivateKey.load_pkcs1(secret_key)
+        self.secret_key = rsa.PrivateKey.load_pkcs1(f"{SECRET_BEGIN_SUBSTRING+secret_key+SECRET_KEY_END_SUBSTRING}")
 
     def generate_auth_dict(
         self,
