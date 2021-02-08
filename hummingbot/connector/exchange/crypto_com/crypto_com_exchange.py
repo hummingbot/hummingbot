@@ -602,16 +602,20 @@ class CryptoComExchange(ExchangeBase):
                                                {"order_id": order_id},
                                                True))
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
-            update_results = await safe_gather(*tasks, return_exceptions=True)
-            for update_result in update_results:
-                if isinstance(update_result, Exception):
-                    raise update_result
-                if "result" not in update_result:
-                    self.logger().info(f"_update_order_status result not in resp: {update_result}")
+            responses = await safe_gather(*tasks, return_exceptions=True)
+            for response in responses:
+                if isinstance(response, Exception):
+                    raise response
+                if "result" not in response:
+                    self.logger().info(f"_update_order_status result not in resp: {response}")
                     continue
-                for trade_msg in update_result["result"]["trade_list"]:
+                result = response["result"]
+                if "trade_list" not in result:
+                    self.logger().info(f"{__name__}: trade_list not in result: {result}")
+                    continue
+                for trade_msg in result["trade_list"]:
                     await self._process_trade_message(trade_msg)
-                self._process_order_message(update_result["result"]["order_info"])
+                self._process_order_message(result["order_info"])
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
