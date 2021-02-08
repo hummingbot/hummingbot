@@ -137,7 +137,9 @@ async def calculate_performance_metrics(exchange: str,
     perf = PerformanceMetrics()
     buys = [t for t in trades if t.trade_type.upper() == "BUY"]
     sells = [t for t in trades if t.trade_type.upper() == "SELL"]
-    derivative = True if "NILL" not in [t.position for t in trades] else False
+    derivative = False
+    if trades and type(trades[0]) == TradeFill and "NILL" not in [t.position for t in trades]:
+        derivative = True
     perf.num_buys = len(buys)
     perf.num_sells = len(sells)
     perf.num_trades = perf.num_buys + perf.num_sells
