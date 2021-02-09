@@ -39,9 +39,9 @@ class HummingbotCompleter(Completer):
         self.hummingbot_application = hummingbot_application
         self._path_completer = WordCompleter(file_name_list(CONF_FILE_PATH, "yml"))
         self._command_completer = WordCompleter(self.parser.commands, ignore_case=True)
-        self._exchange_completer = WordCompleter(CONNECTOR_SETTINGS.keys(), ignore_case=True)
-        self._spot_completer = WordCompleter(EXCHANGES.union(SPOT_PROTOCOL_CONNECTOR), ignore_case=True)
-        self._spot_exchange_completer = WordCompleter(EXCHANGES, ignore_case=True)
+        self._exchange_completer = WordCompleter(sorted(CONNECTOR_SETTINGS.keys()), ignore_case=True)
+        self._spot_completer = WordCompleter(sorted(EXCHANGES.union(SPOT_PROTOCOL_CONNECTOR)), ignore_case=True)
+        self._spot_exchange_completer = WordCompleter(sorted(EXCHANGES), ignore_case=True)
         self._derivative_completer = WordCompleter(DERIVATIVES, ignore_case=True)
         self._derivative_exchange_completer = WordCompleter(DERIVATIVES.difference(DERIVATIVE_PROTOCOL_CONNECTOR), ignore_case=True)
         self._connect_option_completer = WordCompleter(CONNECT_OPTIONS, ignore_case=True)
