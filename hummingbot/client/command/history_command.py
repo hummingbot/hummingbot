@@ -14,7 +14,8 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.settings import (
     MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT,
     CONNECTOR_SETTINGS,
-    ConnectorType
+    ConnectorType,
+    DERIVATIVES
 )
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.user.user_balances import UserBalances
@@ -141,6 +142,7 @@ class HistoryCommand:
 
         assets_columns = ["", "start", "current", "change"]
         assets_data = [
+            [f"{base:<17}", "-", "-", "-"] if market in DERIVATIVES else  # No base asset for derivatives because they are margined
             [f"{base:<17}",
              smart_round(perf.start_base_bal, precision),
              smart_round(perf.cur_base_bal, precision),
@@ -153,6 +155,7 @@ class HistoryCommand:
              smart_round(perf.start_price),
              smart_round(perf.cur_price),
              smart_round(perf.cur_price - perf.start_price)],
+            [f"{'Base asset %':<17}", "-", "-", "-"] if market in DERIVATIVES else  # No base asset for derivatives because they are margined
             [f"{'Base asset %':<17}",
              f"{perf.start_base_ratio_pct:.2%}",
              f"{perf.cur_base_ratio_pct:.2%}",

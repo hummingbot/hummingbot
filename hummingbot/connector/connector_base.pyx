@@ -2,7 +2,8 @@ from decimal import Decimal
 from typing import (
     Dict,
     List,
-    Tuple
+    Tuple,
+    Set,
 )
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.event.events import (
@@ -13,6 +14,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.network_iterator import NetworkIterator
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
+from hummingbot.connector.utils import TradeFillOrderDetails
 from hummingbot.core.event.events import OrderFilledEvent
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.estimate_fee import estimate_fee
@@ -54,6 +56,8 @@ cdef class ConnectorBase(NetworkIterator):
         # for _in_flight_orders_snapshot and _in_flight_orders_snapshot_timestamp when the update user balances.
         self._in_flight_orders_snapshot = {}  # Dict[order_id:str, InFlightOrderBase]
         self._in_flight_orders_snapshot_timestamp = 0.0
+        self._current_trade_fills = set()
+        self._exchange_order_ids = dict()
 
     @property
     def real_time_balance_update(self) -> bool:
@@ -412,3 +416,24 @@ cdef class ConnectorBase(NetworkIterator):
     @property
     def available_balances(self) -> Dict[str, Decimal]:
         return self._account_available_balances
+
+    def add_trade_fills_from_market_recorder(self, current_trade_fills: Set[TradeFillOrderDetails]):
+        """
+        Gets updates from new records in TradeFill table. This is used in method is_confirmed_new_order_filled_event
+        """
+        self._current_trade_fills.update(current_trade_fills)
+
+    def add_exchange_order_ids_from_market_recorder(self, current_exchange_order_ids: Dict[str, str]):
+        """
+        Gets updates from new orders in Order table. This is used in method connector _history_reconciliation
+        """
+        self._exchange_order_ids.update(current_exchange_order_ids)
+
+    def is_confirmed_new_order_filled_event(self, exchange_trade_id: str, exchange_order_id: str, trading_pair: str):
+        """
+        Returns True if order to be filled is not already present in TradeFill entries.
+        This is intended to avoid duplicated order fills in local DB.
+        """
+        # Assume (market, exchange_trade_id, trading_pair) are unique. Also order has to be recorded in Order table
+        return (not TradeFillOrderDetails(self.display_name, exchange_trade_id, trading_pair) in self._current_trade_fills) and \
+               (exchange_order_id in set(self._exchange_order_ids.keys()))
