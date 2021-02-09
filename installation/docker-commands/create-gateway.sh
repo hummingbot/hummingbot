@@ -100,19 +100,37 @@ do
   then
     ETHEREUM_RPC_URL="$(echo -e "${value}" | tr -d '[:space:]')"
   fi
-  # ethergas station config
+  # ethereum token list source
+  if [ "$key" == "ethereum_token_list_url" ]
+  then
+    ETHEREUM_TOKEN_LIST_URL="$(echo -e "${value}" | tr -d '[:space:]')"
+  fi
+  # manual gas
+  if [ "$key" == "manual_gas_price" ]
+  then
+    MANUAL_GAS_PRICE="$(echo -e "${value}" | tr -d '[:space:]')"
+  fi
+  # enable eth gas station
+  if [ "$key" == "ethgasstation_gas_enabled" ]
+  then
+    ENABLE_ETH_GAS_STATION="$(echo -e "${value}" | tr -d '[:space:]')"
+  fi
+  # ethergas station api key
   if [ "$key" == "ethgasstation_api_key" ]
   then
     ETH_GAS_STATION_API_KEY="$(echo -e "${value}" | tr -d '[:space:]')"
   fi
+  # Gas Level (fast, fastest, safeLow)
   if [ "$key" == "ethgasstation_gas_level" ]
   then
     ETH_GAS_STATION_GAS_LEVEL="$(echo -e "${value}" | tr -d '[:space:]')"
   fi
+  # Refresh time in second
   if [ "$key" == "ethgasstation_refresh_time" ]
   then
     ETH_GAS_STATION_REFRESH_TIME="$(echo -e "${value}" | tr -d '[:space:]')"
   fi
+  #
 done < "$GLOBAL_CONFIG"
 }
 read_global_config
@@ -231,8 +249,15 @@ echo
 printf "%30s %5s\n" "Hummingbot Instance ID:" "$HUMMINGBOT_INSTANCE_ID"
 printf "%30s %5s\n" "Ethereum Chain:" "$ETHEREUM_CHAIN"
 printf "%30s %5s\n" "Ethereum RPC URL:" "$ETHEREUM_RPC_URL"
+printf "%30s %5s\n" "Ethereum Token List URL:" "$ETHEREUM_TOKEN_LIST_URL"
+printf "%30s %5s\n" "Manual Gas Price:" "$MANUAL_GAS_PRICE"
+printf "%30s %5s\n" "Enable Eth Gas Station:" "$ENABLE_ETH_GAS_STATION"
+printf "%30s %5s\n" "Eth Gas Station API:" "$ETH_GAS_STATION_API_KEY"
+printf "%30s %5s\n" "Eth Gas Station Level:" "$ETH_GAS_STATION_GAS_LEVEL"
+printf "%30s %5s\n" "Eth Gas Station Refresh Interval:" "$ETH_GAS_STATION_REFRESH_TIME"
 printf "%30s %5s\n" "Balancer Subgraph:" "$REACT_APP_SUBGRAPH_URL"
 printf "%30s %5s\n" "Balancer Exchange Proxy:" "$EXCHANGE_PROXY"
+printf "%30s %5s\n" "Balancer Max Swaps:" "$BALANCER_MAX_SWAPS"
 printf "%30s %5s\n" "Uniswap Router:" "$UNISWAP_ROUTER"
 printf "%30s %5s\n" "Terra Chain:" "$TERRA"
 printf "%30s %5s\n" "Gateway Log Path:" "$LOG_PATH"
@@ -249,19 +274,29 @@ echo "NODE_ENV=prod" >> $ENV_FILE
 echo "PORT=$PORT" >> $ENV_FILE
 echo "" >> $ENV_FILE
 echo "HUMMINGBOT_INSTANCE_ID=$HUMMINGBOT_INSTANCE_ID" >> $ENV_FILE
+
+# ethereum config
 echo "ETHEREUM_CHAIN=$ETHEREUM_CHAIN" >> $ENV_FILE
 echo "ETHEREUM_RPC_URL=$ETHEREUM_RPC_URL" >> $ENV_FILE
-echo "REACT_APP_SUBGRAPH_URL=$REACT_APP_SUBGRAPH_URL" >> $ENV_FILE # must used "REACT_APP_SUBGRAPH_URL" for balancer-sor
-echo "EXCHANGE_PROXY=$EXCHANGE_PROXY" >> $ENV_FILE
-echo "UNISWAP_ROUTER=$UNISWAP_ROUTER" >> $ENV_FILE
-echo "TERRA_LCD_URL=$TERRA_LCD_URL" >> $ENV_FILE
-echo "TERRA_CHAIN=$TERRA_CHAIN" >> $ENV_FILE
+echo "ETHEREUM_TOKEN_LIST_URL=$ETHEREUM_TOKEN_LIST_URL" >> $ENV_FILE
 
+echo "MANUAL_GAS_PRICE=$MANUAL_GAS_PRICE" >> $ENV_FILE
+echo "ENABLE_ETH_GAS_STATION=$ENABLE_ETH_GAS_STATION" >> $ENV_FILE
 echo "ETH_GAS_STATION_API_KEY=$ETH_GAS_STATION_API_KEY" >> $ENV_FILE
 echo "ETH_GAS_STATION_GAS_LEVEL=$ETH_GAS_STATION_GAS_LEVEL" >> $ENV_FILE
 echo "ETH_GAS_STATION_REFRESH_TIME=$ETH_GAS_STATION_REFRESH_TIME" >> $ENV_FILE
 
+# balancer config
+echo "REACT_APP_SUBGRAPH_URL=$REACT_APP_SUBGRAPH_URL" >> $ENV_FILE # must used "REACT_APP_SUBGRAPH_URL" for balancer-sor
+echo "EXCHANGE_PROXY=$EXCHANGE_PROXY" >> $ENV_FILE
 echo "BALANCER_MAX_SWAPS=$BALANCER_MAX_SWAPS" >> $ENV_FILE
+
+# uniswap config
+echo "UNISWAP_ROUTER=$UNISWAP_ROUTER" >> $ENV_FILE
+
+# terra config
+echo "TERRA_LCD_URL=$TERRA_LCD_URL" >> $ENV_FILE
+echo "TERRA_CHAIN=$TERRA_CHAIN" >> $ENV_FILE
 
 echo "" >> $ENV_FILE
 
@@ -270,7 +305,12 @@ prompt_proceed () {
  read -p "  Do you want to proceed with installation? [Y/N] >>> " PROCEED
  if [ "$PROCEED" == "" ]
  then
- PROCEED="Y"
+ prompt_proceed
+ else
+  if [[ "$PROCEED" != "Y" && "$PROCEED" != "y" ]]
+  then
+    PROCEED="N"
+  fi
  fi
 }
 
