@@ -88,6 +88,7 @@ class K2Exchange(ExchangeBase):
         self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
         self._status_polling_task = None
+        self._user_stream_tracker_task = None
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._last_poll_timestamp = 0
@@ -219,8 +220,7 @@ class K2Exchange(ExchangeBase):
         try:
             # since there is no ping endpoint, the lowest rate call is to get BTC-USDT ticker
             await self._api_request(method="GET",
-                                    path_url=constants.GET_TRADING_PAIRS_STATS,
-                                    params={"symbol": "BTC-USD"})
+                                    path_url=constants.GET_TRADING_PAIRS)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -253,7 +253,7 @@ class K2Exchange(ExchangeBase):
                 await asyncio.sleep(0.5)
 
     async def _update_trading_rules(self):
-        response = await self._api_request("GET", path_url=constants.GET_TRADING_PAIRS_STATS)
+        response = await self._api_request("GET", path_url=constants.GET_TRADING_PAIRS)
         self._trading_rules.clear()
         self._trading_rules = self._format_trading_rules(response)
 
@@ -301,7 +301,7 @@ class K2Exchange(ExchangeBase):
     async def _api_request(self,
                            method: str,
                            path_url: str,
-                           params: Dict[str, Any] = None,
+                           params: Optional[Dict[str, Any]] = None,
                            is_auth_required: bool = False) -> Dict[str, Any]:
         """
         Sends an aiohttp request and waits for a response.
@@ -324,8 +324,6 @@ class K2Exchange(ExchangeBase):
             response = await http_client.get(url, headers=headers, params=params)
         elif method == "POST":
             response = await http_client.post(url, headers=headers, params=params)
-        else:
-            raise NotImplementedError
 
         if response.status != 200:
             raise IOError(f"Error fetching data from {method} {url}. HTTP status is {response.status}. "
@@ -720,13 +718,12 @@ class K2Exchange(ExchangeBase):
             raise Exception("cancel_all can only be used when trading_pairs are specified.")
         cancellation_results = []
         try:
-            for trading_pair in self._trading_pairs:
-                await self._api_request(
-                    "POST",
-                    constants.CANCEL_ALL_ORDERS,
-                    None,
-                    True
-                )
+            await self._api_request(
+                "POST",
+                constants.CANCEL_ALL_ORDERS,
+                None,
+                True
+            )
             open_orders = await self.get_open_orders()
             for cl_order_id, tracked_order in self._in_flight_orders.items():
                 open_order = [o for o in open_orders if o.client_order_id == cl_order_id]
@@ -843,7 +840,7 @@ class K2Exchange(ExchangeBase):
                     executed_amount=Decimal(str(order["quantity"])) - Decimal(str(order["leaveqty"])),
                     status=constants.ORDER_STATUS[order["status"]],
                     order_type=OrderType.LIMIT,
-                    is_buy=True if order["side"].lower() == "Buy" else False,
+                    is_buy=True if order["type"] == "Buy" else False,
                     time=int(time.time() * 1e3),  # TODO: Check in with K2 for order creation ts, order update ts
                     exchange_order_id=order["orderid"]  # TODO: Check in with K2 for unique order id
                 )
