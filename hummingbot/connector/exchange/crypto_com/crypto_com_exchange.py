@@ -610,11 +610,9 @@ class CryptoComExchange(ExchangeBase):
                     self.logger().info(f"_update_order_status result not in resp: {response}")
                     continue
                 result = response["result"]
-                if "trade_list" not in result:
-                    self.logger().info(f"{__name__}: trade_list not in result: {result}")
-                    continue
-                for trade_msg in result["trade_list"]:
-                    await self._process_trade_message(trade_msg)
+                if "trade_list" in result:
+                    for trade_msg in result["trade_list"]:
+                        await self._process_trade_message(trade_msg)
                 self._process_order_message(result["order_info"])
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
