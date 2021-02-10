@@ -711,11 +711,7 @@ class BinancePerpetualDerivative(DerivativeBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-    # TODO: Note --- Data Structure Assumes One-way Position Mode [not hedge position mode] (see Binance Futures Docs)
-    # Note --- Hedge Mode allows for Both Long and Short Positions on a trading pair
     async def _update_positions(self):
-        # local_position_names = set(self._account_positions.keys())
-        # remote_position_names = set()
         positions = await self.request(path="/fapi/v2/positionRisk", add_timestamp=True, is_signed=True)
         for position in positions:
             trading_pair = position.get("symbol")
