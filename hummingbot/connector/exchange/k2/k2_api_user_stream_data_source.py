@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import asyncio
 import logging
+import time
 import ujson
 import websockets
 
@@ -20,6 +21,8 @@ from hummingbot.logger import HummingbotLogger
 
 
 class K2APIUserStreamDataSource(UserStreamTrackerDataSource):
+
+    MESSAGE_TIMEOUT = 30.0
 
     _logger: Optional[HummingbotLogger] = None
 
@@ -52,47 +55,42 @@ class K2APIUserStreamDataSource(UserStreamTrackerDataSource):
                 self._websocket_client = await websockets.connect(constants.WSS_URL)
         except Exception:
             self.logger().network("Unexpected error occured with K2 WebSocket Connection")
-        finally:
-            if self._websocket_client is not None:
-                self._websocket_client.close()
-                self._websocket_client = None
 
-    async def _authenticate(self):
+    async def _authenticate(self, ws: websockets.WebSocketClientProtocol):
         """
         Authenticates user to Websocket.
         """
-        auth_dict: Dict[str, Any] = self._k2_auth.generate_auth_dict(path_url=constants.WSS_LOGIN)
+        while True:
+            try:
+                auth_dict: Dict[str, Any] = self._k2_auth.generate_auth_dict(path_url=constants.WSS_LOGIN)
 
-        params: Dict[str, Any] = {
-            "name": constants.WSS_LOGIN,
-            "data": {
-                "apikey": auth_dict["APIKey"],
-                "apisignature": auth_dict["APISignature"],
-                "apiauthpayload": auth_dict["APIAuthPayload"]
-            },
-            "apinonce": auth_dict["APINonce"]
-        }
-        try:
-            await self._websocket_client.send(ujson.dumps(params))
-            resp = await self._websocket_client.recv()
+                params: Dict[str, Any] = {
+                    "name": constants.WSS_LOGIN,
+                    "data": {
+                        "apikey": auth_dict["APIKey"],
+                        "apisignature": auth_dict["APISignature"],
+                        "apiauthpayload": auth_dict["APIAuthPayload"]
+                    },
+                    "apinonce": auth_dict["APINonce"]
+                }
 
-            msg: Dict[str, Any] = ujson.loads(resp)
-            if msg["success"] is not True:
-                raise websockets.WebSocketProtocolError("Websocket Authentication unsuccessful.")
-            else:
-                return
+                await ws.send(ujson.dumps(params))
+                resp = await ws.recv()
 
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.logger().error("Unexpected Error occur authenticating for to websocket channel. ", exc_info=True)
-            await asyncio.sleep(5.0)
-        finally:
-            if self._websocket_client is not None:
-                await self._websocket_client.close()
-                self._websocket_client = None
+                msg: Dict[str, Any] = ujson.loads(resp)
+                if msg["success"] is not True:
+                    raise
+                else:
+                    return
 
-    async def _subscribe_to_channels(self,):
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error("Unexpected Error occur authenticating for to websocket channel. Retrying in 5 seconds,",
+                                    exc_info=True)
+                raise
+
+    async def _subscribe_to_channels(self, ws: websockets.WebSocketClientProtocol):
         """
         Subscribe to SubscribeMyOrders, SubscribeMyTrades and SubscribeMyBalanceChanges channels
         """
@@ -101,7 +99,24 @@ class K2APIUserStreamDataSource(UserStreamTrackerDataSource):
                 "name": channel,
                 "data": ""
             }
-            await self._websocket_client.send(ujson.dumps(params))
+            await ws.send(ujson.dumps(params))
+
+    async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
+        """
+        Iterates through each message received from the websocket. Also updates self._last_recv_time
+        """
+        try:
+            while True:
+                msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
+                self._last_recv_time = time.time()
+                yield msg
+        except asyncio.TimeoutError:
+            self.logger().warning("Websocket ping timeout. Going to reconnect...")
+            return
+        except websockets.exceptions.ConnectionClosed:
+            return
+        finally:
+            await ws.close()
 
     async def listen_for_user_stream(self, ev_loop, output: asyncio.Queue) -> AsyncIterable[Any]:
         """
@@ -109,23 +124,20 @@ class K2APIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         while True:
             try:
-                await self._init_websocket_connection()
+                self._websocket_client = await websockets.connect(constants.WSS_URL)
                 self.logger().info("Authenticating")
-                await self._authenticate()
-                await self._subscribe_to_channels()
-                async for msg in self._websocket_client.recv():
-                    output.put_nowait(msg)
+                await self._authenticate(self._websocket_client)
+                await self._subscribe_to_channels(self._websocket_client)
+                async for msg in self._inner_messages(self._websocket_client):
+                    output.put_nowait(ujson.loads(msg))
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error(
-                    "Unexpected error occured with K2 WebSocket Connection. Retrying in 30 seconds.",
-                    exc_info=True,
-                    app_warning_msg="""
-                    Unexpected error occured with K2 WebSocket Connection. Retrying in 30 seconds.
-                    """
+                    "Unexpected error occured with K2 WebSocket Connection. Retrying in 5 seconds.",
+                    exc_info=True
                 )
                 if self._websocket_client is not None:
-                    self._websocket_client.close()
+                    await self._websocket_client.close()
                     self._websocket_client = None
-                await asyncio.sleep(30.0)
+                await asyncio.sleep(5.0)

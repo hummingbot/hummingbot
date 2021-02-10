@@ -8,7 +8,6 @@ from typing import (
     Optional,
 )
 
-from hummingbot.connector.exchange.k2.k2_constants import ORDER_STATUS
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.event.events import (
     OrderType,
@@ -60,23 +59,23 @@ class K2InFlightOrder(InFlightOrderBase):
         :return InFlightOrder obj
         """
         retval = K2InFlightOrder(
-            client_order_id=data["orderid"],
-            exchange_order_id=data["orderid"],
-            trading_pair=data["symbol"],
-            order_type=getattr(OrderType, data["ordertype"]),
-            trade_type=getattr(TradeType, data["type"]),
+            client_order_id=data["client_order_id"],
+            exchange_order_id=data["exchange_order_id"],
+            trading_pair=data["trading_pair"],
+            order_type=getattr(OrderType, data["order_type"]),
+            trade_type=getattr(TradeType, data["trade_type"]),
             price=Decimal(data["price"]),
-            amount=Decimal(data["quantity"]),
-            initial_state=ORDER_STATUS[data["status"]]
+            amount=Decimal(data["amount"]),
+            initial_state=data["last_state"]
         )
-        retval.executed_amount_base = retval.amount - Decimal(str(data["leaveqty"]))
+        retval.executed_amount_base = retval.amount - Decimal(str(data["executed_amount_base"]))
         # TODO: Determine best way to calculate the following
         # retval.executed_amount_quote = None
         # retval.executed_amount_quote = None
         # retval.fee_asset = None
         # retval.fee_paid = None
 
-        retval.last_state = ORDER_STATUS[data["status"]]
+        retval.last_state = data["last_state"]
 
         return retval
 
