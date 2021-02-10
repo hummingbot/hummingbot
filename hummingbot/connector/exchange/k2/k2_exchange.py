@@ -253,7 +253,7 @@ class K2Exchange(ExchangeBase):
                 await asyncio.sleep(0.5)
 
     async def _update_trading_rules(self):
-        response = await self._api_request("GET", path_url=constants.GET_TRADING_PAIRS)
+        response = await self._api_request(method="GET", path_url=constants.GET_TRADING_PAIRS)
         self._trading_rules.clear()
         self._trading_rules = self._format_trading_rules(response)
 
@@ -283,9 +283,9 @@ class K2Exchange(ExchangeBase):
         for trading_pair_stat in data["data"]:
             try:
                 trading_pair = k2_utils.convert_from_exchange_trading_pair(trading_pair_stat["symbol"])
-                price_decimals = Decimal(str(trading_pair_stat["decimal"]["price"]))
-                quantity_decimals = Decimal(str(trading_pair_stat["decimal"]["amount"]))
-                min_trade_value = Decimal(str(trading_pair_stat["decimal"]["mintradevalue"]))
+                price_decimals = Decimal(str(trading_pair_stat["decimals"]["price"]))
+                quantity_decimals = Decimal(str(trading_pair_stat["decimals"]["amount"]))
+                min_trade_value = Decimal(str(trading_pair_stat["mintradevalue"]))
                 # E.g. a price decimal of 2 means 0.01 incremental.
                 price_step = Decimal("1") / Decimal(str(math.pow(10, price_decimals)))
                 quantity_step = Decimal("1") / Decimal(str(math.pow(10, quantity_decimals)))
@@ -296,12 +296,14 @@ class K2Exchange(ExchangeBase):
                                                    )
             except Exception:
                 self.logger().error(f"Error parsing the trading pair rule {data}. Skipping.", exc_info=True)
+                raise
         return result
 
     async def _api_request(self,
                            method: str,
                            path_url: str,
                            params: Optional[Dict[str, Any]] = None,
+                           data: Optional[Dict[str, Any]] = None,
                            is_auth_required: bool = False) -> Dict[str, Any]:
         """
         Sends an aiohttp request and waits for a response.
@@ -323,10 +325,10 @@ class K2Exchange(ExchangeBase):
         if method == "GET":
             response = await http_client.get(url, headers=headers, params=params)
         elif method == "POST":
-            response = await http_client.post(url, headers=headers, params=params)
+            response = await http_client.post(url, headers=headers, params=params, data=data)
 
         if response.status != 200:
-            raise IOError(f"Error fetching data from {method} {url}. HTTP status is {response.status}. "
+            raise IOError(f"Error occurred. API request {method} {url}. HTTP status is {response.status}. "
                           f"Message: {response.reason}")
 
         try:
@@ -426,8 +428,7 @@ class K2Exchange(ExchangeBase):
                              f"{trading_rule.min_order_size}.")
 
         api_params = {
-            # TODO: Determine if there is a way to assign client_order_id as indicated by `tempid` parameter
-            # "tempid": order_id
+            "tempid": order_id,
             "symbol": k2_utils.convert_to_exchange_trading_pair(trading_pair),
             "price": f"{price:f}",
             "quantity": f"{amount:f}",
@@ -443,8 +444,12 @@ class K2Exchange(ExchangeBase):
                                   order_type
                                   )
         try:
-            order_result = await self._api_request("POST", constants.PLACE_ORDER, api_params, True)
-            exchange_order_id = str(order_result["orderids"][0]["id"])
+            order_result = await self._api_request(method="POST",
+                                                   path_url=constants.PLACE_ORDER,
+                                                   params=api_params,
+                                                   data=api_params,
+                                                   is_auth_required=True)
+            exchange_order_id = str(order_result["data"]["orderids"][0]["id"])
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
@@ -523,12 +528,11 @@ class K2Exchange(ExchangeBase):
             api_params = {
                 "orderid": ex_order_id
             }
-            await self._api_request(
-                "POST",
-                constants.CANCEL_ORDER,
-                api_params,
-                True
-            )
+            await self._api_request(method="POST",
+                                    path_url=constants.CANCEL_ORDER,
+                                    params=api_params,
+                                    is_auth_required=True
+                                    )
             return order_id
         except asyncio.CancelledError:
             raise
@@ -570,7 +574,9 @@ class K2Exchange(ExchangeBase):
         """
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
-        balance = await self._api_request("POST", constants.GET_DETAILED_BALANCES, {}, True)
+        balance = await self._api_request(method="POST",
+                                          path_url=constants.GET_DETAILED_BALANCES,
+                                          is_auth_required=True)
         for asset_entry in balance["data"]:
             asset_name = asset_entry["coin"]
             available_balance: Decimal = Decimal(str(asset_entry["availablebalance"]))
@@ -600,10 +606,10 @@ class K2Exchange(ExchangeBase):
                 "orderids": order_ids
             }
             self.logger().debug(f"Polling for order status updates of {len(order_ids)} orders.")
-            resp = await self._api_request("POST",
-                                           constants.GET_ORDERS,
-                                           params,
-                                           True)
+            resp = await self._api_request(method="POST",
+                                           path_url=constants.GET_ORDERS,
+                                           params=params,
+                                           is_auth_required=True)
 
             if isinstance(resp, Exception):
                 raise resp
@@ -718,12 +724,10 @@ class K2Exchange(ExchangeBase):
             raise Exception("cancel_all can only be used when trading_pairs are specified.")
         cancellation_results = []
         try:
-            await self._api_request(
-                "POST",
-                constants.CANCEL_ALL_ORDERS,
-                None,
-                True
-            )
+            await self._api_request(method="POST",
+                                    path_url=constants.CANCEL_ALL_ORDERS,
+                                    is_auth_required=True
+                                    )
             open_orders = await self.get_open_orders()
             for cl_order_id, tracked_order in self._in_flight_orders.items():
                 open_order = [o for o in open_orders if o.client_order_id == cl_order_id]
@@ -820,12 +824,10 @@ class K2Exchange(ExchangeBase):
                 await asyncio.sleep(5.0)
 
     async def get_open_orders(self) -> List[OpenOrder]:
-        result = await self._api_request(
-            "POST",
-            constants.GET_OPEN_ORDERS,
-            {},
-            True
-        )
+        result = await self._api_request(method="POST",
+                                         path_url=constants.GET_OPEN_ORDERS,
+                                         is_auth_required=True
+                                         )
         ret_val = []
         for order in result["data"]:
             # TradeType is not provided by v1/Private/GetOpenOrders endpoint

@@ -146,7 +146,7 @@ class K2APIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().error("Unexpected error.", exc_info=True)
                 await asyncio.sleep(5.0)
             finally:
-                await ws.disconnect()
+                await ws.close()
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
@@ -197,7 +197,7 @@ class K2APIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
-        Listen for orderbook snapshots by fetching orderbook
+        Listen for orderbook snapshots by fetching orderbook using the REST API.
         """
         while True:
             try:
@@ -218,13 +218,8 @@ class K2APIOrderBookDataSource(OrderBookTrackerDataSource):
                         raise
                     except Exception:
                         self.logger().network(
-                            "Unexpected error occured retrieving Order Book Data using REST API.",
-                            exc_info=True,
-                            app_warning_msg="""
-                                Unexpected error occured retrieving Order Book Data using REST API.
-                                Retrying in 5 seconds.
-                                Check network connection.
-                                """
+                            "Unexpected error occured retrieving Order Book Data using REST API. Retying in 5 seconds",
+                            exc_info=True
                         )
                         await asyncio.sleep(5.0)
                 this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
