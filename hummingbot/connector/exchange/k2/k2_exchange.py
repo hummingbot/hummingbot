@@ -446,7 +446,6 @@ class K2Exchange(ExchangeBase):
         try:
             order_result = await self._api_request(method="POST",
                                                    path_url=constants.PLACE_ORDER,
-                                                   params=api_params,
                                                    data=api_params,
                                                    is_auth_required=True)
             exchange_order_id = str(order_result["data"]["orderids"][0]["id"])
@@ -630,7 +629,7 @@ class K2Exchange(ExchangeBase):
         client_order_id = order_msg["orderid"]
         if client_order_id not in self._in_flight_orders:
             return
-        tracked_order = self._in_flight_orders[client_order_id]
+        tracked_order: K2InFlightOrder = self._in_flight_orders[client_order_id]
         # Update order execution status
         tracked_order.last_state = constants.ORDER_STATUS[order_msg["status"]]
         if tracked_order.is_cancelled:
@@ -671,10 +670,8 @@ class K2Exchange(ExchangeBase):
         current_executed_amount: Decimal = tracked_order.executed_amount_base - last_executed_amount
 
         fee_currency: str = ""
-        if tracked_order.order_type == TradeType.BUY:
-            fee_currency = tracked_order.trading_pair.split("/")[0]
-        else:
-            fee_currency = tracked_order.trading_pair.split("/")[1]
+        base_asset, quote_asset = tuple(tracked_order.split("/"))
+        fee_currency = base_asset if tracked_order.order_type == TradeType.BUY else quote_asset
 
         # TODO: Check in with K2 dev for a possible "Traded Qty & Price" and "Cumulative Qty & Price" entry
         self.trigger_event(
@@ -687,7 +684,7 @@ class K2Exchange(ExchangeBase):
                 tracked_order.order_type,
                 Decimal(str(trade_msg["price"])),
                 current_executed_amount,
-                TradeFee(0.0, [(fee_currency, Decimal(str(0)))]),  # TODO: Determine Trading Fees
+                TradeFee(0.0, [(fee_currency, Decimal(str(trade_msg["fee"])))]),  # TODO: Determine Trading Fees
                 exchange_trade_id=trade_msg["orderid"]
             )
         )
@@ -713,6 +710,32 @@ class K2Exchange(ExchangeBase):
                                            tracked_order.order_type))
             self.stop_tracking_order(tracked_order.client_order_id)
 
+    async def get_open_orders(self) -> List[OpenOrder]:
+        result = await self._api_request(method="POST",
+                                         path_url=constants.GET_OPEN_ORDERS,
+                                         is_auth_required=True
+                                         )
+        ret_val = []
+        for order in result["data"]:
+            # TradeType is not provided by v1/Private/GetOpenOrders endpoint
+            # if order["type"] != "LIMIT":
+            #     raise Exception(f"Unsupported order type {order['type']}")
+            ret_val.append(
+                OpenOrder(
+                    client_order_id=order["orderid"],
+                    trading_pair=k2_utils.convert_from_exchange_trading_pair(order["symbol"]),
+                    price=Decimal(str(order["price"])),
+                    amount=Decimal(str(order["quantity"])),
+                    executed_amount=Decimal(str(order["quantity"])) - Decimal(str(order["leaveqty"])),
+                    status=constants.ORDER_STATUS[order["status"]],
+                    order_type=OrderType.LIMIT,
+                    is_buy=True if order["type"] == "Buy" else False,
+                    time=int(time.time() * 1e3),  # TODO: Check in with K2 for order creation ts, order update ts
+                    exchange_order_id=order["orderid"]  # TODO: Check in with K2 for unique order id
+                )
+            )
+        return ret_val
+
     async def cancel_all(self, timeout_seconds: float):
         """
         Cancels all in-flight orders and waits for cancellation results.
@@ -723,26 +746,32 @@ class K2Exchange(ExchangeBase):
         if self._trading_pairs is None:
             raise Exception("cancel_all can only be used when trading_pairs are specified.")
         cancellation_results = []
-        try:
-            await self._api_request(method="POST",
-                                    path_url=constants.CANCEL_ALL_ORDERS,
-                                    is_auth_required=True
-                                    )
-            open_orders = await self.get_open_orders()
-            for cl_order_id, tracked_order in self._in_flight_orders.items():
-                open_order = [o for o in open_orders if o.client_order_id == cl_order_id]
-                if not open_order:
-                    cancellation_results.append(CancellationResult(cl_order_id, True))
-                    self.trigger_event(MarketEvent.OrderCancelled,
-                                       OrderCancelledEvent(self.current_timestamp, cl_order_id))
-                else:
-                    cancellation_results.append(CancellationResult(cl_order_id, False))
-        except Exception:
-            self.logger().network(
-                "Failed to cancel all orders.",
-                exc_info=True,
-                app_warning_msg="Failed to cancel all orders on K2. Check API key and network connection."
-            )
+
+        for trading_pair in self._trading_pairs:
+            api_params = {
+                "symbol": k2_utils.convert_to_exchange_trading_pair(trading_pair)
+            }
+            try:
+                await self._api_request(method="POST",
+                                        path_url=constants.CANCEL_ALL_ORDERS,
+                                        params=api_params,
+                                        is_auth_required=True
+                                        )
+                open_orders = await self.get_open_orders()
+                for cl_order_id, tracked_order in self._in_flight_orders.items():
+                    open_order = [o for o in open_orders if o.client_order_id == cl_order_id]
+                    if not open_order:
+                        cancellation_results.append(CancellationResult(cl_order_id, True))
+                        self.trigger_event(MarketEvent.OrderCancelled,
+                                           OrderCancelledEvent(self.current_timestamp, cl_order_id))
+                    else:
+                        cancellation_results.append(CancellationResult(cl_order_id, False))
+            except Exception:
+                self.logger().network(
+                    "Failed to cancel all orders.",
+                    exc_info=True,
+                    app_warning_msg="Failed to cancel all orders on K2. Check API key and network connection."
+                )
         return cancellation_results
 
     def tick(self, timestamp: float):
@@ -822,29 +851,3 @@ class K2Exchange(ExchangeBase):
             except Exception:
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(5.0)
-
-    async def get_open_orders(self) -> List[OpenOrder]:
-        result = await self._api_request(method="POST",
-                                         path_url=constants.GET_OPEN_ORDERS,
-                                         is_auth_required=True
-                                         )
-        ret_val = []
-        for order in result["data"]:
-            # TradeType is not provided by v1/Private/GetOpenOrders endpoint
-            # if order["type"] != "LIMIT":
-            #     raise Exception(f"Unsupported order type {order['type']}")
-            ret_val.append(
-                OpenOrder(
-                    client_order_id=order["orderid"],  # TODO: Check in with K2 for client specified order id
-                    trading_pair=k2_utils.convert_from_exchange_trading_pair(order["symbol"]),
-                    price=Decimal(str(order["price"])),
-                    amount=Decimal(str(order["quantity"])),
-                    executed_amount=Decimal(str(order["quantity"])) - Decimal(str(order["leaveqty"])),
-                    status=constants.ORDER_STATUS[order["status"]],
-                    order_type=OrderType.LIMIT,
-                    is_buy=True if order["type"] == "Buy" else False,
-                    time=int(time.time() * 1e3),  # TODO: Check in with K2 for order creation ts, order update ts
-                    exchange_order_id=order["orderid"]  # TODO: Check in with K2 for unique order id
-                )
-            )
-        return ret_val
