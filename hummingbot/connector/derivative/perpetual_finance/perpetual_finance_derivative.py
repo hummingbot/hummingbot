@@ -13,6 +13,7 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.event.events import (
@@ -25,17 +26,15 @@ from hummingbot.core.event.events import (
     OrderFilledEvent,
     OrderType,
     TradeType,
-    TradeFee,
-    # PositionSide, PositionMode,
+    PositionSide,
     PositionAction
 )
 from hummingbot.connector.derivative_base import DerivativeBase
 from hummingbot.connector.derivative.perpetual_finance.perpetual_finance_in_flight_order import PerpetualFinanceInFlightOrder
-from hummingbot.connector.derivative.perpetual_finance.perpetual_finance_utils import convert_to_exchange_trading_pair  # convert_from_exchange_trading_pair
+from hummingbot.connector.derivative.perpetual_finance.perpetual_finance_utils import convert_to_exchange_trading_pair, convert_from_exchange_trading_pair
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
-from hummingbot.core.utils.eth_gas_station_lookup import get_gas_price
 from hummingbot.client.config.global_config_map import global_config_map
-# from hummingbot.connector.derivative.position import Position
+from hummingbot.connector.derivative.position import Position
 
 
 s_logger = None
@@ -51,7 +50,7 @@ class PerpetualFinanceDerivative(DerivativeBase):
     """
     API_CALL_TIMEOUT = 10.0
     POLL_INTERVAL = 1.0
-    UPDATE_BALANCE_INTERVAL = 30.0
+    UPDATE_BALANCE_INTERVAL = 5.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -91,16 +90,38 @@ class PerpetualFinanceDerivative(DerivativeBase):
     def name(self):
         return "perpetual_finance"
 
-    """@staticmethod
+    @staticmethod
     async def fetch_trading_pairs() -> List[str]:
-        resp = await self._api_request("get", "perpfi/get-pairs")
-        pairs = resp.get("pairs", [])
-        if len(pairs) == 0:
-            await self.load_metadata()
+        ssl_ctx = ssl.create_default_context(cafile=GATEAWAY_CA_CERT_PATH)
+        ssl_ctx.load_cert_chain(GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH)
+        conn = aiohttp.TCPConnector(ssl_context=ssl_ctx)
+        client = aiohttp.ClientSession(connector=conn)
+
+        base_url = f"https://{global_config_map['gateway_api_host'].value}:" \
+                   f"{global_config_map['gateway_api_port'].value}/perpfi/"
+        response = await client.get(base_url + "pairs")
+        parsed_response = json.loads(await response.text())
+        if response.status != 200:
+            err_msg = ""
+            if "error" in parsed_response:
+                err_msg = f" Message: {parsed_response['error']}"
+            raise IOError(f"Error fetching pairs from gateway. HTTP status is {response.status}.{err_msg}")
+        pairs = parsed_response.get("pairs", [])
+        if "error" in parsed_response or len(pairs) == 0:
+            raise Exception(f"Error: {parsed_response['error']}")
+        else:
+            status = await client.get(base_url)
+            status = json.loads(await status.text())
+            loadedMetadata = status["loadedMetadata"]
+            while (not loadedMetadata):
+                resp = await client.get(base_url + "load-metadata")
+                resp = json.loads(await resp.text())
+                loadedMetadata = resp.get("loadedMetadata", False)
+                return PerpetualFinanceDerivative.fetch_trading_pairs()
         trading_pairs = []
         for pair in pairs:
             trading_pairs.append(convert_from_exchange_trading_pair(pair))
-        return trading_pairs"""
+        return trading_pairs
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
@@ -169,7 +190,7 @@ class PerpetualFinanceDerivative(DerivativeBase):
         try:
             side = "buy" if is_buy else "sell"
             resp = await self._api_request("post",
-                                           "perpfi/get-price",
+                                           "perpfi/price",
                                            {"side": side,
                                             "pair": convert_to_exchange_trading_pair(trading_pair),
                                             "amount": amount})
@@ -249,7 +270,6 @@ class PerpetualFinanceDerivative(DerivativeBase):
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
         base, quote = trading_pair.split("-")
-        gas_price = get_gas_price()
         api_params = {"pair": convert_to_exchange_trading_pair(trading_pair)}
         if position_action == PositionAction.OPEN:
             api_params.update({"side": 0 if trade_type == TradeType.BUY else 1,
@@ -258,18 +278,17 @@ class PerpetualFinanceDerivative(DerivativeBase):
                                "minBaseAssetAmount": amount})
         else:
             api_params.update({"minimalQuoteAsset": price * amount})
-        self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, gas_price)
+        self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, self._leverage, position_action.name)
         try:
-            order_result = await self._api_request("post", f"perpfi/{trade_type.name.lower()}", api_params)
+            order_result = await self._api_request("post", f"perpfi/{position_action.name.lower()}", api_params)
             hash = order_result.get("txHash")
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {trade_type.name} order {order_id} txHash: {hash} "
                                    f"for {amount} {trading_pair}.")
                 tracked_order.update_exchange_order_id(hash)
-                tracked_order.gas_price = gas_price
             if hash is not None:
-                tracked_order.fee_asset = "ETH"
+                tracked_order.fee_asset = "XDAI"
                 tracked_order.executed_amount_base = amount
                 tracked_order.executed_amount_quote = amount * price
                 event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
@@ -300,7 +319,6 @@ class PerpetualFinanceDerivative(DerivativeBase):
                              trade_type: TradeType,
                              price: Decimal,
                              amount: Decimal,
-                             gas_price: Decimal,
                              leverage: int,
                              position: str,):
         """
@@ -314,7 +332,6 @@ class PerpetualFinanceDerivative(DerivativeBase):
             trade_type=trade_type,
             price=price,
             amount=amount,
-            gas_price=gas_price,
             leverage=leverage,
             position=position
         )
@@ -337,7 +354,7 @@ class PerpetualFinanceDerivative(DerivativeBase):
             for tracked_order in tracked_orders:
                 order_id = await tracked_order.get_exchange_order_id()
                 tasks.append(self._api_request("post",
-                                               "eth/get-receipt",
+                                               "perpfi/receipt",
                                                {"txHash": order_id}))
             update_results = await safe_gather(*tasks, return_exceptions=True)
             for update_result in update_results:
@@ -349,9 +366,8 @@ class PerpetualFinanceDerivative(DerivativeBase):
                     continue
                 if update_result["confirmed"] is True:
                     if update_result["receipt"]["status"] == 1:
-                        gas_used = update_result["receipt"]["gasUsed"]
-                        gas_price = tracked_order.gas_price
-                        fee = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
+                        fee = estimate_fee("perpetual_finance", False)
+                        fee.flat_fees = [(tracked_order.fee_asset, Decimal(str(update_result["receipt"]["gasUsed"])))]
                         self.trigger_event(
                             MarketEvent.OrderFilled,
                             OrderFilledEvent(
@@ -362,7 +378,7 @@ class PerpetualFinanceDerivative(DerivativeBase):
                                 tracked_order.order_type,
                                 Decimal(str(tracked_order.price)),
                                 Decimal(str(tracked_order.amount)),
-                                TradeFee(0.0, [(tracked_order.fee_asset, Decimal(str(fee)))]),
+                                fee,
                                 exchange_trade_id=order_id
                             )
                         )
@@ -413,8 +429,7 @@ class PerpetualFinanceDerivative(DerivativeBase):
         """
         Checks if all tokens have allowance (an amount approved)
         """
-        return len(self._allowances.values()) == len(self._token_addresses.values()) and \
-            all(amount > s_decimal_0 for amount in self._allowances.values())
+        return all(amount > s_decimal_0 for amount in self._allowances.values())
 
     @property
     def status_dict(self) -> Dict[str, bool]:
@@ -485,12 +500,12 @@ class PerpetualFinanceDerivative(DerivativeBase):
             self._last_balance_poll_timestamp = current_tick
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
-        resp_json = await self._api_request("post", "perpfi/balances")
-        for token, bal in resp_json["balances"].items():
-            if len(token) > 4:
-                token = self.get_token(token)
+        balances_resp = await self._api_request("post", "perpfi/balances")
+        margin_resp = await self._api_request("post", "perpfi/margin")
+        for token, bal in balances_resp["balances"].items():
             self._account_available_balances[token] = Decimal(str(bal))
-            self._account_balances[token] = Decimal(str(bal))
+            self._account_balances[token] = Decimal(str(bal)) + Decimal(str(margin_resp["margin"])) if token == "USDC" \
+                else Decimal(str(bal))
             remote_asset_names.add(token)
 
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
@@ -500,6 +515,32 @@ class PerpetualFinanceDerivative(DerivativeBase):
 
         self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
         self._in_flight_orders_snapshot_timestamp = self.current_timestamp
+
+    async def _update_positions(self):
+        tasks = []
+        for pair in self._trading_pairs:
+            tasks.append(self._api_request("post",
+                                           "perpfi/position",
+                                           {"pair": convert_to_exchange_trading_pair(pair)}))
+        positions = await safe_gather(*tasks, return_exceptions=True)
+        for trading_pair, position in zip(self._trading_pairs, positions.get("position", {})):
+            position_side = PositionSide.LONG if position.get("size", 0) > 0 else PositionSide.SHORT
+            unrealized_pnl = Decimal(position.get("pnl"))
+            entry_price = Decimal(position.get("entryPrice"))
+            amount = Decimal(position.get("size"))
+            leverage = self._leverage
+            if amount != 0:
+                self._account_positions[trading_pair + position_side.name] = Position(
+                    trading_pair=trading_pair,
+                    position_side=position_side,
+                    unrealized_pnl=unrealized_pnl,
+                    entry_price=entry_price,
+                    amount=amount,
+                    leverage=leverage
+                )
+            else:
+                if (trading_pair + position_side.name) in self._account_positions:
+                    del self._account_positions[trading_pair + position_side.name]
 
     async def _http_client(self) -> aiohttp.ClientSession:
         """

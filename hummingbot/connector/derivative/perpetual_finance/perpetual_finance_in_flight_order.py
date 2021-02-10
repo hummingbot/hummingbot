@@ -18,7 +18,6 @@ class PerpetualFinanceInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 gas_price: Decimal,
                  leverage: int,
                  position: str,
                  initial_state: str = "OPEN"):
@@ -33,7 +32,6 @@ class PerpetualFinanceInFlightOrder(InFlightOrderBase):
             initial_state,
         )
         self.trade_id_set = set()
-        self._gas_price = gas_price
         self.leverage = leverage
         self.position = position
 
@@ -50,9 +48,17 @@ class PerpetualFinanceInFlightOrder(InFlightOrderBase):
         return self.last_state in {"CANCELED", "EXPIRED"}
 
     @property
-    def gas_price(self) -> Decimal:
-        return self._gas_price
+    def leverage(self) -> Decimal:
+        return self.leverage
 
-    @gas_price.setter
-    def gas_price(self, gas_price) -> Decimal:
-        self._gas_price = gas_price
+    @leverage.setter
+    def leverage(self, leverage) -> Decimal:
+        self.leverage = leverage
+
+    @property
+    def position(self) -> Decimal:
+        return self.position
+
+    @position.setter
+    def position(self, position) -> Decimal:
+        self.position = position
