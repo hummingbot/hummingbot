@@ -78,14 +78,14 @@ class ConfigCommand:
                 if cv.key in global_configs_to_display and not cv.is_secure]
         df = pd.DataFrame(data=data, columns=columns)
         self._notify("\nGlobal Configurations:")
-        lines = ["    " + line for line in df.to_string(index=False).split("\n")]
+        lines = ["    " + line for line in df.to_string(index=False, max_colwidth=50).split("\n")]
         self._notify("\n".join(lines))
 
         if self.strategy_name is not None:
             data = [[cv.key, cv.value] for cv in self.strategy_config_map.values() if not cv.is_secure]
             df = pd.DataFrame(data=data, columns=columns)
             self._notify("\nStrategy Configurations:")
-            lines = ["    " + line for line in df.to_string(index=False).split("\n")]
+            lines = ["    " + line for line in df.to_string(index=False, max_colwidth=50).split("\n")]
             self._notify("\n".join(lines))
 
     def config_able_keys(self  # type: HummingbotApplication
