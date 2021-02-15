@@ -131,6 +131,7 @@ class BinancePerpetualDerivative(DerivativeBase):
         self._trading_rules_polling_task = None
         self._last_poll_timestamp = 0
         self._throttler = Throttler((10.0, 1.0))
+        self._funding_payment_span = [0, 15]
 
     @property
     def name(self) -> str:
