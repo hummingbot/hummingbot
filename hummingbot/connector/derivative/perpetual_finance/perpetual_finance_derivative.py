@@ -85,6 +85,7 @@ class PerpetualFinanceDerivative(DerivativeBase):
         self._auto_approve_task = None
         self._real_time_balance_update = False
         self._poll_notifier = None
+        self._funding_payment_span = [1800, 0]
 
     @property
     def name(self):
