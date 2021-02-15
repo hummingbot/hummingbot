@@ -36,7 +36,7 @@ def convert_snapshot_message_to_order_book_row(message: OrderBookMessage) -> Tup
     bids, asks = [], []
 
     for entry in data:
-        order_row = OrderBookRow(entry["price"], entry["quantity"], update_id)
+        order_row = OrderBookRow(float(entry["price"]), float(entry["quantity"]), update_id)
         if entry["side"] == "buy":
             bids.append(order_row)
         else:  # entry["type"] == "Sell":

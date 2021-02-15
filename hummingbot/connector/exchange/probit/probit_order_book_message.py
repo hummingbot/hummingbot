@@ -48,9 +48,8 @@ class ProbitOrderBookMessage(OrderBookMessage):
     def trading_pair(self) -> str:
         if "market_id" in self.content:
             return self.content["market_id"]
-        elif "trading_pair" in self.content:
-            # Response for REST API does not include market_id. Instead we manually insert the trading_pair in listen_for_order_book_snapshots
-            return self.content["trading_pair"]
+        else:
+            raise ValueError("market_id not found in message content")
 
     @property
     def asks(self) -> List[OrderBookRow]:
