@@ -27,6 +27,7 @@ from hummingbot.connector.exchange.probit.probit_order_book import ProbitOrderBo
 class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
     MAX_RETRIES = 20
     MESSAGE_TIMEOUT = 30.0
+    PING_TIMEOUT = 10.0
     SNAPSHOT_TIMEOUT = 10.0
 
     _logger: Optional[HummingbotLogger] = None
@@ -144,7 +145,7 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             continue
 
                         if "reset" in msg and msg["reset"] is True:
-                            # Ignores first response from "recent_trades" channel. This response details of the last 100 trades.
+                            # Ignores first response from "recent_trades" channel. This response details the last 100 trades.
                             continue
 
                         for trade_entry in msg["recent_trades"]:
