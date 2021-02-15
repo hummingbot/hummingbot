@@ -80,7 +80,7 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair)
-        snapshot_timestamp: float = time.time()
+        snapshot_timestamp: int = int(time.time() * 1e3)
         snapshot_msg: OrderBookMessage = ProbitOrderBook.snapshot_message_from_exchange(
             snapshot,
             snapshot_timestamp,
@@ -137,11 +137,20 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         }
                         await ws.send(ujson.dumps(params))
                     async for raw_msg in self._inner_messages(ws):
+                        msg_timestamp: int = int(time.time() * 1e3)
                         msg = ujson.loads(raw_msg)
                         if "recent_trades" not in msg:
+                            # Unrecognized response from "recent_trades" channel
                             continue
+
+                        if "reset" in msg and msg["reset"] is True:
+                            # Ignores first response from "recent_trades" channel. This response details of the last 100 trades.
+                            continue
+
                         for trade_entry in msg["recent_trades"]:
-                            trade_msg: OrderBookMessage = ProbitOrderBook.trade_message_from_exchange(trade_entry)
+                            trade_msg: OrderBookMessage = ProbitOrderBook.trade_message_from_exchange(
+                                msg=trade_entry,
+                                timestamp=msg_timestamp)
                             output.put_nowait(trade_msg)
             except asyncio.CancelledError:
                 raise
@@ -172,6 +181,7 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         msg_timestamp: int = int(time.time() * 1e3)
                         msg: Dict[str, Any] = ujson.loads(raw_msg)
                         if "order_books" not in msg:
+                            # Unrecognized response from "order_books" channel
                             continue
                         if "reset" in msg and msg["reset"] is True:
                             # First response from websocket is a snapshot. This is only when reset = True
@@ -180,6 +190,7 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 timestamp=msg_timestamp,
                             )
                             output.put_nowait(snapshot_msg)
+                            continue
                         for diff_entry in msg["order_books"]:
                             diff_msg: OrderBookMessage = ProbitOrderBook.diff_message_from_exchange(diff_entry,
                                                                                                     msg_timestamp)
@@ -210,7 +221,7 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         snapshot_msg: OrderBookMessage = ProbitOrderBook.snapshot_message_from_exchange(
                             msg=snapshot,
                             timestamp=snapshot_timestamp,
-                            metadata={"trading_pair": trading_pair}
+                            metadata={"market_id": trading_pair}  # Manually insert trading_pair here since API response does include trading pair
                         )
                         output.put_nowait(snapshot_msg)
                         self.logger().debug(f"Saved order book snapshot for {trading_pair}")
