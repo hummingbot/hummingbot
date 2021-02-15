@@ -111,10 +111,10 @@ class ProbitOrderBook(OrderBook):
             msg.update(metadata)
 
         msg.update({
-            "exchange_order_id": msg.get("d"),
-            "trade_type": msg.get("s"),
-            "price": msg.get("p"),
-            "amount": msg.get("q"),
+            "exchange_order_id": msg.get("id"),
+            "trade_type": msg.get("side"),
+            "price": msg.get("price"),
+            "amount": msg.get("quantity"),
         })
 
         return ProbitOrderBookMessage(
