@@ -11,7 +11,7 @@ REST_API_VERSON = "v1"
 TICKER_URL = f"{REST_URL+REST_API_VERSON}/ticker"
 MARKETS_URL = f"{REST_URL+REST_API_VERSON}/market"
 ORDER_BOOK_URL = f"{REST_URL+REST_API_VERSON}/order_book"
-NEW_ORDER_URL = f"{REST_URL+REST_API_VERSON}/new_order"
+TOKEN_URL = "https://accounts.probit.com/token"
 
 # REST API Private Endpoints
 NEW_ORDER_URL = f"{REST_URL+REST_API_VERSON}/new_order"
