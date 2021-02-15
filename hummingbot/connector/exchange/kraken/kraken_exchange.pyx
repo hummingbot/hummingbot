@@ -691,7 +691,7 @@ cdef class KrakenExchange(ExchangeBase):
                                       is_auth_required: bool = False,
                                       request_weight: int = 1,
                                       retry_count = 5,
-                                      retry_interval = 1.0) -> Dict[str, Any]:
+                                      retry_interval = 2.0) -> Dict[str, Any]:
         request_weight = self.API_COUNTER_POINTS.get(path_url, 0)
         if retry_count == 0:
             return await self._api_request(method, path_url, params, data, is_auth_required, request_weight)
@@ -710,7 +710,7 @@ cdef class KrakenExchange(ExchangeBase):
                         if any(response.get("open").values()):
                             return response
                     self.logger().warning(f"Cloudflare error. Attempt {retry_attempt+1}/{retry_count} API command {method}: {path_url}")
-                    await asyncio.sleep(retry_interval)
+                    await asyncio.sleep(retry_interval ** retry_attempt)
                     continue
                 else:
                     raise e

@@ -13,7 +13,7 @@ cdef class ConnectorBase(NetworkIterator):
         public dict _in_flight_orders_snapshot
         public double _in_flight_orders_snapshot_timestamp
         public set _current_trade_fills
-        public set _exchange_order_ids
+        public dict _exchange_order_ids
 
     cdef str c_buy(self, str trading_pair, object amount, object order_type=*, object price=*, dict kwargs=*)
     cdef str c_sell(self, str trading_pair, object amount, object order_type=*, object price=*, dict kwargs=*)
