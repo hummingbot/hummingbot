@@ -44,10 +44,10 @@ class ProbitAuth():
             resp = await self._http_client.post(url=constants.TOKEN_URL,
                                                 headers=headers,
                                                 data=body)
-            if resp.status != 200:
-                raise ValueError(f"{__name__}: Error occurred retrieving new OAuth Token. Response: {resp}")
-
             token_resp = await resp.json()
+
+            if resp.status != 200:
+                raise ValueError(f"{__name__}: Error occurred retrieving new OAuth Token. Response: {token_resp}")
 
             # POST /token endpoint returns both access_token and expires_in
             # Updates _oauth_token_expiration_time
@@ -57,7 +57,7 @@ class ProbitAuth():
         except Exception as e:
             raise e
 
-    async def _get_oauth_token(self) -> str:
+    async def get_oauth_token(self) -> str:
         if self._oauth_token is None or self._token_has_expired():
             self._oauth_token = await self._generate_oauth_token()
         return self._oauth_token
@@ -70,7 +70,7 @@ class ProbitAuth():
 
         headers = self.get_headers()
 
-        access_token = await self._get_oauth_token()
+        access_token = await self.get_oauth_token()
         headers.update({
             "Authorization": f"Bearer {access_token}"
         })
