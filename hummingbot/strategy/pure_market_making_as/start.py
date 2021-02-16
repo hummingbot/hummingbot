@@ -3,6 +3,7 @@ from typing import (
     Tuple,
 )
 
+from hummingbot import data_path
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.pure_market_making_as import (
     PureMarketMakingASStrategy,
@@ -24,12 +25,12 @@ def start(self):
         raw_trading_pair = c_map.get("market").value
         inventory_target_base_pct = 0 if c_map.get("inventory_target_base_pct").value is None else \
             c_map.get("inventory_target_base_pct").value / Decimal('100')
-        add_transaction_costs_to_orders = c_map.get("add_transaction_costs").value
         price_source = c_map.get("price_source").value
         price_type = c_map.get("price_type").value
         price_source_exchange = c_map.get("price_source_exchange").value
         price_source_market = c_map.get("price_source_market").value
         price_source_custom_api = c_map.get("price_source_custom_api").value
+        order_refresh_tolerance_pct = c_map.get("order_refresh_tolerance_pct").value / Decimal('100')
         order_override = c_map.get("order_override").value
 
         trading_pair: str = raw_trading_pair
@@ -60,7 +61,8 @@ def start(self):
             order_amount=order_amount,
             inventory_target_base_pct=inventory_target_base_pct,
             order_refresh_time=order_refresh_time,
-            add_transaction_costs_to_orders=add_transaction_costs_to_orders,
+            order_refresh_tolerance_pct=order_refresh_tolerance_pct,
+            add_transaction_costs_to_orders=True,
             logging_options=strategy_logging_options,
             asset_price_delegate=asset_price_delegate,
             price_type=price_type,
@@ -71,6 +73,7 @@ def start(self):
             kappa=kappa,
             gamma=gamma,
             closing_time=closing_time,
+            data_path=data_path(),
         )
     except Exception as e:
         self._notify(str(e))

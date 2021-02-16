@@ -65,6 +65,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                  order_amount: Decimal,
                  order_refresh_time: float = 30.0,
                  max_order_age = 1800.0,
+                 order_refresh_tolerance_pct: Decimal = s_decimal_neg_one,
                  inventory_target_base_pct: Decimal = s_decimal_zero,
                  add_transaction_costs_to_orders: bool = False,
                  asset_price_delegate: AssetPriceDelegate = None,
@@ -80,13 +81,16 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                  kappa: float = 0.1,
                  gamma: float = 0.5,
                  closing_time: float = 3600.0 * 24 * 1e3,
+                 data_path: str = '',
                  ):
         super().__init__()
         self._sb_order_tracker = PureMarketMakingASOrderTracker()
         self._market_info = market_info
         self._order_amount = order_amount
+        self._order_level_spread = 0
         self._order_refresh_time = order_refresh_time
         self._max_order_age = max_order_age
+        self._order_refresh_tolerance_pct = order_refresh_tolerance_pct
         self._inventory_target_base_pct = inventory_target_base_pct
         self._add_transaction_costs_to_orders = add_transaction_costs_to_orders
         self._asset_price_delegate = asset_price_delegate
@@ -115,8 +119,8 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         self._last_own_trade_price = Decimal('nan')
 
         self.c_add_markets([market_info.market])
-        self._mid_prices = RingBuffer(5)
-        self._spreads = RingBuffer(5)
+        self._mid_prices = RingBuffer(30)
+        self._spreads = RingBuffer(30)
         self._kappa = kappa
         self._gamma = gamma
         self._time_left = closing_time
@@ -125,6 +129,12 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         self._optimal_spread = 0
         self._optimal_ask = 0
         self._optimal_bid = 0
+
+        self._csv_path = os.path.join(data_path, "PMM_AS.csv")
+        try:
+            os.unlink(self._csv_path)
+        except FileNotFoundError:
+            pass
 
     def all_markets_ready(self):
         return all([market.ready for market in self._sb_markets])
@@ -454,9 +464,9 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             if "//" not in order.client_order_id:
                 age = pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:])/1e6,
                                    unit='s').strftime('%H:%M:%S')
-            amount_orig = "" if level is None else self._order_amount + ((level - 1) * self._order_level_amount)
+            amount_orig = ""
             data.append([
-                "hang" if order.client_order_id in self._hanging_order_ids else level,
+                "",
                 "buy" if order.is_buy else "sell",
                 float(order.price),
                 f"{spread:.2%}",
@@ -581,22 +591,25 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                     self.logger().warning(f"WARNING: Some markets are not connected or are down at the moment. Market "
                                           f"making may be dangerous when markets or networks are unstable.")
 
-            csv_filename = "PMM_AS.csv"
-            csv_path = '/Users/nicolas/Desktop/'+csv_filename
             self.c_collect_market_variables(timestamp)
+            algo_inform_text = "Algorithm not ready"
             if self.c_is_algorithm_ready():
                 self.c_calculate_reserved_price_and_optimal_spread()
-                if not os.path.exists(csv_path):
+                algo_inform_text = f"delta(mid,r)={(self._reserved_price - self._mid_prices.c_get_last_value())/self._mid_prices.c_get_last_value()*100.0}% | " \
+                                   f"delta(spread,opt_spread)={(self._optimal_spread - self._spreads.c_get_last_value())/self._spreads.c_get_last_value()*100.0}% | " \
+                                   f"q={self.c_calculate_target_inventory()} | " \
+                                   f"(T-t)={self._time_left/self._closing_time}"
+                if not os.path.exists(self._csv_path):
                     df_header = pd.DataFrame([('mid_price',
                                                'spread',
                                                'reserved_price',
                                                'optimal_spread',
                                                'q',
                                                'time_left_fraction',
-                                               'std_dev',
+                                               'mid_price std_dev',
                                                'gamma',
                                                'kappa')])
-                    df_header.to_csv(csv_path, mode='a', header=False, index=False)
+                    df_header.to_csv(self._csv_path, mode='a', header=False, index=False)
                 df = pd.DataFrame([(self._mid_prices.c_get_last_value(),
                                     self._spreads.c_get_last_value(),
                                     self._reserved_price,
@@ -606,38 +619,39 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                                     self._mid_prices.c_std_dev(),
                                     self._gamma,
                                     self._kappa)])
-                df.to_csv(csv_path, mode='a', header=False, index=False)
+                df.to_csv(self._csv_path, mode='a', header=False, index=False)
 
-            proposal = None
-            asset_mid_price = Decimal("0")
-            # asset_mid_price = self.c_set_mid_price(market_info)
-            if self._create_timestamp <= self._current_timestamp:
-                # 1. Create base order proposals
-                proposal = self.c_create_base_proposal()
-                # 2. Apply functions that limit numbers of buys and sells proposal
-                self.c_apply_order_levels_modifiers(proposal)
-                # 3. Apply functions that modify orders price
-                self.c_apply_order_price_modifiers(proposal)
-                # 5. Apply budget constraint, i.e. can't buy/sell more than what you have.
-                self.c_apply_budget_constraint(proposal)
+                proposal = None
+                asset_mid_price = Decimal("0")
+                # asset_mid_price = self.c_set_mid_price(market_info)
+                if self._create_timestamp <= self._current_timestamp:
+                    # 1. Create base order proposals
+                    proposal = self.c_create_base_proposal()
+                    # 2. Apply functions that limit numbers of buys and sells proposal
+                    self.c_apply_order_levels_modifiers(proposal)
+                    # 3. Apply functions that modify orders price
+                    self.c_apply_order_price_modifiers(proposal)
+                    # 5. Apply budget constraint, i.e. can't buy/sell more than what you have.
+                    self.c_apply_budget_constraint(proposal)
 
-                if not self._take_if_crossed:
-                    self.c_filter_out_takers(proposal)
-            self.c_cancel_active_orders(proposal)
-            self.c_cancel_hanging_orders()
-            refresh_proposal = self.c_aged_order_refresh()
-            # Firstly restore cancelled aged order
-            if refresh_proposal is not None:
-                self.c_execute_orders_proposal(refresh_proposal)
-            if self.c_to_create_orders(proposal):
-                self.c_execute_orders_proposal(proposal)
+                    if not self._take_if_crossed:
+                        self.c_filter_out_takers(proposal)
+                self.c_cancel_active_orders(proposal)
+                self.c_cancel_hanging_orders()
+                refresh_proposal = self.c_aged_order_refresh()
+                # Firstly restore cancelled aged order
+                if refresh_proposal is not None:
+                    self.c_execute_orders_proposal(refresh_proposal)
+                if self.c_to_create_orders(proposal):
+                    self.c_execute_orders_proposal(proposal)
+            self.logger().info(algo_inform_text)
         finally:
             self._last_timestamp = timestamp
 
     cdef c_collect_market_variables(self, double timestamp):
         self.c_save_mid_price()
         self.c_save_spread()
-        self._time_left = max(self._closing_time - (timestamp-self._last_timestamp), 0)
+        self._time_left = max(self._time_left - (timestamp-self._last_timestamp), 0)
 
     cdef c_save_mid_price(self):
         self._mid_prices.c_add_value(self.c_get_mid_price())
@@ -685,13 +699,14 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
 
         mid_price = self._mid_prices.c_get_last_value()
         # Need to review this to see if adjusted quantities are required
-        base_asset_amount, quote_asset_amount = self.c_get_adjusted_available_balance(self.active_orders)
+        base_asset_amount = market.c_get_available_balance(self.base_asset)
+        quote_asset_amount = market.c_get_available_balance(self.quote_asset)
         base_value = float(base_asset_amount) * mid_price
         inventory_value = base_value + float(quote_asset_amount)
         target_inventory_value = inventory_value * float(self._inventory_target_base_pct)
         q = market.c_quantize_order_amount(trading_pair, target_inventory_value / mid_price)
 
-        self.logger().info(f"mid:{mid_price} | base_amt:{float(base_asset_amount)} | base_value:{base_value} | inv_value:{inventory_value} | q_value: {target_inventory_value} | q:{q}")
+        # self.logger().info(f"market: {market.display_name} | mid:{mid_price} | base_amt:{float(base_asset_amount)} | base_value:{base_value} | inv_value:{inventory_value} | q_value: {target_inventory_value} | q:{q}")
 
         return q
 
@@ -705,7 +720,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             list sells = []
 
         base_asset_amount, quote_asset_amount = self.c_get_adjusted_available_balance(self.active_orders)
-        delta_quantity = float(base_asset_amount) - self.c_calculate_target_inventory()
+        delta_quantity = self.c_calculate_target_inventory() - float(base_asset_amount)
 
         self.logger().info(f"delta_quantity:{delta_quantity}")
 
@@ -719,7 +734,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         if delta_quantity < 0:
             price = self._reserved_price + self._optimal_spread / 2
             price = market.c_quantize_order_price(self.trading_pair, price)
-            size = market.c_quantize_order_amount(self.trading_pair, delta_quantity)
+            size = market.c_quantize_order_amount(self.trading_pair, -delta_quantity)
             if size>0:
                 sells.append(PriceSize(price, size))
 
@@ -770,8 +785,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             )
 
     cdef c_apply_order_price_modifiers(self, object proposal):
-        if self._order_optimization_enabled:
-            self.c_apply_order_optimization(proposal)
+        self.c_apply_order_optimization(proposal)
 
         if self._add_transaction_costs_to_orders:
             self.c_apply_add_transaction_costs(proposal)
@@ -840,6 +854,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             ExchangeBase market = self._market_info.market
             object own_buy_size = s_decimal_zero
             object own_sell_size = s_decimal_zero
+            double best_order_spread
 
         for order in self.active_orders:
             if order.is_buy:
@@ -847,10 +862,13 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             else:
                 own_sell_size = order.quantity
 
+        # 10% of Bid/Ask spread
+        best_order_spread = self._optimal_spread / 2 * 0.1
+
         if len(proposal.buys) > 0:
             # Get the top bid price in the market using order_optimization_depth and your buy order volume
             top_bid_price = self._market_info.get_price_for_volume(
-                False, self._bid_order_optimization_depth + own_buy_size).result_price
+                False, own_buy_size).result_price
             price_quantum = market.c_get_order_price_quantum(
                 self.trading_pair,
                 top_bid_price
@@ -859,16 +877,16 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             price_above_bid = (ceil(top_bid_price / price_quantum) + 1) * price_quantum
 
             # If the price_above_bid is lower than the price suggested by the top pricing proposal,
-            # lower the price and from there apply the order_level_spread to each order in the next levels
+            # lower the price and from there apply the best_order_spread to each order in the next levels
             proposal.buys = sorted(proposal.buys, key = lambda p: p.price, reverse = True)
             lower_buy_price = min(proposal.buys[0].price, price_above_bid)
             for i, proposed in enumerate(proposal.buys):
-                proposal.buys[i].price = market.c_quantize_order_price(self.trading_pair, lower_buy_price) * (1 - self.order_level_spread * i)
+                proposal.buys[i].price = market.c_quantize_order_price(self.trading_pair, lower_buy_price * Decimal(str(1 - best_order_spread * i)))
 
         if len(proposal.sells) > 0:
             # Get the top ask price in the market using order_optimization_depth and your sell order volume
             top_ask_price = self._market_info.get_price_for_volume(
-                True, self._ask_order_optimization_depth + own_sell_size).result_price
+                True, own_sell_size).result_price
             price_quantum = market.c_get_order_price_quantum(
                 self.trading_pair,
                 top_ask_price
@@ -877,11 +895,11 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             price_below_ask = (floor(top_ask_price / price_quantum) - 1) * price_quantum
 
             # If the price_below_ask is higher than the price suggested by the pricing proposal,
-            # increase your price and from there apply the order_level_spread to each order in the next levels
+            # increase your price and from there apply the best_order_spread to each order in the next levels
             proposal.sells = sorted(proposal.sells, key = lambda p: p.price)
             higher_sell_price = max(proposal.sells[0].price, price_below_ask)
             for i, proposed in enumerate(proposal.sells):
-                proposal.sells[i].price = market.c_quantize_order_price(self.trading_pair, higher_sell_price) * (1 + self.order_level_spread * i)
+                proposal.sells[i].price = market.c_quantize_order_price(self.trading_pair, higher_sell_price * Decimal(str(1 + best_order_spread * i)))
 
     cdef object c_apply_add_transaction_costs(self, object proposal):
         cdef:
@@ -1015,16 +1033,15 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         )
 
     cdef bint c_is_within_tolerance(self, list current_prices, list proposal_prices):
-        return False
-        # if len(current_prices) != len(proposal_prices):
-        #     return False
-        # current_prices = sorted(current_prices)
-        # proposal_prices = sorted(proposal_prices)
-        # for current, proposal in zip(current_prices, proposal_prices):
-        #     # if spread diff is more than the tolerance or order quantities are different, return false.
-        #     if abs(proposal - current)/current > self._order_refresh_tolerance_pct:
-        #         return False
-        # return True
+        if len(current_prices) != len(proposal_prices):
+            return False
+        current_prices = sorted(current_prices)
+        proposal_prices = sorted(proposal_prices)
+        for current, proposal in zip(current_prices, proposal_prices):
+            # if spread diff is more than the tolerance or order quantities are different, return false.
+            if abs(proposal - current)/current > self._order_refresh_tolerance_pct:
+                return False
+        return True
 
     # Cancel active non hanging orders
     # Return value: whether order cancellation is deferred.

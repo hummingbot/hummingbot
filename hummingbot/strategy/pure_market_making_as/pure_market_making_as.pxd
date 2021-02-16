@@ -64,6 +64,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         double _optimal_ask
         RingBuffer _mid_prices
         RingBuffer _spreads
+        str _csv_path
 
     cdef object c_get_mid_price(self)
     cdef object c_create_base_proposal(self)
