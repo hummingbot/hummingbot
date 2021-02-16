@@ -144,7 +144,6 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 self.logger().info("Successfully subscribed to all Private channels.")
 
                 async for msg in self._inner_messages(ws):
-                    print(f"{msg}")
                     output.put_nowait(msg)
             except asyncio.CancelledError:
                 raise
