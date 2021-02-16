@@ -651,7 +651,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
     cdef c_collect_market_variables(self, double timestamp):
         self.c_save_mid_price()
         self.c_save_spread()
-        self._time_left = max(self._time_left - (timestamp-self._last_timestamp), 0)
+        self._time_left = max(self._time_left - (timestamp-self._last_timestamp)*1e3, 0)
 
     cdef c_save_mid_price(self):
         self._mid_prices.c_add_value(self.c_get_mid_price())
