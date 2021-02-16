@@ -67,7 +67,10 @@ class PnlCommand:
             orders: List[OpenOrder] = await connector.get_open_orders()
             markets = {o.trading_pair for o in orders}
         else:
-            markets = set(global_config_map["binance_markets"].value.split(","))
+            if self.strategy_config_map is not None and "markets" in self.strategy_config_map:
+                markets = set(self.strategy_config_map["markets"].value.split(","))
+            else:
+                markets = set(global_config_map["binance_markets"].value.split(","))
         markets = sorted(markets)
         data = []
         columns = ["Market", " Traded ($)", " Fee ($)", " PnL ($)", " Return %"]
