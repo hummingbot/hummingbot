@@ -22,6 +22,14 @@ BALANCE_URL = f"{REST_URL+REST_API_VERSON}/balance"
 ORDER_URL = f"{REST_URL+REST_API_VERSON}/order"
 OPEN_ORDER_URL = f"{REST_URL+REST_API_VERSON}/open_order"
 
+# Websocket Private Channels
+WS_PRIVATE_CHANNELS = [
+    "open_order",
+    "order_history",
+    "trade_history",
+    "balance"
+]
+
 # Order Status Definitions
 ORDER_STATUS = [
     "open",
