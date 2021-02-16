@@ -11,6 +11,10 @@ from hummingbot.client.settings import (
     required_exchanges,
     EXAMPLE_PAIRS,
 )
+from hummingbot.client.config.global_config_map import (
+    using_bamboo_coordinator_mode,
+    using_exchange
+)
 from hummingbot.client.config.config_helpers import (
     minimum_order_amount,
 )
@@ -137,15 +141,33 @@ pure_market_making_as_config_map = {
         ConfigVar(key="order_refresh_time",
                   prompt="How often do you want to cancel and replace bids and asks "
                          "(in seconds)? >>> ",
+                  required_if=lambda: not (using_exchange("radar_relay")() or
+                                           (using_exchange("bamboo_relay")() and not using_bamboo_coordinator_mode())),
                   type_str="float",
                   validator=lambda v: validate_decimal(v, 0, inclusive=False),
                   prompt_on_new=True),
+    "max_order_age":
+        ConfigVar(key="max_order_age",
+                  prompt="How long do you want to cancel and replace bids and asks "
+                         "with the same price (in seconds)? >>> ",
+                  required_if=lambda: not (using_exchange("radar_relay")() or
+                                           (using_exchange("bamboo_relay")() and not using_bamboo_coordinator_mode())),
+                  type_str="float",
+                  default=Decimal("1800"),
+                  validator=lambda v: validate_decimal(v, 0, inclusive=False)),
     "order_amount":
         ConfigVar(key="order_amount",
                   prompt=order_amount_prompt,
                   type_str="decimal",
                   validator=validate_order_amount,
                   prompt_on_new=True),
+    "order_refresh_tolerance_pct":
+        ConfigVar(key="order_refresh_tolerance_pct",
+                  prompt="Enter the percent change in price needed to refresh orders at each cycle "
+                         "(Enter 1 to indicate 1%) >>> ",
+                  type_str="decimal",
+                  default=Decimal("0"),
+                  validator=lambda v: validate_decimal(v, -10, 10, inclusive=True)),
     "ping_pong_enabled":
         ConfigVar(key="ping_pong_enabled",
                   prompt="Would you like to use the ping pong feature and alternate between buy and sell orders after fills? (Yes/No) >>> ",
