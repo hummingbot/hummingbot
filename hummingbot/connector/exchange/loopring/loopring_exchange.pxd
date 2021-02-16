@@ -12,7 +12,7 @@ cdef class LoopringExchange(ExchangeBase):
         object _shared_client
         object _loopring_auth
         int _loopring_accountid
-        int _loopring_exchangeid
+        str _loopring_exchangeid
         str _loopring_private_key
         object _order_sign_param
 
