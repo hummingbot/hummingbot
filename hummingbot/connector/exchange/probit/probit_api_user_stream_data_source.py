@@ -23,6 +23,7 @@ from hummingbot.logger import HummingbotLogger
 class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
     MAX_RETRIES = 20
     MESSAGE_TIMEOUT = 30.0
+    PING_TIMEOUT = 10.0
 
     _logger: Optional[HummingbotLogger] = None
 
@@ -59,27 +60,26 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         Authenticates user to websocket
         """
-        while True:
-            try:
-                access_token: str = self._probit_auth.get_oauth_token()
-                auth_payload: Dict[str, Any] = {
-                    "type": "authorization",
-                    "token": access_token
-                }
-                await ws.send(ujson.dumps(auth_payload))
-                auth_resp = await ws.recv()
-                auth_resp: Dict[str, Any] = ujson.loads(auth_resp)
+        try:
+            access_token: str = await self._probit_auth.get_oauth_token()
+            auth_payload: Dict[str, Any] = {
+                "type": "authorization",
+                "token": access_token
+            }
+            await ws.send(ujson.dumps(auth_payload))
+            auth_resp = await ws.recv()
+            auth_resp: Dict[str, Any] = ujson.loads(auth_resp)
 
-                if auth_resp["result"] != "ok":
-                    raise
-                else:
-                    return
-            except asyncio.CancelledError:
+            if auth_resp["result"] != "ok":
+                self.logger().error(f"Response: {auth_resp}",
+                                    exc_info=True)
                 raise
-            except Exception:
-                self.logger().info(f"Error occurred when authenticating to user stream. Response: {auth_resp}",
-                                   exc_info=True)
-                raise
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().info("Error occurred when authenticating to user stream. ",
+                               exc_info=True)
+            raise
 
     async def _subscribe_to_channels(self, ws: websockets.WebSocketClientProtocol):
         """
@@ -113,14 +113,8 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                               ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         try:
             while True:
-                msg: str = await asyncio.wait_for(ws.recv())
+                msg: str = await ws.recv()
                 yield msg
-        except asyncio.TimeoutError:
-            try:
-                pong_waiter = await ws.ping()
-                await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
-            except asyncio.TimeoutError:
-                raise
         except websockets.exceptions.ConnectionClosed:
             return
         finally:
@@ -144,6 +138,7 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 self.logger().info("Successfully subscribed to all Private channels.")
 
                 async for msg in self._inner_messages(ws):
+                    print(f"{msg}")
                     output.put_nowait(msg)
             except asyncio.CancelledError:
                 raise
@@ -152,4 +147,7 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     "Unexpected error with Probit WebSocket connection. Retrying after 30 seconds...",
                     exc_info=True
                 )
+                if self._websocket_client is not None:
+                    await self._websocket_client.close()
+                    self._websocket_client = None
                 await asyncio.sleep(30.0)
