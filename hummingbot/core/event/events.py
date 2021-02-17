@@ -34,6 +34,7 @@ class MarketEvent(Enum):
     TransactionFailure = 199
     BuyOrderCreated = 200
     SellOrderCreated = 201
+    FundingPaymentCompleted = 202
 
 
 class NewBlocksWatcherEvent(Enum):
