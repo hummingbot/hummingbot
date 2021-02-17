@@ -20,6 +20,7 @@ cdef class BeaxyExchange(ExchangeBase):
         TransactionTracker _tx_tracker
         dict _trading_rules
         object _coro_queue
+        public object _auth_polling_task
         public object _status_polling_task
         public object _coro_scheduler_task
         public object _user_stream_tracker_task

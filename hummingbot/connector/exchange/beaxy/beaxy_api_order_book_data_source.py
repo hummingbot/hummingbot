@@ -229,17 +229,10 @@ class BeaxyAPIOrderBookDataSource(OrderBookTrackerDataSource):
             await ws.close()
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        # Due of Beaxy api structure it is impossible to process diffs
-        pass
-
-    async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                trading_pairs: Optional[List[str]] = await self.get_trading_pairs()
-                assert trading_pairs is not None
-
                 # at Beaxy all pairs listed without splitter
-                trading_pairs = [trading_pair_to_symbol(p) for p in trading_pairs]
+                trading_pairs = [trading_pair_to_symbol(p) for p in self._trading_pairs]
 
                 ws_path: str = '/'.join([f'{trading_pair}@depth20' for trading_pair in trading_pairs])
                 stream_url: str = f'{BeaxyConstants.PublicApi.WS_BASE_URL}/book/{ws_path}'
@@ -249,7 +242,32 @@ class BeaxyAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
                         msg_type = msg['type']
-                        if msg_type.lower() == ORDERBOOK_MESSAGE_SNAPSHOT.lower():
+                        if msg_type == ORDERBOOK_MESSAGE_DIFF:
+                            order_book_message: OrderBookMessage = BeaxyOrderBook.diff_message_from_exchange(
+                                msg, msg['timestamp'])
+                            output.put_nowait(order_book_message)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error('Unexpected error with WebSocket connection. Retrying after 30 seconds...',
+                                    exc_info=True)
+                await asyncio.sleep(30.0)
+
+    async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        while True:
+            try:
+                # at Beaxy all pairs listed without splitter
+                trading_pairs = [trading_pair_to_symbol(p) for p in self._trading_pairs]
+
+                ws_path: str = '/'.join([f'{trading_pair}@depth20' for trading_pair in trading_pairs])
+                stream_url: str = f'{BeaxyConstants.PublicApi.WS_BASE_URL}/book/{ws_path}'
+
+                async with websockets.connect(stream_url) as ws:
+                    ws: websockets.WebSocketClientProtocol = ws
+                    async for raw_msg in self._inner_messages(ws):
+                        msg = ujson.loads(raw_msg)
+                        msg_type = msg['type']
+                        if msg_type == ORDERBOOK_MESSAGE_SNAPSHOT:
                             order_book_message: OrderBookMessage = BeaxyOrderBook.snapshot_message_from_exchange(
                                 msg, msg['timestamp'])
                             output.put_nowait(order_book_message)
@@ -263,11 +281,8 @@ class BeaxyAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                trading_pairs: Optional[List[str]] = await self.get_trading_pairs()
-                assert trading_pairs is not None
-
                 # at Beaxy all pairs listed without splitter
-                trading_pairs = [trading_pair_to_symbol(p) for p in trading_pairs]
+                trading_pairs = [trading_pair_to_symbol(p) for p in self._trading_pairs]
 
                 ws_path: str = '/'.join([trading_pair for trading_pair in trading_pairs])
                 stream_url: str = f'{BeaxyConstants.PublicApi.WS_BASE_URL}/trades/{ws_path}'

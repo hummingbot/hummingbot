@@ -38,21 +38,21 @@ class BeaxyOrderBookMessage(OrderBookMessage):
     def trading_pair(self) -> str:
         return symbol_to_trading_pair(str(self.content.get('security')))
 
-    @property
-    def asks(self) -> List[OrderBookRow]:
+    def _entries(self, side):
         return [
             OrderBookRow(entry['price'], entry['quantity'], self.update_id)
+            if entry['action'] != 'DELETE' else OrderBookRow(entry['price'], 0, self.update_id)
             for entry in self.content.get('entries', [])
-            if entry['side'] == 'ASK' and entry['action'] == 'INSERT'
+            if entry['side'] == side
         ]
 
     @property
+    def asks(self) -> List[OrderBookRow]:
+        return self._entries('ASK')
+
+    @property
     def bids(self) -> List[OrderBookRow]:
-        return [
-            OrderBookRow(entry['price'], entry['quantity'], self.update_id)
-            for entry in self.content.get('entries', [])
-            if entry['side'] == 'BID' and entry['action'] == 'INSERT'
-        ]
+        return self._entries('BID')
 
     @property
     def has_update_id(self) -> bool:
