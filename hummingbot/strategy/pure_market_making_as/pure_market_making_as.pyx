@@ -124,7 +124,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         self._optimal_ask = 0
         self._optimal_bid = 0
 
-        self._csv_path = os.path.join(data_path, "PMM_AS.csv")
+        self._csv_path = os.path.join(data_path, f"PMM_AS_{pd.Timestamp.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv")
         try:
             os.unlink(self._csv_path)
         except FileNotFoundError:
@@ -555,14 +555,14 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                 self.c_calculate_reserved_price_and_optimal_spread()
                 algo_inform_text = f"delta(mid,r)={(self._reserved_price - self._mid_prices.c_get_last_value())/self._mid_prices.c_get_last_value()*100.0}% | " \
                                    f"delta(spread,opt_spread)={(self._optimal_spread - self._spreads.c_get_last_value())/self._spreads.c_get_last_value()*100.0}% | " \
-                                   f"target_inv_stocks={self.c_calculate_target_inventory()} | " \
+                                   f"q={self._market_info.market.c_get_available_balance(self.base_asset)} | " \
                                    f"(T-t)={self._time_left/self._closing_time}"
                 if not os.path.exists(self._csv_path):
                     df_header = pd.DataFrame([('mid_price',
                                                'spread',
                                                'reserved_price',
                                                'optimal_spread',
-                                               'target_inv_stocks',
+                                               'q',
                                                'time_left_fraction',
                                                'mid_price std_dev',
                                                'gamma',
@@ -572,7 +572,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                                     self._spreads.c_get_last_value(),
                                     self._reserved_price,
                                     self._optimal_spread,
-                                    self.c_calculate_target_inventory(),
+                                    self._market_info.market.c_get_available_balance(self.base_asset),
                                     self._time_left/self._closing_time,
                                     self._mid_prices.c_std_dev(),
                                     self._gamma,
