@@ -23,6 +23,7 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
     MarketOrderFailureEvent,
+    FundingPaymentCompletedEvent,
     OrderFilledEvent,
     OrderType,
     TradeType,
@@ -274,12 +275,12 @@ class PerpetualFinanceDerivative(DerivativeBase):
         api_params = {"pair": convert_to_exchange_trading_pair(trading_pair)}
         if position_action == PositionAction.OPEN:
             api_params.update({"side": 0 if trade_type == TradeType.BUY else 1,
-                               "margin": str(amount / self._leverage),
-                               "leverage": self._leverage,
+                               "margin": str(amount / self._leverage[trading_pair]),
+                               "leverage": self._leverage[trading_pair],
                                "minBaseAssetAmount": amount})
         else:
             api_params.update({"minimalQuoteAsset": price * amount})
-        self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, self._leverage, position_action.name)
+        self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, self._leverage[trading_pair], position_action.name)
         try:
             order_result = await self._api_request("post", f"perpfi/{position_action.name.lower()}", api_params)
             hash = order_result.get("txHash")
@@ -295,7 +296,8 @@ class PerpetualFinanceDerivative(DerivativeBase):
                 event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
                 event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
                 self.trigger_event(event_tag, event_class(self.current_timestamp, OrderType.LIMIT, trading_pair, amount,
-                                                          price, order_id, hash))
+                                                          price, order_id, hash, leverage=self._leverage[trading_pair],
+                                                          position=position_action.name))
             else:
                 self.trigger_event(MarketEvent.OrderFailure,
                                    MarketOrderFailureEvent(self.current_timestamp, order_id, OrderType.LIMIT))
@@ -380,7 +382,9 @@ class PerpetualFinanceDerivative(DerivativeBase):
                                 Decimal(str(tracked_order.price)),
                                 Decimal(str(tracked_order.amount)),
                                 fee,
-                                exchange_trade_id=order_id
+                                exchange_trade_id=order_id,
+                                leverage=self._leverage[tracked_order.trading_pair],
+                                position=tracked_order.position
                             )
                         )
                         tracked_order.last_state = "FILLED"
@@ -518,18 +522,29 @@ class PerpetualFinanceDerivative(DerivativeBase):
         self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
     async def _update_positions(self):
-        tasks = []
+        position_tasks = []
+        funding_payment_tasks = []
+        funding_info_tasks = []
         for pair in self._trading_pairs:
-            tasks.append(self._api_request("post",
-                                           "perpfi/position",
-                                           {"pair": convert_to_exchange_trading_pair(pair)}))
-        positions = await safe_gather(*tasks, return_exceptions=True)
-        for trading_pair, position in zip(self._trading_pairs, positions.get("position", {})):
+            position_tasks.append(self._api_request("post",
+                                                    "perpfi/position",
+                                                    {"pair": convert_to_exchange_trading_pair(pair)}))
+            funding_payment_tasks.append(self._api_request("get",
+                                                           "perpfi/funding_payment",
+                                                           {"pair": convert_to_exchange_trading_pair(pair)}))
+            funding_info_tasks.append(self._api_request("get",
+                                                        "perpfi/funding",
+                                                        {"pair": convert_to_exchange_trading_pair(pair)}))
+        positions = await safe_gather(*position_tasks, return_exceptions=True)
+        funding_payments = await safe_gather(*funding_payment_tasks, return_exceptions=True)
+        funding_infos = await safe_gather(*funding_info_tasks, return_exceptions=True)
+        for trading_pair, position in zip(self._trading_pairs, positions):
+            position = position.get("position", {})
             position_side = PositionSide.LONG if position.get("size", 0) > 0 else PositionSide.SHORT
             unrealized_pnl = Decimal(position.get("pnl"))
             entry_price = Decimal(position.get("entryPrice"))
             amount = Decimal(position.get("size"))
-            leverage = self._leverage
+            leverage = self._leverage[trading_pair]
             if amount != 0:
                 self._account_positions[trading_pair + position_side.name] = Position(
                     trading_pair=trading_pair,
@@ -542,6 +557,27 @@ class PerpetualFinanceDerivative(DerivativeBase):
             else:
                 if (trading_pair + position_side.name) in self._account_positions:
                     del self._account_positions[trading_pair + position_side.name]
+
+        for trading_pair, funding_payment in zip(self._trading_pairs, funding_payments):
+            payment = Decimal(str(funding_payment.payment))
+            action = "paid" if payment < 0 else "received"
+            if payment != Decimal("0"):
+                self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market.")
+                self.trigger_event(MarketEvent.FundingPaymentCompleted,
+                                   FundingPaymentCompletedEvent(timestamp=funding_payment.timestamp,
+                                                                market=self.name,
+                                                                rate=self._funding_info["rate"],
+                                                                symbol=trading_pair,
+                                                                amount=payment))
+
+        for trading_pair, funding_info in zip(self._trading_pairs, funding_infos):
+            self._funding_info[trading_pair] = funding_info["fr"]
+
+    def get_funding_info(self, trading_pair):
+        return self._funding_info[trading_pair]
+
+    def set_leverage(self, trading_pair: str, leverage: int = 1):
+        self._leverage[trading_pair] = leverage
 
     async def _http_client(self) -> aiohttp.ClientSession:
         """

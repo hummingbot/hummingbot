@@ -46,6 +46,11 @@ cdef class SellOrderCompletedListener(BaseStrategyEventListener):
         self._owner.c_did_complete_sell_order_tracker(arg)
 
 
+cdef class FundingPaymentCompletedListener(BaseStrategyEventListener):
+    cdef c_call(self, object arg):
+        self._owner.c_did_complete_funding_payment(arg)
+
+
 cdef class OrderFilledListener(BaseStrategyEventListener):
     cdef c_call(self, object arg):
         self._owner.c_did_fill_order(arg)
@@ -83,6 +88,7 @@ cdef class SellOrderCreatedListener(BaseStrategyEventListener):
 cdef class StrategyBase(TimeIterator):
     BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
+    FUNDING_PAYMENT_COMPLETED_EVENT_TAG = MarketEvent.FundingPaymentCompleted.value
     ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
     ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     ORDER_EXPIRED_EVENT_TAG = MarketEvent.OrderExpired.value
@@ -105,6 +111,7 @@ cdef class StrategyBase(TimeIterator):
         self._sb_expire_order_listener = OrderExpiredListener(self)
         self._sb_complete_buy_order_listener = BuyOrderCompletedListener(self)
         self._sb_complete_sell_order_listener = SellOrderCompletedListener(self)
+        self._sb_complete_funding_payment_listener = FundingPaymentCompletedListener(self)
 
         self._sb_delegate_lock = False
 
@@ -255,6 +262,7 @@ cdef class StrategyBase(TimeIterator):
             typed_market.c_add_listener(self.ORDER_EXPIRED_EVENT_TAG, self._sb_expire_order_listener)
             typed_market.c_add_listener(self.BUY_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_buy_order_listener)
             typed_market.c_add_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_sell_order_listener)
+            typed_market.c_add_listener(self.FUNDING_PAYMENT_COMPLETED_EVENT_TAG, self._sb_complete_funding_payment_listener)
             self._sb_markets.add(typed_market)
 
     cdef c_remove_markets(self, list markets):
@@ -273,6 +281,7 @@ cdef class StrategyBase(TimeIterator):
             typed_market.c_remove_listener(self.ORDER_EXPIRED_EVENT_TAG, self._sb_expire_order_listener)
             typed_market.c_remove_listener(self.BUY_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_buy_order_listener)
             typed_market.c_remove_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_sell_order_listener)
+            typed_market.c_remove_listener(self.FUNDING_PAYMENT_COMPLETED_EVENT_TAG, self._sb_complete_funding_payment_listener)
             self._sb_markets.remove(typed_market)
 
     cdef object c_sum_flat_fees(self, str quote_asset, list flat_fees):
@@ -316,6 +325,9 @@ cdef class StrategyBase(TimeIterator):
         pass
 
     cdef c_did_complete_sell_order(self, object order_completed_event):
+        pass
+
+    cdef c_did_complete_funding_payment(self, object funding_payment_completed_event):
         pass
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>

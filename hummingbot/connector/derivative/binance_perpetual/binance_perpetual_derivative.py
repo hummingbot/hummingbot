@@ -248,7 +248,7 @@ class BinancePerpetualDerivative(DerivativeBase):
             else:
                 api_params["positionSide"] = "SHORT" if trade_type is TradeType.BUY else "LONG"
 
-        self.start_tracking_order(order_id, "", trading_pair, trade_type, price, amount, order_type, self._leverage, position_action.name)
+        self.start_tracking_order(order_id, "", trading_pair, trade_type, price, amount, order_type, self._leverage[trading_pair], position_action.name)
 
         try:
             order_result = await self.request(path="/fapi/v1/order",
@@ -273,7 +273,7 @@ class BinancePerpetualDerivative(DerivativeBase):
                                            amount,
                                            price,
                                            order_id,
-                                           leverage=self._leverage,
+                                           leverage=self._leverage[trading_pair],
                                            position=position_action.name))
             return order_result
         except asyncio.CancelledError:
@@ -495,7 +495,7 @@ class BinancePerpetualDerivative(DerivativeBase):
                             order_type=OrderType.LIMIT if order_message.get("o") == "LIMIT" else OrderType.MARKET,
                             price=Decimal(order_message.get("L")),
                             amount=Decimal(order_message.get("l")),
-                            leverage=self._leverage,
+                            leverage=self._leverage[convert_from_exchange_trading_pair(order_message.get("s"))],
                             trade_fee=self.get_fee(
                                 base_currency=tracked_order.base_asset,
                                 quote_currency=tracked_order.quote_asset,
@@ -786,7 +786,7 @@ class BinancePerpetualDerivative(DerivativeBase):
                                         Decimal(trade["price"]),
                                         Decimal(trade["qty"])),
                                     exchange_trade_id=trade["id"],
-                                    leverage=self._leverage,
+                                    leverage=self._leverage[tracked_order.trading_pair],
                                     position=tracked_order.position
                                 )
                             )
@@ -885,8 +885,8 @@ class BinancePerpetualDerivative(DerivativeBase):
             is_signed=True
         )
         if set_leverage["leverage"] == leverage:
-            self._leverage = leverage
-            self.logger().info(f"Leverage Successfully set to {leverage}.")
+            self._leverage[trading_pair] = leverage
+            self.logger().info(f"Leverage Successfully set to {leverage} for {trading_pair}.")
         else:
             self.logger().error("Unable to set leverage.")
         return leverage
@@ -894,13 +894,12 @@ class BinancePerpetualDerivative(DerivativeBase):
     def set_leverage(self, trading_pair: str, leverage: int = 1):
         safe_ensure_future(self._set_leverage(trading_pair, leverage))
 
-    async def _get_funding_info(self, trading_pair):
+    """async def _get_funding_info(self):
         prem_index = await self.request("/fapi/v1/premiumIndex", params={"symbol": convert_to_exchange_trading_pair(trading_pair)})
-        self._funding_info = Decimal(prem_index.get("lastFundingRate", "0"))
+        self._funding_info = Decimal(prem_index.get("lastFundingRate", "0"))"""
 
     def get_funding_info(self, trading_pair):
-        safe_ensure_future(self._get_funding_info(trading_pair))
-        return self._funding_info
+        return self._funding_info[trading_pair]
 
     async def _set_position_mode(self, position_mode: PositionMode):
         initial_mode = await self._get_position_mode()
