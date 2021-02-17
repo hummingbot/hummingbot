@@ -14,6 +14,7 @@ def start(self):
     markets = quote_markets if quote_markets else base_markets
     order_amount = c_map.get("order_amount").value
     spread = c_map.get("spread").value / Decimal("100")
+    inventory_skew_enabled = c_map.get("inventory_skew_enabled").value
     target_base_pct = c_map.get("target_base_pct").value / Decimal("100")
     order_refresh_time = c_map.get("order_refresh_time").value
     order_refresh_tolerance_pct = c_map.get("order_refresh_tolerance_pct").value / Decimal("100")
@@ -34,6 +35,7 @@ def start(self):
         token=token,
         order_amount=order_amount,
         spread=spread,
+        inventory_skew_enabled=inventory_skew_enabled,
         target_base_pct=target_base_pct,
         order_refresh_time=order_refresh_time,
         order_refresh_tolerance_pct=order_refresh_tolerance_pct,

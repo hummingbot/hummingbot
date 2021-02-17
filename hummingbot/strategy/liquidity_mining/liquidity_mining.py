@@ -39,6 +39,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
                  token: str,
                  order_amount: Decimal,
                  spread: Decimal,
+                 inventory_skew_enabled: bool,
                  target_base_pct: Decimal,
                  order_refresh_time: float,
                  order_refresh_tolerance_pct: Decimal,
@@ -56,6 +57,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
         self._spread = spread
         self._order_refresh_time = order_refresh_time
         self._order_refresh_tolerance_pct = order_refresh_tolerance_pct
+        self._inventory_skew_enabled = inventory_skew_enabled
         self._target_base_pct = target_base_pct
         self._inventory_range_multiplier = inventory_range_multiplier
         self._volatility_interval = volatility_interval
@@ -100,7 +102,8 @@ class LiquidityMiningStrategy(StrategyPyBase):
         self.update_volatility()
         proposals = self.create_base_proposals()
         self._token_balances = self.adjusted_available_balances()
-        self.apply_inventory_skew(proposals)
+        if self._inventory_skew_enabled:
+            self.apply_inventory_skew(proposals)
         self.apply_budget_constraint(proposals)
         self.cancel_active_orders(proposals)
         self.execute_orders_proposal(proposals)
