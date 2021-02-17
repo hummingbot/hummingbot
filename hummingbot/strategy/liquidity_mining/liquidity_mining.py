@@ -87,6 +87,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
         :param timestamp: current tick timestamp
         """
         if not self._ready_to_trade:
+            # Check if there are restored orders, they should be canceled before strategy starts.
             self._ready_to_trade = self._exchange.ready and len(self._exchange.limit_orders) == 0
             if not self._exchange.ready:
                 self.logger().warning(f"{self._exchange.name} is not ready. Please wait...")
@@ -179,13 +180,6 @@ class LiquidityMiningStrategy(StrategyPyBase):
         restored_orders = self._exchange.limit_orders
         for order in restored_orders:
             self._exchange.cancel(order.trading_pair, order.client_order_id)
-        # restored_orders = self.track_restored_orders(self._exchange, list(self._market_infos.values()))
-        # for trading_pair in {o.trading_pair for o in restored_orders}:
-        #     self._refresh_times[trading_pair] = self.current_timestamp + self._order_refresh_time
-        # for market_info in self._market_infos.values():
-        #     restored_order_ids = self.track_restored_orders(market_info)
-        #     if restored_order_ids:
-        #         self.logger().info(f"Restored orders: [{restored_order_ids}]")
 
     def stop(self, clock: Clock):
         pass
