@@ -1,8 +1,8 @@
 # A single source of truth for constant variables related to the exchange
 
 EXCHANGE_NAME = "k2"
-REST_URL = "http://10.16.132.132:8182/"
-WSS_URL = "ws://10.16.132.132:8184/v2"
+REST_URL = "https://api-q2.fourwordsalluppercase.com/"
+WSS_URL = "ws://18.135.217.229:8184/v1"
 
 REST_API_VERSION = "v1"
 WS_API_VERSION = "v2"
