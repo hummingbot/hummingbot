@@ -203,6 +203,14 @@ class OrderExpiredEvent(NamedTuple):
     order_id: str
 
 
+@dataclass
+class FundingPaymentCompletedEvent:
+    timestamp: float
+    trading_pair: str
+    amount: Decimal
+    funding_rate: Decimal
+
+
 class MarketWithdrawAssetEvent(NamedTuple):
     timestamp: float
     tracking_id: str
