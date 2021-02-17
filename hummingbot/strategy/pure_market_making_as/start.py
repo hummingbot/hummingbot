@@ -20,7 +20,6 @@ def start(self):
     try:
         order_amount = c_map.get("order_amount").value
         order_refresh_time = c_map.get("order_refresh_time").value
-        ping_pong_enabled = c_map.get("ping_pong_enabled").value
         exchange = c_map.get("exchange").value.lower()
         raw_trading_pair = c_map.get("market").value
         inventory_target_base_pct = 0 if c_map.get("inventory_target_base_pct").value is None else \
@@ -31,7 +30,6 @@ def start(self):
         price_source_market = c_map.get("price_source_market").value
         price_source_custom_api = c_map.get("price_source_custom_api").value
         order_refresh_tolerance_pct = c_map.get("order_refresh_tolerance_pct").value / Decimal('100')
-        order_override = c_map.get("order_override").value
 
         trading_pair: str = raw_trading_pair
         maker_assets: Tuple[str, str] = self._initialize_market_assets(exchange, [trading_pair])[0]
@@ -49,12 +47,12 @@ def start(self):
             asset_price_delegate = OrderBookAssetPriceDelegate(ext_market, asset_trading_pair)
         elif price_source == "custom_api":
             asset_price_delegate = APIAssetPriceDelegate(price_source_custom_api)
-        take_if_crossed = c_map.get("take_if_crossed").value
 
         strategy_logging_options = PureMarketMakingASStrategy.OPTION_LOG_ALL
         kappa = c_map.get("kappa").value
         gamma = c_map.get("gamma").value
         closing_time = c_map.get("closing_time").value * 3600 * 24 * 1e3
+        fixed_order_amount = c_map.get("fixed_order_amount").value
 
         self.strategy = PureMarketMakingASStrategy(
             market_info=MarketTradingPairTuple(*maker_data),
@@ -66,13 +64,11 @@ def start(self):
             logging_options=strategy_logging_options,
             asset_price_delegate=asset_price_delegate,
             price_type=price_type,
-            take_if_crossed=take_if_crossed,
-            ping_pong_enabled=ping_pong_enabled,
             hb_app_notification=True,
-            order_override={} if order_override is None else order_override,
             kappa=kappa,
             gamma=gamma,
             closing_time=closing_time,
+            fixed_order_amount=fixed_order_amount,
             data_path=data_path(),
         )
     except Exception as e:

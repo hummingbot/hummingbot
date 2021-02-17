@@ -67,26 +67,25 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                  max_order_age = 1800.0,
                  order_refresh_tolerance_pct: Decimal = s_decimal_neg_one,
                  inventory_target_base_pct: Decimal = s_decimal_zero,
-                 add_transaction_costs_to_orders: bool = False,
+                 add_transaction_costs_to_orders: bool = True,
                  asset_price_delegate: AssetPriceDelegate = None,
                  price_type: str = "mid_price",
-                 take_if_crossed: bool = False,
                  price_ceiling: Decimal = s_decimal_neg_one,
                  price_floor: Decimal = s_decimal_neg_one,
-                 ping_pong_enabled: bool = False,
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900,
                  hb_app_notification: bool = False,
-                 order_override: Dict[str, List[str]] = {},
                  kappa: float = 0.1,
                  gamma: float = 0.5,
                  closing_time: float = 3600.0 * 24 * 1e3,
+                 fixed_order_amount: bool = False,
                  data_path: str = '',
                  ):
         super().__init__()
         self._sb_order_tracker = PureMarketMakingASOrderTracker()
         self._market_info = market_info
         self._order_amount = order_amount
+        self._fixed_order_amount = fixed_order_amount
         self._order_level_spread = 0
         self._order_refresh_time = order_refresh_time
         self._max_order_age = max_order_age
@@ -95,20 +94,14 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         self._add_transaction_costs_to_orders = add_transaction_costs_to_orders
         self._asset_price_delegate = asset_price_delegate
         self._price_type = self.get_price_type(price_type)
-        self._take_if_crossed = take_if_crossed
         self._price_ceiling = price_ceiling
         self._price_floor = price_floor
-        self._ping_pong_enabled = ping_pong_enabled
-        self._ping_pong_warning_lines = []
         self._hb_app_notification = hb_app_notification
-        self._order_override = order_override
 
         self._cancel_timestamp = 0
         self._create_timestamp = 0
         self._hanging_aged_order_prices = []
         self._limit_order_type = self._market_info.market.get_maker_order_type()
-        if take_if_crossed:
-            self._limit_order_type = OrderType.LIMIT
         self._all_markets_ready = False
         self._filled_buys_balance = 0
         self._filled_sells_balance = 0
@@ -119,8 +112,8 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         self._last_own_trade_price = Decimal('nan')
 
         self.c_add_markets([market_info.market])
-        self._mid_prices = RingBuffer(30)
-        self._spreads = RingBuffer(30)
+        self._mid_prices = RingBuffer(int(order_refresh_time))
+        self._spreads = RingBuffer(int(order_refresh_time))
         self._kappa = kappa
         self._gamma = gamma
         self._time_left = closing_time
@@ -202,14 +195,6 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         self._order_level_spread = value
 
     @property
-    def inventory_skew_enabled(self) -> bool:
-        return self._inventory_skew_enabled
-
-    @inventory_skew_enabled.setter
-    def inventory_skew_enabled(self, value: bool):
-        self._inventory_skew_enabled = value
-
-    @property
     def inventory_target_base_pct(self) -> Decimal:
         return self._inventory_target_base_pct
 
@@ -240,22 +225,6 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
     @hanging_orders_cancel_pct.setter
     def hanging_orders_cancel_pct(self, value: Decimal):
         self._hanging_orders_cancel_pct = value
-
-    @property
-    def bid_spread(self) -> Decimal:
-        return self._bid_spread
-
-    @bid_spread.setter
-    def bid_spread(self, value: Decimal):
-        self._bid_spread = value
-
-    @property
-    def ask_spread(self) -> Decimal:
-        return self._ask_spread
-
-    @ask_spread.setter
-    def ask_spread(self, value: Decimal):
-        self._ask_spread = value
 
     @property
     def order_optimization_enabled(self) -> bool:
@@ -324,14 +293,6 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
     @property
     def trading_pair(self):
         return self._market_info.trading_pair
-
-    @property
-    def order_override(self):
-        return self._order_override
-
-    @order_override.setter
-    def order_override(self, value: Dict[str, List[str]]):
-        self._order_override = value
 
     def get_price(self) -> float:
         price_provider = self._asset_price_delegate or self._market_info
@@ -441,6 +402,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         return df
 
     def active_orders_df(self) -> pd.DataFrame:
+        market, trading_pair, base_asset, quote_asset = self._market_info
         price = self.get_price()
         active_orders = self.active_orders
         no_sells = len([o for o in active_orders if not o.is_buy and o.client_order_id not in self._hanging_order_ids])
@@ -464,7 +426,8 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             if "//" not in order.client_order_id:
                 age = pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:])/1e6,
                                    unit='s').strftime('%H:%M:%S')
-            amount_orig = ""
+
+            amount_orig = np.abs(self.c_calculate_target_inventory() - float(market.get_balance(base_asset)))
             data.append([
                 "",
                 "buy" if order.is_buy else "sell",
@@ -517,18 +480,12 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         cdef:
             list lines = []
             list warning_lines = []
-        warning_lines.extend(self._ping_pong_warning_lines)
         warning_lines.extend(self.network_warning([self._market_info]))
 
         markets_df = self.market_status_data_frame([self._market_info])
         lines.extend(["", "  Markets:"] + ["    " + line for line in markets_df.to_string(index=False).split("\n")])
 
-        assets_df = self.pure_mm_assets_df(not self._inventory_skew_enabled)
-        # append inventory skew stats.
-        if self._inventory_skew_enabled:
-            inventory_skew_df = self.inventory_skew_stats_data_frame()
-            assets_df = assets_df.append(inventory_skew_df)
-
+        assets_df = self.pure_mm_assets_df(True)
         first_col_length = max(*assets_df[0].apply(len))
         df_lines = assets_df.to_string(index=False, header=False,
                                        formatters={0: ("{:<" + str(first_col_length) + "}").format}).split("\n")
@@ -597,14 +554,14 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                 self.c_calculate_reserved_price_and_optimal_spread()
                 algo_inform_text = f"delta(mid,r)={(self._reserved_price - self._mid_prices.c_get_last_value())/self._mid_prices.c_get_last_value()*100.0}% | " \
                                    f"delta(spread,opt_spread)={(self._optimal_spread - self._spreads.c_get_last_value())/self._spreads.c_get_last_value()*100.0}% | " \
-                                   f"q={self.c_calculate_target_inventory()} | " \
+                                   f"target_inv_stocks={self.c_calculate_target_inventory()} | " \
                                    f"(T-t)={self._time_left/self._closing_time}"
                 if not os.path.exists(self._csv_path):
                     df_header = pd.DataFrame([('mid_price',
                                                'spread',
                                                'reserved_price',
                                                'optimal_spread',
-                                               'q',
+                                               'target_inv_stocks',
                                                'time_left_fraction',
                                                'mid_price std_dev',
                                                'gamma',
@@ -634,8 +591,6 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                     # 5. Apply budget constraint, i.e. can't buy/sell more than what you have.
                     self.c_apply_budget_constraint(proposal)
 
-                    if not self._take_if_crossed:
-                        self.c_filter_out_takers(proposal)
                 self.c_cancel_active_orders(proposal)
                 self.c_cancel_hanging_orders()
                 refresh_proposal = self.c_aged_order_refresh()
@@ -652,6 +607,9 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         self.c_save_mid_price()
         self.c_save_spread()
         self._time_left = max(self._time_left - (timestamp-self._last_timestamp)*1e3, 0)
+        if self._time_left == 0:
+            self._time_left = self._closing_time    # Re-cycle algorithm
+            self.logger().info("Recycling algorithm time left...")
 
     cdef c_save_mid_price(self):
         self._mid_prices.c_add_value(self.c_get_mid_price())
@@ -677,7 +635,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
 
         if self.c_is_algorithm_ready():
             mid_price = self._mid_prices.c_get_last_value()
-            q = float(self.c_calculate_target_inventory())
+            q = float(market.c_get_available_balance(self.base_asset))
             mid_price_variance = self._mid_prices.c_variance()
             self._reserved_price=mid_price - (q * self._gamma * mid_price_variance * time_left_fraction)
 
@@ -695,7 +653,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             double base_value
             double inventory_value
             double target_inventory_value
-            double q
+            double N
 
         mid_price = self._mid_prices.c_get_last_value()
         # Need to review this to see if adjusted quantities are required
@@ -704,11 +662,9 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         base_value = float(base_asset_amount) * mid_price
         inventory_value = base_value + float(quote_asset_amount)
         target_inventory_value = inventory_value * float(self._inventory_target_base_pct)
-        q = market.c_quantize_order_amount(trading_pair, target_inventory_value / mid_price)
+        N = market.c_quantize_order_amount(trading_pair, target_inventory_value / mid_price)
 
-        # self.logger().info(f"market: {market.display_name} | mid:{mid_price} | base_amt:{float(base_asset_amount)} | base_value:{base_value} | inv_value:{inventory_value} | q_value: {target_inventory_value} | q:{q}")
-
-        return q
+        return N
 
     cdef bint c_is_algorithm_ready(self):
         return self._mid_prices.c_is_full()
@@ -760,8 +716,6 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
 
     cdef c_apply_order_levels_modifiers(self, proposal):
         self.c_apply_price_band(proposal)
-        if self._ping_pong_enabled:
-            self.c_apply_ping_pong(proposal)
 
     cdef c_apply_price_band(self, proposal):
         if self._price_ceiling > 0 and self.get_price() >= self._price_ceiling:
@@ -769,26 +723,27 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         if self._price_floor > 0 and self.get_price() <= self._price_floor:
             proposal.sells = []
 
-    cdef c_apply_ping_pong(self, object proposal):
-        self._ping_pong_warning_lines = []
-        if self._filled_buys_balance == self._filled_sells_balance:
-            self._filled_buys_balance = self._filled_sells_balance = 0
-        if self._filled_buys_balance > 0:
-            proposal.buys = proposal.buys[self._filled_buys_balance:]
-            self._ping_pong_warning_lines.extend(
-                [f"  Ping-pong removed {self._filled_buys_balance} buy orders."]
-            )
-        if self._filled_sells_balance > 0:
-            proposal.sells = proposal.sells[self._filled_sells_balance:]
-            self._ping_pong_warning_lines.extend(
-                [f"  Ping-pong removed {self._filled_sells_balance} sell orders."]
-            )
-
     cdef c_apply_order_price_modifiers(self, object proposal):
         self.c_apply_order_optimization(proposal)
+        if self._fixed_order_amount:
+            self.c_apply_order_amount_constraint(proposal)
 
         if self._add_transaction_costs_to_orders:
             self.c_apply_add_transaction_costs(proposal)
+
+    cdef c_apply_order_amount_constraint(self, object proposal):
+        cdef:
+            ExchangeBase market = self._market_info.market
+
+        for buy in proposal.buys:
+            buy.size = s_decimal_zero if buy.size < self._order_amount else self._order_amount
+
+        proposal.buys = [o for o in proposal.buys if o.size > 0]
+
+        for sell in proposal.sells:
+            sell.size = s_decimal_zero if sell.size < self._order_amount else self._order_amount
+
+        proposal.sells = [o for o in proposal.sells if o.size > 0]
 
     cdef c_apply_budget_constraint(self, object proposal):
         cdef:
