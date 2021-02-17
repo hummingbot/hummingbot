@@ -135,13 +135,11 @@ class LiquidityMiningStrategy(StrategyPyBase):
     def market_status_df(self) -> pd.DataFrame:
         data = []
         columns = ["Exchange", "Market", "Mid Price", "Volatility", "Base Bal", "Quote Bal", " Base %"]
-        balances = self.adjusted_available_balances()
         for market, market_info in self._market_infos.items():
-            base, quote = market.split("-")
             mid_price = market_info.get_mid_price()
             base_bal = self._sell_budgets[market]
             quote_bal = self._buy_budgets[market]
-            total_bal = (base_bal * mid_price) + balances[quote]
+            total_bal = (base_bal * mid_price) + quote_bal
             base_pct = (base_bal * mid_price) / total_bal if total_bal > 0 else s_decimal_zero
             data.append([
                 self._exchange.display_name,
@@ -201,23 +199,36 @@ class LiquidityMiningStrategy(StrategyPyBase):
             proposals.append(Proposal(market, PriceSize(buy_price, buy_size), PriceSize(sell_price, sell_size)))
         return proposals
 
+    def total_port_value_in_token(self) -> Decimal:
+        all_bals = self.adjusted_available_balances()
+        port_value = all_bals.get(self._token, s_decimal_zero)
+        for market, market_info in self._market_infos.items():
+            base, quote = market.split("-")
+            if self.is_token_a_quote_token():
+                port_value += all_bals[base] * market_info.get_mid_price()
+            else:
+                port_value += all_bals[quote] / market_info.get_mid_price()
+        return port_value
+
     def create_budget_allocation(self):
-        # Equally assign buy and sell budgets to all markets
+        # Create buy and sell budgets for every market
         self._sell_budgets = {m: s_decimal_zero for m in self._market_infos}
         self._buy_budgets = {m: s_decimal_zero for m in self._market_infos}
-        token_bal = self.adjusted_available_balances().get(self._token, s_decimal_zero)
-        if self._token == list(self._market_infos.keys())[0].split("-")[0]:
-            base_markets = [m for m in self._market_infos if m.split("-")[0] == self._token]
-            sell_size = token_bal / len(base_markets)
-            for market in base_markets:
-                self._sell_budgets[market] = sell_size
-                self._buy_budgets[market] = self._exchange.get_available_balance(market.split("-")[1])
-        else:
-            quote_markets = [m for m in self._market_infos if m.split("-")[1] == self._token]
-            buy_size = token_bal / len(quote_markets)
-            for market in quote_markets:
-                self._buy_budgets[market] = buy_size
-                self._sell_budgets[market] = self._exchange.get_available_balance(market.split("-")[0])
+        port_value = self.total_port_value_in_token()
+        market_portion = port_value / len(self._market_infos)
+        balances = self.adjusted_available_balances()
+        for market, market_info in self._market_infos.items():
+            base, quote = market.split("-")
+            if self.is_token_a_quote_token():
+                self._sell_budgets[market] = balances[base]
+                buy_budget = market_portion - (balances[base] * market_info.get_mid_price())
+                if buy_budget > s_decimal_zero:
+                    self._buy_budgets[market] = buy_budget
+            else:
+                self._buy_budgets[market] = balances[quote]
+                sell_budget = market_portion - (balances[quote] / market_info.get_mid_price())
+                if sell_budget > s_decimal_zero:
+                    self._sell_budgets[market] = sell_budget
 
     def base_order_size(self, trading_pair: str, price: Decimal = s_decimal_zero):
         base, quote = trading_pair.split("-")
