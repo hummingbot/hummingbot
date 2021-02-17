@@ -566,7 +566,7 @@ class PerpetualFinanceDerivative(DerivativeBase):
                 self.trigger_event(MarketEvent.FundingPaymentCompleted,
                                    FundingPaymentCompletedEvent(timestamp=funding_payment.timestamp,
                                                                 market=self.name,
-                                                                rate=self._funding_info["rate"],
+                                                                rate=self._funding_info[trading_pair]["rate"],
                                                                 symbol=trading_pair,
                                                                 amount=payment))
 
