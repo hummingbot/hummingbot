@@ -607,13 +607,15 @@ class K2Exchange(ExchangeBase):
             self.logger().debug(f"Polling for order status updates of {len(order_ids)} orders.")
             resp = await self._api_request(method="POST",
                                            path_url=constants.GET_ORDERS,
-                                           params=params,
+                                           data=params,
                                            is_auth_required=True)
 
             if isinstance(resp, Exception):
                 raise resp
 
             order_data: List[Dict[str, Any]] = resp["data"]
+            # TODO: Retrieve Trade Information and process trades first before processing the orders.
+
             for order in order_data:
                 if order["orderid"] not in self._in_flight_orders:
                     continue
@@ -685,10 +687,9 @@ class K2Exchange(ExchangeBase):
         current_executed_amount: Decimal = tracked_order.executed_amount_base - last_executed_amount
 
         fee_currency: str = ""
-        base_asset, quote_asset = tuple(tracked_order.split("/"))
+        base_asset, quote_asset = tuple(tracked_order.trading_pair.split("-"))
         fee_currency = base_asset if tracked_order.order_type == TradeType.BUY else quote_asset
 
-        # TODO: Check in with K2 dev for a possible "Traded Qty & Price" and "Cumulative Qty & Price" entry
         self.trigger_event(
             MarketEvent.OrderFilled,
             OrderFilledEvent(
@@ -699,7 +700,7 @@ class K2Exchange(ExchangeBase):
                 tracked_order.order_type,
                 Decimal(str(trade_msg["price"])),
                 current_executed_amount,
-                TradeFee(0.0, [(fee_currency, Decimal(str(trade_msg["fee"])))]),  # TODO: Determine Trading Fees
+                TradeFee(0.0, [(fee_currency, Decimal(str(trade_msg["fee"])))]),
                 exchange_trade_id=trade_msg["orderid"]
             )
         )
