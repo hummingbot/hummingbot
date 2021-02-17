@@ -68,7 +68,7 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
             }
             await ws.send(ujson.dumps(auth_payload))
             auth_resp = await ws.recv()
-            auth_resp: Dict[str, Any] = ujson.loads(auth_resp)
+            auth_resp: Dict[str, Any] = ujson.loads(auth_resp, escape_forward_slashes=False)
 
             if auth_resp["result"] != "ok":
                 self.logger().error(f"Response: {auth_resp}",
