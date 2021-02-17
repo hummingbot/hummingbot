@@ -50,10 +50,12 @@ class DerivativeBase(ExchangeBase):
 
     def get_funding_info(self, trading_pair):
         """
-        return a dictionary containing:
+        return a dictionary as follows:
+        self._trading_info[trading_pair] = {
         "indexPrice": (i.e "21.169488483519444444")
         "markPrice": price used for both pnl on most derivatives (i.e "21.210103847902463671")
         "nextFundingTime": next funding time in unix timestamp (i.e "1612780270")
         "rate": next funding rate as a decimal and not percentage (i.e 0.00007994084744229488)
+        }
         """
         raise NotImplementedError
