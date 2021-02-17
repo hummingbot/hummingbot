@@ -432,7 +432,7 @@ class K2Exchange(ExchangeBase):
             "symbol": k2_utils.convert_to_exchange_trading_pair(trading_pair),
             "price": f"{price:f}",
             "quantity": f"{amount:f}",
-            "type": trade_type.name,  # `type` parameter here refers to Side i.e. Buy or Sell
+            "type": trade_type.name.lower(),  # `type` parameter here refers to Side i.e. Buy or Sell
         }
 
         self.start_tracking_order(order_id,
@@ -529,7 +529,7 @@ class K2Exchange(ExchangeBase):
             }
             await self._api_request(method="POST",
                                     path_url=constants.CANCEL_ORDER,
-                                    params=api_params,
+                                    data=api_params,
                                     is_auth_required=True
                                     )
             return order_id
@@ -539,7 +539,7 @@ class K2Exchange(ExchangeBase):
             self.logger().network(
                 f"Failed to cancel order {order_id}: {str(e)}",
                 exc_info=True,
-                app_warning_msg=f"Failed to cancel the order {order_id} on K2. "
+                app_warning_msg=f"Failed to cancel the order {order_id} on {self.name}. "
                                 f"Check API key and network connection."
             )
 
@@ -626,12 +626,20 @@ class K2Exchange(ExchangeBase):
         Updates in-flight order and triggers cancellation or failure event if needed.
         :param order_msg: The order response from either REST or web socket API (they are of the same format)
         """
-        client_order_id = order_msg["orderid"]
-        if client_order_id not in self._in_flight_orders:
+        ex_order_id = order_msg["orderid"]
+
+        client_order_id = None
+        for tracked_order in self.in_flight_orders.values():
+            if tracked_order.exchange_order_id == ex_order_id:
+                client_order_id = tracked_order.client_order_id
+                break
+
+        if client_order_id not in self.in_flight_orders:
             return
-        tracked_order: K2InFlightOrder = self._in_flight_orders[client_order_id]
+        tracked_order: K2InFlightOrder = self.in_flight_orders[client_order_id]
         # Update order execution status
         tracked_order.last_state = constants.ORDER_STATUS[order_msg["status"]]
+
         if tracked_order.is_cancelled:
             self.logger().info(f"Successfully cancelled order {client_order_id}.")
             self.trigger_event(MarketEvent.OrderCancelled,
@@ -655,11 +663,18 @@ class K2Exchange(ExchangeBase):
         Updates in-flight order and trigger order filled event for trade message received. Triggers order completed
         event if the total executed amount equals to the specified order amount.
         """
-        client_order_id = trade_msg["orderid"]
-        tracked_order: K2InFlightOrder = self._in_flight_orders.get(client_order_id, None)
+        ex_order_id = trade_msg["orderid"]
 
-        if tracked_order is None:
+        client_order_id = None
+        for tracked_order in self.in_flight_orders.values():
+            if tracked_order.exchange_order_id == ex_order_id:
+                client_order_id = tracked_order.client_order_id
+                break
+
+        if client_order_id not in self.in_flight_orders:
             return
+
+        tracked_order: K2InFlightOrder = self.in_flight_orders[client_order_id]
 
         last_executed_amount: Decimal = tracked_order.executed_amount_base
 

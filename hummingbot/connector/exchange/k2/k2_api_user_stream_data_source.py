@@ -100,6 +100,13 @@ class K2APIUserStreamDataSource(UserStreamTrackerDataSource):
                 "data": ""
             }
             await ws.send(ujson.dumps(params))
+            resp = await ws.recv()
+
+            msg: Dict[str, Any] = ujson.loads(resp)
+            if msg["success"] is not True:
+                raise
+            else:
+                return
 
     async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         """
@@ -107,12 +114,9 @@ class K2APIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         try:
             while True:
-                msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
+                msg: str = await ws.recv()
                 self._last_recv_time = time.time()
                 yield msg
-        except asyncio.TimeoutError:
-            self.logger().warning("Websocket ping timeout. Going to reconnect...")
-            return
         except websockets.exceptions.ConnectionClosed:
             return
         finally:
