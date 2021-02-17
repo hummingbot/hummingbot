@@ -4,7 +4,8 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     validate_exchange,
     validate_decimal,
-    validate_int
+    validate_int,
+    validate_bool
 )
 from hummingbot.client.settings import (
     required_exchanges,
@@ -65,6 +66,12 @@ liquidity_mining_config_map = {
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
                   prompt_on_new=True),
+    "inventory_skew_enabled":
+        ConfigVar(key="inventory_skew_enabled",
+                  prompt="Would you like to enable inventory skew? (Yes/No) >>> ",
+                  type_str="bool",
+                  default=True,
+                  validator=validate_bool),
     "target_base_pct":
         ConfigVar(key="target_base_pct",
                   prompt="For each pair, what is your target base asset percentage? (Enter 20 to indicate 20%) >>> ",
