@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+import dateutil.parser as dp
+
+from datetime import datetime
 from typing import (
     Any,
     Dict,
@@ -24,6 +27,14 @@ DEFAULT_FEES = [0.2, 0.2]
 def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
     side = "B" if is_buy else "S"
     return f"{side}-{trading_pair}-{get_tracking_nonce()}"
+
+
+def convert_iso_to_epoch(ts: str) -> float:
+    return dp.parse(ts).timestamp()
+
+
+def get_iso_time_now() -> str:
+    return datetime.utcnow().isoformat()[:-3] + 'Z'
 
 
 def convert_snapshot_message_to_order_book_row(message: OrderBookMessage) -> Tuple[List[OrderBookRow], List[OrderBookRow]]:
