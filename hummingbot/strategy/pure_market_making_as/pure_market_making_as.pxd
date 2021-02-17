@@ -13,6 +13,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         object _ask_spread
         object _minimum_spread
         object _order_amount
+        bint _fixed_order_amount
         int _order_levels
         int _buy_levels
         int _sell_levels
@@ -34,13 +35,9 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         object _asset_price_delegate
         object _inventory_cost_price_delegate
         object _price_type
-        bint _take_if_crossed
         object _price_ceiling
         object _price_floor
-        bint _ping_pong_enabled
-        list _ping_pong_warning_lines
         bint _hb_app_notification
-        object _order_override
 
         double _cancel_timestamp
         double _create_timestamp
@@ -71,8 +68,8 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
     cdef tuple c_get_adjusted_available_balance(self, list orders)
     cdef c_apply_order_levels_modifiers(self, object proposal)
     cdef c_apply_price_band(self, object proposal)
-    cdef c_apply_ping_pong(self, object proposal)
     cdef c_apply_order_price_modifiers(self, object proposal)
+    cdef c_apply_order_amount_constraint(self, object proposal)
     cdef c_apply_budget_constraint(self, object proposal)
 
     cdef c_filter_out_takers(self, object proposal)

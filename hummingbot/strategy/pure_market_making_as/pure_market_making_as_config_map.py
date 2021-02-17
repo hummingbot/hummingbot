@@ -62,7 +62,6 @@ def on_validate_price_source(value: str):
     if value != "external_market":
         pure_market_making_as_config_map["price_source_exchange"].value = None
         pure_market_making_as_config_map["price_source_market"].value = None
-        pure_market_making_as_config_map["take_if_crossed"].value = None
     if value != "custom_api":
         pure_market_making_as_config_map["price_source_custom_api"].value = None
     else:
@@ -123,13 +122,13 @@ pure_market_making_as_config_map = {
         ConfigVar(key="kappa",
                   prompt="Enter order book depth variable (kappa) >>> ",
                   type_str="float",
-                  validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
+                  validator=lambda v: validate_decimal(v, 0, 10000, inclusive=False),
                   prompt_on_new=True),
     "gamma":
         ConfigVar(key="gamma",
                   prompt="Enter risk factor (gamma) >>> ",
                   type_str="float",
-                  validator=lambda v: validate_decimal(v, 0, 1, inclusive=False),
+                  validator=lambda v: validate_decimal(v, 0, 10000, inclusive=False),
                   prompt_on_new=True),
     "closing_time":
         ConfigVar(key="closing_time",
@@ -155,9 +154,17 @@ pure_market_making_as_config_map = {
                   type_str="float",
                   default=Decimal("1800"),
                   validator=lambda v: validate_decimal(v, 0, inclusive=False)),
+    "fixed_order_amount":
+        ConfigVar(key="fixed_order_amount",
+                  prompt="Do you want to create orders with fixed amount? (Alternative is to leave algorithm decide) >>>",
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool,
+                  prompt_on_new=True),
     "order_amount":
         ConfigVar(key="order_amount",
                   prompt=order_amount_prompt,
+                  required_if=lambda: pure_market_making_as_config_map.get("fixed_order_amount").value == "True",
                   type_str="decimal",
                   validator=validate_order_amount,
                   prompt_on_new=True),
@@ -168,13 +175,6 @@ pure_market_making_as_config_map = {
                   type_str="decimal",
                   default=Decimal("0"),
                   validator=lambda v: validate_decimal(v, -10, 10, inclusive=True)),
-    "ping_pong_enabled":
-        ConfigVar(key="ping_pong_enabled",
-                  prompt="Would you like to use the ping pong feature and alternate between buy and sell orders after fills? (Yes/No) >>> ",
-                  type_str="bool",
-                  default=False,
-                  prompt_on_new=True,
-                  validator=validate_bool),
     "inventory_target_base_pct":
         ConfigVar(key="inventory_target_base_pct",
                   prompt="What is your target base asset percentage? Enter 50 for 50% >>> ",
@@ -222,22 +222,9 @@ pure_market_making_as_config_map = {
                   required_if=lambda: pure_market_making_as_config_map.get("price_source").value == "external_market",
                   type_str="str",
                   validator=validate_price_source_market),
-    "take_if_crossed":
-        ConfigVar(key="take_if_crossed",
-                  prompt="Do you want to take the best order if orders cross the orderbook? ((Yes/No) >>> ",
-                  required_if=lambda: pure_market_making_as_config_map.get(
-                      "price_source").value == "external_market",
-                  type_str="bool",
-                  validator=validate_bool),
     "price_source_custom_api":
         ConfigVar(key="price_source_custom_api",
                   prompt="Enter pricing API URL >>> ",
                   required_if=lambda: pure_market_making_as_config_map.get("price_source").value == "custom_api",
                   type_str="str"),
-    "order_override":
-        ConfigVar(key="order_override",
-                  prompt=None,
-                  required_if=lambda: False,
-                  default=None,
-                  type_str="json"),
 }
