@@ -53,6 +53,7 @@ def start(self):
         gamma = c_map.get("gamma").value
         closing_time = c_map.get("closing_time").value * 3600 * 24 * 1e3
         fixed_order_amount = c_map.get("fixed_order_amount").value
+        buffer_size = c_map.get("buffer_size").value
 
         self.strategy = PureMarketMakingASStrategy(
             market_info=MarketTradingPairTuple(*maker_data),
@@ -70,6 +71,7 @@ def start(self):
             closing_time=closing_time,
             fixed_order_amount=fixed_order_amount,
             data_path=data_path(),
+            buffer_size = buffer_size,
         )
     except Exception as e:
         self._notify(str(e))

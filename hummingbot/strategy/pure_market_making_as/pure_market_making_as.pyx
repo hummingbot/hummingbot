@@ -80,6 +80,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                  closing_time: float = 3600.0 * 24 * 1e3,
                  fixed_order_amount: bool = False,
                  data_path: str = '',
+                 buffer_size: int = 30,
                  ):
         super().__init__()
         self._sb_order_tracker = PureMarketMakingASOrderTracker()
@@ -112,8 +113,8 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         self._last_own_trade_price = Decimal('nan')
 
         self.c_add_markets([market_info.market])
-        self._mid_prices = RingBuffer(int(order_refresh_time))
-        self._spreads = RingBuffer(int(order_refresh_time))
+        self._mid_prices = RingBuffer(buffer_size)
+        self._spreads = RingBuffer(buffer_size)
         self._kappa = kappa
         self._gamma = gamma
         self._time_left = closing_time

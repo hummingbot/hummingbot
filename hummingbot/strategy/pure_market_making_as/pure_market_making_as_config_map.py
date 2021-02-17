@@ -227,4 +227,10 @@ pure_market_making_as_config_map = {
                   prompt="Enter pricing API URL >>> ",
                   required_if=lambda: pure_market_making_as_config_map.get("price_source").value == "custom_api",
                   type_str="str"),
+    "buffer_size":
+        ConfigVar(key="buffer_size",
+                  prompt="Enter amount of samples to use for volatility calculation>>> ",
+                  type_str="int",
+                  validator=lambda v: validate_decimal(v, 5, 600),
+                  default=Decimal("30")),
 }

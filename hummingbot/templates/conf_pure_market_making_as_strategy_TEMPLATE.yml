@@ -2,7 +2,7 @@
 ###       Pure market making strategy config         ###
 ########################################################
 
-template_version: 20
+template_version: 1
 strategy: null
 
 # Exchange and token parameters.
@@ -49,9 +49,13 @@ price_source_market: null
 # An external api that returns price (for custom_api pricing source).
 price_source_custom_api: null
 
+# Avellaneda - Stoikov algorithm parameters
 kappa: null
 gamma: null
 closing_time: null
+
+# Buffer size used to store historic samples and calculate volatility
+buffer_size: 30
 
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/pure-market-making/#configuration-parameters
