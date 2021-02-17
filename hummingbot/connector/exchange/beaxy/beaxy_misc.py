@@ -54,6 +54,7 @@ def trading_pair_to_symbol(trading_pair: str) -> str:
 
 class BeaxyIOError(IOError):
 
-    def __init__(self, msg, response, *args, **kwargs):
+    def __init__(self, msg, response, result, *args, **kwargs):
         self.response = response
+        self.result = result
         super(BeaxyIOError, self).__init__(msg, *args, **kwargs)

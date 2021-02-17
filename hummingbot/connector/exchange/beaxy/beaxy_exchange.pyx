@@ -5,6 +5,7 @@ import logging
 import json
 
 from typing import Any, Dict, List, AsyncIterable, Optional, Tuple
+from datetime import datetime, timedelta
 from async_timeout import timeout
 from decimal import Decimal
 from libc.stdint cimport int64_t
@@ -96,13 +97,14 @@ cdef class BeaxyExchange(ExchangeBase):
         self._in_flight_orders: Dict[str, BeaxyInFlightOrder] = {}
         self._tx_tracker = BeaxyExchangeTransactionTracker(self)
         self._trading_rules = {}
+        self._auth_polling_task = None
         self._status_polling_task = None
         self._user_stream_tracker_task = None
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._shared_client = None
-        self._maker_fee_percentage = 0
-        self._taker_fee_percentage = 0
+        self._maker_fee_percentage = {}
+        self._taker_fee_percentage = {}
 
     @staticmethod
     def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
@@ -232,6 +234,7 @@ cdef class BeaxyExchange(ExchangeBase):
         self._order_book_tracker.start()
         self.logger().debug(f'OrderBookTracker started, starting polling tasks.')
         if self._trading_required:
+            self._auth_polling_task = safe_ensure_future(self._beaxy_auth._auth_token_polling_loop())
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
@@ -240,7 +243,7 @@ cdef class BeaxyExchange(ExchangeBase):
     async def check_network(self) -> NetworkStatus:
         try:
             res = await self._api_request(http_method='GET', path_url=BeaxyConstants.TradingApi.HEALTH_ENDPOINT, is_auth_required=False)
-            if not res['is_alive']:
+            if res['trading_server'] != 200 and res['historical_data_server'] != 200:
                 return NetworkStatus.STOPPED
         except asyncio.CancelledError:
             raise
@@ -286,8 +289,12 @@ cdef class BeaxyExchange(ExchangeBase):
         Gets a list of the user's active orders via rest API
         :returns: json response
         """
-        path_url = BeaxyConstants.TradingApi.ORDERS_ENDPOINT
-        result = await self._api_request('get', path_url=path_url)
+        day_ago = (datetime.utcnow() - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        result = await safe_gather(
+            self._api_request('get', path_url=BeaxyConstants.TradingApi.OPEN_ORDERS_ENDPOINT),
+            self._api_request('get', path_url=BeaxyConstants.TradingApi.CLOSED_ORDERS_ENDPOINT.format(from_date=day_ago)),
+        )
         return result
 
     async def _update_order_status(self):
@@ -301,16 +308,22 @@ cdef class BeaxyExchange(ExchangeBase):
             return
 
         tracked_orders = list(self._in_flight_orders.values())
-        open_orders = await self.list_orders()
-        order_dict = {entry['id']: entry for entry in open_orders}
+        open_orders, closed_orders = await self.list_orders()
+        open_order_dict = {entry['order_id']: entry for entry in open_orders}
+        close_order_dict = {entry['order_id']: entry for entry in closed_orders}
 
         for tracked_order in tracked_orders:
             exchange_order_id = await tracked_order.get_exchange_order_id()
-            order_update = order_dict.get(exchange_order_id)
+
+            open_order = open_order_dict.get(exchange_order_id)
+            closed_order = close_order_dict.get(exchange_order_id)
+
             client_order_id = tracked_order.client_order_id
-            if order_update is None:
+            order_update = closed_order or open_order
+
+            if not open_order and not closed_order:
                 self.logger().info(
-                    f'The tracked order {client_order_id} does not exist on Beaxy.'
+                    f'The tracked order {client_order_id} does not exist on Beaxy for last day.'
                     f'Removing from tracking.'
                 )
                 tracked_order.last_state = "CLOSED"
@@ -321,38 +334,41 @@ cdef class BeaxyExchange(ExchangeBase):
                 self.c_stop_tracking_order(client_order_id)
                 continue
 
-            # Calculate the newly executed amount for this update.
-            new_confirmed_amount = Decimal(order_update['cumulative_quantity'])
-            execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
-            execute_price = Decimal(order_update['average_price'])
+            execute_price = Decimal(order_update['average_price'] if order_update['average_price'] else order_update['limit_price'])
 
-            order_type_description = tracked_order.order_type_description
-            # Emit event if executed amount is greater than 0.
-            if execute_amount_diff > s_decimal_0:
-                order_filled_event = OrderFilledEvent(
-                    self._current_timestamp,
-                    tracked_order.client_order_id,
-                    tracked_order.trading_pair,
-                    tracked_order.trade_type,
-                    tracked_order.order_type,
-                    execute_price,
-                    execute_amount_diff,
-                    self.c_get_fee(
-                        tracked_order.base_asset,
-                        tracked_order.quote_asset,
-                        tracked_order.order_type,
+            if order_update['filled_size']:
+                new_confirmed_amount = Decimal(order_update['filled_size'])
+                execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
+
+                order_type_description = tracked_order.order_type_description
+                # Emit event if executed amount is greater than 0.
+                if execute_amount_diff > s_decimal_0:
+                    order_filled_event = OrderFilledEvent(
+                        self._current_timestamp,
+                        tracked_order.client_order_id,
+                        tracked_order.trading_pair,
                         tracked_order.trade_type,
+                        tracked_order.order_type,
                         execute_price,
                         execute_amount_diff,
-                    ),
-                    exchange_trade_id=exchange_order_id,
-                )
-                self.logger().info(f'Filled {execute_amount_diff} out of {tracked_order.amount} of the '
-                                   f'{order_type_description} order {client_order_id}.')
-                self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
+                        self.c_get_fee(
+                            tracked_order.base_asset,
+                            tracked_order.quote_asset,
+                            tracked_order.order_type,
+                            tracked_order.trade_type,
+                            execute_price,
+                            execute_amount_diff,
+                        ),
+                        exchange_trade_id=exchange_order_id,
+                    )
+                    self.logger().info(f'Filled {execute_amount_diff} out of {tracked_order.amount} of the '
+                                       f'{order_type_description} order {client_order_id}.')
+                    self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
+            else:
+                new_confirmed_amount = Decimal(order_update['size'])
 
             # Update the tracked order
-            tracked_order.last_state = order_update['status']
+            tracked_order.last_state = order_update['order_status'] if not closed_order else 'closed'
             tracked_order.executed_amount_base = new_confirmed_amount
             tracked_order.executed_amount_quote = new_confirmed_amount * execute_price
             if tracked_order.is_done:
@@ -403,18 +419,16 @@ cdef class BeaxyExchange(ExchangeBase):
         Async wrapper for placing orders through the rest API.
         :returns: json response from the API
         """
-        path_url = BeaxyConstants.TradingApi.ORDERS_ENDPOINT
+        path_url = BeaxyConstants.TradingApi.CREATE_ORDER_ENDPOINT
         trading_pair = trading_pair_to_symbol(trading_pair)  # at Beaxy all pairs listed without splitter
         is_limit_type = order_type.is_limit_type()
 
         data = {
-            'text': order_id,
-            'security_id': trading_pair,
-            'type': 'limit' if is_limit_type else 'market',
+            'comment': order_id,
+            'symbol': trading_pair,
+            'order_type': 'limit' if is_limit_type else 'market',
             'side': 'buy' if is_buy else 'sell',
-            'quantity': f'{amount:f}',
-            # https://beaxyapiv2trading.docs.apiary.io/#/data-structures/0/time-in-force?mc=reference%2Frest%2Forder%2Fcreate-order%2F200
-            'time_in_force': 'gtc' if is_limit_type else 'ioc',
+            'size': f'{amount:f}',
             'destination': 'MAXI',
         }
         if is_limit_type:
@@ -437,19 +451,20 @@ cdef class BeaxyExchange(ExchangeBase):
         function to calculate fees for a particular order
         :returns: TradeFee class that includes fee percentage and flat fees
         """
-        # There is no API for checking user's fee tier
-        """
+
         cdef:
             object maker_fee = self._maker_fee_percentage
             object taker_fee = self._taker_fee_percentage
-        if order_type is OrderType.LIMIT and fee_overrides_config_map['beaxy_maker_fee'].value is not None:
-            return TradeFee(percent=fee_overrides_config_map['beaxy_maker_fee'].value / Decimal('100'))
-        if order_type is OrderType.MARKET and fee_overrides_config_map['beaxy_taker_fee'].value is not None:
-            return TradeFee(percent=fee_overrides_config_map['beaxy_taker_fee'].value / Decimal('100'))
-        """
 
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return estimate_fee('beaxy', is_maker)
+        pair = f'{base_currency}-{quote_currency}'
+        fees = maker_fee if is_maker else taker_fee
+
+        if pair not in fees:
+            self.logger().info(f'Fee for {pair} is not in fee cache')
+            return estimate_fee('beaxy', is_maker)
+
+        return TradeFee(percent=fees[pair] / Decimal(100))
 
     async def execute_buy(
         self,
@@ -475,7 +490,7 @@ cdef class BeaxyExchange(ExchangeBase):
         try:
             self.c_start_tracking_order(order_id, trading_pair, order_type, TradeType.BUY, decimal_price, decimal_amount)
             order_result = await self.place_order(order_id, trading_pair, decimal_amount, True, order_type, decimal_price)
-            exchange_order_id = order_result['id']
+            exchange_order_id = order_result['order_id']
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f'Created {order_type} buy order {order_id} for {decimal_amount} {trading_pair}.')
@@ -491,7 +506,6 @@ cdef class BeaxyExchange(ExchangeBase):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error(1)
             tracked_order = self._in_flight_orders.get(order_id)
             tracked_order.last_state = "FAILURE"
             self.c_stop_tracking_order(order_id)
@@ -503,7 +517,6 @@ cdef class BeaxyExchange(ExchangeBase):
                 exc_info=True,
                 app_warning_msg=f"Failed to submit buy order to Beaxy. Check API key and network connection."
             )
-            self.logger().error(2)
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(
                                      self._current_timestamp,
@@ -549,7 +562,7 @@ cdef class BeaxyExchange(ExchangeBase):
             self.c_start_tracking_order(order_id, trading_pair, order_type, TradeType.SELL, decimal_price, decimal_amount)
             order_result = await self.place_order(order_id, trading_pair, decimal_amount, False, order_type, decimal_price)
 
-            exchange_order_id = order_result['id']
+            exchange_order_id = order_result['order_id']
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f'Created {order_type} sell order {order_id} for {decimal_amount} {trading_pair}.')
@@ -605,21 +618,20 @@ cdef class BeaxyExchange(ExchangeBase):
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is None:
                 raise ValueError(f'Failed to cancel order - {order_id}. Order not found.')
-            path_url = BeaxyConstants.TradingApi.ORDERS_ENDPOINT
-            cancel_result = await self._api_request('delete', path_url=path_url, custom_headers={'X-Deltix-Order-ID': tracked_order.exchange_order_id.lower()})
+            path_url = BeaxyConstants.TradingApi.DELETE_ORDER_ENDPOINT.format(id=tracked_order.exchange_order_id)
+            cancel_result = await self._api_request('delete', path_url=path_url)
             return order_id
         except asyncio.CancelledError:
             raise
-        except IOError as ioe:
-            self.logger().warning(ioe)
         except BeaxyIOError as e:
-            if e.response.status == 404:
+            if e.result and 'Active order not found or already cancelled.' in e.result['items']:
                 # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
-                self.logger().info(f"The order {order_id} does not exist on Beaxy. No cancellation needed.")
                 self.c_stop_tracking_order(order_id)
                 self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return order_id
+        except IOError as ioe:
+            self.logger().warning(ioe)
         except Exception as e:
             self.logger().network(
                 f'Failed to cancel order {order_id}: ',
@@ -653,14 +665,9 @@ cdef class BeaxyExchange(ExchangeBase):
             async with timeout(timeout_seconds):
                 results = await safe_gather(*tasks, return_exceptions=True)
                 for client_order_id in results:
-                    if type(client_order_id) is str:
+                    if client_order_id:
                         order_id_set.remove(client_order_id)
                         successful_cancellations.append(CancellationResult(client_order_id, True))
-                    else:
-                        self.logger().warning(
-                            f'failed to cancel order with error: '
-                            f'{repr(client_order_id)}'
-                        )
         except Exception as e:
             self.logger().network(
                 f'Unexpected error cancelling orders.',
@@ -680,10 +687,12 @@ cdef class BeaxyExchange(ExchangeBase):
             return
 
         try:
-            res = await self._api_request('get', BeaxyConstants.TradingApi.SECURITIES_ENDPOINT)
-            first_security = res[0]
-            self._maker_fee_percentage = Decimal(first_security['buyer_maker_commission_progressive'])
-            self._taker_fee_percentage = Decimal(first_security['buyer_taker_commission_progressive'])
+            res = await self._api_request('get', BeaxyConstants.TradingApi.TRADE_SETTINGS_ENDPOINT)
+            for symbol_data in res['symbols']:
+                symbol = self.convert_from_exchange_trading_pair(symbol_data['name'])
+                self._maker_fee_percentage[symbol] = Decimal(symbol_data['maker_fee'])
+                self._taker_fee_percentage[symbol] = Decimal(symbol_data['taker_fee'])
+
             self._last_fee_percentage_update_timestamp = current_timestamp
         except asyncio.CancelledError:
             self.logger().warning('Got cancelled error fetching beaxy fees.')
@@ -703,12 +712,12 @@ cdef class BeaxyExchange(ExchangeBase):
             set remote_asset_names = set()
             set asset_names_to_remove
 
-        account_balances = await self._api_request('get', path_url=BeaxyConstants.TradingApi.ACOUNTS_ENDPOINT)
+        account_balances = await self._api_request('get', path_url=BeaxyConstants.TradingApi.WALLETS_ENDPOINT)
 
         for balance_entry in account_balances:
-            asset_name = balance_entry['currency_id']
-            available_balance = Decimal(balance_entry['available_for_trading'])
-            total_balance = Decimal(balance_entry['balance'])
+            asset_name = balance_entry['currency']
+            available_balance = Decimal(balance_entry['available_balance'])
+            total_balance = Decimal(balance_entry['total_balance'])
             self._account_available_balances[asset_name] = available_balance
             self._account_balances[asset_name] = total_balance
             remote_asset_names.add(asset_name)
@@ -909,6 +918,7 @@ cdef class BeaxyExchange(ExchangeBase):
             assert path_url is not None or url is not None
 
             url = f'{BeaxyConstants.TradingApi.BASE_URL}{path_url}' if url is None else url
+
             data_str = "" if data is None else json.dumps(data, separators=(',', ':'))
 
             if is_auth_required:
@@ -922,24 +932,35 @@ cdef class BeaxyExchange(ExchangeBase):
             if http_method.upper() == 'POST':
                 headers['Content-Type'] = 'application/json; charset=utf-8'
 
+            if path_url == BeaxyConstants.TradingApi.TRADE_SETTINGS_ENDPOINT:
+                auth_token = await self._beaxy_auth.get_token()
+                headers['Authorization'] = f'Bearer {auth_token}'
+
             self.logger().debug(f'Submitting {http_method} request to {url} with headers {headers}')
 
             client = await self._http_client()
             async with client.request(http_method.upper(), url=url, timeout=self.API_CALL_TIMEOUT, data=data_str, headers=headers) as response:
                 result = None
-                if response.status != 200:
-                    raise BeaxyIOError(
-                        f'Error during api request with body {data_str}. HTTP status is {response.status}. Response - {await response.text()} - Request {response.request_info}',
-                        response=response,
-                    )
                 try:
                     result = await response.json()
                 except ContentTypeError:
                     pass
 
+                if response.status not in [200, 204]:
+
+                    if response.status == 401:
+                        self._beaxy_auth.invalidate_token()
+
+                    raise BeaxyIOError(
+                        f'Error during api request with body {data_str}. HTTP status is {response.status}. Response - {await response.text()} - Request {response.request_info}',
+                        response=response,
+                        result=result,
+                    )
                 self.logger().debug(f'Got response status {response.status}')
                 self.logger().debug(f'Got response {result}')
                 return result
+        except BeaxyIOError:
+            raise
         except Exception:
             self.logger().warning(f'Exception while making api request.', exc_info=True)
             raise
@@ -953,11 +974,13 @@ cdef class BeaxyExchange(ExchangeBase):
 
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
-                await safe_gather(self._update_balances())
-                await asyncio.sleep(60)
-                await safe_gather(self._update_trade_fees())
-                await asyncio.sleep(60)
-                await safe_gather(self._update_order_status())
+
+                await safe_gather(
+                    self._update_balances(),
+                    self._update_trade_fees(),
+                    self._update_order_status(),
+                )
+
             except asyncio.CancelledError:
                 raise
             except Exception:

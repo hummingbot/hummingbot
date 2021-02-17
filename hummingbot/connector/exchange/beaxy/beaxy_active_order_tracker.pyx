@@ -16,11 +16,11 @@ s_empty_diff = np.ndarray(shape=(0, 4), dtype='float64')
 
 BeaxyOrderBookTrackingDictionary = Dict[Decimal, Decimal]
 
-ACTION_UPDATE = 'update'
-ACTION_INSERT = 'insert'
-ACTION_DELETE = 'delete'
-ACTION_DELETE_THROUGH = 'delete_through'
-ACTION_DELETE_FROM = 'delete_from'
+ACTION_UPDATE = 'UPDATE'
+ACTION_INSERT = 'INSERT'
+ACTION_DELETE = 'DELETE'
+ACTION_DELETE_THROUGH = 'DELETE_THROUGH'
+ACTION_DELETE_FROM = 'DELETE_FROM'
 SIDE_BID = 'BID'
 SIDE_ASK = 'ASK'
 
@@ -70,71 +70,65 @@ cdef class BeaxyActiveOrderTracker:
         :returns: new order book rows: Tuple(np.array (bids), np.array (asks))
         """
 
-        cdef:
-            dict content = message.content
-            str msg_action = content['action'].lower()
-            str order_side = content['side']
-            str price_raw = str(content['price'])
-            double timestamp = message.timestamp
-            str quantity_raw = str(content['quantity'])
-            object price
-            object quantity
+        def diff(side):
 
-        if order_side not in [SIDE_BID, SIDE_ASK]:
-            raise ValueError(f'Unknown order side for message - "{message}". Aborting.')
+            for entry in message.content['entries']:
 
-        price = Decimal(price_raw)
-        quantity = Decimal(quantity_raw)
+                if entry['side'] != side:
+                    continue
 
-        if msg_action == ACTION_UPDATE:
-            if order_side == SIDE_BID:
-                self._active_bids[price] = quantity
-                return np.array([[timestamp, float(price), quantity, message.update_id]], dtype='float64'), s_empty_diff
-            else:
-                self._active_asks[price] = quantity
-                return s_empty_diff, np.array([[timestamp, float(price), quantity, message.update_id]], dtype='float64')
+                msg_action = entry['action']
+                order_side = entry['side']
+                timestamp = message.timestamp
 
-        elif msg_action == ACTION_INSERT:
-            if price in self._active_bids or price in self._active_asks:
-                raise ValueError(f'Got INSERT action in message - "{message}" but there already was an item with same price. Aborting.')
+                price = Decimal(str(entry['price']))
+                quantity = Decimal(str(entry['quantity']))
 
-            if order_side == SIDE_BID:
-                self._active_bids[price] = quantity
-                return np.array([[timestamp, float(price), quantity, message.update_id]], dtype='float64'), s_empty_diff
-            else:
-                self._active_asks[price] = quantity
-                return s_empty_diff, np.array([[timestamp, float(price), quantity, message.update_id]], dtype='float64')
-        elif msg_action == ACTION_DELETE:
-            # in case of DELETE action we need to substract the provided quantity from existing one
-            if price not in self._active_bids and price not in self._active_asks:
-                raise ValueError(f'Got DELETE action in message - "{message}" but there was not entry with that price. Aborting.')
+                active_rows = self._active_bids if order_side == SIDE_BID else self._active_asks
 
-            if order_side == SIDE_BID:
-                new_quantity = self._active_bids[price] - quantity
-                self._active_bids[price] = new_quantity
-                return np.array([[timestamp, float(price), new_quantity, message.update_id]], dtype='float64'), s_empty_diff
-            else:
-                new_quantity = self._active_asks[price] - quantity
-                self._active_asks[price] = new_quantity
-                return s_empty_diff, np.array([[timestamp, float(price), new_quantity, message.update_id]], dtype='float64')
-        elif msg_action == ACTION_DELETE_THROUGH:
-            # Remove all levels from the specified and below (all the worst prices).
-            if order_side == SIDE_BID:
-                self._active_bids = {key: value for (key, value) in self._active_bids.items() if key < price}
-                return s_empty_diff, s_empty_diff
-            else:
-                self._active_asks = {key: value for (key, value) in self._active_asks.items() if key < price}
-                return s_empty_diff, s_empty_diff
-        elif msg_action == ACTION_DELETE_FROM:
-            # Remove all levels from the specified and above (all the better prices).
-            if order_side == SIDE_BID:
-                self._active_bids = {key: value for (key, value) in self._active_bids.items() if key > price}
-                return s_empty_diff, s_empty_diff
-            else:
-                self._active_asks = {key: value for (key, value) in self._active_asks.items() if key > price}
-                return s_empty_diff, s_empty_diff
-        else:
-            raise ValueError(f'Unknown message action "{msg_action}" - {message}. Aborting.')
+                if msg_action in (ACTION_UPDATE, ACTION_INSERT):
+                    active_rows[price] = quantity
+                    yield [timestamp, float(price), quantity, message.update_id]
+
+                elif msg_action == ACTION_DELETE:
+                    # in case of DELETE action we need to substract the provided quantity from existing one
+
+                    if price not in active_rows:
+                        continue
+
+                    new_quantity = active_rows[price] - quantity
+                    if new_quantity < 0:
+                        del active_rows[price]
+                        yield [timestamp, float(price), float(0), message.update_id]
+                    else:
+                        active_rows[price] = new_quantity
+                        yield [timestamp, float(price), new_quantity, message.update_id]
+
+                elif msg_action == ACTION_DELETE_THROUGH:
+                    # Remove all levels from the specified and below (all the worst prices).
+                    for key in active_rows.keys():
+                        if key < price:
+                            del active_rows[key]
+                            yield [timestamp, float(price), float(0), message.update_id]
+
+                elif msg_action == ACTION_DELETE_FROM:
+                    # Remove all levels from the specified and above (all the better prices).
+                    for key in active_rows.keys():
+                        if key > price:
+                            del active_rows[key]
+                            yield [timestamp, float(price), float(0), message.update_id]
+
+        bids = np.array([r for r in diff(SIDE_BID)], dtype='float64', ndmin=2)
+        asks = np.array([r for r in diff(SIDE_ASK)], dtype='float64', ndmin=2)
+
+        # If there're no rows, the shape would become (1, 0) and not (0, 4).
+        # Reshape to fix that.
+        if bids.shape[1] != 4:
+            bids = bids.reshape((0, 4))
+        if asks.shape[1] != 4:
+            asks = asks.reshape((0, 4))
+
+        return bids, asks
 
     cdef tuple c_convert_snapshot_message_to_np_arrays(self, object message):
         """
@@ -163,13 +157,13 @@ cdef class BeaxyActiveOrderTracker:
             np.ndarray[np.float64_t, ndim=2] bids = np.array(
                 [[message.timestamp,
                   float(price),
-                  float(quantity),
+                  float(self._active_bids[price]),
                   message.update_id]
                  for price in sorted(self._active_bids.keys(), reverse=True)], dtype='float64', ndmin=2)
             np.ndarray[np.float64_t, ndim=2] asks = np.array(
                 [[message.timestamp,
                   float(price),
-                  float(quantity),
+                  float(self._active_asks[price]),
                   message.update_id]
                  for price in sorted(self._active_asks.keys(), reverse=True)], dtype='float64', ndmin=2)
 
