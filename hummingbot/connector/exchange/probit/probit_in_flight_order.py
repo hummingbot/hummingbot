@@ -77,13 +77,11 @@ class ProbitInFlightOrder(InFlightOrderBase):
 
     def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
         """
-        Updates the in flight order with trade update (from private/get-order-detail end point)
+        Updates the in flight order with trade update (from GET /trade_history end point)
         return: True if the order gets updated otherwise False
         """
         trade_id = trade_update["id"]
-        # trade_update["orderId"] is type int
         if str(trade_update["order_id"]) != self.exchange_order_id or trade_id in self.trade_id_set:
-            # trade already recorded
             return False
         self.trade_id_set.add(trade_id)
         self.executed_amount_base += Decimal(str(trade_update["quantity"]))

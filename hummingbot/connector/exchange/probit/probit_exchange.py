@@ -603,7 +603,6 @@ class ProbitExchange(ExchangeBase):
         current_tick = int(self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
-            # TODO: Refactor _update_order_status
             tracked_orders = list(self._in_flight_orders.values())
 
             tasks = []
@@ -621,28 +620,66 @@ class ProbitExchange(ExchangeBase):
                                                is_auth_required=True)
                              )
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
-            update_results = await safe_gather(*tasks, return_exceptions=True)
-            for update_result in update_results:
+            order_results: List[Dict[str, Any]] = await safe_gather(*tasks, return_exceptions=True)
+
+            # Retrieve start_time and end_time of the earliest and last order.
+            # Retrieves all trades between this order creations.
+            min_order_ts: str = ""
+
+            min_ts: float = float("inf")
+            for order_update in order_results:
+                order_ts: float = probit_utils.convert_iso_to_epoch(order_update["data"]["time"])
+
+                if order_ts < min_ts:
+                    min_order_ts = order_update["data"]["time"]
+                    min_ts = order_ts
+
+            trade_history_tasks = []
+            for trading_pair in self._trading_pairs:
+                query_params = {
+                    "start_time": min_order_ts,
+                    "end_time": probit_utils.get_iso_time_now(),
+                    "limit": 1000,
+                    "market_id": trading_pair
+                }
+                trade_history_tasks.append(self._api_request(
+                    method="GET",
+                    path_url=CONSTANTS.TRADE_HISTORY_URL
+                ))
+            trade_history_results: List[Dict[str, Any]] = await safe_gather(*trade_history_tasks, return_exceptions=True)
+
+            for t_pair_history in trade_history_results:
+                if isinstance(t_pair_history, Exception):
+                    raise t_pair_history
+                if "data" not in t_pair_history:
+                    self.logger().info(f"Unexpected response from GET /trade_history. 'data' field not in resp: {t_pair_history}")
+                    continue
+
+                trade_details: List[Dict[str, Any]] = t_pair_history["data"]
+                for trade in trade_details:
+                    self._process_trade_message(trade)
+
+            for update_result in order_results:
                 if isinstance(update_result, Exception):
                     raise update_result
                 if "data" not in update_result:
                     self.logger().info(f"_update_order_status data not in resp: {update_result}")
                     continue
 
-                # TODO: Determine best way to determine that order has been partially/fully executed
-                for trade_msg in update_result["result"]["trade_list"]:
-                    await self._process_trade_message(trade_msg)
-                self._process_order_message(update_result["result"]["order_info"])
+                order_details: List[Dict[str, Any]] = update_result["data"]
+                for order in order_details:
+                    self._process_order_message(order_details)
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
-        Updates in-flight order and triggers cancellation or failure event if needed.
+        Updates in-flight order and triggers trade, cancellation or failure event if needed.
         :param order_msg: The order response from either REST or web socket API (they are of the same format)
         """
-        client_order_id = order_msg["client_oid"]
+        client_order_id = order_msg["client_order_id"]
         if client_order_id not in self._in_flight_orders:
             return
         tracked_order = self._in_flight_orders[client_order_id]
+
         # Update order execution status
         tracked_order.last_state = order_msg["status"]
         if tracked_order.is_cancelled:
@@ -655,7 +692,7 @@ class ProbitExchange(ExchangeBase):
             self.stop_tracking_order(client_order_id)
         elif tracked_order.is_failure:
             self.logger().info(f"The market order {client_order_id} has failed according to order status API. "
-                               f"Reason: {probit_utils.get_api_reason(order_msg['reason'])}")
+                               f"Order Message: {order_msg}")
             self.trigger_event(MarketEvent.OrderFailure,
                                MarketOrderFailureEvent(
                                    self.current_timestamp,
@@ -664,20 +701,27 @@ class ProbitExchange(ExchangeBase):
                                ))
             self.stop_tracking_order(client_order_id)
 
-    async def _process_trade_message(self, trade_msg: Dict[str, Any]):
+    def _process_trade_message(self, order_msg: Dict[str, Any]):
         """
         Updates in-flight order and trigger order filled event for trade message received. Triggers order completed
         event if the total executed amount equals to the specified order amount.
         """
-        for order in self._in_flight_orders.values():
-            await order.get_exchange_order_id()
-        track_order = [o for o in self._in_flight_orders.values() if trade_msg["order_id"] == o.exchange_order_id]
-        if not track_order:
+        ex_order_id = order_msg["order_id"]
+
+        client_order_id = None
+        for track_order in self.in_flight_orders.values():
+            if track_order.exchange_order_id == ex_order_id:
+                client_order_id = track_order.client_order_id
+                break
+
+        if client_order_id is None:
             return
-        tracked_order = track_order[0]
-        updated = tracked_order.update_with_trade_update(trade_msg)
+
+        tracked_order = self.in_flight_orders[client_order_id]
+        updated = tracked_order.update_with_trade_update(order_msg)
         if not updated:
             return
+
         self.trigger_event(
             MarketEvent.OrderFilled,
             OrderFilledEvent(
@@ -686,15 +730,15 @@ class ProbitExchange(ExchangeBase):
                 tracked_order.trading_pair,
                 tracked_order.trade_type,
                 tracked_order.order_type,
-                Decimal(str(trade_msg["traded_price"])),
-                Decimal(str(trade_msg["traded_quantity"])),
-                TradeFee(0.0, [(trade_msg["fee_currency"], Decimal(str(trade_msg["fee"])))]),
-                exchange_trade_id=trade_msg["order_id"]
+                Decimal(str(order_msg["price"])),
+                Decimal(str(order_msg["quantity"])),
+                TradeFee(0.0, [(order_msg["fee_currency_id"], Decimal(str(order_msg["fee_amount"])))]),
+                exchange_trade_id=order_msg["id"]
             )
         )
         if math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or \
                 tracked_order.executed_amount_base >= tracked_order.amount:
-            tracked_order.last_state = "FILLED"
+            tracked_order.last_state = "filled"
             self.logger().info(f"The {tracked_order.trade_type.name} order "
                                f"{tracked_order.client_order_id} has completed "
                                f"according to order status API.")
@@ -714,6 +758,41 @@ class ProbitExchange(ExchangeBase):
                                            tracked_order.order_type))
             self.stop_tracking_order(tracked_order.client_order_id)
 
+    async def get_open_orders(self) -> List[OpenOrder]:
+        ret_val = []
+        for trading_pair in self._trading_pairs:
+            query_params = {
+                "market_id": trading_pair
+            }
+            result = await self._api_request(
+                method="GET",
+                path_url=CONSTANTS.OPEN_ORDER_URL,
+                params=query_params,
+                is_auth_required=True
+            )
+            if "data" not in result:
+                self.logger().info(f"Unexpected response from GET {CONSTANTS.OPEN_ORDER_URL}. "
+                                   f"Params: {query_params} "
+                                   f"Response: {result} ")
+            for order in result["data"]["order_list"]:
+                if order["type"] != "limit":
+                    raise Exception(f"Unsupported order type {order['type']}")
+                ret_val.append(
+                    OpenOrder(
+                        client_order_id=order["client_order_id"],
+                        trading_pair=order["market_id"],
+                        price=Decimal(str(order["limit_price"])),
+                        amount=Decimal(str(order["quantity"])),
+                        executed_amount=Decimal(str(order["quantity"])) - Decimal(str(order["filled_quantity"])),
+                        status=order["status"],
+                        order_type=OrderType.LIMIT,
+                        is_buy=True if order["side"].lower() == "buy" else False,
+                        time=int(probit_utils.convert_iso_to_epoch(order["time"])),
+                        exchange_order_id=order["id"]
+                    )
+                )
+        return ret_val
+
     async def cancel_all(self, timeout_seconds: float):
         """
         Cancels all in-flight orders and waits for cancellation results.
@@ -725,13 +804,23 @@ class ProbitExchange(ExchangeBase):
             raise Exception("cancel_all can only be used when trading_pairs are specified.")
         cancellation_results = []
         try:
-            for trading_pair in self._trading_pairs:
-                await self._api_request(
-                    "post",
-                    "private/cancel-all-orders",
-                    {"instrument_name": probit_utils.convert_to_exchange_trading_pair(trading_pair)},
-                    True
-                )
+
+            # ProBit does not have cancel_all_order endpoint
+            tasks = []
+            for tracked_order in self.in_flight_orders.values():
+                body_params = {
+                    "market_id": tracked_order.trading_pair,
+                    "order_id": tracked_order.exchange_order_id
+                }
+                tasks.append(self._api_request(
+                    method="POST",
+                    path_url=CONSTANTS.CANCEL_ORDER_URL,
+                    data=body_params,
+                    is_auth_required=True
+                ))
+
+            await safe_gather(*tasks)
+
             open_orders = await self.get_open_orders()
             for cl_order_id, tracked_order in self._in_flight_orders.items():
                 open_order = [o for o in open_orders if o.client_order_id == cl_order_id]
@@ -801,52 +890,23 @@ class ProbitExchange(ExchangeBase):
         """
         async for event_message in self._iter_user_event_queue():
             try:
-                if "result" not in event_message or "channel" not in event_message["result"]:
+                if "channel" not in event_message or event_message["channel"] not in ["open_order", "order_history", "balance", "trade_history"]:
                     continue
-                channel = event_message["result"]["channel"]
-                if "user.trade" in channel:
-                    for trade_msg in event_message["result"]["data"]:
-                        await self._process_trade_message(trade_msg)
-                elif "user.order" in channel:
-                    for order_msg in event_message["result"]["data"]:
-                        self._process_order_message(order_msg)
-                elif channel == "user.balance":
-                    balances = event_message["result"]["data"]
-                    for balance_entry in balances:
-                        asset_name = balance_entry["currency"]
-                        self._account_balances[asset_name] = Decimal(str(balance_entry["balance"]))
-                        self._account_available_balances[asset_name] = Decimal(str(balance_entry["available"]))
+                channel = event_message["channel"]
+
+                if channel == "balance":
+                    for asset, balance_details in event_message["data"].items():
+                        self._account_balances[asset] = Decimal(str(balance_details["total"]))
+                        self._account_available_balances[asset] = Decimal(str(balance_details["available"]))
+                elif channel in ["open_order", "order_history"]:
+                    for order_update in event_message["data"]:
+                        self._process_order_message(order_update)
+                elif channel == "trade_history":
+                    for trade_update in event_message["data"]:
+                        self._process_trade_message(trade_update)
+
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(5.0)
-
-    async def get_open_orders(self) -> List[OpenOrder]:
-        result = await self._api_request(
-            "post",
-            "private/get-open-orders",
-            {},
-            True
-        )
-        ret_val = []
-        for order in result["result"]["order_list"]:
-            if probit_utils.HBOT_BROKER_ID not in order["client_oid"]:
-                continue
-            if order["type"] != "LIMIT":
-                raise Exception(f"Unsupported order type {order['type']}")
-            ret_val.append(
-                OpenOrder(
-                    client_order_id=order["client_oid"],
-                    trading_pair=probit_utils.convert_from_exchange_trading_pair(order["instrument_name"]),
-                    price=Decimal(str(order["price"])),
-                    amount=Decimal(str(order["quantity"])),
-                    executed_amount=Decimal(str(order["cumulative_quantity"])),
-                    status=order["status"],
-                    order_type=OrderType.LIMIT,
-                    is_buy=True if order["side"].lower() == "buy" else False,
-                    time=int(order["create_time"]),
-                    exchange_order_id=order["order_id"]
-                )
-            )
-        return ret_val
