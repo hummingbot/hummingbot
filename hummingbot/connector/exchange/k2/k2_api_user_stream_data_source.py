@@ -105,8 +105,6 @@ class K2APIUserStreamDataSource(UserStreamTrackerDataSource):
             msg: Dict[str, Any] = ujson.loads(resp)
             if msg["success"] is not True:
                 raise
-            else:
-                return
 
     async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         """
@@ -129,9 +127,10 @@ class K2APIUserStreamDataSource(UserStreamTrackerDataSource):
         while True:
             try:
                 self._websocket_client = await websockets.connect(constants.WSS_URL)
-                self.logger().info("Authenticating")
                 await self._authenticate(self._websocket_client)
+                self.logger().info("Authenticated to WebSocket connection. ")
                 await self._subscribe_to_channels(self._websocket_client)
+                self.logger().info("Subscribed to all Private WebSocket streams. ")
                 async for msg in self._inner_messages(self._websocket_client):
                     output.put_nowait(ujson.loads(msg))
             except asyncio.CancelledError:
