@@ -571,7 +571,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                                                'reserved_price',
                                                'optimal_spread',
                                                'q',
-                                               'target_inv_stocks'
+                                               'target_inv_stocks',
                                                'time_left_fraction',
                                                'mid_price std_dev',
                                                'gamma',
@@ -673,7 +673,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         base_value = float(base_asset_amount) * mid_price
         inventory_value = base_value + float(quote_asset_amount)
         target_inventory_value = inventory_value * float(self._inventory_target_base_pct)
-        N = market.c_quantize_order_amount(trading_pair, target_inventory_value / mid_price)
+        N = market.c_quantize_order_amount(trading_pair, Decimal(str(target_inventory_value / mid_price)))
 
         return N
 
