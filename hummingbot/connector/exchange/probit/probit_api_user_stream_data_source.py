@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import time
 import ujson
 import websockets
 
@@ -66,9 +67,9 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 "type": "authorization",
                 "token": self._probit_auth.oauth_token
             }
-            await ws.send(ujson.dumps(auth_payload))
+            await ws.send(ujson.dumps(auth_payload, escape_forward_slashes=False))
             auth_resp = await ws.recv()
-            auth_resp: Dict[str, Any] = ujson.loads(auth_resp, escape_forward_slashes=False)
+            auth_resp: Dict[str, Any] = ujson.loads(auth_resp)
 
             if auth_resp["result"] != "ok":
                 self.logger().error(f"Response: {auth_resp}",
@@ -92,21 +93,11 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     "channel": channel
                 }
                 await ws.send(ujson.dumps(sub_payload))
-                sub_resp = await ws.recv()
-                sub_resp: Dict[str, Any] = ujson.loads(sub_resp)
-
-                if "reset" in sub_resp and sub_resp["reset"] is True:
-                    continue
-                else:
-                    self.logger().error(f"Error occured subscribing to {channel}...")
-                    raise
 
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error(f"Error occured subscribing to {CONSTANTS.EXCHANGE_NAME} private channels. "
-                                f"Payload: {sub_payload} "
-                                f"Resp: {sub_resp}",
+            self.logger().error(f"Error occured subscribing to {CONSTANTS.EXCHANGE_NAME} private channels. ",
                                 exc_info=True)
 
     async def _inner_messages(self,
@@ -114,6 +105,7 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
         try:
             while True:
                 msg: str = await ws.recv()
+                self._last_recv_time = int(time.time())
                 yield msg
         except websockets.exceptions.ConnectionClosed:
             return
@@ -138,7 +130,7 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 self.logger().info("Successfully subscribed to all Private channels.")
 
                 async for msg in self._inner_messages(ws):
-                    output.put_nowait(msg)
+                    output.put_nowait(ujson.loads(msg))
             except asyncio.CancelledError:
                 raise
             except Exception:
