@@ -646,7 +646,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
 
         if self.c_is_algorithm_ready():
             mid_price = self._mid_prices.get_last_value()
-            q = float(market.c_get_available_balance(self.base_asset))
+            q = float(market.c_get_available_balance(self.base_asset))  # Should this be adjusted??
             mid_price_variance = self._mid_prices.variance()
             self._reserved_price=mid_price - (q * self._gamma * mid_price_variance * time_left_fraction)
 
@@ -691,19 +691,15 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
 
         self.logger().info(f"delta_quantity:{delta_quantity}")
 
-        if delta_quantity > 0:
-            price = self._reserved_price - self._optimal_spread / 2
-            price = market.c_quantize_order_price(self.trading_pair, price)
-            size = market.c_quantize_order_amount(self.trading_pair, delta_quantity)
-            if size > 0:
-                buys.append(PriceSize(price, size))
+        price = self._reserved_price - self._optimal_spread / 2
+        price = market.c_quantize_order_price(self.trading_pair, price)
+        size = market.c_quantize_order_amount(self.trading_pair, abs(delta_quantity))
+        buys.append(PriceSize(price, size))
 
-        if delta_quantity < 0:
-            price = self._reserved_price + self._optimal_spread / 2
-            price = market.c_quantize_order_price(self.trading_pair, price)
-            size = market.c_quantize_order_amount(self.trading_pair, -delta_quantity)
-            if size>0:
-                sells.append(PriceSize(price, size))
+        price = self._reserved_price + self._optimal_spread / 2
+        price = market.c_quantize_order_price(self.trading_pair, price)
+        size = market.c_quantize_order_amount(self.trading_pair, abs(delta_quantity))
+        sells.append(PriceSize(price, size))
 
         return Proposal(buys, sells)
 
