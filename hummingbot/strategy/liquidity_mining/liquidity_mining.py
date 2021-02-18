@@ -15,9 +15,11 @@ from .data_types import Proposal, PriceSize
 from hummingbot.core.event.events import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.utils.estimate_fee import estimate_fee
+from hummingbot.core.utils.market_price import usd_value
 from hummingbot.strategy.pure_market_making.inventory_skew_calculator import (
     calculate_bid_ask_ratios_from_base_asset_ratio
 )
+from hummingbot.connector.parrot import get_campaign_summary
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
 s_decimal_nan = Decimal("NaN")
@@ -137,21 +139,42 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
     def market_status_df(self) -> pd.DataFrame:
         data = []
-        columns = ["Exchange", "Market", "Mid Price", "Volatility", "Base Bal", "Quote Bal", " Base %"]
+        columns = ["Market", "Mid Price", "Volatility", "Base Bal", "Quote Bal", f"Budget ({self._token})",
+                   "Base %", "Quote %"]
         for market, market_info in self._market_infos.items():
             mid_price = market_info.get_mid_price()
             base_bal = self._sell_budgets[market]
             quote_bal = self._buy_budgets[market]
             total_bal = (base_bal * mid_price) + quote_bal
+            total_bal_in_token = total_bal
+            if not self.is_token_a_quote_token():
+                total_bal_in_token = base_bal + (quote_bal / mid_price)
             base_pct = (base_bal * mid_price) / total_bal if total_bal > 0 else s_decimal_zero
+            quote_pct = quote_bal / total_bal if total_bal > 0 else s_decimal_zero
             data.append([
-                self._exchange.display_name,
                 market,
                 float(mid_price),
                 "" if self._volatility[market].is_nan() else f"{self._volatility[market]:.2%}",
                 float(base_bal),
                 float(quote_bal),
-                f"{base_pct:.0%}"
+                float(total_bal_in_token),
+                f"{base_pct:.0%}",
+                f"{quote_pct:.0%}"
+            ])
+        return pd.DataFrame(data=data, columns=columns).replace(np.nan, '', regex=True)
+
+    async def miner_status_df(self) -> pd.DataFrame:
+        data = []
+        columns = ["Market", "Reward/day", "Liquidity (bots)", "Yield/day", "Max spread"]
+        campaigns = await get_campaign_summary(self._exchange.display_name, list(self._market_infos.keys()))
+        for market, campaign in campaigns.items():
+            liquidity_usd = await usd_value(market.split('-')[0], campaign.liquidity)
+            data.append([
+                market,
+                f"{campaign.reward_per_day:.2f} {campaign.payout_asset}",
+                f"${liquidity_usd:.0f} ({campaign.active_bots})",
+                f"{campaign.apy / Decimal(365):.2%}",
+                f"{campaign.spread_max:.2%}%"
             ])
         return pd.DataFrame(data=data, columns=columns).replace(np.nan, '', regex=True)
 
@@ -162,8 +185,12 @@ class LiquidityMiningStrategy(StrategyPyBase):
         warning_lines = []
         warning_lines.extend(self.network_warning(list(self._market_infos.values())))
 
-        lines.extend(["", "  Markets:"] + ["    " + line for line in
-                                           self.market_status_df().to_string(index=False).split("\n")])
+        market_df = self.market_status_df()
+        lines.extend(["", "  Markets:"] + ["    " + line for line in market_df.to_string(index=False).split("\n")])
+
+        miner_df = await self.miner_status_df()
+        if not miner_df.empty:
+            lines.extend(["", "  Miners:"] + ["    " + line for line in miner_df.to_string(index=False).split("\n")])
 
         # See if there're any open orders.
         if len(self.active_orders) > 0:
