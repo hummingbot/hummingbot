@@ -4,7 +4,7 @@ from typing import Dict
 
 
 class BeaxyStompMessage:
-    def __init__(self, command: str = "") -> None:
+    def __init__(self, command: str = '') -> None:
         self.command = command
         self.body: str = ""
         self.headers: Dict[str, str] = {}
@@ -35,7 +35,7 @@ class BeaxyStompMessage:
                     if line:
                         line_index = raw_message.index(line)
                         retval.body = raw_message[line_index:]
-                        retval.body = "".join(c for c in retval.body if c not in ['\r', '\n', '\0'])
+                        retval.body = ''.join(c for c in retval.body if c not in ['\r', '\n', '\0'])
                         break
 
         return retval
