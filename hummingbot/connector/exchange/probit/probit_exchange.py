@@ -44,6 +44,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
+import ujson
 
 probit_logger = None
 s_decimal_NaN = Decimal("nan")
@@ -222,7 +223,12 @@ class ProbitExchange(ExchangeBase):
         """
         try:
             # since there is no ping endpoint, the lowest rate call is to get BTC-USDT ticker
-            await self._api_request("get", "public/get-ticker?instrument_name=BTC_USDT")
+            resp = await self._api_request(
+                method="GET",
+                path_url=CONSTANTS.TIME_URL
+            )
+            if resp.status != 200:
+                raise
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -255,7 +261,10 @@ class ProbitExchange(ExchangeBase):
                 await asyncio.sleep(0.5)
 
     async def _update_trading_rules(self):
-        market_info = await self._api_request("GET", path_url="public/get-instruments")
+        market_info = await self._api_request(
+            method="GET",
+            path_url=CONSTANTS.MARKETS_URL
+        )
         self._trading_rules.clear()
         self._trading_rules = self._format_trading_rules(market_info)
 
@@ -294,13 +303,43 @@ class ProbitExchange(ExchangeBase):
                 quantity_step = Decimal("1") / Decimal(str(math.pow(10, quantity_decimals)))
 
                 result[trading_pair] = TradingRule(trading_pair=trading_pair,
-                                                   min_order_size=Decimal(str(market["min_cost"])),
-                                                   max_order_size=Decimal(str(market["max_cost"])),
+                                                   min_order_size=Decimal(str(market["min_quantity"])),
+                                                   max_order_size=Decimal(str(market["max_quantity"])),
+                                                   min_order_value=Decimal(str(market["min_cost"])),
                                                    min_price_increment=Decimal(str(market["price_increment"])),
                                                    min_base_amount_increment=quantity_step)
             except Exception:
                 self.logger().error(f"Error parsing the trading pair rule {market}. Skipping.", exc_info=True)
         return result
+
+    async def _get_auth_headers(self, http_client: aiohttp.ClientSession) -> Dict[str, Any]:
+        if self._probit_auth.token_has_expired:
+            try:
+                now: int = int(time.time())
+                headers = self._probit_auth.get_headers()
+                headers.update({
+                    "Authorization": f"Basic {self._probit_auth.token_payload}"
+                })
+                body = ujson.dumps({
+                    "grant_type": "client_credentials"
+                })
+                resp = await http_client.post(url=CONSTANTS.TOKEN_URL,
+                                              headers=headers,
+                                              data=body)
+                token_resp = await resp.json()
+
+                if resp.status != 200:
+                    raise ValueError(f"Error occurred retrieving new OAuth Token. Response: {token_resp}")
+
+                # POST /token endpoint returns both access_token and expires_in
+                # Updates _oauth_token_expiration_time
+
+                self._probit_auth.update_expiration_time(now + token_resp["expires_in"])
+                self._probit_auth.update_oauth_token(token_resp["access_token"])
+            except Exception as e:
+                raise e
+
+        return self._probit_auth.generate_auth_dict()
 
     async def _api_request(self,
                            method: str,
@@ -319,7 +358,7 @@ class ProbitExchange(ExchangeBase):
         client = await self._http_client()
 
         if is_auth_required:
-            headers = self._probit_auth.generate_auth_dict()
+            headers = await self._get_auth_headers(client)
         else:
             headers = self._probit_auth.get_headers()
 
@@ -337,8 +376,7 @@ class ProbitExchange(ExchangeBase):
         if response.status != 200:
             raise IOError(f"Error fetching data from {path_url}. HTTP status is {response.status}. "
                           f"Message: {parsed_response}")
-        if parsed_response["code"] != 0:
-            raise IOError(f"{path_url} API call failed, response: {parsed_response}")
+
         return parsed_response
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):
@@ -422,9 +460,15 @@ class ProbitExchange(ExchangeBase):
 
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
+
         if amount < trading_rule.min_order_size:
             raise ValueError(f"{trade_type.name} order amount {amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
+
+        order_value: Decimal = amount * price
+        if order_value < trading_rule.min_order_value:
+            raise ValueError(f"{trade_type.name} order value {order_value} is lower than the minimum order value "
+                             f"{trading_rule.min_order_value}")
 
         body_params = {
             "market_id": trading_pair,

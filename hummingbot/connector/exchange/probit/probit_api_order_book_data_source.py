@@ -61,7 +61,7 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             async with client.get(f"{constants.MARKETS_URL}") as response:
                 if response.status == 200:
                     resp_json: Dict[str, Any] = await response.json()
-                    return [market["market_id"] for market in resp_json["data"]]
+                    return [market["id"] for market in resp_json["data"]]
                 return []
 
     @staticmethod
