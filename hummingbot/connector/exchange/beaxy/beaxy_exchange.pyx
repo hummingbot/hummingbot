@@ -787,107 +787,116 @@ cdef class BeaxyExchange(ExchangeBase):
                 await asyncio.sleep(1.0)
 
     async def _user_stream_event_listener(self):
-        async for event_message in self._iter_user_event_queue():
+        async for msg_type, event_message in self._iter_user_event_queue():
             try:
-                order = event_message['order']
-                exchange_order_id = order['id']
-                client_order_id = order['text']
-                order_status = order['status']
+                if msg_type == BeaxyConstants.UserStream.BALANCE_MESSAGE:
+                    for msg in event_message:
+                        asset_name = msg['currency_id']
+                        available_balance = Decimal(msg['available_for_trading'])
+                        total_balance = Decimal(msg['balance'])
+                        self._account_available_balances[asset_name] = available_balance
+                        self._account_balances[asset_name] = total_balance
 
-                if client_order_id is None:
-                    continue
+                elif msg_type == BeaxyConstants.UserStream.ORDER_MESSAGE:
+                    order = event_message['order']
+                    exchange_order_id = order['id']
+                    client_order_id = order['text']
+                    order_status = order['status']
 
-                tracked_order = self._in_flight_orders.get(client_order_id)
+                    if client_order_id is None:
+                        continue
 
-                if tracked_order is None:
-                    self.logger().debug(f'Didn`rt find order with id {client_order_id}')
-                    continue
+                    tracked_order = self._in_flight_orders.get(client_order_id)
 
-                execute_price = s_decimal_0
-                execute_amount_diff = s_decimal_0
+                    if tracked_order is None:
+                        self.logger().debug(f'Didn`rt find order with id {client_order_id}')
+                        continue
 
-                if event_message['events']:
-                    order_event = event_message['events'][0]
-                    event_type = order_event['type']
+                    execute_price = s_decimal_0
+                    execute_amount_diff = s_decimal_0
 
-                    if event_type == 'trade':
-                        execute_price = Decimal(order_event.get('trade_price', 0.0))
-                        execute_amount_diff = Decimal(order_event.get('trade_quantity', 0.0))
-                        tracked_order.executed_amount_base = Decimal(order['cumulative_quantity'])
-                        tracked_order.executed_amount_quote += execute_amount_diff * execute_price
+                    if event_message['events']:
+                        order_event = event_message['events'][0]
+                        event_type = order_event['type']
 
-                    if execute_amount_diff > s_decimal_0:
-                        self.logger().info(f'Filled {execute_amount_diff} out of {tracked_order.amount} of the '
-                                           f'{tracked_order.order_type_description} order {tracked_order.client_order_id}')
-                        exchange_order_id = tracked_order.exchange_order_id
+                        if event_type == 'trade':
+                            execute_price = Decimal(order_event.get('trade_price', 0.0))
+                            execute_amount_diff = Decimal(order_event.get('trade_quantity', 0.0))
+                            tracked_order.executed_amount_base = Decimal(order['cumulative_quantity'])
+                            tracked_order.executed_amount_quote += execute_amount_diff * execute_price
 
-                        self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
-                                             OrderFilledEvent(
-                                                 self._current_timestamp,
-                                                 tracked_order.client_order_id,
-                                                 tracked_order.trading_pair,
-                                                 tracked_order.trade_type,
-                                                 tracked_order.order_type,
-                                                 execute_price,
-                                                 execute_amount_diff,
-                                                 self.c_get_fee(
-                                                     tracked_order.base_asset,
-                                                     tracked_order.quote_asset,
-                                                     tracked_order.order_type,
+                        if execute_amount_diff > s_decimal_0:
+                            self.logger().info(f'Filled {execute_amount_diff} out of {tracked_order.amount} of the '
+                                               f'{tracked_order.order_type_description} order {tracked_order.client_order_id}')
+                            exchange_order_id = tracked_order.exchange_order_id
+
+                            self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
+                                                 OrderFilledEvent(
+                                                     self._current_timestamp,
+                                                     tracked_order.client_order_id,
+                                                     tracked_order.trading_pair,
                                                      tracked_order.trade_type,
+                                                     tracked_order.order_type,
                                                      execute_price,
                                                      execute_amount_diff,
-                                                 ),
-                                                 exchange_trade_id=exchange_order_id
-                                             ))
+                                                     self.c_get_fee(
+                                                         tracked_order.base_asset,
+                                                         tracked_order.quote_asset,
+                                                         tracked_order.order_type,
+                                                         tracked_order.trade_type,
+                                                         execute_price,
+                                                         execute_amount_diff,
+                                                     ),
+                                                     exchange_trade_id=exchange_order_id
+                                                 ))
 
-                if order_status == 'completely_filled':
-                    if tracked_order.trade_type == TradeType.BUY:
-                        self.logger().info(f'The market buy order {tracked_order.client_order_id} has completed '
-                                           f'according to Beaxy user stream.')
-                        self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
-                                             BuyOrderCompletedEvent(self._current_timestamp,
-                                                                    tracked_order.client_order_id,
-                                                                    tracked_order.base_asset,
-                                                                    tracked_order.quote_asset,
-                                                                    (tracked_order.fee_asset
-                                                                     or tracked_order.base_asset),
-                                                                    tracked_order.executed_amount_base,
-                                                                    tracked_order.executed_amount_quote,
-                                                                    tracked_order.fee_paid,
-                                                                    tracked_order.order_type))
-                    else:
-                        self.logger().info(f'The market sell order {tracked_order.client_order_id} has completed '
-                                           f'according to Beaxy user stream.')
-                        self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
-                                             SellOrderCompletedEvent(self._current_timestamp,
-                                                                     tracked_order.client_order_id,
-                                                                     tracked_order.base_asset,
-                                                                     tracked_order.quote_asset,
-                                                                     (tracked_order.fee_asset
-                                                                      or tracked_order.quote_asset),
-                                                                     tracked_order.executed_amount_base,
-                                                                     tracked_order.executed_amount_quote,
-                                                                     tracked_order.fee_paid,
-                                                                     tracked_order.order_type))
+                    if order_status == 'completely_filled':
+                        if tracked_order.trade_type == TradeType.BUY:
+                            self.logger().info(f'The market buy order {tracked_order.client_order_id} has completed '
+                                               f'according to Beaxy user stream.')
+                            self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
+                                                 BuyOrderCompletedEvent(self._current_timestamp,
+                                                                        tracked_order.client_order_id,
+                                                                        tracked_order.base_asset,
+                                                                        tracked_order.quote_asset,
+                                                                        (tracked_order.fee_asset
+                                                                         or tracked_order.base_asset),
+                                                                        tracked_order.executed_amount_base,
+                                                                        tracked_order.executed_amount_quote,
+                                                                        tracked_order.fee_paid,
+                                                                        tracked_order.order_type))
+                        else:
+                            self.logger().info(f'The market sell order {tracked_order.client_order_id} has completed '
+                                               f'according to Beaxy user stream.')
+                            self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
+                                                 SellOrderCompletedEvent(self._current_timestamp,
+                                                                         tracked_order.client_order_id,
+                                                                         tracked_order.base_asset,
+                                                                         tracked_order.quote_asset,
+                                                                         (tracked_order.fee_asset
+                                                                          or tracked_order.quote_asset),
+                                                                         tracked_order.executed_amount_base,
+                                                                         tracked_order.executed_amount_quote,
+                                                                         tracked_order.fee_paid,
+                                                                         tracked_order.order_type))
 
-                    self.c_stop_tracking_order(tracked_order.client_order_id)
+                        self.c_stop_tracking_order(tracked_order.client_order_id)
 
-                elif order_status == 'canceled':
-                    tracked_order.last_state = 'canceled'
-                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                         OrderCancelledEvent(self._current_timestamp, tracked_order.client_order_id))
-                    self.c_stop_tracking_order(tracked_order.client_order_id)
-                elif order_status in ['rejected', 'replaced', 'suspended']:
-                    tracked_order.last_state = order_status
-                    self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                                         MarketOrderFailureEvent(self._current_timestamp, tracked_order.client_order_id, tracked_order.order_type))
-                    self.c_stop_tracking_order(tracked_order.client_order_id)
-                elif order_status == 'expired':
-                    tracked_order.last_state = 'expired'
-                    self.c_trigger_event(self.MARKET_ORDER_EXPIRED_EVENT_TAG,
-                                         OrderExpiredEvent(self._current_timestamp, tracked_order.client_order_id))
-                    self.c_stop_tracking_order(tracked_order.client_order_id)
+                    elif order_status == 'canceled':
+                        tracked_order.last_state = 'canceled'
+                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                             OrderCancelledEvent(self._current_timestamp, tracked_order.client_order_id))
+                        self.c_stop_tracking_order(tracked_order.client_order_id)
+                    elif order_status in ['rejected', 'replaced', 'suspended']:
+                        tracked_order.last_state = order_status
+                        self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                                             MarketOrderFailureEvent(self._current_timestamp, tracked_order.client_order_id, tracked_order.order_type))
+                        self.c_stop_tracking_order(tracked_order.client_order_id)
+                    elif order_status == 'expired':
+                        tracked_order.last_state = 'expired'
+                        self.c_trigger_event(self.MARKET_ORDER_EXPIRED_EVENT_TAG,
+                                             OrderExpiredEvent(self._current_timestamp, tracked_order.client_order_id))
+                        self.c_stop_tracking_order(tracked_order.client_order_id)
 
             except Exception:
                 self.logger().error('Unexpected error in user stream listener loop.', exc_info=True)
