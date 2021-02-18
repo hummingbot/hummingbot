@@ -524,6 +524,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         # make restored order hanging orders
         for order_id in restored_order_ids:
             self._hanging_order_ids.append(order_id)
+        self._time_left = self._closing_time
 
     cdef c_tick(self, double timestamp):
         StrategyBase.c_tick(self, timestamp)
@@ -554,8 +555,13 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             algo_inform_text = "Algorithm not ready"
             if self.c_is_algorithm_ready():
                 self.c_calculate_reserved_price_and_optimal_spread()
-                algo_inform_text = f"delta(mid,r)={(self._reserved_price - self._mid_prices.get_last_value()) / self._mid_prices.get_last_value() * 100.0}% | " \
-                                   f"delta(spread,opt_spread)={(self._optimal_spread - self._spreads.get_last_value()) / self._spreads.get_last_value() * 100.0}% | " \
+                best_ask=self._mid_prices.get_last_value()+self._spreads.get_last_value()/2.0
+                new_ask=(self._reserved_price + self._optimal_spread/2.0)
+                best_bid = self._mid_prices.get_last_value() - self._spreads.get_last_value() / 2.0
+                new_bid = (self._reserved_price - self._optimal_spread / 2.0)
+                algo_inform_text = f"diff(mid,r)={(self._reserved_price - self._mid_prices.get_last_value()) / self._mid_prices.get_last_value() * 100.0}% | " \
+                                   f"spread(bid,best_bid)={(new_bid-best_bid)/best_bid * 100.0}% | " \
+                                   f"spread(ask,best_ask)={(new_ask - best_ask) / best_ask * 100.0}% | " \
                                    f"q={market.c_get_available_balance(self.base_asset)} | " \
                                    f"target_inv={self.c_calculate_target_inventory()} | " \
                                    f"(T-t)={self._time_left/self._closing_time}"
