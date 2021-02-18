@@ -51,8 +51,10 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 if response.status == 200:
                     resp_json = await response.json()
                     if "data" in resp_json:
-                        for trading_pair in resp_json["data"]:
-                            result[trading_pair["market_id"]] = trading_pair["last"]
+                        for market in resp_json["data"]:
+                            if market["market_id"] in trading_pairs:
+                                result[market["market_id"]] = float(market["last"])
+
         return result
 
     @staticmethod
@@ -147,11 +149,11 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         if "reset" in msg and msg["reset"] is True:
                             # Ignores first response from "recent_trades" channel. This response details the last 100 trades.
                             continue
-
                         for trade_entry in msg["recent_trades"]:
                             trade_msg: OrderBookMessage = ProbitOrderBook.trade_message_from_exchange(
                                 msg=trade_entry,
-                                timestamp=msg_timestamp)
+                                timestamp=msg_timestamp,
+                                metadata={"market_id": msg["market_id"]})
                             output.put_nowait(trade_msg)
             except asyncio.CancelledError:
                 raise
@@ -191,10 +193,12 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 timestamp=msg_timestamp,
                             )
                             output.put_nowait(snapshot_msg)
-                            continue
-                        for diff_entry in msg["order_books"]:
-                            diff_msg: OrderBookMessage = ProbitOrderBook.diff_message_from_exchange(diff_entry,
-                                                                                                    msg_timestamp)
+                        else:
+                            diff_msg: OrderBookMessage = ProbitOrderBook.diff_message_from_exchange(
+                                msg=msg,
+                                timestamp=msg_timestamp,
+                                metadata={"market_id": msg["market_id"]}
+                            )
                             output.put_nowait(diff_msg)
             except asyncio.CancelledError:
                 raise

@@ -92,10 +92,12 @@ class ProbitExchange(ExchangeBase):
         self._in_flight_orders = {}  # Dict[client_order_id:str, ProbitInFlightOrder]
         self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
+        self._last_poll_timestamp = 0
+
         self._status_polling_task = None
+        self._user_stream_tracker_task = None
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
-        self._last_poll_timestamp = 0
 
     @property
     def name(self) -> str:
@@ -192,7 +194,7 @@ class ProbitExchange(ExchangeBase):
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
+            # self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
 
     async def stop_network(self):
@@ -227,7 +229,7 @@ class ProbitExchange(ExchangeBase):
                 method="GET",
                 path_url=CONSTANTS.TIME_URL
             )
-            if resp.status != 200:
+            if "data" not in resp:
                 raise
         except asyncio.CancelledError:
             raise
@@ -358,7 +360,7 @@ class ProbitExchange(ExchangeBase):
         client = await self._http_client()
 
         if is_auth_required:
-            headers = await self._get_auth_headers(client)
+            headers = await self._probit_auth.get_auth_headers(client)
         else:
             headers = self._probit_auth.get_headers()
 
@@ -818,7 +820,7 @@ class ProbitExchange(ExchangeBase):
                 self.logger().info(f"Unexpected response from GET {CONSTANTS.OPEN_ORDER_URL}. "
                                    f"Params: {query_params} "
                                    f"Response: {result} ")
-            for order in result["data"]["order_list"]:
+            for order in result["data"]:
                 if order["type"] != "limit":
                     raise Exception(f"Unsupported order type {order['type']}")
                 ret_val.append(

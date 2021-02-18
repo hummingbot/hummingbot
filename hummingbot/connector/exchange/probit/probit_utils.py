@@ -63,7 +63,7 @@ def convert_diff_message_to_order_book_row(message: OrderBookMessage) -> Tuple[L
     asks = []
 
     for entry in data:
-        order_row = OrderBookRow(entry["price"], entry["quantity"], update_id)
+        order_row = OrderBookRow(float(entry["price"]), float(entry["quantity"]), update_id)
         if entry["side"] == "buy":
             bids.append(order_row)
         elif entry["side"] == "sell":
