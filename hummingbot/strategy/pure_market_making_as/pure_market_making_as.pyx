@@ -646,7 +646,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
 
         if self.c_is_algorithm_ready():
             mid_price = self._mid_prices.get_last_value()
-            q = float(market.c_get_available_balance(self.base_asset))  # Should this be adjusted??
+            q = float(market.c_get_available_balance(self.base_asset)) - self.c_calculate_target_inventory()
             mid_price_variance = self._mid_prices.variance()
             self._reserved_price=mid_price - (q * self._gamma * mid_price_variance * time_left_fraction)
 
