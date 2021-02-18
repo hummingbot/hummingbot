@@ -30,6 +30,7 @@ class ProbitAuth():
         payload = f"{self.api_key}:{self.secret_key}".encode()
         return base64.b64encode(payload).decode()
 
+    @property
     def token_has_expired(self):
         now: int = int(time.time())
         return now >= self._oauth_token_expiration_time
