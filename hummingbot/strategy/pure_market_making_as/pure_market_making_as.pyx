@@ -557,6 +557,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                 algo_inform_text = f"delta(mid,r)={(self._reserved_price - self._mid_prices.get_last_value()) / self._mid_prices.get_last_value() * 100.0}% | " \
                                    f"delta(spread,opt_spread)={(self._optimal_spread - self._spreads.get_last_value()) / self._spreads.get_last_value() * 100.0}% | " \
                                    f"q={market.c_get_available_balance(self.base_asset)} | " \
+                                   f"target_inv={self.c_calculate_target_inventory()} | " \
                                    f"(T-t)={self._time_left/self._closing_time}"
                 if not os.path.exists(self._csv_path):
                     df_header = pd.DataFrame([('mid_price',
@@ -564,6 +565,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                                                'reserved_price',
                                                'optimal_spread',
                                                'q',
+                                               'target_inv_stocks'
                                                'time_left_fraction',
                                                'mid_price std_dev',
                                                'gamma',
@@ -574,6 +576,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                                     self._reserved_price,
                                     self._optimal_spread,
                                     market.c_get_available_balance(self.base_asset),
+                                    self.c_calculate_target_inventory(),
                                     self._time_left/self._closing_time,
                                     self._mid_prices.std_dev(),
                                     self._gamma,
