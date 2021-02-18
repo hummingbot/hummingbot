@@ -2,6 +2,10 @@
 
 
 class BeaxyConstants:
+    class UserStream:
+        ORDER_MESSAGE = 'ORDER'
+        BALANCE_MESSAGE = 'BALANCE'
+
     class TradingApi:
         BASE_URL_V1 = 'https://tradingapi.beaxy.com'
         BASE_URL = 'https://tradewith.beaxy.com'
@@ -18,6 +22,8 @@ class BeaxyConstants:
         LOGIN_CONFIRM_ENDPOINT = '/api/v1/login/confirm'
 
         WS_BASE_URL = 'wss://tradingapi.beaxy.com/websocket/v1'
+        WS_ORDERS_ENDPOINT = '/user/v1/orders'
+        WS_BALANCE_ENDPOINT = '/user/v1/balances'
 
     class PublicApi:
         BASE_URL = 'https://services.beaxy.com'

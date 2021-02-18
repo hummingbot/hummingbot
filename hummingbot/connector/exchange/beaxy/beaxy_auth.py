@@ -110,8 +110,6 @@ class BeaxyAuth:
 
                 self.token_obtain.set()
 
-
-
     async def _auth_token_polling_loop(self):
         """
         Separate background process that periodically regenerates auth token

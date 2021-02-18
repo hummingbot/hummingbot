@@ -11,6 +11,7 @@ from websockets.exceptions import ConnectionClosed
 
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.core.utils.async_utils import safe_gather
 
 from hummingbot.connector.exchange.beaxy.beaxy_auth import BeaxyAuth
 from hummingbot.connector.exchange.beaxy.beaxy_constants import BeaxyConstants
@@ -41,13 +42,7 @@ class BeaxyAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def last_recv_time(self) -> float:
         return self._last_recv_time
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        """
-        *required
-        Subscribe to user stream via web socket, and keep the connection open for incoming messages
-        :param ev_loop: ev_loop to execute this function in
-        :param output: an async queue where the incoming messages are stored
-        """
+    async def __listen_ws(self, dest: str):
         while True:
             try:
                 async with websockets.connect(BeaxyConstants.TradingApi.WS_BASE_URL) as ws:
@@ -58,7 +53,7 @@ class BeaxyAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
                     orders_sub_request = BeaxyStompMessage('SUBSCRIBE')
                     orders_sub_request.headers['id'] = f'sub-humming-{get_tracking_nonce()}'
-                    orders_sub_request.headers['destination'] = '/user/v1/orders'
+                    orders_sub_request.headers['destination'] = dest
                     orders_sub_request.headers['X-Deltix-Nonce'] = str(get_tracking_nonce())
                     await ws.send(orders_sub_request.serialize())
 
@@ -68,13 +63,33 @@ class BeaxyAPIUserStreamDataSource(UserStreamTrackerDataSource):
                             raise Exception(f'Got error from ws. Headers - {stomp_message.headers}')
 
                         msg = ujson.loads(stomp_message.body)
-                        output.put_nowait(msg)
+                        yield msg
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error('Unexpected error with Beaxy connection. '
                                     'Retrying after 30 seconds...', exc_info=True)
                 await asyncio.sleep(30.0)
+
+    async def _listen_for_balance(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        async for msg in self.__listen_ws(BeaxyConstants.TradingApi.WS_BALANCE_ENDPOINT):
+            output.put_nowait([BeaxyConstants.UserStream.BALANCE_MESSAGE, msg])
+
+    async def _listen_for_orders(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        async for msg in self.__listen_ws(BeaxyConstants.TradingApi.WS_ORDERS_ENDPOINT):
+            output.put_nowait([BeaxyConstants.UserStream.ORDER_MESSAGE, msg])
+
+    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        """
+        *required
+        Subscribe to user stream via web socket, and keep the connection open for incoming messages
+        :param ev_loop: ev_loop to execute this function in
+        :param output: an async queue where the incoming messages are stored
+        """
+        await safe_gather(
+            self._listen_for_balance(ev_loop, output),
+            self._listen_for_orders(ev_loop, output),
+        )
 
     async def _inner_messages(self,
                               ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
