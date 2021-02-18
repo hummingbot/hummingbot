@@ -367,7 +367,7 @@ class ProbitExchange(ExchangeBase):
         if method == "GET":
             response = await client.get(path_url, headers=headers, params=params)
         elif method == "POST":
-            response = await client.post(path_url, headers=headers, params=params, data=data)
+            response = await client.post(path_url, headers=headers, data=ujson.dumps(data))
         else:
             raise NotImplementedError(f"{method} HTTP Method not implemented. ")
 
@@ -477,8 +477,8 @@ class ProbitExchange(ExchangeBase):
             "type": "limit",  # ProBit Order Types ["limit", "market"}
             "side": trade_type.name.lower(),  # ProBit Order Sides ["buy", "sell"]
             "time_in_force": "gtc",  # gtc = Good-Til-Cancelled
-            "limit_price": price,
-            "quantity": amount,
+            "limit_price": str(price),
+            "quantity": str(amount),
             "client_order_id": order_id
         }
 
