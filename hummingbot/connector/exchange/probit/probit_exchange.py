@@ -5,6 +5,7 @@ import asyncio
 import logging
 import math
 import time
+import ujson
 
 from decimal import Decimal
 from typing import (
@@ -44,7 +45,6 @@ from hummingbot.core.event.events import (
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
-import ujson
 
 probit_logger = None
 s_decimal_NaN = Decimal("nan")
@@ -936,7 +936,7 @@ class ProbitExchange(ExchangeBase):
         """
         async for event_message in self._iter_user_event_queue():
             try:
-                if "channel" not in event_message or event_message["channel"] not in ["open_order", "order_history", "balance", "trade_history"]:
+                if "channel" not in event_message and event_message["channel"] not in CONSTANTS.WS_PRIVATE_CHANNELS:
                     continue
                 channel = event_message["channel"]
 
