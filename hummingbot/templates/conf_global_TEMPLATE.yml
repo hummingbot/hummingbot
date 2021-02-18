@@ -75,6 +75,9 @@ celo_password: null
 terra_wallet_address: null
 terra_wallet_seeds: null
 
+k2_api_key: null
+k2_secret_key: null
+
 balancer_max_swaps: 4
 
 # Ethereum wallet address: required for trading on a DEX
