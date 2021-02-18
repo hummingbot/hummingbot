@@ -6,6 +6,7 @@ import random
 import asyncio
 from typing import Dict, Any, Optional
 from time import monotonic
+from datetime import datetime
 
 import aiohttp
 from Crypto.PublicKey import RSA
@@ -23,6 +24,7 @@ s_logger = None
 SAFE_TIME_PERIOD_SECONDS = 10
 TOKEN_REFRESH_PERIOD_SECONDS = 10 * 60
 MIN_TOKEN_LIFE_TIME_SECONDS = 30
+TOKEN_OBTAIN_TIMEOUT = 30
 
 
 class BeaxyAuth:
@@ -36,6 +38,8 @@ class BeaxyAuth:
         self.token_obtain = asyncio.Event()
         self.token_valid_to: float = 0
         self.token_next_refresh: float = 0
+        self.token_obtain_start_time = 0
+        self.token_raw_expires = 0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -46,6 +50,9 @@ class BeaxyAuth:
 
     def is_token_valid(self):
         return self.token_valid_to > monotonic()
+
+    def token_timings_str(self):
+        return f'auth req start time {self.token_obtain_start_time}, token validness sec {self.token_raw_expires}'
 
     def invalidate_token(self):
         self.token_valid_to = 0
@@ -61,12 +68,18 @@ class BeaxyAuth:
             return self.token
 
         # waiting for fresh token
-        await self.token_obtain.wait()
+        await asyncio.wait_for(self.token_obtain.wait(), timeout=TOKEN_OBTAIN_TIMEOUT)
+
+        if not self.is_token_valid():
+            raise ValueError('Invalid auth token timestamp')
         return self.token
 
     async def _update_token(self):
 
         self.token_obtain.clear()
+
+        start_time = monotonic()
+        start_timestamp = datetime.now()
 
         async with aiohttp.ClientSession() as client:
             async with client.post(
@@ -85,13 +98,19 @@ class BeaxyAuth:
                     raise IOError(f'Error while connecting to login token endpoint. Token lifetime to small {data["expires_in"]}.')
 
                 self.token = data['access_token']
-                current_time = monotonic()
+                self.token_raw_expires = data['expires_in']
 
                 # include safe interval, e.g. time that approx network request can take
-                self.token_valid_to = current_time + int(data['expires_in']) - SAFE_TIME_PERIOD_SECONDS
-                self.token_next_refresh = current_time + TOKEN_REFRESH_PERIOD_SECONDS
+                self.token_obtain_start_time = start_timestamp
+                self.token_valid_to = start_time + int(data['expires_in']) - SAFE_TIME_PERIOD_SECONDS
+                self.token_next_refresh = start_time + TOKEN_REFRESH_PERIOD_SECONDS
+
+                if not self.is_token_valid():
+                    raise ValueError('Invalid auth token timestamp')
 
                 self.token_obtain.set()
+
+
 
     async def _auth_token_polling_loop(self):
         """
@@ -107,12 +126,12 @@ class BeaxyAuth:
                 self.logger().network(
                     'Unexpected error while fetching auth token.',
                     exc_info=True,
-                    app_warning_msg=f'Could not fetch trading rule updates on Beaxy. '
-                                    f'Check network connection.'
+                    app_warning_msg='Could not fetch trading rule updates on Beaxy. '
+                                    'Check network connection.'
                 )
                 await asyncio.sleep(0.5)
 
-    async def generate_auth_dict(self, http_method: str, path: str, body: str = "") -> Dict[str, Any]:
+    async def generate_auth_dict(self, http_method: str, path: str, body: str = '') -> Dict[str, Any]:
         auth_token = await self.get_token()
         return {'Authorization': f'Bearer {auth_token}'}
 
@@ -171,7 +190,7 @@ class BeaxyAuth:
                 data: Dict[str, str] = await response.json()
                 return data
 
-    def __build_payload(self, http_method: str, path: str, query_params: Dict[str, str], headers: Dict[str, str], body: str = ""):
+    def __build_payload(self, http_method: str, path: str, query_params: Dict[str, str], headers: Dict[str, str], body: str = ''):
         query_params_stringified = '&'.join([f'{k}={query_params[k]}' for k in sorted(query_params)])
         headers_stringified = '&'.join([f'{k}={headers[k]}' for k in sorted(headers)])
         return f'{http_method.upper()}{path.lower()}{query_params_stringified}{headers_stringified}{body}'

@@ -232,7 +232,7 @@ cdef class BeaxyExchange(ExchangeBase):
         self.logger().debug(f'Starting beaxy network. Trading required is {self._trading_required}')
         self._stop_network()
         self._order_book_tracker.start()
-        self.logger().debug(f'OrderBookTracker started, starting polling tasks.')
+        self.logger().debug('OrderBookTracker started, starting polling tasks.')
         if self._trading_required:
             self._auth_polling_task = safe_ensure_future(self._beaxy_auth._auth_token_polling_loop())
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
@@ -248,7 +248,7 @@ cdef class BeaxyExchange(ExchangeBase):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().network(f'Error fetching Beaxy network status.', exc_info=True)
+            self.logger().network('Error fetching Beaxy network status.', exc_info=True)
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
 
@@ -289,7 +289,7 @@ cdef class BeaxyExchange(ExchangeBase):
         Gets a list of the user's active orders via rest API
         :returns: json response
         """
-        day_ago = (datetime.utcnow() - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        day_ago = (datetime.utcnow() - timedelta(days=1)).strftime('%Y-%m-%dT%H:%M:%SZ')
 
         result = await safe_gather(
             self._api_request('get', path_url=BeaxyConstants.TradingApi.OPEN_ORDERS_ENDPOINT),
@@ -326,7 +326,7 @@ cdef class BeaxyExchange(ExchangeBase):
                     f'The tracked order {client_order_id} does not exist on Beaxy for last day.'
                     f'Removing from tracking.'
                 )
-                tracked_order.last_state = "CLOSED"
+                tracked_order.last_state = 'CLOSED'
                 self.c_trigger_event(
                     self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                     OrderCancelledEvent(self._current_timestamp, client_order_id)
@@ -404,7 +404,7 @@ cdef class BeaxyExchange(ExchangeBase):
                 else:
                     self.logger().info(f'The market order {tracked_order.client_order_id} has failed/been cancelled '
                                        f'according to order status API.')
-                    tracked_order.last_state = "cancelled"
+                    tracked_order.last_state = 'cancelled'
                     self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                          OrderCancelledEvent(
                                              self._current_timestamp,
@@ -507,15 +507,15 @@ cdef class BeaxyExchange(ExchangeBase):
             raise
         except Exception:
             tracked_order = self._in_flight_orders.get(order_id)
-            tracked_order.last_state = "FAILURE"
+            tracked_order.last_state = 'FAILURE'
             self.c_stop_tracking_order(order_id)
             order_type_str = order_type.name.lower()
             self.logger().network(
-                f"Error submitting buy {order_type_str} order to Beaxy for "
-                f"{decimal_amount} {trading_pair} "
-                f"{decimal_price}.",
+                f'Error submitting buy {order_type_str} order to Beaxy for '
+                f'{decimal_amount} {trading_pair} '
+                f'{decimal_price}.',
                 exc_info=True,
-                app_warning_msg=f"Failed to submit buy order to Beaxy. Check API key and network connection."
+                app_warning_msg='Failed to submit buy order to Beaxy. Check API key and network connection.'
             )
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(
@@ -579,15 +579,15 @@ cdef class BeaxyExchange(ExchangeBase):
             raise
         except Exception:
             tracked_order = self._in_flight_orders.get(order_id)
-            tracked_order.last_state = "FAILURE"
+            tracked_order.last_state = 'FAILURE'
             self.c_stop_tracking_order(order_id)
             order_type_str = order_type.name.lower()
             self.logger().network(
-                f"Error submitting sell {order_type_str} order to Beaxy for "
-                f"{decimal_amount} {trading_pair} "
-                f"{decimal_price if order_type is OrderType.LIMIT else ''}.",
+                f'Error submitting sell {order_type_str} order to Beaxy for '
+                f'{decimal_amount} {trading_pair} '
+                f'{decimal_price if order_type is OrderType.LIMIT else ""}.',
                 exc_info=True,
-                app_warning_msg=f"Failed to submit sell order to Beaxy. Check API key and network connection."
+                app_warning_msg='Failed to submit sell order to Beaxy. Check API key and network connection.'
             )
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
@@ -670,7 +670,7 @@ cdef class BeaxyExchange(ExchangeBase):
                         successful_cancellations.append(CancellationResult(client_order_id, True))
         except Exception as e:
             self.logger().network(
-                f'Unexpected error cancelling orders.',
+                'Unexpected error cancelling orders.',
                 exc_info=True,
                 app_warning_msg='Failed to cancel order on Coinbase Pro. Check API key and network connection.'
             )
@@ -699,8 +699,8 @@ cdef class BeaxyExchange(ExchangeBase):
             raise
         except Exception:
             self.logger().network('Error fetching Beaxy trade fees.', exc_info=True,
-                                  app_warning_msg=f'Could not fetch Beaxy trading fees. '
-                                  f'Check network connection.')
+                                  app_warning_msg='Could not fetch Beaxy trading fees. '
+                                  'Check network connection.')
             raise
 
     async def _update_balances(self):
@@ -747,7 +747,7 @@ cdef class BeaxyExchange(ExchangeBase):
 
                     self._trading_rules[trading_pair] = trading_rule
         except Exception:
-            self.logger().warning(f'Got exception while updating trading rules.', exc_info=True)
+            self.logger().warning('Got exception while updating trading rules.', exc_info=True)
 
     def _format_trading_rules(self, market_dict: Dict[str, Any]) -> List[TradingRule]:
         """
@@ -919,7 +919,7 @@ cdef class BeaxyExchange(ExchangeBase):
 
             url = f'{BeaxyConstants.TradingApi.BASE_URL}{path_url}' if url is None else url
 
-            data_str = "" if data is None else json.dumps(data, separators=(',', ':'))
+            data_str = '' if data is None else json.dumps(data, separators=(',', ':'))
 
             if is_auth_required:
                 headers = await self.beaxy_auth.generate_auth_dict(http_method, path_url, data_str)
@@ -949,6 +949,7 @@ cdef class BeaxyExchange(ExchangeBase):
                 if response.status not in [200, 204]:
 
                     if response.status == 401:
+                        self.logger().error(f'Beaxy auth error, token timings: {self._beaxy_auth.token_timings_str()}')
                         self._beaxy_auth.invalidate_token()
 
                     raise BeaxyIOError(
@@ -962,7 +963,7 @@ cdef class BeaxyExchange(ExchangeBase):
         except BeaxyIOError:
             raise
         except Exception:
-            self.logger().warning(f'Exception while making api request.', exc_info=True)
+            self.logger().warning('Exception while making api request.', exc_info=True)
             raise
 
     async def _status_polling_loop(self):
@@ -987,8 +988,8 @@ cdef class BeaxyExchange(ExchangeBase):
                 self.logger().network(
                     'Unexpected error while fetching account updates.',
                     exc_info=True,
-                    app_warning_msg=f'Could not fetch account updates on Beaxy.'
-                                    f'Check API key and network connection.'
+                    app_warning_msg='Could not fetch account updates on Beaxy.'
+                                    'Check API key and network connection.'
                 )
                 await asyncio.sleep(0.5)
 
@@ -1007,8 +1008,8 @@ cdef class BeaxyExchange(ExchangeBase):
                 self.logger().network(
                     'Unexpected error while fetching trading rules.',
                     exc_info=True,
-                    app_warning_msg=f'Could not fetch trading rule updates on Beaxy. '
-                                    f'Check network connection.'
+                    app_warning_msg='Could not fetch trading rule updates on Beaxy. '
+                                    'Check network connection.'
                 )
                 await asyncio.sleep(0.5)
 
