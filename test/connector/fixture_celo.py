@@ -7,45 +7,44 @@ outputs = {
     # For order_amount of 1
     ('celocli', 'exchange:show', '--amount', str(int(9.95 * UNIT_MULTIPLIER))):
         "Fetching exchange rates...... done\n"
-        f"{str(int(9.95 * UNIT_MULTIPLIER))} cGLD => {str(int(99.5 * UNIT_MULTIPLIER))} cUSD\n"
-        f"{str(int(9.95 * UNIT_MULTIPLIER))} cUSD => {str(int(1 * UNIT_MULTIPLIER))} cGLD",
+        f"{str(int(9.95 * UNIT_MULTIPLIER))} CELO => {str(int(99.5 * UNIT_MULTIPLIER))} cUSD\n"
+        f"{str(int(9.95 * UNIT_MULTIPLIER))} cUSD => {str(int(1 * UNIT_MULTIPLIER))} CELO",
 
     ('celocli', 'exchange:show', '--amount', str(int(1 * UNIT_MULTIPLIER))):
         "Fetching exchange rates...... done\n"
-        f"{str(int(1 * UNIT_MULTIPLIER))} cGLD => {str(int(10.5 * UNIT_MULTIPLIER))} cUSD\n"
-        f"{str(int(1 * UNIT_MULTIPLIER))} cUSD => {str(int(0.095 * UNIT_MULTIPLIER))} cGLD",
+        f"{str(int(1 * UNIT_MULTIPLIER))} CELO => {str(int(10.5 * UNIT_MULTIPLIER))} cUSD\n"
+        f"{str(int(1 * UNIT_MULTIPLIER))} cUSD => {str(int(0.095 * UNIT_MULTIPLIER))} CELO",
 
     # For order_amount of 2
     ('celocli', 'exchange:show', '--amount', str(int(9.9 * 2 * UNIT_MULTIPLIER))):
         "Fetching exchange rates...... done\n"
-        f"{str(int(9.9 * 2 * UNIT_MULTIPLIER))} cGLD => {str(int(99.5 * 2 * UNIT_MULTIPLIER))} cUSD\n"
-        f"{str(int(9.9 * 2 * UNIT_MULTIPLIER))} cUSD => {str(int(1.05 * 2 * UNIT_MULTIPLIER))} cGLD",
+        f"{str(int(9.9 * 2 * UNIT_MULTIPLIER))} CELO => {str(int(99.5 * 2 * UNIT_MULTIPLIER))} cUSD\n"
+        f"{str(int(9.9 * 2 * UNIT_MULTIPLIER))} cUSD => {str(int(1.05 * 2 * UNIT_MULTIPLIER))} CELO",
 
     ('celocli', 'exchange:show', '--amount', str(int(2 * UNIT_MULTIPLIER))):
         "Fetching exchange rates...... done\n"
-        f"{str(int(2 * UNIT_MULTIPLIER))} cGLD => {str(int(10 * 2 * UNIT_MULTIPLIER))} cUSD\n"
-        f"{str(int(2 * UNIT_MULTIPLIER))} cUSD => {str(int(0.095 * 2 * UNIT_MULTIPLIER))} cGLD",
+        f"{str(int(2 * UNIT_MULTIPLIER))} CELO => {str(int(10 * 2 * UNIT_MULTIPLIER))} cUSD\n"
+        f"{str(int(2 * UNIT_MULTIPLIER))} cUSD => {str(int(0.095 * 2 * UNIT_MULTIPLIER))} CELO",
 
 
     ('celocli', 'exchange:show', '--amount', str(int(9.83 * 5 * UNIT_MULTIPLIER))):
         "Fetching exchange rates...... done\n"
-        f"{str(int(9.83 * 5 * UNIT_MULTIPLIER))} cGLD => {str(int(99.5 * 5 * UNIT_MULTIPLIER))} cUSD\n"
-        f"{str(int(9.83 * 5 * UNIT_MULTIPLIER))} cUSD => {str(int(0.99 * 5 * UNIT_MULTIPLIER))} cGLD",
+        f"{str(int(9.83 * 5 * UNIT_MULTIPLIER))} CELO => {str(int(99.5 * 5 * UNIT_MULTIPLIER))} cUSD\n"
+        f"{str(int(9.83 * 5 * UNIT_MULTIPLIER))} cUSD => {str(int(0.99 * 5 * UNIT_MULTIPLIER))} CELO",
 
     ('celocli', 'exchange:show', '--amount', str(int(5 * UNIT_MULTIPLIER))):
         "Fetching exchange rates...... done\n"
-        f"{str(int(5 * UNIT_MULTIPLIER))} cGLD => {str(int(10.1 * 5 * UNIT_MULTIPLIER))} cUSD\n"
-        f"{str(int(5 * UNIT_MULTIPLIER))} cUSD => {str(int(0.095 * 5 * UNIT_MULTIPLIER))} cGLD",
+        f"{str(int(5 * UNIT_MULTIPLIER))} CELO => {str(int(10.1 * 5 * UNIT_MULTIPLIER))} cUSD\n"
+        f"{str(int(5 * UNIT_MULTIPLIER))} cUSD => {str(int(0.095 * 5 * UNIT_MULTIPLIER))} CELO",
 
     ('celocli', 'account:unlock', TEST_ADDRESS, '--password', TEST_PASSWORD):
         "",
 
     ('celocli', 'account:balance', TEST_ADDRESS):
         "All balances expressed in units of 10^-18.\n"
-        "gold: 9007508147186651319\n"
-        "lockedGold: 0\n"
-        "usd: 29630453216355095281\n"
-        "total: 12014917632492453465\n"
+        "CELO: 9007508147186651319\n"
+        "lockedCELO: 0\n"
+        "cUSD: 29630453216355095281\n"
         "pending: 0",
 
     ('celocli', 'exchange:gold', '--from', TEST_ADDRESS, '--value', str(int(1 * UNIT_MULTIPLIER)),
