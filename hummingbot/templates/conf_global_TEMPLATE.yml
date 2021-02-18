@@ -77,6 +77,9 @@ terra_wallet_seeds: null
 
 balancer_max_swaps: 4
 
+probit_api_key: null
+probit_secret_key: null
+
 # Ethereum wallet address: required for trading on a DEX
 ethereum_wallet: null
 ethereum_rpc_url: null
