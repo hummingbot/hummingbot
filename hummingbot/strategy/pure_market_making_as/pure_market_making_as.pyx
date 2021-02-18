@@ -590,8 +590,6 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                 df.to_csv(self._csv_path, mode='a', header=False, index=False)
 
                 proposal = None
-                asset_mid_price = Decimal("0")
-                # asset_mid_price = self.c_set_mid_price(market_info)
                 if self._create_timestamp <= self._current_timestamp:
                     # 1. Create base order proposals
                     proposal = self.c_create_base_proposal()
@@ -652,7 +650,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
 
             self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction + np.log(1 + self._gamma / self._kappa)
             self._optimal_ask = self._reserved_price + self._optimal_spread / 2
-            self._optimal_bid = self._reserved_price + self._optimal_spread / 2
+            self._optimal_bid = self._reserved_price - self._optimal_spread / 2
 
     cdef object c_calculate_target_inventory(self):
         cdef:
@@ -691,14 +689,12 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
 
         self.logger().info(f"delta_quantity:{delta_quantity}")
 
-        price = self._reserved_price - self._optimal_spread / 2
-        price = market.c_quantize_order_price(self.trading_pair, price)
-        size = market.c_quantize_order_amount(self.trading_pair, abs(delta_quantity))
+        price = market.c_quantize_order_price(self.trading_pair, Decimal(str(self._optimal_bid)))
+        size = market.c_quantize_order_amount(self.trading_pair, Decimal(str(abs(delta_quantity))))
         buys.append(PriceSize(price, size))
 
-        price = self._reserved_price + self._optimal_spread / 2
-        price = market.c_quantize_order_price(self.trading_pair, price)
-        size = market.c_quantize_order_amount(self.trading_pair, abs(delta_quantity))
+        price = market.c_quantize_order_price(self.trading_pair, Decimal(str(self._optimal_ask)))
+        size = market.c_quantize_order_amount(self.trading_pair, Decimal(str(abs(delta_quantity))))
         sells.append(PriceSize(price, size))
 
         return Proposal(buys, sells)
@@ -743,13 +739,10 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             ExchangeBase market = self._market_info.market
 
         for buy in proposal.buys:
-            buy.size = s_decimal_zero if buy.size < self._order_amount else self._order_amount
-
-        proposal.buys = [o for o in proposal.buys if o.size > 0]
-
+            buy.size = self._order_amount
         for sell in proposal.sells:
-            sell.size = s_decimal_zero if sell.size < self._order_amount else self._order_amount
-
+            sell.size = self._order_amount
+        proposal.buys = [o for o in proposal.buys if o.size > 0]
         proposal.sells = [o for o in proposal.sells if o.size > 0]
 
     cdef c_apply_budget_constraint(self, object proposal):
