@@ -164,7 +164,7 @@ pure_market_making_as_config_map = {
     "order_amount":
         ConfigVar(key="order_amount",
                   prompt=order_amount_prompt,
-                  required_if=lambda: pure_market_making_as_config_map.get("fixed_order_amount").value == "True",
+                  required_if=lambda: pure_market_making_as_config_map.get("fixed_order_amount").value == "True" and pure_market_making_as_config_map.get("order_amount").value is None,
                   type_str="decimal",
                   validator=validate_order_amount,
                   prompt_on_new=True),
