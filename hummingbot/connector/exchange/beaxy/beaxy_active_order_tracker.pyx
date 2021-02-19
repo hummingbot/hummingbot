@@ -91,18 +91,12 @@ cdef class BeaxyActiveOrderTracker:
                     yield [timestamp, float(price), quantity, message.update_id]
 
                 elif msg_action == ACTION_DELETE:
-                    # in case of DELETE action we need to substract the provided quantity from existing one
 
                     if price not in active_rows:
                         continue
 
-                    new_quantity = active_rows[price] - quantity
-                    if new_quantity < 0:
-                        del active_rows[price]
-                        yield [timestamp, float(price), float(0), message.update_id]
-                    else:
-                        active_rows[price] = new_quantity
-                        yield [timestamp, float(price), new_quantity, message.update_id]
+                    del active_rows[price]
+                    yield [timestamp, float(price), float(0), message.update_id]
 
                 elif msg_action == ACTION_DELETE_THROUGH:
                     # Remove all levels from the specified and below (all the worst prices).

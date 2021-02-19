@@ -67,6 +67,7 @@ cdef class BeaxyExchange(ExchangeBase):
     API_CALL_TIMEOUT = 60.0
     UPDATE_ORDERS_INTERVAL = 10.0
     UPDATE_FEE_PERCENTAGE_INTERVAL = 60.0
+    ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -87,6 +88,7 @@ cdef class BeaxyExchange(ExchangeBase):
         self._trading_required = trading_required
         self._beaxy_auth = BeaxyAuth(beaxy_api_key, beaxy_secret_key)
         self._order_book_tracker = BeaxyOrderBookTracker(trading_pairs=trading_pairs)
+        self._order_not_found_records = {}
         self._user_stream_tracker = BeaxyUserStreamTracker(beaxy_auth=self._beaxy_auth)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
@@ -321,7 +323,18 @@ cdef class BeaxyExchange(ExchangeBase):
             client_order_id = tracked_order.client_order_id
             order_update = closed_order or open_order
 
-            if not open_order and not closed_order:
+            if exchange_order_id or (not open_order and not closed_order):
+
+                # Do nothing, if the order has already been cancelled or has failed
+                if client_order_id not in self._in_flight_orders:
+                    continue
+
+                self._order_not_found_records[client_order_id] = self._order_not_found_records.get(client_order_id, 0) + 1
+
+                if self._order_not_found_records[client_order_id] < self.ORDER_NOT_EXIST_CONFIRMATION_COUNT:
+                    # Wait until the order not found error have repeated for a few times before actually treating
+                    continue
+
                 self.logger().info(
                     f'The tracked order {client_order_id} does not exist on Beaxy for last day.'
                     f'Removing from tracking.'
@@ -332,6 +345,7 @@ cdef class BeaxyExchange(ExchangeBase):
                     OrderCancelledEvent(self._current_timestamp, client_order_id)
                 )
                 self.c_stop_tracking_order(client_order_id)
+                del self._order_not_found_records[client_order_id]
                 continue
 
             execute_price = Decimal(order_update['average_price'] if order_update['average_price'] else order_update['limit_price'])
