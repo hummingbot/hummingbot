@@ -146,8 +146,10 @@ class EthGasStationLookup(NetworkBase):
                     await asyncio.sleep(self.refresh_time)
             except asyncio.CancelledError:
                 raise
+            except requests.exceptions.ConnectionError as e:
+                self.logger().info('Connection Error : ' + str(e))
             except Exception:
-                self.logger().network("Unexpected error running logging task.", exc_info=True)
+                self.logger().network("Unexpected error in getting eth gas estimate.", exc_info=True)
                 await asyncio.sleep(self.refresh_time)
 
     async def start_network(self):

@@ -172,8 +172,8 @@ class UniswapConnector(ConnectorBase):
         resp = await self._api_request("post", "eth/allowances",
                                        {"tokenList": "[" + ("".join(['"' + tok + '"' + "," for tok in self._token_addresses.keys()])).rstrip(",") + "]",
                                         "connector": self.name})
-        for address, amount in resp["approvals"].items():
-            ret_val[self.get_token(address)] = Decimal(str(amount))
+        for token, amount in resp["approvals"].items():
+            ret_val[token] = Decimal(str(amount))
         return ret_val
 
     @async_ttl_cache(ttl=5, maxsize=10)
@@ -195,8 +195,11 @@ class UniswapConnector(ConnectorBase):
                                             "quote": quote,
                                             "side": side.upper(),
                                             "amount": amount})
-            if resp["price"] is not None:
-                return Decimal(str(resp["price"]))
+            if "price" not in resp.keys():
+                self.logger().info(f"Unable to get price: {resp['info']}")
+            else:
+                if resp["price"] is not None:
+                    return Decimal(str(resp["price"]))
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -508,8 +511,6 @@ class UniswapConnector(ConnectorBase):
                                             "eth/balances",
                                             {"tokenList": "[" + ("".join(['"' + tok + '"' + "," for tok in self._token_addresses.keys()])).rstrip(",") + "]"})
         for token, bal in resp_json["balances"].items():
-            if len(token) > 4:
-                token = self.get_token(token)
             self._account_available_balances[token] = Decimal(str(bal))
             self._account_balances[token] = Decimal(str(bal))
             remote_asset_names.add(token)
