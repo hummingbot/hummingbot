@@ -666,8 +666,8 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
 
         mid_price = self._mid_prices.get_last_value()
         # Need to review this to see if adjusted quantities are required
-        base_asset_amount = market.c_get_available_balance(base_asset)
-        quote_asset_amount = market.c_get_available_balance(quote_asset)
+        base_asset_amount = market.get_balance(base_asset)
+        quote_asset_amount = market.get_balance(quote_asset)
         base_value = float(base_asset_amount) * mid_price
         inventory_value = base_value + float(quote_asset_amount)
         target_inventory_value = inventory_value * float(self._inventory_target_base_pct)
@@ -691,11 +691,13 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
 
         price = market.c_quantize_order_price(self.trading_pair, Decimal(str(self._optimal_bid)))
         size = market.c_quantize_order_amount(self.trading_pair, Decimal(str(abs(delta_quantity))))
-        buys.append(PriceSize(price, size))
+        if size>0:
+            buys.append(PriceSize(price, size))
 
         price = market.c_quantize_order_price(self.trading_pair, Decimal(str(self._optimal_ask)))
         size = market.c_quantize_order_amount(self.trading_pair, Decimal(str(abs(delta_quantity))))
-        sells.append(PriceSize(price, size))
+        if size>0:
+            sells.append(PriceSize(price, size))
 
         return Proposal(buys, sells)
 
@@ -742,6 +744,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             buy.size = self._order_amount
         for sell in proposal.sells:
             sell.size = self._order_amount
+
         proposal.buys = [o for o in proposal.buys if o.size > 0]
         proposal.sells = [o for o in proposal.sells if o.size > 0]
 
