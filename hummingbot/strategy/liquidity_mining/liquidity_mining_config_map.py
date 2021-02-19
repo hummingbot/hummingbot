@@ -37,7 +37,7 @@ liquidity_mining_config_map = {
         default="liquidity_mining"),
     "exchange":
         ConfigVar(key="exchange",
-                  prompt="Enter your liquidity mining exchange name >>> ",
+                  prompt="Enter the spot connector to use for liquidity mining >>> ",
                   validator=validate_exchange,
                   on_validated=exchange_on_validated,
                   prompt_on_new=True),
