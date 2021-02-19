@@ -17,6 +17,7 @@ cdef class BeaxyExchange(ExchangeBase):
         object _taker_fee_percentage
         double _poll_interval
         dict _in_flight_orders
+        dict _order_not_found_records
         TransactionTracker _tx_tracker
         dict _trading_rules
         object _coro_queue
