@@ -562,7 +562,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                 algo_inform_text = f"diff(mid,r)={(self._reserved_price - self._mid_prices.get_last_value()) / self._mid_prices.get_last_value() * 100.0}% | " \
                                    f"spread(bid,best_bid)={(new_bid-best_bid)/best_bid * 100.0}% | " \
                                    f"spread(ask,best_ask)={(new_ask - best_ask) / best_ask * 100.0}% | " \
-                                   f"q={market.c_get_available_balance(self.base_asset)} | " \
+                                   f"current_inv={market.c_get_available_balance(self.base_asset)} | " \
                                    f"target_inv={self.c_calculate_target_inventory()} | " \
                                    f"(T-t)={self._time_left/self._closing_time}"
                 if not os.path.exists(self._csv_path):
@@ -570,7 +570,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                                                'spread',
                                                'reserved_price',
                                                'optimal_spread',
-                                               'q',
+                                               'current_inv',
                                                'target_inv_stocks',
                                                'time_left_fraction',
                                                'mid_price std_dev',
@@ -684,8 +684,10 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             list buys = []
             list sells = []
 
-        base_asset_amount, quote_asset_amount = self.c_get_adjusted_available_balance(self.active_orders)
-        delta_quantity = self.c_calculate_target_inventory() - float(base_asset_amount)
+        delta_quantity = self._order_amount
+        if not self._fixed_order_amount:
+            base_asset_amount, _ = self.c_get_adjusted_available_balance(self.active_orders)
+            delta_quantity = self.c_calculate_target_inventory() - float(base_asset_amount)
 
         self.logger().info(f"delta_quantity:{delta_quantity}")
 

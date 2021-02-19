@@ -122,13 +122,13 @@ pure_market_making_as_config_map = {
         ConfigVar(key="kappa",
                   prompt="Enter order book depth variable (kappa) >>> ",
                   type_str="float",
-                  validator=lambda v: validate_decimal(v, 0, 10000, inclusive=False),
+                  validator=lambda v: validate_decimal(v, 0, 10000000, inclusive=False),
                   prompt_on_new=True),
     "gamma":
         ConfigVar(key="gamma",
                   prompt="Enter risk factor (gamma) >>> ",
                   type_str="float",
-                  validator=lambda v: validate_decimal(v, 0, 10000, inclusive=False),
+                  validator=lambda v: validate_decimal(v, 0, 10000000, inclusive=False),
                   prompt_on_new=True),
     "closing_time":
         ConfigVar(key="closing_time",
