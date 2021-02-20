@@ -65,7 +65,7 @@ cdef class BeaxyExchange(ExchangeBase):
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
 
     API_CALL_TIMEOUT = 60.0
-    UPDATE_ORDERS_INTERVAL = 10.0
+    UPDATE_ORDERS_INTERVAL = 15.0
     UPDATE_FEE_PERCENTAGE_INTERVAL = 60.0
     ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
 
@@ -315,19 +315,24 @@ cdef class BeaxyExchange(ExchangeBase):
         close_order_dict = {entry['order_id']: entry for entry in closed_orders}
 
         for tracked_order in tracked_orders:
-            exchange_order_id = await tracked_order.get_exchange_order_id()
+            client_order_id = tracked_order.client_order_id
+
+            # Do nothing, if the order has already been cancelled or has failed
+            if client_order_id not in self._in_flight_orders:
+                continue
+
+            # get last exchange_order_id with no blocking
+            exchange_order_id = self._in_flight_orders[client_order_id].exchange_order_id
+
+            if exchange_order_id is None:
+                continue
 
             open_order = open_order_dict.get(exchange_order_id)
             closed_order = close_order_dict.get(exchange_order_id)
 
-            client_order_id = tracked_order.client_order_id
             order_update = closed_order or open_order
 
-            if exchange_order_id or (not open_order and not closed_order):
-
-                # Do nothing, if the order has already been cancelled or has failed
-                if client_order_id not in self._in_flight_orders:
-                    continue
+            if not open_order and not closed_order:
 
                 self._order_not_found_records[client_order_id] = self._order_not_found_records.get(client_order_id, 0) + 1
 
@@ -336,8 +341,8 @@ cdef class BeaxyExchange(ExchangeBase):
                     continue
 
                 self.logger().info(
-                    f'The tracked order {client_order_id} does not exist on Beaxy for last day.'
-                    f'Removing from tracking.'
+                    f'The tracked order {client_order_id} does not exist on Beaxy for last day. '
+                    f'(retried {self._order_not_found_records[client_order_id]}) Removing from tracking.'
                 )
                 tracked_order.last_state = 'CLOSED'
                 self.c_trigger_event(
@@ -1000,7 +1005,7 @@ cdef class BeaxyExchange(ExchangeBase):
                 await self._poll_notifier.wait()
 
                 await safe_gather(
-                    self._update_balances(),
+                    # self._update_balances(),  # due to balance polling inconsistency, we use only ws balance update
                     self._update_trade_fees(),
                     self._update_order_status(),
                 )
