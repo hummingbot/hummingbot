@@ -300,6 +300,9 @@ cdef class CeloArbStrategy(StrategyBase):
                                                                self._order_amount)
         buy_amount = min(quantized_sell_amount, self._order_amount)
         if buy_amount <= 0:
+            self.logger().info("Can't arbitrage, "
+                               f"quantized order amount <= 0: {buy_amount} "
+                               f"(order_amount: {self._order_amount})")
             return
 
         sell_balance = market.c_get_available_balance(self._market_info.base_asset)
@@ -358,6 +361,9 @@ cdef class CeloArbStrategy(StrategyBase):
         sell_amount = min(quantized_buy_amount, self._order_amount)
 
         if sell_amount <= 0:
+            self.logger().info("Can't arbitrage, "
+                               f"quantized order amount <= 0: {sell_amount} "
+                               f"(order_amount: {self._order_amount})")
             return
 
         buy_balance = market.c_get_available_balance(self._market_info.quote_asset)
