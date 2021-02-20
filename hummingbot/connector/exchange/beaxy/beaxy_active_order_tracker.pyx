@@ -64,6 +64,9 @@ cdef class BeaxyActiveOrderTracker:
     def get_rates_and_quantities(self, entry) -> tuple:
         return float(entry['rate']), float(entry['quantity'])
 
+    def is_entry_valid(self, entry):
+        return all([k in entry for k in ['side', 'action', 'price', 'quantity']])
+
     cdef tuple c_convert_diff_message_to_np_arrays(self, object message):
         """
         Interpret an incoming diff message and apply changes to the order book accordingly
@@ -73,6 +76,9 @@ cdef class BeaxyActiveOrderTracker:
         def diff(side):
 
             for entry in message.content['entries']:
+
+                if not self.is_entry_valid(entry):
+                    continue
 
                 if entry['side'] != side:
                     continue
@@ -112,6 +118,9 @@ cdef class BeaxyActiveOrderTracker:
                             del active_rows[key]
                             yield [timestamp, float(price), float(0), message.update_id]
 
+                else:
+                    continue
+
         bids = np.array([r for r in diff(SIDE_BID)], dtype='float64', ndmin=2)
         asks = np.array([r for r in diff(SIDE_ASK)], dtype='float64', ndmin=2)
 
@@ -135,6 +144,10 @@ cdef class BeaxyActiveOrderTracker:
         self._active_asks.clear()
 
         for entry in message.content['entries']:
+
+            if not self.is_entry_valid(entry):
+                continue
+
             quantity = Decimal(str(entry['quantity']))
             price = Decimal(str(entry['price']))
             side = entry['side']
@@ -144,7 +157,7 @@ cdef class BeaxyActiveOrderTracker:
             elif side == SIDE_BID:
                 self.active_bids[price] = quantity
             else:
-                raise ValueError(f'Unknown order side for message - "{message}". Aborting.')
+                continue
 
         # Return the sorted snapshot tables.
         cdef:
