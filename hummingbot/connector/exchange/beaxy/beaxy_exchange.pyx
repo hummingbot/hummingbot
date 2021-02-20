@@ -830,6 +830,9 @@ cdef class BeaxyExchange(ExchangeBase):
                     if tracked_order is None:
                         self.logger().debug(f'Didn`rt find order with id {client_order_id}')
                         continue
+                    
+                    if not tracked_order.exchange_order_id:
+                        tracked_order.exchange_order_id = exchange_order_id
 
                     execute_price = s_decimal_0
                     execute_amount_diff = s_decimal_0
@@ -847,7 +850,6 @@ cdef class BeaxyExchange(ExchangeBase):
                         if execute_amount_diff > s_decimal_0:
                             self.logger().info(f'Filled {execute_amount_diff} out of {tracked_order.amount} of the '
                                                f'{tracked_order.order_type_description} order {tracked_order.client_order_id}')
-                            exchange_order_id = tracked_order.exchange_order_id
 
                             self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
                                                  OrderFilledEvent(
