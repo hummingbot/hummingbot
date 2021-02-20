@@ -674,6 +674,10 @@ class ProbitExchange(ExchangeBase):
 
             min_ts: float = float("inf")
             for order_update in order_results:
+                if isinstance(order_update, Exception):
+                    raise order_update
+
+                # Order Creation Time
                 order_ts: float = probit_utils.convert_iso_to_epoch(order_update["data"]["time"])
 
                 if order_ts < min_ts:
@@ -752,6 +756,10 @@ class ProbitExchange(ExchangeBase):
         Updates in-flight order and trigger order filled event for trade message received. Triggers order completed
         event if the total executed amount equals to the specified order amount.
         """
+        # Only process trade when trade fees have been accounted for; when trade status is "settled".
+        if order_msg["status"] != "settled":
+            return
+
         ex_order_id = order_msg["order_id"]
 
         client_order_id = None
