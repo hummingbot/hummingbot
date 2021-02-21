@@ -660,7 +660,7 @@ class ProbitExchange(ExchangeBase):
                     "order_id": ex_order_id
                 }
 
-                tasks.append(self._api_request(method="POST",
+                tasks.append(self._api_request(method="GET",
                                                path_url=CONSTANTS.ORDER_URL,
                                                params=query_params,
                                                is_auth_required=True)
@@ -678,11 +678,11 @@ class ProbitExchange(ExchangeBase):
                     raise order_update
 
                 # Order Creation Time
-                order_ts: float = probit_utils.convert_iso_to_epoch(order_update["data"]["time"])
-
-                if order_ts < min_ts:
-                    min_order_ts = order_update["data"]["time"]
-                    min_ts = order_ts
+                for update in order_update["data"]:
+                    order_ts: float = probit_utils.convert_iso_to_epoch(update["time"])
+                    if order_ts < min_ts:
+                        min_order_ts = update["time"]
+                        min_ts = order_ts
 
             trade_history_tasks = []
             for trading_pair in self._trading_pairs:
@@ -694,7 +694,9 @@ class ProbitExchange(ExchangeBase):
                 }
                 trade_history_tasks.append(self._api_request(
                     method="GET",
-                    path_url=CONSTANTS.TRADE_HISTORY_URL
+                    path_url=CONSTANTS.TRADE_HISTORY_URL,
+                    params=query_params,
+                    is_auth_required=True
                 ))
             trade_history_results: List[Dict[str, Any]] = await safe_gather(*trade_history_tasks, return_exceptions=True)
 
@@ -709,16 +711,15 @@ class ProbitExchange(ExchangeBase):
                 for trade in trade_details:
                     self._process_trade_message(trade)
 
-            for update_result in order_results:
-                if isinstance(update_result, Exception):
-                    raise update_result
-                if "data" not in update_result:
-                    self.logger().info(f"_update_order_status data not in resp: {update_result}")
+            for order_update in order_results:
+                if isinstance(order_update, Exception):
+                    raise order_update
+                if "data" not in order_update:
+                    self.logger().info(f"_update_order_status data not in resp: {order_update}")
                     continue
 
-                order_details: List[Dict[str, Any]] = update_result["data"]
-                for order in order_details:
-                    self._process_order_message(order_details)
+                for order in order_update["data"]:
+                    self._process_order_message(order)
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
