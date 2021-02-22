@@ -1,5 +1,5 @@
 import unittest
-from hummingbot.strategy.utils.ring_buffer import RingBuffer
+from hummingbot.strategy.__utils__.ring_buffer import RingBuffer
 import numpy as np
 from decimal import Decimal
 
