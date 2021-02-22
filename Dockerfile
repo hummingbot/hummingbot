@@ -84,16 +84,19 @@ ENV CONFIG_FILE_NAME=${CONFIG_FILE_NAME}
 ENV WALLET=${WALLET}
 ENV CONFIG_PASSWORD=${CONFIG_PASSWORD}
 
+ENV INSTALLATION_TYPE=docker
+
 # Add hummingbot user
 RUN useradd -m -s /bin/bash hummingbot && \
   ln -s /conf /home/hummingbot/conf && \
   ln -s /logs /home/hummingbot/logs && \
   ln -s /data /home/hummingbot/data && \
+  ln -s /certs /home/hummingbot/certs && \
   ln -s /scripts /home/hummingbot/scripts
 
 # Create mount points
-RUN mkdir /conf /logs /data /scripts && chown -R hummingbot:hummingbot /conf /logs /data /scripts
-VOLUME /conf /logs /data /scripts
+RUN mkdir /conf /logs /data /certs /scripts && chown -R hummingbot:hummingbot /conf /logs /data /certs /scripts
+VOLUME /conf /logs /data /certs /scripts
 
 # Pre-populate scripts/ volume with default scripts
 COPY --chown=hummingbot:hummingbot scripts/ scripts/

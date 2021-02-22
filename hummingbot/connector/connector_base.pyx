@@ -2,7 +2,8 @@ from decimal import Decimal
 from typing import (
     Dict,
     List,
-    Tuple
+    Tuple,
+    Set,
 )
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.event.events import (
@@ -13,6 +14,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.network_iterator import NetworkIterator
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
+from hummingbot.connector.utils import TradeFillOrderDetails
 from hummingbot.core.event.events import OrderFilledEvent
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.estimate_fee import estimate_fee
@@ -39,8 +41,8 @@ cdef class ConnectorBase(NetworkIterator):
     def __init__(self):
         super().__init__()
 
-        self._event_reporter = EventReporter(event_source=self.name)
-        self._event_logger = EventLogger(event_source=self.name)
+        self._event_reporter = EventReporter(event_source=self.display_name)
+        self._event_logger = EventLogger(event_source=self.display_name)
         for event_tag in self.MARKET_EVENTS:
             self.c_add_listener(event_tag.value, self._event_reporter)
             self.c_add_listener(event_tag.value, self._event_logger)
@@ -54,6 +56,8 @@ cdef class ConnectorBase(NetworkIterator):
         # for _in_flight_orders_snapshot and _in_flight_orders_snapshot_timestamp when the update user balances.
         self._in_flight_orders_snapshot = {}  # Dict[order_id:str, InFlightOrderBase]
         self._in_flight_orders_snapshot_timestamp = 0.0
+        self._current_trade_fills = set()
+        self._exchange_order_ids = dict()
 
     @property
     def real_time_balance_update(self) -> bool:
@@ -120,7 +124,7 @@ cdef class ConnectorBase(NetworkIterator):
 
     def order_filled_balances(self, starting_timestamp = 0) -> Dict[str, Decimal]:
         """
-        Calculates total asset balance changes from filled orders since the time stamp
+        Calculates total asset balance changes from filled orders since the timestamp
         For BUY filled order, the quote balance goes down while the base balance goes up, and for SELL order, it's the
         opposite. This does not account for fee.
         :param starting_timestamp: The starting timestamp to include filter order filled events
@@ -387,3 +391,49 @@ cdef class ConnectorBase(NetworkIterator):
         Applies trading rule to quantize order amount.
         """
         return self.c_quantize_order_amount(trading_pair, amount)
+
+    async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
+        """
+        Returns a quote price (or exchange rate) for a given amount, like asking how much does it cost to buy 4 apples?
+        :param trading_pair: The market trading pair
+        :param is_buy: True for buy order, False for sell order
+        :param amount: The order amount
+        :return The quoted price
+        """
+        raise NotImplementedError
+
+    async def get_order_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
+        """
+        Returns a price required for order submission, this price could differ from the quote price (e.g. for
+        an exchange with order book).
+        :param trading_pair: The market trading pair
+        :param is_buy: True for buy order, False for sell order
+        :param amount: The order amount
+        :return The price to specify in an order.
+        """
+        raise NotImplementedError
+
+    @property
+    def available_balances(self) -> Dict[str, Decimal]:
+        return self._account_available_balances
+
+    def add_trade_fills_from_market_recorder(self, current_trade_fills: Set[TradeFillOrderDetails]):
+        """
+        Gets updates from new records in TradeFill table. This is used in method is_confirmed_new_order_filled_event
+        """
+        self._current_trade_fills.update(current_trade_fills)
+
+    def add_exchange_order_ids_from_market_recorder(self, current_exchange_order_ids: Dict[str, str]):
+        """
+        Gets updates from new orders in Order table. This is used in method connector _history_reconciliation
+        """
+        self._exchange_order_ids.update(current_exchange_order_ids)
+
+    def is_confirmed_new_order_filled_event(self, exchange_trade_id: str, exchange_order_id: str, trading_pair: str):
+        """
+        Returns True if order to be filled is not already present in TradeFill entries.
+        This is intended to avoid duplicated order fills in local DB.
+        """
+        # Assume (market, exchange_trade_id, trading_pair) are unique. Also order has to be recorded in Order table
+        return (not TradeFillOrderDetails(self.display_name, exchange_trade_id, trading_pair) in self._current_trade_fills) and \
+               (exchange_order_id in set(self._exchange_order_ids.keys()))

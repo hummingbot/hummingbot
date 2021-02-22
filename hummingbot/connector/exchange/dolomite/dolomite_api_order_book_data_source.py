@@ -98,6 +98,30 @@ class DolomiteAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def order_book_class(self) -> DolomiteOrderBook:
         return DolomiteOrderBook
 
+    @staticmethod
+    async def fetch_trading_pairs() -> List[str]:
+        try:
+            from hummingbot.connector.exchange.dolomite.dolomite_utils import convert_from_exchange_trading_pair
+            async with aiohttp.ClientSession() as client:
+                async with client.get("https://exchange-api.dolomite.io/v1/markets", timeout=10) as response:
+                    if response.status == 200:
+                        all_trading_pairs: Dict[str, Any] = await response.json()
+                        valid_trading_pairs: list = []
+                        for item in all_trading_pairs["data"]:
+                            valid_trading_pairs.append(item["market"])
+                        trading_pair_list: List[str] = []
+                        for raw_trading_pair in valid_trading_pairs:
+                            converted_trading_pair: Optional[str] = \
+                                convert_from_exchange_trading_pair(raw_trading_pair)
+                            if converted_trading_pair is not None:
+                                trading_pair_list.append(converted_trading_pair)
+                        return trading_pair_list
+        except Exception:
+            # Do nothing if the request fails -- there will be no autocomplete for dolomite trading pairs
+            pass
+
+        return []
+
     async def get_trading_pairs(self) -> List[str]:
         if self._trading_pairs is None:
             active_markets: pd.DataFrame = await self.get_active_exchange_markets()

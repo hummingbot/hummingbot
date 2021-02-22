@@ -14,6 +14,10 @@ from signalr_aio import Connection
 from signalr_aio.hubs import Hub
 from async_timeout import timeout
 
+import requests
+import cachetools.func
+from decimal import Decimal
+
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -96,6 +100,35 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self.logger().info("Websocket connection started...")
 
         return self._websocket_connection, self._websocket_hub
+
+    @staticmethod
+    @cachetools.func.ttl_cache(ttl=10)
+    def get_mid_price(trading_pair: str) -> Optional[Decimal]:
+        resp = requests.get(url="https://api.bittrex.com/api/v1.1/public/getmarketsummaries")
+        records = resp.json()
+        result = None
+        for record in records["result"]:
+            symbols = record["MarketName"].split("-")
+            pair = f"{symbols[1]}-{symbols[0]}"
+            if trading_pair == pair and record["Bid"] is not None and record["Ask"] is not None:
+                result = (Decimal(record["Bid"]) + Decimal(record["Ask"])) / Decimal("2")
+                break
+        return result
+
+    @staticmethod
+    async def fetch_trading_pairs() -> List[str]:
+        try:
+            async with aiohttp.ClientSession() as client:
+                async with client.get(f"{BITTREX_REST_URL}{BITTREX_EXCHANGE_INFO_PATH}", timeout=5) as response:
+                    if response.status == 200:
+                        all_trading_pairs: List[Dict[str, Any]] = await response.json()
+                        return [item["symbol"]
+                                for item in all_trading_pairs
+                                if item["status"] == "ONLINE"]
+        except Exception:
+            # Do nothing if the request fails -- there will be no autocomplete for bittrex trading pairs
+            pass
+        return []
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:

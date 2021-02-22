@@ -9,7 +9,6 @@ from sqlalchemy import (
     MetaData,
 )
 from sqlalchemy.engine.base import Engine
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import (
     sessionmaker,
     Session,
@@ -47,7 +46,7 @@ class SQLConnectionManager:
     _scm_trade_fills_instance: Optional["SQLConnectionManager"] = None
 
     LOCAL_DB_VERSION_KEY = "local_db_version"
-    LOCAL_DB_VERSION_VALUE = "20190614"
+    LOCAL_DB_VERSION_VALUE = "20210119"
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -60,10 +59,22 @@ class SQLConnectionManager:
         return get_declarative_base()
 
     @classmethod
-    def get_trade_fills_instance(cls) -> "SQLConnectionManager":
+    def get_trade_fills_instance(cls, db_name: Optional[str] = None) -> "SQLConnectionManager":
         if cls._scm_trade_fills_instance is None:
-            cls._scm_trade_fills_instance = SQLConnectionManager(SQLConnectionType.TRADE_FILLS)
+            cls._scm_trade_fills_instance = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_name=db_name)
+        elif cls.create_db_path(db_name=db_name) != cls._scm_trade_fills_instance.db_path:
+            cls._scm_trade_fills_instance.commit()
+            cls._scm_trade_fills_instance = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_name=db_name)
         return cls._scm_trade_fills_instance
+
+    @classmethod
+    def create_db_path(cls, db_path: Optional[str] = None, db_name: Optional[str] = None) -> str:
+        if db_path is not None:
+            return db_path
+        if db_name is not None:
+            return join(data_path(), f"{db_name}.sqlite")
+        else:
+            return join(data_path(), "hummingbot_trades.sqlite")
 
     @classmethod
     def get_db_engine(cls,
@@ -88,9 +99,11 @@ class SQLConnectionManager:
 
     def __init__(self,
                  connection_type: SQLConnectionType,
-                 db_path: Optional[str] = None):
-        if db_path is None:
-            db_path = join(data_path(), "hummingbot_trades.sqlite")
+                 db_path: Optional[str] = None,
+                 db_name: Optional[str] = None,
+                 called_from_migrator = False):
+        db_path = self.create_db_path(db_path, db_name)
+        self.db_path = db_path
 
         engine_options = {
             "db_engine": global_config_map.get("db_engine").value,
@@ -127,8 +140,8 @@ class SQLConnectionManager:
         self._session_cls = sessionmaker(bind=self._engine)
         self._shared_session: Session = self._session_cls()
 
-        if connection_type is SQLConnectionType.TRADE_FILLS:
-            self.check_and_upgrade_trade_fills_db()
+        if connection_type is SQLConnectionType.TRADE_FILLS and (not called_from_migrator):
+            self.check_and_migrate_db()
 
     @property
     def engine(self) -> Engine:
@@ -137,26 +150,29 @@ class SQLConnectionManager:
     def get_shared_session(self) -> Session:
         return self._shared_session
 
-    def check_and_upgrade_trade_fills_db(self):
-        try:
-            query: Query = (self._shared_session.query(LocalMetadata)
-                            .filter(LocalMetadata.key == self.LOCAL_DB_VERSION_KEY))
-            result: Optional[LocalMetadata] = query.one_or_none()
+    def get_local_db_version(self):
+        query: Query = (self._shared_session.query(LocalMetadata)
+                        .filter(LocalMetadata.key == self.LOCAL_DB_VERSION_KEY))
+        result: Optional[LocalMetadata] = query.one_or_none()
+        return result
 
-            if result is None:
-                version_info: LocalMetadata = LocalMetadata(key=self.LOCAL_DB_VERSION_KEY,
-                                                            value=self.LOCAL_DB_VERSION_VALUE)
-                self._shared_session.add(version_info)
-                self._shared_session.commit()
-            else:
-                # There's no past db version to upgrade from at this moment. So we'll just update the version value
-                # if needed.
-                if result.value < self.LOCAL_DB_VERSION_VALUE:
-                    result.value = self.LOCAL_DB_VERSION_VALUE
+    def check_and_migrate_db(self):
+        from hummingbot.model.db_migration.migrator import Migrator
+        local_db_version = self.get_local_db_version()
+        if local_db_version is None:
+            version_info: LocalMetadata = LocalMetadata(key=self.LOCAL_DB_VERSION_KEY,
+                                                        value=self.LOCAL_DB_VERSION_VALUE)
+            self._shared_session.add(version_info)
+            self._shared_session.commit()
+        else:
+            # There's no past db version to upgrade from at this moment. So we'll just update the version value
+            # if needed.
+            if local_db_version.value < self.LOCAL_DB_VERSION_VALUE:
+                was_migration_succesful = Migrator().migrate_db_to_version(self, int(local_db_version.value), int(self.LOCAL_DB_VERSION_VALUE))
+                if was_migration_succesful:
+                    # Cannot use variable local_db_version because reference is not valid since Migrator changed it
+                    self.get_local_db_version().value = self.LOCAL_DB_VERSION_VALUE
                     self._shared_session.commit()
-        except SQLAlchemyError:
-            self.logger().error("Unexpected error while checking and upgrading the local database.",
-                                exc_info=True)
 
     def commit(self):
         self._shared_session.commit()
