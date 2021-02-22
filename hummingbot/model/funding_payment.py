@@ -21,9 +21,9 @@ from . import HummingbotBase
 
 class FundingPayment(HummingbotBase):
     __tablename__ = "FundingPayment"
-    __table_args__ = (Index("tf_config_timestamp_index",
+    __table_args__ = (Index("fp_config_timestamp_index",
                             "config_file_path", "timestamp"),
-                      Index("tf_market_trading_pair_timestamp_index",
+                      Index("fp_market_trading_pair_timestamp_index",
                             "market", "symbol", "timestamp")
                       )
 

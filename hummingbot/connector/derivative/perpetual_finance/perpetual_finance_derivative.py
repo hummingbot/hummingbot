@@ -63,13 +63,12 @@ class PerpetualFinanceDerivative(DerivativeBase):
     def __init__(self,
                  trading_pairs: List[str],
                  wallet_private_key: str,
-                 ethereum_rpc_url: str,
+                 ethereum_rpc_url: str,  # not used, but left in place to be consistent with other gateway connectors
                  trading_required: bool = True
                  ):
         """
         :param trading_pairs: a list of trading pairs
         :param wallet_private_key: a private key for eth wallet
-        :param ethereum_rpc_url: this is usually infura RPC URL
         :param trading_required: Whether actual trading is needed.
         """
         super().__init__()
@@ -407,13 +406,15 @@ class PerpetualFinanceDerivative(DerivativeBase):
     def status_dict(self) -> Dict[str, bool]:
         return {
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "allowances": self.has_allowances() if self._trading_required else True
+            "allowances": self.has_allowances() if self._trading_required else True,
+            "funding_info": len(self._funding_info) > 0
         }
 
     async def start_network(self):
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._auto_approve_task = safe_ensure_future(self.auto_approve())
+            self._funding_info_polling_task = safe_ensure_future(self._funding_info_polling_loop())
 
     async def stop_network(self):
         if self._status_polling_task is not None:
@@ -422,6 +423,9 @@ class PerpetualFinanceDerivative(DerivativeBase):
         if self._auto_approve_task is not None:
             self._auto_approve_task.cancel()
             self._auto_approve_task = None
+        if self._funding_info_polling_task is not None:
+            self._funding_info_polling_task.cancel()
+            self._funding_info_polling_task = None
 
     async def check_network(self) -> NetworkStatus:
         try:
@@ -491,7 +495,6 @@ class PerpetualFinanceDerivative(DerivativeBase):
     async def _update_positions(self):
         position_tasks = []
         funding_payment_tasks = []
-        funding_info_tasks = []
         for pair in self._trading_pairs:
             position_tasks.append(self._api_request("post",
                                                     "perpfi/position",
@@ -499,12 +502,8 @@ class PerpetualFinanceDerivative(DerivativeBase):
             funding_payment_tasks.append(self._api_request("get",
                                                            "perpfi/funding_payment",
                                                            {"pair": convert_to_exchange_trading_pair(pair)}))
-            funding_info_tasks.append(self._api_request("get",
-                                                        "perpfi/funding",
-                                                        {"pair": convert_to_exchange_trading_pair(pair)}))
         positions = await safe_gather(*position_tasks, return_exceptions=True)
         funding_payments = await safe_gather(*funding_payment_tasks, return_exceptions=True)
-        funding_infos = await safe_gather(*funding_info_tasks, return_exceptions=True)
         for trading_pair, position in zip(self._trading_pairs, positions):
             position = position.get("position", {})
             position_side = PositionSide.LONG if position.get("size", 0) > 0 else PositionSide.SHORT
@@ -537,8 +536,22 @@ class PerpetualFinanceDerivative(DerivativeBase):
                                                                 symbol=trading_pair,
                                                                 amount=payment))
 
-        for trading_pair, funding_info in zip(self._trading_pairs, funding_infos):
-            self._funding_info[trading_pair] = funding_info["fr"]
+    async def _funding_info_polling_loop(self):
+        while True:
+            try:
+                funding_info_tasks = []
+                for pair in self._trading_pairs:
+                    funding_info_tasks.append(self._api_request("post",
+                                                                "perpfi/funding",
+                                                                {"pair": convert_to_exchange_trading_pair(pair)}))
+                funding_infos = await safe_gather(*funding_info_tasks, return_exceptions=True)
+                for trading_pair, funding_info in zip(self._trading_pairs, funding_infos):
+                    self._funding_info[trading_pair] = funding_info["fr"]
+            except Exception:
+                self.logger().network("Unexpected error while fetching funding info.", exc_info=True,
+                                      app_warning_msg="Could not fetch new funding info from Perpetual Finance protocol. "
+                                                      "Check network connection on gateway.")
+            await asyncio.sleep(30)
 
     def get_funding_info(self, trading_pair):
         return self._funding_info[trading_pair]
