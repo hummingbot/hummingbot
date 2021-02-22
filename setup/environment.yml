@@ -80,6 +80,7 @@ dependencies:
     - decorator==4.4.2
     - deprecated==1.2.7
     - distlib==0.3.0
+    - dydx-python==0.11.2
     - entrypoints==0.3
     - eth-abi==2.1.1
     - eth-account==0.4.0
@@ -90,6 +91,7 @@ dependencies:
     - eth-rlp==0.1.2
     - eth-typing==2.2.1
     - eth-utils==1.8.4
+    - ethsnarks-loopring==0.1.5
     - filelock==3.0.12
     - flake8==3.7.9
     - future==0.18.2
@@ -113,6 +115,7 @@ dependencies:
     - parsimonious==0.8.1
     - pre-commit==2.1.1
     - protobuf==3.11.3
+    - psutil==5.7.2
     - pyasn1==0.4.8
     - pyasn1-modules==0.2.8
     - pycodestyle==2.5.0
@@ -125,7 +128,7 @@ dependencies:
     - pyopenssl==19.1.0
     - pyperclip==1.7.0
     - pyrsistent==0.15.7
-    - python-binance==0.7.1
+    - python-binance==0.7.5
     - python-telegram-bot==12.4.2
     - pyyaml==5.3
     - regex==2020.2.20
