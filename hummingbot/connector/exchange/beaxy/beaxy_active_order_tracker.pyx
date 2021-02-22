@@ -106,14 +106,14 @@ cdef class BeaxyActiveOrderTracker:
 
                 elif msg_action == ACTION_DELETE_THROUGH:
                     # Remove all levels from the specified and below (all the worst prices).
-                    for key in active_rows.keys():
+                    for key in list(active_rows.keys()):
                         if key < price:
                             del active_rows[key]
                             yield [timestamp, float(price), float(0), message.update_id]
 
                 elif msg_action == ACTION_DELETE_FROM:
                     # Remove all levels from the specified and above (all the better prices).
-                    for key in active_rows.keys():
+                    for key in list(active_rows.keys()):
                         if key > price:
                             del active_rows[key]
                             yield [timestamp, float(price), float(0), message.update_id]

@@ -154,6 +154,14 @@ class BeaxyAPIOrderBookDataSource(OrderBookTrackerDataSource):
             if response.status != 200:
                 raise IOError(f'Error fetching Beaxy market snapshot for {trading_pair}. '
                               f'HTTP status is {response.status}.')
+
+            if not await response.text():  # if test is empty it marks that there is no rows
+                return {
+                    'timestamp': 1,
+                    'entries': [],
+                    'sequenceNumber': 1,
+                }
+
             data: Dict[str, Any] = await response.json()
             return data
 

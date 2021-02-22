@@ -53,7 +53,7 @@ def _transform_raw_message_patch(self, msg):
 
 
 PUBLIC_API_BASE_URL = "services.beaxy.com"
-PRIVET_API_BASE_URL = "tradingapi.beaxy.com"
+PRIVET_API_BASE_URL = "tradewith.beaxy.com"
 
 
 class BeaxyExchangeUnitTest(unittest.TestCase):
@@ -88,15 +88,21 @@ class BeaxyExchangeUnitTest(unittest.TestCase):
             cls._patcher = mock.patch("aiohttp.client.URL")
             cls._url_mock = cls._patcher.start()
             cls._url_mock.side_effect = cls.web_app.reroute_local
-            cls.web_app.update_response("get", PUBLIC_API_BASE_URL, "/api/v2/symbols", FixtureBeaxy.BALANCES)
+            cls.web_app.update_response("get", PUBLIC_API_BASE_URL, "/api/v2/symbols", FixtureBeaxy.SYMBOLS)
             cls.web_app.update_response("get", PUBLIC_API_BASE_URL, "/api/v2/symbols/DASHBTC/book",
                                         FixtureBeaxy.TRADE_BOOK)
             cls.web_app.update_response("get", PUBLIC_API_BASE_URL, "/api/v2/symbols/DASHBTC/rate",
                                         FixtureBeaxy.EXCHANGE_RATE)
-            cls.web_app.update_response("get", PRIVET_API_BASE_URL, "/api/v1/accounts",
-                                        FixtureBeaxy.ACCOUNTS)
-            cls.web_app.update_response("get", PRIVET_API_BASE_URL, "/api/v1/trader/health",
+            cls.web_app.update_response("get", PRIVET_API_BASE_URL, "/api/v2/health",
                                         FixtureBeaxy.HEALTH)
+            cls.web_app.update_response("get", PRIVET_API_BASE_URL, "/api/v2/wallets",
+                                        FixtureBeaxy.BALANCES)
+            cls.web_app.update_response("get", PRIVET_API_BASE_URL, "/api/v2/tradingsettings",
+                                        FixtureBeaxy.TRADE_SETTINGS)
+            cls.web_app.update_response("get", PRIVET_API_BASE_URL, "/api/v2/orders/open",
+                                        FixtureBeaxy.ORDERS_OPEN_EMPTY)
+            cls.web_app.update_response("get", PRIVET_API_BASE_URL, "/api/v2/orders/closed",
+                                        FixtureBeaxy.ORDERS_CLOSED_EMPTY)
 
             cls._t_nonce_patcher = unittest.mock.patch(
                 "hummingbot.connector.exchange.beaxy.beaxy_exchange.get_tracking_nonce")
@@ -117,12 +123,27 @@ class BeaxyExchangeUnitTest(unittest.TestCase):
                 "hummingbot.connector.exchange.beaxy.beaxy_auth.BeaxyAuth._BeaxyAuth__get_session_data")
             cls._auth_session_mock = cls._auth_session_patcher.start()
             cls._auth_session_mock.return_value = {"sign_key": 123, "session_id": '123'}
+            cls._auth_headers_patcher = unittest.mock.patch(
+                "hummingbot.connector.exchange.beaxy.beaxy_auth.BeaxyAuth.get_token")
+            cls._auth_headers_mock = cls._auth_headers_patcher.start()
+            cls._auth_headers_mock.return_value = '123'
+            cls._auth_poll_patcher = unittest.mock.patch(
+                "hummingbot.connector.exchange.beaxy.beaxy_auth.BeaxyAuth._auth_token_polling_loop")
+            cls._auth_poll_mock = cls._auth_poll_patcher.start()
 
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: BeaxyExchange = BeaxyExchange(
             API_KEY, API_SECRET,
             trading_pairs=["DASH-BTC"]
         )
+
+        if API_MOCK_ENABLED:
+            async def mock_status_polling_task():
+                pass
+
+            # disable status polling as it will make orders update inconsistent from mock view
+            cls.market._status_polling_task = asyncio.ensure_future(mock_status_polling_task())
+            cls.ev_loop.run_until_complete(cls.market._update_balances())
 
         print("Initializing Beaxy market... this will take about a minute.")
         cls.clock.add_iterator(cls.market)
@@ -213,7 +234,7 @@ class BeaxyExchangeUnitTest(unittest.TestCase):
     def test_limit_buy(self):
 
         if API_MOCK_ENABLED:
-            self.web_app.update_response("post", PRIVET_API_BASE_URL, "/api/v1/orders",
+            self.web_app.update_response("post", PRIVET_API_BASE_URL, "/api/v2/orders",
                                          FixtureBeaxy.TEST_LIMIT_BUY_ORDER)
 
         amount: Decimal = Decimal("0.01")
@@ -226,7 +247,7 @@ class BeaxyExchangeUnitTest(unittest.TestCase):
 
         order_id, _ = self.place_order(
             True, trading_pair, quantized_amount, OrderType.LIMIT, price,
-            [(2, FixtureBeaxy.TEST_LIMIT_BUY_WS_ORDER_CREATED), (3, FixtureBeaxy.TEST_LIMIT_BUY_WS_ORDER_COMPLETED)]
+            [(3, FixtureBeaxy.TEST_LIMIT_BUY_WS_ORDER_CREATED), (5, FixtureBeaxy.TEST_LIMIT_BUY_WS_ORDER_COMPLETED)]
         )
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
@@ -250,7 +271,7 @@ class BeaxyExchangeUnitTest(unittest.TestCase):
     def test_limit_sell(self):
 
         if API_MOCK_ENABLED:
-            self.web_app.update_response("post", PRIVET_API_BASE_URL, "/api/v1/orders",
+            self.web_app.update_response("post", PRIVET_API_BASE_URL, "/api/v2/orders",
                                          FixtureBeaxy.TEST_LIMIT_SELL_ORDER)
 
         trading_pair = "DASH-BTC"
@@ -262,7 +283,7 @@ class BeaxyExchangeUnitTest(unittest.TestCase):
 
         order_id, _ = self.place_order(
             False, trading_pair, quantized_amount, OrderType.LIMIT, price,
-            [(2, FixtureBeaxy.TEST_LIMIT_SELL_WS_ORDER_CREATED), (3, FixtureBeaxy.TEST_LIMIT_SELL_WS_ORDER_COMPLETED)]
+            [(3, FixtureBeaxy.TEST_LIMIT_SELL_WS_ORDER_CREATED), (5, FixtureBeaxy.TEST_LIMIT_SELL_WS_ORDER_COMPLETED)]
         )
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
@@ -310,7 +331,7 @@ class BeaxyExchangeUnitTest(unittest.TestCase):
     def test_limit_makers_unfilled(self):
 
         if API_MOCK_ENABLED:
-            self.web_app.update_response("post", PRIVET_API_BASE_URL, "/api/v1/orders",
+            self.web_app.update_response("post", PRIVET_API_BASE_URL, "/api/v2/orders",
                                          FixtureBeaxy.TEST_UNFILLED_ORDER1)
 
         self.assertGreater(self.market.get_balance("BTC"), 0.00005)
@@ -328,19 +349,19 @@ class BeaxyExchangeUnitTest(unittest.TestCase):
 
         order_id1, exch_order_id_1 = self.place_order(
             True, trading_pair, quantized_bid_amount, OrderType.LIMIT, quantize_bid_price,
-            [(2, FixtureBeaxy.TEST_UNFILLED_ORDER1_WS_ORDER_CREATED)]
+            [(3, FixtureBeaxy.TEST_UNFILLED_ORDER1_WS_ORDER_CREATED)]
         )
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id1, order_created_event.order_id)
 
         if API_MOCK_ENABLED:
-            self.web_app.update_response("post", PRIVET_API_BASE_URL, "/api/v1/orders",
+            self.web_app.update_response("post", PRIVET_API_BASE_URL, "/api/v2/orders",
                                          FixtureBeaxy.TEST_UNFILLED_ORDER2)
 
         order_id2, exch_order_id_2 = self.place_order(
             False, trading_pair, quantized_ask_amount, OrderType.LIMIT, quantize_ask_price,
-            [(2, FixtureBeaxy.TEST_UNFILLED_ORDER2_WS_ORDER_CREATED)]
+            [(3, FixtureBeaxy.TEST_UNFILLED_ORDER2_WS_ORDER_CREATED)]
         )
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
@@ -362,7 +383,7 @@ class BeaxyExchangeUnitTest(unittest.TestCase):
     def test_market_buy(self):
 
         if API_MOCK_ENABLED:
-            self.web_app.update_response("post", PRIVET_API_BASE_URL, "/api/v1/orders",
+            self.web_app.update_response("post", PRIVET_API_BASE_URL, "/api/v2/orders",
                                          FixtureBeaxy.TEST_MARKET_BUY_ORDER)
 
         amount: Decimal = Decimal("0.01")
@@ -375,7 +396,7 @@ class BeaxyExchangeUnitTest(unittest.TestCase):
 
         order_id, _ = self.place_order(
             True, trading_pair, quantized_amount, OrderType.MARKET, price,
-            [(2, FixtureBeaxy.TEST_MARKET_BUY_WS_ORDER_CREATED), (3, FixtureBeaxy.TEST_MARKET_BUY_WS_ORDER_COMPLETED)]
+            [(3, FixtureBeaxy.TEST_MARKET_BUY_WS_ORDER_CREATED), (5, FixtureBeaxy.TEST_MARKET_BUY_WS_ORDER_COMPLETED)]
         )
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
@@ -399,7 +420,7 @@ class BeaxyExchangeUnitTest(unittest.TestCase):
     def test_market_sell(self):
 
         if API_MOCK_ENABLED:
-            self.web_app.update_response("post", PRIVET_API_BASE_URL, "/api/v1/orders",
+            self.web_app.update_response("post", PRIVET_API_BASE_URL, "/api/v2/orders",
                                          FixtureBeaxy.TEST_MARKET_SELL_ORDER)
 
         trading_pair = "DASH-BTC"
@@ -411,7 +432,7 @@ class BeaxyExchangeUnitTest(unittest.TestCase):
 
         order_id, _ = self.place_order(
             False, trading_pair, quantized_amount, OrderType.MARKET, price,
-            [(2, FixtureBeaxy.TEST_MARKET_SELL_WS_ORDER_CREATED), (3, FixtureBeaxy.TEST_MARKET_SELL_WS_ORDER_COMPLETED)]
+            [(3, FixtureBeaxy.TEST_MARKET_SELL_WS_ORDER_CREATED), (5, FixtureBeaxy.TEST_MARKET_SELL_WS_ORDER_COMPLETED)]
         )
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
@@ -434,10 +455,10 @@ class BeaxyExchangeUnitTest(unittest.TestCase):
     def test_cancel_order(self):
 
         if API_MOCK_ENABLED:
-            self.web_app.update_response("post", PRIVET_API_BASE_URL, "/api/v1/orders",
+            self.web_app.update_response("post", PRIVET_API_BASE_URL, "/api/v2/orders",
                                          FixtureBeaxy.TEST_CANCEL_BUY_ORDER)
 
-            self.web_app.update_response("delete", PRIVET_API_BASE_URL, "/api/v1/orders", '')
+            self.web_app.update_response("delete", PRIVET_API_BASE_URL, "/api/v2/orders/open/435118B0-A7F7-40D2-A409-820E8FC342A2", '')
 
         amount: Decimal = Decimal("0.01")
 
@@ -466,7 +487,7 @@ class BeaxyExchangeUnitTest(unittest.TestCase):
     def test_cancel_all(self):
 
         if API_MOCK_ENABLED:
-            self.web_app.update_response("delete", PRIVET_API_BASE_URL, "/api/v1/orders", '')
+            self.web_app.update_response("delete", PRIVET_API_BASE_URL, "/api/v2/orders/open/435118B0-A7F7-40D2-A409-820E8FC342A2", '')
 
         self.assertGreater(self.market.get_balance("BTC"), 0.00005)
         self.assertGreater(self.market.get_balance("DASH"), 0.01)
@@ -485,14 +506,14 @@ class BeaxyExchangeUnitTest(unittest.TestCase):
         quantized_ask_amount: Decimal = self.market.quantize_order_amount(trading_pair, ask_amount)
 
         if API_MOCK_ENABLED:
-            self.web_app.update_response("post", PRIVET_API_BASE_URL, "/api/v1/orders",
+            self.web_app.update_response("post", PRIVET_API_BASE_URL, "/api/v2/orders",
                                          FixtureBeaxy.TEST_CANCEL_ALL_ORDER1)
 
         _, exch_order_id_1 = self.place_order(True, trading_pair, quantized_bid_amount, OrderType.LIMIT_MAKER,
                                               quantize_bid_price)
 
         if API_MOCK_ENABLED:
-            self.web_app.update_response("post", PRIVET_API_BASE_URL, "/api/v1/orders",
+            self.web_app.update_response("post", PRIVET_API_BASE_URL, "/api/v2/orders",
                                          FixtureBeaxy.TEST_CANCEL_ALL_ORDER2)
 
         _, exch_order_id_2 = self.place_order(False, trading_pair, quantized_ask_amount, OrderType.LIMIT_MAKER,
