@@ -691,7 +691,7 @@ cdef class BeaxyExchange(ExchangeBase):
             self.logger().network(
                 'Unexpected error cancelling orders.',
                 exc_info=True,
-                app_warning_msg='Failed to cancel order on Coinbase Pro. Check API key and network connection.'
+                app_warning_msg='Failed to cancel order on Beaxy exchange. Check API key and network connection.'
             )
 
         failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
@@ -830,7 +830,7 @@ cdef class BeaxyExchange(ExchangeBase):
                     if tracked_order is None:
                         self.logger().debug(f'Didn`rt find order with id {client_order_id}')
                         continue
-                    
+
                     if not tracked_order.exchange_order_id:
                         tracked_order.exchange_order_id = exchange_order_id
 
