@@ -35,7 +35,7 @@ from .pure_market_making_as_order_tracker import PureMarketMakingASOrderTracker
 from .asset_price_delegate cimport AssetPriceDelegate
 from .asset_price_delegate import AssetPriceDelegate
 from .order_book_asset_price_delegate cimport OrderBookAssetPriceDelegate
-from ..utils.ring_buffer cimport RingBuffer
+from ..__utils__.ring_buffer cimport RingBuffer
 
 
 NaN = float("nan")
