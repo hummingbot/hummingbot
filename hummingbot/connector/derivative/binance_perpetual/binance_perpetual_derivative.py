@@ -129,8 +129,7 @@ class BinancePerpetualDerivative(DerivativeBase):
         self._order_not_found_records = {}
         self._last_timestamp = 0
         self._trading_rules = {}
-        # self._trade_fees = {}
-        # self._last_update_trade_fees_timestamp = 0
+        self._trading_pairs = trading_pairs
         self._status_polling_task = None
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
@@ -161,9 +160,7 @@ class BinancePerpetualDerivative(DerivativeBase):
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
-
-            # TODO: Uncomment when figured out trade fees
-            # "trade_fees_initialized": len(self._trade_fees) > 0
+            "funding_info": len(self._funding_info) > 0
         }
 
     @property
@@ -630,8 +627,8 @@ class BinancePerpetualDerivative(DerivativeBase):
         return order_books[trading_pair]
 
     async def _update_trading_rules(self):
-        last_tick = self._last_timestamp / 60.0
-        current_tick = self.current_timestamp / 60.0
+        last_tick = int(self._last_timestamp / 60.0)
+        current_tick = int(self.current_timestamp / 60.0)
         if current_tick > last_tick or len(self._trading_rules) < 1:
             exchange_info = await self.request(path="/fapi/v1/exchangeInfo", method=MethodType.GET, is_signed=False)
             trading_rules_list = self._format_trading_rules(exchange_info)
@@ -674,11 +671,8 @@ class BinancePerpetualDerivative(DerivativeBase):
             try:
                 await safe_gather(
                     self._update_trading_rules()
-
-                    # TODO: Uncomment when implemented
-                    # self._update_trade_fees()
                 )
-                await asyncio.sleep(60)
+                await asyncio.sleep(3600)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -692,25 +686,22 @@ class BinancePerpetualDerivative(DerivativeBase):
             try:
                 ws_subscription_path: str = "/".join([f"{convert_to_exchange_trading_pair(trading_pair).lower()}@markPrice"
                                                       for trading_pair in self._trading_pairs])
-                stream_url: str = f"{self._stream_url}?streams={ws_subscription_path}"
+                stream_url: str = f"{self._stream_url}/stream?streams={ws_subscription_path}"
                 async with websockets.connect(stream_url) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
-                    try:
-                        while True:
-                            try:
-                                raw_msg: str = await asyncio.wait_for(ws.recv(), timeout=10.0)
-                                msg = ujson.loads(raw_msg)
-                                trading_pair = msg["s"]
-                                self._funding_info[trading_pair] = {"indexPrice": msg["i"],
-                                                                    "markPrice": msg["p"],
-                                                                    "nextFundingTime": msg["T"],
-                                                                    "rate": msg["r"]}
-                            except asyncio.TimeoutError:
-                                await ws.pong(data=b'')
-                    except ConnectionClosed:
-                        continue
-                    finally:
-                        await ws.close()
+                    while True:
+                        try:
+                            raw_msg: str = await asyncio.wait_for(ws.recv(), timeout=10.0)
+                            msg = ujson.loads(raw_msg)
+                            trading_pair = convert_from_exchange_trading_pair(msg["data"]["s"])
+                            self._funding_info[trading_pair] = {"indexPrice": msg["data"]["i"],
+                                                                "markPrice": msg["data"]["p"],
+                                                                "nextFundingTime": msg["data"]["T"],
+                                                                "rate": msg["data"]["r"]}
+                        except asyncio.TimeoutError:
+                            await ws.pong(data=b'')
+                        except ConnectionClosed:
+                            raise
             except asyncio.CancelledError:
                 raise
             except Exception:
