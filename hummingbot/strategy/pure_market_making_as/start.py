@@ -29,6 +29,7 @@ def start(self):
         price_source_exchange = c_map.get("price_source_exchange").value
         price_source_market = c_map.get("price_source_market").value
         price_source_custom_api = c_map.get("price_source_custom_api").value
+        filled_order_delay = c_map.get("filled_order_delay").value
         order_refresh_tolerance_pct = c_map.get("order_refresh_tolerance_pct").value / Decimal('100')
 
         trading_pair: str = raw_trading_pair
@@ -61,6 +62,7 @@ def start(self):
             inventory_target_base_pct=inventory_target_base_pct,
             order_refresh_time=order_refresh_time,
             order_refresh_tolerance_pct=order_refresh_tolerance_pct,
+            filled_order_delay=filled_order_delay,
             add_transaction_costs_to_orders=True,
             logging_options=strategy_logging_options,
             asset_price_delegate=asset_price_delegate,

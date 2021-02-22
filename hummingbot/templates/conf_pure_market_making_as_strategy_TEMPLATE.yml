@@ -28,6 +28,9 @@ order_amount: null
 # Size of your bid and ask order.
 fixed_order_amount: null
 
+# How long to wait before placing the next order in case your order gets filled.
+filled_order_delay: null
+
 # Target base asset inventory percentage target to be maintained (for Inventory skew feature).
 inventory_target_base_pct: null
 
