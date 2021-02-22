@@ -43,7 +43,7 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.connector.exchange.huobi.huobi_market import HuobiMarket
+from hummingbot.connector.exchange.huobi.huobi_Exchange import HuobiExchange
 from hummingbot.connector.exchange.huobi.huobi_order_book import HuobiOrderBook
 from hummingbot.core.event.events import OrderType
 from hummingbot.connector.markets_recorder import MarketsRecorder
@@ -74,7 +74,7 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
         MarketEvent.OrderCancelled
     ]
 
-    market: HuobiMarket
+    market: HuobiExchange
     market_logger: EventLogger
     stack: contextlib.ExitStack
 
@@ -118,7 +118,7 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
     # setUp function from unittests is called before get_application so this needs
     # to be called manually before every test
     def customSetUp(self):
-        self.market: HuobiMarket = HuobiMarket(
+        self.market: HuobiExchange = HuobiExchange(
             MOCK_HUOBI_API_KEY,
             MOCK_HUOBI_SECRET_KEY,
             trading_pairs=["ethusdt"]
@@ -321,7 +321,7 @@ class HuobiMarketUnitTest(AioHTTPTestCase):
             self.clock.remove_iterator(self.market)
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
-            self.market: HuobiMarket = HuobiMarket(
+            self.market: HuobiExchange = HuobiExchange(
                 huobi_api_key=MOCK_HUOBI_API_KEY,
                 huobi_secret_key=MOCK_HUOBI_SECRET_KEY,
                 trading_pairs=["ethusdt", "btcusdt"]

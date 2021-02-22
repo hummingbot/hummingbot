@@ -58,7 +58,7 @@ class CreateCommand:
             else:
                 config.value = None
         for config in config_map.values():
-            if config.prompt_on_new:
+            if config.prompt_on_new and config.required:
                 if not self.app.to_stop_config:
                     await self.prompt_a_config(config)
                 else:
@@ -92,7 +92,6 @@ class CreateCommand:
         self.app.hide_input = False
         if await self.status_check_all():
             self._notify("\nEnter \"start\" to start market making.")
-            self.app.set_text("start")
 
     async def prompt_a_config(self,  # type: HummingbotApplication
                               config: ConfigVar,

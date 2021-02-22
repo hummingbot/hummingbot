@@ -2,9 +2,11 @@ from decimal import Decimal
 from datetime import datetime
 import time
 from hummingbot.script.script_base import ScriptBase
+from os.path import realpath, join
 
 s_decimal_1 = Decimal("1")
-SCRIPT_LOG_FILE = "logs/logs_script.log"
+LOGS_PATH = realpath(join(__file__, "../../logs/"))
+SCRIPT_LOG_FILE = f"{LOGS_PATH}/logs_script.log"
 
 
 def log_to_file(file_name, message):

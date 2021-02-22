@@ -21,8 +21,13 @@ from hummingbot.core.event.events import (
     TradeType,
     PriceType,
 )
+from hummingbot.model.sql_connection_manager import (
+    SQLConnectionManager,
+    SQLConnectionType,
+)
 from hummingbot.strategy.pure_market_making.pure_market_making import PureMarketMakingStrategy
 from hummingbot.strategy.pure_market_making.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
+from hummingbot.strategy.pure_market_making.inventory_cost_price_delegate import InventoryCostPriceDelegate
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.client.command.config_command import ConfigCommand
@@ -135,6 +140,10 @@ class PMMUnitTest(unittest.TestCase):
                                               volume_step_size=10)
         self.ext_market.add_data(self.ext_data)
         self.order_book_asset_del = OrderBookAssetPriceDelegate(self.ext_market, self.trading_pair)
+        trade_fill_sql = SQLConnectionManager(
+            SQLConnectionType.TRADE_FILLS, db_path=""
+        )
+        self.inventory_cost_price_del = InventoryCostPriceDelegate(trade_fill_sql, self.trading_pair)
 
     def simulate_maker_market_trade(
             self, is_buy: bool, quantity: Decimal, price: Decimal, market: Optional[BacktestMarket] = None,
@@ -182,6 +191,44 @@ class PMMUnitTest(unittest.TestCase):
         self.clock.backtest_til(self.start_timestamp + 14)
         self.assertEqual(1, len(strategy.active_buys))
         self.assertEqual(1, len(strategy.active_sells))
+
+    def test_basic_one_level_price_type_own_last_trade(self):
+        strategy = PureMarketMakingStrategy(
+            self.market_info,
+            bid_spread=Decimal("0.01"),
+            ask_spread=Decimal("0.01"),
+            order_amount=Decimal("1"),
+            order_refresh_time=5.0,
+            filled_order_delay=5.0,
+            order_refresh_tolerance_pct=-1,
+            minimum_spread=-1,
+            price_type='last_own_trade_price',
+        )
+        self.clock.add_iterator(strategy)
+
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+        buy_1 = strategy.active_buys[0]
+        self.assertEqual(99, buy_1.price)
+        self.assertEqual(1, buy_1.quantity)
+        sell_1 = strategy.active_sells[0]
+        self.assertEqual(101, sell_1.price)
+        self.assertEqual(1, sell_1.quantity)
+
+        # Simulate buy order filled
+        self.simulate_maker_market_trade(False, 100, 98.9)
+        self.assertEqual(0, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+
+        # Order has been filled
+        self.clock.backtest_til(self.start_timestamp + 7)
+        buy_1 = strategy.active_buys[0]
+        self.assertEqual(Decimal('98.01'), buy_1.price)
+        self.assertEqual(1, buy_1.quantity)
+        sell_1 = strategy.active_sells[0]
+        self.assertEqual(Decimal('99.99'), sell_1.price)
+        self.assertEqual(1, sell_1.quantity)
 
     def test_basic_one_level_price_type(self):
         strategies = []
@@ -309,6 +356,43 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("3"), strategy.active_buys[-1].quantity)
         self.assertEqual(Decimal("103"), strategy.active_sells[-1].price)
         self.assertEqual(Decimal("3"), strategy.active_sells[-1].quantity)
+
+    def test_order_quantity_available_balance(self):
+        """
+        When balance is below the specified order amount, checks if orders created
+        use the remaining available balance for the order size.
+        """
+        strategy = PureMarketMakingStrategy(
+            self.market_info,
+            bid_spread=Decimal("0.01"),
+            ask_spread=Decimal("0.01"),
+            order_refresh_time=5,
+            order_amount=Decimal("100"),
+            order_levels=3
+        )
+
+        self.clock.add_iterator(strategy)
+        self.market.set_balance("HBOT", Decimal("10"))
+        self.market.set_balance("ETH", Decimal("1000"))
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        # Check if order size on both sides is equal to the remaining balance
+        self.assertEqual(Decimal("10.1010"), strategy.active_buys[0].quantity)
+        self.assertEqual(Decimal("10"), strategy.active_sells[0].quantity)
+
+        # Order levels created
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+
+        strategy.cancel_order(strategy.active_buys[0].client_order_id)
+        strategy.cancel_order(strategy.active_sells[0].client_order_id)
+
+        # Do not create order on side with 0 balance
+        self.market.set_balance("HBOT", 0)
+        self.market.set_balance("ETH", Decimal("1000"))
+        self.clock.backtest_til(self.start_timestamp + 7)
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(0, len(strategy.active_sells))
 
     def test_market_become_wider(self):
         strategy = self.one_level_strategy
@@ -475,6 +559,23 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(1, len(strategy.active_sells))
         self.assertEqual(Decimal("97.5001"), strategy.active_buys[0].price)
         self.assertEqual(Decimal("102.499"), strategy.active_sells[0].price)
+
+    def test_order_optimization_with_multiple_order_levels(self):
+        # Widening the order book, top bid is now 97.5 and top ask 102.5
+        simulate_order_book_widening(self.book_data.order_book, 98, 102)
+        strategy = self.multi_levels_strategy
+        strategy.order_optimization_enabled = True
+        strategy.order_level_spread = Decimal("0.025")
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(3, len(strategy.active_buys))
+        self.assertEqual(3, len(strategy.active_sells))
+        self.assertEqual(Decimal("97.5001"), strategy.active_buys[0].price)
+        self.assertEqual(Decimal("102.499"), strategy.active_sells[0].price)
+        self.assertEqual(strategy.active_buys[1].price / strategy.active_buys[0].price, Decimal("0.975"))
+        self.assertEqual(strategy.active_buys[2].price / strategy.active_buys[0].price, Decimal("0.95"))
+        self.assertEqual(strategy.active_sells[1].price / strategy.active_sells[0].price, Decimal("1.025"))
+        self.assertEqual(strategy.active_sells[2].price / strategy.active_sells[0].price, Decimal("1.05"))
 
     def test_hanging_orders(self):
         strategy = self.one_level_strategy
@@ -698,6 +799,36 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual("50.0%", status_df.iloc[4, 1])
         self.assertEqual("150.0%", status_df.iloc[4, 2])
 
+    def test_inventory_cost_price_del(self):
+        strategy = self.one_level_strategy
+        strategy.inventory_cost_price_delegate = self.inventory_cost_price_del
+        self.clock.add_iterator(strategy)
+        self.market.set_balance("HBOT", 0)
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        # Expecting to have orders set according to mid_price as there is no inventory cost data yet
+        first_bid_order = strategy.active_buys[0]
+        self.assertEqual(Decimal("99"), first_bid_order.price)
+
+        self.simulate_maker_market_trade(
+            is_buy=False, quantity=Decimal("10"), price=Decimal("98.9"),
+        )
+        new_mid_price = Decimal("96")
+        self.book_data.set_balanced_order_book(
+            mid_price=new_mid_price,
+            min_price=1,
+            max_price=200,
+            price_step_size=1,
+            volume_step_size=10,
+        )
+        self.clock.backtest_til(self.start_timestamp + 7)
+        first_bid_order = strategy.active_buys[0]
+        first_ask_order = strategy.active_sells[0]
+        expected_bid_price = new_mid_price / Decimal(1 + self.bid_spread)
+        self.assertAlmostEqual(expected_bid_price, first_bid_order.price, places=1)
+        expected_ask_price = Decimal("99") * Decimal(1 + self.ask_spread)
+        self.assertAlmostEqual(expected_ask_price, first_ask_order.price)
+
     def test_order_book_asset_del(self):
         strategy = self.one_level_strategy
         strategy.asset_price_delegate = self.order_book_asset_del
@@ -816,8 +947,12 @@ class PMMUnitTest(unittest.TestCase):
         self.assertAlmostEqual(Decimal("97"), last_bid_order.price, 2)
         self.assertAlmostEqual(Decimal("103"), last_ask_order.price, 2)
 
-        ConfigCommand.update_running_pure_mm(strategy, "bid_spread", Decimal('2'))
-        ConfigCommand.update_running_pure_mm(strategy, "ask_spread", Decimal('2'))
+        ConfigCommand.update_running_mm(strategy, "bid_spread", Decimal('2'))
+        ConfigCommand.update_running_mm(strategy, "ask_spread", Decimal('2'))
+        for order in strategy.active_sells:
+            strategy.cancel_order(order.client_order_id)
+        for order in strategy.active_buys:
+            strategy.cancel_order(order.client_order_id)
         self.clock.backtest_til(self.start_timestamp + 7)
         first_bid_order = strategy.active_buys[0]
         first_ask_order = strategy.active_sells[0]
