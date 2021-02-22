@@ -1,18 +1,12 @@
-from hummingbot.connector.exchange.binance.binance_market import BinanceMarket
-from hummingbot.connector.exchange.bittrex.bittrex_market import BittrexMarket
-from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
-from hummingbot.connector.exchange.huobi.huobi_market import HuobiMarket
-from hummingbot.connector.exchange.kucoin.kucoin_market import KucoinMarket
-from hummingbot.connector.exchange.liquid.liquid_market import LiquidMarket
-from hummingbot.connector.exchange.kraken.kraken_market import KrakenMarket
-from hummingbot.connector.exchange.eterbase.eterbase_market import EterbaseMarket
-from hummingbot.connector.exchange.crypto_com.crypto_com_exchange import CryptoComExchange
-from hummingbot.core.utils.market_mid_price import get_mid_price
-from hummingbot.client.settings import EXCHANGES, DEXES
+from hummingbot.core.utils.market_price import get_mid_price
+from hummingbot.client.settings import CONNECTOR_SETTINGS
 from hummingbot.client.config.security import Security
+from hummingbot.client.config.config_helpers import get_connector_class, get_eth_wallet_private_key
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.client.config.global_config_map import global_config_map
-from typing import Optional, Dict
+from hummingbot.connector.connector.balancer.balancer_connector import BalancerConnector
+from hummingbot.client.settings import ethereum_required_trading_pairs
+from typing import Optional, Dict, List
 from decimal import Decimal
 
 from web3 import Web3
@@ -22,36 +16,19 @@ class UserBalances:
     __instance = None
 
     @staticmethod
-    def connect_market(exchange, *api_details):
-        market = None
-        if exchange == "binance":
-            market = BinanceMarket(*api_details)
-        elif exchange == "bittrex":
-            market = BittrexMarket(api_details[0], api_details[1])
-        elif exchange == "coinbase_pro":
-            market = CoinbaseProMarket(api_details[0], api_details[1], api_details[2])
-        elif exchange == "huobi":
-            market = HuobiMarket(api_details[0], api_details[1])
-        elif exchange == "kucoin":
-            market = KucoinMarket(api_details[0], api_details[2], api_details[1])
-        elif exchange == "liquid":
-            market = LiquidMarket(api_details[0], api_details[1])
-        elif exchange == "kraken":
-            market = KrakenMarket(api_details[0], api_details[1])
-        elif exchange == "eterbase":
-            market = EterbaseMarket(api_details[0], api_details[1], api_details[2])
-        elif exchange == "crypto_com":
-            market = CryptoComExchange(*api_details)
-
-        return market
+    def connect_market(exchange, **api_details):
+        connector = None
+        conn_setting = CONNECTOR_SETTINGS[exchange]
+        if not conn_setting.use_ethereum_wallet:
+            connector_class = get_connector_class(exchange)
+            init_params = conn_setting.conn_init_parameters(api_details)
+            connector = connector_class(**init_params)
+        return connector
 
     # return error message if the _update_balances fails
     @staticmethod
     async def _update_balances(market) -> Optional[str]:
         try:
-            # Todo: Check first if _account_id is not already set, but the market objects need to expose this property.
-            if isinstance(market, HuobiMarket):
-                await market._update_account_id()
             await market._update_balances()
         except Exception as e:
             return str(e)
@@ -70,9 +47,9 @@ class UserBalances:
             UserBalances.__instance = self
         self._markets = {}
 
-    async def add_exchange(self, exchange, *api_details) -> Optional[str]:
+    async def add_exchange(self, exchange, **api_details) -> Optional[str]:
         self._markets.pop(exchange, None)
-        market = UserBalances.connect_market(exchange, *api_details)
+        market = UserBalances.connect_market(exchange, **api_details)
         err_msg = await UserBalances._update_balances(market)
         if err_msg is None:
             self._markets[exchange] = market
@@ -89,15 +66,19 @@ class UserBalances:
         else:
             api_keys = await Security.api_keys(exchange)
             if api_keys:
-                return await self.add_exchange(exchange, *api_keys.values())
+                return await self.add_exchange(exchange, **api_keys)
             else:
                 return "API keys have not been added."
 
     # returns error message for each exchange
-    async def update_exchanges(self, reconnect=False, exchanges=EXCHANGES) -> Dict[str, Optional[str]]:
+    async def update_exchanges(self, reconnect: bool = False,
+                               exchanges: List[str] = []) -> Dict[str, Optional[str]]:
         tasks = []
-        # We can only update user exchange balances on CEXes, for DEX we'll need to implement web3 wallet query later.
-        exchanges = [ex for ex in exchanges if ex not in DEXES]
+        # Update user balances, except connectors that use Ethereum wallet.
+        if len(exchanges) == 0:
+            exchanges = [cs.name for cs in CONNECTOR_SETTINGS.values()]
+        exchanges = [cs.name for cs in CONNECTOR_SETTINGS.values() if not cs.use_ethereum_wallet
+                     and cs.name in exchanges]
         if reconnect:
             self._markets.clear()
         for exchange in exchanges:
@@ -108,6 +89,9 @@ class UserBalances:
     async def all_balances_all_exchanges(self) -> Dict[str, Dict[str, Decimal]]:
         await self.update_exchanges()
         return {k: v.get_all_balances() for k, v in sorted(self._markets.items(), key=lambda x: x[0])}
+
+    def all_avai_balances_all_exchanges(self) -> Dict[str, Dict[str, Decimal]]:
+        return {k: v.available_balances for k, v in sorted(self._markets.items(), key=lambda x: x[0])}
 
     async def balances(self, exchange, *symbols) -> Dict[str, Decimal]:
         if await self.update_exchange_balance(exchange) is None:
@@ -126,6 +110,17 @@ class UserBalances:
         balance = web3.eth.getBalance(ethereum_wallet)
         balance = web3.fromWei(balance, "ether")
         return balance
+
+    @staticmethod
+    async def eth_n_erc20_balances() -> Dict[str, Decimal]:
+        ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
+        # Todo: Use generic ERC20 balance update
+        connector = BalancerConnector(ethereum_required_trading_pairs(),
+                                      get_eth_wallet_private_key(),
+                                      ethereum_rpc_url,
+                                      True)
+        await connector._update_balances()
+        return connector.get_all_balances()
 
     @staticmethod
     def validate_ethereum_wallet() -> Optional[str]:

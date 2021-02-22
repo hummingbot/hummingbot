@@ -10,9 +10,9 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType
 )
+from async_timeout import timeout
 
 s_decimal_0 = Decimal(0)
-
 
 cdef class InFlightOrderBase:
     def __init__(self,
@@ -80,7 +80,8 @@ cdef class InFlightOrderBase:
 
     async def get_exchange_order_id(self):
         if self.exchange_order_id is None:
-            await self.exchange_order_id_update_event.wait()
+            async with timeout(10):
+                await self.exchange_order_id_update_event.wait()
         return self.exchange_order_id
 
     def to_limit_order(self) -> LimitOrder:
