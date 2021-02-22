@@ -2,7 +2,7 @@
 
 from libc.stdint cimport int64_t
 from hummingbot.strategy.strategy_base cimport StrategyBase
-from ..utils.ring_buffer cimport RingBuffer
+from ..__utils__.ring_buffer cimport RingBuffer
 
 
 cdef class PureMarketMakingASStrategy(StrategyBase):
