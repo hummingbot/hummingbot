@@ -19,6 +19,7 @@ from hummingbot.core.event.events import (
 )
 
 from .order_tracker import OrderTracker
+from hummingbot.connector.derivative_base import DerivativeBase
 
 NaN = float("nan")
 s_decimal_nan = Decimal("NaN")
@@ -213,7 +214,7 @@ cdef class StrategyBase(TimeIterator):
         for market_trading_pair_tuple in market_trading_pair_tuples:
             base_balance = market_trading_pair_tuple.market.get_balance(market_trading_pair_tuple.base_asset)
             quote_balance = market_trading_pair_tuple.market.get_balance(market_trading_pair_tuple.quote_asset)
-            if base_balance <= Decimal("0.0001"):
+            if base_balance <= Decimal("0.0001") and not isinstance(market_trading_pair_tuple.market, DerivativeBase):
                 warning_lines.append(f"  {market_trading_pair_tuple.market.name} market "
                                      f"{market_trading_pair_tuple.base_asset} balance is too low. Cannot place order.")
             if quote_balance <= Decimal("0.0001"):
