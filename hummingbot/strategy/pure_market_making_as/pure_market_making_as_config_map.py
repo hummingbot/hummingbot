@@ -175,6 +175,13 @@ pure_market_making_as_config_map = {
                   type_str="decimal",
                   default=Decimal("0"),
                   validator=lambda v: validate_decimal(v, -10, 10, inclusive=True)),
+    "filled_order_delay":
+        ConfigVar(key="filled_order_delay",
+                  prompt="How long do you want to wait before placing the next order "
+                         "if your order gets filled (in seconds)? >>> ",
+                  type_str="float",
+                  validator=lambda v: validate_decimal(v, min_value=0, inclusive=False),
+                  default=60),
     "inventory_target_base_pct":
         ConfigVar(key="inventory_target_base_pct",
                   prompt="What is your target base asset percentage? Enter 50 for 50% >>> ",

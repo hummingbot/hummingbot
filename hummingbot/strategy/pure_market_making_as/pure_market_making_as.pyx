@@ -66,6 +66,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                  order_refresh_time: float = 30.0,
                  max_order_age = 1800.0,
                  order_refresh_tolerance_pct: Decimal = s_decimal_neg_one,
+                 filled_order_delay: float = 60.0,
                  inventory_target_base_pct: Decimal = s_decimal_zero,
                  add_transaction_costs_to_orders: bool = True,
                  asset_price_delegate: AssetPriceDelegate = None,
@@ -91,6 +92,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         self._order_refresh_time = order_refresh_time
         self._max_order_age = max_order_age
         self._order_refresh_tolerance_pct = order_refresh_tolerance_pct
+        self._filled_order_delay = filled_order_delay
         self._inventory_target_base_pct = inventory_target_base_pct
         self._add_transaction_costs_to_orders = add_transaction_costs_to_orders
         self._asset_price_delegate = asset_price_delegate
@@ -555,13 +557,13 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             algo_inform_text = "Algorithm not ready"
             if self.c_is_algorithm_ready():
                 self.c_calculate_reserved_price_and_optimal_spread()
-                best_ask=self._mid_prices.get_last_value()+self._spreads.get_last_value()/2.0
+                best_ask=self._mid_prices.c_get_last_value()+self._spreads.get_last_value()/2.0
                 new_ask=(self._reserved_price + self._optimal_spread/2.0)
-                best_bid = self._mid_prices.get_last_value() - self._spreads.get_last_value() / 2.0
+                best_bid = self._mid_prices.c_get_last_value() - self._spreads.get_last_value() / 2.0
                 new_bid = (self._reserved_price - self._optimal_spread / 2.0)
-                algo_inform_text = f"diff(mid,r)={(self._reserved_price - self._mid_prices.get_last_value()) / self._mid_prices.get_last_value() * 100.0}% | " \
-                                   f"spread(bid,best_bid)={(new_bid-best_bid)/best_bid * 100.0}% | " \
-                                   f"spread(ask,best_ask)={(new_ask - best_ask) / best_ask * 100.0}% | " \
+                algo_inform_text = f"(r,mid)=({self._mid_prices.c_get_last_value()}, {self._reserved_price}) | " \
+                                   f"(optimal_bid, best_bid)=({new_bid}, {best_bid}) | " \
+                                   f"(optimal_ask, best_ask)=({new_ask}, {best_ask}) | " \
                                    f"current_inv={market.c_get_available_balance(self.base_asset)} | " \
                                    f"target_inv={self.c_calculate_target_inventory()} | " \
                                    f"(T-t)={self._time_left/self._closing_time}"
@@ -571,20 +573,20 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                                                'reserved_price',
                                                'optimal_spread',
                                                'current_inv',
-                                               'target_inv_stocks',
+                                               'target_inv',
                                                'time_left_fraction',
                                                'mid_price std_dev',
                                                'gamma',
                                                'kappa')])
                     df_header.to_csv(self._csv_path, mode='a', header=False, index=False)
-                df = pd.DataFrame([(self._mid_prices.get_last_value(),
+                df = pd.DataFrame([(self._mid_prices.c_get_last_value(),
                                     self._spreads.get_last_value(),
                                     self._reserved_price,
                                     self._optimal_spread,
                                     market.c_get_available_balance(self.base_asset),
                                     self.c_calculate_target_inventory(),
                                     self._time_left/self._closing_time,
-                                    self._mid_prices.std_dev(),
+                                    self._mid_prices.c_std_dev(),
                                     self._gamma,
                                     self._kappa)])
                 df.to_csv(self._csv_path, mode='a', header=False, index=False)
@@ -621,7 +623,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             self.logger().info("Recycling algorithm time left...")
 
     cdef c_save_mid_price(self):
-        self._mid_prices.add_value(self.c_get_mid_price())
+        self._mid_prices.c_add_value(self.c_get_mid_price())
 
     cdef c_save_spread(self):
         self._spreads.add_value(self.c_get_spread())
@@ -643,9 +645,9 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             double buy_fee
 
         if self.c_is_algorithm_ready():
-            mid_price = self._mid_prices.get_last_value()
+            mid_price = self._mid_prices.c_get_last_value()
             q = float(market.c_get_available_balance(self.base_asset)) - self.c_calculate_target_inventory()
-            mid_price_variance = self._mid_prices.variance()
+            mid_price_variance = self._mid_prices.c_variance()
             self._reserved_price=mid_price - (q * self._gamma * mid_price_variance * time_left_fraction)
 
             self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction + np.log(1 + self._gamma / self._kappa)
@@ -664,7 +666,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             double target_inventory_value
             double N
 
-        mid_price = self._mid_prices.get_last_value()
+        mid_price = self._mid_prices.c_get_last_value()
         # Need to review this to see if adjusted quantities are required
         base_asset_amount = market.get_balance(base_asset)
         quote_asset_amount = market.get_balance(quote_asset)
@@ -676,7 +678,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         return N
 
     cdef bint c_is_algorithm_ready(self):
-        return self._mid_prices.is_full()
+        return self._mid_prices.c_is_full()
 
     cdef object c_create_base_proposal(self):
         cdef:
