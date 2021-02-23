@@ -46,7 +46,12 @@ class K2OrderBookMessage(OrderBookMessage):
 
     @property
     def trading_pair(self) -> str:
-        return self.content["trading_pair"]
+        if "trading_pair" in self.content:
+            return self.content["trading_pair"]
+        elif "symbol" in self.content:
+            return self.content["symbol"]
+        elif "pair" in self.content:
+            return self.content["pair"]
 
     @property
     def asks(self) -> List[OrderBookRow]:
