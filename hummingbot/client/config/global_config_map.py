@@ -332,6 +332,11 @@ main_config_map = {
                   required_if=lambda: False,
                   default="HARD-USDT,HARD-BTC,XEM-ETH,XEM-BTC,ALGO-USDT,ALGO-BTC,COTI-BNB,COTI-USDT,COTI-BTC,MFT-BNB,"
                           "MFT-ETH,MFT-USDT,RLC-ETH,RLC-BTC,RLC-USDT"),
+    "command_shortcuts":
+        ConfigVar(key="command_shortcuts",
+                  prompt=None,
+                  required_if=lambda: False,
+                  type_str="list"),
 }
 
 global_config_map = {**key_config_map, **main_config_map}
