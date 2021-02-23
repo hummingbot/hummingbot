@@ -69,6 +69,7 @@ from hummingbot.connector.exchange.okex.constants import *
 hm_logger = None
 s_decimal_0 = Decimal(0)
 TRADING_PAIR_SPLITTER = "-"
+CLIENT_ID_PREFIX = "93027a12dac34fBC"
 
 
 class OKExAPIError(IOError):
@@ -775,7 +776,7 @@ cdef class OkexExchange(ExchangeBase):
                    dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t> get_tracking_nonce()
-            str order_id = f"93027a12dac34fBC{tracking_nonce}"  # OKEx doesn't permits special characters
+            str order_id = f"{CLIENT_ID_PREFIX}{tracking_nonce}"  # OKEx doesn't permits special characters
 
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
         return order_id
@@ -846,7 +847,7 @@ cdef class OkexExchange(ExchangeBase):
                     dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t> get_tracking_nonce()
-            str order_id = f"HUMMINGBOT{tracking_nonce}"  # OKEx doesn't permits special characters
+            str order_id = f"{CLIENT_ID_PREFIX}{tracking_nonce}"  # OKEx doesn't permits special characters
 
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id
