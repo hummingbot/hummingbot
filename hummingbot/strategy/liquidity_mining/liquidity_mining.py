@@ -49,6 +49,8 @@ class LiquidityMiningStrategy(StrategyPyBase):
                  volatility_interval: int = 60 * 5,
                  avg_volatility_period: int = 10,
                  volatility_to_spread_multiplier: Decimal = Decimal("1"),
+                 max_spread: Decimal = Decimal("-1"),
+                 max_order_age: float = 60. * 60.,
                  status_report_interval: float = 900,
                  hb_app_notification: bool = False):
         super().__init__()
@@ -65,6 +67,8 @@ class LiquidityMiningStrategy(StrategyPyBase):
         self._volatility_interval = volatility_interval
         self._avg_volatility_period = avg_volatility_period
         self._volatility_to_spread_multiplier = volatility_to_spread_multiplier
+        self._max_spread = max_spread
+        self._max_order_age = max_order_age
         self._ev_loop = asyncio.get_event_loop()
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
@@ -112,6 +116,12 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
         self._last_timestamp = timestamp
 
+    @staticmethod
+    def order_age(order: LimitOrder) -> float:
+        if "//" not in order.client_order_id:
+            return int(time.time()) - int(order.client_order_id[-16:]) / 1e6
+        return -1.
+
     async def active_orders_df(self) -> pd.DataFrame:
         size_q_col = f"Size ({self._token})" if self.is_token_a_quote_token() else "Size (Quote)"
         columns = ["Market", "Side", "Price", "Spread", "Amount", size_q_col, "Age"]
@@ -120,11 +130,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
             mid_price = self._market_infos[order.trading_pair].get_mid_price()
             spread = 0 if mid_price == 0 else abs(order.price - mid_price) / mid_price
             size_q = order.quantity * mid_price
-            age = "n/a"
+            age = self.order_age(order)
             # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
-            if "//" not in order.client_order_id:
-                age = pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:]) / 1e6,
-                                   unit='s').strftime('%H:%M:%S')
+            age_txt = "n/a" if age <= 0. else pd.Timestamp(age, unit='s').strftime('%H:%M:%S')
             data.append([
                 order.trading_pair,
                 "buy" if order.is_buy else "sell",
@@ -132,48 +140,64 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 f"{spread:.2%}",
                 float(order.quantity),
                 float(size_q),
-                age
+                age_txt
             ])
 
         return pd.DataFrame(data=data, columns=columns)
 
-    def market_status_df(self) -> pd.DataFrame:
+    def budget_status_df(self) -> pd.DataFrame:
         data = []
-        columns = ["Market", "Mid Price", "Volatility", "Base Bal", "Quote Bal", f"Budget ({self._token})",
-                   "Base %", "Quote %"]
+        columns = ["Market", f"Budget ({self._token})", "Base Bal", "Quote Bal", "Base / Quote"]
         for market, market_info in self._market_infos.items():
             mid_price = market_info.get_mid_price()
             base_bal = self._sell_budgets[market]
             quote_bal = self._buy_budgets[market]
-            total_bal = (base_bal * mid_price) + quote_bal
-            total_bal_in_token = total_bal
+            total_bal_in_quote = (base_bal * mid_price) + quote_bal
+            total_bal_in_token = total_bal_in_quote
             if not self.is_token_a_quote_token():
                 total_bal_in_token = base_bal + (quote_bal / mid_price)
-            base_pct = (base_bal * mid_price) / total_bal if total_bal > 0 else s_decimal_zero
-            quote_pct = quote_bal / total_bal if total_bal > 0 else s_decimal_zero
+            base_pct = (base_bal * mid_price) / total_bal_in_quote if total_bal_in_quote > 0 else s_decimal_zero
+            quote_pct = quote_bal / total_bal_in_quote if total_bal_in_quote > 0 else s_decimal_zero
+            data.append([
+                market,
+                float(total_bal_in_token),
+                float(base_bal),
+                float(quote_bal),
+                f"{base_pct:.0%} / {quote_pct:.0%}"
+            ])
+        return pd.DataFrame(data=data, columns=columns).replace(np.nan, '', regex=True)
+
+    def market_status_df(self) -> pd.DataFrame:
+        data = []
+        columns = ["Market", "Mid Price", "Best Bid %", "Best Ask %", "Volatility"]
+        for market, market_info in self._market_infos.items():
+            mid_price = market_info.get_mid_price()
+            best_bid = self._exchange.get_price(market, False)
+            best_ask = self._exchange.get_price(market, True)
+            best_bid_pct = abs(best_bid - mid_price) / mid_price
+            best_ask_pct = (best_ask - mid_price) / mid_price
             data.append([
                 market,
                 float(mid_price),
+                f"{best_bid_pct:.2%}",
+                f"{best_ask_pct:.2%}",
                 "" if self._volatility[market].is_nan() else f"{self._volatility[market]:.2%}",
-                float(base_bal),
-                float(quote_bal),
-                float(total_bal_in_token),
-                f"{base_pct:.0%}",
-                f"{quote_pct:.0%}"
             ])
         return pd.DataFrame(data=data, columns=columns).replace(np.nan, '', regex=True)
 
     async def miner_status_df(self) -> pd.DataFrame:
         data = []
-        columns = ["Market", "Reward/day", "Liquidity (bots)", "Yield/day", "Max spread"]
+        columns = ["Market", "Paid in", "Reward/week", "Curr Liquidity", "APY", "Max Spread"]
         campaigns = await get_campaign_summary(self._exchange.display_name, list(self._market_infos.keys()))
         for market, campaign in campaigns.items():
+            reward_usd = await usd_value(campaign.payout_asset, campaign.reward_per_day * Decimal("7"))
             liquidity_usd = await usd_value(market.split('-')[0], campaign.liquidity)
             data.append([
                 market,
-                f"{campaign.reward_per_day:.2f} {campaign.payout_asset}",
-                f"${liquidity_usd:.0f} ({campaign.active_bots})",
-                f"{campaign.apy / Decimal(365):.2%}",
+                campaign.payout_asset,
+                f"${reward_usd:.0f}",
+                f"${liquidity_usd:.0f}",
+                f"{campaign.apy:.2%}",
                 f"{campaign.spread_max:.2%}%"
             ])
         return pd.DataFrame(data=data, columns=columns).replace(np.nan, '', regex=True)
@@ -185,12 +209,15 @@ class LiquidityMiningStrategy(StrategyPyBase):
         warning_lines = []
         warning_lines.extend(self.network_warning(list(self._market_infos.values())))
 
+        budget_df = self.budget_status_df()
+        lines.extend(["", "  Budget:"] + ["    " + line for line in budget_df.to_string(index=False).split("\n")])
+
         market_df = self.market_status_df()
         lines.extend(["", "  Markets:"] + ["    " + line for line in market_df.to_string(index=False).split("\n")])
 
         miner_df = await self.miner_status_df()
         if not miner_df.empty:
-            lines.extend(["", "  Miners:"] + ["    " + line for line in miner_df.to_string(index=False).split("\n")])
+            lines.extend(["", "  Miner:"] + ["    " + line for line in miner_df.to_string(index=False).split("\n")])
 
         # See if there're any open orders.
         if len(self.active_orders) > 0:
@@ -219,6 +246,8 @@ class LiquidityMiningStrategy(StrategyPyBase):
             if not self._volatility[market].is_nan():
                 # volatility applies only when it is higher than the spread setting.
                 spread = max(spread, self._volatility[market] * self._volatility_to_spread_multiplier)
+            if self._max_spread > s_decimal_zero:
+                spread = min(spread, self._max_spread)
             mid_price = market_info.get_mid_price()
             buy_price = mid_price * (Decimal("1") - spread)
             buy_price = self._exchange.quantize_order_price(market, buy_price)
@@ -301,7 +330,8 @@ class LiquidityMiningStrategy(StrategyPyBase):
             if self._refresh_times[proposal.market] > self.current_timestamp:
                 continue
             cur_orders = [o for o in self.active_orders if o.trading_pair == proposal.market]
-            if not cur_orders or self.is_within_tolerance(cur_orders, proposal):
+            if not cur_orders or (all(self.order_age(o) < self._max_order_age for o in cur_orders)
+                                  and self.is_within_tolerance(cur_orders, proposal)):
                 continue
             for order in cur_orders:
                 self.cancel_order(self._market_infos[proposal.market], order.client_order_id)

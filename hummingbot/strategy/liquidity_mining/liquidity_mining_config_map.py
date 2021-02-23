@@ -119,4 +119,16 @@ liquidity_mining_config_map = {
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, min_value=0, inclusive=False),
                   default=Decimal("1")),
+    "max_spread":
+        ConfigVar(key="max_spread",
+                  prompt="What is the maximum spread? (Enter 1 to indicate 1% or -1 to ignore this setting) >>> ",
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v),
+                  default=Decimal("-1")),
+    "max_order_age":
+        ConfigVar(key="max_order_age",
+                  prompt="What is the maximum life time of your orders (in seconds)? >>> ",
+                  type_str="float",
+                  validator=lambda v: validate_decimal(v, min_value=0, inclusive=False),
+                  default=60. * 60.),
 }
