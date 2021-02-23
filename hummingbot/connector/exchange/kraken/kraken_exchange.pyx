@@ -25,7 +25,6 @@ from hummingbot.core.utils.async_utils import (
 )
 from hummingbot.connector.exchange.kraken.kraken_api_order_book_data_source import KrakenAPIOrderBookDataSource
 from hummingbot.connector.exchange.kraken.kraken_auth import KrakenAuth
-import hummingbot.connector.exchange.kraken.kraken_constants as constants
 from hummingbot.connector.exchange.kraken.kraken_utils import (
     convert_from_exchange_symbol,
     convert_from_exchange_trading_pair,
@@ -198,7 +197,7 @@ cdef class KrakenExchange(ExchangeBase):
             asset_pairs_response = await client.get(ASSET_PAIRS_URI)
             asset_pairs_data: Dict[str, Any] = await asset_pairs_response.json()
             asset_pairs: Dict[str, Any] = asset_pairs_data["result"]
-            self._asset_pairs = {pair: details for pair, details in asset_pairs.items() if "." not in pair}
+            self._asset_pairs = {f"{details['base']}-{details['quote']}": details for _, details in asset_pairs.items()}
         return self._asset_pairs
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
@@ -225,7 +224,7 @@ cdef class KrakenExchange(ExchangeBase):
             if order.get("status") == "open":
                 details = order.get("descr")
                 if details.get("ordertype") == "limit":
-                    pair = convert_from_exchange_trading_pair(details.get("pair"))
+                    pair = convert_from_exchange_trading_pair(details.get("pair"), tuple((await self.asset_pairs()).keys()))
                     (base, quote) = self.split_trading_pair(pair)
                     vol_locked = Decimal(order.get("vol", 0)) - Decimal(order.get("vol_exec", 0))
                     if details.get("type") == "sell":
@@ -290,24 +289,45 @@ cdef class KrakenExchange(ExchangeBase):
         """
         Example:
         {
-            "ADAETH":{
-                "altname":"ADAETH",
-                "wsname":"ADA/ETH",
-                "aclass_base":"currency",
-                "base":"ADA",
-                "aclass_quote":"currency",
-                "quote":"XETH",
-                "lot":"unit",
-                "pair_decimals":7,
-                "lot_decimals":8,
-                "lot_multiplier":1,
-                "leverage_buy":[],
-                "leverage_sell":[],
-                "fees":[[0,0.26],[50000,0.24],[100000,0.22],[250000,0.2],[500000,0.18],[1000000,0.16],[2500000,0.14],[5000000,0.12],[10000000,0.1]],
-                "fees_maker":[[0,0.16],[50000,0.14],[100000,0.12],[250000,0.1],[500000,0.08],[1000000,0.06],[2500000,0.04],[5000000,0.02],[10000000,0]],
-                "fee_volume_currency":"ZUSD",
-                "margin_call":80,
-                "margin_stop":40
+            "XBTUSDT": {
+              "altname": "XBTUSDT",
+              "wsname": "XBT/USDT",
+              "aclass_base": "currency",
+              "base": "XXBT",
+              "aclass_quote": "currency",
+              "quote": "USDT",
+              "lot": "unit",
+              "pair_decimals": 1,
+              "lot_decimals": 8,
+              "lot_multiplier": 1,
+              "leverage_buy": [2, 3],
+              "leverage_sell": [2, 3],
+              "fees": [
+                [0, 0.26],
+                [50000, 0.24],
+                [100000, 0.22],
+                [250000, 0.2],
+                [500000, 0.18],
+                [1000000, 0.16],
+                [2500000, 0.14],
+                [5000000, 0.12],
+                [10000000, 0.1]
+              ],
+              "fees_maker": [
+                [0, 0.16],
+                [50000, 0.14],
+                [100000, 0.12],
+                [250000, 0.1],
+                [500000, 0.08],
+                [1000000, 0.06],
+                [2500000, 0.04],
+                [5000000, 0.02],
+                [10000000, 0]
+              ],
+              "fee_volume_currency": "ZUSD",
+              "margin_call": 80,
+              "margin_stop": 40,
+              "ordermin": "0.0002"
             }
         }
         """
@@ -317,7 +337,7 @@ cdef class KrakenExchange(ExchangeBase):
             try:
                 base, quote = split_to_base_quote(trading_pair)
                 base = convert_from_exchange_symbol(base)
-                min_order_size = Decimal(constants.BASE_ORDER_MIN.get(base, 0))
+                min_order_size = Decimal(rule.get('ordermin', 0))
                 min_price_increment = Decimal(f"1e-{rule.get('pair_decimals')}")
                 min_base_amount_increment = Decimal(f"1e-{rule.get('lot_decimals')}")
                 retval.append(
