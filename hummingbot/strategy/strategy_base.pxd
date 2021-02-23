@@ -16,6 +16,7 @@ cdef class StrategyBase(TimeIterator):
         EventListener _sb_expire_order_listener
         EventListener _sb_complete_buy_order_listener
         EventListener _sb_complete_sell_order_listener
+        EventListener _sb_complete_funding_payment_listener
         bint _sb_delegate_lock
         public OrderTracker _sb_order_tracker
 
