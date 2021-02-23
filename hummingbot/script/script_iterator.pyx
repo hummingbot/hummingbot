@@ -22,6 +22,7 @@ from hummingbot.script.script_interface import (
     PMMParameters,
     OnTick,
     OnStatus,
+    OnCommand,
     CallNotify,
     CallLog,
     PmmMarketInfo,
@@ -121,10 +122,10 @@ cdef class ScriptIterator(TimeIterator):
                     await asyncio.sleep(self._queue_check_interval)
                     continue
                 item = self._child_queue.get()
-                self.logger().info(f"received: {str(item)}")
                 if item is None:
                     break
                 if isinstance(item, StrategyParameter):
+                    self.logger().info(f"received: {str(item)}")
                     setattr(self._strategy, item.name, item.updated_value)
                 elif isinstance(item, CallNotify) and not self._is_unit_testing_mode:
                     # ignore this on unit testing as the below import will mess up unit testing.
@@ -141,6 +142,9 @@ cdef class ScriptIterator(TimeIterator):
 
     def request_status(self):
         self._parent_queue.put(OnStatus())
+
+    def request_command(self, cmd: str, args: List[str]):
+        self._parent_queue.put(OnCommand(cmd, args))
 
     def all_total_balances(self):
         all_bals = {m.name: m.get_all_balances() for m in self._markets}
