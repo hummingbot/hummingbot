@@ -775,7 +775,7 @@ cdef class OkexExchange(ExchangeBase):
                    dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t> get_tracking_nonce()
-            str order_id = f"HUMMINGBOT{tracking_nonce}"  # OKEx doesn't permits special characters
+            str order_id = f"93027a12dac34fBC{tracking_nonce}"  # OKEx doesn't permits special characters
 
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
         return order_id
