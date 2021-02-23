@@ -291,11 +291,17 @@ cdef class BeaxyExchange(ExchangeBase):
         Gets a list of the user's active orders via rest API
         :returns: json response
         """
-        day_ago = (datetime.utcnow() - timedelta(days=1)).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+        if self._in_flight_orders:
+            from_date = min(order.created_at for order in self._in_flight_orders.values())
+        else:
+            from_date = datetime.utcnow() - timedelta(minutes=5)
 
         result = await safe_gather(
             self._api_request('get', path_url=BeaxyConstants.TradingApi.OPEN_ORDERS_ENDPOINT),
-            self._api_request('get', path_url=BeaxyConstants.TradingApi.CLOSED_ORDERS_ENDPOINT.format(from_date=day_ago)),
+            self._api_request('get', path_url=BeaxyConstants.TradingApi.CLOSED_ORDERS_ENDPOINT.format(
+                from_date=from_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+            )),
         )
         return result
 
@@ -1072,6 +1078,7 @@ cdef class BeaxyExchange(ExchangeBase):
             trade_type,
             price,
             amount,
+            created_at=datetime.utcnow()
         )
 
     cdef c_did_timeout_tx(self, str tracking_id):

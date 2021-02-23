@@ -2,6 +2,7 @@
 
 from decimal import Decimal
 from typing import Any, Dict, Optional
+from datetime import datetime
 
 from hummingbot.core.event.events import OrderType, TradeType
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
@@ -17,7 +18,8 @@ cdef class BeaxyInFlightOrder(InFlightOrderBase):
         trade_type: TradeType,
         price: Decimal,
         amount: Decimal,
-        initial_state: str = 'new'
+        created_at: datetime,
+        initial_state: str = 'new',
     ):
         super().__init__(
             client_order_id,
@@ -29,6 +31,7 @@ cdef class BeaxyInFlightOrder(InFlightOrderBase):
             amount,
             initial_state
         )
+        self.created_at = created_at
 
     @property
     def is_done(self) -> bool:
@@ -52,6 +55,12 @@ cdef class BeaxyInFlightOrder(InFlightOrderBase):
         side = 'buy' if self.trade_type == TradeType.BUY else 'sell'
         return f'{order_type} {side}'
 
+    def to_json(self) -> Dict[str, Any]:
+        return dict(
+            created_at=self.created_at.isoformat(),
+            **super(BeaxyInFlightOrder, self).to_json()
+        )
+
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
         """
@@ -67,7 +76,8 @@ cdef class BeaxyInFlightOrder(InFlightOrderBase):
                 getattr(TradeType, data['trade_type']),
                 Decimal(data['price']),
                 Decimal(data['amount']),
-                data['last_state']
+                datetime.fromisoformat(data['created_at']),
+                data['last_state'],
             )
         retval.executed_amount_base = Decimal(data['executed_amount_base'])
         retval.executed_amount_quote = Decimal(data['executed_amount_quote'])

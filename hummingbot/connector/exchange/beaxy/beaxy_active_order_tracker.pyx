@@ -65,7 +65,7 @@ cdef class BeaxyActiveOrderTracker:
         return float(entry['rate']), float(entry['quantity'])
 
     def is_entry_valid(self, entry):
-        return all([k in entry for k in ['side', 'action', 'price', 'quantity']])
+        return all([k in entry for k in ['side', 'action', 'price']])
 
     cdef tuple c_convert_diff_message_to_np_arrays(self, object message):
         """
@@ -88,11 +88,16 @@ cdef class BeaxyActiveOrderTracker:
                 timestamp = message.timestamp
 
                 price = Decimal(str(entry['price']))
-                quantity = Decimal(str(entry['quantity']))
 
                 active_rows = self._active_bids if order_side == SIDE_BID else self._active_asks
 
                 if msg_action in (ACTION_UPDATE, ACTION_INSERT):
+
+                    if 'quantity' not in entry:
+                        continue
+
+                    quantity = Decimal(str(entry['quantity']))
+
                     active_rows[price] = quantity
                     yield [timestamp, float(price), quantity, message.update_id]
 
