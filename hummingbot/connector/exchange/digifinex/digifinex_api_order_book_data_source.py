@@ -3,6 +3,7 @@ import asyncio
 import logging
 import time
 import aiohttp
+import traceback
 import pandas as pd
 import hummingbot.connector.exchange.digifinex.digifinex_constants as constants
 
@@ -16,7 +17,7 @@ from . import digifinex_utils
 from .digifinex_active_order_tracker import DigifinexActiveOrderTracker
 from .digifinex_order_book import DigifinexOrderBook
 from .digifinex_websocket import DigifinexWebsocket
-from .digifinex_utils import ms_timestamp_to_s
+# from .digifinex_utils import ms_timestamp_to_s
 
 
 class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -41,10 +42,10 @@ class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
         result = {}
         async with aiohttp.ClientSession() as client:
-            resp = await client.get(f"{constants.REST_URL}/public/get-ticker")
+            resp = await client.get(f"{constants.REST_URL}/ticker")
             resp_json = await resp.json()
             for t_pair in trading_pairs:
-                last_trade = [o["a"] for o in resp_json["result"]["data"] if o["i"] ==
+                last_trade = [o["last"] for o in resp_json["ticker"] if o["symbol"] ==
                               digifinex_utils.convert_to_exchange_trading_pair(t_pair)]
                 if last_trade and last_trade[0] is not None:
                     result[t_pair] = last_trade[0]
@@ -53,13 +54,13 @@ class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
         async with aiohttp.ClientSession() as client:
-            async with client.get(f"{constants.REST_URL}/public/get-ticker", timeout=10) as response:
+            async with client.get(f"{constants.REST_URL}/ticker", timeout=10) as response:
                 if response.status == 200:
                     from hummingbot.connector.exchange.digifinex.digifinex_utils import \
                         convert_from_exchange_trading_pair
                     try:
                         data: Dict[str, Any] = await response.json()
-                        return [convert_from_exchange_trading_pair(item["i"]) for item in data["result"]["data"]]
+                        return [convert_from_exchange_trading_pair(item["symbol"]) for item in data["ticker"]]
                     except Exception:
                         pass
                         # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
@@ -72,7 +73,7 @@ class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         async with aiohttp.ClientSession() as client:
             orderbook_response = await client.get(
-                f"{constants.REST_URL}/public/get-book?depth=150&instrument_name="
+                f"{constants.REST_URL}/order_book?limit=150&symbol="
                 f"{digifinex_utils.convert_to_exchange_trading_pair(trading_pair)}"
             )
 
@@ -83,8 +84,7 @@ class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 )
 
             orderbook_data: List[Dict[str, Any]] = await safe_gather(orderbook_response.json())
-            orderbook_data = orderbook_data[0]["result"]["data"][0]
-
+            orderbook_data = orderbook_data[0]
         return orderbook_data
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
@@ -110,22 +110,20 @@ class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 ws = DigifinexWebsocket()
                 await ws.connect()
 
-                await ws.subscribe(list(map(
-                    lambda pair: f"trade.{digifinex_utils.convert_to_exchange_trading_pair(pair)}",
+                await ws.subscribe("trades", list(map(
+                    lambda pair: f"{digifinex_utils.convert_to_ws_trading_pair(pair)}",
                     self._trading_pairs
                 )))
 
                 async for response in ws.on_message():
-                    if response.get("result") is None:
-                        continue
-
-                    for trade in response["result"]["data"]:
-                        trade: Dict[Any] = trade
-                        trade_timestamp: int = ms_timestamp_to_s(trade["t"])
+                    params = response["params"]
+                    symbol = params[2]
+                    for trade in params[1]:
+                        trade_timestamp: int = trade["time"]
                         trade_msg: OrderBookMessage = DigifinexOrderBook.trade_message_from_exchange(
                             trade,
                             trade_timestamp,
-                            metadata={"trading_pair": digifinex_utils.convert_from_exchange_trading_pair(trade["i"])}
+                            metadata={"trading_pair": digifinex_utils.convert_from_ws_trading_pair(symbol)}
                         )
                         output.put_nowait(trade_msg)
 
@@ -146,26 +144,29 @@ class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 ws = DigifinexWebsocket()
                 await ws.connect()
 
-                await ws.subscribe(list(map(
-                    lambda pair: f"book.{digifinex_utils.convert_to_exchange_trading_pair(pair)}.150",
+                await ws.subscribe("depth", list(map(
+                    lambda pair: f"{digifinex_utils.convert_to_ws_trading_pair(pair)}",
                     self._trading_pairs
                 )))
 
                 async for response in ws.on_message():
-                    if response.get("result") is None:
-                        continue
+                    params = response["params"]
+                    symbol = params[2]
+                    order_book_data = params[1]
+                    timestamp: int = int(time.time())
 
-                    order_book_data = response["result"]["data"][0]
-                    timestamp: int = ms_timestamp_to_s(order_book_data["t"])
-                    # data in this channel is not order book diff but the entire order book (up to depth 150).
-                    # so we need to convert it into a order book snapshot.
-                    # Crypto.com does not offer order book diff ws updates.
-                    orderbook_msg: OrderBookMessage = DigifinexOrderBook.snapshot_message_from_exchange(
-                        order_book_data,
-                        timestamp,
-                        metadata={"trading_pair": digifinex_utils.convert_from_exchange_trading_pair(
-                            response["result"]["instrument_name"])}
-                    )
+                    if params[0] is True:
+                        orderbook_msg: OrderBookMessage = DigifinexOrderBook.snapshot_message_from_exchange(
+                            order_book_data,
+                            timestamp,
+                            metadata={"trading_pair": digifinex_utils.convert_from_ws_trading_pair(symbol)}
+                        )
+                    else:
+                        orderbook_msg: OrderBookMessage = DigifinexOrderBook.diff_message_from_exchange(
+                            order_book_data,
+                            timestamp,
+                            metadata={"trading_pair": digifinex_utils.convert_from_ws_trading_pair(symbol)}
+                        )
                     output.put_nowait(orderbook_msg)
 
             except asyncio.CancelledError:
@@ -190,7 +191,7 @@ class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 for trading_pair in self._trading_pairs:
                     try:
                         snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair)
-                        snapshot_timestamp: int = ms_timestamp_to_s(snapshot["t"])
+                        snapshot_timestamp: int = snapshot["date"]
                         snapshot_msg: OrderBookMessage = DigifinexOrderBook.snapshot_message_from_exchange(
                             snapshot,
                             snapshot_timestamp,
@@ -207,7 +208,8 @@ class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             "Unexpected error with WebSocket connection.",
                             exc_info=True,
                             app_warning_msg="Unexpected error with WebSocket connection. Retrying in 5 seconds. "
-                                            "Check network connection."
+                                            "Check network connection.\n"
+                                            + traceback.format_exc()
                         )
                         await asyncio.sleep(5.0)
                 this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)

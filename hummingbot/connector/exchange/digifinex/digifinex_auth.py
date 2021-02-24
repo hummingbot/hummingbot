@@ -1,11 +1,13 @@
 import hmac
 import hashlib
-from typing import Dict, Any
+import base64
+from typing import List, Dict, Any
+from hummingbot.connector.exchange.digifinex.digifinex_utils import get_ms_timestamp
 
 
 class DigifinexAuth():
     """
-    Auth class required by crypto.com API
+    Auth class required by digifinex API
     Learn more at https://exchange-docs.crypto.com/#digital-signature
     """
     def __init__(self, api_key: str, secret_key: str):
@@ -44,6 +46,20 @@ class DigifinexAuth():
             payload.encode('utf-8'),
             hashlib.sha256
         ).hexdigest()
+
+        return data
+
+    def generate_ws_signature(self) -> List[Any]:
+        data = []
+        data[0] = self.api_key
+        nounce = get_ms_timestamp()
+        data[1] = nounce
+
+        data[3] = base64.b64encode(hmac.new(
+            self.secret_key.encode('latin-1'),
+            f"{nounce}".encode('latin-1'),
+            hashlib.sha256
+        ).digest())
 
         return data
 
