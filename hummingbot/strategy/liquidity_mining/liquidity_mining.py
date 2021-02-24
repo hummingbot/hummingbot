@@ -327,16 +327,20 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
     def cancel_active_orders(self, proposals: List[Proposal]):
         for proposal in proposals:
-            if self._refresh_times[proposal.market] > self.current_timestamp:
-                continue
+            to_cancel = True
             cur_orders = [o for o in self.active_orders if o.trading_pair == proposal.market]
-            if not cur_orders or (all(self.order_age(o) < self._max_order_age for o in cur_orders)
-                                  and self.is_within_tolerance(cur_orders, proposal)):
-                continue
-            for order in cur_orders:
-                self.cancel_order(self._market_infos[proposal.market], order.client_order_id)
-                # To place new order on the next tick
-                self._refresh_times[order.trading_pair] = self.current_timestamp + 0.1
+            if cur_orders and any(self.order_age(o) > self._max_order_age for o in cur_orders):
+                to_cancel = True
+            else:
+                if self._refresh_times[proposal.market] > self.current_timestamp:
+                    to_cancel = False
+                elif cur_orders and self.is_within_tolerance(cur_orders, proposal):
+                    to_cancel = False
+            if to_cancel:
+                for order in cur_orders:
+                    self.cancel_order(self._market_infos[proposal.market], order.client_order_id)
+                    # To place new order on the next tick
+                    self._refresh_times[order.trading_pair] = self.current_timestamp + 0.1
 
     def execute_orders_proposal(self, proposals: List[Proposal]):
         for proposal in proposals:
