@@ -463,34 +463,35 @@ class ProbitExchange(ExchangeBase):
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
 
-        if amount < trading_rule.min_order_size:
-            raise ValueError(f"{trade_type.name} order amount {amount} is lower than the minimum order size "
-                             f"{trading_rule.min_order_size}.")
-
-        order_value: Decimal = amount * price
-        if order_value < trading_rule.min_order_value:
-            raise ValueError(f"{trade_type.name} order value {order_value} is lower than the minimum order value "
-                             f"{trading_rule.min_order_value}")
-
-        body_params = {
-            "market_id": trading_pair,
-            "type": "limit",  # ProBit Order Types ["limit", "market"}
-            "side": trade_type.name.lower(),  # ProBit Order Sides ["buy", "sell"]
-            "time_in_force": "gtc",  # gtc = Good-Til-Cancelled
-            "limit_price": str(price),
-            "quantity": str(amount),
-            "client_order_id": order_id
-        }
-
-        self.start_tracking_order(order_id,
-                                  None,
-                                  trading_pair,
-                                  trade_type,
-                                  price,
-                                  amount,
-                                  order_type
-                                  )
         try:
+            if amount < trading_rule.min_order_size:
+                raise ValueError(f"{trade_type.name} order amount {amount} is lower than the minimum order size "
+                                 f"{trading_rule.min_order_size}.")
+
+            order_value: Decimal = amount * price
+            if order_value < trading_rule.min_order_value:
+                raise ValueError(f"{trade_type.name} order value {order_value} is lower than the minimum order value "
+                                 f"{trading_rule.min_order_value}")
+
+            body_params = {
+                "market_id": trading_pair,
+                "type": "limit",  # ProBit Order Types ["limit", "market"}
+                "side": trade_type.name.lower(),  # ProBit Order Sides ["buy", "sell"]
+                "time_in_force": "gtc",  # gtc = Good-Til-Cancelled
+                "limit_price": str(price),
+                "quantity": str(amount),
+                "client_order_id": order_id
+            }
+
+            self.start_tracking_order(order_id,
+                                      None,
+                                      trading_pair,
+                                      trade_type,
+                                      price,
+                                      amount,
+                                      order_type
+                                      )
+
             order_result = await self._api_request(
                 method="POST",
                 path_url=CONSTANTS.NEW_ORDER_URL,
