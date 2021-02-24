@@ -264,7 +264,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         spot_token_balance = spot_market.get_available_balance(spot_token)
         deriv_token_balance = deriv_market.get_available_balance(deriv_token)
         required_spot_balance = arb_proposal.amount * arb_proposal.spot_side.order_price if arb_proposal.spot_side.is_buy else arb_proposal.amount
-        required_deriv_balance = arb_proposal.amount * arb_proposal.derivative_side.order_price
+        required_deriv_balance = (arb_proposal.amount * arb_proposal.derivative_side.order_price) / self._derivative_leverage
         if spot_token_balance < required_spot_balance:
             arb_proposal.amount = s_decimal_zero
             self.logger().info(f"Can't arbitrage, {spot_market.display_name} "
