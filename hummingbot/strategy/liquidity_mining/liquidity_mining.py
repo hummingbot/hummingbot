@@ -142,8 +142,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 float(size_q),
                 age_txt
             ])
-
-        return pd.DataFrame(data=data, columns=columns)
+        df = pd.DataFrame(data=data, columns=columns)
+        df.sort_values(by=["Market", "Side"], inplace=True)
+        return df
 
     def budget_status_df(self) -> pd.DataFrame:
         data = []
@@ -165,7 +166,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 float(quote_bal),
                 f"{base_pct:.0%} / {quote_pct:.0%}"
             ])
-        return pd.DataFrame(data=data, columns=columns).replace(np.nan, '', regex=True)
+        df = pd.DataFrame(data=data, columns=columns).replace(np.nan, '', regex=True)
+        df.sort_values(by=["Market"], inplace=True)
+        return df
 
     def market_status_df(self) -> pd.DataFrame:
         data = []
@@ -183,7 +186,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 f"{best_ask_pct:.2%}",
                 "" if self._volatility[market].is_nan() else f"{self._volatility[market]:.2%}",
             ])
-        return pd.DataFrame(data=data, columns=columns).replace(np.nan, '', regex=True)
+        df = pd.DataFrame(data=data, columns=columns).replace(np.nan, '', regex=True)
+        df.sort_values(by=["Market"], inplace=True)
+        return df
 
     async def miner_status_df(self) -> pd.DataFrame:
         data = []
@@ -200,7 +205,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 f"{campaign.apy:.2%}",
                 f"{campaign.spread_max:.2%}%"
             ])
-        return pd.DataFrame(data=data, columns=columns).replace(np.nan, '', regex=True)
+        df = pd.DataFrame(data=data, columns=columns).replace(np.nan, '', regex=True)
+        df.sort_values(by=["Market"], inplace=True)
+        return df
 
     async def format_status(self) -> str:
         if not self._ready_to_trade:
@@ -327,15 +334,13 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
     def cancel_active_orders(self, proposals: List[Proposal]):
         for proposal in proposals:
-            to_cancel = True
+            to_cancel = False
             cur_orders = [o for o in self.active_orders if o.trading_pair == proposal.market]
             if cur_orders and any(self.order_age(o) > self._max_order_age for o in cur_orders):
                 to_cancel = True
-            else:
-                if self._refresh_times[proposal.market] > self.current_timestamp:
-                    to_cancel = False
-                elif cur_orders and self.is_within_tolerance(cur_orders, proposal):
-                    to_cancel = False
+            elif self._refresh_times[proposal.market] <= self.current_timestamp and \
+                    cur_orders and not self.is_within_tolerance(cur_orders, proposal):
+                to_cancel = True
             if to_cancel:
                 for order in cur_orders:
                     self.cancel_order(self._market_infos[proposal.market], order.client_order_id)
