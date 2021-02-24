@@ -1,5 +1,6 @@
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
+    validate_market_trading_pair,
     validate_connector,
     validate_derivative,
     validate_decimal,
@@ -18,8 +19,18 @@ def exchange_on_validated(value: str) -> None:
     required_exchanges.append(value)
 
 
+def spot_market_validator(value: str) -> None:
+    exchange = spot_perpetual_arbitrage_config_map["spot_connector"].value
+    return validate_market_trading_pair(exchange, value)
+
+
 def spot_market_on_validated(value: str) -> None:
     requried_connector_trading_pairs[spot_perpetual_arbitrage_config_map["spot_connector"].value] = [value]
+
+
+def derivative_market_validator(value: str) -> None:
+    exchange = spot_perpetual_arbitrage_config_map["derivative_connector"].value
+    return validate_market_trading_pair(exchange, value)
 
 
 def derivative_market_on_validated(value: str) -> None:
@@ -61,6 +72,7 @@ spot_perpetual_arbitrage_config_map = {
         key="spot_market",
         prompt=spot_market_prompt,
         prompt_on_new=True,
+        validator=spot_market_validator,
         on_validated=spot_market_on_validated),
     "derivative_connector": ConfigVar(
         key="derivative_connector",
@@ -72,6 +84,7 @@ spot_perpetual_arbitrage_config_map = {
         key="derivative_market",
         prompt=derivative_market_prompt,
         prompt_on_new=True,
+        validator=derivative_market_validator,
         on_validated=derivative_market_on_validated),
     "order_amount": ConfigVar(
         key="order_amount",
