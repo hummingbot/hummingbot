@@ -85,7 +85,8 @@ class PerpetualFinanceDerivative(DerivativeBase):
         self._auto_approve_task = None
         self._real_time_balance_update = False
         self._poll_notifier = None
-        self._funding_payment_span = [1800, 0]
+        self._funding_payment_span = [120, 120]
+        self._fundingPayment = {}
 
     @property
     def name(self):
@@ -494,16 +495,11 @@ class PerpetualFinanceDerivative(DerivativeBase):
 
     async def _update_positions(self):
         position_tasks = []
-        funding_payment_tasks = []
         for pair in self._trading_pairs:
             position_tasks.append(self._api_request("post",
                                                     "perpfi/position",
                                                     {"pair": convert_to_exchange_trading_pair(pair)}))
-            funding_payment_tasks.append(self._api_request("get",
-                                                           "perpfi/funding_payment",
-                                                           {"pair": convert_to_exchange_trading_pair(pair)}))
         positions = await safe_gather(*position_tasks, return_exceptions=True)
-        funding_payments = await safe_gather(*funding_payment_tasks, return_exceptions=True)
         for trading_pair, position in zip(self._trading_pairs, positions):
             position = position.get("position", {})
             position_side = PositionSide.LONG if position.get("size", 0) > 0 else PositionSide.SHORT
@@ -524,17 +520,19 @@ class PerpetualFinanceDerivative(DerivativeBase):
                 if (trading_pair + position_side.name) in self._account_positions:
                     del self._account_positions[trading_pair + position_side.name]
 
-        for trading_pair, funding_payment in zip(self._trading_pairs, funding_payments):
-            payment = Decimal(str(funding_payment.payment))
-            action = "paid" if payment < 0 else "received"
-            if payment != Decimal("0"):
-                self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market.")
-                self.trigger_event(MarketEvent.FundingPaymentCompleted,
-                                   FundingPaymentCompletedEvent(timestamp=funding_payment.timestamp,
-                                                                market=self.name,
-                                                                rate=self._funding_info[trading_pair]["rate"],
-                                                                symbol=trading_pair,
-                                                                amount=payment))
+            payment = Decimal(str(position.fundingPayment))
+            oldPayment = self._fundingPayment.get(trading_pair, 0)
+            if payment != oldPayment:
+                self._fundingPayment = oldPayment
+                action = "paid" if payment < 0 else "received"
+                if payment != Decimal("0"):
+                    self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market.")
+                    self.trigger_event(MarketEvent.FundingPaymentCompleted,
+                                       FundingPaymentCompletedEvent(timestamp=time.time(),
+                                                                    market=self.name,
+                                                                    rate=self._funding_info[trading_pair]["rate"],
+                                                                    symbol=trading_pair,
+                                                                    amount=payment))
 
     async def _funding_info_polling_loop(self):
         while True:
