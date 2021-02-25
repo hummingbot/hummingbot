@@ -811,7 +811,8 @@ class ProbitExchange(ExchangeBase):
                                            tracked_order.executed_amount_base,
                                            tracked_order.executed_amount_quote,
                                            tracked_order.fee_paid,
-                                           tracked_order.order_type))
+                                           tracked_order.order_type,
+                                           tracked_order.exchange_order_id))
             self.stop_tracking_order(tracked_order.client_order_id)
 
     async def get_open_orders(self) -> List[OpenOrder]:
