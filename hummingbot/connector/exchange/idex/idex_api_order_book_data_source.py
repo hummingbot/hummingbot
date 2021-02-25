@@ -1,21 +1,40 @@
-import logging
-import time
 import asyncio
 import aiohttp
+import logging
 import pandas as pd
+from typing import (
+    Any,
+    AsyncIterable,
+    Dict,
+    List,
+    Optional,
+)
+from decimal import Decimal
+import time
+import ujson
+import websockets
+from websockets.exceptions import ConnectionClosed
 
-from typing import List, Dict, Any, Optional
+import requests
+import cachetools.func
 
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
-from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
+from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.utils.async_utils import safe_gather
 
+#imports from IDEX-specific build - maintain for now until module can stand apart from them
 from .client.asyncio import AsyncIdexClient
 from .utils import to_idex_pair, get_markets, from_idex_trade_type
 from .types.websocket.response import WebSocketResponseL2OrderBookShort, WebSocketResponseTradeShort
 
+#Need to import selected blockchain connection
+IDEX_REST_URL = f"https://api-{blockchain}.idex.io/"
+IDEX_WS_FEED = f"wss://websocket-{blockchain}.idex.io/v1"
+MAX_RETRIES = 20
+NaN = float("nan")
 
 class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
