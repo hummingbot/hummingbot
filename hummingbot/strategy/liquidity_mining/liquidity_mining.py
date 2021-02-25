@@ -87,7 +87,8 @@ class LiquidityMiningStrategy(StrategyPyBase):
         :param timestamp: current tick timestamp
         """
         if not self._ready_to_trade:
-            self._ready_to_trade = self._exchange.ready
+            # Check if there are restored orders, they should be canceled before strategy starts.
+            self._ready_to_trade = self._exchange.ready and len(self._exchange.limit_orders) == 0
             if not self._exchange.ready:
                 self.logger().warning(f"{self._exchange.name} is not ready. Please wait...")
                 return
@@ -176,7 +177,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
         return "\n".join(lines)
 
     def start(self, clock: Clock, timestamp: float):
-        pass
+        restored_orders = self._exchange.limit_orders
+        for order in restored_orders:
+            self._exchange.cancel(order.trading_pair, order.client_order_id)
 
     def stop(self, clock: Clock):
         pass
@@ -202,15 +205,16 @@ class LiquidityMiningStrategy(StrategyPyBase):
         # Equally assign buy and sell budgets to all markets
         self._sell_budgets = {m: s_decimal_zero for m in self._market_infos}
         self._buy_budgets = {m: s_decimal_zero for m in self._market_infos}
+        token_bal = self.adjusted_available_balances().get(self._token, s_decimal_zero)
         if self._token == list(self._market_infos.keys())[0].split("-")[0]:
             base_markets = [m for m in self._market_infos if m.split("-")[0] == self._token]
-            sell_size = self._exchange.get_available_balance(self._token) / len(base_markets)
+            sell_size = token_bal / len(base_markets)
             for market in base_markets:
                 self._sell_budgets[market] = sell_size
                 self._buy_budgets[market] = self._exchange.get_available_balance(market.split("-")[1])
         else:
             quote_markets = [m for m in self._market_infos if m.split("-")[1] == self._token]
-            buy_size = self._exchange.get_available_balance(self._token) / len(quote_markets)
+            buy_size = token_bal / len(quote_markets)
             for market in quote_markets:
                 self._buy_budgets[market] = buy_size
                 self._sell_budgets[market] = self._exchange.get_available_balance(market.split("-")[0])
