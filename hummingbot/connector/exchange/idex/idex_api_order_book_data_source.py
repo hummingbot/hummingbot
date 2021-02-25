@@ -25,18 +25,22 @@ from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerE
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.utils.async_utils import safe_gather
 
-#imports from IDEX-specific build - maintain for now until module can stand apart from them
+# imports from IDEX-specific build - maintain for now until module can stand apart from them
 from .client.asyncio import AsyncIdexClient
 from .utils import to_idex_pair, get_markets, from_idex_trade_type
 from .types.websocket.response import WebSocketResponseL2OrderBookShort, WebSocketResponseTradeShort
 
-#Need to import selected blockchain connection
+# Need to import selected blockchain connection
 IDEX_REST_URL = f"https://api-{blockchain}.idex.io/"
 IDEX_WS_FEED = f"wss://websocket-{blockchain}.idex.io/v1"
 MAX_RETRIES = 20
 NaN = float("nan")
 
+
 class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
+
+    MESSAGE_TIMEOUT = 30.0
+    PING_TIMEOUT = 10.0
 
     _logger: Optional[HummingbotLogger] = None
 
@@ -45,6 +49,9 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         if cls._logger is None:
             cls._logger = logging.getLogger(__name__)
         return cls._logger
+
+    def __init__(self, trading_pairs: List[str]):
+        super().__init__(trading_pairs)
 
     @classmethod
     async def _get_last_traded_price(cls, pair: str) -> float:
