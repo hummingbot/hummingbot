@@ -55,17 +55,31 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
-        # trading_pairs already provided in the parameter. Require an additional GET request for prices.
+        # trading_pairs already provided in the parameter. Require an additional GET request for prices. Will zip both lists together to product Dict.
         async with aiohttp.ClientSession() as client:
             ticker_url: str = f"{IDEX_REST_URL}/v1/tickers"
             resp = await client.get(ticker_url)
             markets = await resp.json()
-            # lastFillPrice not provided in API. "ask" price is used as stand-in value at this time.
+            # lastFillPrice not provided in IDEX API as of 25 February 2021. "ask" price is used as stand-in value at this time.
             raw_trading_pair_prices: List[float] = list(map(lambda details: details.get('ask'), markets))
             trading_pair_price_list: List[float]
             for raw_trading_pair_price in raw_trading_pair_prices:
                 trading_pair_price_list.append(raw_trading_pair_price)
             return {trading_pair: price for trading_pair, price in zip(trading_pairs, trading_pair_price_list)}
+
+    @classmethod
+    @cachetools.func.ttl_cache(ttl=10)
+    def get_mid_price(trading_pair: str) -> Optional[Decimal]:
+        async with aiohttp.ClientSession() as client:
+            # IDEX API does not provide individual ask/bid request capability. Must search for trading_pair each time get_mid_price is called.
+            ticker_url: str = str = f"{IDEX_REST_URL}/v1/tickers"
+            resp = await client.get(ticker_url)
+            markets = await resp.json()
+            for market in markets:
+                if (market.get('market') == trading_pair):
+                    if (market.get('bid') and market.get('ask')):
+                        result = (Decimal(market['bid']) + Decimal(market['ask'])) / Decimal("2")
+                        return result
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
