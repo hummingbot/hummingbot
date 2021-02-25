@@ -55,17 +55,43 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
-        tasks = [cls._get_last_traded_price(t_pair) for t_pair in trading_pairs]
+        async with aiohttp.ClientSession() as client:
+            # ensure IDEX_REST_URL has appropriate blockchain imported (ETH or BSC)
+            ticker_url: str = f"{IDEX_REST_URL}/v1/tickers"
+            resp = await client.get(ticker_url)
+            resp_json = await resp.json()
+
+        tasks = [cls.get_last_traded_price(t_pair) for t_pair in trading_pairs]
         results = await safe_gather(*tasks)
         return {t_pair: result for t_pair, result in zip(trading_pairs, results)}
 
     @classmethod
-    async def _get_last_traded_price(cls, pair: str) -> float:
+    async def get_last_traded_price(cls, trading_pair: str) -> float:
+
         result = await AsyncIdexClient().market.get_tickers(
             market=await to_idex_pair(pair)
         )
         if result:
             return float(result[0].close or 0)
+
+    @staticmethod
+    async def fetch_trading_pairs() -> List[str]:
+        try:
+            async with aiohttp.ClientSession() as client:
+                async with client.get(f"{IDEX_REST_URL}/products/", timeout=5) as response:
+                    if response.status == 200:
+                        markets = await response.json()
+                        raw_trading_pairs: List[str] = list(map(lambda details: details.get('market'), markets))
+                        trading_pair_list: List[str] = []
+                        for raw_trading_pair in raw_trading_pairs:
+                            trading_pair_list.append(raw_trading_pair)
+                        return trading_pair_list
+
+        except Exception:
+            # Do nothing if request fails. No autocomplete for trading pairs.
+            pass
+
+        return []
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         client = AsyncIdexClient()
