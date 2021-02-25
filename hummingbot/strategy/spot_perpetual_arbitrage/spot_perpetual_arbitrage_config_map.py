@@ -63,7 +63,7 @@ spot_perpetual_arbitrage_config_map = {
         prompt="",
         default="spot_perpetual_arbitrage"),
     "spot_connector": ConfigVar(
-        key="connector_1",
+        key="spot_connector",
         prompt="Enter a spot connector (Exchange/AMM) >>> ",
         prompt_on_new=True,
         validator=validate_connector,
