@@ -86,7 +86,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             async with aiohttp.ClientSession() as client:
                 # ensure IDEX_REST_URL has appropriate blockchain imported (ETH or BSC)
-                async with client.get(f"{IDEX_REST_URL}/products/", timeout=5) as response:
+                async with client.get(f"{IDEX_REST_URL}/v1/tickers", timeout=5) as response:
                     if response.status == 200:
                         markets = await response.json()
                         raw_trading_pairs: List[str] = list(map(lambda details: details.get('market'), markets))
@@ -100,6 +100,21 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             pass
 
         return []
+
+    @staticmethod
+    async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, any]:
+         """
+        Fetches order book snapshot for a particular trading pair from the rest API
+        :returns: Response from the rest API
+        """
+        product_order_book_url: str = f"{IDEX_REST_URL}/v1/orderbook?market={trading_pair}&level=2/"
+        async with client.get(product_order_book_url) as response:
+            response: aiohttp.ClientResponse = response
+            if response.status != 200:
+                raise IOError(f"Error fetching IDEX market snapshot for {trading_pair}."
+                              f"HTTP status is {response.status}.")
+            data: Dict[str, Any] = await response.json()
+            return data
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         client = AsyncIdexClient()
