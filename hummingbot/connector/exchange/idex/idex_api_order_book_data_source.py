@@ -55,29 +55,23 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
+        # trading_pairs already provided in the parameter. Require an additional GET request for prices.
         async with aiohttp.ClientSession() as client:
-            # ensure IDEX_REST_URL has appropriate blockchain imported (ETH or BSC)
             ticker_url: str = f"{IDEX_REST_URL}/v1/tickers"
             resp = await client.get(ticker_url)
-            resp_json = await resp.json()
-
-        tasks = [cls.get_last_traded_price(t_pair) for t_pair in trading_pairs]
-        results = await safe_gather(*tasks)
-        return {t_pair: result for t_pair, result in zip(trading_pairs, results)}
-
-    @classmethod
-    async def get_last_traded_price(cls, trading_pair: str) -> float:
-
-        result = await AsyncIdexClient().market.get_tickers(
-            market=await to_idex_pair(pair)
-        )
-        if result:
-            return float(result[0].close or 0)
+            markets = await resp.json()
+            # lastFillPrice not provided in API. "ask" price is used as stand-in value at this time.
+            raw_trading_pair_prices: List[float] = list(map(lambda details: details.get('ask'), markets))
+            trading_pair_price_list: List[float]
+            for raw_trading_pair_price in raw_trading_pair_prices:
+                trading_pair_price_list.append(raw_trading_pair_price)
+            return {trading_pair: price for trading_pair, price in zip(trading_pairs, trading_pair_price_list)}
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
         try:
             async with aiohttp.ClientSession() as client:
+                # ensure IDEX_REST_URL has appropriate blockchain imported (ETH or BSC)
                 async with client.get(f"{IDEX_REST_URL}/products/", timeout=5) as response:
                     if response.status == 200:
                         markets = await response.json()
