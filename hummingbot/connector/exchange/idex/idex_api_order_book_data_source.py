@@ -54,18 +54,18 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         super().__init__(trading_pairs)
 
     @classmethod
+    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
+        tasks = [cls._get_last_traded_price(t_pair) for t_pair in trading_pairs]
+        results = await safe_gather(*tasks)
+        return {t_pair: result for t_pair, result in zip(trading_pairs, results)}
+
+    @classmethod
     async def _get_last_traded_price(cls, pair: str) -> float:
         result = await AsyncIdexClient().market.get_tickers(
             market=await to_idex_pair(pair)
         )
         if result:
             return float(result[0].close or 0)
-
-    @classmethod
-    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
-        tasks = [cls._get_last_traded_price(pair) for pair in trading_pairs]
-        results = await safe_gather(*tasks)
-        return {pair: result for pair, result in zip(trading_pairs, results) if result}
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         client = AsyncIdexClient()
