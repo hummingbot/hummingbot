@@ -123,7 +123,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
         return -1.
 
     async def active_orders_df(self) -> pd.DataFrame:
-        size_q_col = f"Size ({self._token})" if self.is_token_a_quote_token() else "Size (Quote)"
+        size_q_col = f"Amt({self._token})" if self.is_token_a_quote_token() else "Amt(Quote)"
         columns = ["Market", "Side", "Price", "Spread", "Amount", size_q_col, "Age"]
         data = []
         for order in self.active_orders:
@@ -148,7 +148,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
     def budget_status_df(self) -> pd.DataFrame:
         data = []
-        columns = ["Market", f"Budget ({self._token})", "Base Bal", "Quote Bal", "Base / Quote"]
+        columns = ["Market", f"Budget({self._token})", "Base bal", "Quote bal", "Base/Quote"]
         for market, market_info in self._market_infos.items():
             mid_price = market_info.get_mid_price()
             base_bal = self._sell_budgets[market]
@@ -172,7 +172,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
     def market_status_df(self) -> pd.DataFrame:
         data = []
-        columns = ["Market", "Mid Price", "Best Bid %", "Best Ask %", "Volatility"]
+        columns = ["Market", "Mid price", "Best bid", "Best ask", "Volatility"]
         for market, market_info in self._market_infos.items():
             mid_price = market_info.get_mid_price()
             best_bid = self._exchange.get_price(market, False)
@@ -192,7 +192,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
     async def miner_status_df(self) -> pd.DataFrame:
         data = []
-        columns = ["Market", "Paid in", "Reward/week", "Curr Liquidity", "APY", "Max Spread"]
+        columns = ["Market", "Payout", "Reward/wk", "Liquidity", "Yield/yr", "Max spread"]
         campaigns = await get_campaign_summary(self._exchange.display_name, list(self._market_infos.keys()))
         for market, campaign in campaigns.items():
             reward_usd = await usd_value(campaign.payout_asset, campaign.reward_per_day * Decimal("7"))
