@@ -19,10 +19,13 @@ import requests
 import cachetools.func
 
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.connector.exchange.idex.idex_order_book import IdexOrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
-from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.connector.exchange.idex.idex_active_order_tracker import IdexActiveOrderTracker
 from hummingbot.core.utils.async_utils import safe_gather
 
 # imports from IDEX-specific build - maintain for now until module can stand apart from them
@@ -52,6 +55,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     def __init__(self, trading_pairs: List[str]):
         super().__init__(trading_pairs)
+        self._order_book_create_function = lambda: OrderBook()
 
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
@@ -117,26 +121,22 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return data
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
-        client = AsyncIdexClient()
-        snapshot = await client.market.get_orderbook(
-            market=trading_pair,
-            limit=1000
-        )
-        timestamp = time.time()
-        snapshot_message = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": trading_pair,
-            "update_id": snapshot.sequence,
-            "bids": snapshot.bids,
-            "asks": snapshot.asks
-        }, timestamp=timestamp)
+        async with aiohttp.ClientSession() as client:
+            snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
+            snapshot_timestamp: float = time.time()
+            # IDEXOrderBook not yet complete as of 25 Feb 2021
+            snapshot_msg: OrderBookMessage = IdexOrderBook.snapshot_message_from_exchange(
+                snapshot,
+                snapshot_timestamp,
+                metadata={"trading_pair": trading_pair}
+            )
+            active_order_tracker: IdexActiveOrderTracker = IdexActiveOrderTracker()
+            bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
+            order_book = self.order_book_create_function()
+            order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
+            return order_book
 
-        order_book = self.order_book_create_function()
-        order_book.apply_snapshot(
-            snapshot_message.bids,
-            snapshot_message.asks,
-            snapshot_message.update_id
-        )
-        return order_book
+        
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
