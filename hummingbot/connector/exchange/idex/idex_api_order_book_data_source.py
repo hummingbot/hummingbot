@@ -326,40 +326,31 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                client = AsyncIdexClient()
-                for trading_pair in self._trading_pairs:
-                    try:
-                        snapshot = await client.market.get_orderbook(
-                            market=trading_pair
-                        )
-                        timestamp = time.time()
-                        snapshot_message = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-                            "trading_pair": trading_pair,
-                            "update_id": snapshot.sequence,
-                            "bids": snapshot.bids,
-                            "asks": snapshot.asks,
-                        }, timestamp=timestamp)
-                        output.put_nowait(snapshot_message)
-                        self.logger().debug(f"Saved order book snapshot for {trading_pair}")
-                        # Be careful not to go above Binance's API rate limits.
-                        await asyncio.sleep(5.0)
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception:
-                        self.logger().error("Unexpected error.", exc_info=True)
-                        await asyncio.sleep(5.0)
-                this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
-                next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
-                delta: float = next_hour.timestamp() - time.time()
-                await asyncio.sleep(delta)
+                async with aiohttp.ClientSession() as client:
+                    for trading_pair in self._trading_pairs:
+                        try: 
+                            snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
+                            snapshot_timestamp: float = time.time()
+                            snapshot_msg: OrderBookMessage = IdexOrderBook.snapshot_message_from_exchange(
+                                snapshot,
+                                snapshot_timestamp,
+                                metadata={"product_id": trading_pair}
+                            )
+                            output.put_nowait(snapshot_msg)
+                            self.logger().debut(f"Saved orderbook snapshot for {trading_pair}")
+                            # Be careful not to go above API rate limits
+                            await asyncio.sleep(5.0)
+                        except asyncio.CancelledError:
+                            raise
+                        except Exception:
+                            self.logger().error("Unexpected error.", exc_info=True)
+                            await asyncio.sleep(5.0)
+                    this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
+                    next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
+                    delta: float = next_hour.timestamp() - time.time()
+                    await asyncio.sleep(delta)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error("Unexpected error.", exc_info=True)
                 await asyncio.sleep(5.0)
-
-    @staticmethod
-    async def fetch_trading_pairs() -> List[str]:
-        return [
-            market.market for market in (await AsyncIdexClient().public.get_markets())
-        ]
