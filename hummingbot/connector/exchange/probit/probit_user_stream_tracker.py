@@ -3,13 +3,14 @@
 import asyncio
 import logging
 
+import hummingbot.connector.exchange.probit.probit_constants as CONSTANTS
+
 from typing import (
     Optional,
     List,
 )
 
 from hummingbot.connector.exchange.probit.probit_auth import ProbitAuth
-from hummingbot.connector.exchange.probit.probit_constants import EXCHANGE_NAME
 from hummingbot.connector.exchange.probit.probit_api_user_stream_data_source import \
     ProbitAPIUserStreamDataSource
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -32,8 +33,10 @@ class ProbitUserStreamTracker(UserStreamTracker):
 
     def __init__(self,
                  probit_auth: Optional[ProbitAuth] = None,
-                 trading_pairs: Optional[List[str]] = []):
+                 trading_pairs: Optional[List[str]] = [],
+                 domain: str = "com"):
         super().__init__()
+        self._domain: str = domain
         self._probit_auth: ProbitAuth = probit_auth
         self._trading_pairs: List[str] = trading_pairs
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
@@ -50,7 +53,8 @@ class ProbitUserStreamTracker(UserStreamTracker):
         if not self._data_source:
             self._data_source = ProbitAPIUserStreamDataSource(
                 probit_auth=self._probit_auth,
-                trading_pairs=self._trading_pairs
+                trading_pairs=self._trading_pairs,
+                domain=self._domain
             )
         return self._data_source
 
@@ -60,7 +64,10 @@ class ProbitUserStreamTracker(UserStreamTracker):
         *required
         Name of the current exchange
         """
-        return EXCHANGE_NAME
+        if self._domain == "com":
+            return CONSTANTS.EXCHANGE_NAME
+        else:
+            return f"{CONSTANTS.EXCHANGE_NAME}_{self._domain}"
 
     async def start(self):
         """

@@ -71,7 +71,8 @@ class ProbitExchange(ExchangeBase):
                  probit_api_key: str,
                  probit_secret_key: str,
                  trading_pairs: Optional[List[str]] = None,
-                 trading_required: bool = True
+                 trading_required: bool = True,
+                 domain="com"
                  ):
         """
         :param probit_api_key: The API key to connect to private ProBit APIs.
@@ -79,12 +80,13 @@ class ProbitExchange(ExchangeBase):
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
         """
+        self._domain = domain
         super().__init__()
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._probit_auth = ProbitAuth(probit_api_key, probit_secret_key)
-        self._order_book_tracker = ProbitOrderBookTracker(trading_pairs=trading_pairs)
-        self._user_stream_tracker = ProbitUserStreamTracker(self._probit_auth, trading_pairs)
+        self._probit_auth = ProbitAuth(probit_api_key, probit_secret_key, domain=domain)
+        self._order_book_tracker = ProbitOrderBookTracker(trading_pairs=trading_pairs, domain=domain)
+        self._user_stream_tracker = ProbitUserStreamTracker(self._probit_auth, trading_pairs, domain=domain)
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
         self._poll_notifier = asyncio.Event()
@@ -101,7 +103,10 @@ class ProbitExchange(ExchangeBase):
 
     @property
     def name(self) -> str:
-        return CONSTANTS.EXCHANGE_NAME
+        if self._domain == "com":
+            return CONSTANTS.EXCHANGE_NAME
+        else:
+            return f"{CONSTANTS.EXCHANGE_NAME}_{self._domain}"
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -357,6 +362,7 @@ class ProbitExchange(ExchangeBase):
         signature to the request.
         :returns A response in json format.
         """
+        path_url = path_url.format(self._domain)
         client = await self._http_client()
 
         if is_auth_required:
