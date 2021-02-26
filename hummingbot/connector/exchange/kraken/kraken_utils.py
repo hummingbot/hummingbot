@@ -1,7 +1,9 @@
 import hummingbot.connector.exchange.kraken.kraken_constants as constants
 from typing import (
     Optional,
-    Tuple)
+    Tuple,
+    Dict,
+    Any)
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
@@ -50,6 +52,11 @@ def convert_from_exchange_trading_pair(exchange_trading_pair: str, available_tra
             # Option 2: Using kraken naming convention ( XXBT for Bitcoin, XXDG for Doge, ZUSD for USD, etc)
             connector_trading_pair = {''.join(tp.split('-')): tp for tp in available_trading_pairs}.get(
                 exchange_trading_pair)
+            if not connector_trading_pair:
+                # Option 3: Kraken naming convention but without the initial X and Z
+                connector_trading_pair = {''.join(convert_to_exchange_symbol(convert_from_exchange_symbol(s))
+                                                  for s in tp.split('-')): tp
+                                          for tp in available_trading_pairs}.get(exchange_trading_pair)
         return connector_trading_pair
 
     if not base or not quote:
@@ -75,6 +82,12 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str, delimiter: str = "") 
 
     exchange_trading_pair = f"{base}{delimiter}{quote}"
     return exchange_trading_pair
+
+
+def is_dark_pool(trading_pair_details: Dict[str, Any]):
+    if trading_pair_details.get('altname'):
+        return trading_pair_details.get('altname').endswith('.d')
+    return False
 
 
 KEYS = {
