@@ -716,7 +716,7 @@ class ProbitExchange(ExchangeBase):
                 if isinstance(order_update, Exception):
                     raise order_update
                 if "data" not in order_update:
-                    self.logger().info(f"_update_order_status data not in resp: {order_update}")
+                    self.logger().info(f"Unexpected response from GET /order. 'data' field not in resp: {order_update}")
                     continue
 
                 for order in order_update["data"]:
@@ -742,16 +742,18 @@ class ProbitExchange(ExchangeBase):
                                    client_order_id))
             tracked_order.cancelled_event.set()
             self.stop_tracking_order(client_order_id)
-        elif tracked_order.is_failure:
-            self.logger().info(f"The market order {client_order_id} has failed according to order status API. "
-                               f"Order Message: {order_msg}")
-            self.trigger_event(MarketEvent.OrderFailure,
-                               MarketOrderFailureEvent(
-                                   self.current_timestamp,
-                                   client_order_id,
-                                   tracked_order.order_type
-                               ))
-            self.stop_tracking_order(client_order_id)
+
+        # ProBit does not have a 'fail' order status
+        # elif tracked_order.is_failure:
+        #     self.logger().info(f"The market order {client_order_id} has failed according to order status API. "
+        #                        f"Order Message: {order_msg}")
+        #     self.trigger_event(MarketEvent.OrderFailure,
+        #                        MarketOrderFailureEvent(
+        #                            self.current_timestamp,
+        #                            client_order_id,
+        #                            tracked_order.order_type
+        #                        ))
+        #     self.stop_tracking_order(client_order_id)
 
     def _process_trade_message(self, order_msg: Dict[str, Any]):
         """
