@@ -105,7 +105,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return []
 
     @staticmethod
-    async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, any]:
+    async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
          """
         Fetches order book snapshot for a particular trading pair from the rest API
         :returns: Response from the rest API
@@ -121,7 +121,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         async with aiohttp.ClientSession() as client:
-            snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
+            snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
             snapshot_timestamp: float = time.time()
             # IDEXOrderBook not yet complete as of 25 Feb 2021
             snapshot_msg: OrderBookMessage = IdexOrderBook.snapshot_message_from_exchange(
@@ -150,7 +150,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             number_of_pairs: int = len(trading_pairs)
             for index, trading_pair in enumerate(trading_pairs):
                 try:
-                    snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
+                    snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
                     snapshot_timestamp: float = time.time()
                     snapshot_msg: OrderBookMessage = IdexOrderBook.snapshot_message_from_exchange(
                         snapshot,
@@ -206,32 +206,82 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         finally:
             await ws.close()
             
-    async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        """
+        *required
+        Subscribe to trade channel via idex web socket, and keep the connection open for incoming messages.
+
+        response example:
+            {
+            "type": "trades",
+            "data": {
+                    "m": "ETH-USDC",
+                    "i": "a0b6a470-a6bf-11ea-90a3-8de307b3b6da",
+                    "p": "202.74900000",
+                    "q": "10.00000000",
+                    "Q": "2027.49000000",
+                    "t": 1590394500000,
+                    "s": "sell",
+                    "u": 848778
+                    }
+            }
+        :param ev_loop: ev_loop to execute this function in
+        :param output: an async queue where the incoming messages are stored
+        """
+
         while True:
             try:
-                client = AsyncIdexClient()
-                async for message in client.subscribe(
-                        subscriptions=["l2orderbook"],
-                        markets=(await get_markets())):
-                    # Filter all none WebSocketResponseL2OrderBookShort types
-                    if not isinstance(message, WebSocketResponseL2OrderBookShort):
-                        continue
-                    timestamp = message.t
-                    order_book_message = OrderBookMessage(OrderBookMessageType.DIFF, {
-                        "trading_pair": message.m,
-                        "update_id": message.u,
-                        "bids": message.b,
-                        "asks": message.a
-                    }, timestamp=timestamp)
-                    output.put_nowait(order_book_message)
+                trading_pairs: List[str] = self._trading_pairs
+                async with websockets.connect(IDEX_WS_FEED) as ws:
+                    ws: websockets.WebSocketClientProtocol = ws
+                    subscribe_request: Dict[str, Any] = {
+                        "method": "subscribe",
+                        "markets": trading_pairs,
+                        "subscriptions": [
+                            "trades"
+                        ]
+                    }
+                    await ws.send(ujson.dumps(subscribe_request))
+                    async for raw_msg in self._inner_messages(ws):
+                        msg = ujson.loads(raw_msg) 
+                        msg_type: str = msg.get("type", None)
+                        if msg_type is None:
+                            raise ValueError(f"Idex Websocket message does not contain a type - {msg}"
+                        elif msg_type == "error":
+                            raise ValueError(f"Idex Websocket received error message - {msg['data']['message']}")
+                        elif msg_type == "trades":
+                            trade_msg: OrderBookMessage = IdexOrderBook.trade_message_from_exchange(msg)
+                            output.put_nowait(trade_msg)
+                        else:
+                            raise ValueError(f"Unrecognized Idex WebSocket message received - {msg}")
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error(
-                    "Unexpected error with WebSocket connection. Retrying after 30 seconds...",
-                    exc_info=True
-                )
-                await asyncio.sleep(30.0)
+                self.logger().network(
+                    f'{"Unexpected error with WebSocket connection."}',
+                    exc_info=True,
+                    app_warning_msg=f'{"Unexpected error with Websocket connection. Retrying in 30 seconds..."}'
+                                    f'{"Check network connection."}'
+                    )
+
+    async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        """
+        *required
+        Subscribe to diff channel via web socket, and keep the connection open for incoming messages
+        :param ev_loop: ev_loop to execute this function in
+        :param output: an async queue where the incoming messages are stored
+        """
+        
+        while True:
+            try:
+                trading_pairs: List[str] = self._trading_pairs
+                async with websockets.connect(IDEX_WS_FEED) as ws:
+                    ws: websockets.WebSocketClientProtocol = ws
+                    subscribe_request: Dict[str, Any] = {
+                        "type": "subscribe",
+                        "product_ids": trading_pairs,
+                        "channels": ["full"]
+                    }
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
@@ -267,35 +317,6 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception:
                 self.logger().error("Unexpected error.", exc_info=True)
                 await asyncio.sleep(5.0)
-
-    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        while True:
-            try:
-                client = AsyncIdexClient()
-                async for message in client.subscribe(
-                        subscriptions=["trades"],
-                        markets=[(await to_idex_pair(pair)) for pair in self._trading_pairs]):
-
-                    # Filter any none WebSocketResponseTradeShort types
-                    if not isinstance(message, WebSocketResponseTradeShort):
-                        continue
-
-                    timestamp = message.t
-                    trade_message = OrderBookMessage(OrderBookMessageType.TRADE, {
-                        "trading_pair": message.m,
-                        "trade_type": from_idex_trade_type(message.s),
-                        "trade_id": message.i,
-                        "update_id": message.u,
-                        "price": message.p,
-                        "amount": message.q
-                    }, timestamp=timestamp * 1e-3)
-                    output.put_nowait(trade_message)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
-                                    exc_info=True)
-                await asyncio.sleep(30.0)  # TODO: sleep timeout ?
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
