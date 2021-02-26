@@ -84,9 +84,9 @@ class ProbitInFlightOrder(InFlightOrderBase):
         if str(trade_update["order_id"]) != self.exchange_order_id or trade_id in self.trade_id_set:
             return False
         self.trade_id_set.add(trade_id)
-        self.executed_amount_base = Decimal(str(trade_update["quantity"]))
-        self.fee_paid = Decimal(str(trade_update["fee_amount"]))
-        self.executed_amount_quote = Decimal(str(trade_update["cost"]))
+        self.executed_amount_base += Decimal(str(trade_update["quantity"]))
+        self.fee_paid += Decimal(str(trade_update["fee_amount"]))
+        self.executed_amount_quote += Decimal(str(trade_update["cost"]))
         if not self.fee_asset:
             self.fee_asset = trade_update["fee_currency_id"]
         return True

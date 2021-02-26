@@ -377,7 +377,9 @@ class ProbitExchange(ExchangeBase):
             raise IOError(f"Error parsing data from {path_url}. Error: {str(e)}")
         if response.status != 200:
             raise IOError(f"Error fetching data from {path_url}. HTTP status is {response.status}. "
-                          f"Message: {parsed_response}")
+                          f"Message: {parsed_response} "
+                          f"Params: {params} "
+                          f"Data: {data}")
 
         return parsed_response
 
@@ -734,7 +736,9 @@ class ProbitExchange(ExchangeBase):
 
         # Update order execution status
         tracked_order.last_state = order_msg["status"]
-        if tracked_order.is_cancelled:
+
+        # NOTE: In ProBit partially-filled orders will retain "filled" status when canceled.
+        if tracked_order.is_cancelled or Decimal(str(order_msg["cancelled_quantity"])) > Decimal("0"):
             self.logger().info(f"Successfully cancelled order {client_order_id}.")
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(
@@ -743,7 +747,7 @@ class ProbitExchange(ExchangeBase):
             tracked_order.cancelled_event.set()
             self.stop_tracking_order(client_order_id)
 
-        # ProBit does not have a 'fail' order status
+        # NOTE: ProBit does not have a 'fail' order status
         # elif tracked_order.is_failure:
         #     self.logger().info(f"The market order {client_order_id} has failed according to order status API. "
         #                        f"Order Message: {order_msg}")
@@ -957,7 +961,7 @@ class ProbitExchange(ExchangeBase):
                     for asset, balance_details in event_message["data"].items():
                         self._account_balances[asset] = Decimal(str(balance_details["total"]))
                         self._account_available_balances[asset] = Decimal(str(balance_details["available"]))
-                elif channel in ["open_order", "order_history"]:
+                elif channel in ["open_order"]:
                     for order_update in event_message["data"]:
                         self._process_order_message(order_update)
                 elif channel == "trade_history":
