@@ -15,9 +15,11 @@ class ProbitAuth():
     Auth class required by ProBit API
     Learn more at https://docs-en.probit.com/docs/authorization-1
     """
-    def __init__(self, api_key: str, secret_key: str):
+    def __init__(self, api_key: str, secret_key: str, domain: str = "com"):
         self.api_key: str = api_key
         self.secret_key: str = secret_key
+
+        self._domain = domain
         self._oauth_token: str = None
         self._oauth_token_expiration_time: int = -1
 
@@ -52,7 +54,7 @@ class ProbitAuth():
                 body = ujson.dumps({
                     "grant_type": "client_credentials"
                 })
-                resp = await http_client.post(url=CONSTANTS.TOKEN_URL,
+                resp = await http_client.post(url=CONSTANTS.TOKEN_URL.format(self._domain),
                                               headers=headers,
                                               data=body)
                 token_resp = await resp.json()

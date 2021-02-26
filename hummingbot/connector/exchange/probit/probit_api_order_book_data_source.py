@@ -7,7 +7,7 @@ import time
 import ujson
 import websockets
 
-import hummingbot.connector.exchange.probit.probit_constants as constants
+import hummingbot.connector.exchange.probit.probit_constants as CONSTANTS
 
 from typing import (
     Any,
@@ -38,16 +38,17 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pairs: List[str] = None):
+    def __init__(self, trading_pairs: List[str] = None, domain: str = "com"):
         super().__init__(trading_pairs)
+        self._domain = domain
         self._trading_pairs: List[str] = trading_pairs
         self._snapshot_msg: Dict[str, any] = {}
 
     @classmethod
-    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
+    async def get_last_traded_prices(cls, trading_pairs: List[str], domain: str = "com") -> Dict[str, float]:
         result = {}
         async with aiohttp.ClientSession() as client:
-            async with client.get(f"{constants.TICKER_URL}") as response:
+            async with client.get(f"{CONSTANTS.TICKER_URL.format(domain)}") as response:
                 if response.status == 200:
                     resp_json = await response.json()
                     if "data" in resp_json:
@@ -58,25 +59,25 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return result
 
     @staticmethod
-    async def fetch_trading_pairs() -> List[str]:
+    async def fetch_trading_pairs(domain: str = "com") -> List[str]:
         async with aiohttp.ClientSession() as client:
-            async with client.get(f"{constants.MARKETS_URL}") as response:
+            async with client.get(f"{CONSTANTS.MARKETS_URL.format(domain)}") as response:
                 if response.status == 200:
                     resp_json: Dict[str, Any] = await response.json()
                     return [market["id"] for market in resp_json["data"]]
                 return []
 
     @staticmethod
-    async def get_order_book_data(trading_pair: str) -> Dict[str, any]:
+    async def get_order_book_data(trading_pair: str, domain: str = "com") -> Dict[str, any]:
         """
         Get whole orderbook
         """
         async with aiohttp.ClientSession() as client:
-            async with client.get(url=f"{constants.ORDER_BOOK_URL}",
+            async with client.get(url=f"{CONSTANTS.ORDER_BOOK_URL.format(domain)}",
                                   params={"market_id": trading_pair}) as response:
                 if response.status != 200:
                     raise IOError(
-                        f"Error fetching OrderBook for {trading_pair} at {constants.ORDER_BOOK_PATH_URL}. "
+                        f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.ORDER_BOOK_PATH_URL.format(domain)}. "
                         f"HTTP {response.status}. Response: {await response.json()}"
                     )
                 return await response.json()
@@ -128,7 +129,7 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         while True:
             try:
-                async with websockets.connect(uri=constants.WSS_URL) as ws:
+                async with websockets.connect(uri=CONSTANTS.WSS_URL.format(self._domain)) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     for trading_pair in self._trading_pairs:
                         params: Dict[str, Any] = {
@@ -169,7 +170,7 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         while True:
             try:
-                async with websockets.connect(uri=constants.WSS_URL) as ws:
+                async with websockets.connect(uri=CONSTANTS.WSS_URL.format(self._domain)) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     for trading_pair in self._trading_pairs:
                         params: Dict[str, Any] = {

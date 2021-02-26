@@ -34,13 +34,24 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, probit_auth: ProbitAuth, trading_pairs: Optional[List[str]] = []):
+    def __init__(self,
+                 probit_auth: ProbitAuth,
+                 trading_pairs: Optional[List[str]] = [],
+                 domain: str = "com"):
+        self._domain: str = domain
         self._websocket_client: websockets.WebSocketClientProtocol = None
         self._probit_auth: ProbitAuth = probit_auth
         self._trading_pairs = trading_pairs
 
         self._last_recv_time: float = 0
         super().__init__()
+
+    @property
+    def exchange_name(self) -> str:
+        if self._domain == "com":
+            return CONSTANTS.EXCHANGE_NAME
+        else:
+            return f"{CONSTANTS.EXCHANGE_NAME}_{self._domain}"
 
     @property
     def last_recv_time(self) -> float:
@@ -52,7 +63,7 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         try:
             if self._websocket_client is None:
-                self._websocket_client = await websockets.connect(CONSTANTS.WSS_URL)
+                self._websocket_client = await websockets.connect(CONSTANTS.WSS_URL.format(self._domain))
             return self._websocket_client
         except Exception:
             self.logger().network("Unexpected error occured with ProBit WebSocket Connection")
@@ -97,7 +108,7 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error(f"Error occured subscribing to {CONSTANTS.EXCHANGE_NAME} private channels. ",
+            self.logger().error(f"Error occured subscribing to {self.exchange_name} private channels. ",
                                 exc_info=True)
 
     async def _inner_messages(self,
