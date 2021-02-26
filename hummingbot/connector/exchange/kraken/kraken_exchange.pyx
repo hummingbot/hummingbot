@@ -29,7 +29,8 @@ from hummingbot.connector.exchange.kraken.kraken_utils import (
     convert_from_exchange_symbol,
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
-    split_to_base_quote)
+    split_to_base_quote,
+    is_dark_pool)
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.events import (
     MarketEvent,
@@ -197,7 +198,8 @@ cdef class KrakenExchange(ExchangeBase):
             asset_pairs_response = await client.get(ASSET_PAIRS_URI)
             asset_pairs_data: Dict[str, Any] = await asset_pairs_response.json()
             asset_pairs: Dict[str, Any] = asset_pairs_data["result"]
-            self._asset_pairs = {f"{details['base']}-{details['quote']}": details for _, details in asset_pairs.items()}
+            self._asset_pairs = {f"{details['base']}-{details['quote']}": details
+                                 for _, details in asset_pairs.items() if not is_dark_pool(details)}
         return self._asset_pairs
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
