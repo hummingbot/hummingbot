@@ -34,8 +34,8 @@ from .utils import to_idex_pair, get_markets, from_idex_trade_type
 from .types.websocket.response import WebSocketResponseL2OrderBookShort, WebSocketResponseTradeShort
 
 # Need to import selected blockchain connection
-IDEX_REST_URL = f"https://api-{blockchain}.idex.io/"
-IDEX_WS_FEED = f"wss://websocket-{blockchain}.idex.io/v1"
+IDEX_REST_URL = f"https://api-{}.idex.io/"
+IDEX_WS_FEED = f"wss://websocket-{}.idex.io/v1"
 MAX_RETRIES = 20
 NaN = float("nan")
 
@@ -53,14 +53,16 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pairs: List[str]):
+    def __init__(self, trading_pairs: List[str], blockchain):
         super().__init__(trading_pairs)
+        self._IDEX_REST_URL = IDEX_REST_URL.format{blockchain}
+        self._IDEX_WS_FEED = IDEX_WS_FEED.format{blockchain}
 
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
         # trading_pairs already provided in the parameter. Require an additional GET request for prices. Will zip both lists together to product Dict.
         async with aiohttp.ClientSession() as client:
-            ticker_url: str = f"{IDEX_REST_URL}/v1/tickers"
+            ticker_url: str = f"{self._IDEX_REST_URL}/v1/tickers"
             resp = await client.get(ticker_url)
             markets = await resp.json()
             # lastFillPrice not provided in IDEX API as of 25 February 2021. "ask" price is used as stand-in value at this time.
@@ -75,7 +77,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def get_mid_price(trading_pair: str) -> Optional[Decimal]:
         async with aiohttp.ClientSession() as client:
             # IDEX API does not provide individual ask/bid request capability. Must search for trading_pair each time get_mid_price is called.
-            ticker_url: str = str = f"{IDEX_REST_URL}/v1/tickers"
+            ticker_url: str = f"{self._IDEX_REST_URL}/v1/tickers"
             resp = await client.get(ticker_url)
             markets = await resp.json()
             for market in markets:
@@ -89,7 +91,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             async with aiohttp.ClientSession() as client:
                 # ensure IDEX_REST_URL has appropriate blockchain imported (ETH or BSC)
-                async with client.get(f"{IDEX_REST_URL}/v1/tickers", timeout=5) as response:
+                async with client.get(f"{self._IDEX_REST_URL}/v1/tickers", timeout=5) as response:
                     if response.status == 200:
                         markets = await response.json()
                         raw_trading_pairs: List[str] = list(map(lambda details: details.get('market'), markets))
@@ -110,7 +112,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Fetches order book snapshot for a particular trading pair from the rest API
         :returns: Response from the rest API
         """
-        product_order_book_url: str = f"{IDEX_REST_URL}/v1/orderbook?market={trading_pair}&level=2/"
+        product_order_book_url: str = f"{self._IDEX_REST_URL}/v1/orderbook?market={trading_pair}&level=2/"
         async with client.get(product_order_book_url) as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
@@ -233,7 +235,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 trading_pairs: List[str] = self._trading_pairs
-                async with websockets.connect(IDEX_WS_FEED) as ws:
+                async with websockets.connect(self._IDEX_WS_FEED) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     subscribe_request: Dict[str, Any] = 
                     {
@@ -289,7 +291,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 trading_pairs: List[str] = self._trading_pairs
-                async with websockets.connect(IDEX_WS_FEED) as ws:
+                async with websockets.connect(self._IDEX_WS_FEED) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     subscribe_request: Dict[str, Any] = 
                     {
