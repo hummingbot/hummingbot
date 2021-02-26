@@ -55,7 +55,6 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     def __init__(self, trading_pairs: List[str]):
         super().__init__(trading_pairs)
-        self._order_book_create_function = lambda: OrderBook()
 
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
@@ -136,7 +135,51 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
             return order_book
 
-        
+    async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
+        """
+        *required
+        Initializes order books and order book trackers for the list of trading pairs
+        returned by `self.fetch_trading_pairs`
+        :returns: A dictionary of order book trackers for each trading pair
+        """
+        # Get the currently active markets
+        async with aiohttp.ClientSession() as client:
+            trading_pairs: List[str] = self._trading_pairs
+            retval: Dict[str, OrderBookTrackerEntry] = {}
+
+            number_of_pairs: int = len(trading_pairs)
+            for index, trading_pair in enumerate(trading_pairs):
+                try:
+                    snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
+                    snapshot_timestamp: float = time.time()
+                    snapshot_msg: OrderBookMessage = IdexOrderBook.snapshot_message_from_exchange(
+                        snapshot,
+                        snapshot_timestamp,
+                        # Confirm whether there is a trading
+                        metadata={"trading_pair": trading_pair}
+                    )
+                    order_book: OrderBook = self.order_book_create_function()
+
+                    retval[trading_pair] = IdexOrderBookTrackerEntry(
+                        trading_pair,
+                        snapshot_timestamp,
+                        order_book,
+                        active_order_tracker
+                    )
+                    self.logger().info(f"Initialized order book for {trading pair}."
+                                       f"{index+1}/{number_of_pairs} completed.")
+                    await asyncio.sleep(0.6)
+                except IOError:
+                    self.logger().network(
+                        f"Error getting snapshot for {trading_pair}.",
+                        exc_info=True,
+                        app_warning_msg=f"Error getting snapshot for {trading_pair}. Check network connection."
+                    )
+                except Exception:
+                    self.logger().error(f"Error initializing order book for {trading_pair}.", exc_info=True)
+            return retval
+
+
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
