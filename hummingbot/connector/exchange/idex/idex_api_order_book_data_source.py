@@ -157,10 +157,12 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     snapshot_msg: OrderBookMessage = IdexOrderBook.snapshot_message_from_exchange(
                         snapshot,
                         snapshot_timestamp,
-                        # Confirm whether there is a trading
                         metadata={"trading_pair": trading_pair}
                     )
                     order_book: OrderBook = self.order_book_create_function()
+                    active_order_tracker: IdexActiveOrderTracker = IdexActiveOrderTracker()
+                    bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
+                    order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
 
                     retval[trading_pair] = IdexOrderBookTrackerEntry(
                         trading_pair,
