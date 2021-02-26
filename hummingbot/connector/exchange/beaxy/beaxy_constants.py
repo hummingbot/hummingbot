@@ -18,12 +18,9 @@ class BeaxyConstants:
         CREATE_ORDER_ENDPOINT = '/api/v2/orders'
         TRADE_SETTINGS_ENDPOINT = '/api/v2/tradingsettings'
 
-        LOGIN_ATTEMT_ENDPOINT = '/api/v1/login/attempt'
-        LOGIN_CONFIRM_ENDPOINT = '/api/v1/login/confirm'
-
-        WS_BASE_URL = 'wss://tradingapi.beaxy.com/websocket/v1'
-        WS_ORDERS_ENDPOINT = '/user/v1/orders'
-        WS_BALANCE_ENDPOINT = '/user/v1/balances'
+        WS_BASE_URL = 'wss://tradewith.beaxy.com'
+        WS_ORDERS_ENDPOINT = WS_BASE_URL + '/ws/v2/orders?access_token={access_token}'
+        WS_BALANCE_ENDPOINT = WS_BASE_URL + '/ws/v2/wallets?access_token={access_token}'
 
     class PublicApi:
         BASE_URL = 'https://services.beaxy.com'

@@ -359,43 +359,45 @@ cdef class BeaxyExchange(ExchangeBase):
                 del self._order_not_found_records[client_order_id]
                 continue
 
-            execute_price = Decimal(order_update['average_price'] if order_update['average_price'] else order_update['limit_price'])
+            execute_price = Decimal(order_update['limit_price'] if order_update['limit_price'] else order_update['average_price'])
 
             if order_update['filled_size']:
                 new_confirmed_amount = Decimal(order_update['filled_size'])
                 execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
 
-                order_type_description = tracked_order.order_type_description
-                # Emit event if executed amount is greater than 0.
                 if execute_amount_diff > s_decimal_0:
-                    order_filled_event = OrderFilledEvent(
-                        self._current_timestamp,
-                        tracked_order.client_order_id,
-                        tracked_order.trading_pair,
-                        tracked_order.trade_type,
-                        tracked_order.order_type,
-                        execute_price,
-                        execute_amount_diff,
-                        self.c_get_fee(
-                            tracked_order.base_asset,
-                            tracked_order.quote_asset,
-                            tracked_order.order_type,
+
+                    tracked_order.executed_amount_base = new_confirmed_amount
+                    tracked_order.executed_amount_quote += execute_amount_diff * execute_price
+
+                    order_type_description = tracked_order.order_type_description
+                    # Emit event if executed amount is greater than 0.
+                    if execute_amount_diff > s_decimal_0:
+                        order_filled_event = OrderFilledEvent(
+                            self._current_timestamp,
+                            tracked_order.client_order_id,
+                            tracked_order.trading_pair,
                             tracked_order.trade_type,
+                            tracked_order.order_type,
                             execute_price,
                             execute_amount_diff,
-                        ),
-                        exchange_trade_id=exchange_order_id,
-                    )
-                    self.logger().info(f'Filled {execute_amount_diff} out of {tracked_order.amount} of the '
-                                       f'{order_type_description} order {client_order_id}.')
-                    self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
-            else:
-                new_confirmed_amount = Decimal(order_update['size'])
+                            self.c_get_fee(
+                                tracked_order.base_asset,
+                                tracked_order.quote_asset,
+                                tracked_order.order_type,
+                                tracked_order.trade_type,
+                                execute_price,
+                                execute_amount_diff,
+                            ),
+                            exchange_trade_id=exchange_order_id,
+                        )
+                        self.logger().info(f'Filled {execute_amount_diff} out of {tracked_order.amount} of the '
+                                           f'{order_type_description} order {client_order_id}.')
+                        self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
             # Update the tracked order
             tracked_order.last_state = order_update['order_status'] if not closed_order else 'closed'
-            tracked_order.executed_amount_base = new_confirmed_amount
-            tracked_order.executed_amount_quote = new_confirmed_amount * execute_price
+
             if tracked_order.is_done:
                 if not tracked_order.is_failure:
                     if tracked_order.trade_type == TradeType.BUY:
@@ -815,18 +817,23 @@ cdef class BeaxyExchange(ExchangeBase):
         async for msg_type, event_message in self._iter_user_event_queue():
             try:
                 if msg_type == BeaxyConstants.UserStream.BALANCE_MESSAGE:
-                    for msg in event_message:
-                        asset_name = msg['currency_id']
-                        available_balance = Decimal(msg['available_for_trading'])
-                        total_balance = Decimal(msg['balance'])
+                    if event_message['type'] == 'update':
+                        msgs = [event_message['data']]
+                    elif event_message['type'] == 'snapshot':
+                        msgs = event_message['data']
+
+                    for msg in msgs:
+                        asset_name = msg['currency']
+                        available_balance = Decimal(msg['available_balance'])
+                        total_balance = Decimal(msg['total_balance'])
                         self._account_available_balances[asset_name] = available_balance
                         self._account_balances[asset_name] = total_balance
 
                 elif msg_type == BeaxyConstants.UserStream.ORDER_MESSAGE:
-                    order = event_message['order']
-                    exchange_order_id = order['id']
-                    client_order_id = order['text']
-                    order_status = order['status']
+                    order = event_message['data']
+                    exchange_order_id = order['order_id']
+                    client_order_id = order['comment']
+                    order_status = order['order_status']
 
                     if client_order_id is None:
                         continue
@@ -843,17 +850,17 @@ cdef class BeaxyExchange(ExchangeBase):
                     execute_price = s_decimal_0
                     execute_amount_diff = s_decimal_0
 
-                    if event_message['events']:
-                        order_event = event_message['events'][0]
-                        event_type = order_event['type']
+                    if order_status == 'partially_filled':
+                        order_filled_size = Decimal(order['trade_size'])
+                        execute_price = Decimal(order['trade_price'])
 
-                        if event_type == 'trade':
-                            execute_price = Decimal(order_event.get('trade_price', 0.0))
-                            execute_amount_diff = Decimal(order_event.get('trade_quantity', 0.0))
-                            tracked_order.executed_amount_base = Decimal(order['cumulative_quantity'])
-                            tracked_order.executed_amount_quote += execute_amount_diff * execute_price
+                        execute_amount_diff = order_filled_size - tracked_order.executed_amount_base
 
                         if execute_amount_diff > s_decimal_0:
+
+                            tracked_order.executed_amount_base = order_filled_size
+                            tracked_order.executed_amount_quote += Decimal(execute_amount_diff * execute_price)
+
                             self.logger().info(f'Filled {execute_amount_diff} out of {tracked_order.amount} of the '
                                                f'{tracked_order.order_type_description} order {tracked_order.client_order_id}')
 
@@ -877,7 +884,7 @@ cdef class BeaxyExchange(ExchangeBase):
                                                      exchange_trade_id=exchange_order_id
                                                  ))
 
-                    if order_status == 'completely_filled':
+                    elif order_status == 'completely_filled':
                         if tracked_order.trade_type == TradeType.BUY:
                             self.logger().info(f'The market buy order {tracked_order.client_order_id} has completed '
                                                f'according to Beaxy user stream.')

@@ -3,19 +3,17 @@
 import logging
 import asyncio
 import time
-import ujson
+import json
 import websockets
 
 from typing import AsyncIterable, Optional, List
 from websockets.exceptions import ConnectionClosed
 
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.utils.async_utils import safe_gather
 
 from hummingbot.connector.exchange.beaxy.beaxy_auth import BeaxyAuth
 from hummingbot.connector.exchange.beaxy.beaxy_constants import BeaxyConstants
-from hummingbot.connector.exchange.beaxy.beaxy_stomp_message import BeaxyStompMessage
 
 
 class BeaxyAPIUserStreamDataSource(UserStreamTrackerDataSource):
@@ -42,27 +40,15 @@ class BeaxyAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def last_recv_time(self) -> float:
         return self._last_recv_time
 
-    async def __listen_ws(self, dest: str):
+    async def __listen_ws(self, url: str):
         while True:
             try:
-                async with websockets.connect(BeaxyConstants.TradingApi.WS_BASE_URL) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
-                    connect_request = BeaxyStompMessage('CONNECT')
-                    connect_request.headers = await self._beaxy_auth.generate_ws_auth_dict()
-                    await ws.send(connect_request.serialize())
-
-                    orders_sub_request = BeaxyStompMessage('SUBSCRIBE')
-                    orders_sub_request.headers['id'] = f'sub-humming-{get_tracking_nonce()}'
-                    orders_sub_request.headers['destination'] = dest
-                    orders_sub_request.headers['X-Deltix-Nonce'] = str(get_tracking_nonce())
-                    await ws.send(orders_sub_request.serialize())
-
+                token = await self._beaxy_auth.get_token()
+                async with websockets.connect(url.format(access_token=token)) as ws:
                     async for raw_msg in self._inner_messages(ws):
-                        stomp_message = BeaxyStompMessage.deserialize(raw_msg)
-                        if stomp_message.has_error():
-                            raise Exception(f'Got error from ws. Headers - {stomp_message.headers}')
-
-                        msg = ujson.loads(stomp_message.body)
+                        msg = json.loads(raw_msg)  # ujson may round floats uncorrectly
+                        if msg.get('type') == 'keep_alive':
+                            continue
                         yield msg
             except asyncio.CancelledError:
                 raise
