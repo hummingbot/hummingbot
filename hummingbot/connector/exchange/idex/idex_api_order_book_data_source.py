@@ -209,9 +209,9 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
         *required
-        Subscribe to trade channel via idex web socket, and keep the connection open for incoming messages.
+        Subscribe to trade channel via Idex WebSocket and keep the connection open for incoming messages.
 
-        response example:
+        WebSocket trade subscription response example:
             {
             "type": "trades",
             "data": {
@@ -225,6 +225,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "u": 848778
                     }
             }
+
         :param ev_loop: ev_loop to execute this function in
         :param output: an async queue where the incoming messages are stored
         """
@@ -234,7 +235,8 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 trading_pairs: List[str] = self._trading_pairs
                 async with websockets.connect(IDEX_WS_FEED) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
-                    subscribe_request: Dict[str, Any] = {
+                    subscribe_request: Dict[str, Any] = 
+                    {
                         "method": "subscribe",
                         "markets": trading_pairs,
                         "subscriptions": [
@@ -267,7 +269,19 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
         *required
-        Subscribe to diff channel via web socket, and keep the connection open for incoming messages
+        Subscribe to  channel via web socket, and keep the connection open for incoming messages
+
+        WebSocket trade subscription response example:
+            {
+                "type": "l2orderbook",
+                "data": {
+                        "m": "ETH-USDC",
+                        "t": 1590393540000,
+                        "u": 71228110,
+                        "b": [["202.00100000", "10.00000000", 1]],
+                        "a": []
+                        }
+            }
         :param ev_loop: ev_loop to execute this function in
         :param output: an async queue where the incoming messages are stored
         """
@@ -277,11 +291,37 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 trading_pairs: List[str] = self._trading_pairs
                 async with websockets.connect(IDEX_WS_FEED) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
-                    subscribe_request: Dict[str, Any] = {
-                        "type": "subscribe",
-                        "product_ids": trading_pairs,
-                        "channels": ["full"]
+                    subscribe_request: Dict[str, Any] = 
+                    {
+                        "method": "subscribe",
+                        "markets": trading_pairs,
+                        "subscriptions": [
+                            "l2orderbook"
+                        ]
                     }
+                    await ws.send(ujson.dumps(subscribe_request))
+                    async for raw_msg in self._inner_messages(ws):
+                        msg = ujson.loads(raw_msg)
+                        msg_type: str = msg.get("type", None)
+                        if msg_type is None:
+                            raise ValueError(f"Idex WebSocket message does not contain a type - {msg}")
+                        elif msg_type == "error":
+                            raise ValueError(f"Idex WebSocket message received error message - {msg['data']['message']}")
+                        elif msg_type == "l2orderbook":
+                            order_book_message: OrderBookMessage = IdexOrderBook.diff_message_from_exchange(msg)
+                            output.put_nowait(order_book_message)
+                        else:
+                            raise ValueError(f"Unrecognized Idex WebSocket message received - {msg}")
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().network(
+                    f'{"Unexpected error with WebSocket connection."}',
+                    exc_info=True,
+                    app_warning_msg=f'{"Unexpected error with WebSocket connection. Retrying in 30 seconds."}'
+                                    f'{"Check network connection."}'
+                )
+                await asyncio.sleep(30.0)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
