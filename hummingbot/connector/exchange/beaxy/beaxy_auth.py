@@ -30,6 +30,7 @@ class BeaxyAuth:
 
         self.token: Optional[str] = None
         self.token_obtain = asyncio.Event()
+        self.token_obtain_started = False
         self.token_valid_to: float = 0
         self.token_next_refresh: float = 0
         self.token_obtain_start_time = 0
@@ -52,57 +53,70 @@ class BeaxyAuth:
         self.token_valid_to = 0
 
     async def get_token(self):
-        if self.is_token_valid():
+
+        for _ in range(3):
+            if self.is_token_valid():
+                return self.token
+
+            # token is invalid, waiting for a renew
+            if not self.token_obtain_started:
+                # if process of refreshing is not started, start it
+                await self._update_token()
+
+                if not self.is_token_valid():
+                    continue
+                return self.token
+
+            # waiting for fresh token
+            await asyncio.wait_for(self.token_obtain.wait(), timeout=TOKEN_OBTAIN_TIMEOUT)
+
+            if not self.is_token_valid():
+                continue
             return self.token
 
-        # token is invalid, waiting for a renew
-        if not self.token_obtain.is_set():
-            # if process of refreshing is not started, start it
-            await self._update_token()
-            return self.token
-
-        # waiting for fresh token
-        await asyncio.wait_for(self.token_obtain.wait(), timeout=TOKEN_OBTAIN_TIMEOUT)
-
-        if not self.is_token_valid():
-            raise ValueError('Invalid auth token timestamp')
-        return self.token
+        raise ValueError('Invalid auth token timestamp')
 
     async def _update_token(self):
 
         self.token_obtain.clear()
+        self.token_obtain_started = True
 
-        start_time = monotonic()
-        start_timestamp = datetime.now()
+        try:
 
-        async with aiohttp.ClientSession() as client:
-            async with client.post(
-                    f'{BeaxyConstants.TradingApi.BASE_URL}{BeaxyConstants.TradingApi.TOKEN_ENDPOINT}',
-                    json={'api_key_id': self.api_key, 'api_secret': self.api_secret}
-            ) as response:
-                response: aiohttp.ClientResponse = response
-                if response.status != 200:
-                    raise IOError(f'Error while connecting to login token endpoint. HTTP status is {response.status}.')
-                data: Dict[str, str] = await response.json()
+            start_time = monotonic()
+            start_timestamp = datetime.now()
 
-                if data['type'] != 'Bearer':
-                    raise IOError(f'Error while connecting to login token endpoint. Token type is {data["type"]}.')
+            async with aiohttp.ClientSession() as client:
+                async with client.post(
+                        f'{BeaxyConstants.TradingApi.BASE_URL}{BeaxyConstants.TradingApi.TOKEN_ENDPOINT}',
+                        json={'api_key_id': self.api_key, 'api_secret': self.api_secret}
+                ) as response:
+                    response: aiohttp.ClientResponse = response
+                    if response.status != 200:
+                        raise IOError(f'Error while connecting to login token endpoint. HTTP status is {response.status}.')
+                    data: Dict[str, str] = await response.json()
 
-                if int(data['expires_in']) < MIN_TOKEN_LIFE_TIME_SECONDS:
-                    raise IOError(f'Error while connecting to login token endpoint. Token lifetime to small {data["expires_in"]}.')
+                    if data['type'] != 'Bearer':
+                        raise IOError(f'Error while connecting to login token endpoint. Token type is {data["type"]}.')
 
-                self.token = data['access_token']
-                self.token_raw_expires = data['expires_in']
+                    if int(data['expires_in']) < MIN_TOKEN_LIFE_TIME_SECONDS:
+                        raise IOError(f'Error while connecting to login token endpoint. Token lifetime to small {data["expires_in"]}.')
 
-                # include safe interval, e.g. time that approx network request can take
-                self.token_obtain_start_time = start_timestamp
-                self.token_valid_to = start_time + int(data['expires_in']) - SAFE_TIME_PERIOD_SECONDS
-                self.token_next_refresh = start_time + TOKEN_REFRESH_PERIOD_SECONDS
+                    self.token = data['access_token']
+                    self.token_raw_expires = data['expires_in']
 
-                if not self.is_token_valid():
-                    raise ValueError('Invalid auth token timestamp')
+                    # include safe interval, e.g. time that approx network request can take
+                    self.token_obtain_start_time = start_timestamp
+                    self.token_valid_to = start_time + int(data['expires_in']) - SAFE_TIME_PERIOD_SECONDS
+                    self.token_next_refresh = start_time + TOKEN_REFRESH_PERIOD_SECONDS
 
-                self.token_obtain.set()
+                    if not self.is_token_valid():
+                        raise ValueError('Invalid auth token timestamp')
+
+                    self.token_obtain.set()
+
+        finally:
+            self.token_obtain_started = False
 
     async def _auth_token_polling_loop(self):
         """
