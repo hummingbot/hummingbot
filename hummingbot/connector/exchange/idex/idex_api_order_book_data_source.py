@@ -179,8 +179,33 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     self.logger().error(f"Error initializing order book for {trading_pair}.", exc_info=True)
             return retval
 
-
-
+    async def _inner_messages(self,
+                              ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
+        """
+        Generator function that returns messages from the web socket stream
+        :param ws: current web socket connection
+        :returns: message in AsyncIterable format
+        """
+        # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.  
+        try: 
+            while True:
+                try:
+                    msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
+                    yield msg
+                except asyncio.TimeoutError:
+                    try:
+                        pong_waiter = await ws.ping()
+                        await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)      
+                    except asyncio.TimeoutError:
+                        raise
+        except asyncio.TimeoutError:
+            self.logger().warning("Websock ping timed out. Going to reconnect...")
+            return
+        except ConnectionClosed:
+            return
+        finally:
+            await ws.close()
+            
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
