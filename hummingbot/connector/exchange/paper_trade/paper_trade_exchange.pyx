@@ -368,13 +368,14 @@ cdef class PaperTradeExchange(ExchangeBase):
                 <PyObject *> quantized_price,
                 <PyObject *> quantized_amount
             ))
-        safe_ensure_future(self.place_order(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
-                                            BuyOrderCreatedEvent(self._current_timestamp,
-                                                                 order_type,
-                                                                 trading_pair_str,
-                                                                 quantized_amount,
-                                                                 quantized_price,
-                                                                 order_id)))
+        safe_ensure_future(self.trigger_event_async(
+            self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
+            BuyOrderCreatedEvent(self._current_timestamp,
+                                 order_type,
+                                 trading_pair_str,
+                                 quantized_amount,
+                                 quantized_price,
+                                 order_id)))
         return order_id
 
     cdef str c_sell(self,
@@ -421,20 +422,15 @@ cdef class PaperTradeExchange(ExchangeBase):
                 <PyObject *> quantized_price,
                 <PyObject *> quantized_amount
             ))
-        safe_ensure_future(self.place_order(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
-                                            SellOrderCreatedEvent(self._current_timestamp,
-                                                                  order_type,
-                                                                  trading_pair_str,
-                                                                  quantized_amount,
-                                                                  quantized_price,
-                                                                  order_id)))
+        safe_ensure_future(self.trigger_event_async(
+            self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
+            SellOrderCreatedEvent(self._current_timestamp,
+                                  order_type,
+                                  trading_pair_str,
+                                  quantized_amount,
+                                  quantized_price,
+                                  order_id)))
         return order_id
-
-    async def place_order(self,
-                          event_tag,
-                          order_created_event):
-        await asyncio.sleep(0.01)
-        self.c_trigger_event(event_tag, order_created_event)
 
     cdef c_execute_buy(self, str order_id, str trading_pair, object amount):
         cdef:
@@ -1001,3 +997,9 @@ cdef class PaperTradeExchange(ExchangeBase):
 
     def get_taker_order_type(self):
         return OrderType.LIMIT
+
+    async def trigger_event_async(self,
+                                  event_tag,
+                                  event):
+        await asyncio.sleep(0.01)
+        self.c_trigger_event(event_tag, event)
