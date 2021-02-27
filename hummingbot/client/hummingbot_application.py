@@ -91,6 +91,7 @@ class HummingbotApplication(*commands):
         self.kill_switch: Optional[KillSwitch] = None
         self._app_warnings: Deque[ApplicationWarning] = deque()
         self._trading_required: bool = True
+        self._last_started_strategy_file: Optional[str] = None
 
         self.trade_fill_db: Optional[SQLConnectionManager] = None
         self.markets_recorder: Optional[MarketsRecorder] = None
@@ -225,7 +226,7 @@ class HummingbotApplication(*commands):
             conn_setting = CONNECTOR_SETTINGS[connector_name]
             if global_config_map.get("paper_trade_enabled").value and conn_setting.type == ConnectorType.Exchange:
                 try:
-                    connector = create_paper_trade_market(market_name, trading_pairs)
+                    connector = create_paper_trade_market(connector_name, trading_pairs)
                 except Exception:
                     raise
                 paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value

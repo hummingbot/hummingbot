@@ -155,8 +155,9 @@ class BalancerConnector(ConnectorBase):
         :return: A dictionary of token and its allowance (how much Balancer can spend).
         """
         ret_val = {}
-        resp = await self._api_request("post", "eth/allowances",
-                                       {"tokenAddressList": json.dumps(dict(zip(self._token_addresses.values(), self._token_decimals.values()))),
+        resp = await self._api_request("post", "eth/allowances-2",
+                                       {"tokenAddressList": ("".join([tok + "," for tok in self._token_addresses.values()])).rstrip(","),
+                                        "tokenDecimalList": ("".join([str(dec) + "," for dec in self._token_decimals.values()])).rstrip(","),
                                         "connector": self.name})
         for address, amount in resp["approvals"].items():
             ret_val[self.get_token(address)] = Decimal(str(amount))
@@ -487,13 +488,13 @@ class BalancerConnector(ConnectorBase):
         last_tick = self._last_balance_poll_timestamp
         current_tick = self.current_timestamp
         if not on_interval or (current_tick - last_tick) > self.UPDATE_BALANCE_INTERVAL:
-            self.logger().info("Update wallet balance")
             self._last_balance_poll_timestamp = current_tick
             local_asset_names = set(self._account_balances.keys())
             remote_asset_names = set()
             resp_json = await self._api_request("post",
-                                                "eth/balances",
-                                                {"tokenAddressList": json.dumps(dict(zip(self._token_addresses.values(), self._token_decimals.values())))})
+                                                "eth/balances-2",
+                                                {"tokenAddressList": ("".join([tok + "," for tok in self._token_addresses.values()])).rstrip(","),
+                                                 "tokenDecimalList": ("".join([str(dec) + "," for dec in self._token_decimals.values()])).rstrip(",")})
             for token, bal in resp_json["balances"].items():
                 if len(token) > 4:
                     token = self.get_token(token)
