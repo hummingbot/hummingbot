@@ -85,6 +85,11 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str, delimiter: str = "") 
 
 
 def is_dark_pool(trading_pair_details: Dict[str, Any]):
+    '''
+    Want to filter out dark pool trading pairs from the list of trading pairs
+    For more info, please check
+    https://support.kraken.com/hc/en-us/articles/360001391906-Introducing-the-Kraken-Dark-Pool
+    '''
     if trading_pair_details.get('altname'):
         return trading_pair_details.get('altname').endswith('.d')
     return False
