@@ -72,6 +72,13 @@ class ProbitAuth():
 
         return self.generate_auth_dict()
 
+    async def get_ws_auth_payload(self) -> Dict[str, Any]:
+        await self.get_auth_headers()
+        return {
+            "type": "authorization",
+            "token": self._oauth_token
+        }
+
     def generate_auth_dict(self):
         """
         Generates authentication signature and return it in a dictionary along with other inputs
