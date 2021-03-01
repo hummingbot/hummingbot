@@ -506,37 +506,38 @@ class PerpetualFinanceDerivative(DerivativeBase):
         positions = await safe_gather(*position_tasks, return_exceptions=True)
         for trading_pair, position in zip(self._trading_pairs, positions):
             position = position.get("position", {})
-            position_side = PositionSide.LONG if Decimal(position.get("size", "0")) > 0 else PositionSide.SHORT
-            unrealized_pnl = Decimal(position.get("pnl"))
-            entry_price = Decimal(position.get("entryPrice"))
             amount = Decimal(position.get("size"))
-            leverage = self._leverage[trading_pair]
-            if amount != 0:
-                self._account_positions[trading_pair + position_side.name] = Position(
-                    trading_pair=trading_pair,
-                    position_side=position_side,
-                    unrealized_pnl=unrealized_pnl,
-                    entry_price=entry_price,
-                    amount=amount,
-                    leverage=leverage
-                )
-            else:
-                if (trading_pair + position_side.name) in self._account_positions:
-                    del self._account_positions[trading_pair + position_side.name]
+            if amount != Decimal("0"):
+                position_side = PositionSide.LONG if amount > 0 else PositionSide.SHORT
+                unrealized_pnl = Decimal(position.get("pnl"))
+                entry_price = Decimal(position.get("entryPrice"))
+                leverage = self._leverage[trading_pair]
+                if amount != 0:
+                    self._account_positions[trading_pair + position_side.name] = Position(
+                        trading_pair=trading_pair,
+                        position_side=position_side,
+                        unrealized_pnl=unrealized_pnl,
+                        entry_price=entry_price,
+                        amount=amount,
+                        leverage=leverage
+                    )
+                else:
+                    if (trading_pair + position_side.name) in self._account_positions:
+                        del self._account_positions[trading_pair + position_side.name]
 
-            payment = Decimal(str(position.get("fundingPayment")))
-            oldPayment = self._fundingPayment.get(trading_pair, 0)
-            if payment != oldPayment:
-                self._fundingPayment[trading_pair] = oldPayment
-                action = "paid" if payment < 0 else "received"
-                if payment != Decimal("0"):
-                    self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market.")
-                    self.trigger_event(MarketEvent.FundingPaymentCompleted,
-                                       FundingPaymentCompletedEvent(timestamp=time.time(),
-                                                                    market=self.name,
-                                                                    funding_rate=self._funding_info[trading_pair]["rate"],
-                                                                    trading_pair=trading_pair,
-                                                                    amount=payment))
+                payment = Decimal(str(position.get("fundingPayment")))
+                oldPayment = self._fundingPayment.get(trading_pair, 0)
+                if payment != oldPayment:
+                    self._fundingPayment[trading_pair] = oldPayment
+                    action = "paid" if payment < 0 else "received"
+                    if payment != Decimal("0"):
+                        self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market.")
+                        self.trigger_event(MarketEvent.FundingPaymentCompleted,
+                                           FundingPaymentCompletedEvent(timestamp=time.time(),
+                                                                        market=self.name,
+                                                                        funding_rate=self._funding_info[trading_pair]["rate"],
+                                                                        trading_pair=trading_pair,
+                                                                        amount=payment))
 
     async def _funding_info_polling_loop(self):
         while True:
