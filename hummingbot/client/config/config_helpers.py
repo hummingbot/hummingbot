@@ -31,7 +31,6 @@ from hummingbot.client.settings import (
     CONF_FILE_PATH,
     CONF_POSTFIX,
     CONF_PREFIX,
-    TOKEN_ADDRESSES_FILE_PATH,
     CONNECTOR_SETTINGS
 )
 from hummingbot.client.config.security import Security
@@ -166,7 +165,6 @@ def get_eth_wallet_private_key() -> Optional[str]:
 
 def get_erc20_token_addresses() -> Dict[str, List]:
     token_list_url = global_config_map.get("ethereum_token_list_url").value
-    address_file_path = TOKEN_ADDRESSES_FILE_PATH
     token_list = {}
 
     resp = requests.get(token_list_url)
@@ -174,19 +172,6 @@ def get_erc20_token_addresses() -> Dict[str, List]:
 
     for token in decoded_resp["tokens"]:
         token_list[token["symbol"]] = [token["address"], token["decimals"]]
-
-    try:
-        with open(address_file_path) as f:
-            overrides: Dict[str, str] = json.load(f)
-            for token, address in overrides.items():
-                override_token = token_list.get(token, [address, 18])
-                token_list[token] = [address, override_token[1]]
-    except FileNotFoundError:
-        # create override file for first run w docker
-        with open(address_file_path, "w+") as f:
-            f.write(json.dumps({}))
-    except Exception as e:
-        logging.getLogger().error(e, exc_info=True)
 
     return token_list
 

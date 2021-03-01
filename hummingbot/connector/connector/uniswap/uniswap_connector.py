@@ -31,7 +31,6 @@ from hummingbot.core.event.events import (
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.connector.uniswap.uniswap_in_flight_order import UniswapInFlightOrder
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
-from hummingbot.core.utils.eth_gas_station_lookup import get_gas_price
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import get_erc20_token_addresses
 
@@ -76,7 +75,6 @@ class UniswapConnector(ConnectorBase):
             tokens.update(set(trading_pair.split("-")))
         self._erc_20_token_list = self.token_list()
         self._token_addresses = {t: l[0] for t, l in self._erc_20_token_list.items() if t in tokens}
-        self._token_decimals = {t: l[1] for t, l in self._erc_20_token_list.items() if t in tokens}
         self._wallet_private_key = wallet_private_key
         self._ethereum_rpc_url = ethereum_rpc_url
         self._trading_required = trading_required
@@ -124,8 +122,7 @@ class UniswapConnector(ConnectorBase):
         base, quote = self._trading_pairs[0].split("-")
         resp = await self._api_request("post", "eth/uniswap/start",
                                        {"base": base,
-                                        "quote": quote,
-                                        "gasPrice": str(get_gas_price())
+                                        "quote": quote
                                         })
         status = resp["success"]
         return status
@@ -154,7 +151,6 @@ class UniswapConnector(ConnectorBase):
         resp = await self._api_request("post",
                                        "eth/approve",
                                        {"token": token_symbol,
-                                        "gasPrice": str(get_gas_price()),
                                         "connector": self.name})
         amount_approved = Decimal(str(resp["amount"]))
         if amount_approved > 0:
@@ -198,8 +194,9 @@ class UniswapConnector(ConnectorBase):
             if "price" not in resp.keys():
                 self.logger().info(f"Unable to get price: {resp['info']}")
             else:
-                if resp["price"] is not None:
-                    return Decimal(str(resp["price"]))
+                if resp["price"] is not None and resp["gasPrice"] is not None:
+                    gas_price = resp["gasPrice"]
+                    return Decimal(str(gas_price))
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -269,18 +266,17 @@ class UniswapConnector(ConnectorBase):
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
         base, quote = trading_pair.split("-")
-        gas_price = get_gas_price()
         api_params = {"base": base,
                       "quote": quote,
                       "side": trade_type.name.upper(),
                       "amount": str(amount),
                       "limitPrice": str(price),
-                      "gasPrice": str(gas_price),
                       }
-        self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, gas_price)
         try:
             order_result = await self._api_request("post", "eth/uniswap/trade", api_params)
             hash = order_result.get("txHash")
+            gas_price = order_result.get("gasPrice")
+            self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, gas_price)
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {trade_type.name} order {order_id} txHash: {hash} "
@@ -428,7 +424,7 @@ class UniswapConnector(ConnectorBase):
         """
         Checks if all tokens have allowance (an amount approved)
         """
-        return len(self._allowances.values()) == len(self._token_addresses.values()) and \
+        return len(self._allowances.values()) == len(self._token_addresses.keys()) and \
             all(amount > s_decimal_0 for amount in self._allowances.values())
 
     @property
@@ -493,9 +489,6 @@ class UniswapConnector(ConnectorBase):
                                       exc_info=True,
                                       app_warning_msg="Could not fetch balances from Gateway API.")
                 await asyncio.sleep(0.5)
-
-    def get_token(self, token_address: str) -> str:
-        return [k for k, v in self._token_addresses.items() if v == token_address][0]
 
     async def _update_balances(self):
         """

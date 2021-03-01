@@ -46,15 +46,10 @@ global_configs_to_display = ["0x_active_cancels",
                              "script_file_path",
                              "manual_gas_price",
                              "ethereum_chain_name",
-                             "ethgasstation_gas_enabled",
-                             "ethgasstation_api_key",
-                             "ethgasstation_gas_level",
-                             "ethgasstation_refresh_time",
                              "gateway_enabled",
                              "gateway_cert_passphrase",
                              "gateway_api_host",
-                             "gateway_api_port",
-                             "balancer_max_swaps"]
+                             "gateway_api_port"]
 
 
 class ConfigCommand:
