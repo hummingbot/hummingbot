@@ -162,9 +162,9 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
                 if self._maximize_funding_rate:
                     execute_arb = not self.would_receive_funding_payment(self.deriv_position)
                     if execute_arb:
-                        self.timed_logger(timestamp, "Waiting for funding payment.")
-                    else:
                         funding_msg = "Time for funding payment, executing second arbitrage to prevent paying funding fee"
+                    else:
+                        funding_msg = "Waiting for funding payment."
                 else:
                     funding_msg = "Time for funding payment, executing second arbitrage " \
                                   "immediately since we don't intend to maximize funding rate"
