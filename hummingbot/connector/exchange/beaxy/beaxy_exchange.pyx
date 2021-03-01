@@ -360,10 +360,15 @@ cdef class BeaxyExchange(ExchangeBase):
                 continue
 
             execute_price = Decimal(order_update['limit_price'] if order_update['limit_price'] else order_update['average_price'])
+            new_confirmed_amount = Decimal(order_update['size'])
+
+            # Update the tracked order
+            tracked_order.executed_amount_base = new_confirmed_amount
+            tracked_order.executed_amount_quote = new_confirmed_amount * execute_price
+            tracked_order.last_state = order_update['order_status']
 
             if order_update['filled_size']:
-                new_confirmed_amount = Decimal(order_update['filled_size'])
-                execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
+                execute_amount_diff = Decimal(order_update['filled_size']) - tracked_order.executed_amount_base
 
                 if execute_amount_diff > s_decimal_0:
 
@@ -395,11 +400,8 @@ cdef class BeaxyExchange(ExchangeBase):
                                            f'{order_type_description} order {client_order_id}.')
                         self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
-            # Update the tracked order
-            tracked_order.last_state = order_update['order_status'] if not closed_order else 'closed'
-
             if tracked_order.is_done:
-                if not tracked_order.is_failure:
+                if not tracked_order.is_failure and not tracked_order.is_cancelled:
                     if tracked_order.trade_type == TradeType.BUY:
                         self.logger().info(f'The market buy order {tracked_order.client_order_id} has completed '
                                            f'according to order status API.')
