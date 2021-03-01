@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import ujson
 import logging
 from typing import (
@@ -18,16 +17,16 @@ from hummingbot.core.data_type.order_book_message import (
 )
 from hummingbot.connector.exchange.idex.idex_order_book_message import IdexOrderBookMessage
 
-_cbpob_logger = None
+_ibpob_logger = None
 
 
 cdef class IdexOrderBook(OrderBook):
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global _cbpob_logger
-        if _cbpob_logger is None:
-            _cbpob_logger = logging.getLogger(__name__)
-        return _cbpob_logger
+        global _ibpod_logger
+        if _ibpob_logger is None:
+            _ibpob_logger = logging.getLogger(__name__)
+        return _ibpob_logger
 
     @classmethod
     def snapshot_message_from_exchange(cls,
@@ -36,8 +35,8 @@ cdef class IdexOrderBook(OrderBook):
                                        metadata: Optional[Dict] = None) -> OrderBookMessage:
         """
         *required
-        Convert json snapshot data into standard OrderBookMessage format
-        :param msg: json snapshot data from live web socket stream
+        Convert JSON snapshot data into standard OrderBookMessage format
+        :param msg: json snapshot data from api fetch request or live web socket stream
         :param timestamp: timestamp attached to incoming data
         :return: IdexOrderBookMessage
         """
