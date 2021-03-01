@@ -105,8 +105,14 @@ class IdexOrderBookTracker(OrderBookTracker):
 
         while True:
             try:
-                saved_messages = self._saved_message_queues[trading_pair]
-                message = saved_messages.popleft() if len(saved_messages) else (await message_queue.get())
+                message: OrderBookMessage = None
+                saved_messages: Deque[OrderBookMessage] = self._saved_message_queues[trading_pair]
+
+                # Process saved messages first if there are any
+                if len(saved_messages) > 0:
+                    message = saved_messages.popleft()
+                else:
+                    message = await message_queue.get()
 
                 if message.type is OrderBookMessageType.DIFF:
                     order_book.apply_diffs(message.bids, message.asks, message.update_id)
