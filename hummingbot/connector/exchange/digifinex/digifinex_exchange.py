@@ -8,14 +8,15 @@ from typing import (
 )
 from decimal import Decimal
 import asyncio
-import json
-import aiohttp
+# import json
+# import aiohttp
 import math
 import time
 
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.clock import Clock
+from hummingbot.core.utils import estimate_fee
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -35,12 +36,13 @@ from hummingbot.core.event.events import (
     TradeFee
 )
 from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.exchange.digifinex.digifinex_global import DigifinexGlobal
 from hummingbot.connector.exchange.digifinex.digifinex_order_book_tracker import DigifinexOrderBookTracker
 from hummingbot.connector.exchange.digifinex.digifinex_user_stream_tracker import DigifinexUserStreamTracker
-from hummingbot.connector.exchange.digifinex.digifinex_auth import DigifinexAuth
+# from hummingbot.connector.exchange.digifinex.digifinex_auth import DigifinexAuth
 from hummingbot.connector.exchange.digifinex.digifinex_in_flight_order import DigifinexInFlightOrder
 from hummingbot.connector.exchange.digifinex import digifinex_utils
-from hummingbot.connector.exchange.digifinex import digifinex_constants as Constants
+# from hummingbot.connector.exchange.digifinex import digifinex_constants as Constants
 from hummingbot.core.data_type.common import OpenOrder
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
@@ -78,14 +80,14 @@ class DigifinexExchange(ExchangeBase):
         super().__init__()
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._digifinex_auth = DigifinexAuth(key, secret)
+        self._global = DigifinexGlobal(key, secret)
+        # self._rest_api = DigifinexRestApi(self._digifinex_auth, self._http_client)
         self._order_book_tracker = DigifinexOrderBookTracker(trading_pairs=trading_pairs)
-        self._user_stream_tracker = DigifinexUserStreamTracker(self._digifinex_auth, trading_pairs)
+        self._user_stream_tracker = DigifinexUserStreamTracker(self._global, trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
-        self._shared_client = None
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
-        self._in_flight_orders = {}  # Dict[client_order_id:str, DigifinexInFlightOrder]
+        self._in_flight_orders: Dict[str, DigifinexInFlightOrder] = {}  # Dict[client_order_id:str, DigifinexInFlightOrder]
         self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
         self._status_polling_task = None
@@ -218,21 +220,14 @@ class DigifinexExchange(ExchangeBase):
         the network connection. Simply ping the network (or call any light weight public API).
         """
         try:
-            # since there is no ping endpoint, the lowest rate call is to get BTC-USDT ticker
-            await self._api_request("get", "public/get-ticker?instrument_name=BTC_USDT")
+            await self._global.rest_api.request("get", "ping")
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception as e:
+            _ = e
+            self.logger().exception('check_network', stack_info=True)
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
-
-    async def _http_client(self) -> aiohttp.ClientSession:
-        """
-        :returns Shared client session instance
-        """
-        if self._shared_client is None:
-            self._shared_client = aiohttp.ClientSession()
-        return self._shared_client
 
     async def _trading_rules_polling_loop(self):
         """
@@ -252,7 +247,7 @@ class DigifinexExchange(ExchangeBase):
                 await asyncio.sleep(0.5)
 
     async def _update_trading_rules(self):
-        instruments_info = await self._api_request("get", path_url="markets")
+        instruments_info = await self._global.rest_api.request("get", path_url="markets")
         self._trading_rules.clear()
         self._trading_rules = self._format_trading_rules(instruments_info)
 
@@ -289,51 +284,6 @@ class DigifinexExchange(ExchangeBase):
             except Exception:
                 self.logger().error(f"Error parsing the trading pair rule {rule}. Skipping.", exc_info=True)
         return result
-
-    async def _api_request(self,
-                           method: str,
-                           path_url: str,
-                           params: Dict[str, Any] = {},
-                           is_auth_required: bool = False) -> Dict[str, Any]:
-        """
-        Sends an aiohttp request and waits for a response.
-        :param method: The HTTP method, e.g. get or post
-        :param path_url: The path url or the API end point
-        :param is_auth_required: Whether an authentication is required, when True the function will add encrypted
-        signature to the request.
-        :returns A response in json format.
-        """
-        url = f"{Constants.REST_URL}/{path_url}"
-        client = await self._http_client()
-        if is_auth_required:
-            request_id = digifinex_utils.RequestId.generate_request_id()
-            data = {"params": params}
-            params = self._digifinex_auth.generate_auth_dict(path_url, request_id,
-                                                             digifinex_utils.get_ms_timestamp(), data)
-            headers = self._digifinex_auth.get_headers()
-        else:
-            headers = {"Content-Type": "application/json"}
-
-        if method == "get":
-            response = await client.get(url, headers=headers)
-        elif method == "post":
-            post_json = json.dumps(params)
-            response = await client.post(url, data=post_json, headers=headers)
-        else:
-            raise NotImplementedError
-
-        try:
-            parsed_response = json.loads(await response.text())
-        except Exception as e:
-            raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
-        if response.status != 200:
-            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. "
-                          f"Message: {parsed_response}")
-        if parsed_response["code"] != 0:
-            raise IOError(f"{url} API call failed, response: {parsed_response}")
-        # print(f"REQUEST: {method} {path_url} {params}")
-        # print(f"RESPONSE: {parsed_response}")
-        return parsed_response
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):
         """
@@ -391,7 +341,12 @@ class DigifinexExchange(ExchangeBase):
         :param trading_pair: The market (e.g. BTC-USDT) of the order.
         :param order_id: The internal order id (also called client_order_id)
         """
-        safe_ensure_future(self._execute_cancel(trading_pair, order_id))
+        tracked_order = self._in_flight_orders.get(order_id)
+        if tracked_order is None:
+            raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
+        if tracked_order.exchange_order_id is None:
+            self.ev_loop.run_until_complete(tracked_order.get_exchange_order_id())
+        safe_ensure_future(self._execute_cancel(tracked_order.exchange_order_id))
         return order_id
 
     async def _create_order(self,
@@ -419,15 +374,15 @@ class DigifinexExchange(ExchangeBase):
         if amount < trading_rule.min_order_size:
             raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
-        api_params = {"instrument_name": digifinex_utils.convert_to_exchange_trading_pair(trading_pair),
-                      "side": trade_type.name,
-                      "type": "LIMIT",
+        symbol = digifinex_utils.convert_to_exchange_trading_pair(trading_pair)
+        api_params = {"symbol": symbol,
+                      "type": trade_type.name.lower(),
                       "price": f"{price:f}",
-                      "quantity": f"{amount:f}",
-                      "client_oid": order_id
+                      "amount": f"{amount:f}",
+                      # "client_oid": order_id
                       }
         if order_type is OrderType.LIMIT_MAKER:
-            api_params["exec_inst"] = "POST_ONLY"
+            api_params["post_only"] = 1
         self.start_tracking_order(order_id,
                                   None,
                                   trading_pair,
@@ -437,8 +392,8 @@ class DigifinexExchange(ExchangeBase):
                                   order_type
                                   )
         try:
-            order_result = await self._api_request("post", "private/create-order", api_params, True)
-            exchange_order_id = str(order_result["result"]["order_id"])
+            order_result = await self._global.rest_api.request("post", "spot/order/new", api_params, True)
+            exchange_order_id = str(order_result["order_id"])
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
@@ -461,7 +416,7 @@ class DigifinexExchange(ExchangeBase):
         except Exception as e:
             self.stop_tracking_order(order_id)
             self.logger().network(
-                f"Error submitting {trade_type.name} {order_type.name} order to Crypto.com for "
+                f"Error submitting {trade_type.name} {order_type.name} order to Digifinex for "
                 f"{amount} {trading_pair} "
                 f"{price}.",
                 exc_info=True,
@@ -498,7 +453,7 @@ class DigifinexExchange(ExchangeBase):
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
 
-    async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
+    async def _execute_cancel(self, exchange_order_id: str) -> str:
         """
         Executes order cancellation process by first calling cancel-order API. The API result doesn't confirm whether
         the cancellation is successful, it simply states it receives the request.
@@ -507,27 +462,20 @@ class DigifinexExchange(ExchangeBase):
         order.last_state to change to CANCELED
         """
         try:
-            tracked_order = self._in_flight_orders.get(order_id)
-            if tracked_order is None:
-                raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
-            if tracked_order.exchange_order_id is None:
-                await tracked_order.get_exchange_order_id()
-            ex_order_id = tracked_order.exchange_order_id
-            await self._api_request(
+            await self._global.rest_api.request(
                 "post",
-                "private/cancel-order",
-                {"instrument_name": digifinex_utils.convert_to_exchange_trading_pair(trading_pair),
-                 "order_id": ex_order_id},
+                "spot/order/cancel",
+                {"order_id": exchange_order_id},
                 True
             )
-            return order_id
+            return exchange_order_id
         except asyncio.CancelledError:
             raise
         except Exception as e:
             self.logger().network(
-                f"Failed to cancel order {order_id}: {str(e)}",
+                f"Failed to cancel order {exchange_order_id}: {str(e)}",
                 exc_info=True,
-                app_warning_msg=f"Failed to cancel the order {order_id} on Digifinex. "
+                app_warning_msg=f"Failed to cancel the order {exchange_order_id} on Digifinex. "
                                 f"Check API key and network connection."
             )
 
@@ -556,22 +504,22 @@ class DigifinexExchange(ExchangeBase):
                 await asyncio.sleep(0.5)
 
     async def _update_balances(self):
-        """
-        Calls REST API to update total and available balances.
-        """
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
-        account_info = await self._api_request("post", "private/get-account-summary", {}, True)
-        for account in account_info["result"]["accounts"]:
+        account_info = await self._global.rest_api.get_balance()
+        for account in account_info["list"]:
             asset_name = account["currency"]
-            self._account_available_balances[asset_name] = Decimal(str(account["available"]))
-            self._account_balances[asset_name] = Decimal(str(account["balance"]))
+            self._account_available_balances[asset_name] = Decimal(str(account["free"]))
+            self._account_balances[asset_name] = Decimal(str(account["total"]))
             remote_asset_names.add(asset_name)
 
-        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-        for asset_name in asset_names_to_remove:
-            del self._account_available_balances[asset_name]
-            del self._account_balances[asset_name]
+        try:
+            asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+            for asset_name in asset_names_to_remove:
+                del self._account_available_balances[asset_name]
+                del self._account_balances[asset_name]
+        except Exception as e:
+            self.logger().error(e)
 
     async def _update_order_status(self):
         """
@@ -585,33 +533,32 @@ class DigifinexExchange(ExchangeBase):
             tasks = []
             for tracked_order in tracked_orders:
                 order_id = await tracked_order.get_exchange_order_id()
-                tasks.append(self._api_request("post",
-                                               "private/get-order-detail",
-                                               {"order_id": order_id},
-                                               True))
+                tasks.append(self._global.rest_api.request("get",
+                                                           "spot/order/detail",
+                                                           {"order_id": order_id},
+                                                           True))
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
             update_results = await safe_gather(*tasks, return_exceptions=True)
             for update_result in update_results:
                 if isinstance(update_result, Exception):
                     raise update_result
-                if "result" not in update_result:
+                if "data" not in update_result:
                     self.logger().info(f"_update_order_status result not in resp: {update_result}")
                     continue
-                for trade_msg in update_result["result"]["trade_list"]:
-                    await self._process_trade_message(trade_msg)
-                self._process_order_message(update_result["result"]["order_info"])
+                order_data = update_result["data"]
+                self._process_rest_trade_details(order_data)
+                self._process_order_status(order_data.get('order_id'), order_data.get('status'))
 
-    def _process_order_message(self, order_msg: Dict[str, Any]):
+    def _process_order_status(self, exchange_order_id: str, status: int):
         """
         Updates in-flight order and triggers cancellation or failure event if needed.
-        :param order_msg: The order response from either REST or web socket API (they are of the same format)
         """
-        client_order_id = order_msg["client_oid"]
-        if client_order_id not in self._in_flight_orders:
+        tracked_order = self.find_exchange_order(exchange_order_id)
+        if tracked_order is None:
             return
-        tracked_order = self._in_flight_orders[client_order_id]
+        client_order_id = tracked_order.client_order_id
         # Update order execution status
-        tracked_order.last_state = order_msg["status"]
+        tracked_order.last_state = str(status)
         if tracked_order.is_cancelled:
             self.logger().info(f"Successfully cancelled order {client_order_id}.")
             self.trigger_event(MarketEvent.OrderCancelled,
@@ -620,31 +567,84 @@ class DigifinexExchange(ExchangeBase):
                                    client_order_id))
             tracked_order.cancelled_event.set()
             self.stop_tracking_order(client_order_id)
-        elif tracked_order.is_failure:
-            self.logger().info(f"The market order {client_order_id} has failed according to order status API. "
-                               f"Reason: {digifinex_utils.get_api_reason(order_msg['reason'])}")
-            self.trigger_event(MarketEvent.OrderFailure,
-                               MarketOrderFailureEvent(
-                                   self.current_timestamp,
-                                   client_order_id,
-                                   tracked_order.order_type
-                               ))
-            self.stop_tracking_order(client_order_id)
+        # elif tracked_order.is_failure:
+        #     self.logger().info(f"The market order {client_order_id} has failed according to order status API. "
+        #                        f"Reason: {digifinex_utils.get_api_reason(order_msg['reason'])}")
+        #     self.trigger_event(MarketEvent.OrderFailure,
+        #                        MarketOrderFailureEvent(
+        #                            self.current_timestamp,
+        #                            client_order_id,
+        #                            tracked_order.order_type
+        #                        ))
+        #     self.stop_tracking_order(client_order_id)
 
-    async def _process_trade_message(self, trade_msg: Dict[str, Any]):
-        """
-        Updates in-flight order and trigger order filled event for trade message received. Triggers order completed
-        event if the total executed amount equals to the specified order amount.
-        """
-        for order in self._in_flight_orders.values():
-            await order.get_exchange_order_id()
-        track_order = [o for o in self._in_flight_orders.values() if trade_msg["order_id"] == o.exchange_order_id]
-        if not track_order:
+    def _process_rest_trade_details(self, order_detail_msg: Any):
+        for trade_msg in order_detail_msg['detail']:
+            """
+            Updates in-flight order and trigger order filled event for trade message received. Triggers order completed
+            event if the total executed amount equals to the specified order amount.
+            """
+            # for order in self._in_flight_orders.values():
+            #     await order.get_exchange_order_id()
+            tracked_order = self.find_exchange_order(trade_msg['order_id'])
+            if tracked_order is None:
+                return
+
+            updated = tracked_order.update_with_rest_order_detail(trade_msg)
+            if not updated:
+                return
+
+            self.trigger_event(
+                MarketEvent.OrderFilled,
+                OrderFilledEvent(
+                    self.current_timestamp,
+                    tracked_order.client_order_id,
+                    tracked_order.trading_pair,
+                    tracked_order.trade_type,
+                    tracked_order.order_type,
+                    Decimal(str(trade_msg["executed_price"])),
+                    Decimal(str(trade_msg["executed_amount"])),
+                    estimate_fee.estimate_fee(self.name, tracked_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]),
+                    # TradeFee(0.0, [(trade_msg["fee_currency"], Decimal(str(trade_msg["fee"])))]),
+                    exchange_trade_id=trade_msg["tid"]
+                )
+            )
+            if math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or \
+                    tracked_order.executed_amount_base >= tracked_order.amount:
+                tracked_order.last_state = "FILLED"
+                self.logger().info(f"The {tracked_order.trade_type.name} order "
+                                   f"{tracked_order.client_order_id} has completed "
+                                   f"according to order status API.")
+                event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY \
+                    else MarketEvent.SellOrderCompleted
+                event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY \
+                    else SellOrderCompletedEvent
+                self.trigger_event(event_tag,
+                                   event_class(self.current_timestamp,
+                                               tracked_order.client_order_id,
+                                               tracked_order.base_asset,
+                                               tracked_order.quote_asset,
+                                               tracked_order.fee_asset,
+                                               tracked_order.executed_amount_base,
+                                               tracked_order.executed_amount_quote,
+                                               tracked_order.fee_paid,
+                                               tracked_order.order_type))
+                self.stop_tracking_order(tracked_order.client_order_id)
+
+    def find_exchange_order(self, exchange_order_id: str):
+        for o in self._in_flight_orders.values():
+            if o.exchange_order_id == exchange_order_id:
+                return o
+
+    def _process_order_message_traded(self, order_msg):
+        tracked_order: DigifinexInFlightOrder = self.find_exchange_order(order_msg['id'])
+        if tracked_order is None:
             return
-        tracked_order = track_order[0]
-        updated = tracked_order.update_with_trade_update(trade_msg)
-        if not updated:
+
+        (delta_trade_amount, delta_trade_price) = tracked_order.update_with_order_update(order_msg)
+        if not delta_trade_amount:
             return
+
         self.trigger_event(
             MarketEvent.OrderFilled,
             OrderFilledEvent(
@@ -653,15 +653,16 @@ class DigifinexExchange(ExchangeBase):
                 tracked_order.trading_pair,
                 tracked_order.trade_type,
                 tracked_order.order_type,
-                Decimal(str(trade_msg["traded_price"])),
-                Decimal(str(trade_msg["traded_quantity"])),
-                TradeFee(0.0, [(trade_msg["fee_currency"], Decimal(str(trade_msg["fee"])))]),
-                exchange_trade_id=trade_msg["order_id"]
+                delta_trade_price,
+                delta_trade_amount,
+                estimate_fee.estimate_fee(self.name, tracked_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]),
+                # TradeFee(0.0, [(trade_msg["fee_currency"], Decimal(str(trade_msg["fee"])))]),
+                exchange_trade_id='N/A'
             )
         )
         if math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or \
                 tracked_order.executed_amount_base >= tracked_order.amount:
-            tracked_order.last_state = "FILLED"
+            tracked_order.last_state = "2"
             self.logger().info(f"The {tracked_order.trade_type.name} order "
                                f"{tracked_order.client_order_id} has completed "
                                f"according to order status API.")
@@ -692,16 +693,20 @@ class DigifinexExchange(ExchangeBase):
             raise Exception("cancel_all can only be used when trading_pairs are specified.")
         cancellation_results = []
         try:
-            for trading_pair in self._trading_pairs:
-                await self._api_request(
-                    "post",
-                    "private/cancel-all-orders",
-                    {"instrument_name": digifinex_utils.convert_to_exchange_trading_pair(trading_pair)},
-                    True
-                )
+            # for trading_pair in self._trading_pairs:
+            #     await self._global.rest_api.request(
+            #         "post",
+            #         "private/cancel-all-orders",
+            #         {"instrument_name": digifinex_utils.convert_to_exchange_trading_pair(trading_pair)},
+            #         True
+            #     )
+
             open_orders = await self.get_open_orders()
+            for o in open_orders:
+                await self._execute_cancel(o.exchange_order_id)
+
             for cl_order_id, tracked_order in self._in_flight_orders.items():
-                open_order = [o for o in open_orders if o.client_order_id == cl_order_id]
+                open_order = [o for o in open_orders if o.exchange_order_id == tracked_order.exchange_order_id]
                 if not open_order:
                     cancellation_results.append(CancellationResult(cl_order_id, True))
                     self.trigger_event(MarketEvent.OrderCancelled,
@@ -768,21 +773,22 @@ class DigifinexExchange(ExchangeBase):
         """
         async for event_message in self._iter_user_event_queue():
             try:
-                if "result" not in event_message or "channel" not in event_message["result"]:
+                if "method" not in event_message:
                     continue
-                channel = event_message["result"]["channel"]
-                if "user.trade" in channel:
-                    for trade_msg in event_message["result"]["data"]:
-                        await self._process_trade_message(trade_msg)
-                elif "user.order" in channel:
-                    for order_msg in event_message["result"]["data"]:
-                        self._process_order_message(order_msg)
-                elif channel == "user.balance":
-                    balances = event_message["result"]["data"]
+                channel = event_message["method"]
+                # if "user.trade" in channel:
+                #     for trade_msg in event_message["result"]["data"]:
+                #         await self._process_trade_message(trade_msg)
+                if "order.update" in channel:
+                    for order_msg in event_message["params"]:
+                        self._process_order_status(order_msg['id'], order_msg['status'])
+                        self._process_order_message_traded(order_msg)
+                elif channel == "balance.update":
+                    balances = event_message["params"]
                     for balance_entry in balances:
                         asset_name = balance_entry["currency"]
-                        self._account_balances[asset_name] = Decimal(str(balance_entry["balance"]))
-                        self._account_available_balances[asset_name] = Decimal(str(balance_entry["available"]))
+                        self._account_balances[asset_name] = Decimal(str(balance_entry["total"]))
+                        self._account_available_balances[asset_name] = Decimal(str(balance_entry["free"]))
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -790,29 +796,29 @@ class DigifinexExchange(ExchangeBase):
                 await asyncio.sleep(5.0)
 
     async def get_open_orders(self) -> List[OpenOrder]:
-        result = await self._api_request(
-            "post",
-            "private/get-open-orders",
+        result = await self._global.rest_api.request(
+            "get",
+            "spot/order/current",
             {},
             True
         )
         ret_val = []
-        for order in result["result"]["order_list"]:
-            if digifinex_utils.HBOT_BROKER_ID not in order["client_oid"]:
-                continue
-            if order["type"] != "LIMIT":
+        for order in result["data"]:
+            # if digifinex_utils.HBOT_BROKER_ID not in order["client_oid"]:
+            #     continue
+            if order["type"] not in ["buy", "sell"]:
                 raise Exception(f"Unsupported order type {order['type']}")
             ret_val.append(
                 OpenOrder(
-                    client_order_id=order["client_oid"],
-                    trading_pair=digifinex_utils.convert_from_exchange_trading_pair(order["instrument_name"]),
+                    client_order_id=None,
+                    trading_pair=digifinex_utils.convert_from_exchange_trading_pair(order["symbol"]),
                     price=Decimal(str(order["price"])),
-                    amount=Decimal(str(order["quantity"])),
-                    executed_amount=Decimal(str(order["cumulative_quantity"])),
+                    amount=Decimal(str(order["amount"])),
+                    executed_amount=Decimal(str(order["executed_amount"])),
                     status=order["status"],
                     order_type=OrderType.LIMIT,
-                    is_buy=True if order["side"].lower() == "buy" else False,
-                    time=int(order["create_time"]),
+                    is_buy=True if order["type"] == "buy" else False,
+                    time=int(order["created_date"]),
                     exchange_order_id=order["order_id"]
                 )
             )

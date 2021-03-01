@@ -5,6 +5,8 @@ import math
 import time
 import asyncio
 import logging
+# import conf
+from hummingbot import logger
 import unittest
 from typing import Dict, Optional, List
 from hummingbot.core.event.event_logger import EventLogger
@@ -94,15 +96,15 @@ class DigifinexOrderBookTrackerUnitTest(unittest.TestCase):
 
     def test_api_get_last_traded_prices(self):
         prices = self.ev_loop.run_until_complete(
-            DigifinexAPIOrderBookDataSource.get_last_traded_prices(["BTC-USDT", "LTC-BTC"]))
+            DigifinexAPIOrderBookDataSource.get_last_traded_prices(["BTC-USDT", "LTC-USDT"]))
         for key, value in prices.items():
             print(f"{key} last_trade_price: {value}")
         self.assertGreater(prices["BTC-USDT"], 1000)
-        self.assertLess(prices["LTC-BTC"], 1)
+        self.assertLess(prices["LTC-USDT"], 10000)
 
 
 def main():
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logger.NETWORK)
     unittest.main()
 
 

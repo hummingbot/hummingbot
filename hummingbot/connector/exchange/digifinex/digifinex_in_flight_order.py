@@ -3,6 +3,7 @@ from typing import (
     Any,
     Dict,
     Optional,
+    Tuple,
 )
 import asyncio
 from hummingbot.core.event.events import (
@@ -37,15 +38,16 @@ class DigifinexInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"FILLED", "CANCELED", "REJECTED", "EXPIRED"}
+        return self.last_state in {"2", "3", "4"}
 
     @property
     def is_failure(self) -> bool:
-        return self.last_state in {"REJECTED"}
+        return False
+        # return self.last_state in {"REJECTED"}
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state in {"CANCELED", "EXPIRED"}
+        return self.last_state in {"3", "4"}
 
     # @property
     # def order_type_description(self) -> str:
@@ -79,21 +81,43 @@ class DigifinexInFlightOrder(InFlightOrderBase):
         retval.last_state = data["last_state"]
         return retval
 
-    def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
+    def update_with_rest_order_detail(self, trade_update: Dict[str, Any]) -> bool:
         """
         Updates the in flight order with trade update (from private/get-order-detail end point)
         return: True if the order gets updated otherwise False
         """
-        trade_id = trade_update["trade_id"]
+        trade_id = trade_update["tid"]
         # trade_update["orderId"] is type int
-        if str(trade_update["order_id"]) != self.exchange_order_id or trade_id in self.trade_id_set:
+        if trade_id in self.trade_id_set:
             # trade already recorded
             return False
         self.trade_id_set.add(trade_id)
-        self.executed_amount_base += Decimal(str(trade_update["traded_quantity"]))
-        self.fee_paid += Decimal(str(trade_update["fee"]))
-        self.executed_amount_quote += (Decimal(str(trade_update["traded_price"])) *
-                                       Decimal(str(trade_update["traded_quantity"])))
-        if not self.fee_asset:
-            self.fee_asset = trade_update["fee_currency"]
+        self.executed_amount_base += Decimal(str(trade_update["executed_amount"]))
+        # self.fee_paid += Decimal(str(trade_update["fee"]))
+        self.executed_amount_quote += (Decimal(str(trade_update["executed_price"])) *
+                                       Decimal(str(trade_update["executed_amount"])))
+        # if not self.fee_asset:
+        #     self.fee_asset = trade_update["fee_currency"]
         return True
+
+    def update_with_order_update(self, order_update) -> Tuple[Decimal, Decimal]:
+        """
+        Updates the in flight order with trade update (from order message)
+        return: (delta_trade_amount, delta_trade_price)
+        """
+
+        # todo: order_msg contains no trade_id. may be re-processed
+        if order_update['filled'] == '0':
+            return (0, 0)
+
+        self.trade_id_set.add("N/A")
+        executed_amount_base = Decimal(order_update['filled'])
+        if executed_amount_base == self.executed_amount_base:
+            return (0, 0)
+        delta_trade_amount = executed_amount_base - self.executed_amount_base
+        self.executed_amount_base = executed_amount_base
+
+        executed_amount_quote = executed_amount_base * Decimal(order_update['price_avg'] or order_update['price'])
+        delta_trade_price = (executed_amount_quote - self.executed_amount_quote) / delta_trade_amount
+        self.executed_amount_quote = executed_amount_base * Decimal(order_update['price_avg'] or order_update['price'])
+        return (delta_trade_amount, delta_trade_price)

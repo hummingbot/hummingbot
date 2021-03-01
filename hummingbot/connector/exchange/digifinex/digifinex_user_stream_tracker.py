@@ -17,7 +17,7 @@ from hummingbot.core.utils.async_utils import (
 )
 from hummingbot.connector.exchange.digifinex.digifinex_api_user_stream_data_source import \
     DigifinexAPIUserStreamDataSource
-from hummingbot.connector.exchange.digifinex.digifinex_auth import DigifinexAuth
+from hummingbot.connector.exchange.digifinex.digifinex_global import DigifinexGlobal
 from hummingbot.connector.exchange.digifinex.digifinex_constants import EXCHANGE_NAME
 
 
@@ -31,10 +31,10 @@ class DigifinexUserStreamTracker(UserStreamTracker):
         return cls._bust_logger
 
     def __init__(self,
-                 digifinex_auth: Optional[DigifinexAuth] = None,
+                 _global: DigifinexGlobal,
                  trading_pairs: Optional[List[str]] = []):
         super().__init__()
-        self._digifinex_auth: DigifinexAuth = digifinex_auth
+        self._global: DigifinexGlobal = _global
         self._trading_pairs: List[str] = trading_pairs
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[UserStreamTrackerDataSource] = None
@@ -49,7 +49,7 @@ class DigifinexUserStreamTracker(UserStreamTracker):
         """
         if not self._data_source:
             self._data_source = DigifinexAPIUserStreamDataSource(
-                digifinex_auth=self._digifinex_auth,
+                self._global,
                 trading_pairs=self._trading_pairs
             )
         return self._data_source

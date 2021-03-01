@@ -150,6 +150,9 @@ class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 )))
 
                 async for response in ws.on_message():
+                    if response is None or 'params' not in response:
+                        continue
+
                     params = response["params"]
                     symbol = params[2]
                     order_book_data = params[1]
@@ -203,9 +206,9 @@ class DigifinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         await asyncio.sleep(5.0)
                     except asyncio.CancelledError:
                         raise
-                    except Exception:
+                    except Exception as e:
                         self.logger().network(
-                            "Unexpected error with WebSocket connection.",
+                            f"Unexpected error with WebSocket connection: {e}",
                             exc_info=True,
                             app_warning_msg="Unexpected error with WebSocket connection. Retrying in 5 seconds. "
                                             "Check network connection.\n"

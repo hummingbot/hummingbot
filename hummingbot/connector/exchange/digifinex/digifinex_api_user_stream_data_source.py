@@ -4,10 +4,12 @@ import time
 import asyncio
 import logging
 from typing import Optional, List, AsyncIterable, Any
+from hummingbot.connector.exchange.digifinex.digifinex_global import DigifinexGlobal
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from .digifinex_auth import DigifinexAuth
-from .digifinex_websocket import DigifinexWebsocket
+# from .digifinex_auth import DigifinexAuth
+from hummingbot.connector.exchange.digifinex.digifinex_websocket import DigifinexWebsocket
+from hummingbot.connector.exchange.digifinex import digifinex_utils
 
 
 class DigifinexAPIUserStreamDataSource(UserStreamTrackerDataSource):
@@ -22,8 +24,8 @@ class DigifinexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, digifinex_auth: DigifinexAuth, trading_pairs: Optional[List[str]] = []):
-        self._digifinex_auth: DigifinexAuth = digifinex_auth
+    def __init__(self, _global: DigifinexGlobal, trading_pairs: Optional[List[str]] = []):
+        self._global: DigifinexGlobal = _global
         self._trading_pairs = trading_pairs
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
@@ -40,16 +42,51 @@ class DigifinexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
 
         try:
-            ws = DigifinexWebsocket(self._digifinex_auth)
+            ws = DigifinexWebsocket(self._global.auth)
             await ws.connect()
-            await ws.subscribe(["user.order", "user.trade", "user.balance"])
+            await ws.subscribe("order", list(map(
+                               lambda pair: f"{digifinex_utils.convert_to_ws_trading_pair(pair)}",
+                               self._trading_pairs
+                               )))
+
+            currencies = set()
+            for trade_pair in self._trading_pairs:
+                trade_pair_currencies = trade_pair.split('-')
+                currencies.update(trade_pair_currencies)
+            await ws.subscribe("balance", currencies)
+
+            balance_snapshot = await self._global.rest_api.get_balance()
+            # {
+            #   "code": 0,
+            #   "list": [
+            #     {
+            #       "currency": "BTC",
+            #       "free": 4723846.89208129,
+            #       "total": 0
+            #     }
+            #   ]
+            # }
+            yield {'method': 'balance.update', 'params': balance_snapshot['list']}
+            self._last_recv_time = time.time()
+
+            # await ws.subscribe(["user.order", "user.trade", "user.balance"])
             async for msg in ws.on_message():
-                # print(f"WS_SOCKET: {msg}")
+                # {
+                # 	"method": "balance.update",
+                # 	"params": [{
+                # 		"currency": "USDT",
+                # 		"free": "99944652.8478545303601106",
+                # 		"total": "99944652.8478545303601106",
+                # 		"used": "0.0000000000"
+                # 	}],
+                # 	"id": null
+                # }
                 yield msg
                 self._last_recv_time = time.time()
                 if (msg.get("result") is None):
                     continue
         except Exception as e:
+            self.logger().exception(e)
             raise e
         finally:
             await ws.disconnect()
