@@ -369,10 +369,8 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
     def active_positions_df(self) -> pd.DataFrame:
         columns = ["Symbol", "Type", "Entry Price", "Amount", "Leverage", "Unrealized PnL"]
         data = []
-        market, trading_pair = self._derivative_market_info.market, self._derivative_market_info.trading_pair
         for idx in self.deriv_position:
-            is_buy = True if idx.amount > 0 else False
-            unrealized_profit = ((market.get_price(trading_pair, is_buy) - idx.entry_price) * idx.amount)
+            unrealized_profit = ((self.current_proposal.derivative_side.order_price - idx.entry_price) * idx.amount)
             data.append([
                 idx.trading_pair,
                 idx.position_side.name,
@@ -418,8 +416,11 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         lines.extend(["", "  Assets:"] +
                      ["    " + line for line in str(assets_df).split("\n")])
 
-        lines.extend(["", "  Spread details:"] + ["    " + self.spread_msg()] +
-                     self.short_proposal_msg())
+        try:
+            lines.extend(["", "  Spread details:"] + ["    " + self.spread_msg()] +
+                         self.short_proposal_msg())
+        except Exception:
+            pass
 
         warning_lines = self.network_warning([self._spot_market_info])
         warning_lines.extend(self.network_warning([self._derivative_market_info]))
@@ -447,7 +448,10 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
 
     def did_complete_funding_payment(self, funding_payment_completed_event):
         # Excute second arbitrage if necessary (even spread hasn't reached min convergence)
-        if len(self.deriv_position) > 0 and self.ready_for_new_arb_trades():
+        if len(self.deriv_position) > 0 and \
+           self._all_markets_ready and \
+           self.current_proposal and \
+           self.ready_for_new_arb_trades():
             self.apply_slippage_buffers(self.current_proposal)
             self.apply_budget_constraint(self.current_proposal)
             funding_msg = "Executing second arbitrage after funding payment is received"
