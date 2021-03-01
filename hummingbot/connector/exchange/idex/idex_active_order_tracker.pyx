@@ -3,14 +3,15 @@
 
 import logging
 import numpy as np
-
 from decimal import Decimal
 from typing import Dict
+
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 
-_logger = None
+_iaot_logger = None
 s_empty_diff = np.ndarray(shape=(0, 4), dtype="float64")
+
 IdexOrderBookTrackingDictionary = Dict[Decimal, Dict[str, Dict[str, any]]]
 
 cdef class IdexActiveOrderTracker:
@@ -23,36 +24,53 @@ cdef class IdexActiveOrderTracker:
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global _logger
-        if _logger is None:
-            _logger = logging.getLogger(__name__)
-        return _logger
+        global _iaot_logger
+        if _iaot_logger is None:
+            _iaot_logger = logging.getLogger(__name__)
+        return _iaot_logger
 
     @property
     def active_asks(self) -> IdexOrderBookTrackingDictionary:
+        """
+        Get all asks on the order book in dictionary format
+        :returns: Dict[price, Dict[order_id, order_book_message]]
+        """
         return self._active_asks
 
     @property
     def active_bids(self) -> IdexOrderBookTrackingDictionary:
+        """
+        Get all bids on the order book in dictionary format
+        :returns: Dict[price, Dict[order_id, order_book_message]]
+        """
         return self._active_bids
 
-    # TODO: research this more
-    # TODO: See L2 Order Book
-    # SEE: Another implementations
     def volume_for_ask_price(self, price) -> float:
-        return NotImplementedError
+        """
+        For a certain price, get the volume sum of all ask order book rows with that price
+        :returns: volume sum
+        """
+        #Confirm "remaining_size as property name"
+        return sum([float(msg["remaining_size"]) for msg in self._active_asks[price].values()])
 
-    # TODO: research this more
-    # TODO: See L2 Order Book
-    # SEE: Another implementations
-    def volume_for_bid_price(self, price) -> float:
-        return NotImplementedError
+    def volume_for_bid_price(self,price) -> float:
+        """
+        For a certain price, get the volume sum of all bid order book rows with that price
+        :returns: volume sum
+        """
+        #Confirm "remaining_size as property name"
+        return sum([float(msg["remaining_size"]) for msg in self._active_bids[price].values()])
 
     def get_rates_and_quantities(self, entry) -> tuple:
         # price, size
         return float(entry[0]), float(entry[1])
 
     cdef tuple c_convert_diff_message_to_np_arrays(self, object message):
+        """
+        Interpret an incoming diff message and apply changes to the order book accordingly
+        :returns: new order book rows: Tuple(np.array (bids), np.array (asks))
+        """
+        
         cdef:
             dict content = message.content
             list bid_entries = []
