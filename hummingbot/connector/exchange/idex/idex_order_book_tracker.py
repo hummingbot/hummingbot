@@ -1,16 +1,24 @@
 import asyncio
+import bisect
+from collections import (
+    defaultdict,
+    deque
+)
 import logging
 import time
+from typing import (
+    Deque,
+    Dict,
+    List,
+    Optional
+)
 
-from collections import deque, defaultdict
-from typing import Deque, Dict, List, Optional
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.connector.exchange.idex.idex_api_order_book_data_source import IdexAPIOrderBookDataSource
+from hummingbot.connector.exchange.idex.idex_order_book_message import IdexOrderBookMessage
 
 from .idex_api_order_book_data_source import IdexAPIOrderBookDataSource
-from .utils import EXCHANGE_NAME
 
 
 class IdexOrderBookTracker(OrderBookTracker):
@@ -33,7 +41,7 @@ class IdexOrderBookTracker(OrderBookTracker):
 
     @property
     def exchange_name(self) -> str:
-        return EXCHANGE_NAME
+        return "idex"
 
     async def _order_book_diff_router(self):
         """
