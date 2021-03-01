@@ -73,11 +73,7 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
         Authenticates user to websocket
         """
         try:
-            await self._probit_auth.get_auth_headers()
-            auth_payload: Dict[str, Any] = {
-                "type": "authorization",
-                "token": self._probit_auth.oauth_token
-            }
+            auth_payload: Dict[str, Any] = self._probit_auth.get_ws_auth_payload()
             await ws.send(ujson.dumps(auth_payload, escape_forward_slashes=False))
             auth_resp = await ws.recv()
             auth_resp: Dict[str, Any] = ujson.loads(auth_resp)
