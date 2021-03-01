@@ -45,13 +45,13 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
 
-    _logger: Optional[HummingbotLogger] = None
+    _iaobds_logger: Optional[HummingbotLogger] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._logger is None:
-            cls._logger = logging.getLogger(__name__)
-        return cls._logger
+        if cls._iaobds_logger is None:
+            cls._iaobds_logger = logging.getLogger(__name__)
+        return cls._iaobds_logger
 
     def __init__(self, trading_pairs: List[str], blockchain):
         super().__init__(trading_pairs)
