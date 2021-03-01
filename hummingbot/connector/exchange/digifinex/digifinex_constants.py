@@ -1,12 +1,15 @@
 # A single source of truth for constant variables related to the exchange
+import os
 
+if os.environ.get('digifinex_test') == '1':
+    host = 'openapi.digifinex.vip'
+else:
+    host = 'openapi.digifinex.com'
 
 EXCHANGE_NAME = "digifinex"
-REST_URL = "https://openapi.digifinex.com/v3"
-# WSS_PRIVATE_URL = "wss://stream.crypto.com/v2/user"
-WSS_PRIVATE_URL = "wss://openapi.digifinex.com/ws/v1/"
-# WSS_PUBLIC_URL = "wss://stream.crypto.com/v2/market"
-WSS_PUBLIC_URL = "wss://openapi.digifinex.com/ws/v1/"
+REST_URL = f"https://{host}/v3"
+WSS_PRIVATE_URL = f"wss://{host}/ws/v1/"
+WSS_PUBLIC_URL = f"wss://{host}/ws/v1/"
 
 API_REASONS = {
     0: "Success",
