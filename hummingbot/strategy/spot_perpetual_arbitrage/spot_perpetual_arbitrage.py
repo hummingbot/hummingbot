@@ -169,6 +169,8 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
                     funding_msg = "Time for funding payment, executing second arbitrage " \
                                   "immediately since we don't intend to maximize funding rate"
                     execute_arb = True
+            else:
+                funding_msg = "Funding payment time, not looking for arbitrage opportunity because prices should be converging now!"
         else:
             if len(self.deriv_position) > 0:
                 execute_arb = self.ready_for_execution(self.current_proposal, False)
@@ -181,8 +183,10 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             self.apply_budget_constraint(self.current_proposal)
             await self.execute_arb_proposals(self.current_proposal, funding_msg)
         else:
-            self.timed_logger(timestamp, self.spread_msg())
-        return
+            if funding_msg:
+                self.timed_logger(timestamp, funding_msg)
+            else:
+                self.timed_logger(timestamp, self.spread_msg())
 
     def timed_logger(self, timestamp, msg):
         """
@@ -238,7 +242,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         Updates arb_proposals by adjusting order price for slipper buffer percentage.
         E.g. if it is a buy order, for an order price of 100 and 1% slipper buffer, the new order price is 101,
         for a sell order, the new order price is 99.
-        :param arb_proposals: the arbitrage proposal
+        :param arb_proposal: the arbitrage proposal
         """
         for arb_side in (arb_proposal.spot_side, arb_proposal.derivative_side):
             market = arb_side.market_info.market
@@ -255,7 +259,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         """
         Updates arb_proposals by setting proposal amount to 0 if there is not enough balance to submit order with
         required order amount.
-        :param arb_proposals: the arbitrage proposal
+        :param arb_proposal: the arbitrage proposal
         """
         spot_market = self._spot_market_info.market
         deriv_market = self._derivative_market_info.market
@@ -275,7 +279,6 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             self.logger().info(f"Can't arbitrage, {deriv_market.display_name} "
                                f"{deriv_token} balance "
                                f"({deriv_token_balance}) is below required order amount ({required_deriv_balance}).")
-            return
 
     async def execute_arb_proposals(self, arb_proposal: ArbProposal, is_funding_msg: str = ""):
         """
@@ -444,7 +447,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
 
     def did_complete_funding_payment(self, funding_payment_completed_event):
         # Excute second arbitrage if necessary (even spread hasn't reached min convergence)
-        if len(self.deriv_position) > 0:
+        if len(self.deriv_position) > 0 and self.ready_for_new_arb_trades():
             self.apply_slippage_buffers(self.current_proposal)
             self.apply_budget_constraint(self.current_proposal)
             funding_msg = "Executing second arbitrage after funding payment is received"

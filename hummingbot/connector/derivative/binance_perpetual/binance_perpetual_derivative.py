@@ -947,8 +947,8 @@ class BinancePerpetualDerivative(DerivativeBase):
                 self.trigger_event(self.MARKET_FUNDING_PAYMENT_COMPLETED_EVENT_TAG,
                                    FundingPaymentCompletedEvent(timestamp=funding_payment["time"],
                                                                 market=self.name,
-                                                                rate=self._funding_info[trading_pair]["rate"],
-                                                                symbol=trading_pair,
+                                                                funding_rate=self._funding_info[trading_pair]["rate"],
+                                                                trading_pair=trading_pair,
                                                                 amount=payment))
 
     def get_funding_info(self, trading_pair):

@@ -207,6 +207,7 @@ class OrderExpiredEvent(NamedTuple):
 @dataclass
 class FundingPaymentCompletedEvent:
     timestamp: float
+    market: str
     trading_pair: str
     amount: Decimal
     funding_rate: Decimal

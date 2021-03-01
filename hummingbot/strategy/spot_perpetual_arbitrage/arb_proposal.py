@@ -19,7 +19,6 @@ class ArbProposalSide:
         """
         :param market_info: The market where to submit the order
         :param is_buy: True if buy order
-        :param quote_price: The quote price (for an order amount) from the market
         :param order_price: The price required for order submission, this could differ from the quote price
         :param amount: The order amount
         """
