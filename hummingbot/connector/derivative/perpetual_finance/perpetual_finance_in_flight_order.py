@@ -31,7 +31,6 @@ class PerpetualFinanceInFlightOrder(InFlightOrderBase):
             amount,
             initial_state,
         )
-        self.trade_id_set = set()
         self.leverage = leverage
         self.position = position
 
@@ -46,19 +45,3 @@ class PerpetualFinanceInFlightOrder(InFlightOrderBase):
     @property
     def is_cancelled(self) -> bool:
         return self.last_state in {"CANCELED", "EXPIRED"}
-
-    @property
-    def leverage(self) -> Decimal:
-        return self.leverage
-
-    @leverage.setter
-    def leverage(self, leverage) -> Decimal:
-        self.leverage = leverage
-
-    @property
-    def position(self) -> Decimal:
-        return self.position
-
-    @position.setter
-    def position(self, position) -> Decimal:
-        self.position = position

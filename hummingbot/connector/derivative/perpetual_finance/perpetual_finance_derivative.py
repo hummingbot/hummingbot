@@ -8,6 +8,7 @@ import time
 import ssl
 import copy
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
+from hummingbot.core.event.events import TradeFee
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -180,7 +181,7 @@ class PerpetualFinanceDerivative(DerivativeBase):
         """
         return await self.get_quote_price(trading_pair, is_buy, amount)
 
-    def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal, position_action: PositionAction) -> str:
+    def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal, **kwargs) -> str:
         """
         Buys an amount of base token for a given price (or cheaper).
         :param trading_pair: The market trading pair
@@ -190,9 +191,9 @@ class PerpetualFinanceDerivative(DerivativeBase):
         :param position_action: Either OPEN or CLOSE position action.
         :return: A newly created order id (internal).
         """
-        return self.place_order(True, trading_pair, amount, price, position_action)
+        return self.place_order(True, trading_pair, amount, price, kwargs["position_action"])
 
-    def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal, position_action: PositionAction) -> str:
+    def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal, **kwargs) -> str:
         """
         Sells an amount of base token for a given price (or at a higher price).
         :param trading_pair: The market trading pair
@@ -202,7 +203,7 @@ class PerpetualFinanceDerivative(DerivativeBase):
         :param position_action: Either OPEN or CLOSE position action.
         :return: A newly created order id (internal).
         """
-        return self.place_order(False, trading_pair, amount, price, position_action)
+        return self.place_order(False, trading_pair, amount, price, kwargs["position_action"])
 
     def place_order(self, is_buy: bool, trading_pair: str, amount: Decimal, price: Decimal, position_action: PositionAction) -> str:
         """
@@ -242,9 +243,9 @@ class PerpetualFinanceDerivative(DerivativeBase):
         api_params = {"pair": convert_to_exchange_trading_pair(trading_pair)}
         if position_action == PositionAction.OPEN:
             api_params.update({"side": 0 if trade_type == TradeType.BUY else 1,
-                               "margin": str(amount / self._leverage[trading_pair]),
+                               "margin": self.quantize_order_amount(trading_pair, (amount / self._leverage[trading_pair])),
                                "leverage": self._leverage[trading_pair],
-                               "minBaseAssetAmount": amount})
+                               "minBaseAssetAmount": Decimal("0")})
         else:
             api_params.update({"minimalQuoteAsset": price * amount})
         self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, self._leverage[trading_pair], position_action.name)
@@ -337,7 +338,7 @@ class PerpetualFinanceDerivative(DerivativeBase):
                 if update_result["confirmed"] is True:
                     if update_result["receipt"]["status"] == 1:
                         fee = estimate_fee("perpetual_finance", False)
-                        fee.flat_fees = [(tracked_order.fee_asset, Decimal(str(update_result["receipt"]["gasUsed"])))]
+                        fee = TradeFee(fee.percent, [("XDAI", Decimal(str(update_result["receipt"]["gasUsed"])))])
                         self.trigger_event(
                             MarketEvent.OrderFilled,
                             OrderFilledEvent(
@@ -370,7 +371,9 @@ class PerpetualFinanceDerivative(DerivativeBase):
                                                        tracked_order.fee_asset,
                                                        tracked_order.executed_amount_base,
                                                        tracked_order.executed_amount_quote,
-                                                       float(fee),
+                                                       float(fee.fee_amount_in_quote(tracked_order.trading_pair,
+                                                                                     Decimal(str(tracked_order.price)),
+                                                                                     Decimal(str(tracked_order.amount)))),  # this ignores the gas fee, which is fine for now
                                                        tracked_order.order_type))
                         self.stop_tracking_order(tracked_order.client_order_id)
                     else:
@@ -388,10 +391,10 @@ class PerpetualFinanceDerivative(DerivativeBase):
         return OrderType.LIMIT
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
-        return Decimal("1e-15")
+        return Decimal("1e-6")
 
     def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
-        return Decimal("1e-15")
+        return Decimal("1e-6")
 
     @property
     def ready(self):
@@ -454,6 +457,7 @@ class PerpetualFinanceDerivative(DerivativeBase):
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
                 await safe_gather(
+                    self._update_positions(),
                     self._update_balances(),
                     self._update_order_status(),
                 )
@@ -502,7 +506,7 @@ class PerpetualFinanceDerivative(DerivativeBase):
         positions = await safe_gather(*position_tasks, return_exceptions=True)
         for trading_pair, position in zip(self._trading_pairs, positions):
             position = position.get("position", {})
-            position_side = PositionSide.LONG if position.get("size", 0) > 0 else PositionSide.SHORT
+            position_side = PositionSide.LONG if Decimal(position.get("size", "0")) > 0 else PositionSide.SHORT
             unrealized_pnl = Decimal(position.get("pnl"))
             entry_price = Decimal(position.get("entryPrice"))
             amount = Decimal(position.get("size"))
@@ -520,18 +524,18 @@ class PerpetualFinanceDerivative(DerivativeBase):
                 if (trading_pair + position_side.name) in self._account_positions:
                     del self._account_positions[trading_pair + position_side.name]
 
-            payment = Decimal(str(position.fundingPayment))
+            payment = Decimal(str(position.get("fundingPayment")))
             oldPayment = self._fundingPayment.get(trading_pair, 0)
             if payment != oldPayment:
-                self._fundingPayment = oldPayment
+                self._fundingPayment[trading_pair] = oldPayment
                 action = "paid" if payment < 0 else "received"
                 if payment != Decimal("0"):
                     self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market.")
                     self.trigger_event(MarketEvent.FundingPaymentCompleted,
                                        FundingPaymentCompletedEvent(timestamp=time.time(),
                                                                     market=self.name,
-                                                                    rate=self._funding_info[trading_pair]["rate"],
-                                                                    symbol=trading_pair,
+                                                                    funding_rate=self._funding_info[trading_pair]["rate"],
+                                                                    trading_pair=trading_pair,
                                                                     amount=payment))
 
     async def _funding_info_polling_loop(self):
