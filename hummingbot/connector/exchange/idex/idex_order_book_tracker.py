@@ -1,5 +1,4 @@
 import asyncio
-import bisect
 from collections import (
     defaultdict,
     deque
@@ -17,20 +16,21 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.connector.exchange.idex.idex_api_order_book_data_source import IdexAPIOrderBookDataSource
 from hummingbot.connector.exchange.idex.idex_order_book_message import IdexOrderBookMessage
-
-from .idex_api_order_book_data_source import IdexAPIOrderBookDataSource
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
 
 class IdexOrderBookTracker(OrderBookTracker):
-    _idex_logger: Optional[HummingbotLogger] = None
+    _iobt_logger: Optional[HummingbotLogger] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        cls._idex_logger = cls._idex_logger or logging.getLogger(__name__)
-        return cls._idex_logger
+        cls._iobt_logger = cls._iobt_logger or logging.getLogger(__name__)
+        return cls._iobt_logger
 
-    def __init__(self, trading_pairs: Optional[List[str]] = None):
-        super(IdexOrderBookTracker, self).__init__(
+    def __init__(self,
+                 trading_pairs: Optional[List[str]] = None):
+        super().__init__(
             data_source=IdexAPIOrderBookDataSource(trading_pairs=trading_pairs),
             trading_pairs=trading_pairs
         )
