@@ -28,11 +28,6 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.connector.exchange.idex.idex_active_order_tracker import IdexActiveOrderTracker
 from hummingbot.core.utils.async_utils import safe_gather
 
-# imports from IDEX-specific build - maintain for now until module can stand apart from them
-from .client.asyncio import AsyncIdexClient
-from .utils import to_idex_pair, get_markets, from_idex_trade_type
-from .types.websocket.response import WebSocketResponseL2OrderBookShort, WebSocketResponseTradeShort
-
 # Need to import selected blockchain connection
 IDEX_REST_URL = f"https://api-{}.idex.io/"
 IDEX_WS_FEED = f"wss://websocket-{}.idex.io/v1"
@@ -112,6 +107,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Fetches order book snapshot for a particular trading pair from the rest API
         :returns: Response from the rest API
         """
+        # update URL to https://api-sandbox-eth.idex.io/v1/orders with appropriate authentication data to access bids/asks by order ID
         product_order_book_url: str = f"{self._IDEX_REST_URL}/v1/orderbook?market={trading_pair}&level=2/"
         async with client.get(product_order_book_url) as response:
             response: aiohttp.ClientResponse = response
@@ -125,7 +121,6 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         async with aiohttp.ClientSession() as client:
             snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
             snapshot_timestamp: float = time.time()
-            # IDEXOrderBook not yet complete as of 25 Feb 2021
             snapshot_msg: OrderBookMessage = IdexOrderBook.snapshot_message_from_exchange(
                 snapshot,
                 snapshot_timestamp,
