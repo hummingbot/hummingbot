@@ -16,12 +16,12 @@ from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType
 )
-from hummingbot.connector.exchange.coinbase_pro.coinbase_pro_order_book_message import CoinbaseProOrderBookMessage
+from hummingbot.connector.exchange.idex.idex_order_book_message import IdexOrderBookMessage
 
 _cbpob_logger = None
 
 
-cdef class CoinbaseProOrderBook(OrderBook):
+cdef class IdexOrderBook(OrderBook):
     @classmethod
     def logger(cls) -> HummingbotLogger:
         global _cbpob_logger
@@ -39,11 +39,11 @@ cdef class CoinbaseProOrderBook(OrderBook):
         Convert json snapshot data into standard OrderBookMessage format
         :param msg: json snapshot data from live web socket stream
         :param timestamp: timestamp attached to incoming data
-        :return: CoinbaseProOrderBookMessage
+        :return: IdexOrderBookMessage
         """
         if metadata:
             msg.update(metadata)
-        return CoinbaseProOrderBookMessage(
+        return IdexOrderBookMessage(
             message_type=OrderBookMessageType.SNAPSHOT,
             content=msg,
             timestamp=timestamp
@@ -59,13 +59,13 @@ cdef class CoinbaseProOrderBook(OrderBook):
         Convert json diff data into standard OrderBookMessage format
         :param msg: json diff data from live web socket stream
         :param timestamp: timestamp attached to incoming data
-        :return: CoinbaseProOrderBookMessage
+        :return: IdexOrderBookMessage
         """
         if metadata:
             msg.update(metadata)
         if "time" in msg:
             msg_time = pd.Timestamp(msg["time"]).timestamp()
-        return CoinbaseProOrderBookMessage(
+        return IdexOrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
             content=msg,
             timestamp=timestamp or msg_time)
@@ -76,10 +76,10 @@ cdef class CoinbaseProOrderBook(OrderBook):
         *used for backtesting
         Convert a row of snapshot data into standard OrderBookMessage format
         :param record: a row of snapshot data from the database
-        :return: CoinbaseProOrderBookMessage
+        :return: IdexOrderBookMessage
         """
         msg = record.json if type(record.json)==dict else ujson.loads(record.json)
-        return CoinbaseProOrderBookMessage(
+        return IdexOrderBookMessage(
             message_type=OrderBookMessageType.SNAPSHOT,
             content=msg,
             timestamp=record.timestamp * 1e-3
@@ -91,9 +91,9 @@ cdef class CoinbaseProOrderBook(OrderBook):
         *used for backtesting
         Convert a row of diff data into standard OrderBookMessage format
         :param record: a row of diff data from the database
-        :return: CoinbaseProOrderBookMessage
+        :return: IdexOrderBookMessage
         """
-        return CoinbaseProOrderBookMessage(
+        return IdexOrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
             content=record.json,
             timestamp=record.timestamp * 1e-3
@@ -105,9 +105,9 @@ cdef class CoinbaseProOrderBook(OrderBook):
         *used for backtesting
         Convert a row of trade data into standard OrderBookMessage format
         :param record: a row of trade data from the database
-        :return: CoinbaseProOrderBookMessage
+        :return: IdexOrderBookMessage
         """
-        return CoinbaseProOrderBookMessage(
+        return IdexOrderBookMessage(
             OrderBookMessageType.TRADE,
             record.json,
             timestamp=record.timestamp * 1e-3
@@ -115,8 +115,8 @@ cdef class CoinbaseProOrderBook(OrderBook):
 
     @classmethod
     def from_snapshot(cls, snapshot: OrderBookMessage):
-        raise NotImplementedError("Coinbase Pro order book needs to retain individual order data.")
+        raise NotImplementedError("Idex orderbook needs to retain individual order data.")
 
     @classmethod
     def restore_from_snapshot_and_diffs(self, snapshot: OrderBookMessage, diffs: List[OrderBookMessage]):
-        raise NotImplementedError("Coinbase Pro order book needs to retain individual order data.")
+        raise NotImplementedError("Idex orderbook needs to retain individual order data.")
