@@ -243,11 +243,12 @@ class PerpetualFinanceDerivative(DerivativeBase):
         api_params = {"pair": convert_to_exchange_trading_pair(trading_pair)}
         if position_action == PositionAction.OPEN:
             api_params.update({"side": 0 if trade_type == TradeType.BUY else 1,
-                               "margin": self.quantize_order_amount(trading_pair, (amount / self._leverage[trading_pair])),
+                               "margin": self.quantize_order_amount(trading_pair, (amount / self._leverage[trading_pair] * price)),
                                "leverage": self._leverage[trading_pair],
                                "minBaseAssetAmount": Decimal("0")})
         else:
-            api_params.update({"minimalQuoteAsset": price * amount})
+            # api_params.update({"minimalQuoteAsset": price * amount})
+            api_params.update({"minimalQuoteAsset": Decimal("0")})
         self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, self._leverage[trading_pair], position_action.name)
         try:
             order_result = await self._api_request("post", f"perpfi/{position_action.name.lower()}", api_params)
@@ -512,18 +513,17 @@ class PerpetualFinanceDerivative(DerivativeBase):
                 unrealized_pnl = Decimal(position.get("pnl"))
                 entry_price = Decimal(position.get("entryPrice"))
                 leverage = self._leverage[trading_pair]
-                if amount != 0:
-                    self._account_positions[trading_pair + position_side.name] = Position(
-                        trading_pair=trading_pair,
-                        position_side=position_side,
-                        unrealized_pnl=unrealized_pnl,
-                        entry_price=entry_price,
-                        amount=amount,
-                        leverage=leverage
-                    )
-                else:
-                    if (trading_pair + position_side.name) in self._account_positions:
-                        del self._account_positions[trading_pair + position_side.name]
+                self._account_positions[trading_pair] = Position(
+                    trading_pair=trading_pair,
+                    position_side=position_side,
+                    unrealized_pnl=unrealized_pnl,
+                    entry_price=entry_price,
+                    amount=amount,
+                    leverage=leverage
+                )
+            else:
+                if trading_pair in self._account_positions:
+                    del self._account_positions[trading_pair]
 
                 payment = Decimal(str(position.get("fundingPayment")))
                 oldPayment = self._fundingPayment.get(trading_pair, 0)
