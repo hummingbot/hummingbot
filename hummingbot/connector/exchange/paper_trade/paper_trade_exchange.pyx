@@ -1,5 +1,6 @@
 # distutils: sources=['hummingbot/core/cpp/Utils.cpp', 'hummingbot/core/cpp/LimitOrder.cpp', 'hummingbot/core/cpp/OrderExpirationEntry.cpp']
 
+import asyncio
 from collections import (
     deque, defaultdict
 )
@@ -22,6 +23,9 @@ from cython.operator cimport(
 from hummingbot.core.Utils cimport(
     getIteratorFromReverseIterator,
     reverse_iterator
+)
+from hummingbot.core.utils.async_utils import (
+    safe_ensure_future,
 )
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.clock import (
@@ -364,15 +368,14 @@ cdef class PaperTradeExchange(ExchangeBase):
                 <PyObject *> quantized_price,
                 <PyObject *> quantized_amount
             ))
-        self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
-                             BuyOrderCreatedEvent(
-                                 self._current_timestamp,
+        safe_ensure_future(self.trigger_event_async(
+            self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
+            BuyOrderCreatedEvent(self._current_timestamp,
                                  order_type,
                                  trading_pair_str,
                                  quantized_amount,
                                  quantized_price,
-                                 order_id
-                             ))
+                                 order_id)))
         return order_id
 
     cdef str c_sell(self,
@@ -419,15 +422,14 @@ cdef class PaperTradeExchange(ExchangeBase):
                 <PyObject *> quantized_price,
                 <PyObject *> quantized_amount
             ))
-        self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
-                             SellOrderCreatedEvent(
-                                 self._current_timestamp,
-                                 order_type,
-                                 trading_pair_str,
-                                 quantized_amount,
-                                 quantized_price,
-                                 order_id
-                             ))
+        safe_ensure_future(self.trigger_event_async(
+            self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
+            SellOrderCreatedEvent(self._current_timestamp,
+                                  order_type,
+                                  trading_pair_str,
+                                  quantized_amount,
+                                  quantized_price,
+                                  order_id)))
         return order_id
 
     cdef c_execute_buy(self, str order_id, str trading_pair, object amount):
@@ -995,3 +997,9 @@ cdef class PaperTradeExchange(ExchangeBase):
 
     def get_taker_order_type(self):
         return OrderType.LIMIT
+
+    async def trigger_event_async(self,
+                                  event_tag,
+                                  event):
+        await asyncio.sleep(0.01)
+        self.c_trigger_event(event_tag, event)
