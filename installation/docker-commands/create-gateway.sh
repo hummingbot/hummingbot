@@ -161,7 +161,7 @@ prompt_eth_gasstation_gas_level () {
   then
     ETH_GAS_STATION_GAS_LEVEL=fast
   else
-    if [[ "$ETH_GAS_STATION_GAS_LEVEL" != "fast" && "$ETH_GAS_STATION_GAS_LEVEL" != "fastest" && "$ETH_GAS_STATION_GAS_LEVEL" != "safeLow" && "$ETH_GAS_STATION_GAS_LEVEL" != "average" ]]
+    if [[ "$ETH_GAS_STATION_GAS_LEVEL" != "fast" && "$ETH_GAS_STATION_GAS_LEVEL" != "fastest" && "$ETH_GAS_STATION_GAS_LEVEL" != "safeLow" && "$ETH_GAS_STATION_GAS_LEVEL" != "safelow" && "$ETH_GAS_STATION_GAS_LEVEL" != "average" ]]
     then
       prompt_eth_gasstation_gas_level
     fi
