@@ -276,11 +276,14 @@ class UniswapConnector(ConnectorBase):
             order_result = await self._api_request("post", "eth/uniswap/trade", api_params)
             hash = order_result.get("txHash")
             gas_price = order_result.get("gasPrice")
+            gas_limit = order_result.get("gasLimit")
+            gas_cost = order_result.get("gasCost")
             self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, gas_price)
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {trade_type.name} order {order_id} txHash: {hash} "
-                                   f"for {amount} {trading_pair}. Gas price: {gas_price}")
+                                   f"for {amount} {trading_pair}. Estimated Gas Cost: {gas_cost} ETH "
+                                   f" (gas limit: {gas_limit}, gas price: {gas_price})")
                 tracked_order.update_exchange_order_id(hash)
                 tracked_order.gas_price = gas_price
             if hash is not None:
