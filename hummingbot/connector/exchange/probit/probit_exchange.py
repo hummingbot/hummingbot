@@ -319,35 +319,6 @@ class ProbitExchange(ExchangeBase):
                 self.logger().error(f"Error parsing the trading pair rule {market}. Skipping.", exc_info=True)
         return result
 
-    async def _get_auth_headers(self, http_client: aiohttp.ClientSession) -> Dict[str, Any]:
-        if self._probit_auth.token_has_expired:
-            try:
-                now: int = int(time.time())
-                headers = self._probit_auth.get_headers()
-                headers.update({
-                    "Authorization": f"Basic {self._probit_auth.token_payload}"
-                })
-                body = ujson.dumps({
-                    "grant_type": "client_credentials"
-                })
-                resp = await http_client.post(url=CONSTANTS.TOKEN_URL,
-                                              headers=headers,
-                                              data=body)
-                token_resp = await resp.json()
-
-                if resp.status != 200:
-                    raise ValueError(f"Error occurred retrieving new OAuth Token. Response: {token_resp}")
-
-                # POST /token endpoint returns both access_token and expires_in
-                # Updates _oauth_token_expiration_time
-
-                self._probit_auth.update_expiration_time(now + token_resp["expires_in"])
-                self._probit_auth.update_oauth_token(token_resp["access_token"])
-            except Exception as e:
-                raise e
-
-        return self._probit_auth.generate_auth_dict()
-
     async def _api_request(self,
                            method: str,
                            path_url: str,
@@ -365,20 +336,23 @@ class ProbitExchange(ExchangeBase):
         path_url = path_url.format(self._domain)
         client = await self._http_client()
 
-        if is_auth_required:
-            headers = await self._probit_auth.get_auth_headers(client)
-        else:
-            headers = self._probit_auth.get_headers()
-
-        if method == "GET":
-            response = await client.get(path_url, headers=headers, params=params)
-        elif method == "POST":
-            response = await client.post(path_url, headers=headers, data=ujson.dumps(data))
-        else:
-            raise NotImplementedError(f"{method} HTTP Method not implemented. ")
-
         try:
+            if is_auth_required:
+                headers = await self._probit_auth.get_auth_headers(client)
+            else:
+                headers = self._probit_auth.get_headers()
+
+            if method == "GET":
+                response = await client.get(path_url, headers=headers, params=params)
+            elif method == "POST":
+                response = await client.post(path_url, headers=headers, data=ujson.dumps(data))
+            else:
+                raise NotImplementedError(f"{method} HTTP Method not implemented. ")
+
             parsed_response = await response.json()
+        except ValueError as e:
+            self.logger().error(f"{str(e)}")
+            raise ValueError(f"Error authenticating request {method} {path_url}. Error: {str(e)}")
         except Exception as e:
             raise IOError(f"Error parsing data from {path_url}. Error: {str(e)}")
         if response.status != 200:
