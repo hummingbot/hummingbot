@@ -8,7 +8,11 @@ import hummingbot.connector.exchange.hitbtc.hitbtc_constants as constants
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
-from typing import Optional, AsyncIterable, Any, List
+from typing import (
+    Optional,
+    AsyncIterable,
+    Any,
+)
 from websockets.exceptions import ConnectionClosed
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.hitbtc.hitbtc_auth import HitBTCAuth
@@ -111,16 +115,20 @@ class HitBTCWebsocket(RequestId):
         return await self._emit(method, data)
 
     # subscribe to a method
-    async def subscribe(self, channels: List[str]) -> int:
-        return await self.request("subscribe", {
-            "channels": channels
-        })
+    async def subscribe(self,
+                        channel: str,
+                        trading_pair: str,
+                        params: Optional[Any] = {}) -> int:
+        params['symbol'] = trading_pair
+        return await self.request(f"subscribe{channel}", params)
 
     # unsubscribe to a method
-    async def unsubscribe(self, channels: List[str]) -> int:
-        return await self.request("unsubscribe", {
-            "channels": channels
-        })
+    async def unsubscribe(self,
+                          channel: str,
+                          trading_pair: str,
+                          params: Optional[Any] = {}) -> int:
+        params['symbol'] = trading_pair
+        return await self.request(f"unsubscribe{channel}", params)
 
     # listen to messages by method
     async def on_message(self) -> AsyncIterable[Any]:
