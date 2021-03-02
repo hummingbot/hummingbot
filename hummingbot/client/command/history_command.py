@@ -105,7 +105,7 @@ class HistoryCommand:
         current_time = get_timestamp()
         lines.extend(
             [f"\nStart Time: {datetime.fromtimestamp(start_time).strftime('%Y-%m-%d %H:%M:%S')}"] +
-            [f"Curent Time: {datetime.fromtimestamp(current_time).strftime('%Y-%m-%d %H:%M:%S')}"] +
+            [f"Current Time: {datetime.fromtimestamp(current_time).strftime('%Y-%m-%d %H:%M:%S')}"] +
             [f"Duration: {pd.Timedelta(seconds=int(current_time - start_time))}"]
         )
         self._notify("\n".join(lines))
