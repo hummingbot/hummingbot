@@ -88,6 +88,7 @@ amm_arb_config_map = {
         key="order_amount",
         prompt=order_amount_prompt,
         type_str="decimal",
+        validator=lambda v: validate_decimal(v, Decimal("0")),
         prompt_on_new=True),
     "min_profitability": ConfigVar(
         key="min_profitability",
