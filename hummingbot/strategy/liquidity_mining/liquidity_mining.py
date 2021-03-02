@@ -195,13 +195,12 @@ class LiquidityMiningStrategy(StrategyPyBase):
         columns = ["Market", "Payout", "Reward/wk", "Liquidity", "Yield/yr", "Max spread"]
         campaigns = await get_campaign_summary(self._exchange.display_name, list(self._market_infos.keys()))
         for market, campaign in campaigns.items():
-            reward_usd = await usd_value(campaign.payout_asset, campaign.reward_per_day * Decimal("7"))
-            liquidity_usd = await usd_value(market.split('-')[0], campaign.liquidity)
+            reward_usd = await usd_value(campaign.payout_asset, campaign.reward_per_wk)
             data.append([
                 market,
                 campaign.payout_asset,
                 f"${reward_usd:.0f}",
-                f"${liquidity_usd:.0f}",
+                f"${campaign.liquidity_usd:.0f}",
                 f"{campaign.apy:.2%}",
                 f"{campaign.spread_max:.2%}%"
             ])
