@@ -2,28 +2,28 @@
 import asyncio
 import logging
 import time
-import aiohttp
 import pandas as pd
-import hummingbot.connector.exchange.hitbtc.hitbtc_constants as constants
-
+from decimal import Decimal
 from typing import Optional, List, Dict, Any
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_gather
+# from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
-from . import hitbtc_utils
+from .hitbtc_constants import Constants
 from .hitbtc_active_order_tracker import HitBTCActiveOrderTracker
 from .hitbtc_order_book import HitBTCOrderBook
 from .hitbtc_websocket import HitBTCWebsocket
-from .hitbtc_utils import ms_timestamp_to_s
+from .hitbtc_utils import (
+    str_date_to_ts,
+    convert_to_exchange_trading_pair,
+    convert_from_exchange_trading_pair,
+    generic_api_request,
+    HitBTCAPIError,
+)
 
 
 class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
-    MAX_RETRIES = 20
-    MESSAGE_TIMEOUT = 30.0
-    SNAPSHOT_TIMEOUT = 10.0
-
     _logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -38,54 +38,53 @@ class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._snapshot_msg: Dict[str, any] = {}
 
     @classmethod
-    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
-        result = {}
-        async with aiohttp.ClientSession() as client:
-            resp = await client.get(f"{constants.REST_URL}/public/get-ticker")
-            resp_json = await resp.json()
-            for t_pair in trading_pairs:
-                last_trade = [o["a"] for o in resp_json["result"]["data"] if o["i"] ==
-                              hitbtc_utils.convert_to_exchange_trading_pair(t_pair)]
-                if last_trade and last_trade[0] is not None:
-                    result[t_pair] = last_trade[0]
-        return result
+    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, Decimal]:
+        results = {}
+        if len(trading_pairs) == 1:
+            for trading_pair in trading_pairs:
+                ex_pair = convert_to_exchange_trading_pair(trading_pair)
+                url_endpoint = Constants.ENDPOINT["TICKER_SINGLE"].format(trading_pair=ex_pair)
+                ticker = await generic_api_request("get", url_endpoint)
+                results[trading_pair] = Decimal(str(ticker["last"]))
+        else:
+            url_endpoint = Constants.ENDPOINT["TICKER"]
+            tickers = await generic_api_request("get", url_endpoint)
+            for trading_pair in trading_pairs:
+                ex_pair = convert_to_exchange_trading_pair(trading_pair)
+                ticker = list([tic for tic in tickers if tic['symbol'] == ex_pair])[0]
+                results[trading_pair] = Decimal(str(ticker["last"]))
+        return results
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
-        async with aiohttp.ClientSession() as client:
-            async with client.get(f"{constants.REST_URL}/public/get-ticker", timeout=10) as response:
-                if response.status == 200:
-                    from hummingbot.connector.exchange.hitbtc.hitbtc_utils import \
-                        convert_from_exchange_trading_pair
-                    try:
-                        data: Dict[str, Any] = await response.json()
-                        return [convert_from_exchange_trading_pair(item["i"]) for item in data["result"]["data"]]
-                    except Exception:
-                        pass
-                        # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
-                return []
+        try:
+            symbols: List[Dict[str, Any]] = await generic_api_request("get", Constants.ENDPOINT["SYMBOL"])
+            return [convert_from_exchange_trading_pair(sym["id"]) for sym in symbols]
+        except Exception:
+            # Do nothing if the request fails -- there will be no autocomplete for huobi trading pairs
+            pass
+        return []
 
     @staticmethod
     async def get_order_book_data(trading_pair: str) -> Dict[str, any]:
         """
         Get whole orderbook
         """
-        async with aiohttp.ClientSession() as client:
-            orderbook_response = await client.get(
-                f"{constants.REST_URL}/public/get-book?depth=150&instrument_name="
-                f"{hitbtc_utils.convert_to_exchange_trading_pair(trading_pair)}"
+        try:
+            ex_pair = convert_to_exchange_trading_pair(trading_pair)
+            orderbook_response = await generic_api_request("get",
+                                                           Constants.ENDPOINT["ORDER_BOOK"],
+                                                           params={
+                                                               "limit": 150,
+                                                               "symbols": ex_pair
+                                                           })
+            orderbook_data = orderbook_response[ex_pair]
+            return orderbook_data
+        except HitBTCAPIError as e:
+            raise IOError(
+                f"Error fetching OrderBook for {trading_pair} at {Constants.EXCHANGE_NAME}. "
+                f"HTTP status is {e.error_payload['status']}. Error is {e.error_payload['error']}."
             )
-
-            if orderbook_response.status != 200:
-                raise IOError(
-                    f"Error fetching OrderBook for {trading_pair} at {constants.EXCHANGE_NAME}. "
-                    f"HTTP status is {orderbook_response.status}."
-                )
-
-            orderbook_data: List[Dict[str, Any]] = await safe_gather(orderbook_response.json())
-            orderbook_data = orderbook_data[0]["result"]["data"][0]
-
-        return orderbook_data
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair)
@@ -110,22 +109,26 @@ class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 ws = HitBTCWebsocket()
                 await ws.connect()
 
-                await ws.subscribe(list(map(
-                    lambda pair: f"trade.{hitbtc_utils.convert_to_exchange_trading_pair(pair)}",
-                    self._trading_pairs
-                )))
+                for pair in self._trading_pairs:
+                    await ws.subscribe("Trades", convert_to_exchange_trading_pair(pair))
 
                 async for response in ws.on_message():
-                    if response.get("result") is None:
+                    print(f"WS1: {response}")
+                    method: str = response.get("method", None)
+                    trades_data: str = response.get("params", None)
+
+                    if trades_data is None or method != Constants.WSS_METHODS['TRADES_UPDATE']:
                         continue
 
-                    for trade in response["result"]["data"]:
+                    pair: str = convert_from_exchange_trading_pair(response["params"]["symbol"])
+
+                    for trade in trades_data["data"]:
                         trade: Dict[Any] = trade
-                        trade_timestamp: int = ms_timestamp_to_s(trade["t"])
+                        trade_timestamp: int = str_date_to_ts(trade["timestamp"])
                         trade_msg: OrderBookMessage = HitBTCOrderBook.trade_message_from_exchange(
                             trade,
                             trade_timestamp,
-                            metadata={"trading_pair": hitbtc_utils.convert_from_exchange_trading_pair(trade["i"])}
+                            metadata={"trading_pair": pair}
                         )
                         output.put_nowait(trade_msg)
 
@@ -146,25 +149,34 @@ class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 ws = HitBTCWebsocket()
                 await ws.connect()
 
-                await ws.subscribe(list(map(
-                    lambda pair: f"book.{hitbtc_utils.convert_to_exchange_trading_pair(pair)}.150",
-                    self._trading_pairs
-                )))
+                order_book_methods = [
+                    Constants.WSS_METHODS['ORDER_SNAPSHOT'],
+                    Constants.WSS_METHODS['ORDER_UPDATE'],
+                ]
+
+                for pair in self._trading_pairs:
+                    await ws.subscribe("Orderbook", convert_to_exchange_trading_pair(pair))
 
                 async for response in ws.on_message():
-                    if response.get("result") is None:
+                    print(f"WS2: {response}")
+
+                    method: str = response.get("method", None)
+                    order_book_data: str = response.get("params", None)
+
+                    if order_book_data is None or method not in order_book_methods:
                         continue
 
-                    order_book_data = response["result"]["data"][0]
-                    timestamp: int = ms_timestamp_to_s(order_book_data["t"])
-                    # data in this channel is not order book diff but the entire order book (up to depth 150).
-                    # so we need to convert it into a order book snapshot.
-                    # HitBTC does not offer order book diff ws updates.
-                    orderbook_msg: OrderBookMessage = HitBTCOrderBook.snapshot_message_from_exchange(
+                    timestamp: int = str_date_to_ts(order_book_data["timestamp"])
+                    pair: str = convert_from_exchange_trading_pair(order_book_data["symbol"])
+
+                    order_book_msg_cls = (HitBTCOrderBook.diff_message_from_exchange
+                                          if method == Constants.WSS_METHODS['ORDER_UPDATE'] else
+                                          HitBTCOrderBook.snapshot_message_from_exchange)
+
+                    orderbook_msg: OrderBookMessage = order_book_msg_cls(
                         order_book_data,
                         timestamp,
-                        metadata={"trading_pair": hitbtc_utils.convert_from_exchange_trading_pair(
-                            response["result"]["instrument_name"])}
+                        metadata={"trading_pair": pair}
                     )
                     output.put_nowait(orderbook_msg)
 
@@ -190,7 +202,7 @@ class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 for trading_pair in self._trading_pairs:
                     try:
                         snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair)
-                        snapshot_timestamp: int = ms_timestamp_to_s(snapshot["t"])
+                        snapshot_timestamp: int = str_date_to_ts(snapshot["timestamp"])
                         snapshot_msg: OrderBookMessage = HitBTCOrderBook.snapshot_message_from_exchange(
                             snapshot,
                             snapshot_timestamp,

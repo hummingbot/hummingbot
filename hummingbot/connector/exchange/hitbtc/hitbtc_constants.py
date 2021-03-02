@@ -7,6 +7,21 @@ class Constants:
     # WSS_PUBLIC_URL = "wss://stream.crypto.com/v2/market"
     WSS_PUBLIC_URL = "wss://api.hitbtc.com/api/2/ws/public"
 
+    ENDPOINT = {
+        # Public Endpoints
+        "TICKER": "public/ticker",
+        "TICKER_SINGLE": "public/ticker/{trading_pair}",
+        "SYMBOL": "public/symbol",
+        "ORDER_BOOK": "public/orderbook",
+    }
+
+    WSS_METHODS = {
+        "ORDER_SNAPSHOT": "snapshotOrderbook",
+        "ORDER_UPDATE": "updateOrderbook",
+        "TRADES_SNAPSHOT": "snapshotTrades",
+        "TRADES_UPDATE": "updateTrades",
+    }
+
     API_REASONS = {
         0: "Success",
         403: "Action is forbidden for account",  # HTTP: 401

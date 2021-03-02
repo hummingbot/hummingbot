@@ -1,8 +1,8 @@
-import math
 import aiohttp
 import asyncio
 import random
 import re
+from dateutil.parser import parse as dateparse
 from typing import (
     Any,
     Dict,
@@ -58,9 +58,9 @@ def get_ms_timestamp() -> int:
     return get_tracking_nonce_low_res()
 
 
-# convert milliseconds timestamp to seconds
-def ms_timestamp_to_s(ms: int) -> int:
-    return math.floor(ms / 1e3)
+# convert date string to timestamp
+def str_date_to_ts(date: str) -> int:
+    return int(dateparse(date).timestamp())
 
 
 # Request ID class
@@ -109,24 +109,24 @@ def get_api_reason(code: str) -> str:
 def retry_sleep_time(try_count: int) -> float:
     random.seed()
     randSleep = 1 + float(random.randint(1, 10) / 100)
-    return float(5 + float(randSleep * (1 + (try_count ** try_count))))
+    return float(2 + float(randSleep * (1 + (try_count ** try_count))))
 
 
 async def generic_api_request(method,
-                              path_url,
+                              endpoint,
                               params: Optional[Dict[str, Any]] = None,
-                              client=None,
+                              shared_client=None,
                               try_count: int = 0) -> Dict[str, Any]:
-    url = f"{Constants.REST_URL}/{path_url}"
-    headers = {"Content-Type": ("application/json" if method == "post"
-                                else "application/x-www-form-urlencoded")}
-    http_client = client if client is not None else aiohttp.ClientSession()
+    url = f"{Constants.REST_URL}/{endpoint}"
+    headers = {"Content-Type": "application/json"}
+    http_client = shared_client if shared_client is not None else aiohttp.ClientSession()
     response_coro = http_client.request(
         method=method.upper(), url=url, headers=headers, params=params, timeout=Constants.API_CALL_TIMEOUT
     )
     http_status, parsed_response, request_errors = None, None, False
     try:
         async with response_coro as response:
+            http_status = response.status
             try:
                 parsed_response = await response.json()
             except Exception:
@@ -139,24 +139,23 @@ async def generic_api_request(method,
                     pass
             if response.status not in [200, 201] or parsed_response is None:
                 request_errors = True
-                http_status = response.status
     except Exception:
         request_errors = True
-    if client is None:
+    if shared_client is None:
         await http_client.close()
     if request_errors or parsed_response is None:
         if try_count < 4:
             try_count += 1
             time_sleep = retry_sleep_time(try_count)
             print(f"Error fetching data from {url}. HTTP status is {http_status}. "
-                  f"Retrying in {time_sleep:.1f}s.")
+                  f"Retrying in {time_sleep:.0f}s.")
             await asyncio.sleep(time_sleep)
-            return await generic_api_request(method=method, path_url=path_url, params=params,
-                                             client=client, try_count=try_count)
+            return await generic_api_request(method=method, endpoint=endpoint, params=params,
+                                             shared_client=shared_client, try_count=try_count)
         else:
             print(f"Error fetching data from {url}. HTTP status is {http_status}. "
                   f"Final msg: {parsed_response}.")
-            raise HitBTCAPIError({"error": parsed_response})
+            raise HitBTCAPIError({"error": parsed_response, "status": http_status})
     return parsed_response
 
 
