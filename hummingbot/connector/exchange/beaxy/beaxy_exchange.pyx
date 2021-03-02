@@ -887,6 +887,29 @@ cdef class BeaxyExchange(ExchangeBase):
                                                  ))
 
                     elif order_status == 'completely_filled':
+
+                        self.c_trigger_event(
+                            self.MARKET_ORDER_FILLED_EVENT_TAG,
+                            OrderFilledEvent(
+                                self._current_timestamp,
+                                tracked_order.client_order_id,
+                                tracked_order.trading_pair,
+                                tracked_order.trade_type,
+                                tracked_order.order_type,
+                                execute_price,
+                                execute_amount_diff,
+                                self.c_get_fee(
+                                    tracked_order.base_asset,
+                                    tracked_order.quote_asset,
+                                    tracked_order.order_type,
+                                    tracked_order.trade_type,
+                                    execute_price,
+                                    execute_amount_diff,
+                                ),
+                                exchange_trade_id=exchange_order_id
+                            )
+                        )
+
                         if tracked_order.trade_type == TradeType.BUY:
                             self.logger().info(f'The market buy order {tracked_order.client_order_id} has completed '
                                                f'according to Beaxy user stream.')
