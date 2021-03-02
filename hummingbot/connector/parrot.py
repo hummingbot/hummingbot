@@ -16,7 +16,7 @@ s_decimal_0 = Decimal("0")
 class CampaignSummary:
     market_id: int = 0
     trading_pair: str = ""
-    exchange_name: str = 0
+    exchange_name: str = ""
     spread_max: Decimal = s_decimal_0
     payout_asset: str = ""
     liquidity: Decimal = s_decimal_0
