@@ -280,7 +280,7 @@ class UniswapConnector(ConnectorBase):
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {trade_type.name} order {order_id} txHash: {hash} "
-                                   f"for {amount} {trading_pair}.")
+                                   f"for {amount} {trading_pair}. Gas price: {gas_price}")
                 tracked_order.update_exchange_order_id(hash)
                 tracked_order.gas_price = gas_price
             if hash is not None:
