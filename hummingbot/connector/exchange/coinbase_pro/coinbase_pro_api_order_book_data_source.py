@@ -113,8 +113,8 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
         """
         *required
-        Initializes order books and order book trackers for the list of trading pairs 
-        returned by `self.fetch_trading_pairs`
+        Initializes order books and order book trackers for the list of trading pairs
+        returned by `self.get_trading_pairs`
         :returns: A dictionary of order book trackers for each trading pair
         """
         # Get the currently active markets
