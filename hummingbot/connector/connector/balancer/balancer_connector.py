@@ -283,7 +283,7 @@ class BalancerConnector(ConnectorBase):
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {trade_type.name} order {order_id} txHash: {hash} "
-                                   f"for {amount} {trading_pair}. Estimated Gas Cost: {gas_cost} ETH "
+                                   f"for {amount} {trading_pair}. Estimated Transaction Fee: {gas_cost} ETH "
                                    f" (gas limit: {gas_limit}, gas price: {gas_price})")
                 tracked_order.update_exchange_order_id(hash)
                 tracked_order.gas_price = gas_price
