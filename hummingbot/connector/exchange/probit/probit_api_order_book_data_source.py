@@ -130,7 +130,6 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 async with websockets.connect(uri=CONSTANTS.WSS_URL.format(self._domain)) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
                     for trading_pair in self._trading_pairs:
                         params: Dict[str, Any] = {
                             "channel": "marketdata",
