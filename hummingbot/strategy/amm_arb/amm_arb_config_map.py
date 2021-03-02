@@ -70,7 +70,7 @@ amm_arb_config_map = {
         key="market_1",
         prompt=market_1_prompt,
         prompt_on_new=True,
-        validator=market_1_on_validated,
+        validator=market_1_validator,
         on_validated=market_1_on_validated),
     "connector_2": ConfigVar(
         key="connector_2",
