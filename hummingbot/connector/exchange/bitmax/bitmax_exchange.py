@@ -485,36 +485,36 @@ class BitmaxExchange(ExchangeBase):
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
 
-        # bitmax has a unique way of determening if the order has enough "worth" to be posted
-        # see https://bitmax-exchange.github.io/bitmax-pro-api/#place-order
-        notional = Decimal(price * amount)
-        if notional < bitmax_trading_rule.minNotional or notional > bitmax_trading_rule.maxNotional:
-            raise ValueError(f"Notional amount {notional} is not withing the range of {bitmax_trading_rule.minNotional}-{bitmax_trading_rule.maxNotional}.")
-
-        # TODO: check balance
-        [exchange_order_id, timestamp] = bitmax_utils.gen_exchange_order_id(self._account_uid)
-
-        api_params = {
-            "id": exchange_order_id,
-            "time": timestamp,
-            "symbol": bitmax_utils.convert_to_exchange_trading_pair(trading_pair),
-            "orderPrice": f"{price:f}",
-            "orderQty": f"{amount:f}",
-            "orderType": "limit",
-            "side": trade_type.name
-        }
-
-        self.start_tracking_order(
-            order_id,
-            exchange_order_id,
-            trading_pair,
-            trade_type,
-            price,
-            amount,
-            order_type
-        )
-
         try:
+            # bitmax has a unique way of determening if the order has enough "worth" to be posted
+            # see https://bitmax-exchange.github.io/bitmax-pro-api/#place-order
+            notional = Decimal(price * amount)
+            if notional < bitmax_trading_rule.minNotional or notional > bitmax_trading_rule.maxNotional:
+                raise ValueError(f"Notional amount {notional} is not withing the range of {bitmax_trading_rule.minNotional}-{bitmax_trading_rule.maxNotional}.")
+
+            # TODO: check balance
+            [exchange_order_id, timestamp] = bitmax_utils.gen_exchange_order_id(self._account_uid)
+
+            api_params = {
+                "id": exchange_order_id,
+                "time": timestamp,
+                "symbol": bitmax_utils.convert_to_exchange_trading_pair(trading_pair),
+                "orderPrice": f"{price:f}",
+                "orderQty": f"{amount:f}",
+                "orderType": "limit",
+                "side": trade_type.name
+            }
+
+            self.start_tracking_order(
+                order_id,
+                exchange_order_id,
+                trading_pair,
+                trade_type,
+                price,
+                amount,
+                order_type
+            )
+
             await self._api_request("post", "cash/order", api_params, True, force_auth_path_url="order")
             tracked_order = self._in_flight_orders.get(order_id)
             # tracked_order.update_exchange_order_id(exchange_order_id)
