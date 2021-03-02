@@ -1,36 +1,59 @@
 # A single source of truth for constant variables related to the exchange
+class Constants:
+    EXCHANGE_NAME = "hitbtc"
+    REST_URL = "https://api.hitbtc.com/api/2"
+    # WSS_PRIVATE_URL = "wss://stream.crypto.com/v2/user"
+    WSS_PRIVATE_URL = "wss://api.hitbtc.com/api/2/ws/trading"
+    # WSS_PUBLIC_URL = "wss://stream.crypto.com/v2/market"
+    WSS_PUBLIC_URL = "wss://api.hitbtc.com/api/2/ws/public"
 
+    API_REASONS = {
+        0: "Success",
+        403: "Action is forbidden for account",  # HTTP: 401
+        429: "Too many requests",  # HTTP: 429
+        500: "Internal Server Error",  # HTTP: 500
+        503: "Service Unavailable",  # HTTP: 503
+        504: "Gateway Timeout",  # HTTP: 504
+        1001: "Authorization required",  # HTTP: 401
+        1002: "Authorization required or has been failed",  # HTTP: 401
+        1003: "Action forbidden for this API key",  # HTTP: 403
+        1004: "Unsupported authorization method",  # HTTP: 401
+        2001: "Symbol not found",  # HTTP: 400
+        2002: "Currency not found",  # HTTP: 400
+        2010: "Quantity not a valid number",  # HTTP: 400
+        2011: "Quantity too low",  # HTTP: 400
+        2012: "Bad quantity",  # HTTP: 400
+        2020: "Price not a valid number",  # HTTP: 400
+        2021: "Price too low",  # HTTP: 400
+        2022: "Bad price",  # HTTP: 400
+        20001: "Insufficient funds",  # HTTP: 400
+        20002: "Order not found",  # HTTP: 400
+        20003: "Limit exceeded",  # HTTP: 400
+        20004: "Transaction not found",  # HTTP: 400
+        20005: "Payout not found",  # HTTP: 400
+        20006: "Payout already committed",  # HTTP: 400
+        20007: "Payout already rolled back",  # HTTP: 400
+        20008: "Duplicate clientOrderId",  # HTTP: 400
+        20009: "Price and quantity not changed",  # HTTP: 400
+        20010: "Exchange temporary closed",  # HTTP: 400
+        20011: "Payout address is invalid",  # HTTP: 400
+        20014: "Offchain for this payout is unavailable",  # HTTP: 400
+        20032: "Margin account or position not found",  # HTTP: 400
+        20033: "Position not changed",  # HTTP: 400
+        20034: "Position in close only state",  # HTTP: 400
+        20040: "Margin trading forbidden",  # HTTP: 400
+        20080: "Internal order execution deadline exceeded",  # HTTP: 400.
+        10001: "Validation error",  # HTTP: 400
+        10021: "User disabled",  # HTTP: 400
 
-EXCHANGE_NAME = "hitbtc"
-REST_URL = "https://api.crypto.com/v2"
-# WSS_PRIVATE_URL = "wss://stream.crypto.com/v2/user"
-WSS_PRIVATE_URL = "wss://d289dek49b4wqs.cloudfront.net/v2/user"
-# WSS_PUBLIC_URL = "wss://stream.crypto.com/v2/market"
-WSS_PUBLIC_URL = "wss://d10tq1f9ygdz7y.cloudfront.net/v2/market"
+    }
 
-API_REASONS = {
-    0: "Success",
-    10001: "Malformed request, (E.g. not using application/json for REST)",
-    10002: "Not authenticated, or key/signature incorrect",
-    10003: "IP address not whitelisted",
-    10004: "Missing required fields",
-    10005: "Disallowed based on user tier",
-    10006: "Requests have exceeded rate limits",
-    10007: "Nonce value differs by more than 30 seconds from server",
-    10008: "Invalid method specified",
-    10009: "Invalid date range",
-    20001: "Duplicated record",
-    20002: "Insufficient balance",
-    30003: "Invalid instrument_name specified",
-    30004: "Invalid side specified",
-    30005: "Invalid type specified",
-    30006: "Price is lower than the minimum",
-    30007: "Price is higher than the maximum",
-    30008: "Quantity is lower than the minimum",
-    30009: "Quantity is higher than the maximum",
-    30010: "Required argument is blank or missing",
-    30013: "Too many decimal places for Price",
-    30014: "Too many decimal places for Quantity",
-    30016: "The notional amount is less than the minimum",
-    30017: "The notional amount exceeds the maximum",
-}
+    # Timeouts
+    MESSAGE_TIMEOUT = 30.0
+    PING_TIMEOUT = 10.0
+
+    API_CALL_TIMEOUT = 10.0
+    UPDATE_ORDERS_INTERVAL = 30.0
+
+    # Trading pair splitter regex
+    TRADING_PAIR_SPLITTER = r"^(\w+)(BTC|BCH|DAI|DDRST|EOSDT|EOS|ETH|EURS|IDRT|PAX|BUSD|GUSD|TUSD|USDC|USD)$"
