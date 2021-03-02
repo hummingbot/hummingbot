@@ -22,13 +22,13 @@ sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
-class ProBitAuthUnitTest(unittest.TestCase):
+class ProbitAuthUnitTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         api_key = conf.probit_api_key
-        secret_key = conf.crypto_com_secret_key
+        secret_key = conf.probit_secret_key
         cls.auth: ProbitAuth = ProbitAuth(api_key, secret_key)
 
     async def rest_auth(self) -> Dict[str, Any]:
