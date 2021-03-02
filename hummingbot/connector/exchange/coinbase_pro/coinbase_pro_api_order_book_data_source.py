@@ -96,10 +96,6 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return data
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
-        """
-        Takes order book snapshot and generates orderbook message to apply numpy arrays to new Orderbook instance
-        :returns: Updated orderbook instance
-        """
         async with aiohttp.ClientSession() as client:
             snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
             snapshot_timestamp: float = time.time()
@@ -117,7 +113,8 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
         """
         *required
-        Initializes order books and order book trackers for the list of trading pairs returned by `self.fetch_trading_pairs`
+        Initializes order books and order book trackers for the list of trading pairs 
+        returned by `self.fetch_trading_pairs`
         :returns: A dictionary of order book trackers for each trading pair
         """
         # Get the currently active markets
