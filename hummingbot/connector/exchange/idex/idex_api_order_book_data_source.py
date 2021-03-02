@@ -15,7 +15,6 @@ import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-import requests
 import cachetools.func
 
 from hummingbot.core.data_type.order_book import OrderBook
