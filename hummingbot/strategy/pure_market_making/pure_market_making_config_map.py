@@ -99,6 +99,7 @@ def validate_price_floor_ceiling(value: str) -> Optional[str]:
     if not (decimal_value == Decimal("-1") or decimal_value > Decimal("0")):
         return "Value must be more than 0 or -1 to disable this feature."
 
+
 def on_validated_price_type(value: str):
     if value == 'inventory_cost':
         pure_market_making_config_map["inventory_price"].value = None
