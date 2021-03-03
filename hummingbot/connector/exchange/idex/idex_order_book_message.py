@@ -32,6 +32,7 @@ class IdexOrderBookMessage(OrderBookMessage):
     @property
     def update_id(self) -> int:
         if self.type in [OrderBookMessageType.DIFF, OrderBookMessageType.SNAPSHOT]:
+            # TODO: ALF: self.content["sequence"]  (coinbase)   or  self.timestamp * 1e3  (crypto.com)  ???
             return int(self.content["sequence"])
         else:
             return -1
@@ -44,6 +45,7 @@ class IdexOrderBookMessage(OrderBookMessage):
 
     @property
     def trading_pair(self) -> str:
+        # TODO ALF: check 'product_id' and 'symbol' are present
         if "product_id" in self.content:
             return self.content["product_id"]
         elif "symbol" in self.content:

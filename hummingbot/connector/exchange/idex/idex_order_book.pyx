@@ -4,6 +4,7 @@ from typing import (
     Dict,
     List,
     Optional,
+    Any,
 )
 
 from sqlalchemy.engine import RowProxy
@@ -17,20 +18,20 @@ from hummingbot.core.data_type.order_book_message import (
 )
 from hummingbot.connector.exchange.idex.idex_order_book_message import IdexOrderBookMessage
 
-_ibpob_logger = None
+_iob_logger = None
 
 
 cdef class IdexOrderBook(OrderBook):
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global _ibpod_logger
-        if _ibpob_logger is None:
-            _ibpob_logger = logging.getLogger(__name__)
-        return _ibpob_logger
+        global _iob_logger
+        if _iob_logger is None:
+            _iob_logger = logging.getLogger(__name__)
+        return _iob_logger
 
     @classmethod
     def snapshot_message_from_exchange(cls,
-                                       msg: Dict[str, any],
+                                       msg: Dict[str, Any],
                                        timestamp: float,
                                        metadata: Optional[Dict] = None) -> OrderBookMessage:
         """
@@ -50,7 +51,7 @@ cdef class IdexOrderBook(OrderBook):
 
     @classmethod
     def diff_message_from_exchange(cls,
-                                   msg: Dict[str, any],
+                                   msg: Dict[str, Any],
                                    timestamp: Optional[float] = None,
                                    metadata: Optional[Dict] = None) -> OrderBookMessage:
         """
@@ -62,7 +63,7 @@ cdef class IdexOrderBook(OrderBook):
         """
         if metadata:
             msg.update(metadata)
-        if "time" in msg:
+        if "time" in msg:  # TODO ALF: check 'time' present
             msg_time = pd.Timestamp(msg["time"]).timestamp()
         return IdexOrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
@@ -77,11 +78,11 @@ cdef class IdexOrderBook(OrderBook):
         :param record: a row of snapshot data from the database
         :return: IdexOrderBookMessage
         """
-        msg = record.json if type(record.json)==dict else ujson.loads(record.json)
+        msg = record.json if type(record.json)==dict else ujson.loads(record.json)  # TODO ALF: check not cb specific
         return IdexOrderBookMessage(
             message_type=OrderBookMessageType.SNAPSHOT,
             content=msg,
-            timestamp=record.timestamp * 1e-3
+            timestamp=record.timestamp * 1e-3  # TODO ALF: check not cb specific
         )
 
     @classmethod
@@ -110,6 +111,33 @@ cdef class IdexOrderBook(OrderBook):
             OrderBookMessageType.TRADE,
             record.json,
             timestamp=record.timestamp * 1e-3
+        )
+
+    @classmethod
+    def trade_message_from_exchange(cls,
+                                    msg: Dict[str, Any],
+                                    timestamp: Optional[float] = None,
+                                    metadata: Optional[Dict] = None):
+        """
+        Convert a trade data into standard OrderBookMessage format
+        :param msg: json diff data from live web socket stream
+        :param timestamp: timestamp attached to incoming data
+        :param metadata: metadata to add to the websocket message
+        :return: IdexOrderBookMessage
+        """
+        # TODO ALF: check correctness
+        if metadata:
+            msg.update(metadata)
+        msg.update({
+            "exchange_order_id": msg.get("d"),
+            "trade_type": msg.get("s"),
+            "price": msg.get("p"),
+            "amount": msg.get("q"),
+        })
+        return IdexOrderBookMessage(
+            message_type=OrderBookMessageType.TRADE,
+            content=msg,
+            timestamp=timestamp
         )
 
     @classmethod
