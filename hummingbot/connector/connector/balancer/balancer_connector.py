@@ -192,12 +192,11 @@ class BalancerConnector(ConnectorBase):
                                             "quote": quote,
                                             "amount": amount,
                                             "side": side.upper()})
-            if "price" not in resp.keys():
+            if "price" not in resp.keys() or "gasPrice" not in resp.keys():
                 self.logger().info(f"Unable to get price: {resp['info']}")
             else:
-                if resp["price"] is not None and resp["gasPrice"] is not None:
-                    gas_price = resp["gasPrice"]
-                    return Decimal(str(gas_price))
+                if resp["price"] is not None:
+                    return Decimal(str(resp["price"]))
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -278,12 +277,16 @@ class BalancerConnector(ConnectorBase):
             hash = order_result.get("txHash")
             gas_price = order_result.get("gasPrice")
             gas_limit = order_result.get("gasLimit")
-            gas_cost = order_result.get("gasCost")
+            transaction_cost = order_result.get("gasCost")
             self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, gas_price)
             tracked_order = self._in_flight_orders.get(order_id)
+
+            # update onchain balance
+            self._update_balances()
+
             if tracked_order is not None:
                 self.logger().info(f"Created {trade_type.name} order {order_id} txHash: {hash} "
-                                   f"for {amount} {trading_pair}. Estimated Transaction Fee: {gas_cost} ETH "
+                                   f"for {amount} {trading_pair}. Estimated Transaction Fee: {transaction_cost} ETH "
                                    f" (gas limit: {gas_limit}, gas price: {gas_price})")
                 tracked_order.update_exchange_order_id(hash)
                 tracked_order.gas_price = gas_price

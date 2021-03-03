@@ -253,13 +253,18 @@ class AmmArbStrategy(StrategyPyBase):
             market, trading_pair, base_asset, quote_asset = market_info
             buy_price = await market.get_quote_price(trading_pair, True, self._order_amount)
             sell_price = await market.get_quote_price(trading_pair, False, self._order_amount)
-            mid_price = (buy_price + sell_price) / 2
+
+            # check for unavailable price data
+            buy_price = float(buy_price) if buy_price is not None else '-'
+            sell_price = float(sell_price) if sell_price is not None else '-'
+            mid_price = float((buy_price + sell_price) / 2) if '-' not in [buy_price, sell_price] else '-'
+
             data.append([
                 market.display_name,
                 trading_pair,
-                float(sell_price),
-                float(buy_price),
-                float(mid_price)
+                sell_price,
+                buy_price,
+                mid_price
             ])
         markets_df = pd.DataFrame(data=data, columns=columns)
         lines = []
