@@ -11,7 +11,7 @@ from typing import (
     Tuple,
 )
 
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce, get_tracking_nonce_low_res
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from .hitbtc_constants import Constants
 
 from hummingbot.client.config.config_var import ConfigVar
@@ -25,8 +25,6 @@ CENTRALIZED = True
 EXAMPLE_PAIR = "ETH-USDT"
 
 DEFAULT_FEES = [0.1, 0.1]
-
-HBOT_BROKER_ID = "HBOT-"
 
 
 class HitBTCAPIError(IOError):
@@ -51,11 +49,6 @@ def merge_dicts(source: Dict, destination: Dict) -> Dict:
 # join paths
 def join_paths(*paths: List[str]) -> str:
     return "/".join(paths)
-
-
-# get timestamp in milliseconds
-def get_ms_timestamp() -> int:
-    return get_tracking_nonce_low_res()
 
 
 # convert date string to timestamp
@@ -99,7 +92,12 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
 
 def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
     side = "B" if is_buy else "S"
-    return f"{HBOT_BROKER_ID}{side}-{trading_pair}-{get_tracking_nonce()}"
+    symbols = trading_pair.split("-")
+    base = symbols[0].upper()
+    quote = symbols[1].upper()
+    base_str = f"{base[0]}{base[-1]}"
+    quote_str = f"{quote[0]}{quote[-1]}"
+    return f"{Constants.HBOT_BROKER_ID}-{side}-{base_str}{quote_str}-{get_tracking_nonce()}"
 
 
 def get_api_reason(code: str) -> str:

@@ -15,7 +15,7 @@ from typing import (
 from websockets.exceptions import ConnectionClosed
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.hitbtc.hitbtc_auth import HitBTCAuth
-from hummingbot.connector.exchange.hitbtc.hitbtc_utils import RequestId, get_ms_timestamp
+from hummingbot.connector.exchange.hitbtc.hitbtc_utils import RequestId
 
 # reusable websocket class
 # ToDo: We should eventually remove this class, and instantiate web socket connection normally (see Binance for example)
@@ -46,7 +46,8 @@ class HitBTCWebsocket(RequestId):
             # if auth class was passed into websocket class
             # we need to emit authenticated requests
             if self._isPrivate:
-                await self._emit("public/auth", None)
+                auth_params = self._auth.generate_auth_dict_ws(self.generate_request_id())
+                await self._emit("login", auth_params)
                 # TODO: wait for response
                 await asyncio.sleep(1)
 
@@ -84,25 +85,12 @@ class HitBTCWebsocket(RequestId):
     # emit messages
     async def _emit(self, method: str, data: Optional[Any] = {}) -> int:
         id = self.generate_request_id()
-        nonce = get_ms_timestamp()
 
         payload = {
             "id": id,
             "method": method,
-            "nonce": nonce,
             "params": copy.deepcopy(data),
         }
-
-        if self._isPrivate:
-            auth = self._auth.generate_auth_dict(
-                method,
-                request_id=id,
-                nonce=nonce,
-                data=data,
-            )
-
-            payload["sig"] = auth["sig"]
-            payload["api_key"] = auth["api_key"]
 
         await self._client.send(ujson.dumps(payload))
 
