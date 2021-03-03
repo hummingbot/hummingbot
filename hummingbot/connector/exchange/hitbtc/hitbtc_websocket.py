@@ -5,7 +5,6 @@ import logging
 import websockets
 import ujson
 import hummingbot.connector.exchange.hitbtc.hitbtc_constants as constants
-from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 from typing import (
@@ -69,9 +68,8 @@ class HitBTCWebsocket(RequestId):
                 try:
                     raw_msg_str: str = await asyncio.wait_for(self._client.recv(), timeout=self.MESSAGE_TIMEOUT)
                     raw_msg = ujson.loads(raw_msg_str)
-                    if "method" in raw_msg and raw_msg["method"] == "public/heartbeat":
-                        payload = {"id": raw_msg["id"], "method": "public/respond-heartbeat"}
-                        safe_ensure_future(self._client.send(ujson.dumps(payload)))
+                    # HitBTC doesn't support ping or heartbeat messages.
+                    # Can handle them here if that changes - use `safe_ensure_future`.
                     yield raw_msg
                 except asyncio.TimeoutError:
                     await asyncio.wait_for(self._client.ping(), timeout=self.PING_TIMEOUT)

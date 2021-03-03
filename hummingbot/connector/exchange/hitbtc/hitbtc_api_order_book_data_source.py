@@ -40,19 +40,16 @@ class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, Decimal]:
         results = {}
-        if len(trading_pairs) == 1:
-            for trading_pair in trading_pairs:
-                ex_pair = convert_to_exchange_trading_pair(trading_pair)
+        if len(trading_pairs) > 1:
+            tickers = await generic_api_request("get", Constants.ENDPOINT["TICKER"])
+        for trading_pair in trading_pairs:
+            ex_pair = convert_to_exchange_trading_pair(trading_pair)
+            if len(trading_pairs) > 1:
+                ticker = list([tic for tic in tickers if tic['symbol'] == ex_pair])[0]
+            else:
                 url_endpoint = Constants.ENDPOINT["TICKER_SINGLE"].format(trading_pair=ex_pair)
                 ticker = await generic_api_request("get", url_endpoint)
-                results[trading_pair] = Decimal(str(ticker["last"]))
-        else:
-            url_endpoint = Constants.ENDPOINT["TICKER"]
-            tickers = await generic_api_request("get", url_endpoint)
-            for trading_pair in trading_pairs:
-                ex_pair = convert_to_exchange_trading_pair(trading_pair)
-                ticker = list([tic for tic in tickers if tic['symbol'] == ex_pair])[0]
-                results[trading_pair] = Decimal(str(ticker["last"]))
+            results[trading_pair] = Decimal(str(ticker["last"]))
         return results
 
     @staticmethod

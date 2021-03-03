@@ -46,7 +46,7 @@ cdef class HitBTCActiveOrderTracker:
 
     def get_rates_and_quantities(self, entry) -> tuple:
         # price, quantity
-        return float(entry[0]), float(entry[1])
+        return float(entry["price"]), float(entry["size"])
 
     cdef tuple c_convert_diff_message_to_np_arrays(self, object message):
         cdef:
@@ -61,8 +61,8 @@ cdef class HitBTCActiveOrderTracker:
             double timestamp = message.timestamp
             double amount = 0
 
-        bid_entries = content["bids"]
-        ask_entries = content["asks"]
+        bid_entries = content["bid"]
+        ask_entries = content["ask"]
 
         bids = s_empty_diff
         asks = s_empty_diff
@@ -104,7 +104,7 @@ cdef class HitBTCActiveOrderTracker:
         timestamp = message.timestamp
         content = message.content
 
-        for snapshot_orders, active_orders in [(content["bids"], self._active_bids), (content["asks"], self.active_asks)]:
+        for snapshot_orders, active_orders in [(content["bid"], self._active_bids), (content["ask"], self.active_asks)]:
             for order in snapshot_orders:
                 price, amount = self.get_rates_and_quantities(order)
 
@@ -146,13 +146,13 @@ cdef class HitBTCActiveOrderTracker:
 
     cdef np.ndarray[np.float64_t, ndim=1] c_convert_trade_message_to_np_array(self, object message):
         cdef:
-            double trade_type_value = 2.0
+            double trade_type_value = 1.0 if message.content["side"] == "buy" else 2.0
 
         timestamp = message.timestamp
         content = message.content
 
         return np.array(
-            [timestamp, trade_type_value, float(content["price"]), float(content["size"])],
+            [timestamp, trade_type_value, float(content["price"]), float(content["quantity"])],
             dtype="float64"
         )
 
