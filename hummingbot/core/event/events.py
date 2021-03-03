@@ -95,6 +95,7 @@ class PriceType(Enum):
     BestAsk = 3
     LastTrade = 4
     LastOwnTrade = 5
+    InventoryCost = 6
 
 
 class MarketTransactionFailureEvent(NamedTuple):
@@ -294,6 +295,8 @@ class OrderFilledEvent(NamedTuple):
     amount: Decimal
     trade_fee: TradeFee
     exchange_trade_id: str = ""
+    leverage: Optional[int] = 1
+    position: Optional[str] = "NILL"
 
     @classmethod
     def order_filled_events_from_order_book_rows(cls,
@@ -338,6 +341,8 @@ class BuyOrderCreatedEvent:
     price: Decimal
     order_id: str
     exchange_order_id: Optional[str] = None
+    leverage: Optional[int] = 1
+    position: Optional[str] = "NILL"
 
 
 @dataclass
@@ -349,3 +354,5 @@ class SellOrderCreatedEvent:
     price: Decimal
     order_id: str
     exchange_order_id: Optional[str] = None
+    leverage: Optional[int] = 1
+    position: Optional[str] = "NILL"

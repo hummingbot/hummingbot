@@ -13,7 +13,6 @@ from hummingbot.core.utils.market_price import usd_value
 from hummingbot.core.data_type.trade import Trade
 from hummingbot.core.data_type.common import OpenOrder
 from hummingbot.client.performance import calculate_performance_metrics
-from hummingbot.core.utils.market_price import get_last_price
 from hummingbot.client.command.history_command import get_timestamp
 from hummingbot.client.config.global_config_map import global_config_map
 
@@ -58,8 +57,7 @@ class PnlCommand:
         if market is not None:
             market = market.upper()
             trades: List[Trade] = await connector.get_my_trades(market, days)
-            cur_price = await get_last_price(exchange, market)
-            perf = calculate_performance_metrics(market, trades, cur_balances, cur_price)
+            perf = await calculate_performance_metrics(exchange, market, trades, cur_balances)
             self.report_performance_by_market(exchange, market, perf, precision=None)
             return
         self._notify(f"Starting: {datetime.fromtimestamp(get_timestamp(days)).strftime('%Y-%m-%d %H:%M:%S')}"
@@ -69,7 +67,10 @@ class PnlCommand:
             orders: List[OpenOrder] = await connector.get_open_orders()
             markets = {o.trading_pair for o in orders}
         else:
-            markets = set(global_config_map["binance_markets"].value.split(","))
+            if self.strategy_config_map is not None and "markets" in self.strategy_config_map:
+                markets = set(self.strategy_config_map["markets"].value.split(","))
+            else:
+                markets = set(global_config_map["binance_markets"].value.split(","))
         markets = sorted(markets)
         data = []
         columns = ["Market", " Traded ($)", " Fee ($)", " PnL ($)", " Return %"]
@@ -78,10 +79,9 @@ class PnlCommand:
             trades: List[Trade] = await connector.get_my_trades(market, days)
             if not trades:
                 continue
-            cur_price = await get_last_price(exchange, market)
-            perf = calculate_performance_metrics(market, trades, cur_balances, cur_price)
+            perf = await calculate_performance_metrics(exchange, market, trades, cur_balances)
             volume = await usd_value(quote, abs(perf.b_vol_quote) + abs(perf.s_vol_quote))
-            fee = await usd_value(perf.fee_token, perf.fee_paid)
+            fee = await usd_value(quote, perf.fee_in_quote)
             pnl = await usd_value(quote, perf.total_pnl)
             data.append([market, round(volume, 2), round(fee, 2), round(pnl, 2), f"{perf.return_pct:.2%}"])
         if not data:
