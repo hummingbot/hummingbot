@@ -7,6 +7,8 @@ class Constants:
     # WSS_PUBLIC_URL = "wss://stream.crypto.com/v2/market"
     WSS_PUBLIC_URL = "wss://api.hitbtc.com/api/2/ws/public"
 
+    HBOT_BROKER_ID = "refzzz48"
+
     ENDPOINT = {
         # Public Endpoints
         "TICKER": "public/ticker",
@@ -69,6 +71,8 @@ class Constants:
 
     API_CALL_TIMEOUT = 10.0
     UPDATE_ORDERS_INTERVAL = 30.0
+
+    INTERVAL_TRADING_RULES = 120
 
     # Trading pair splitter regex
     TRADING_PAIR_SPLITTER = r"^(\w+)(BTC|BCH|DAI|DDRST|EOSDT|EOS|ETH|EURS|IDRT|PAX|BUSD|GUSD|TUSD|USDC|USD)$"

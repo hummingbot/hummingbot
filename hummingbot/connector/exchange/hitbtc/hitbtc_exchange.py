@@ -8,7 +8,6 @@ from typing import (
 )
 from decimal import Decimal
 import asyncio
-import json
 import aiohttp
 import math
 import time
@@ -39,8 +38,15 @@ from hummingbot.connector.exchange.hitbtc.hitbtc_order_book_tracker import HitBT
 from hummingbot.connector.exchange.hitbtc.hitbtc_user_stream_tracker import HitBTCUserStreamTracker
 from hummingbot.connector.exchange.hitbtc.hitbtc_auth import HitBTCAuth
 from hummingbot.connector.exchange.hitbtc.hitbtc_in_flight_order import HitBTCInFlightOrder
-from hummingbot.connector.exchange.hitbtc import hitbtc_utils
-from hummingbot.connector.exchange.hitbtc import hitbtc_constants as Constants
+from hummingbot.connector.exchange.hitbtc.hitbtc_utils import (
+    convert_from_exchange_trading_pair,
+    convert_to_exchange_trading_pair,
+    get_new_client_order_id,
+    get_api_reason,
+    retry_sleep_time,
+    HitBTCAPIError,
+)
+from hummingbot.connector.exchange.hitbtc.hitbtc_constants import Constants
 from hummingbot.core.data_type.common import OpenOrder
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
@@ -164,7 +170,7 @@ class HitBTCExchange(ExchangeBase):
         :return a list of OrderType supported by this connector.
         Note that Market order type is no longer required and will not be used.
         """
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        return [OrderType.LIMIT]
 
     def start(self, clock: Clock, timestamp: float):
         """
@@ -218,8 +224,10 @@ class HitBTCExchange(ExchangeBase):
         the network connection. Simply ping the network (or call any light weight public API).
         """
         try:
-            # since there is no ping endpoint, the lowest rate call is to get BTC-USDT ticker
-            await self._api_request("get", "public/get-ticker?instrument_name=BTC_USDT")
+            # since there is no ping endpoint, the lowest rate call is to get BTC-USD symbol
+            await self._api_request("get",
+                                    Constants.ENDPOINT['SYMBOL'],
+                                    params={'symbols': 'BTCUSD'})
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -241,7 +249,7 @@ class HitBTCExchange(ExchangeBase):
         while True:
             try:
                 await self._update_trading_rules()
-                await asyncio.sleep(60)
+                await asyncio.sleep(Constants.INTERVAL_TRADING_RULES)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -252,99 +260,100 @@ class HitBTCExchange(ExchangeBase):
                 await asyncio.sleep(0.5)
 
     async def _update_trading_rules(self):
-        instruments_info = await self._api_request("get", path_url="public/get-instruments")
+        symbols_info = await self._api_request("get", endpoint=Constants.ENDPOINT['SYMBOL'])
         self._trading_rules.clear()
-        self._trading_rules = self._format_trading_rules(instruments_info)
+        self._trading_rules = self._format_trading_rules(symbols_info)
 
-    def _format_trading_rules(self, instruments_info: Dict[str, Any]) -> Dict[str, TradingRule]:
+    def _format_trading_rules(self, symbols_info: Dict[str, Any]) -> Dict[str, TradingRule]:
         """
         Converts json API response into a dictionary of trading rules.
-        :param instruments_info: The json API response
+        :param symbols_info: The json API response
         :return A dictionary of trading rules.
         Response Example:
-        {
-            "id": 11,
-            "method": "public/get-instruments",
-            "code": 0,
-            "result": {
-                "instruments": [
-                      {
-                        "instrument_name": "ETH_CRO",
-                        "quote_currency": "CRO",
-                        "base_currency": "ETH",
-                        "price_decimals": 2,
-                        "quantity_decimals": 2
-                      },
-                      {
-                        "instrument_name": "CRO_BTC",
-                        "quote_currency": "BTC",
-                        "base_currency": "CRO",
-                        "price_decimals": 8,
-                        "quantity_decimals": 2
-                      }
-                    ]
-              }
-        }
+        [
+            {
+                id: "BTCUSD",
+                baseCurrency: "BTC",
+                quoteCurrency: "USD",
+                quantityIncrement: "0.00001",
+                tickSize: "0.01",
+                takeLiquidityRate: "0.0025",
+                provideLiquidityRate: "0.001",
+                feeCurrency: "USD",
+                marginTrading: true,
+                maxInitialLeverage: "12.00"
+            }
+        ]
         """
         result = {}
-        for rule in instruments_info["result"]["instruments"]:
+        for rule in symbols_info:
             try:
-                trading_pair = hitbtc_utils.convert_from_exchange_trading_pair(rule["instrument_name"])
-                price_decimals = Decimal(str(rule["price_decimals"]))
-                quantity_decimals = Decimal(str(rule["quantity_decimals"]))
-                # E.g. a price decimal of 2 means 0.01 incremental.
-                price_step = Decimal("1") / Decimal(str(math.pow(10, price_decimals)))
-                quantity_step = Decimal("1") / Decimal(str(math.pow(10, quantity_decimals)))
+                trading_pair = convert_from_exchange_trading_pair(rule["id"])
+                price_step = Decimal(str(rule["tickSize"]))
+                size_step = Decimal(str(rule["quantityIncrement"]))
                 result[trading_pair] = TradingRule(trading_pair,
-                                                   min_price_increment=price_step,
-                                                   min_base_amount_increment=quantity_step)
+                                                   min_order_size=size_step,
+                                                   min_base_amount_increment=size_step,
+                                                   min_price_increment=price_step)
             except Exception:
                 self.logger().error(f"Error parsing the trading pair rule {rule}. Skipping.", exc_info=True)
         return result
 
     async def _api_request(self,
                            method: str,
-                           path_url: str,
-                           params: Dict[str, Any] = {},
-                           is_auth_required: bool = False) -> Dict[str, Any]:
+                           endpoint: str,
+                           params: Optional[Dict[str, Any]] = None,
+                           is_auth_required: bool = False,
+                           try_count: int = 0) -> Dict[str, Any]:
         """
         Sends an aiohttp request and waits for a response.
         :param method: The HTTP method, e.g. get or post
-        :param path_url: The path url or the API end point
+        :param endpoint: The path url or the API end point
+        :param params: Additional get/post parameters
         :param is_auth_required: Whether an authentication is required, when True the function will add encrypted
         signature to the request.
         :returns A response in json format.
         """
-        url = f"{Constants.REST_URL}/{path_url}"
-        client = await self._http_client()
+        url = f"{Constants.REST_URL}/{endpoint}"
+        shared_client = await self._http_client()
         if is_auth_required:
-            request_id = hitbtc_utils.RequestId.generate_request_id()
-            data = {"params": params}
-            params = self._hitbtc_auth.generate_auth_dict(path_url, request_id,
-                                                          hitbtc_utils.get_ms_timestamp(), data)
-            headers = self._hitbtc_auth.get_headers()
+            headers = self._hitbtc_auth.get_headers(method, url, params)
         else:
             headers = {"Content-Type": "application/json"}
-
-        if method == "get":
-            response = await client.get(url, headers=headers)
-        elif method == "post":
-            post_json = json.dumps(params)
-            response = await client.post(url, data=post_json, headers=headers)
-        else:
-            raise NotImplementedError
-
+        response_coro = shared_client.request(
+            method=method.upper(), url=url, headers=headers, params=params, timeout=Constants.API_CALL_TIMEOUT
+        )
+        http_status, parsed_response, request_errors = None, None, False
         try:
-            parsed_response = json.loads(await response.text())
-        except Exception as e:
-            raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
-        if response.status != 200:
-            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. "
-                          f"Message: {parsed_response}")
-        if parsed_response["code"] != 0:
-            raise IOError(f"{url} API call failed, response: {parsed_response}")
-        # print(f"REQUEST: {method} {path_url} {params}")
-        # print(f"RESPONSE: {parsed_response}")
+            async with response_coro as response:
+                http_status = response.status
+                try:
+                    parsed_response = await response.json()
+                except Exception:
+                    request_errors = True
+                    try:
+                        parsed_response = str(await response.read())
+                        if len(parsed_response) > 100:
+                            parsed_response = f"{parsed_response[:100]} ... (truncated)"
+                    except Exception:
+                        pass
+                if response.status not in [200, 201] or parsed_response is None:
+                    request_errors = True
+        except Exception:
+            request_errors = True
+        if request_errors or parsed_response is None:
+            if try_count < 4:
+                try_count += 1
+                time_sleep = retry_sleep_time(try_count)
+                self.logger().info(f"Error fetching data from {url}. HTTP status is {http_status}. "
+                                   f"Retrying in {time_sleep:.0f}s.")
+                await asyncio.sleep(time_sleep)
+                return await self._api_request(method=method, endpoint=endpoint, params=params,
+                                               is_auth_required=is_auth_required, try_count=try_count)
+            else:
+                self.logger().network(f"Error fetching data from {url}. HTTP status is {http_status}. "
+                                      f"Final msg: {parsed_response}.")
+                raise HitBTCAPIError({"error": parsed_response, "status": http_status})
         return parsed_response
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):
@@ -377,7 +386,7 @@ class HitBTCExchange(ExchangeBase):
         :param price: The price (note: this is no longer optional)
         :returns A new internal order id
         """
-        order_id: str = hitbtc_utils.get_new_client_order_id(True, trading_pair)
+        order_id: str = get_new_client_order_id(True, trading_pair)
         safe_ensure_future(self._create_order(TradeType.BUY, order_id, trading_pair, amount, order_type, price))
         return order_id
 
@@ -392,7 +401,7 @@ class HitBTCExchange(ExchangeBase):
         :param price: The price (note: this is no longer optional)
         :returns A new internal order id
         """
-        order_id: str = hitbtc_utils.get_new_client_order_id(False, trading_pair)
+        order_id: str = get_new_client_order_id(False, trading_pair)
         safe_ensure_future(self._create_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price))
         return order_id
 
@@ -431,7 +440,7 @@ class HitBTCExchange(ExchangeBase):
         if amount < trading_rule.min_order_size:
             raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
-        api_params = {"instrument_name": hitbtc_utils.convert_to_exchange_trading_pair(trading_pair),
+        api_params = {"instrument_name": convert_to_exchange_trading_pair(trading_pair),
                       "side": trade_type.name,
                       "type": "LIMIT",
                       "price": f"{price:f}",
@@ -528,7 +537,7 @@ class HitBTCExchange(ExchangeBase):
             await self._api_request(
                 "post",
                 "private/cancel-order",
-                {"instrument_name": hitbtc_utils.convert_to_exchange_trading_pair(trading_pair),
+                {"instrument_name": convert_to_exchange_trading_pair(trading_pair),
                  "order_id": ex_order_id},
                 True
             )
@@ -636,7 +645,7 @@ class HitBTCExchange(ExchangeBase):
             self.stop_tracking_order(client_order_id)
         elif tracked_order.is_failure:
             self.logger().info(f"The market order {client_order_id} has failed according to order status API. "
-                               f"Reason: {hitbtc_utils.get_api_reason(order_msg['reason'])}")
+                               f"Reason: {get_api_reason(order_msg['reason'])}")
             self.trigger_event(MarketEvent.OrderFailure,
                                MarketOrderFailureEvent(
                                    self.current_timestamp,
@@ -710,7 +719,7 @@ class HitBTCExchange(ExchangeBase):
                 await self._api_request(
                     "post",
                     "private/cancel-all-orders",
-                    {"instrument_name": hitbtc_utils.convert_to_exchange_trading_pair(trading_pair)},
+                    {"instrument_name": convert_to_exchange_trading_pair(trading_pair)},
                     True
                 )
             open_orders = await self.get_open_orders()
@@ -812,14 +821,14 @@ class HitBTCExchange(ExchangeBase):
         )
         ret_val = []
         for order in result["result"]["order_list"]:
-            if hitbtc_utils.HBOT_BROKER_ID not in order["client_oid"]:
+            if Constants.HBOT_BROKER_ID not in order["client_oid"]:
                 continue
             if order["type"] != "LIMIT":
                 raise Exception(f"Unsupported order type {order['type']}")
             ret_val.append(
                 OpenOrder(
                     client_order_id=order["client_oid"],
-                    trading_pair=hitbtc_utils.convert_from_exchange_trading_pair(order["instrument_name"]),
+                    trading_pair=convert_from_exchange_trading_pair(order["instrument_name"]),
                     price=Decimal(str(order["price"])),
                     amount=Decimal(str(order["quantity"])),
                     executed_amount=Decimal(str(order["cumulative_quantity"])),
