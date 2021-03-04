@@ -230,9 +230,9 @@ cdef class KrakenExchange(ExchangeBase):
                     (base, quote) = self.split_trading_pair(pair)
                     vol_locked = Decimal(order.get("vol", 0)) - Decimal(order.get("vol_exec", 0))
                     if details.get("type") == "sell":
-                        locked[base] += vol_locked
+                        locked[convert_from_exchange_symbol(base)] += vol_locked
                     elif details.get("type") == "buy":
-                        locked[quote] += vol_locked * Decimal(details.get("price"))
+                        locked[convert_from_exchange_symbol(quote)] += vol_locked * Decimal(details.get("price"))
 
         for asset_name, balance in balances.items():
             cleaned_name = convert_from_exchange_symbol(asset_name).upper()
