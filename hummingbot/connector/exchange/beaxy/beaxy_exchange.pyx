@@ -359,25 +359,56 @@ cdef class BeaxyExchange(ExchangeBase):
                 del self._order_not_found_records[client_order_id]
                 continue
 
-            execute_price = Decimal(order_update['limit_price'] if order_update['limit_price'] else order_update['average_price'])
-            new_confirmed_amount = Decimal(order_update['size'])
-
             # Update the tracked order
-            tracked_order.executed_amount_base = new_confirmed_amount
-            tracked_order.executed_amount_quote = new_confirmed_amount * execute_price
             tracked_order.last_state = order_update['order_status']
 
             if order_update['filled_size']:
+                execute_price = Decimal(order_update['limit_price'] if order_update['limit_price'] else order_update['average_price'])
                 execute_amount_diff = Decimal(order_update['filled_size']) - tracked_order.executed_amount_base
 
+                # Emit event if executed amount is greater than 0.
                 if execute_amount_diff > s_decimal_0:
 
-                    tracked_order.executed_amount_base = new_confirmed_amount
+                    tracked_order.executed_amount_base = execute_amount_diff
                     tracked_order.executed_amount_quote += execute_amount_diff * execute_price
 
                     order_type_description = tracked_order.order_type_description
+                    order_filled_event = OrderFilledEvent(
+                        self._current_timestamp,
+                        tracked_order.client_order_id,
+                        tracked_order.trading_pair,
+                        tracked_order.trade_type,
+                        tracked_order.order_type,
+                        execute_price,
+                        execute_amount_diff,
+                        self.c_get_fee(
+                            tracked_order.base_asset,
+                            tracked_order.quote_asset,
+                            tracked_order.order_type,
+                            tracked_order.trade_type,
+                            execute_price,
+                            execute_amount_diff,
+                        ),
+                        exchange_trade_id=exchange_order_id,
+                    )
+                    self.logger().info(f'Filled {execute_amount_diff} out of {tracked_order.amount} of the '
+                                       f'{order_type_description} order {client_order_id}.')
+                    self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
+
+            if tracked_order.is_done:
+                if not tracked_order.is_failure and not tracked_order.is_cancelled:
+
+                    new_confirmed_amount = Decimal(order_update['size'])
+                    execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
+                    execute_price = Decimal(order_update['limit_price'] if order_update['limit_price'] else order_update['average_price'])
+
                     # Emit event if executed amount is greater than 0.
                     if execute_amount_diff > s_decimal_0:
+
+                        tracked_order.executed_amount_base = execute_amount_diff
+                        tracked_order.executed_amount_quote += execute_amount_diff * execute_price
+
+                        order_type_description = tracked_order.order_type_description
                         order_filled_event = OrderFilledEvent(
                             self._current_timestamp,
                             tracked_order.client_order_id,
@@ -400,8 +431,6 @@ cdef class BeaxyExchange(ExchangeBase):
                                            f'{order_type_description} order {client_order_id}.')
                         self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
-            if tracked_order.is_done:
-                if not tracked_order.is_failure and not tracked_order.is_cancelled:
                     if tracked_order.trade_type == TradeType.BUY:
                         self.logger().info(f'The market buy order {tracked_order.client_order_id} has completed '
                                            f'according to order status API.')
@@ -888,9 +917,18 @@ cdef class BeaxyExchange(ExchangeBase):
 
                     elif order_status == 'completely_filled':
 
-                        self.c_trigger_event(
-                            self.MARKET_ORDER_FILLED_EVENT_TAG,
-                            OrderFilledEvent(
+                        new_confirmed_amount = Decimal(order['size'])
+                        execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
+                        execute_price = Decimal(order['limit_price'] if order['limit_price'] else order['average_price'])
+
+                        # Emit event if executed amount is greater than 0.
+                        if execute_amount_diff > s_decimal_0:
+
+                            tracked_order.executed_amount_base = execute_amount_diff
+                            tracked_order.executed_amount_quote += execute_amount_diff * execute_price
+
+                            order_type_description = tracked_order.order_type_description
+                            order_filled_event = OrderFilledEvent(
                                 self._current_timestamp,
                                 tracked_order.client_order_id,
                                 tracked_order.trading_pair,
@@ -906,9 +944,11 @@ cdef class BeaxyExchange(ExchangeBase):
                                     execute_price,
                                     execute_amount_diff,
                                 ),
-                                exchange_trade_id=exchange_order_id
+                                exchange_trade_id=exchange_order_id,
                             )
-                        )
+                            self.logger().info(f'Filled {execute_amount_diff} out of {tracked_order.amount} of the '
+                                               f'{order_type_description} order {client_order_id}.')
+                            self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
                         if tracked_order.trade_type == TradeType.BUY:
                             self.logger().info(f'The market buy order {tracked_order.client_order_id} has completed '
