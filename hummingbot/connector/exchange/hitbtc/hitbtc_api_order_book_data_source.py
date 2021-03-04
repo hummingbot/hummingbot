@@ -114,7 +114,7 @@ class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     method: str = response.get("method", None)
                     trades_data: str = response.get("params", None)
 
-                    if trades_data is None or method != Constants.WSS_METHODS['TRADES_UPDATE']:
+                    if trades_data is None or method != Constants.WS_METHODS['TRADES_UPDATE']:
                         continue
 
                     pair: str = convert_from_exchange_trading_pair(response["params"]["symbol"])
@@ -147,8 +147,8 @@ class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await ws.connect()
 
                 order_book_methods = [
-                    Constants.WSS_METHODS['ORDER_SNAPSHOT'],
-                    Constants.WSS_METHODS['ORDER_UPDATE'],
+                    Constants.WS_METHODS['ORDER_SNAPSHOT'],
+                    Constants.WS_METHODS['ORDER_UPDATE'],
                 ]
 
                 for pair in self._trading_pairs:
@@ -167,7 +167,7 @@ class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     pair: str = convert_from_exchange_trading_pair(order_book_data["symbol"])
 
                     order_book_msg_cls = (HitBTCOrderBook.diff_message_from_exchange
-                                          if method == Constants.WSS_METHODS['ORDER_UPDATE'] else
+                                          if method == Constants.WS_METHODS['ORDER_UPDATE'] else
                                           HitBTCOrderBook.snapshot_message_from_exchange)
 
                     orderbook_msg: OrderBookMessage = order_book_msg_cls(

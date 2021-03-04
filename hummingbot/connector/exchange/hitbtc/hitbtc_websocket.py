@@ -4,7 +4,7 @@ import copy
 import logging
 import websockets
 import ujson
-import hummingbot.connector.exchange.hitbtc.hitbtc_constants as constants
+from hummingbot.connector.exchange.hitbtc.hitbtc_constants import Constants
 
 
 from typing import (
@@ -22,8 +22,6 @@ from hummingbot.connector.exchange.hitbtc.hitbtc_utils import RequestId
 
 
 class HitBTCWebsocket(RequestId):
-    MESSAGE_TIMEOUT = 30.0
-    PING_TIMEOUT = 10.0
     _logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -35,7 +33,7 @@ class HitBTCWebsocket(RequestId):
     def __init__(self, auth: Optional[HitBTCAuth] = None):
         self._auth: Optional[HitBTCAuth] = auth
         self._isPrivate = True if self._auth is not None else False
-        self._WS_URL = constants.WSS_PRIVATE_URL if self._isPrivate else constants.WSS_PUBLIC_URL
+        self._WS_URL = Constants.WS_PRIVATE_URL if self._isPrivate else Constants.WS_PUBLIC_URL
         self._client: Optional[websockets.WebSocketClientProtocol] = None
 
     # connect to exchange
@@ -67,13 +65,16 @@ class HitBTCWebsocket(RequestId):
         try:
             while True:
                 try:
-                    raw_msg_str: str = await asyncio.wait_for(self._client.recv(), timeout=self.MESSAGE_TIMEOUT)
-                    raw_msg = ujson.loads(raw_msg_str)
-                    # HitBTC doesn't support ping or heartbeat messages.
-                    # Can handle them here if that changes - use `safe_ensure_future`.
-                    yield raw_msg
+                    raw_msg_str: str = await asyncio.wait_for(self._client.recv(), timeout=Constants.MESSAGE_TIMEOUT)
+                    try:
+                        raw_msg = ujson.loads(raw_msg_str)
+                        # HitBTC doesn't support ping or heartbeat messages.
+                        # Can handle them here if that changes - use `safe_ensure_future`.
+                        yield raw_msg
+                    except ValueError:
+                        continue
                 except asyncio.TimeoutError:
-                    await asyncio.wait_for(self._client.ping(), timeout=self.PING_TIMEOUT)
+                    await asyncio.wait_for(self._client.ping(), timeout=Constants.PING_TIMEOUT)
         except asyncio.TimeoutError:
             self.logger().warning("WebSocket ping timed out. Going to reconnect...")
             return

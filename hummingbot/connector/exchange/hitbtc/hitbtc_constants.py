@@ -2,10 +2,10 @@
 class Constants:
     EXCHANGE_NAME = "hitbtc"
     REST_URL = "https://api.hitbtc.com/api/2"
-    # WSS_PRIVATE_URL = "wss://stream.crypto.com/v2/user"
-    WSS_PRIVATE_URL = "wss://api.hitbtc.com/api/2/ws/trading"
-    # WSS_PUBLIC_URL = "wss://stream.crypto.com/v2/market"
-    WSS_PUBLIC_URL = "wss://api.hitbtc.com/api/2/ws/public"
+    # WS_PRIVATE_URL = "wss://stream.crypto.com/v2/user"
+    WS_PRIVATE_URL = "wss://api.hitbtc.com/api/2/ws/trading"
+    # WS_PUBLIC_URL = "wss://stream.crypto.com/v2/market"
+    WS_PUBLIC_URL = "wss://api.hitbtc.com/api/2/ws/public"
 
     HBOT_BROKER_ID = "refzzz48"
 
@@ -17,11 +17,13 @@ class Constants:
         "ORDER_BOOK": "public/orderbook",
     }
 
-    WSS_METHODS = {
+    WS_METHODS = {
         "ORDER_SNAPSHOT": "snapshotOrderbook",
         "ORDER_UPDATE": "updateOrderbook",
         "TRADES_SNAPSHOT": "snapshotTrades",
         "TRADES_UPDATE": "updateTrades",
+        "USER_ORDERS": "activeOrders",
+        "USER_TRADES": "report",
     }
 
     API_REASONS = {
@@ -68,11 +70,15 @@ class Constants:
     # Timeouts
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
-
     API_CALL_TIMEOUT = 10.0
-    UPDATE_ORDERS_INTERVAL = 30.0
 
-    INTERVAL_TRADING_RULES = 120
+    # Intervals
+    # Only used when nothing is received from WS
+    SHORT_POLL_INTERVAL = 5.0
+    # HitBTC poll interval can't be too long since we don't get balances via websockets
+    LONG_POLL_INTERVAL = 20.0
+    # One minute should be fine for order status since we get these via WS
+    UPDATE_ORDER_STATUS_INTERVAL = 60.0
 
     # Trading pair splitter regex
     TRADING_PAIR_SPLITTER = r"^(\w+)(BTC|BCH|DAI|DDRST|EOSDT|EOS|ETH|EURS|IDRT|PAX|BUSD|GUSD|TUSD|USDC|USD)$"
