@@ -89,15 +89,6 @@ def validate_price_source_market(value: str) -> Optional[str]:
     return validate_market_trading_pair(market, value)
 
 
-def validate_price_floor_ceiling(value: str) -> Optional[str]:
-    try:
-        decimal_value = Decimal(value)
-    except Exception:
-        return f"{value} is not in decimal format."
-    if not (decimal_value == Decimal("-1") or decimal_value > Decimal("0")):
-        return "Value must be more than 0 or -1 to disable this feature."
-
-
 def exchange_on_validated(value: str):
     required_exchanges.append(value)
 
@@ -118,22 +109,68 @@ pure_market_making_as_config_map = {
                   prompt=maker_trading_pair_prompt,
                   validator=validate_exchange_trading_pair,
                   prompt_on_new=True),
+    "order_amount":
+        ConfigVar(key="order_amount",
+                  prompt=order_amount_prompt,
+                  type_str="decimal",
+                  validator=validate_order_amount,
+                  prompt_on_new=True),
+    "order_optimization_enabled":
+        ConfigVar(key="order_optimization_enabled",
+                  prompt="Do you want to enable best bid ask jumping? (Yes/No) >>> ",
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool),
+    "parameters_based_on_spread":
+        ConfigVar(key="parameters_based_on_spread",
+                  prompt="Do you want to automate Avellaneda-Stoikov parameters based on min/max spread? >>> ",
+                  type_str="bool",
+                  validator=validate_bool,
+                  prompt_on_new=True,
+                  default=True),
+    "min_spread":
+        ConfigVar(key="min_spread",
+                  prompt="Enter the minimum spread allowed from mid-price in percentage "
+                         "(Enter 1 to indicate 1%) >>> ",
+                  type_str="decimal",
+                  required_if=lambda: pure_market_making_as_config_map.get("parameters_based_on_spread").value,
+                  validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
+                  prompt_on_new=True),
+    "max_spread":
+        ConfigVar(key="max_spread",
+                  prompt="Enter the maximum spread allowed from mid-price in percentage "
+                         "(Enter 1 to indicate 1%) >>> ",
+                  type_str="decimal",
+                  required_if=lambda: pure_market_making_as_config_map.get("parameters_based_on_spread").value,
+                  validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
+                  prompt_on_new=True),
     "kappa":
         ConfigVar(key="kappa",
                   prompt="Enter order book depth variable (kappa) >>> ",
-                  type_str="float",
-                  validator=lambda v: validate_decimal(v, 0, 1e10, inclusive=False),
+                  type_str="decimal",
+                  required_if=lambda: not pure_market_making_as_config_map.get("parameters_based_on_spread").value,
+                  validator=lambda v: validate_decimal(v, 0, 1e10, inclusive=True),
                   prompt_on_new=True),
     "gamma":
         ConfigVar(key="gamma",
                   prompt="Enter risk factor (gamma) >>> ",
-                  type_str="float",
-                  validator=lambda v: validate_decimal(v, 0, 1e10, inclusive=False),
+                  type_str="decimal",
+                  required_if=lambda: not pure_market_making_as_config_map.get("parameters_based_on_spread").value,
+                  validator=lambda v: validate_decimal(v, 0, 1e10, inclusive=True),
                   prompt_on_new=True),
+    "eta":
+        ConfigVar(key="eta",
+                  prompt="Enter order amount shape factor (eta) >>> ",
+                  type_str="decimal",
+                  required_if=lambda: not pure_market_making_as_config_map.get("parameters_based_on_spread").value,
+                  validator=lambda v: validate_decimal(v, 0, 1, inclusive=True),
+                  default=Decimal("0.005")),
     "closing_time":
         ConfigVar(key="closing_time",
-                  prompt="Enter closing time in days >>> ",
-                  type_str="float",
+                  prompt="Enter algorithm closing time in days. "
+                         "When this time is reached, spread equations will recycle t=0"
+                         " (fractional quantities are allowed i.e. 1.27 days) >>> ",
+                  type_str="decimal",
                   validator=lambda v: validate_decimal(v, 0, 10, inclusive=False),
                   prompt_on_new=True),
     "order_refresh_time":
@@ -154,20 +191,6 @@ pure_market_making_as_config_map = {
                   type_str="float",
                   default=Decimal("1800"),
                   validator=lambda v: validate_decimal(v, 0, inclusive=False)),
-    "fixed_order_amount":
-        ConfigVar(key="fixed_order_amount",
-                  prompt="Do you want to create orders with fixed amount? (Alternative is to leave algorithm decide) >>>",
-                  type_str="bool",
-                  default=False,
-                  validator=validate_bool,
-                  prompt_on_new=True),
-    "order_amount":
-        ConfigVar(key="order_amount",
-                  prompt=order_amount_prompt,
-                  required_if=lambda: pure_market_making_as_config_map.get("fixed_order_amount").value == "True" and pure_market_making_as_config_map.get("order_amount").value is None,
-                  type_str="decimal",
-                  validator=validate_order_amount,
-                  prompt_on_new=True),
     "order_refresh_tolerance_pct":
         ConfigVar(key="order_refresh_tolerance_pct",
                   prompt="Enter the percent change in price needed to refresh orders at each cycle "
@@ -239,5 +262,11 @@ pure_market_making_as_config_map = {
                   prompt="Enter amount of samples to use for volatility calculation>>> ",
                   type_str="int",
                   validator=lambda v: validate_decimal(v, 5, 600),
-                  default=Decimal("30")),
+                  default=30),
+    "buffer_sampling_period":
+        ConfigVar(key="buffer_sampling_period",
+                  prompt="Enter period in seconds of sampling for volatility calculation>>> ",
+                  type_str="int",
+                  validator=lambda v: validate_decimal(v, 1, 300),
+                  default=30),
 }

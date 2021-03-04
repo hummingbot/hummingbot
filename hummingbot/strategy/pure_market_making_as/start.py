@@ -19,6 +19,7 @@ from decimal import Decimal
 def start(self):
     try:
         order_amount = c_map.get("order_amount").value
+        order_optimization_enabled = c_map.get("order_optimization_enabled").value
         order_refresh_time = c_map.get("order_refresh_time").value
         exchange = c_map.get("exchange").value.lower()
         raw_trading_pair = c_map.get("market").value
@@ -50,15 +51,22 @@ def start(self):
             asset_price_delegate = APIAssetPriceDelegate(price_source_custom_api)
 
         strategy_logging_options = PureMarketMakingASStrategy.OPTION_LOG_ALL
-        kappa = c_map.get("kappa").value
-        gamma = c_map.get("gamma").value
-        closing_time = c_map.get("closing_time").value * 3600 * 24 * 1e3
-        fixed_order_amount = c_map.get("fixed_order_amount").value
+        parameters_based_on_spread = c_map.get("parameters_based_on_spread").value
+        min_spread = c_map.get("min_spread").value / Decimal(100)
+        max_spread = c_map.get("max_spread").value / Decimal(100)
+        if parameters_based_on_spread:
+            gamma = kappa = -1
+        else:
+            kappa = c_map.get("kappa").value
+            gamma = c_map.get("gamma").value
+        closing_time = c_map.get("closing_time").value * Decimal(3600 * 24 * 1e3)
         buffer_size = c_map.get("buffer_size").value
+        buffer_sampling_period = c_map.get("buffer_sampling_period").value
 
         self.strategy = PureMarketMakingASStrategy(
             market_info=MarketTradingPairTuple(*maker_data),
             order_amount=order_amount,
+            order_optimization_enabled=order_optimization_enabled,
             inventory_target_base_pct=inventory_target_base_pct,
             order_refresh_time=order_refresh_time,
             order_refresh_tolerance_pct=order_refresh_tolerance_pct,
@@ -68,12 +76,15 @@ def start(self):
             asset_price_delegate=asset_price_delegate,
             price_type=price_type,
             hb_app_notification=True,
+            parameters_based_on_spread=parameters_based_on_spread,
+            min_spread=min_spread,
+            max_spread=max_spread,
             kappa=kappa,
             gamma=gamma,
             closing_time=closing_time,
-            fixed_order_amount=fixed_order_amount,
             data_path=data_path(),
-            buffer_size = buffer_size,
+            buffer_size=buffer_size,
+            buffer_sampling_period=buffer_sampling_period,
         )
     except Exception as e:
         self._notify(str(e))
