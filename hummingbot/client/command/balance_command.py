@@ -84,6 +84,8 @@ class BalanceCommand:
         if all_ex_limits is None:
             all_ex_limits = {}
 
+        exchanges_total = 0
+
         for exchange, bals in all_ex_bals.items():
             self._notify(f"\n{exchange}:")
             # df = await self.exchange_balances_df(bals, all_ex_limits.get(exchange, {}))
@@ -95,6 +97,9 @@ class BalanceCommand:
                 self._notify("\n".join(lines))
                 self._notify(f"\n  Total: $ {df['Total ($)'].sum():.0f}    "
                              f"Allocated: {allocated_total / df['Total ($)'].sum():.2%}")
+                exchanges_total += df['Total ($)'].sum()
+
+        self._notify(f"\n\nExchanges Total: $ {exchanges_total:.0f}    ")
 
         celo_address = global_config_map["celo_address"].value
         if celo_address is not None:
