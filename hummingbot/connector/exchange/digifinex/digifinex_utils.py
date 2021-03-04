@@ -85,13 +85,13 @@ def get_api_reason(code: str) -> str:
 KEYS = {
     "digifinex_api_key":
         ConfigVar(key="digifinex_api_key",
-                  prompt="Enter your Crypto.com API key >>> ",
+                  prompt="Enter your Digifinex API key >>> ",
                   required_if=using_exchange("digifinex"),
                   is_secure=True,
                   is_connect_key=True),
     "digifinex_secret_key":
         ConfigVar(key="digifinex_secret_key",
-                  prompt="Enter your Crypto.com secret key >>> ",
+                  prompt="Enter your Digifinex secret key >>> ",
                   required_if=using_exchange("digifinex"),
                   is_secure=True,
                   is_connect_key=True),

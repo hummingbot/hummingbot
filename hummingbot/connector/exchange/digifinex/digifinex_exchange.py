@@ -66,8 +66,8 @@ class DigifinexExchange(ExchangeBase):
         return ctce_logger
 
     def __init__(self,
-                 key: str,
-                 secret: str,
+                 digifinex_api_key: str,
+                 digifinex_secret_key: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True
                  ):
@@ -80,7 +80,7 @@ class DigifinexExchange(ExchangeBase):
         super().__init__()
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._global = DigifinexGlobal(key, secret)
+        self._global = DigifinexGlobal(digifinex_api_key, digifinex_secret_key)
         # self._rest_api = DigifinexRestApi(self._digifinex_auth, self._http_client)
         self._order_book_tracker = DigifinexOrderBookTracker(trading_pairs=trading_pairs)
         self._user_stream_tracker = DigifinexUserStreamTracker(self._global, trading_pairs)
