@@ -70,3 +70,9 @@ balancer_taker_fee_amount:
 
 bitmax_maker_fee:
 bitmax_taker_fee:
+
+probit_maker_fee:
+probit_taker_fee:
+
+probit_kr_maker_fee:
+probit_kr_taker_fee:
