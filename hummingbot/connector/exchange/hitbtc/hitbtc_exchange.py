@@ -42,7 +42,6 @@ from hummingbot.connector.exchange.hitbtc.hitbtc_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
     get_new_client_order_id,
-    get_api_reason,
     retry_sleep_time,
     HitBTCAPIError,
 )
@@ -57,10 +56,6 @@ class HitBTCExchange(ExchangeBase):
     HitBTCExchange connects with HitBTC exchange and provides order book pricing, user account tracking and
     trading functionality.
     """
-    API_CALL_TIMEOUT = 10.0
-    SHORT_POLL_INTERVAL = 5.0
-    UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
-    LONG_POLL_INTERVAL = 120.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -598,8 +593,8 @@ class HitBTCExchange(ExchangeBase):
         """
         Calls REST API to get status update for each in-flight order.
         """
-        last_tick = int(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
-        current_tick = int(self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
+        last_tick = int(self._last_poll_timestamp / Constants.UPDATE_ORDER_STATUS_INTERVAL)
+        current_tick = int(self.current_timestamp / Constants.UPDATE_ORDER_STATUS_INTERVAL)
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
@@ -615,26 +610,43 @@ class HitBTCExchange(ExchangeBase):
             for response in responses:
                 if isinstance(response, Exception):
                     raise response
-                if "result" not in response:
-                    self.logger().info(f"_update_order_status result not in resp: {response}")
+                if "clientOrderId" not in response:
+                    self.logger().info(f"_update_order_status clientOrderId not in resp: {response}")
                     continue
-                result = response["result"]
-                if "trade_list" in result:
-                    for trade_msg in result["trade_list"]:
-                        await self._process_trade_message(trade_msg)
-                self._process_order_message(result["order_info"])
+                self._process_order_message(response)
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
         Updates in-flight order and triggers cancellation or failure event if needed.
         :param order_msg: The order response from either REST or web socket API (they are of the same format)
+        Example Order:
+        {
+            "id": "4345613661",
+            "clientOrderId": "57d5525562c945448e3cbd559bd068c3",
+            "symbol": "BCCBTC",
+            "side": "sell",
+            "status": "new",
+            "type": "limit",
+            "timeInForce": "GTC",
+            "quantity": "0.013",
+            "price": "0.100000",
+            "cumQuantity": "0.000",
+            "postOnly": false,
+            "createdAt": "2017-10-20T12:17:12.245Z",
+            "updatedAt": "2017-10-20T12:17:12.245Z",
+            "reportType": "status"
+        }
         """
-        client_order_id = order_msg["client_oid"]
+        client_order_id = order_msg["clientOrderId"]
         if client_order_id not in self._in_flight_orders:
             return
         tracked_order = self._in_flight_orders[client_order_id]
         # Update order execution status
         tracked_order.last_state = order_msg["status"]
+        # update order
+        tracked_order.executed_amount_base = Decimal(order_msg["cumQuantity"])
+        tracked_order.executed_amount_quote = Decimal(order_msg["price"]) * Decimal(order_msg["cumQuantity"])
+
         if tracked_order.is_cancelled:
             self.logger().info(f"Successfully cancelled order {client_order_id}.")
             self.trigger_event(MarketEvent.OrderCancelled,
@@ -644,8 +656,7 @@ class HitBTCExchange(ExchangeBase):
             tracked_order.cancelled_event.set()
             self.stop_tracking_order(client_order_id)
         elif tracked_order.is_failure:
-            self.logger().info(f"The market order {client_order_id} has failed according to order status API. "
-                               f"Reason: {get_api_reason(order_msg['reason'])}")
+            self.logger().info(f"The market order {client_order_id} has failed according to order status API. ")
             self.trigger_event(MarketEvent.OrderFailure,
                                MarketOrderFailureEvent(
                                    self.current_timestamp,
@@ -658,10 +669,31 @@ class HitBTCExchange(ExchangeBase):
         """
         Updates in-flight order and trigger order filled event for trade message received. Triggers order completed
         event if the total executed amount equals to the specified order amount.
+        Example Trade:
+        {
+            "id": "4345697765",
+            "clientOrderId": "53b7cf917963464a811a4af426102c19",
+            "symbol": "ETHBTC",
+            "side": "sell",
+            "status": "filled",
+            "type": "limit",
+            "timeInForce": "GTC",
+            "quantity": "0.001",
+            "price": "0.053868",
+            "cumQuantity": "0.001",
+            "postOnly": false,
+            "createdAt": "2017-10-20T12:20:05.952Z",
+            "updatedAt": "2017-10-20T12:20:38.708Z",
+            "reportType": "trade",
+            "tradeQuantity": "0.001",
+            "tradePrice": "0.053868",
+            "tradeId": 55051694,
+            "tradeFee": "-0.000000005"
+        }
         """
         for order in self._in_flight_orders.values():
             await order.get_exchange_order_id()
-        track_order = [o for o in self._in_flight_orders.values() if trade_msg["order_id"] == o.exchange_order_id]
+        track_order = [o for o in self._in_flight_orders.values() if trade_msg["id"] == o.exchange_order_id]
         if not track_order:
             return
         tracked_order = track_order[0]
@@ -676,10 +708,10 @@ class HitBTCExchange(ExchangeBase):
                 tracked_order.trading_pair,
                 tracked_order.trade_type,
                 tracked_order.order_type,
-                Decimal(str(trade_msg["traded_price"])),
-                Decimal(str(trade_msg["traded_quantity"])),
-                TradeFee(0.0, [(trade_msg["fee_currency"], Decimal(str(trade_msg["fee"])))]),
-                exchange_trade_id=trade_msg["order_id"]
+                Decimal(str(trade_msg["tradePrice"])),
+                Decimal(str(trade_msg["tradeQuantity"])),
+                TradeFee(0.0, [(tracked_order.quote_asset, -Decimal(str(trade_msg["tradeFee"])))]),
+                exchange_trade_id=trade_msg["id"]
             )
         )
         if math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or \
@@ -745,9 +777,9 @@ class HitBTCExchange(ExchangeBase):
         It checks if status polling task is due for execution.
         """
         now = time.time()
-        poll_interval = (self.SHORT_POLL_INTERVAL
+        poll_interval = (Constants.SHORT_POLL_INTERVAL
                          if now - self._user_stream_tracker.last_recv_time > 60.0
-                         else self.LONG_POLL_INTERVAL)
+                         else Constants.LONG_POLL_INTERVAL)
         last_tick = int(self._last_timestamp / poll_interval)
         current_tick = int(timestamp / poll_interval)
         if current_tick > last_tick:
@@ -791,21 +823,20 @@ class HitBTCExchange(ExchangeBase):
         """
         async for event_message in self._iter_user_event_queue():
             try:
-                if "result" not in event_message or "channel" not in event_message["result"]:
+                event_methods = [
+                    Constants.WS_METHODS["USER_ORDERS"],
+                    Constants.WS_METHODS["USER_TRADES"],
+                ]
+                method: str = event_message.get("method", None)
+                params: str = event_message.get("params", None)
+
+                if params is None or method not in event_methods:
                     continue
-                channel = event_message["result"]["channel"]
-                if "user.trade" in channel:
-                    for trade_msg in event_message["result"]["data"]:
-                        await self._process_trade_message(trade_msg)
-                elif "user.order" in channel:
-                    for order_msg in event_message["result"]["data"]:
+                if method == Constants.WS_METHODS["USER_TRADES"]:
+                    await self._process_trade_message(params)
+                elif method == Constants.WS_METHODS["USER_ORDERS"]:
+                    for order_msg in params:
                         self._process_order_message(order_msg)
-                elif channel == "user.balance":
-                    balances = event_message["result"]["data"]
-                    for balance_entry in balances:
-                        asset_name = balance_entry["currency"]
-                        self._account_balances[asset_name] = Decimal(str(balance_entry["balance"]))
-                        self._account_available_balances[asset_name] = Decimal(str(balance_entry["available"]))
             except asyncio.CancelledError:
                 raise
             except Exception:

@@ -46,10 +46,10 @@ class HitBTCOrderBookMessage(OrderBookMessage):
 
     @property
     def trading_pair(self) -> str:
-        if "trading_pair" in self.content:
+        if "symbol" in self.content:
+            return self.content["symbol"]
+        elif "trading_pair" in self.content:
             return self.content["trading_pair"]
-        elif "instrument_name" in self.content:
-            return self.content["instrument_name"]
 
     @property
     def asks(self) -> List[OrderBookRow]:

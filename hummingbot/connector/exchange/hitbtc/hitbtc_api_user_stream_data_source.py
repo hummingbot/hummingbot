@@ -11,8 +11,6 @@ from .hitbtc_websocket import HitBTCWebsocket
 
 
 class HitBTCAPIUserStreamDataSource(UserStreamTrackerDataSource):
-    MAX_RETRIES = 20
-    MESSAGE_TIMEOUT = 30.0
 
     _logger: Optional[HummingbotLogger] = None
 
@@ -42,7 +40,7 @@ class HitBTCAPIUserStreamDataSource(UserStreamTrackerDataSource):
         try:
             ws = HitBTCWebsocket(self._hitbtc_auth)
             await ws.connect()
-            await ws.subscribe(["user.order", "user.trade", "user.balance"])
+            await ws.subscribe("Reports")
             async for msg in ws.on_message():
                 # print(f"WS_SOCKET: {msg}")
                 yield msg

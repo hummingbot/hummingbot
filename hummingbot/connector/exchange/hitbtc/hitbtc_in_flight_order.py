@@ -21,7 +21,7 @@ class HitBTCInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "OPEN"):
+                 initial_state: str = "new"):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -37,15 +37,15 @@ class HitBTCInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"FILLED", "CANCELED", "REJECTED", "EXPIRED"}
+        return self.last_state in {"filled", "canceled", "expired"}
 
     @property
     def is_failure(self) -> bool:
-        return self.last_state in {"REJECTED"}
+        return self.last_state in {"suspended"}
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state in {"CANCELED", "EXPIRED"}
+        return self.last_state in {"canceled", "expired"}
 
     # @property
     # def order_type_description(self) -> str:
@@ -83,17 +83,38 @@ class HitBTCInFlightOrder(InFlightOrderBase):
         """
         Updates the in flight order with trade update (from private/get-order-detail end point)
         return: True if the order gets updated otherwise False
+        Example Trade:
+        {
+            "id": "4345697765",
+            "clientOrderId": "53b7cf917963464a811a4af426102c19",
+            "symbol": "ETHBTC",
+            "side": "sell",
+            "status": "filled",
+            "type": "limit",
+            "timeInForce": "GTC",
+            "quantity": "0.001",
+            "price": "0.053868",
+            "cumQuantity": "0.001",
+            "postOnly": false,
+            "createdAt": "2017-10-20T12:20:05.952Z",
+            "updatedAt": "2017-10-20T12:20:38.708Z",
+            "reportType": "trade",
+            "tradeQuantity": "0.001",
+            "tradePrice": "0.053868",
+            "tradeId": 55051694,
+            "tradeFee": "-0.000000005"
+        }
         """
-        trade_id = trade_update["trade_id"]
+        trade_id = trade_update["clientOrderId"]
         # trade_update["orderId"] is type int
-        if str(trade_update["order_id"]) != self.exchange_order_id or trade_id in self.trade_id_set:
+        if str(trade_update["id"]) != self.exchange_order_id or trade_id in self.trade_id_set:
             # trade already recorded
             return False
         self.trade_id_set.add(trade_id)
-        self.executed_amount_base += Decimal(str(trade_update["traded_quantity"]))
+        self.executed_amount_base = Decimal(str(trade_update["cumQuantity"]))
         self.fee_paid += Decimal(str(trade_update["fee"]))
-        self.executed_amount_quote += (Decimal(str(trade_update["traded_price"])) *
-                                       Decimal(str(trade_update["traded_quantity"])))
+        self.executed_amount_quote += (Decimal(str(trade_update["tradePrice"])) *
+                                       Decimal(str(trade_update["tradeQuantity"])))
         if not self.fee_asset:
-            self.fee_asset = trade_update["fee_currency"]
+            self.fee_asset = self.quote_asset
         return True
