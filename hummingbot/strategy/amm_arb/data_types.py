@@ -79,7 +79,9 @@ class ArbProposal:
 
         sell_gained_net = (sell.amount * sell.quote_price) - sell_fee_amount
         buy_spent_net = (buy.amount * buy.quote_price) + buy_fee_amount
-        return ((sell_gained_net - buy_spent_net) / buy_spent_net) if buy_spent_net != s_decimal_0 else s_decimal_0
+        profit_percentage = ((sell_gained_net - buy_spent_net) / buy_spent_net) if buy_spent_net != s_decimal_0 else s_decimal_0
+
+        return profit_percentage
 
     def __repr__(self):
         return f"First Side - {self.first_side}\nSecond Side - {self.second_side}"

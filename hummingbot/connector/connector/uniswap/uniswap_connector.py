@@ -33,6 +33,7 @@ from hummingbot.connector.connector.uniswap.uniswap_in_flight_order import Unisw
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import get_erc20_token_addresses
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 
 s_logger = None
 s_decimal_0 = Decimal("0")
@@ -82,6 +83,7 @@ class UniswapConnector(ConnectorBase):
         self._shared_client = None
         self._last_poll_timestamp = 0.0
         self._last_balance_poll_timestamp = time.time()
+        self._last_est_gas_cost_reported = 0
         self._in_flight_orders = {}
         self._allowances = {}
         self._status_polling_task = None
@@ -118,7 +120,7 @@ class UniswapConnector(ConnectorBase):
         Initiate to cache pools and auto approve allowances for token in trading_pairs
         :return: A success/fail status for initiation
         """
-        self.logger().info("Initializing strategy and caching swap pools ...")
+        self.logger().info("Initializing strategy and caching Uniswap swap pools ...")
         base, quote = self._trading_pairs[0].split("-")
         resp = await self._api_request("post", "eth/uniswap/start",
                                        {"base": base,
@@ -195,6 +197,17 @@ class UniswapConnector(ConnectorBase):
                 self.logger().info(f"Unable to get price: {resp['info']}")
             else:
                 if resp["price"] is not None:
+                    # overwrite fee with gas cost (tx cost)
+                    gas_cost = resp["gasCost"]
+
+                    if self._last_est_gas_cost_reported < self.current_timestamp - 20.:
+                        self.logger().info(f"Estimated gas cost: {gas_cost} ETH")
+                        self._last_est_gas_cost_reported = self.current_timestamp
+
+                    # TODO standardize quote price object to include price, fee, token, is fee part of quote.
+                    fee_overrides_config_map["uniswap_maker_fee_amount"].value = Decimal(str(gas_cost))
+                    fee_overrides_config_map["uniswap_taker_fee_amount"].value = Decimal(str(gas_cost))
+
                     return Decimal(str(resp["price"]))
         except asyncio.CancelledError:
             raise
@@ -276,12 +289,12 @@ class UniswapConnector(ConnectorBase):
             hash = order_result.get("txHash")
             gas_price = order_result.get("gasPrice")
             gas_limit = order_result.get("gasLimit")
-            transaction_cost = order_result.get("gasCost")
+            gas_cost = order_result.get("gasCost")
             self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, gas_price)
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {trade_type.name} order {order_id} txHash: {hash} "
-                                   f"for {amount} {trading_pair}. Estimated Transaction Fee: {transaction_cost} ETH "
+                                   f"for {amount} {trading_pair}. Estimated Gas Cost: {gas_cost} ETH "
                                    f" (gas limit: {gas_limit}, gas price: {gas_price})")
                 tracked_order.update_exchange_order_id(hash)
                 tracked_order.gas_price = gas_price
