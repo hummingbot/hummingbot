@@ -507,11 +507,11 @@ class PerpetualFinanceDerivative(DerivativeBase):
         positions = await safe_gather(*position_tasks, return_exceptions=True)
         for trading_pair, position in zip(self._trading_pairs, positions):
             position = position.get("position", {})
-            amount = Decimal(position.get("size"))
+            amount = self.quantize_order_amount(trading_pair, Decimal(position.get("size")))
             if amount != Decimal("0"):
                 position_side = PositionSide.LONG if amount > 0 else PositionSide.SHORT
-                unrealized_pnl = Decimal(position.get("pnl"))
-                entry_price = Decimal(position.get("entryPrice"))
+                unrealized_pnl = self.quantize_order_amount(trading_pair, Decimal(position.get("pnl")))
+                entry_price = self.quantize_order_price(trading_pair, Decimal(position.get("entryPrice")))
                 leverage = self._leverage[trading_pair]
                 self._account_positions[trading_pair] = Position(
                     trading_pair=trading_pair,
