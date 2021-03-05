@@ -192,12 +192,17 @@ class BalancerConnector(ConnectorBase):
                                             "quote": quote,
                                             "amount": amount,
                                             "side": side.upper()})
-            if "price" not in resp.keys():
-                self.logger().info(f"Unable to get price: {resp['info']}")
+            required_items = ["price", "gasLimit", "gasPrice", "gasCost"]
+            if any(item not in resp.keys() for item in required_items):
+                self.logger().info(f"Unable to get price (incomplete result): {resp['info']}")
             else:
-                if resp["price"] is not None and resp["gasPrice"] is not None:
-                    gas_price = resp["gasPrice"]
-                    return Decimal(str(gas_price))
+                gas_cost = resp["gasCost"]
+                price = resp["price"]
+                if price is not None and self._account_balances["ETH"] > gas_cost:
+                    return Decimal(str(price))
+                else:
+                    self.logger().info(f"Insufficient ETH Balance to cover gas:"
+                                       f" Balance: {self._account_balances['ETH']}. Est gas cost: {gas_cost}")
         except asyncio.CancelledError:
             raise
         except Exception as e:
