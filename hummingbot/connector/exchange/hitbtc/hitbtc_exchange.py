@@ -11,6 +11,7 @@ import asyncio
 import aiohttp
 import math
 import time
+from async_timeout import timeout
 
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
@@ -43,6 +44,7 @@ from hummingbot.connector.exchange.hitbtc.hitbtc_utils import (
     convert_to_exchange_trading_pair,
     get_new_client_order_id,
     retry_sleep_time,
+    str_date_to_ts,
     HitBTCAPIError,
 )
 from hummingbot.connector.exchange.hitbtc.hitbtc_constants import Constants
@@ -165,7 +167,7 @@ class HitBTCExchange(ExchangeBase):
         :return a list of OrderType supported by this connector.
         Note that Market order type is no longer required and will not be used.
         """
-        return [OrderType.LIMIT]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     def start(self, clock: Clock, timestamp: float):
         """
@@ -349,6 +351,8 @@ class HitBTCExchange(ExchangeBase):
                 self.logger().network(f"Error fetching data from {url}. HTTP status is {http_status}. "
                                       f"Final msg: {parsed_response}.")
                 raise HitBTCAPIError({"error": parsed_response, "status": http_status})
+        if "error" in parsed_response:
+            raise HitBTCAPIError(parsed_response)
         return parsed_response
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):
@@ -435,53 +439,45 @@ class HitBTCExchange(ExchangeBase):
         if amount < trading_rule.min_order_size:
             raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
-        api_params = {"instrument_name": convert_to_exchange_trading_pair(trading_pair),
-                      "side": trade_type.name,
-                      "type": "LIMIT",
+        order_type_str = order_type.name.lower().split("_")[0]
+        api_params = {"symbol": convert_to_exchange_trading_pair(trading_pair),
+                      "side": trade_type.name.lower(),
+                      "type": order_type_str,
                       "price": f"{price:f}",
                       "quantity": f"{amount:f}",
-                      "client_oid": order_id
+                      "clientOrderId": order_id,
+                      # Without strict validate, HitBTC might adjust order prices/sizes.
+                      "strictValidate": "true",
                       }
         if order_type is OrderType.LIMIT_MAKER:
-            api_params["exec_inst"] = "POST_ONLY"
-        self.start_tracking_order(order_id,
-                                  None,
-                                  trading_pair,
-                                  trade_type,
-                                  price,
-                                  amount,
-                                  order_type
-                                  )
+            api_params["postOnly"] = "true"
+        self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, order_type)
         try:
-            order_result = await self._api_request("post", "private/create-order", api_params, True)
-            exchange_order_id = str(order_result["result"]["order_id"])
+            order_result = await self._api_request("post", Constants.ENDPOINT["ORDER_CREATE"], api_params, True)
+            exchange_order_id = str(order_result["id"])
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
                                    f"{amount} {trading_pair}.")
                 tracked_order.update_exchange_order_id(exchange_order_id)
-
-            event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
-            event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
+            if trade_type is TradeType.BUY:
+                event_tag = MarketEvent.BuyOrderCreated
+                event_cls = BuyOrderCreatedEvent
+            else:
+                event_tag = MarketEvent.SellOrderCreated
+                event_cls = SellOrderCreatedEvent
             self.trigger_event(event_tag,
-                               event_class(
-                                   self.current_timestamp,
-                                   order_type,
-                                   trading_pair,
-                                   amount,
-                                   price,
-                                   order_id
-                               ))
+                               event_cls(self.current_timestamp, order_type, trading_pair, amount, price, order_id))
         except asyncio.CancelledError:
             raise
-        except Exception as e:
+        except HitBTCAPIError as e:
+            error_reason = str(e.error_payload['error'])
             self.stop_tracking_order(order_id)
             self.logger().network(
                 f"Error submitting {trade_type.name} {order_type.name} order to HitBTC for "
-                f"{amount} {trading_pair} "
-                f"{price}.",
+                f"{amount} {trading_pair} {price} - {error_reason}.",
                 exc_info=True,
-                app_warning_msg=str(e)
+                app_warning_msg=(f"Error submitting order to HitBTC - {error_reason}.")
             )
             self.trigger_event(MarketEvent.OrderFailure,
                                MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
@@ -528,24 +524,20 @@ class HitBTCExchange(ExchangeBase):
                 raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
             if tracked_order.exchange_order_id is None:
                 await tracked_order.get_exchange_order_id()
-            ex_order_id = tracked_order.exchange_order_id
-            await self._api_request(
-                "post",
-                "private/cancel-order",
-                {"instrument_name": convert_to_exchange_trading_pair(trading_pair),
-                 "order_id": ex_order_id},
-                True
-            )
-            return order_id
+            # ex_order_id = tracked_order.exchange_order_id
+            await self._api_request("delete", Constants.ENDPOINT["ORDER_DELETE"].format(id=order_id), True)
+            return CancellationResult(order_id, True)
         except asyncio.CancelledError:
             raise
-        except Exception as e:
+        except HitBTCAPIError as e:
+            error_reason = str(e.error_payload['error'])
             self.logger().network(
-                f"Failed to cancel order {order_id}: {str(e)}",
+                f"Failed to cancel order {order_id}: {error_reason}",
                 exc_info=True,
                 app_warning_msg=f"Failed to cancel the order {order_id} on HitBTC. "
                                 f"Check API key and network connection."
             )
+            return CancellationResult(order_id, False)
 
     async def _status_polling_loop(self):
         """
@@ -577,11 +569,11 @@ class HitBTCExchange(ExchangeBase):
         """
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
-        account_info = await self._api_request("post", "private/get-account-summary", {}, True)
-        for account in account_info["result"]["accounts"]:
+        account_info = await self._api_request("get", Constants.ENDPOINT["USER_BALANCES"], is_auth_required=True)
+        for account in account_info:
             asset_name = account["currency"]
             self._account_available_balances[asset_name] = Decimal(str(account["available"]))
-            self._account_balances[asset_name] = Decimal(str(account["balance"]))
+            self._account_balances[asset_name] = Decimal(str(account["reserved"])) + Decimal(str(account["available"]))
             remote_asset_names.add(asset_name)
 
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
@@ -600,11 +592,11 @@ class HitBTCExchange(ExchangeBase):
             tracked_orders = list(self._in_flight_orders.values())
             tasks = []
             for tracked_order in tracked_orders:
-                order_id = await tracked_order.get_exchange_order_id()
-                tasks.append(self._api_request("post",
-                                               "private/get-order-detail",
-                                               {"order_id": order_id},
-                                               True))
+                # exchange_order_id = await tracked_order.get_exchange_order_id()
+                order_id = tracked_order.client_order_id
+                tasks.append(self._api_request("get",
+                                               Constants.ENDPOINT["ORDER_STATUS"].format(id=order_id),
+                                               is_auth_required=True))
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
             responses = await safe_gather(*tasks, return_exceptions=True)
             for response in responses:
@@ -736,7 +728,7 @@ class HitBTCExchange(ExchangeBase):
                                            tracked_order.order_type))
             self.stop_tracking_order(tracked_order.client_order_id)
 
-    async def cancel_all(self, timeout_seconds: float):
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
         Cancels all in-flight orders and waits for cancellation results.
         Used by bot's top level stop and exit commands (cancelling outstanding orders on exit)
@@ -745,27 +737,17 @@ class HitBTCExchange(ExchangeBase):
         """
         if self._trading_pairs is None:
             raise Exception("cancel_all can only be used when trading_pairs are specified.")
+        open_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
+        if len(open_orders) == 0:
+            return []
+        tasks = [self._execute_cancel(o.client_order_id) for o in open_orders]
         cancellation_results = []
         try:
-            for trading_pair in self._trading_pairs:
-                await self._api_request(
-                    "post",
-                    "private/cancel-all-orders",
-                    {"instrument_name": convert_to_exchange_trading_pair(trading_pair)},
-                    True
-                )
-            open_orders = await self.get_open_orders()
-            for cl_order_id, tracked_order in self._in_flight_orders.items():
-                open_order = [o for o in open_orders if o.client_order_id == cl_order_id]
-                if not open_order:
-                    cancellation_results.append(CancellationResult(cl_order_id, True))
-                    self.trigger_event(MarketEvent.OrderCancelled,
-                                       OrderCancelledEvent(self.current_timestamp, cl_order_id))
-                else:
-                    cancellation_results.append(CancellationResult(cl_order_id, False))
+            async with timeout(timeout_seconds):
+                cancellation_results = await safe_gather(*tasks, return_exceptions=True)
         except Exception:
             self.logger().network(
-                "Failed to cancel all orders.",
+                "Unexpected error cancelling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel all orders on HitBTC. Check API key and network connection."
             )
@@ -843,31 +825,28 @@ class HitBTCExchange(ExchangeBase):
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(5.0)
 
+    # This is currently unused, but looks like a future addition.
     async def get_open_orders(self) -> List[OpenOrder]:
-        result = await self._api_request(
-            "post",
-            "private/get-open-orders",
-            {},
-            True
-        )
+        result = await self._api_request("get", Constants.ENDPOINT["USER_ORDERS"], is_auth_required=True)
         ret_val = []
-        for order in result["result"]["order_list"]:
-            if Constants.HBOT_BROKER_ID not in order["client_oid"]:
+        for order in result:
+            if Constants.HBOT_BROKER_ID not in order["clientOrderId"]:
                 continue
-            if order["type"] != "LIMIT":
-                raise Exception(f"Unsupported order type {order['type']}")
+            if order["type"] != OrderType.LIMIT.name.lower():
+                self.logger().info(f"Unsupported order type found: {order['type']}")
+                continue
             ret_val.append(
                 OpenOrder(
-                    client_order_id=order["client_oid"],
-                    trading_pair=convert_from_exchange_trading_pair(order["instrument_name"]),
+                    client_order_id=order["clientOrderId"],
+                    trading_pair=convert_from_exchange_trading_pair(order["symbol"]),
                     price=Decimal(str(order["price"])),
                     amount=Decimal(str(order["quantity"])),
-                    executed_amount=Decimal(str(order["cumulative_quantity"])),
+                    executed_amount=Decimal(str(order["cumQuantity"])),
                     status=order["status"],
                     order_type=OrderType.LIMIT,
-                    is_buy=True if order["side"].lower() == "buy" else False,
-                    time=int(order["create_time"]),
-                    exchange_order_id=order["order_id"]
+                    is_buy=True if order["side"].lower() == TradeType.BUY.name.lower() else False,
+                    time=str_date_to_ts(order["createdAt"]),
+                    exchange_order_id=order["id"]
                 )
             )
         return ret_val

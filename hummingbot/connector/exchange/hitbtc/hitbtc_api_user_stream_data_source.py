@@ -6,6 +6,7 @@ import logging
 from typing import Optional, List, AsyncIterable, Any
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
+from .hitbtc_constants import Constants
 from .hitbtc_auth import HitBTCAuth
 from .hitbtc_websocket import HitBTCWebsocket
 
@@ -40,7 +41,7 @@ class HitBTCAPIUserStreamDataSource(UserStreamTrackerDataSource):
         try:
             ws = HitBTCWebsocket(self._hitbtc_auth)
             await ws.connect()
-            await ws.subscribe("Reports")
+            await ws.subscribe(Constants.WS_SUB["USER_ORDERS_TRADES"])
             async for msg in ws.on_message():
                 # print(f"WS_SOCKET: {msg}")
                 yield msg

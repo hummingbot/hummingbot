@@ -15,6 +15,18 @@ class Constants:
         "TICKER_SINGLE": "public/ticker/{trading_pair}",
         "SYMBOL": "public/symbol",
         "ORDER_BOOK": "public/orderbook",
+        "ORDER_CREATE": "order",
+        "ORDER_DELETE": "order/{id}",
+        "ORDER_STATUS": "order/{id}",
+        "USER_ORDERS": "order",
+        "USER_BALANCES": "account/balance",
+    }
+
+    WS_SUB = {
+        "TRADES": "Trades",
+        "ORDERS": "Orderbook",
+        "USER_ORDERS_TRADES": "Reports",
+
     }
 
     WS_METHODS = {
