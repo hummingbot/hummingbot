@@ -550,23 +550,33 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                                                'spread',
                                                'reserved_price',
                                                'optimal_spread',
+                                               'optimal_bid',
+                                               'optimal_ask',
+                                               'optimal_bid_to_mid_%',
+                                               'optimal_ask_to_mid_%',
                                                'current_inv',
                                                'target_inv',
                                                'time_left_fraction',
                                                'mid_price std_dev',
                                                'gamma',
-                                               'kappa')])
+                                               'kappa',
+                                               'current_vol_to_calculation_vol')])
                     df_header.to_csv(self._csv_path, mode='a', header=False, index=False)
                 df = pd.DataFrame([(mid_price,
                                     spread,
                                     self._reserved_price,
                                     self._optimal_spread,
+                                    self._optimal_bid,
+                                    self._optimal_ask,
+                                    (mid_price - self._optimal_bid)/mid_price,
+                                    (self._optimal_ask - mid_price) / mid_price,
                                     market.c_get_available_balance(self.base_asset),
                                     self.c_calculate_target_inventory(),
                                     self._time_left/self._closing_time,
                                     self._avg_vol.current_value,
                                     self._gamma,
-                                    self._kappa)])
+                                    self._kappa,
+                                    self.c_volatility_diff_from_last_parameter_calculation(self._avg_vol.current_value))])
                 df.to_csv(self._csv_path, mode='a', header=False, index=False)
 
                 proposal = None
@@ -627,7 +637,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             mid_price_variance = Decimal(str(self._avg_vol.current_value)) ** 2
             self._reserved_price = mid_price - (q * self._gamma * mid_price_variance * time_left_fraction)
 
-            self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction + Decimal(1 + self._gamma / self._kappa).ln()
+            self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction + 2 * Decimal(1 + self._gamma / self._kappa).ln() / self._gamma
             self._optimal_ask = min(self._reserved_price + self._optimal_spread / 2, mid_price * (Decimal(1) + self._max_spread))
             self._optimal_bid = max(self._reserved_price - self._optimal_spread / 2, mid_price * (Decimal(1) - self._max_spread))
 
@@ -667,7 +677,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
 
         if vol > 0 and q != 0:
             self._gamma = (max_spread - min_spread) / (2 * abs(q) * (vol ** 2))
-            self._kappa = self._gamma / Decimal.exp((2 * min_spread) - 1)
+            self._kappa = self._gamma / Decimal.exp(min_spread * self._gamma - 1)
             self._latest_parameter_calculation_vol = vol
             self.logger().info(f"Gamma: {self._gamma} | Kappa: {self._kappa} | Sigma: {vol}")
 
