@@ -78,14 +78,14 @@ cross_exchange_market_making_config_map = {
                           ),
     "maker_market": ConfigVar(
         key="maker_market",
-        prompt="Enter your maker exchange name >>> ",
+        prompt="Enter your maker spot connector >>> ",
         prompt_on_new=True,
         validator=validate_exchange,
         on_validated=lambda value: required_exchanges.append(value),
     ),
     "taker_market": ConfigVar(
         key="taker_market",
-        prompt="Enter your taker exchange name >>> ",
+        prompt="Enter your taker spot connector >>> ",
         prompt_on_new=True,
         validator=validate_exchange,
         on_validated=taker_market_on_validated,
