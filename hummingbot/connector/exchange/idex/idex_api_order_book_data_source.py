@@ -134,9 +134,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :returns: Response from the rest API
         """
         # idex level 2 order book is sufficient to provide required data
-        base_url: str = IDEX_REST_URL_FMT.format(
-                blockchain=global_config_map['idex_contract_blockchain'].value
-            )
+        base_url: str = IdexAPIOrderBookDataSource.get_idex_rest_url()
         product_order_book_url: str = f"{base_url}/v1/orderbook?market={trading_pair}&level=2"
         async with client.get(product_order_book_url) as response:
             response: aiohttp.ClientResponse = response
