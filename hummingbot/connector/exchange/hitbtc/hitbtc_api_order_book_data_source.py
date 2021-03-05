@@ -107,10 +107,9 @@ class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await ws.connect()
 
                 for pair in self._trading_pairs:
-                    await ws.subscribe("Trades", convert_to_exchange_trading_pair(pair))
+                    await ws.subscribe(Constants.WS_SUB["TRADES"], convert_to_exchange_trading_pair(pair))
 
                 async for response in ws.on_message():
-                    print(f"WS1: {response}")
                     method: str = response.get("method", None)
                     trades_data: str = response.get("params", None)
 
@@ -147,16 +146,14 @@ class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await ws.connect()
 
                 order_book_methods = [
-                    Constants.WS_METHODS['ORDER_SNAPSHOT'],
-                    Constants.WS_METHODS['ORDER_UPDATE'],
+                    Constants.WS_METHODS['ORDERS_SNAPSHOT'],
+                    Constants.WS_METHODS['ORDERS_UPDATE'],
                 ]
 
                 for pair in self._trading_pairs:
-                    await ws.subscribe("Orderbook", convert_to_exchange_trading_pair(pair))
+                    await ws.subscribe(Constants.WS_SUB["ORDERS"], convert_to_exchange_trading_pair(pair))
 
                 async for response in ws.on_message():
-                    print(f"WS2: {response}")
-
                     method: str = response.get("method", None)
                     order_book_data: str = response.get("params", None)
 
@@ -167,7 +164,7 @@ class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     pair: str = convert_from_exchange_trading_pair(order_book_data["symbol"])
 
                     order_book_msg_cls = (HitBTCOrderBook.diff_message_from_exchange
-                                          if method == Constants.WS_METHODS['ORDER_UPDATE'] else
+                                          if method == Constants.WS_METHODS['ORDERS_UPDATE'] else
                                           HitBTCOrderBook.snapshot_message_from_exchange)
 
                     orderbook_msg: OrderBookMessage = order_book_msg_cls(
