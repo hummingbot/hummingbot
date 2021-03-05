@@ -78,7 +78,7 @@ cdef class IdexOrderBook(OrderBook):
         :param record: a row of snapshot data from the database
         :return: IdexOrderBookMessage
         """
-        msg = record.json if type(record.json)==dict else ujson.loads(record.json)  # TODO ALF: check not cb specific
+        msg = record.json if type(record.json) == dict else ujson.loads(record.json)  # TODO ALF: check not cb specific
         return IdexOrderBookMessage(
             message_type=OrderBookMessageType.SNAPSHOT,
             content=msg,

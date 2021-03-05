@@ -51,6 +51,82 @@ class FixtureIdex:
         ]
     }
 
+    TRADING_PAIR_TRADES = [
+        {
+            "fillId": "3e3a7887-2c20-3705-95f4-8a64892612f3",
+            "price": "0.00729011",
+            "quantity": "200.00000000",
+            "quoteQuantity": "1.45802200",
+            "time": 1612385689385,
+            "makerSide": "buy",
+            "sequence": 7
+        },
+        {
+            "fillId": "71ae1754-b92d-336c-9e82-15e1be7f3e01",
+            "price": "0.01429000",
+            "quantity": "37.21253813",
+            "quoteQuantity": "0.53176716",
+            "time": 1613839046778,
+            "makerSide": "sell",
+            "sequence": 8
+        },
+        {
+            "fillId": "4b6a09ec-6fd5-3eb5-ba76-1ce2f1f85c4e",
+            "price": "0.01780000",
+            "quantity": "115.84889933",
+            "quoteQuantity": "2.06211040",
+            "time": 1614860652110,
+            "makerSide": "sell",
+            "sequence": 9
+        }
+    ]
+
+    TRADING_PAIR_TICKER = {
+        "market": "UNI-ETH",
+        "time": 1614888274602,
+        "open": "0.01780000",
+        "high": "0.01780000",
+        "low": "0.01780000",
+        "close": "0.01780000",
+        "closeQuantity": "115.84889933",
+        "baseVolume": "115.84889933",
+        "quoteVolume": "2.06211040",
+        "percentChange": "0.00",
+        "numTrades": 1,
+        "ask": "0.02480000",
+        "bid": "0.00755001",
+        "sequence": 9
+    }
+
+    ORDER_BOOK_LEVEL2 = {
+    "sequence": 39902171,
+    "bids": [
+        [
+            "0.01850226",
+            "172.86097063",
+            1
+        ],
+        [
+            "0.01850225",
+            "540.47480710",
+            1
+        ]
+    ],
+    "asks": [
+        [
+            "0.02091798",
+            "112.02217000",
+            1
+        ],
+        [
+            "0.02091799",
+            "1607.13503722",
+            2
+        ]
+    ]
+}
+
+
     BUY_MARKET_ORDER = None
 
     WS_AFTER_BUY_1 = None
