@@ -50,7 +50,8 @@ cdef class IdexActiveOrderTracker:
         For a certain price, get the volume sum of all ask order book rows with that price
         :returns: volume sum
         """
-        # Confirm "remaining_size as property name"
+
+        # todo: Confirm "remaining_size as property name"
         return sum([float(msg["remaining_size"]) for msg in self._active_asks[price].values()])
 
     def volume_for_bid_price(self, price) -> float:
@@ -58,7 +59,8 @@ cdef class IdexActiveOrderTracker:
         For a certain price, get the volume sum of all bid order book rows with that price
         :returns: volume sum
         """
-        # Confirm "remaining_size as property name"
+
+        # todo: Confirm "remaining_size as property name"
         return sum([float(msg["remaining_size"]) for msg in self._active_bids[price].values()])
 
     def get_rates_and_quantities(self, entry) -> tuple:

@@ -14,9 +14,11 @@ from typing import (
 
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.connector.exchange.idex.idex_api_order_book_data_source import IdexAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+
+from hummingbot.connector.exchange.idex.idex_api_order_book_data_source import IdexAPIOrderBookDataSource
+from hummingbot.connector.exchange.idex.idex_utils import EXCHANGE_NAME
 
 
 class IdexOrderBookTracker(OrderBookTracker):
@@ -28,7 +30,7 @@ class IdexOrderBookTracker(OrderBookTracker):
         return cls._iobt_logger
 
     def __init__(self, trading_pairs: Optional[List[str]] = None):
-        super(IdexOrderBookTracker, self).__init__(
+        super().__init__(
             data_source=IdexAPIOrderBookDataSource(trading_pairs=trading_pairs),
             trading_pairs=trading_pairs
         )
@@ -39,12 +41,15 @@ class IdexOrderBookTracker(OrderBookTracker):
 
     @property
     def exchange_name(self) -> str:
-        return "idex"
+        return EXCHANGE_NAME
 
     async def _order_book_diff_router(self):
         """
         Route the real-time order book diff messages to the correct order book.
         """
+
+        # TODO ALF: almost the same as the parent's method. Difference is saving to _saved_message_queues the messages
+        #  received before first snapshot? Other connectors do not bother, do we need this complexity ?
         last_message_timestamp: float = time.time()
         messages_queued: int = 0
         messages_accepted: int = 0
@@ -93,6 +98,9 @@ class IdexOrderBookTracker(OrderBookTracker):
                 await asyncio.sleep(5.0)
 
     async def _track_single_book(self, trading_pair: str):
+        """
+        Update an order book with changes from the latest batch of received messages
+        """
         past_diffs_window: Deque[OrderBookMessage] = deque()
         self._past_diffs_windows[trading_pair] = past_diffs_window
 
@@ -127,6 +135,7 @@ class IdexOrderBookTracker(OrderBookTracker):
                         diff_messages_accepted = 0
                     last_message_timestamp = now
                 elif message.type is OrderBookMessageType.SNAPSHOT:
+                    # TODO ALF: here we follow binance but not coinbase or crypto.com. why ?
                     past_diffs: List[OrderBookMessage] = list(past_diffs_window)
                     order_book.restore_from_snapshot_and_diffs(message, past_diffs)
                     self.logger().debug("Processed order book snapshot for %s.", trading_pair)
