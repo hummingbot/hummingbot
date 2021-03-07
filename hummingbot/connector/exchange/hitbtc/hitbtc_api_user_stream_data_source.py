@@ -3,7 +3,12 @@
 import time
 import asyncio
 import logging
-from typing import Optional, List, AsyncIterable, Any
+from typing import (
+    Any,
+    AsyncIterable,
+    List,
+    Optional,
+)
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from .hitbtc_constants import Constants
@@ -40,12 +45,15 @@ class HitbtcAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         try:
             ws = HitbtcWebsocket(self._hitbtc_auth)
+
             await ws.connect()
+
             await ws.subscribe(Constants.WS_SUB["USER_ORDERS_TRADES"])
+
             async for msg in ws.on_message():
-                # print(f"WS_SOCKET: {msg}")
                 yield msg
                 self._last_recv_time = time.time()
+
                 if (msg.get("result") is None):
                     continue
         except Exception as e:
@@ -71,6 +79,5 @@ class HitbtcAPIUserStreamDataSource(UserStreamTrackerDataSource):
             except Exception:
                 self.logger().error(
                     f"Unexpected error with {Constants.EXCHANGE_NAME} WebSocket connection. "
-                    "Retrying after 30 seconds...", exc_info=True
-                )
+                    "Retrying after 30 seconds...", exc_info=True)
                 await asyncio.sleep(30.0)

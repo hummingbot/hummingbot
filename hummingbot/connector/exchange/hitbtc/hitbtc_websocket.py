@@ -8,9 +8,10 @@ from hummingbot.connector.exchange.hitbtc.hitbtc_constants import Constants
 
 
 from typing import (
-    Optional,
-    AsyncIterable,
     Any,
+    AsyncIterable,
+    Dict,
+    Optional,
 )
 from websockets.exceptions import ConnectionClosed
 from hummingbot.logger import HummingbotLogger
@@ -84,7 +85,7 @@ class HitbtcWebsocket(RequestId):
             await self.disconnect()
 
     # emit messages
-    async def _emit(self, method: str, data: Optional[Any] = {}) -> int:
+    async def _emit(self, method: str, data: Optional[Dict[str, Any]] = {}) -> int:
         id = self.generate_request_id()
 
         payload = {
@@ -98,23 +99,25 @@ class HitbtcWebsocket(RequestId):
         return id
 
     # request via websocket
-    async def request(self, method: str, data: Optional[Any] = {}) -> int:
+    async def request(self, method: str, data: Optional[Dict[str, Any]] = {}) -> int:
         return await self._emit(method, data)
 
     # subscribe to a method
     async def subscribe(self,
                         channel: str,
-                        trading_pair: str,
-                        params: Optional[Any] = {}) -> int:
-        params['symbol'] = trading_pair
+                        trading_pair: Optional[str] = None,
+                        params: Optional[Dict[str, Any]] = {}) -> int:
+        if trading_pair is not None:
+            params['symbol'] = trading_pair
         return await self.request(f"subscribe{channel}", params)
 
     # unsubscribe to a method
     async def unsubscribe(self,
                           channel: str,
-                          trading_pair: str,
-                          params: Optional[Any] = {}) -> int:
-        params['symbol'] = trading_pair
+                          trading_pair: Optional[str] = None,
+                          params: Optional[Dict[str, Any]] = {}) -> int:
+        if trading_pair is not None:
+            params['symbol'] = trading_pair
         return await self.request(f"unsubscribe{channel}", params)
 
     # listen to messages by method
