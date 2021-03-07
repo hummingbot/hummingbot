@@ -18,7 +18,7 @@ from hummingbot.core.utils.async_utils import (
 from hummingbot.connector.exchange.hitbtc.hitbtc_api_user_stream_data_source import \
     HitbtcAPIUserStreamDataSource
 from hummingbot.connector.exchange.hitbtc.hitbtc_auth import HitbtcAuth
-from hummingbot.connector.exchange.hitbtc.hitbtc_constants import EXCHANGE_NAME
+from hummingbot.connector.exchange.hitbtc.hitbtc_constants import Constants
 
 
 class HitbtcUserStreamTracker(UserStreamTracker):
@@ -60,7 +60,7 @@ class HitbtcUserStreamTracker(UserStreamTracker):
         *required
         Name of the current exchange
         """
-        return EXCHANGE_NAME
+        return Constants.EXCHANGE_NAME
 
     async def start(self):
         """

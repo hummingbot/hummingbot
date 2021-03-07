@@ -70,6 +70,7 @@ class HitbtcAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 raise
             except Exception:
                 self.logger().error(
-                    "Unexpected error with HitBTC WebSocket connection. " "Retrying after 30 seconds...", exc_info=True
+                    f"Unexpected error with {Constants.EXCHANGE_NAME} WebSocket connection. "
+                    "Retrying after 30 seconds...", exc_info=True
                 )
                 await asyncio.sleep(30.0)

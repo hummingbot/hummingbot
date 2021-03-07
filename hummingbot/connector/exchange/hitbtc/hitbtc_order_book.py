@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import logging
-import hummingbot.connector.exchange.hitbtc.hitbtc_constants as constants
+from hummingbot.connector.exchange.hitbtc.hitbtc_constants import Constants
 
 from sqlalchemy.engine import RowProxy
 from typing import (
@@ -139,8 +139,8 @@ class HitbtcOrderBook(OrderBook):
 
     @classmethod
     def from_snapshot(cls, snapshot: OrderBookMessage):
-        raise NotImplementedError(constants.EXCHANGE_NAME + " order book needs to retain individual order data.")
+        raise NotImplementedError(Constants.EXCHANGE_NAME + " order book needs to retain individual order data.")
 
     @classmethod
     def restore_from_snapshot_and_diffs(self, snapshot: OrderBookMessage, diffs: List[OrderBookMessage]):
-        raise NotImplementedError(constants.EXCHANGE_NAME + " order book needs to retain individual order data.")
+        raise NotImplementedError(Constants.EXCHANGE_NAME + " order book needs to retain individual order data.")

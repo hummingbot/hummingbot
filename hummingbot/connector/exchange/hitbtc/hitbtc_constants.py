@@ -1,6 +1,6 @@
 # A single source of truth for constant variables related to the exchange
 class Constants:
-    EXCHANGE_NAME = "hitbtc"
+    EXCHANGE_NAME = "HitBTC"
     REST_URL = "https://api.hitbtc.com/api/2"
     # WS_PRIVATE_URL = "wss://stream.crypto.com/v2/user"
     WS_PRIVATE_URL = "wss://api.hitbtc.com/api/2/ws/trading"
