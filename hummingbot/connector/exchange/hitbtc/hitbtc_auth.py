@@ -28,16 +28,16 @@ class HitbtcAuth():
         nonce = str(int(time.time()))
         full_url = f"{url}"
         body = ""
-        if len(params) > 0 and method.upper() == "GET":
+        if params is not None and len(params) > 0 and method.upper() == "GET":
             query_string = "&".join([f"{k}={v}" for k, v in params.items()])
             full_url = f"{url}?{query_string}"
-        elif len(params) > 0 and method.upper() == "POST":
+        elif params is not None and len(params) > 0 and method.upper() == "POST":
             body = ujson.dumps(params)
-        payload = f"{method}{nonce}{full_url}{body}"
+        payload = f"{method.upper()}{nonce}{full_url}{body}"
 
         sig = hmac.new(
-            self.secret_key.encode('utf-8'),
-            payload.encode('utf-8'),
+            self.secret_key.encode(),
+            payload.encode(),
             hashlib.sha256
         ).hexdigest()
 
@@ -66,8 +66,10 @@ class HitbtcAuth():
         :return: a dictionary of auth headers
         """
         nonce, sig = self.generate_auth(method, url, params)
-        payload = b64encode(f"{self.api_key}:{nonce}:{sig}".encode('utf-8')).decode().strip()
-        return {
-            "Authorization": f"HS256 {payload}",
-            "Content-Type": 'application/json',
+        payload = b64encode(f"{self.api_key}:{nonce}:{sig}".encode()).decode().strip()
+        headers = {
+            "Authorization": f"HS256 {payload}"
         }
+        if params is not None and len(params) > 0:
+            headers["Content-Type"] = "application/json"
+        return headers

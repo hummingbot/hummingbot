@@ -314,7 +314,7 @@ class HitbtcExchange(ExchangeBase):
         url = f"{Constants.REST_URL}/{endpoint}"
         shared_client = await self._http_client()
         if is_auth_required:
-            headers = self._hitbtc_auth.get_headers(method, url, params)
+            headers = self._hitbtc_auth.get_headers(method, f"{Constants.REST_URL_AUTH}/{endpoint}", params)
         else:
             headers = {"Content-Type": "application/json"}
         response_coro = shared_client.request(

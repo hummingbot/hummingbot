@@ -2,6 +2,7 @@
 class Constants:
     EXCHANGE_NAME = "HitBTC"
     REST_URL = "https://api.hitbtc.com/api/2"
+    REST_URL_AUTH = "/api/2"
     # WS_PRIVATE_URL = "wss://stream.crypto.com/v2/user"
     WS_PRIVATE_URL = "wss://api.hitbtc.com/api/2/ws/trading"
     # WS_PUBLIC_URL = "wss://stream.crypto.com/v2/market"
@@ -19,7 +20,7 @@ class Constants:
         "ORDER_DELETE": "order/{id}",
         "ORDER_STATUS": "order/{id}",
         "USER_ORDERS": "order",
-        "USER_BALANCES": "account/balance",
+        "USER_BALANCES": "trading/balance",
     }
 
     WS_SUB = {
