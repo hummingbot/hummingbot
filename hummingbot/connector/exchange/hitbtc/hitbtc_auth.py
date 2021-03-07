@@ -15,7 +15,7 @@ class HitbtcAuth():
         self.api_key = api_key
         self.secret_key = secret_key
 
-    def generate_auth_dict(
+    def generate_auth(
         self,
         method: str,
         url: str,
