@@ -11,19 +11,19 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 # from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
 from .hitbtc_constants import Constants
-from .hitbtc_active_order_tracker import HitBTCActiveOrderTracker
-from .hitbtc_order_book import HitBTCOrderBook
-from .hitbtc_websocket import HitBTCWebsocket
+from .hitbtc_active_order_tracker import HitbtcActiveOrderTracker
+from .hitbtc_order_book import HitbtcOrderBook
+from .hitbtc_websocket import HitbtcWebsocket
 from .hitbtc_utils import (
     str_date_to_ts,
     convert_to_exchange_trading_pair,
     convert_from_exchange_trading_pair,
     generic_api_request,
-    HitBTCAPIError,
+    HitbtcAPIError,
 )
 
 
-class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
+class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
     _logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -77,7 +77,7 @@ class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                                            })
             orderbook_data = orderbook_response[ex_pair]
             return orderbook_data
-        except HitBTCAPIError as e:
+        except HitbtcAPIError as e:
             raise IOError(
                 f"Error fetching OrderBook for {trading_pair} at {Constants.EXCHANGE_NAME}. "
                 f"HTTP status is {e.error_payload['status']}. Error is {e.error_payload['error']}."
@@ -86,13 +86,13 @@ class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair)
         snapshot_timestamp: float = time.time()
-        snapshot_msg: OrderBookMessage = HitBTCOrderBook.snapshot_message_from_exchange(
+        snapshot_msg: OrderBookMessage = HitbtcOrderBook.snapshot_message_from_exchange(
             snapshot,
             snapshot_timestamp,
             metadata={"trading_pair": trading_pair}
         )
         order_book = self.order_book_create_function()
-        active_order_tracker: HitBTCActiveOrderTracker = HitBTCActiveOrderTracker()
+        active_order_tracker: HitbtcActiveOrderTracker = HitbtcActiveOrderTracker()
         bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
         order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
         return order_book
@@ -103,7 +103,7 @@ class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         while True:
             try:
-                ws = HitBTCWebsocket()
+                ws = HitbtcWebsocket()
                 await ws.connect()
 
                 for pair in self._trading_pairs:
@@ -121,7 +121,7 @@ class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     for trade in trades_data["data"]:
                         trade: Dict[Any] = trade
                         trade_timestamp: int = str_date_to_ts(trade["timestamp"])
-                        trade_msg: OrderBookMessage = HitBTCOrderBook.trade_message_from_exchange(
+                        trade_msg: OrderBookMessage = HitbtcOrderBook.trade_message_from_exchange(
                             trade,
                             trade_timestamp,
                             metadata={"trading_pair": pair}
@@ -142,7 +142,7 @@ class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         while True:
             try:
-                ws = HitBTCWebsocket()
+                ws = HitbtcWebsocket()
                 await ws.connect()
 
                 order_book_methods = [
@@ -163,9 +163,9 @@ class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     timestamp: int = str_date_to_ts(order_book_data["timestamp"])
                     pair: str = convert_from_exchange_trading_pair(order_book_data["symbol"])
 
-                    order_book_msg_cls = (HitBTCOrderBook.diff_message_from_exchange
+                    order_book_msg_cls = (HitbtcOrderBook.diff_message_from_exchange
                                           if method == Constants.WS_METHODS['ORDERS_UPDATE'] else
-                                          HitBTCOrderBook.snapshot_message_from_exchange)
+                                          HitbtcOrderBook.snapshot_message_from_exchange)
 
                     orderbook_msg: OrderBookMessage = order_book_msg_cls(
                         order_book_data,
@@ -197,7 +197,7 @@ class HitBTCAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     try:
                         snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair)
                         snapshot_timestamp: int = str_date_to_ts(snapshot["timestamp"])
-                        snapshot_msg: OrderBookMessage = HitBTCOrderBook.snapshot_message_from_exchange(
+                        snapshot_msg: OrderBookMessage = HitbtcOrderBook.snapshot_message_from_exchange(
                             snapshot,
                             snapshot_timestamp,
                             metadata={"trading_pair": trading_pair}
