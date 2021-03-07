@@ -18,7 +18,7 @@ from .hitbtc_utils import (
     str_date_to_ts,
     convert_to_exchange_trading_pair,
     convert_from_exchange_trading_pair,
-    generic_api_request,
+    api_call_with_retries,
     HitbtcAPIError,
 )
 
@@ -41,22 +41,24 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, Decimal]:
         results = {}
         if len(trading_pairs) > 1:
-            tickers = await generic_api_request("get", Constants.ENDPOINT["TICKER"])
+            tickers: List[Dict[Any]] = await api_call_with_retries("GET", Constants.ENDPOINT["TICKER"])
         for trading_pair in trading_pairs:
-            ex_pair = convert_to_exchange_trading_pair(trading_pair)
+            ex_pair: str = convert_to_exchange_trading_pair(trading_pair)
             if len(trading_pairs) > 1:
-                ticker = list([tic for tic in tickers if tic['symbol'] == ex_pair])[0]
+                ticker: Dict[Any] = list([tic for tic in tickers if tic['symbol'] == ex_pair])[0]
             else:
                 url_endpoint = Constants.ENDPOINT["TICKER_SINGLE"].format(trading_pair=ex_pair)
-                ticker = await generic_api_request("get", url_endpoint)
-            results[trading_pair] = Decimal(str(ticker["last"]))
+                ticker: Dict[Any] = await api_call_with_retries("GET", url_endpoint)
+            results[trading_pair]: Decimal = Decimal(str(ticker["last"]))
         return results
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
         try:
-            symbols: List[Dict[str, Any]] = await generic_api_request("get", Constants.ENDPOINT["SYMBOL"])
-            return [convert_from_exchange_trading_pair(sym["id"]) for sym in symbols]
+            symbols: List[Dict[str, Any]] = await api_call_with_retries("GET", Constants.ENDPOINT["SYMBOL"])
+            trading_pairs: List[str] = list([convert_from_exchange_trading_pair(sym["id"]) for sym in symbols])
+            # Filter out unmatched pairs so nothing breaks
+            return [sym for sym in trading_pairs if sym is not None]
         except Exception:
             # Do nothing if the request fails -- there will be no autocomplete for huobi trading pairs
             pass
@@ -69,19 +71,13 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         try:
             ex_pair = convert_to_exchange_trading_pair(trading_pair)
-            orderbook_response = await generic_api_request("get",
-                                                           Constants.ENDPOINT["ORDER_BOOK"],
-                                                           params={
-                                                               "limit": 150,
-                                                               "symbols": ex_pair
-                                                           })
-            orderbook_data = orderbook_response[ex_pair]
-            return orderbook_data
+            orderbook_response: Dict[Any] = await api_call_with_retries("GET", Constants.ENDPOINT["ORDER_BOOK"],
+                                                                        params={"limit": 150, "symbols": ex_pair})
+            return orderbook_response[ex_pair]
         except HitbtcAPIError as e:
             raise IOError(
                 f"Error fetching OrderBook for {trading_pair} at {Constants.EXCHANGE_NAME}. "
-                f"HTTP status is {e.error_payload['status']}. Error is {e.error_payload['error']}."
-            )
+                f"HTTP status is {e.error_payload['status']}. Error is {e.error_payload['error']}.")
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair)
@@ -89,8 +85,7 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
         snapshot_msg: OrderBookMessage = HitbtcOrderBook.snapshot_message_from_exchange(
             snapshot,
             snapshot_timestamp,
-            metadata={"trading_pair": trading_pair}
-        )
+            metadata={"trading_pair": trading_pair})
         order_book = self.order_book_create_function()
         active_order_tracker: HitbtcActiveOrderTracker = HitbtcActiveOrderTracker()
         bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
@@ -124,8 +119,7 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         trade_msg: OrderBookMessage = HitbtcOrderBook.trade_message_from_exchange(
                             trade,
                             trade_timestamp,
-                            metadata={"trading_pair": pair}
-                        )
+                            metadata={"trading_pair": pair})
                         output.put_nowait(trade_msg)
 
             except asyncio.CancelledError:
@@ -170,19 +164,16 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     orderbook_msg: OrderBookMessage = order_book_msg_cls(
                         order_book_data,
                         timestamp,
-                        metadata={"trading_pair": pair}
-                    )
+                        metadata={"trading_pair": pair})
                     output.put_nowait(orderbook_msg)
 
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().network(
-                    "Unexpected error with WebSocket connection.",
-                    exc_info=True,
+                    "Unexpected error with WebSocket connection.", exc_info=True,
                     app_warning_msg="Unexpected error with WebSocket connection. Retrying in 30 seconds. "
-                                    "Check network connection."
-                )
+                                    "Check network connection.")
                 await asyncio.sleep(30.0)
             finally:
                 await ws.disconnect()
@@ -210,11 +201,9 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         raise
                     except Exception:
                         self.logger().network(
-                            "Unexpected error with WebSocket connection.",
-                            exc_info=True,
+                            "Unexpected error with WebSocket connection.", exc_info=True,
                             app_warning_msg="Unexpected error with WebSocket connection. Retrying in 5 seconds. "
-                                            "Check network connection."
-                        )
+                                            "Check network connection.")
                         await asyncio.sleep(5.0)
                 this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
                 next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)

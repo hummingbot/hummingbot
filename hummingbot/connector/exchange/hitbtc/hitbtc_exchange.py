@@ -11,6 +11,7 @@ import asyncio
 import aiohttp
 import math
 import time
+import ujson
 from async_timeout import timeout
 
 from hummingbot.core.network_iterator import NetworkStatus
@@ -43,6 +44,7 @@ from hummingbot.connector.exchange.hitbtc.hitbtc_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
     get_new_client_order_id,
+    aiohttp_response_with_errors,
     retry_sleep_time,
     str_date_to_ts,
     HitbtcAPIError,
@@ -222,7 +224,7 @@ class HitbtcExchange(ExchangeBase):
         """
         try:
             # since there is no ping endpoint, the lowest rate call is to get BTC-USD symbol
-            await self._api_request("get",
+            await self._api_request("GET",
                                     Constants.ENDPOINT['SYMBOL'],
                                     params={'symbols': 'BTCUSD'})
         except asyncio.CancelledError:
@@ -257,7 +259,7 @@ class HitbtcExchange(ExchangeBase):
                 await asyncio.sleep(0.5)
 
     async def _update_trading_rules(self):
-        symbols_info = await self._api_request("get", endpoint=Constants.ENDPOINT['SYMBOL'])
+        symbols_info = await self._api_request("GET", endpoint=Constants.ENDPOINT['SYMBOL'])
         self._trading_rules.clear()
         self._trading_rules = self._format_trading_rules(symbols_info)
 
@@ -313,33 +315,20 @@ class HitbtcExchange(ExchangeBase):
         """
         url = f"{Constants.REST_URL}/{endpoint}"
         shared_client = await self._http_client()
+        # Turn `params` into either GET params or POST body data
+        qs_params: dict = params if method.upper() == "GET" else None
+        req_data: str = ujson.dumps(params) if (method.upper() == "POST" and params is not None) else None
+        # Generate auth headers if needed.
+        headers: dict = {"Content-Type": "application/json"}
         if is_auth_required:
-            headers = self._hitbtc_auth.get_headers(method, f"{Constants.REST_URL_AUTH}/{endpoint}", params)
-        else:
-            headers = {"Content-Type": "application/json"}
-        response_coro = shared_client.request(
-            method=method.upper(), url=url, headers=headers, params=params, timeout=Constants.API_CALL_TIMEOUT
-        )
-        http_status, parsed_response, request_errors = None, None, False
-        try:
-            async with response_coro as response:
-                http_status = response.status
-                try:
-                    parsed_response = await response.json()
-                except Exception:
-                    request_errors = True
-                    try:
-                        parsed_response = str(await response.read())
-                        if len(parsed_response) > 100:
-                            parsed_response = f"{parsed_response[:100]} ... (truncated)"
-                    except Exception:
-                        pass
-                if response.status not in [200, 201] or parsed_response is None:
-                    request_errors = True
-        except Exception:
-            request_errors = True
+            headers: dict = self._hitbtc_auth.get_headers(method, f"{Constants.REST_URL_AUTH}/{endpoint}",
+                                                          qs_params, req_data)
+        # Build request coro
+        response_coro = shared_client.request(method=method.upper(), url=url, headers=headers,
+                                              params=qs_params, data=req_data, timeout=Constants.API_CALL_TIMEOUT)
+        http_status, parsed_response, request_errors = await aiohttp_response_with_errors(response_coro)
         if request_errors or parsed_response is None:
-            if try_count < 4:
+            if try_count < Constants.API_MAX_RETRIES:
                 try_count += 1
                 time_sleep = retry_sleep_time(try_count)
                 self.logger().info(f"Error fetching data from {url}. HTTP status is {http_status}. "
@@ -348,8 +337,6 @@ class HitbtcExchange(ExchangeBase):
                 return await self._api_request(method=method, endpoint=endpoint, params=params,
                                                is_auth_required=is_auth_required, try_count=try_count)
             else:
-                self.logger().network(f"Error fetching data from {url}. HTTP status is {http_status}. "
-                                      f"Final msg: {parsed_response}.")
                 raise HitbtcAPIError({"error": parsed_response, "status": http_status})
         if "error" in parsed_response:
             raise HitbtcAPIError(parsed_response)
@@ -453,7 +440,7 @@ class HitbtcExchange(ExchangeBase):
             api_params["postOnly"] = "true"
         self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, order_type)
         try:
-            order_result = await self._api_request("post", Constants.ENDPOINT["ORDER_CREATE"], api_params, True)
+            order_result = await self._api_request("POST", Constants.ENDPOINT["ORDER_CREATE"], api_params, True)
             exchange_order_id = str(order_result["id"])
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
@@ -514,7 +501,7 @@ class HitbtcExchange(ExchangeBase):
         """
         Executes order cancellation process by first calling cancel-order API. The API result doesn't confirm whether
         the cancellation is successful, it simply states it receives the request.
-        :param trading_pair: The market trading pair
+        :param trading_pair: The market trading pair (Unused during cancel on HitBTC)
         :param order_id: The internal order id
         order.last_state to change to CANCELED
         """
@@ -525,7 +512,7 @@ class HitbtcExchange(ExchangeBase):
             if tracked_order.exchange_order_id is None:
                 await tracked_order.get_exchange_order_id()
             # ex_order_id = tracked_order.exchange_order_id
-            await self._api_request("delete", Constants.ENDPOINT["ORDER_DELETE"].format(id=order_id), True)
+            await self._api_request("DELETE", Constants.ENDPOINT["ORDER_DELETE"].format(id=order_id), True)
             return CancellationResult(order_id, True)
         except asyncio.CancelledError:
             raise
@@ -569,7 +556,7 @@ class HitbtcExchange(ExchangeBase):
         """
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
-        account_info = await self._api_request("get", Constants.ENDPOINT["USER_BALANCES"], is_auth_required=True)
+        account_info = await self._api_request("GET", Constants.ENDPOINT["USER_BALANCES"], is_auth_required=True)
         for account in account_info:
             asset_name = account["currency"]
             self._account_available_balances[asset_name] = Decimal(str(account["available"]))
@@ -594,7 +581,7 @@ class HitbtcExchange(ExchangeBase):
             for tracked_order in tracked_orders:
                 # exchange_order_id = await tracked_order.get_exchange_order_id()
                 order_id = tracked_order.client_order_id
-                tasks.append(self._api_request("get",
+                tasks.append(self._api_request("GET",
                                                Constants.ENDPOINT["ORDER_STATUS"].format(id=order_id),
                                                is_auth_required=True))
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
@@ -642,19 +629,14 @@ class HitbtcExchange(ExchangeBase):
         if tracked_order.is_cancelled:
             self.logger().info(f"Successfully cancelled order {client_order_id}.")
             self.trigger_event(MarketEvent.OrderCancelled,
-                               OrderCancelledEvent(
-                                   self.current_timestamp,
-                                   client_order_id))
+                               OrderCancelledEvent(self.current_timestamp, client_order_id))
             tracked_order.cancelled_event.set()
             self.stop_tracking_order(client_order_id)
         elif tracked_order.is_failure:
             self.logger().info(f"The market order {client_order_id} has failed according to order status API. ")
             self.trigger_event(MarketEvent.OrderFailure,
                                MarketOrderFailureEvent(
-                                   self.current_timestamp,
-                                   client_order_id,
-                                   tracked_order.order_type
-                               ))
+                                   self.current_timestamp, client_order_id, tracked_order.order_type))
             self.stop_tracking_order(client_order_id)
 
     async def _process_trade_message(self, trade_msg: Dict[str, Any]):
@@ -740,15 +722,14 @@ class HitbtcExchange(ExchangeBase):
         open_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
         if len(open_orders) == 0:
             return []
-        tasks = [self._execute_cancel(o.client_order_id) for o in open_orders]
+        tasks = [self._execute_cancel(o.trading_pair, o.client_order_id) for o in open_orders]
         cancellation_results = []
         try:
             async with timeout(timeout_seconds):
                 cancellation_results = await safe_gather(*tasks, return_exceptions=True)
         except Exception:
             self.logger().network(
-                "Unexpected error cancelling orders.",
-                exc_info=True,
+                "Unexpected error cancelling orders.", exc_info=True,
                 app_warning_msg=(f"Failed to cancel all orders on {Constants.EXCHANGE_NAME}. "
                                  "Check API key and network connection.")
             )
@@ -795,8 +776,7 @@ class HitbtcExchange(ExchangeBase):
                 self.logger().network(
                     "Unknown error. Retrying after 1 seconds.", exc_info=True,
                     app_warning_msg=(f"Could not fetch user events from {Constants.EXCHANGE_NAME}. "
-                                     "Check API key and network connection.")
-                )
+                                     "Check API key and network connection."))
                 await asyncio.sleep(1.0)
 
     async def _user_stream_event_listener(self):
@@ -828,7 +808,7 @@ class HitbtcExchange(ExchangeBase):
 
     # This is currently unused, but looks like a future addition.
     async def get_open_orders(self) -> List[OpenOrder]:
-        result = await self._api_request("get", Constants.ENDPOINT["USER_ORDERS"], is_auth_required=True)
+        result = await self._api_request("GET", Constants.ENDPOINT["USER_ORDERS"], is_auth_required=True)
         ret_val = []
         for order in result:
             if Constants.HBOT_BROKER_ID not in order["clientOrderId"]:
