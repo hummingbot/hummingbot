@@ -12,7 +12,7 @@ from hummingbot.core.event.events import (
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 
 
-class HitBTCInFlightOrder(InFlightOrderBase):
+class HitbtcInFlightOrder(InFlightOrderBase):
     def __init__(self,
                  client_order_id: str,
                  exchange_order_id: Optional[str],
@@ -62,7 +62,7 @@ class HitBTCInFlightOrder(InFlightOrderBase):
         :param data: json data from API
         :return: formatted InFlightOrder
         """
-        retval = HitBTCInFlightOrder(
+        retval = HitbtcInFlightOrder(
             data["client_order_id"],
             data["exchange_order_id"],
             data["trading_pair"],

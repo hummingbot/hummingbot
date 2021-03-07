@@ -6,7 +6,7 @@ from base64 import b64encode
 from typing import Dict, Any
 
 
-class HitBTCAuth():
+class HitbtcAuth():
     """
     Auth class required by HitBTC API
     Learn more at https://exchange-docs.crypto.com/#digital-signature

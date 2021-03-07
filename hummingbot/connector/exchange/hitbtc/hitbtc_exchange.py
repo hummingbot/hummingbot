@@ -35,17 +35,17 @@ from hummingbot.core.event.events import (
     TradeFee
 )
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.exchange.hitbtc.hitbtc_order_book_tracker import HitBTCOrderBookTracker
-from hummingbot.connector.exchange.hitbtc.hitbtc_user_stream_tracker import HitBTCUserStreamTracker
-from hummingbot.connector.exchange.hitbtc.hitbtc_auth import HitBTCAuth
-from hummingbot.connector.exchange.hitbtc.hitbtc_in_flight_order import HitBTCInFlightOrder
+from hummingbot.connector.exchange.hitbtc.hitbtc_order_book_tracker import HitbtcOrderBookTracker
+from hummingbot.connector.exchange.hitbtc.hitbtc_user_stream_tracker import HitbtcUserStreamTracker
+from hummingbot.connector.exchange.hitbtc.hitbtc_auth import HitbtcAuth
+from hummingbot.connector.exchange.hitbtc.hitbtc_in_flight_order import HitbtcInFlightOrder
 from hummingbot.connector.exchange.hitbtc.hitbtc_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
     get_new_client_order_id,
     retry_sleep_time,
     str_date_to_ts,
-    HitBTCAPIError,
+    HitbtcAPIError,
 )
 from hummingbot.connector.exchange.hitbtc.hitbtc_constants import Constants
 from hummingbot.core.data_type.common import OpenOrder
@@ -53,9 +53,9 @@ ctce_logger = None
 s_decimal_NaN = Decimal("nan")
 
 
-class HitBTCExchange(ExchangeBase):
+class HitbtcExchange(ExchangeBase):
     """
-    HitBTCExchange connects with HitBTC exchange and provides order book pricing, user account tracking and
+    HitbtcExchange connects with HitBTC exchange and provides order book pricing, user account tracking and
     trading functionality.
     """
 
@@ -81,14 +81,14 @@ class HitBTCExchange(ExchangeBase):
         super().__init__()
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._hitbtc_auth = HitBTCAuth(hitbtc_api_key, hitbtc_secret_key)
-        self._order_book_tracker = HitBTCOrderBookTracker(trading_pairs=trading_pairs)
-        self._user_stream_tracker = HitBTCUserStreamTracker(self._hitbtc_auth, trading_pairs)
+        self._hitbtc_auth = HitbtcAuth(hitbtc_api_key, hitbtc_secret_key)
+        self._order_book_tracker = HitbtcOrderBookTracker(trading_pairs=trading_pairs)
+        self._user_stream_tracker = HitbtcUserStreamTracker(self._hitbtc_auth, trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
-        self._in_flight_orders = {}  # Dict[client_order_id:str, HitBTCInFlightOrder]
+        self._in_flight_orders = {}  # Dict[client_order_id:str, HitbtcInFlightOrder]
         self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
         self._status_polling_task = None
@@ -109,7 +109,7 @@ class HitBTCExchange(ExchangeBase):
         return self._trading_rules
 
     @property
-    def in_flight_orders(self) -> Dict[str, HitBTCInFlightOrder]:
+    def in_flight_orders(self) -> Dict[str, HitbtcInFlightOrder]:
         return self._in_flight_orders
 
     @property
@@ -158,7 +158,7 @@ class HitBTCExchange(ExchangeBase):
         :param saved_states: The saved tracking_states.
         """
         self._in_flight_orders.update({
-            key: HitBTCInFlightOrder.from_json(value)
+            key: HitbtcInFlightOrder.from_json(value)
             for key, value in saved_states.items()
         })
 
@@ -350,9 +350,9 @@ class HitBTCExchange(ExchangeBase):
             else:
                 self.logger().network(f"Error fetching data from {url}. HTTP status is {http_status}. "
                                       f"Final msg: {parsed_response}.")
-                raise HitBTCAPIError({"error": parsed_response, "status": http_status})
+                raise HitbtcAPIError({"error": parsed_response, "status": http_status})
         if "error" in parsed_response:
-            raise HitBTCAPIError(parsed_response)
+            raise HitbtcAPIError(parsed_response)
         return parsed_response
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):
@@ -470,7 +470,7 @@ class HitBTCExchange(ExchangeBase):
                                event_cls(self.current_timestamp, order_type, trading_pair, amount, price, order_id))
         except asyncio.CancelledError:
             raise
-        except HitBTCAPIError as e:
+        except HitbtcAPIError as e:
             error_reason = str(e.error_payload['error'])
             self.stop_tracking_order(order_id)
             self.logger().network(
@@ -493,7 +493,7 @@ class HitBTCExchange(ExchangeBase):
         """
         Starts tracking an order by simply adding it into _in_flight_orders dictionary.
         """
-        self._in_flight_orders[order_id] = HitBTCInFlightOrder(
+        self._in_flight_orders[order_id] = HitbtcInFlightOrder(
             client_order_id=order_id,
             exchange_order_id=exchange_order_id,
             trading_pair=trading_pair,
@@ -529,7 +529,7 @@ class HitBTCExchange(ExchangeBase):
             return CancellationResult(order_id, True)
         except asyncio.CancelledError:
             raise
-        except HitBTCAPIError as e:
+        except HitbtcAPIError as e:
             error_reason = str(e.error_payload['error'])
             self.logger().network(
                 f"Failed to cancel order {order_id}: {error_reason}",
@@ -801,7 +801,7 @@ class HitBTCExchange(ExchangeBase):
     async def _user_stream_event_listener(self):
         """
         Listens to message in _user_stream_tracker.user_stream queue. The messages are put in by
-        HitBTCAPIUserStreamDataSource.
+        HitbtcAPIUserStreamDataSource.
         """
         async for event_message in self._iter_user_event_queue():
             try:

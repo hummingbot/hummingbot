@@ -27,7 +27,7 @@ EXAMPLE_PAIR = "ETH-USDT"
 DEFAULT_FEES = [0.1, 0.1]
 
 
-class HitBTCAPIError(IOError):
+class HitbtcAPIError(IOError):
     def __init__(self, error_payload: Dict[str, Any]):
         super().__init__(str(error_payload))
         self.error_payload = error_payload
@@ -153,7 +153,7 @@ async def generic_api_request(method,
         else:
             print(f"Error fetching data from {url}. HTTP status is {http_status}. "
                   f"Final msg: {parsed_response}.")
-            raise HitBTCAPIError({"error": parsed_response, "status": http_status})
+            raise HitbtcAPIError({"error": parsed_response, "status": http_status})
     return parsed_response
 
 

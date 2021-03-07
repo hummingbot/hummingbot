@@ -14,14 +14,14 @@ from typing import (
 )
 from websockets.exceptions import ConnectionClosed
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.hitbtc.hitbtc_auth import HitBTCAuth
+from hummingbot.connector.exchange.hitbtc.hitbtc_auth import HitbtcAuth
 from hummingbot.connector.exchange.hitbtc.hitbtc_utils import RequestId
 
 # reusable websocket class
 # ToDo: We should eventually remove this class, and instantiate web socket connection normally (see Binance for example)
 
 
-class HitBTCWebsocket(RequestId):
+class HitbtcWebsocket(RequestId):
     _logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -30,8 +30,8 @@ class HitBTCWebsocket(RequestId):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, auth: Optional[HitBTCAuth] = None):
-        self._auth: Optional[HitBTCAuth] = auth
+    def __init__(self, auth: Optional[HitbtcAuth] = None):
+        self._auth: Optional[HitbtcAuth] = auth
         self._isPrivate = True if self._auth is not None else False
         self._WS_URL = Constants.WS_PRIVATE_URL if self._isPrivate else Constants.WS_PUBLIC_URL
         self._client: Optional[websockets.WebSocketClientProtocol] = None

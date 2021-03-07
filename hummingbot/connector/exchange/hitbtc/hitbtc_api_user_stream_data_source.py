@@ -7,11 +7,11 @@ from typing import Optional, List, AsyncIterable, Any
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from .hitbtc_constants import Constants
-from .hitbtc_auth import HitBTCAuth
-from .hitbtc_websocket import HitBTCWebsocket
+from .hitbtc_auth import HitbtcAuth
+from .hitbtc_websocket import HitbtcWebsocket
 
 
-class HitBTCAPIUserStreamDataSource(UserStreamTrackerDataSource):
+class HitbtcAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     _logger: Optional[HummingbotLogger] = None
 
@@ -21,8 +21,8 @@ class HitBTCAPIUserStreamDataSource(UserStreamTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, hitbtc_auth: HitBTCAuth, trading_pairs: Optional[List[str]] = []):
-        self._hitbtc_auth: HitBTCAuth = hitbtc_auth
+    def __init__(self, hitbtc_auth: HitbtcAuth, trading_pairs: Optional[List[str]] = []):
+        self._hitbtc_auth: HitbtcAuth = hitbtc_auth
         self._trading_pairs = trading_pairs
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
@@ -39,7 +39,7 @@ class HitBTCAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
 
         try:
-            ws = HitBTCWebsocket(self._hitbtc_auth)
+            ws = HitbtcWebsocket(self._hitbtc_auth)
             await ws.connect()
             await ws.subscribe(Constants.WS_SUB["USER_ORDERS_TRADES"])
             async for msg in ws.on_message():
