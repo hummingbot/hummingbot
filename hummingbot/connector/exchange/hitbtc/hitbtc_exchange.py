@@ -252,8 +252,8 @@ class HitbtcExchange(ExchangeBase):
             except Exception as e:
                 self.logger().network(f"Unexpected error while fetching trading rules. Error: {str(e)}",
                                       exc_info=True,
-                                      app_warning_msg="Could not fetch new trading rules from HitBTC. "
-                                                      "Check network connection.")
+                                      app_warning_msg=("Could not fetch new trading rules from "
+                                                       f"{Constants.EXCHANGE_NAME}. Check network connection."))
                 await asyncio.sleep(0.5)
 
     async def _update_trading_rules(self):
@@ -474,10 +474,10 @@ class HitbtcExchange(ExchangeBase):
             error_reason = str(e.error_payload['error'])
             self.stop_tracking_order(order_id)
             self.logger().network(
-                f"Error submitting {trade_type.name} {order_type.name} order to HitBTC for "
+                f"Error submitting {trade_type.name} {order_type.name} order to {Constants.EXCHANGE_NAME} for "
                 f"{amount} {trading_pair} {price} - {error_reason}.",
                 exc_info=True,
-                app_warning_msg=(f"Error submitting order to HitBTC - {error_reason}.")
+                app_warning_msg=(f"Error submitting order to {Constants.EXCHANGE_NAME} - {error_reason}.")
             )
             self.trigger_event(MarketEvent.OrderFailure,
                                MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
@@ -534,7 +534,7 @@ class HitbtcExchange(ExchangeBase):
             self.logger().network(
                 f"Failed to cancel order {order_id}: {error_reason}",
                 exc_info=True,
-                app_warning_msg=f"Failed to cancel the order {order_id} on HitBTC. "
+                app_warning_msg=f"Failed to cancel the order {order_id} on {Constants.EXCHANGE_NAME}. "
                                 f"Check API key and network connection."
             )
             return CancellationResult(order_id, False)
@@ -557,10 +557,10 @@ class HitbtcExchange(ExchangeBase):
                 raise
             except Exception as e:
                 self.logger().error(str(e), exc_info=True)
-                self.logger().network("Unexpected error while fetching account updates.",
-                                      exc_info=True,
-                                      app_warning_msg="Could not fetch account updates from HitBTC. "
-                                                      "Check API key and network connection.")
+                warn_msg = (f"Could not fetch account updates from {Constants.EXCHANGE_NAME}. "
+                            "Check API key and network connection.")
+                self.logger().network("Unexpected error while fetching account updates.", exc_info=True,
+                                      app_warning_msg=warn_msg)
                 await asyncio.sleep(0.5)
 
     async def _update_balances(self):
@@ -749,7 +749,8 @@ class HitbtcExchange(ExchangeBase):
             self.logger().network(
                 "Unexpected error cancelling orders.",
                 exc_info=True,
-                app_warning_msg="Failed to cancel all orders on HitBTC. Check API key and network connection."
+                app_warning_msg=(f"Failed to cancel all orders on {Constants.EXCHANGE_NAME}. "
+                                 "Check API key and network connection.")
             )
         return cancellation_results
 
@@ -792,9 +793,9 @@ class HitbtcExchange(ExchangeBase):
                 raise
             except Exception:
                 self.logger().network(
-                    "Unknown error. Retrying after 1 seconds.",
-                    exc_info=True,
-                    app_warning_msg="Could not fetch user events from HitBTC. Check API key and network connection."
+                    "Unknown error. Retrying after 1 seconds.", exc_info=True,
+                    app_warning_msg=(f"Could not fetch user events from {Constants.EXCHANGE_NAME}. "
+                                     "Check API key and network connection.")
                 )
                 await asyncio.sleep(1.0)
 

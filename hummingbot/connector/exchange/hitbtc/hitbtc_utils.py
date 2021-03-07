@@ -12,10 +12,9 @@ from typing import (
 )
 
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from .hitbtc_constants import Constants
-
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
+from .hitbtc_constants import Constants
 
 
 TRADING_PAIR_SPLITTER = re.compile(Constants.TRADING_PAIR_SPLITTER)
@@ -160,13 +159,13 @@ async def generic_api_request(method,
 KEYS = {
     "hitbtc_api_key":
         ConfigVar(key="hitbtc_api_key",
-                  prompt="Enter your HitBTC API key >>> ",
+                  prompt=f"Enter your {Constants.EXCHANGE_NAME} API key >>> ",
                   required_if=using_exchange("hitbtc"),
                   is_secure=True,
                   is_connect_key=True),
     "hitbtc_secret_key":
         ConfigVar(key="hitbtc_secret_key",
-                  prompt="Enter your HitBTC secret key >>> ",
+                  prompt=f"Enter your {Constants.EXCHANGE_NAME} secret key >>> ",
                   required_if=using_exchange("hitbtc"),
                   is_secure=True,
                   is_connect_key=True),

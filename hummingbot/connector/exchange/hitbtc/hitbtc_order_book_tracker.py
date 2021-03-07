@@ -2,7 +2,7 @@
 import asyncio
 import bisect
 import logging
-import hummingbot.connector.exchange.hitbtc.hitbtc_constants as constants
+from hummingbot.connector.exchange.hitbtc.hitbtc_constants import Constants
 import time
 
 from collections import defaultdict, deque
@@ -46,7 +46,7 @@ class HitbtcOrderBookTracker(OrderBookTracker):
         """
         Name of the current exchange
         """
-        return constants.EXCHANGE_NAME
+        return Constants.EXCHANGE_NAME
 
     async def _track_single_book(self, trading_pair: str):
         """
