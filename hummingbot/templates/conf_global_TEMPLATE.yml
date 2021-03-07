@@ -3,11 +3,14 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 17
+template_version: 18
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
 bamboo_relay_pre_emptive_soft_cancels: false
+
+beaxy_api_key: null
+beaxy_secret_key: null
 
 binance_api_key: null
 binance_api_secret: null
