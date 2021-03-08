@@ -4,7 +4,6 @@ import copy
 import logging
 import websockets
 import json
-import ujson
 from hummingbot.connector.exchange.hitbtc.hitbtc_constants import Constants
 
 
@@ -40,20 +39,20 @@ class HitbtcWebsocket(RequestId):
 
     # connect to exchange
     async def connect(self):
-        try:
-            self._client = await websockets.connect(self._WS_URL)
+        self._client = await websockets.connect(self._WS_URL)
 
-            # if auth class was passed into websocket class
-            # we need to emit authenticated requests
-            if self._isPrivate:
-                auth_params = self._auth.generate_auth_dict_ws(self.generate_request_id())
-                await self._emit("login", auth_params)
-                # TODO: wait for response
-                await asyncio.sleep(1)
+        # if auth class was passed into websocket class
+        # we need to emit authenticated requests
+        if self._isPrivate:
+            auth_params = self._auth.generate_auth_dict_ws(self.generate_request_id())
+            await self._emit("login", auth_params, no_id=True)
+            raw_msg_str: str = await asyncio.wait_for(self._client.recv(), timeout=Constants.MESSAGE_TIMEOUT)
+            json_msg = json.loads(raw_msg_str)
+            if json_msg.get("result") is not True:
+                err_msg = json_msg.get('error', {}).get('message')
+                raise Exception(f"Failed to authenticate to websocket - {err_msg}.")
 
-            return self._client
-        except Exception as e:
-            self.logger().error(f"Websocket error: '{str(e)}'", exc_info=True)
+        return self._client
 
     # disconnect from exchange
     async def disconnect(self):
@@ -86,7 +85,7 @@ class HitbtcWebsocket(RequestId):
             await self.disconnect()
 
     # emit messages
-    async def _emit(self, method: str, data: Optional[Dict[str, Any]] = {}) -> int:
+    async def _emit(self, method: str, data: Optional[Dict[str, Any]] = {}, no_id: bool = False) -> int:
         id = self.generate_request_id()
 
         payload = {
@@ -95,7 +94,7 @@ class HitbtcWebsocket(RequestId):
             "params": copy.deepcopy(data),
         }
 
-        await self._client.send(ujson.dumps(payload))
+        await self._client.send(json.dumps(payload))
 
         return id
 
