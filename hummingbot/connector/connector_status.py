@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 connector_status = {
-    'balancer':'green',
+    'balancer': 'green',
     'beaxy': 'yellow',
     'binance': 'green',
     'binance_perpetual': 'green',
@@ -27,7 +27,7 @@ connector_status = {
     'probit': 'yellow',
     'probit_kr': 'yellow',
     'terra': 'green',
-    'uniswap':'green'
+    'uniswap': 'green'
 }
 
 warning_messages = {
