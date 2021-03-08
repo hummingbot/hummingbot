@@ -33,6 +33,7 @@ from hummingbot.connector.connector.uniswap.uniswap_in_flight_order import Unisw
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import get_erc20_token_addresses
+from hummingbot.core.utils.ethereum import check_transaction_execptions
 
 s_logger = None
 s_decimal_0 = Decimal("0")
@@ -87,6 +88,7 @@ class UniswapConnector(ConnectorBase):
         self._status_polling_task = None
         self._auto_approve_task = None
         self._initiate_pool_task = None
+        self._initiate_pool_status = None
         self._real_time_balance_update = False
         self._poll_notifier = None
 
@@ -115,17 +117,26 @@ class UniswapConnector(ConnectorBase):
 
     async def initiate_pool(self) -> str:
         """
-        Initiate to cache pools and auto approve allowances for token in trading_pairs
-        :return: A success/fail status for initiation
+        Initiate strategy. Skip initializing pool
         """
-        self.logger().info("Initializing strategy and caching swap pools ...")
-        base, quote = self._trading_pairs[0].split("-")
-        resp = await self._api_request("post", "eth/uniswap/start",
-                                       {"base": base,
-                                        "quote": quote
-                                        })
-        status = resp["success"]
-        return status
+        try:
+            self.logger().info("Initializing Uniswap")
+            base, quote = self._trading_pairs[0].split("-")
+            resp = await self._api_request("post", "eth/uniswap/start",
+                                           {"base": base,
+                                            "quote": quote
+                                            })
+            status = bool(str(resp["success"]))
+            if bool(str(resp["success"])):
+                self._initiate_pool_status = status
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().network(
+                f"Error initializing {self._trading_pairs} ",
+                exc_info=True,
+                app_warning_msg=str(e)
+            )
 
     async def auto_approve(self):
         """
@@ -193,15 +204,35 @@ class UniswapConnector(ConnectorBase):
                                             "amount": amount})
             required_items = ["price", "gasLimit", "gasPrice", "gasCost"]
             if any(item not in resp.keys() for item in required_items):
-                self.logger().info(f"Unable to get price (incomplete result): {resp['info']}")
+                if "info" in resp.keys():
+                    self.logger().info(f"Unable to get price: {resp['info']}")
+                else:
+                    self.logger().info(f"Missing data from price result: {resp}")
             else:
+                gas_limit = resp["gasLimit"]
+                gas_price = resp["gasPrice"]
                 gas_cost = resp["gasCost"]
                 price = resp["price"]
-                if price is not None and self._account_balances["ETH"] > gas_cost:
+                account_standing = {
+                    "allowances": self._allowances,
+                    "balances": self._account_balances,
+                    "base": base,
+                    "quote": quote,
+                    "amount": amount,
+                    "side": side,
+                    "gas_limit": gas_limit,
+                    "gas_price": gas_price,
+                    "gas_cost": gas_cost,
+                    "price": price
+                }
+                exceptions = check_transaction_execptions(account_standing)
+                for index in range(len(exceptions)):
+                    self.logger().info(f"Warning! [{index+1}/{len(exceptions)}] {side} order - {exceptions[index]}")
+
+                if price is not None and len(exceptions) == 0:
                     return Decimal(str(price))
                 else:
-                    self.logger().info(f"Insufficient ETH Balance to cover gas:"
-                                       f" Balance: {self._account_balances['ETH']}. Est gas cost: {gas_cost}")
+                    self.logger().info(f"Error getting quote price from result: {resp['info']}")
         except asyncio.CancelledError:
             raise
         except Exception as e:
