@@ -922,7 +922,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
             object base_size_total = Decimal("0")
 
         quote_balance = market.c_get_available_balance(self.quote_asset)
-        funding_rate = market.get_funding_rate(self.trading_pair)
+        funding_rate = Decimal(str(market.get_funding_info(self.trading_pair)["rate"]))
         trading_fees = market.c_get_fee(self.base_asset, self.quote_asset, OrderType.LIMIT, TradeType.BUY,
                                         s_decimal_zero, s_decimal_zero)
 
