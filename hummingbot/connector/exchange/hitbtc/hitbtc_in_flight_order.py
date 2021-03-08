@@ -11,6 +11,8 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 
+s_decimal_0 = Decimal(0)
+
 
 class HitbtcInFlightOrder(InFlightOrderBase):
     def __init__(self,
@@ -99,22 +101,27 @@ class HitbtcInFlightOrder(InFlightOrderBase):
             "createdAt": "2017-10-20T12:20:05.952Z",
             "updatedAt": "2017-10-20T12:20:38.708Z",
             "reportType": "trade",
+        }
+        ... Trade variables are only included after fills.
+        {
             "tradeQuantity": "0.001",
             "tradePrice": "0.053868",
             "tradeId": 55051694,
             "tradeFee": "-0.000000005"
         }
         """
-        trade_id = trade_update["clientOrderId"]
-        # trade_update["orderId"] is type int
-        if str(trade_update["id"]) != self.exchange_order_id or trade_id in self.trade_id_set:
+        self.executed_amount_base = Decimal(str(trade_update["cumQuantity"]))
+        if self.executed_amount_base <= s_decimal_0:
+            # No trades executed yet.
+            return False
+        trade_id = trade_update["updatedAt"]
+        if trade_id in self.trade_id_set:
             # trade already recorded
             return False
         self.trade_id_set.add(trade_id)
-        self.executed_amount_base = Decimal(str(trade_update["cumQuantity"]))
-        self.fee_paid += Decimal(str(trade_update["fee"]))
-        self.executed_amount_quote += (Decimal(str(trade_update["tradePrice"])) *
-                                       Decimal(str(trade_update["tradeQuantity"])))
+        self.fee_paid += Decimal(str(trade_update.get("tradeFee", "0")))
+        self.executed_amount_quote += (Decimal(str(trade_update.get("tradePrice", "0"))) *
+                                       Decimal(str(trade_update.get("tradeQuantity", "0"))))
         if not self.fee_asset:
             self.fee_asset = self.quote_asset
         return True

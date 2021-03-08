@@ -48,13 +48,13 @@ class HitbtcAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
             await ws.connect()
 
-            await ws.subscribe(Constants.WS_SUB["USER_ORDERS_TRADES"])
+            await ws.subscribe(Constants.WS_SUB["USER_ORDERS_TRADES"], None, {})
 
             async for msg in ws.on_message():
                 yield msg
                 self._last_recv_time = time.time()
 
-                if (msg.get("result") is None):
+                if (msg.get("params") is None):
                     continue
         except Exception as e:
             raise e

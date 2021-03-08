@@ -715,14 +715,15 @@ class HitbtcExchange(ExchangeBase):
                 tracked_order.trading_pair,
                 tracked_order.trade_type,
                 tracked_order.order_type,
-                Decimal(str(trade_msg["tradePrice"])),
-                Decimal(str(trade_msg["tradeQuantity"])),
-                TradeFee(0.0, [(tracked_order.quote_asset, -Decimal(str(trade_msg["tradeFee"])))]),
+                Decimal(str(trade_msg.get("tradePrice", "0"))),
+                Decimal(str(trade_msg.get("tradeQuantity", "0"))),
+                TradeFee(0.0, [(tracked_order.quote_asset, Decimal(str(trade_msg.get("tradeFee", "0"))))]),
                 exchange_trade_id=trade_msg["id"]
             )
         )
         if math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or \
-                tracked_order.executed_amount_base >= tracked_order.amount:
+                tracked_order.executed_amount_base >= tracked_order.amount or \
+                tracked_order.is_done:
             tracked_order.last_state = "FILLED"
             self.logger().info(f"The {tracked_order.trade_type.name} order "
                                f"{tracked_order.client_order_id} has completed "

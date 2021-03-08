@@ -49,8 +49,8 @@ class HitbtcAuth():
         """
         return {
             "algo": "HS256",
-            "pKey": self.api_key,
-            "nonce": nonce,
+            "pKey": str(self.api_key),
+            "nonce": str(nonce),
             "signature": hmac.new(self.secret_key.encode('utf-8'),
                                   str(nonce).encode('utf-8'),
                                   hashlib.sha256).hexdigest()
