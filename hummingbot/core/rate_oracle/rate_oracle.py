@@ -13,11 +13,14 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.connector.exchange.binance.binance_utils import convert_from_exchange_trading_pair as \
     binance_convert_from_exchange_pair
 from hummingbot.core.rate_oracle.utils import find_rate
+from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.utils import async_ttl_cache
 
 
 class RateOracleSource(Enum):
     binance = 0
-    kucoin = 1
+    coingecko = 1
+    kucoin = 2
 
 
 class RateOracle(NetworkBase):
@@ -26,6 +29,8 @@ class RateOracle(NetworkBase):
     _shared_client: Optional[aiohttp.ClientSession] = None
 
     binance_price_url = "https://api.binance.com/api/v3/ticker/bookTicker"
+    coingecko_usd_price_url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc" \
+                              "&per_page=250&page={}&sparkline=false"
 
     @classmethod
     def get_instance(cls, source: RateOracleSource) -> "RateOracle":
@@ -109,8 +114,11 @@ class RateOracle(NetworkBase):
     async def get_prices(cls, source: RateOracleSource) -> Dict[str, Decimal]:
         if source == RateOracleSource.binance:
             return await cls.get_binance_prices()
+        elif source == RateOracleSource.coingecko:
+            return await cls.get_coingecko_prices()
 
     @classmethod
+    @async_ttl_cache(ttl=1, maxsize=1)
     async def get_binance_prices(cls) -> Dict[str, Decimal]:
         results = {}
         client = await cls._http_client()
@@ -118,8 +126,31 @@ class RateOracle(NetworkBase):
             records = await resp.json()
             for record in records:
                 trading_pair = binance_convert_from_exchange_pair(record["symbol"])
-                if record["bidPrice"] is not None and record["askPrice"] is not None:
+                if trading_pair and record["bidPrice"] is not None and record["askPrice"] is not None:
                     results[trading_pair] = (Decimal(record["bidPrice"]) + Decimal(record["askPrice"])) / Decimal("2")
+        return results
+
+    @classmethod
+    @async_ttl_cache(ttl=30, maxsize=1)
+    async def get_coingecko_prices(cls) -> Dict[str, Decimal]:
+        print("getting coingecko prices")
+        results = {}
+        tasks = [cls.get_coingecko_prices_by_page(i) for i in range(1, 5)]
+        task_results = await safe_gather(*tasks, return_exceptions=True)
+        for task_result in task_results:
+            results.update(task_result)
+        return results
+
+    @classmethod
+    async def get_coingecko_prices_by_page(cls, page_no: int) -> Dict[str, Decimal]:
+        results = {}
+        client = await cls._http_client()
+        async with client.request("GET", cls.coingecko_usd_price_url.format(page_no)) as resp:
+            records = await resp.json()
+            for record in records:
+                pair = record["symbol"].upper() + "-USD"
+                if record["current_price"]:
+                    results[pair] = Decimal(str(record["current_price"]))
         return results
 
     async def start_network(self):
