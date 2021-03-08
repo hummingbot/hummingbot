@@ -109,7 +109,7 @@ spot_perpetual_arbitrage_config_map = {
         key="min_convergence",
         prompt="What is the minimum spread between the spot and derivative market price before closing an existing arbitrage? (Enter 1 to indicate 1%) >>> ",
         prompt_on_new=True,
-        default=Decimal("1"),
+        default=Decimal("0.1"),
         validator=lambda v: validate_decimal(v, 0, spot_perpetual_arbitrage_config_map["min_divergence"].value),
         type_str="decimal"),
     "maximize_funding_rate": ConfigVar(
