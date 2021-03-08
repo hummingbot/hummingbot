@@ -59,6 +59,8 @@ class HitbtcExchange(ExchangeBase):
     HitbtcExchange connects with HitBTC exchange and provides order book pricing, user account tracking and
     trading functionality.
     """
+    ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
+    ORDER_NOT_EXIST_CANCEL_COUNT = 2
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -496,6 +498,8 @@ class HitbtcExchange(ExchangeBase):
         """
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
+        if order_id in self._order_not_found_records:
+            del self._order_not_found_records[order_id]
 
     async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
         """
@@ -505,6 +509,7 @@ class HitbtcExchange(ExchangeBase):
         :param order_id: The internal order id
         order.last_state to change to CANCELED
         """
+        order_was_cancelled = False
         try:
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is None:
@@ -515,11 +520,23 @@ class HitbtcExchange(ExchangeBase):
             await self._api_request("DELETE",
                                     Constants.ENDPOINT["ORDER_DELETE"].format(id=order_id),
                                     is_auth_required=True)
-            return CancellationResult(order_id, True)
+            order_was_cancelled = True
         except asyncio.CancelledError:
             raise
         except HitbtcAPIError as e:
-            error_reason = str(e.error_payload['error'])
+            err = e.error_payload['error']
+            error_reason = err['message'] if 'message' in err else err
+            self._order_not_found_records[order_id] = self._order_not_found_records.get(order_id, 0) + 1
+            if err['code'] == 20002 and \
+                    self._order_not_found_records[order_id] >= self.ORDER_NOT_EXIST_CANCEL_COUNT:
+                order_was_cancelled = True
+        if order_was_cancelled:
+            self.logger().info(f"Successfully cancelled order {order_id} on {Constants.EXCHANGE_NAME}.")
+            self.stop_tracking_order(order_id)
+            self.trigger_event(MarketEvent.OrderCancelled,
+                               OrderCancelledEvent(self.current_timestamp, order_id))
+            return CancellationResult(order_id, True)
+        else:
             self.logger().network(
                 f"Failed to cancel order {order_id}: {error_reason}",
                 exc_info=True,
@@ -588,13 +605,27 @@ class HitbtcExchange(ExchangeBase):
                                                is_auth_required=True))
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
             responses = await safe_gather(*tasks, return_exceptions=True)
-            for response in responses:
-                if isinstance(response, Exception):
-                    raise response
-                if "clientOrderId" not in response:
+            for response, tracked_order in zip(responses, tracked_orders):
+                client_order_id = tracked_order.client_order_id
+                if isinstance(response, HitbtcAPIError):
+                    if response.error_payload['error']['code'] == 20002:
+                        self._order_not_found_records[client_order_id] = \
+                            self._order_not_found_records.get(client_order_id, 0) + 1
+                        if self._order_not_found_records[client_order_id] < self.ORDER_NOT_EXIST_CONFIRMATION_COUNT:
+                            # Wait until the order not found error have repeated a few times before actually treating
+                            # it as failed. See: https://github.com/CoinAlpha/hummingbot/issues/601
+                            continue
+                        self.trigger_event(MarketEvent.OrderFailure,
+                                           MarketOrderFailureEvent(
+                                               self.current_timestamp, client_order_id, tracked_order.order_type))
+                        self.stop_tracking_order(client_order_id)
+                    else:
+                        continue
+                elif "clientOrderId" not in response:
                     self.logger().info(f"_update_order_status clientOrderId not in resp: {response}")
                     continue
-                self._process_order_message(response)
+                else:
+                    self._process_order_message(response)
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
@@ -728,7 +759,7 @@ class HitbtcExchange(ExchangeBase):
         cancellation_results = []
         try:
             async with timeout(timeout_seconds):
-                cancellation_results = await safe_gather(*tasks, return_exceptions=True)
+                cancellation_results = await safe_gather(*tasks, return_exceptions=False)
         except Exception:
             self.logger().network(
                 "Unexpected error cancelling orders.", exc_info=True,
