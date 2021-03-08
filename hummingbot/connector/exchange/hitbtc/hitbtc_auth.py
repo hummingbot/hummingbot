@@ -19,7 +19,6 @@ class HitbtcAuth():
         method: str,
         url: str,
         params: Dict[str, Any] = None,
-        data: str = None,
     ):
         """
         Generates authentication payload and returns it.
@@ -28,12 +27,13 @@ class HitbtcAuth():
         # Nonce is standard EPOCH timestamp only accurate to 1s
         nonce = str(int(time.time()))
         body = ""
-        if method == "GET" and params is not None and len(params) > 0:
-            # Need to build the full URL with query string for HS256 sig
+        # Need to build the full URL with query string for HS256 sig
+        if params is not None and len(params) > 0:
             query_string = "&".join([f"{k}={v}" for k, v in params.items()])
-            url = f"{url}?{query_string}"
-        elif method == "POST" and data is not None and len(data) > 0:
-            body = data
+            if method == "GET":
+                url = f"{url}?{query_string}"
+            else:
+                body = query_string
         # Concat payload
         payload = f"{method}{nonce}{url}{body}"
         # Create HS256 sig
@@ -59,16 +59,14 @@ class HitbtcAuth():
     def get_headers(self,
                     method,
                     url,
-                    params,
-                    data) -> Dict[str, Any]:
+                    params) -> Dict[str, Any]:
         """
         Generates authentication headers required by HitBTC
         :return: a dictionary of auth headers
         """
-        payload = self.generate_payload(method, url, params, data)
+        payload = self.generate_payload(method, url, params)
         headers = {
-            "Authorization": f"HS256 {payload}"
+            "Authorization": f"HS256 {payload}",
+            "Content-Type": "application/x-www-form-urlencoded",
         }
-        if data is not None and len(data) > 0:
-            headers["Content-Type"] = "application/json"
         return headers

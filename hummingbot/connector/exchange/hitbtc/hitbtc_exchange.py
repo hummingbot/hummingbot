@@ -11,7 +11,6 @@ import asyncio
 import aiohttp
 import math
 import time
-import ujson
 from async_timeout import timeout
 
 from hummingbot.core.network_iterator import NetworkStatus
@@ -317,15 +316,16 @@ class HitbtcExchange(ExchangeBase):
         shared_client = await self._http_client()
         # Turn `params` into either GET params or POST body data
         qs_params: dict = params if method.upper() == "GET" else None
-        req_data: str = ujson.dumps(params) if (method.upper() == "POST" and params is not None) else None
+        req_form = aiohttp.FormData(params) if method.upper() == "POST" and params is not None else None
         # Generate auth headers if needed.
-        headers: dict = {"Content-Type": "application/json"}
+        headers: dict = {"Content-Type": "application/x-www-form-urlencoded"}
         if is_auth_required:
             headers: dict = self._hitbtc_auth.get_headers(method, f"{Constants.REST_URL_AUTH}/{endpoint}",
-                                                          qs_params, req_data)
+                                                          params)
         # Build request coro
         response_coro = shared_client.request(method=method.upper(), url=url, headers=headers,
-                                              params=qs_params, data=req_data, timeout=Constants.API_CALL_TIMEOUT)
+                                              params=qs_params, data=req_form,
+                                              timeout=Constants.API_CALL_TIMEOUT)
         http_status, parsed_response, request_errors = await aiohttp_response_with_errors(response_coro)
         if request_errors or parsed_response is None:
             if try_count < Constants.API_MAX_RETRIES:
@@ -512,7 +512,9 @@ class HitbtcExchange(ExchangeBase):
             if tracked_order.exchange_order_id is None:
                 await tracked_order.get_exchange_order_id()
             # ex_order_id = tracked_order.exchange_order_id
-            await self._api_request("DELETE", Constants.ENDPOINT["ORDER_DELETE"].format(id=order_id), True)
+            await self._api_request("DELETE",
+                                    Constants.ENDPOINT["ORDER_DELETE"].format(id=order_id),
+                                    is_auth_required=True)
             return CancellationResult(order_id, True)
         except asyncio.CancelledError:
             raise

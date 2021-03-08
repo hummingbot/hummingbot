@@ -3,6 +3,7 @@ import asyncio
 import copy
 import logging
 import websockets
+import json
 import ujson
 from hummingbot.connector.exchange.hitbtc.hitbtc_constants import Constants
 
@@ -68,7 +69,7 @@ class HitbtcWebsocket(RequestId):
                 try:
                     raw_msg_str: str = await asyncio.wait_for(self._client.recv(), timeout=Constants.MESSAGE_TIMEOUT)
                     try:
-                        raw_msg = ujson.loads(raw_msg_str)
+                        raw_msg = json.loads(raw_msg_str)
                         # HitBTC doesn't support ping or heartbeat messages.
                         # Can handle them here if that changes - use `safe_ensure_future`.
                         yield raw_msg
