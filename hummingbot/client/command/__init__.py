@@ -19,6 +19,7 @@ from .generate_certs_command import GenerateCertsCommand
 from .open_orders_command import OpenOrdersCommand
 from .trades_command import TradesCommand
 from .pnl_command import PnlCommand
+from .rate_command import RateCommand
 
 
 __all__ = [
@@ -42,5 +43,6 @@ __all__ = [
     GenerateCertsCommand,
     OpenOrdersCommand,
     TradesCommand,
-    PnlCommand
+    PnlCommand,
+    RateCommand,
 ]
