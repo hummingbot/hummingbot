@@ -47,13 +47,13 @@ arbitrage_config_map = {
                   default="arbitrage"),
     "primary_market": ConfigVar(
         key="primary_market",
-        prompt="Enter your primary exchange name >>> ",
+        prompt="Enter your primary spot connector >>> ",
         prompt_on_new=True,
         validator=validate_exchange,
         on_validated=lambda value: required_exchanges.append(value)),
     "secondary_market": ConfigVar(
         key="secondary_market",
-        prompt="Enter your secondary exchange name >>> ",
+        prompt="Enter your secondary spot connector >>> ",
         prompt_on_new=True,
         validator=validate_exchange,
         on_validated=secondary_market_on_validated),

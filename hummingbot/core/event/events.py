@@ -34,6 +34,7 @@ class MarketEvent(Enum):
     TransactionFailure = 199
     BuyOrderCreated = 200
     SellOrderCreated = 201
+    FundingPaymentCompleted = 202
 
 
 class NewBlocksWatcherEvent(Enum):
@@ -201,6 +202,15 @@ class OrderCancelledEvent:
 class OrderExpiredEvent(NamedTuple):
     timestamp: float
     order_id: str
+
+
+@dataclass
+class FundingPaymentCompletedEvent:
+    timestamp: float
+    market: str
+    trading_pair: str
+    amount: Decimal
+    funding_rate: Decimal
 
 
 class MarketWithdrawAssetEvent(NamedTuple):

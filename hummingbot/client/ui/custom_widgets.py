@@ -178,6 +178,11 @@ class CustomTextArea:
         else:
             max_width = self.window.render_info.window_width - 2
 
+        # remove simple formatting tags used by telegram
+        repls = (('<b>', ''), ('</b>', ''), ('<pre>', ''), ('</pre>', ''))
+        for r in repls:
+            text = text.replace(*r)
+
         # Split the string into multiple lines if there is a "\n" or if the string exceeds max window width
         # This operation should not be too expensive because only the newly added lines are processed
         new_lines_raw: List[str] = str(text).split('\n')

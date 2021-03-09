@@ -89,3 +89,9 @@ cdef class StrategyPyBase(StrategyBase):
 
     def did_complete_sell_order(self, order_completed_event):
         pass
+
+    cdef c_did_complete_funding_payment(self, object funding_payment_completed_event):
+        self.did_complete_funding_payment(funding_payment_completed_event)
+
+    def did_complete_funding_payment(self, funding_payment_completed_event):
+        pass
