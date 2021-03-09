@@ -90,6 +90,8 @@ class HistoryCommand:
             if paper_balances is None:
                 return {}
             return {token: Decimal(str(bal)) for token, bal in paper_balances.items()}
+        elif "perpetual_finance" == market:
+            return await UserBalances.xdai_balances()
         else:
             gateway_eth_connectors = [cs.name for cs in CONNECTOR_SETTINGS.values() if cs.use_ethereum_wallet and
                                       cs.type == ConnectorType.Connector]
@@ -105,7 +107,7 @@ class HistoryCommand:
         current_time = get_timestamp()
         lines.extend(
             [f"\nStart Time: {datetime.fromtimestamp(start_time).strftime('%Y-%m-%d %H:%M:%S')}"] +
-            [f"Curent Time: {datetime.fromtimestamp(current_time).strftime('%Y-%m-%d %H:%M:%S')}"] +
+            [f"Current Time: {datetime.fromtimestamp(current_time).strftime('%Y-%m-%d %H:%M:%S')}"] +
             [f"Duration: {pd.Timedelta(seconds=int(current_time - start_time))}"]
         )
         self._notify("\n".join(lines))
