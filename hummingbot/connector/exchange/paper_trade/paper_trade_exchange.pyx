@@ -598,6 +598,10 @@ cdef class PaperTradeExchange(ExchangeBase):
                                   f"{quote_asset_balance:.8g} {quote_asset} available.")
 
             self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
+            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                 OrderCancelledEvent(self._current_timestamp,
+                                                     order_id)
+                                 )
             return
 
         # Adjust the market balances according to the trade done.
@@ -658,6 +662,10 @@ cdef class PaperTradeExchange(ExchangeBase):
                                   f"{base_asset_traded:.8g} {base_asset} needed vs. "
                                   f"{base_asset_balance:.8g} {base_asset} available.")
             self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
+            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                 OrderCancelledEvent(self._current_timestamp,
+                                                     order_id)
+                                 )
             return
 
         # Adjust the market balances according to the trade done.
