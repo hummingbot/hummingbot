@@ -531,9 +531,10 @@ class HitbtcExchange(ExchangeBase):
                 order_was_cancelled = True
         if order_was_cancelled:
             self.logger().info(f"Successfully cancelled order {order_id} on {Constants.EXCHANGE_NAME}.")
-            self.stop_tracking_order(order_id)
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(self.current_timestamp, order_id))
+            tracked_order.cancelled_event.set()
+            self.stop_tracking_order(order_id)
             return CancellationResult(order_id, True)
         else:
             self.logger().network(
@@ -732,6 +733,7 @@ class HitbtcExchange(ExchangeBase):
                 else MarketEvent.SellOrderCompleted
             event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY \
                 else SellOrderCompletedEvent
+            await asyncio.sleep(0.1)
             self.trigger_event(event_tag,
                                event_class(self.current_timestamp,
                                            tracked_order.client_order_id,
