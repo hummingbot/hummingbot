@@ -70,7 +70,7 @@ cdef class BinanceInFlightOrder(InFlightOrderBase):
         trade_id = execution_report["t"]
         if trade_id in self.trade_id_set:
             # trade already recorded
-            return
+            return False
         self.trade_id_set.add(trade_id)
         last_executed_quantity = Decimal(execution_report["l"])
         last_commission_amount = Decimal(execution_report["n"])
@@ -84,6 +84,7 @@ cdef class BinanceInFlightOrder(InFlightOrderBase):
             self.fee_asset = last_commission_asset
         self.fee_paid += last_commission_amount
         self.last_state = last_order_state
+        return True
 
     def update_with_trade_update(self, trade_update: Dict[str, Any]):
         trade_id = trade_update["id"]
