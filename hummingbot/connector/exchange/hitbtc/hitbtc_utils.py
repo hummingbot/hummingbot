@@ -23,7 +23,7 @@ CENTRALIZED = True
 
 EXAMPLE_PAIR = "ETH-USDT"
 
-DEFAULT_FEES = [0.1, 0.1]
+DEFAULT_FEES = [0.1, 0.25]
 
 
 class HitbtcAPIError(IOError):
