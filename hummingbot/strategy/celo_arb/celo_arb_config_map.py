@@ -35,7 +35,7 @@ celo_arb_config_map = {
         default="celo_arb"),
     "secondary_exchange": ConfigVar(
         key="secondary_exchange",
-        prompt="Enter your secondary exchange name >>> ",
+        prompt="Enter your secondary spot connector >>> ",
         prompt_on_new=True,
         validator=validate_exchange,
         on_validated=exchange_on_validated),

@@ -141,6 +141,10 @@ prompt_ethereum_rpc_setup () {
 }
 prompt_ethereum_rpc_setup
 
+# prompt to setup balancer, uniswap
+prompt_ethereum_setup () {
+  read -p "   Do you want to setup Balancer/Uniswap/Perpetual Finance? [Y/N] >>> " PROCEED
+  if [[ "$PROCEED" == "Y" || "$PROCEED" == "y" ]]
 # prompt to setup ethereum token list
 prompt_token_list_source () {
   echo
@@ -148,6 +152,8 @@ prompt_token_list_source () {
   read -p "      (default = \"https://wispy-bird-88a7.uniswap.workers.dev/?url=http://tokens.1inch.eth.link\") >>> " ETHEREUM_TOKEN_LIST_URL
   if [ "$ETHEREUM_TOKEN_LIST_URL" == "" ]
   then
+    echo "ℹ️  Retrieving config from Hummingbot config file ... "
+    ETHEREUM_SETUP=true
     ETHEREUM_TOKEN_LIST_URL=https://wispy-bird-88a7.uniswap.workers.dev/?url=http://tokens.1inch.eth.link
   fi
 }
