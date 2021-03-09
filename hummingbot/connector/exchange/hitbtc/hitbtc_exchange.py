@@ -460,7 +460,7 @@ class HitbtcExchange(ExchangeBase):
         except asyncio.CancelledError:
             raise
         except HitbtcAPIError as e:
-            error_reason = str(e.error_payload['error'])
+            error_reason = e.error_payload.get('error', {}).get('message')
             self.stop_tracking_order(order_id)
             self.logger().network(
                 f"Error submitting {trade_type.name} {order_type.name} order to {Constants.EXCHANGE_NAME} for "
@@ -524,10 +524,9 @@ class HitbtcExchange(ExchangeBase):
         except asyncio.CancelledError:
             raise
         except HitbtcAPIError as e:
-            err = e.error_payload['error']
-            error_reason = err['message'] if 'message' in err else err
+            err = e.error_payload.get('error', e.error_payload)
             self._order_not_found_records[order_id] = self._order_not_found_records.get(order_id, 0) + 1
-            if err['code'] == 20002 and \
+            if err.get('code') == 20002 and \
                     self._order_not_found_records[order_id] >= self.ORDER_NOT_EXIST_CANCEL_COUNT:
                 order_was_cancelled = True
         if order_was_cancelled:
@@ -538,7 +537,7 @@ class HitbtcExchange(ExchangeBase):
             return CancellationResult(order_id, True)
         else:
             self.logger().network(
-                f"Failed to cancel order {order_id}: {error_reason}",
+                f"Failed to cancel order {order_id}: {err.get('message', str(err))}",
                 exc_info=True,
                 app_warning_msg=f"Failed to cancel the order {order_id} on {Constants.EXCHANGE_NAME}. "
                                 f"Check API key and network connection."
@@ -608,7 +607,8 @@ class HitbtcExchange(ExchangeBase):
             for response, tracked_order in zip(responses, tracked_orders):
                 client_order_id = tracked_order.client_order_id
                 if isinstance(response, HitbtcAPIError):
-                    if response.error_payload['error']['code'] == 20002:
+                    err = response.error_payload.get('error', response.error_payload)
+                    if err.get('code') == 20002:
                         self._order_not_found_records[client_order_id] = \
                             self._order_not_found_records.get(client_order_id, 0) + 1
                         if self._order_not_found_records[client_order_id] < self.ORDER_NOT_EXIST_CONFIRMATION_COUNT:
