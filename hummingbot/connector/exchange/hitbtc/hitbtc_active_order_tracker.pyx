@@ -70,8 +70,8 @@ cdef class HitbtcActiveOrderTracker:
         if len(bid_entries) > 0:
             bids = np.array(
                 [[timestamp,
-                  float(price),
-                  float(amount),
+                  price,
+                  amount,
                   message.update_id]
                  for price, amount in [self.get_rates_and_quantities(entry) for entry in bid_entries]],
                 dtype="float64",
@@ -81,8 +81,8 @@ cdef class HitbtcActiveOrderTracker:
         if len(ask_entries) > 0:
             asks = np.array(
                 [[timestamp,
-                  float(price),
-                  float(amount),
+                  price,
+                  amount,
                   message.update_id]
                  for price, amount in [self.get_rates_and_quantities(entry) for entry in ask_entries]],
                 dtype="float64",
@@ -104,38 +104,25 @@ cdef class HitbtcActiveOrderTracker:
         timestamp = message.timestamp
         content = message.content
 
-        for snapshot_orders, active_orders in [(content["bid"], self._active_bids), (content["ask"], self.active_asks)]:
-            for order in snapshot_orders:
-                price, amount = self.get_rates_and_quantities(order)
+        for snapshot_orders, active_orders in [(content["bid"], self._active_bids), (content["ask"], self._active_asks)]:
+            for entry in snapshot_orders:
+                price, amount = self.get_rates_and_quantities(entry)
+                active_orders[price] = amount
 
-                order_dict = {
-                    "order_id": timestamp,
-                    "amount": amount
-                }
-
-                if price in active_orders:
-                    active_orders[price][timestamp] = order_dict
-                else:
-                    active_orders[price] = {
-                        timestamp: order_dict
-                    }
-
+        # Return the sorted snapshot tables.
         cdef:
             np.ndarray[np.float64_t, ndim=2] bids = np.array(
                 [[message.timestamp,
-                  price,
-                  sum([order_dict["amount"]
-                       for order_dict in self._active_bids[price].values()]),
+                  float(price),
+                  float(self._active_bids[price]),
                   message.update_id]
-                 for price in sorted(self._active_bids.keys(), reverse=True)], dtype="float64", ndmin=2)
+                 for price in sorted(self._active_bids.keys(), reverse=True)], dtype='float64', ndmin=2)
             np.ndarray[np.float64_t, ndim=2] asks = np.array(
                 [[message.timestamp,
-                  price,
-                  sum([order_dict["amount"]
-                       for order_dict in self.active_asks[price].values()]),
+                  float(price),
+                  float(self._active_asks[price]),
                   message.update_id]
-                 for price in sorted(self.active_asks.keys(), reverse=True)], dtype="float64", ndmin=2
-            )
+                 for price in sorted(self._active_asks.keys(), reverse=True)], dtype='float64', ndmin=2)
 
         if bids.shape[1] != 4:
             bids = bids.reshape((0, 4))

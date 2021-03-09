@@ -11,6 +11,9 @@ from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType,
 )
+from .hitbtc_utils import (
+    convert_from_exchange_trading_pair,
+)
 
 
 class HitbtcOrderBookMessage(OrderBookMessage):
@@ -46,10 +49,10 @@ class HitbtcOrderBookMessage(OrderBookMessage):
 
     @property
     def trading_pair(self) -> str:
-        if "symbol" in self.content:
-            return self.content["symbol"]
-        elif "trading_pair" in self.content:
+        if "trading_pair" in self.content:
             return self.content["trading_pair"]
+        elif "symbol" in self.content:
+            return convert_from_exchange_trading_pair(self.content["symbol"])
 
     @property
     def asks(self) -> List[OrderBookRow]:
