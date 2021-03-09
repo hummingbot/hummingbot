@@ -167,7 +167,7 @@ def get_erc20_token_addresses() -> Dict[str, List]:
     token_list_url = global_config_map.get("ethereum_token_list_url").value
     token_list = {}
 
-    resp = requests.get(token_list_url)
+    resp = requests.get(token_list_url, timeout=3)
     decoded_resp = resp.json()
 
     for token in decoded_resp["tokens"]:
