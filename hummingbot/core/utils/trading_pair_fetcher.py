@@ -53,4 +53,8 @@ class TradingPairFetcher:
 
         results = await safe_gather(*tasks, return_exceptions=True)
         self.trading_pairs = dict(zip(fetched_connectors, results))
+        # In case trading pair fetching returned timeout, using empty list
+        for connector, result in self.trading_pairs.items():
+            if isinstance(result, asyncio.TimeoutError):
+                self.trading_pairs[connector] = []
         self.ready = True
