@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import unittest
 import aiohttp
 
@@ -10,10 +11,25 @@ from decimal import Decimal
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from test.integration.assets.mock_data.fixture_idex import FixtureIdex
 from hummingbot.connector.exchange.idex.idex_api_order_book_data_source import IdexAPIOrderBookDataSource
+from hummingbot.connector.exchange.idex.idex_order_book_message import IdexOrderBookMessage
+from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.core.data_type.order_book import OrderBook
 
 
 class IdexAPIOrderBookDataSourceUnitTest(unittest.TestCase):
+
+    class AsyncIterator:
+        def __init__(self, seq):
+            self.iter = iter(seq)
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            try:
+                return next(self.iter)
+            except StopIteration:
+                raise StopAsyncIteration
 
     eth_sample_pairs: List[str] = [
         "UNI-ETH",
@@ -217,3 +233,180 @@ class IdexAPIOrderBookDataSourceUnitTest(unittest.TestCase):
         # Validate the order book tracker entry trading_pairs are valid
         for trading_pair, order_book_tracker_entry in zip(self.eth_sample_pairs, tracking_pairs.values()):
             self.assertEqual(order_book_tracker_entry.trading_pair, trading_pair)
+
+    @patch(REST_URL, new_callable=PropertyMock)
+    @patch(PATCH_BASE_PATH.format(method='get_snapshot'))
+    def test_listen_for_order_book_snapshots(self, mock_get_snapshot, mock_api_url):
+        """
+        test_listen_for_order_book_snapshots (test.integration.test_idex_api_order_book_data_source.
+            IdexAPIOrderBookDataSourceUnitTest)
+        Example order book message added to the queue:
+        IdexOrderBookMessage(
+            type = < OrderBookMessageType.SNAPSHOT: 1 > ,
+            content = {
+                'sequence': int,
+                'bids': [
+                    ['181.95138', '0.69772000', 2],
+                    ...
+                ],
+                'asks': [
+                    ['182.11620', '0.32400000', 4],
+                    ...
+                ],
+            },
+            timestamp = 1573041256.2376761)
+        """
+
+        mock_api_url.return_value = "https://api-eth.idex.io"
+
+        # Instantiate empty async queue and make sure the initial size is 0
+        q = asyncio.Queue()
+        self.assertEqual(q.qsize(), 0)
+
+        # Mock Future() object return value as the request response
+        # For this particular test, the return value from get_snapshot is not relevant, therefore
+        # setting it with a random snapshot from fixture
+        f1 = asyncio.Future()
+        f1.set_result(FixtureIdex.SNAPSHOT_1)
+
+        # Mock Future() object return value as the request response
+        # For this particular test, the return value from get_snapshot is not relevant, therefore
+        # setting it with a random snapshot from fixture
+        f2 = asyncio.Future()
+        f2.set_result(FixtureIdex.SNAPSHOT_2)
+
+        mock_get_snapshot.side_effect = [f1.result(), f2.result()]
+
+        # Listening for tracking pairs within the set timeout timeframe
+        timeout = 6
+
+        print('{test_name} is going to run for {timeout} seconds, starting now'.format(
+            test_name=inspect.stack()[0][3],
+            timeout=timeout))
+
+        try:
+            self.run_async(
+                # Force exit from event loop after set timeout seconds
+                asyncio.wait_for(
+                    self.eth_order_book_data_source.listen_for_order_book_snapshots(ev_loop=self.ev_loop, output=q),
+                    timeout=timeout
+                )
+            )
+        except asyncio.exceptions.TimeoutError as e:
+            print(e)
+
+        # Make sure that the number of items in the queue after certain seconds make sense
+        # For instance, when the asyncio sleep time is set to 5 seconds in the method
+        # If we configure timeout to be the same length, only 1 item has enough time to be received
+        self.assertGreaterEqual(q.qsize(), 1)
+
+        # Validate received response has correct data types
+        first_item = q.get_nowait()
+        self.assertIsInstance(first_item, IdexOrderBookMessage)
+        self.assertIsInstance(first_item.type, OrderBookMessageType)
+
+        # Validate order book message type
+        self.assertEqual(first_item.type, OrderBookMessageType.SNAPSHOT)
+
+        # Validate snapshot received matches with the original snapshot received from API
+        self.assertEqual(first_item.content['bids'], FixtureIdex.SNAPSHOT_1['bids'])
+        self.assertEqual(first_item.content['asks'], FixtureIdex.SNAPSHOT_1['asks'])
+
+        # Validate the rest of the content
+        self.assertEqual(first_item.content['product_id'], self.eth_sample_pairs[0])
+        self.assertEqual(first_item.content['sequence'], FixtureIdex.SNAPSHOT_1['sequence'])
+
+    @patch(WS_FEED, new_callable=PropertyMock)
+    @patch(PATCH_BASE_PATH.format(method='_inner_messages'))
+    def test_listen_for_order_book_diffs(self, mock_inner_messages, mock_ws_feed):
+        timeout = 2
+
+        mock_ws_feed.return_value = "wss://websocket-eth.idex.io/v1"
+
+        q = asyncio.Queue()
+
+        #  Socket events receiving in the order from top to bottom
+        mocked_socket_responses = [
+            FixtureIdex.WS_PRICE_LEVEL_UPDATE_1,
+            FixtureIdex.WS_PRICE_LEVEL_UPDATE_2,
+            FixtureIdex.WS_SUBSCRIPTION_SUCCESS
+        ]
+
+        mock_inner_messages.return_value = self.AsyncIterator(seq=mocked_socket_responses)
+
+        print('{test_name} is going to run for {timeout} seconds, starting now'.format(
+            test_name=inspect.stack()[0][3],
+            timeout=timeout))
+
+        try:
+            self.run_async(
+                # Force exit from event loop after set timeout seconds
+                asyncio.wait_for(
+                    self.eth_order_book_data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=q),
+                    timeout=timeout
+                )
+            )
+        except asyncio.exceptions.TimeoutError as e:
+            print(e)
+
+        first_event = q.get_nowait()
+        second_event = q.get_nowait()
+
+        recv_events = [first_event, second_event]
+
+        for event in recv_events:
+            # Validate the data inject into async queue is in Liquid order book message type
+            self.assertIsInstance(event, IdexOrderBookMessage)
+
+            # Validate the event type is equal to DIFF
+            self.assertEqual(event.type, OrderBookMessageType.DIFF)
+
+            # Validate the actual content injected is dict type
+            self.assertIsInstance(event.content, dict)
+
+    @patch(WS_FEED, new_callable=PropertyMock)
+    @patch(PATCH_BASE_PATH.format(method='_inner_messages'))
+    def test_listen_for_trades(self, mock_inner_messages, mock_ws_feed):
+        timeout = 2
+
+        mock_ws_feed.return_value = "wss://websocket-eth.idex.io/v1"
+
+        q = asyncio.Queue()
+
+        #  Socket events receiving in the order from top to bottom
+        mocked_socket_responses = [
+            FixtureIdex.WS_TRADE_1,
+            FixtureIdex.WS_TRADE_2
+        ]
+
+        mock_inner_messages.return_value = self.AsyncIterator(seq=mocked_socket_responses)
+
+        print('{test_name} is going to run for {timeout} seconds, starting now'.format(
+            test_name=inspect.stack()[0][3],
+            timeout=timeout))
+
+        try:
+            self.run_async(
+                # Force exit from event loop after set timeout seconds
+                asyncio.wait_for(
+                    self.eth_order_book_data_source.listen_for_trades(ev_loop=self.ev_loop, output=q),
+                    timeout=timeout
+                )
+            )
+        except asyncio.exceptions.TimeoutError as e:
+            print(e)
+
+        first_event = q.get_nowait()
+        second_event = q.get_nowait()
+
+        recv_events = [first_event, second_event]
+
+        for event in recv_events:
+            # Validate the data inject into async queue is in Liquid order book message type
+            self.assertIsInstance(event, IdexOrderBookMessage)
+
+            # Validate the event type is equal to DIFF
+            self.assertEqual(event.type, OrderBookMessageType.TRADE)
+
+            # Validate the actual content injected is dict type
+            self.assertIsInstance(event.content, dict)

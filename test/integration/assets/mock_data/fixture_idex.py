@@ -1,3 +1,6 @@
+import json
+
+
 class FixtureIdex:
     # General Exchange Info
     MARKETS = None
@@ -126,11 +129,62 @@ class FixtureIdex:
         ]
     }
 
-    BUY_MARKET_ORDER = None
+    WS_PRICE_LEVEL_UPDATE_1 = json.dumps({
+        "type": "l2orderbook",
+        "data": {
+            "m": "ETH-USDC",
+            "t": 1590393540000,
+            "u": 71228110,
+            "b": [["202.00100000", "10.00000000", 1]],
+            "a": []
+        }
+    })
 
-    WS_AFTER_BUY_1 = None
+    WS_PRICE_LEVEL_UPDATE_2 = json.dumps({
+        "type": "l2orderbook",
+        "data": {
+            "m": "BAL-ETH",
+            "t": 1590383943830,
+            "u": 73848374,
+            "b": [["198.00100000", "8.00000000", 2]],
+            "a": []
+        }
+    })
 
-    WS_AFTER_BUY_2 = None
+    WS_SUBSCRIPTION_SUCCESS = json.dumps({
+        "type": "subscriptions",
+        "subscriptions": [{"name": "l2orderbook",
+                           "markets": ["ETH-USDC"]
+                           }]
+    })
+
+    WS_TRADE_1 = json.dumps({
+        "type": "trades",
+        "data": {
+            "m": "ETH-USDC",
+            "i": "a0b6a470-a6bf-11ea-90a3-8de307b3b6da",
+            "p": "202.74900000",
+            "q": "10.00000000",
+            "Q": "2027.49000000",
+            "t": 1590394500000,
+            "s": "sell",
+            "u": 848778
+        }
+    })
+
+    WS_TRADE_2 = json.dumps({
+        "type": "trades",
+        "data": {
+            "m": "QNT-ETH",
+            "i": "d357a470-a6bf-11ea-90a3-8de3034936da",
+            "p": "154.82400000",
+            "q": "8.00000000",
+            "Q": "1163.53000000",
+            "t": 1590387400000,
+            "s": "buy",
+            "u": 921943
+        }
+    })
 
     SELL_MARKET_ORDER = None
 

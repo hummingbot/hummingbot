@@ -261,14 +261,12 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 trading_pairs: List[str] = self._trading_pairs
                 async with websockets.connect(self.get_idex_ws_feed()) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
-                    subscribe_request: Dict[str, Any] = {
+                    subscription_request: Dict[str, Any] = {
                         "method": "subscribe",
                         "markets": trading_pairs,
-                        "subscriptions": [
-                            "trades"
-                        ]
+                        "subscriptions": ["trades"]
                     }
-                    await ws.send(ujson.dumps(subscribe_request))
+                    await ws.send(ujson.dumps(subscription_request))
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
                         msg_type: str = msg.get("type", None)
@@ -277,7 +275,8 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         elif msg_type == "error":
                             raise ValueError(f"Idex Websocket received error message - {msg['data']['message']}")
                         elif msg_type == "trades":
-                            trade_msg: OrderBookMessage = IdexOrderBook.trade_message_from_exchange(msg)
+                            trade_timestamp: float = pd.Timestamp(msg["data"]["t"], unit='ms').timestamp()
+                            trade_msg: OrderBookMessage = IdexOrderBook.trade_message_from_exchange(msg, trade_timestamp)
                             output.put_nowait(trade_msg)
                         else:
                             raise ValueError(f"Unrecognized Idex WebSocket message received - {msg}")
@@ -316,24 +315,28 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 trading_pairs: List[str] = self._trading_pairs
                 async with websockets.connect(self.get_idex_ws_feed()) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
-                    subscribe_request: Dict[str, Any] = {
+                    subscription_request: Dict[str, Any] = {
                         "method": "subscribe",
                         "markets": trading_pairs,
-                        "subscriptions": [
-                            "l2orderbook"
-                        ]
+                        "subscriptions": ["l2orderbook"]
                     }
-                    await ws.send(ujson.dumps(subscribe_request))
+                    await ws.send(ujson.dumps(subscription_request))
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
                         msg_type: str = msg.get("type", None)
                         if msg_type is None:
                             raise ValueError(f"Idex WebSocket message does not contain a type - {msg}")
                         elif msg_type == "error":
-                            raise ValueError(f"Idex WebSocket message received error message - {msg['data']['message']}")
+                            raise ValueError(f"Idex WebSocket message received error message - "
+                                             f"{msg['data']['message']}")
                         elif msg_type == "l2orderbook":
-                            order_book_message: OrderBookMessage = IdexOrderBook.diff_message_from_exchange(msg)
+                            diff_timestamp: float = pd.Timestamp(msg["data"]["t"], unit='ms').timestamp()
+                            order_book_message: OrderBookMessage = \
+                                IdexOrderBook.diff_message_from_exchange(msg, diff_timestamp)
                             output.put_nowait(order_book_message)
+                        elif msg_type == "subscriptions":
+                            self.logger().info("subscription to l2orderbook received")
+                            continue
                         else:
                             raise ValueError(f"Unrecognized Idex WebSocket message received - {msg}")
             except asyncio.CancelledError:

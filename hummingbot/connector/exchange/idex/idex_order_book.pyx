@@ -61,10 +61,12 @@ cdef class IdexOrderBook(OrderBook):
         :param timestamp: timestamp attached to incoming data
         :return: IdexOrderBookMessage
         """
+
         if metadata:
             msg.update(metadata)
-        if "time" in msg:  # TODO ALF: check 'time' present
-            msg_time = pd.Timestamp(msg["time"]).timestamp()
+        if msg.get("data").get("t") is None:
+            # time is present in msg as msg["data"]["t"] in POSIX format. If not, call time.time() for UTC/s timestamp
+            msg_time = time.time()
         return IdexOrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
             content=msg,
@@ -125,11 +127,11 @@ cdef class IdexOrderBook(OrderBook):
         :param metadata: metadata to add to the websocket message
         :return: IdexOrderBookMessage
         """
-        # TODO ALF: check correctness
+        # msg keys taken from ws trade response
         if metadata:
             msg.update(metadata)
         msg.update({
-            "exchange_order_id": msg.get("d"),
+            "exchange_order_id": msg.get("i"),
             "trade_type": msg.get("s"),
             "price": msg.get("p"),
             "amount": msg.get("q"),
