@@ -510,29 +510,28 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
 
         time_left_fraction = Decimal(str(self._time_left / self._closing_time))
 
-        if self.c_is_algorithm_ready():
-            mid_price = self.c_get_mid_price()
-            q = market.c_get_available_balance(self.base_asset) - Decimal(str(self.c_calculate_target_inventory()))
-            vol = Decimal(str(self._avg_vol.current_value))
-            mid_price_variance = vol ** 2
-            self._reserved_price = mid_price - (q * self._gamma * mid_price_variance * time_left_fraction)
+        mid_price = self.c_get_mid_price()
+        q = market.c_get_available_balance(self.base_asset) - Decimal(str(self.c_calculate_target_inventory()))
+        vol = Decimal(str(self._avg_vol.current_value))
+        mid_price_variance = vol ** 2
+        self._reserved_price = mid_price - (q * self._gamma * mid_price_variance * time_left_fraction)
 
-            min_limit_bid = min(mid_price * (1 - self._max_spread), mid_price - self._vol_to_spread_multiplier * vol)
-            max_limit_bid = mid_price * (1 - self._min_spread)
-            min_limit_ask = mid_price * (1 + self._min_spread)
-            max_limit_ask = max(mid_price * (1 + self._max_spread), mid_price + self._vol_to_spread_multiplier * vol)
+        min_limit_bid = min(mid_price * (1 - self._max_spread), mid_price - self._vol_to_spread_multiplier * vol)
+        max_limit_bid = mid_price * (1 - self._min_spread)
+        min_limit_ask = mid_price * (1 + self._min_spread)
+        max_limit_ask = max(mid_price * (1 + self._max_spread), mid_price + self._vol_to_spread_multiplier * vol)
 
-            self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction + 2 * Decimal(1 + self._gamma / self._kappa).ln() / self._gamma
-            self._optimal_ask = min(max(self._reserved_price + self._optimal_spread / 2,
-                                        min_limit_ask),
-                                    max_limit_ask)
-            self._optimal_bid = min(max(self._reserved_price - self._optimal_spread / 2,
-                                        min_limit_bid),
-                                    max_limit_bid)
-            self.logger().info(f"bid={(mid_price-(self._reserved_price - self._optimal_spread / 2))/mid_price*100:.4f}% | "
-                               f"ask={((self._reserved_price + self._optimal_spread / 2)-mid_price)/mid_price*100:.4f}% | "
-                               f"q={q:.4f} | "
-                               f"sigma2={mid_price_variance:.4f}")
+        self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction + 2 * Decimal(1 + self._gamma / self._kappa).ln() / self._gamma
+        self._optimal_ask = min(max(self._reserved_price + self._optimal_spread / 2,
+                                    min_limit_ask),
+                                max_limit_ask)
+        self._optimal_bid = min(max(self._reserved_price - self._optimal_spread / 2,
+                                    min_limit_bid),
+                                max_limit_bid)
+        self.logger().info(f"bid={(mid_price-(self._reserved_price - self._optimal_spread / 2))/mid_price*100:.4f}% | "
+                           f"ask={((self._reserved_price + self._optimal_spread / 2)-mid_price)/mid_price*100:.4f}% | "
+                           f"q={q:.4f} | "
+                           f"sigma2={mid_price_variance:.4f}")
 
     cdef object c_calculate_target_inventory(self):
         cdef:
