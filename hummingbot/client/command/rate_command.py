@@ -4,7 +4,7 @@ from typing import (
     TYPE_CHECKING,
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.rate_oracle.rate_oracle import RateOracle, RateOracleSource
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 
 s_float_0 = float(0)
 s_decimal_0 = Decimal("0")
@@ -16,20 +16,35 @@ if TYPE_CHECKING:
 class RateCommand:
     def rate(self,  # type: HummingbotApplication
              pair: str,
+             token: str
              ):
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.trades)
             return
-        safe_ensure_future(self.show_rate(pair))
+        if pair:
+            safe_ensure_future(self.show_rate(pair))
+        elif token:
+            safe_ensure_future(self.show_token_value(token))
 
     async def show_rate(self,  # type: HummingbotApplication
                         pair: str,
                         ):
         pair = pair.upper()
-        self._notify(f"Source: {RateOracleSource.binance.name}")
-        rate = await RateOracle.get_rate_from_source(RateOracleSource.binance, pair)
+        self._notify(f"Source: {RateOracle.source.name}")
+        rate = await RateOracle.get_rate_async(pair)
         if rate is None:
             self._notify("Rate is not available.")
             return
         base, quote = pair.split("-")
         self._notify(f"1 {base} = {rate} {quote}")
+
+    async def show_token_value(self,  # type: HummingbotApplication
+                               token: str
+                               ):
+        token = token.upper()
+        self._notify(f"Source: {RateOracle.source.name}")
+        rate = await RateOracle.get_token_value_async(token)
+        if rate is None:
+            self._notify("Rate is not available.")
+            return
+        self._notify(f"1 {token} = {RateOracle.global_token_symbol} {rate} {RateOracle.global_token}")

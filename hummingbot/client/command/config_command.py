@@ -54,7 +54,10 @@ global_configs_to_display = ["0x_active_cancels",
                              "gateway_cert_passphrase",
                              "gateway_api_host",
                              "gateway_api_port",
-                             "balancer_max_swaps"]
+                             "balancer_max_swaps",
+                             "rate_oracle_source",
+                             "global_token",
+                             "global_token_symbol"]
 
 
 class ConfigCommand:
