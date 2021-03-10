@@ -33,7 +33,7 @@ from hummingbot.connector.connector.balancer.balancer_in_flight_order import Bal
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import get_erc20_token_addresses
-from hummingbot.core.utils.ethereum import check_transaction_execptions
+from hummingbot.core.utils.ethereum import check_transaction_exceptions
 
 s_logger = None
 s_decimal_0 = Decimal("0")
@@ -205,9 +205,11 @@ class BalancerConnector(ConnectorBase):
                                             "side": side.upper()})
             required_items = ["price", "gasLimit", "gasPrice", "gasCost"]
             if any(item not in resp.keys() for item in required_items):
-                self.logger().info(f"Unable to get price: {resp['info']}")
+                if "info" in resp.keys():
+                    self.logger().info(f"Unable to get price. {resp['info']}")
+                else:
+                    self.logger().info(f"Missing data from price result. Incomplete return result for ({resp.keys()})")
             else:
-
                 gas_limit = resp["gasLimit"]
                 gas_price = resp["gasPrice"]
                 gas_cost = resp["gasCost"]
@@ -222,16 +224,15 @@ class BalancerConnector(ConnectorBase):
                     "gas_limit": gas_limit,
                     "gas_price": gas_price,
                     "gas_cost": gas_cost,
-                    "price": price
+                    "price": price,
+                    "swaps": len(resp["swaps"])
                 }
-                exceptions = check_transaction_execptions(account_standing)
+                exceptions = check_transaction_exceptions(account_standing)
                 for index in range(len(exceptions)):
                     self.logger().info(f"Warning! [{index+1}/{len(exceptions)}] {side} order - {exceptions[index]}")
 
                 if price is not None and len(exceptions) == 0:
                     return Decimal(str(price))
-                else:
-                    self.logger().info(f"Error getting quote price from result: {resp['info']}")
         except asyncio.CancelledError:
             raise
         except Exception as e:
