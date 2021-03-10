@@ -56,14 +56,16 @@ price_source_custom_api: null
 parameters_based_on_spread: null
 min_spread: null
 max_spread: null
+vol_to_spread_multiplier: null
+inventory_risk_aversion: null
 kappa: null
 gamma: null
-eta: null
+eta: 0.005
 closing_time: null
 
 # Buffer size used to store historic samples and calculate volatility
-buffer_size: 30
-buffer_sampling_period: 5
+buffer_size: 60
+buffer_sampling_period: 1
 
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/pure-market-making/#configuration-parameters

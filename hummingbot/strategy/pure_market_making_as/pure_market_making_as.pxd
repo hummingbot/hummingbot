@@ -15,8 +15,6 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         object _order_refresh_tolerance_pct
         double _filled_order_delay
         object _inventory_target_base_pct
-        bint _hanging_orders_enabled
-        object _hanging_orders_cancel_pct
         bint _order_optimization_enabled
         bint _add_transaction_costs_to_orders
         object _asset_price_delegate
@@ -30,17 +28,17 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         bint _all_markets_ready
         int _filled_buys_balance
         int _filled_sells_balance
-        list _hanging_order_ids
         double _last_timestamp
         double _status_report_interval
         int64_t _logging_options
         object _last_own_trade_price
-        list _hanging_aged_order_prices
         int _buffer_sampling_period
         double _last_sampling_timestamp
         bint _parameters_based_on_spread
         object _min_spread
         object _max_spread
+        object _vol_to_spread_multiplier
+        object _inventory_risk_aversion
         object _kappa
         object _gamma
         object _eta
@@ -65,7 +63,6 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
     cdef c_apply_add_transaction_costs(self, object proposal)
     cdef bint c_is_within_tolerance(self, list current_prices, list proposal_prices)
     cdef c_cancel_active_orders(self, object proposal)
-    cdef c_cancel_hanging_orders(self)
     cdef c_aged_order_refresh(self)
     cdef bint c_to_create_orders(self, object proposal)
     cdef c_execute_orders_proposal(self, object proposal)

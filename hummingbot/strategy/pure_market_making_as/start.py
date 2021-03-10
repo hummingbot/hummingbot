@@ -4,6 +4,8 @@ from typing import (
 )
 
 from hummingbot import data_path
+import os.path
+from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.pure_market_making_as import (
     PureMarketMakingASStrategy,
@@ -14,6 +16,7 @@ from hummingbot.strategy.pure_market_making_as.pure_market_making_as_config_map 
 from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
 from hummingbot.connector.exchange_base import ExchangeBase
 from decimal import Decimal
+import pandas as pd
 
 
 def start(self):
@@ -54,6 +57,8 @@ def start(self):
         parameters_based_on_spread = c_map.get("parameters_based_on_spread").value
         min_spread = c_map.get("min_spread").value / Decimal(100)
         max_spread = c_map.get("max_spread").value / Decimal(100)
+        vol_to_spread_multiplier = c_map.get("vol_to_spread_multiplier").value
+        inventory_risk_aversion = c_map.get("inventory_risk_aversion").value
         if parameters_based_on_spread:
             gamma = kappa = -1
         else:
@@ -62,6 +67,9 @@ def start(self):
         closing_time = c_map.get("closing_time").value * Decimal(3600 * 24 * 1e3)
         buffer_size = c_map.get("buffer_size").value
         buffer_sampling_period = c_map.get("buffer_sampling_period").value
+        csv_path = os.path.join(data_path(),
+                                HummingbotApplication.main_application().strategy_file_name.rsplit('.', 1)[0] +
+                                f"_{pd.Timestamp.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv")
 
         self.strategy = PureMarketMakingASStrategy(
             market_info=MarketTradingPairTuple(*maker_data),
@@ -79,10 +87,12 @@ def start(self):
             parameters_based_on_spread=parameters_based_on_spread,
             min_spread=min_spread,
             max_spread=max_spread,
+            vol_to_spread_multiplier=vol_to_spread_multiplier,
+            inventory_risk_aversion = inventory_risk_aversion,
             kappa=kappa,
             gamma=gamma,
             closing_time=closing_time,
-            data_path=data_path(),
+            csv_path=csv_path,
             buffer_size=buffer_size,
             buffer_sampling_period=buffer_sampling_period,
         )

@@ -119,14 +119,13 @@ pure_market_making_as_config_map = {
         ConfigVar(key="order_optimization_enabled",
                   prompt="Do you want to enable best bid ask jumping? (Yes/No) >>> ",
                   type_str="bool",
-                  default=False,
+                  default=True,
                   validator=validate_bool),
     "parameters_based_on_spread":
         ConfigVar(key="parameters_based_on_spread",
                   prompt="Do you want to automate Avellaneda-Stoikov parameters based on min/max spread? >>> ",
                   type_str="bool",
                   validator=validate_bool,
-                  prompt_on_new=True,
                   default=True),
     "min_spread":
         ConfigVar(key="min_spread",
@@ -144,19 +143,35 @@ pure_market_making_as_config_map = {
                   required_if=lambda: pure_market_making_as_config_map.get("parameters_based_on_spread").value,
                   validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
                   prompt_on_new=True),
+    "vol_to_spread_multiplier":
+        ConfigVar(key="vol_to_spread_multiplier",
+                  prompt="Enter the Volatility-to-Spread multiplier: "
+                         "Beyond this number of sigmas, spreads will turn into multiples of volatility >>>",
+                  type_str="decimal",
+                  required_if=lambda: pure_market_making_as_config_map.get("parameters_based_on_spread").value,
+                  validator=lambda v: validate_decimal(v, 0, 10, inclusive=False),
+                  prompt_on_new=True),
+    "inventory_risk_aversion":
+        ConfigVar(key="inventory_risk_aversion",
+                  prompt="Enter Inventory risk aversion: With 1.0 being extremely conservative about meeting inventory target, "
+                         "at the expense of profit, and 0.0 for a profit driven, at the expense of inventory risk >>>",
+                  type_str="decimal",
+                  required_if=lambda: pure_market_making_as_config_map.get("parameters_based_on_spread").value,
+                  validator=lambda v: validate_decimal(v, 0, 1, inclusive=False),
+                  prompt_on_new=True),
     "kappa":
         ConfigVar(key="kappa",
                   prompt="Enter order book depth variable (kappa) >>> ",
                   type_str="decimal",
                   required_if=lambda: not pure_market_making_as_config_map.get("parameters_based_on_spread").value,
-                  validator=lambda v: validate_decimal(v, 0, 1e10, inclusive=True),
+                  validator=lambda v: validate_decimal(v, 0, 1e10, inclusive=False),
                   prompt_on_new=True),
     "gamma":
         ConfigVar(key="gamma",
                   prompt="Enter risk factor (gamma) >>> ",
                   type_str="decimal",
                   required_if=lambda: not pure_market_making_as_config_map.get("parameters_based_on_spread").value,
-                  validator=lambda v: validate_decimal(v, 0, 1e10, inclusive=True),
+                  validator=lambda v: validate_decimal(v, 0, 1e10, inclusive=False),
                   prompt_on_new=True),
     "eta":
         ConfigVar(key="eta",
@@ -172,7 +187,7 @@ pure_market_making_as_config_map = {
                          " (fractional quantities are allowed i.e. 1.27 days) >>> ",
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, 0, 10, inclusive=False),
-                  prompt_on_new=True),
+                  default=Decimal("1")),
     "order_refresh_time":
         ConfigVar(key="order_refresh_time",
                   prompt="How often do you want to cancel and replace bids and asks "
@@ -210,6 +225,7 @@ pure_market_making_as_config_map = {
                   prompt="What is your target base asset percentage? Enter 50 for 50% >>> ",
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, 0, 100),
+                  prompt_on_new=True,
                   default=Decimal("50")),
     "add_transaction_costs":
         ConfigVar(key="add_transaction_costs",
@@ -227,7 +243,7 @@ pure_market_making_as_config_map = {
     "price_type":
         ConfigVar(key="price_type",
                   prompt="Which price type to use? ("
-                         "mid_price/last_price/last_own_trade_price/best_bid/best_ask/inventory_cost) >>> ",
+                         "mid_price/last_price/last_own_trade_price/best_bid/best_ask) >>> ",
                   type_str="str",
                   required_if=lambda: pure_market_making_as_config_map.get("price_source").value != "custom_api",
                   default="mid_price",
@@ -236,7 +252,6 @@ pure_market_making_as_config_map = {
                                                     "last_own_trade_price",
                                                     "best_bid",
                                                     "best_ask",
-                                                    "inventory_cost",
                                                     } else
                   "Invalid price type."),
     "price_source_exchange":
@@ -262,11 +277,11 @@ pure_market_making_as_config_map = {
                   prompt="Enter amount of samples to use for volatility calculation>>> ",
                   type_str="int",
                   validator=lambda v: validate_decimal(v, 5, 600),
-                  default=30),
+                  default=60),
     "buffer_sampling_period":
         ConfigVar(key="buffer_sampling_period",
                   prompt="Enter period in seconds of sampling for volatility calculation>>> ",
                   type_str="int",
                   validator=lambda v: validate_decimal(v, 1, 300),
-                  default=30),
+                  default=1),
 }

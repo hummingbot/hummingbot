@@ -31,11 +31,6 @@ class SizingProposal(NamedTuple):
     sell_order_sizes: List[Decimal]
 
 
-class InventorySkewBidAskRatios(NamedTuple):
-    bid_ratio: float
-    ask_ratio: float
-
-
 class PriceSize:
     def __init__(self, price: Decimal, size: Decimal):
         self.price: Decimal = price
