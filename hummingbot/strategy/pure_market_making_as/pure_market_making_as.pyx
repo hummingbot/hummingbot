@@ -517,13 +517,18 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             mid_price_variance = vol ** 2
             self._reserved_price = mid_price - (q * self._gamma * mid_price_variance * time_left_fraction)
 
+            min_limit_bid = min(mid_price * (1 - self._max_spread), mid_price - self._vol_to_spread_multiplier * vol)
+            max_limit_bid = mid_price * (1 - self._min_spread)
+            min_limit_ask = mid_price * (1 + self._min_spread)
+            max_limit_ask = max(mid_price * (1 + self._max_spread), mid_price + self._vol_to_spread_multiplier * vol)
+
             self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction + 2 * Decimal(1 + self._gamma / self._kappa).ln() / self._gamma
             self._optimal_ask = min(max(self._reserved_price + self._optimal_spread / 2,
-                                        mid_price * (1 + self._min_spread)),
-                                    mid_price * (1 + self._max_spread))
+                                        min_limit_ask),
+                                    max_limit_ask)
             self._optimal_bid = min(max(self._reserved_price - self._optimal_spread / 2,
-                                        mid_price * (1 - self._max_spread)),
-                                    mid_price * (1 - self._min_spread))
+                                        min_limit_bid),
+                                    max_limit_bid)
             self.logger().info(f"bid={(mid_price-(self._reserved_price - self._optimal_spread / 2))/mid_price*100:.4f}% | "
                                f"ask={((self._reserved_price + self._optimal_spread / 2)-mid_price)/mid_price*100:.4f}% | "
                                f"q={q:.4f} | "
@@ -970,8 +975,6 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             return PriceType.LastTrade
         elif price_type_str == 'last_own_trade_price':
             return PriceType.LastOwnTrade
-        elif price_type_str == 'inventory_cost':
-            return PriceType.InventoryCost
         else:
             raise ValueError(f"Unrecognized price type string {price_type_str}.")
 
