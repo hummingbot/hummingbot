@@ -24,21 +24,21 @@ class RateOracleSource(Enum):
 
 
 class RateOracle(NetworkBase):
+    source: RateOracleSource = RateOracleSource.binance
+    global_token: str = "USDT"
+    global_token_symbol: str = "$"
     _logger: Optional[HummingbotLogger] = None
     _shared_instance: "RateOracle" = None
     _shared_client: Optional[aiohttp.ClientSession] = None
 
     binance_price_url = "https://api.binance.com/api/v3/ticker/bookTicker"
-    coingecko_usd_price_url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc" \
+    coingecko_usd_price_url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency={}&order=market_cap_desc" \
                               "&per_page=250&page={}&sparkline=false"
 
     @classmethod
-    def get_instance(cls, source: RateOracleSource) -> "RateOracle":
+    def get_instance(cls) -> "RateOracle":
         if cls._shared_instance is None:
-            cls._shared_instance = RateOracle(source)
-        elif cls._shared_instance.source != source:
-            cls._shared_instance.stop()
-            cls._shared_instance = RateOracle(source)
+            cls._shared_instance = RateOracle()
         return cls._shared_instance
 
     @classmethod
@@ -47,11 +47,10 @@ class RateOracle(NetworkBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, source: RateOracleSource):
+    def __init__(self):
         super().__init__()
         self._check_network_interval = 30.0
         self._ev_loop = asyncio.get_event_loop()
-        self._source = source
         self._prices: Dict[str, Decimal] = {}
         self._fetch_price_task: Optional[asyncio.Task] = None
         self._ready_event = asyncio.Event()
@@ -80,42 +79,42 @@ class RateOracle(NetworkBase):
     def prices(self) -> Dict[str, Decimal]:
         return self._prices.copy()
 
-    @property
-    def source(self) -> RateOracleSource:
-        return self._source
-
     def update_interval(self) -> float:
-        if self._source == RateOracleSource.binance:
-            return 1.0
-        return 30.0
+        return 1.0
 
-    def get_rate(self, pair: str) -> float:
+    def get_rate(self, pair: str) -> Decimal:
         return find_rate(self._prices, pair)
 
     @classmethod
-    async def get_rate_from_source(cls, source: RateOracleSource, pair: str) -> Dict[str, Decimal]:
-        prices = await cls.get_prices(source)
+    async def get_rate_async(cls, pair: str) -> Decimal:
+        prices = await cls.get_prices()
+        return find_rate(prices, pair)
+
+    @classmethod
+    async def get_token_value_async(cls, token: str) -> Decimal:
+        prices = await cls.get_prices()
+        pair = token + "-" + cls.global_token
         return find_rate(prices, pair)
 
     async def fetch_price_loop(self):
         while True:
             try:
-                self._prices = await self.get_prices(self._source)
+                self._prices = await self.get_prices()
                 if self._prices:
                     self._ready_event.set()
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().network(f"Error fetching new prices from {self._source.name}.", exc_info=True,
-                                      app_warning_msg=f"Couldn't fetch newest prices from {self._source.name}.")
+                self.logger().network(f"Error fetching new prices from {self.source.name}.", exc_info=True,
+                                      app_warning_msg=f"Couldn't fetch newest prices from {self.source.name}.")
             await asyncio.sleep(self.update_interval())
 
     @classmethod
-    async def get_prices(cls, source: RateOracleSource) -> Dict[str, Decimal]:
-        if source == RateOracleSource.binance:
+    async def get_prices(cls) -> Dict[str, Decimal]:
+        if cls.source == RateOracleSource.binance:
             return await cls.get_binance_prices()
-        elif source == RateOracleSource.coingecko:
-            return await cls.get_coingecko_prices()
+        elif cls.source == RateOracleSource.coingecko:
+            return await cls.get_coingecko_prices(cls.global_token)
 
     @classmethod
     @async_ttl_cache(ttl=1, maxsize=1)
@@ -132,23 +131,23 @@ class RateOracle(NetworkBase):
 
     @classmethod
     @async_ttl_cache(ttl=30, maxsize=1)
-    async def get_coingecko_prices(cls) -> Dict[str, Decimal]:
+    async def get_coingecko_prices(cls, vs_currency: str) -> Dict[str, Decimal]:
         print("getting coingecko prices")
         results = {}
-        tasks = [cls.get_coingecko_prices_by_page(i) for i in range(1, 5)]
+        tasks = [cls.get_coingecko_prices_by_page(vs_currency, i) for i in range(1, 5)]
         task_results = await safe_gather(*tasks, return_exceptions=True)
         for task_result in task_results:
             results.update(task_result)
         return results
 
     @classmethod
-    async def get_coingecko_prices_by_page(cls, page_no: int) -> Dict[str, Decimal]:
+    async def get_coingecko_prices_by_page(cls, vs_currency: str, page_no: int) -> Dict[str, Decimal]:
         results = {}
         client = await cls._http_client()
-        async with client.request("GET", cls.coingecko_usd_price_url.format(page_no)) as resp:
+        async with client.request("GET", cls.coingecko_usd_price_url.format(vs_currency, page_no)) as resp:
             records = await resp.json()
             for record in records:
-                pair = record["symbol"].upper() + "-USD"
+                pair = f'{record["symbol"].upper()}-{vs_currency.upper()}'
                 if record["current_price"]:
                     results[pair] = Decimal(str(record["current_price"]))
         return results
@@ -164,9 +163,9 @@ class RateOracle(NetworkBase):
 
     async def check_network(self) -> NetworkStatus:
         try:
-            prices = await self.get_prices(self._source)
+            prices = await self.get_prices()
             if not prices:
-                raise Exception(f"Error fetching new prices from {self._source.name}.")
+                raise Exception(f"Error fetching new prices from {self.source.name}.")
         except asyncio.CancelledError:
             raise
         except Exception:

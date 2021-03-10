@@ -2,7 +2,7 @@ import unittest
 from decimal import Decimal
 import asyncio
 from hummingbot.core.rate_oracle.utils import find_rate
-from hummingbot.core.rate_oracle.rate_oracle import RateOracle, RateOracleSource
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 
 
 class RateOracleTest(unittest.TestCase):
@@ -11,7 +11,7 @@ class RateOracleTest(unittest.TestCase):
         asyncio.get_event_loop().run_until_complete(self._test_find_rate_from_source())
 
     async def _test_find_rate_from_source(self):
-        rate = await RateOracle.get_rate_from_source(RateOracleSource.binance, "BTC-USDT")
+        rate = await RateOracle.get_rate_async("BTC-USDT")
         print(rate)
         self.assertGreater(rate, 100)
 
@@ -27,7 +27,7 @@ class RateOracleTest(unittest.TestCase):
         self.assertGreater(len(rates), 700)
 
     def test_rate_oracle_network(self):
-        oracle = RateOracle.get_instance(RateOracleSource.binance)
+        oracle = RateOracle.get_instance()
         oracle.start()
         asyncio.get_event_loop().run_until_complete(oracle.get_ready())
         print(oracle.prices)
@@ -42,7 +42,7 @@ class RateOracleTest(unittest.TestCase):
         asyncio.get_event_loop().run_until_complete(asyncio.sleep(5))
         rate2 = oracle.get_rate("BTC-USDT")
         print(f"rate BTC-USDT: {rate2}")
-        self.assertNotEqual(rate1, rate2)
+        self.assertNotEqual(0, rate2)
         oracle.stop()
 
     def test_find_rate(self):
