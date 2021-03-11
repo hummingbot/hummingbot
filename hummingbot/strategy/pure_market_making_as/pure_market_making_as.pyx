@@ -1002,7 +1002,10 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                                        'gamma',
                                        'kappa',
                                        'current_vol_to_calculation_vol',
-                                       'inventory_target_pct')])
+                                       'inventory_target_pct',
+                                       'min_spread',
+                                       'max_spread',
+                                       'vol_to_spread_multiplier')])
             df_header.to_csv(self._csv_path, mode='a', header=False, index=False)
         df = pd.DataFrame([(mid_price,
                             spread,
@@ -1019,5 +1022,8 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                             self._gamma,
                             self._kappa,
                             self.c_volatility_diff_from_last_parameter_calculation(self._avg_vol.current_value),
-                            self.inventory_target_base_pct)])
+                            self.inventory_target_base_pct,
+                            self._min_spread,
+                            self._max_spread,
+                            self._vol_to_spread_multiplier)])
         df.to_csv(self._csv_path, mode='a', header=False, index=False)
