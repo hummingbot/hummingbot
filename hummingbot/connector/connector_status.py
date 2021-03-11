@@ -1,14 +1,16 @@
 #!/usr/bin/env python
 
 connector_status = {
+    'balancer': 'green',
+    'beaxy': 'yellow',
     'binance': 'green',
     'binance_perpetual': 'green',
     'binance_perpetual_testnet': 'green',
     'binance_us': 'yellow',
     'bitfinex': 'yellow',
-    'bitmax': 'yellow',
+    'bitmax': 'green',
     'bittrex': 'yellow',
-    'blocktane': 'yellow',
+    'blocktane': 'green',
     'celo': 'green',
     'coinbase_pro': 'green',
     'crypto_com': 'yellow',
@@ -16,12 +18,16 @@ connector_status = {
     'eterbase': 'red',
     'ethereum': 'red',
     'huobi': 'green',
-    'kraken': 'yellow',
+    'kraken': 'green',
     'kucoin': 'green',
     'liquid': 'green',
     'loopring': 'yellow',
     'okex': 'green',
-    'terra': 'green'
+    'perpetual_finance': 'yellow',
+    'probit': 'yellow',
+    'probit_kr': 'yellow',
+    'terra': 'green',
+    'uniswap': 'green'
 }
 
 warning_messages = {
