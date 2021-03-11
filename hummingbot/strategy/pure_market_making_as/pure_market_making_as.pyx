@@ -569,10 +569,11 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
 
             # Want the minimum possible spread which ideally is 2*min_spread,
             # but with restrictions to avoid negative kappa or division by 0
-            if (2 * min_spread) <= 2 * self._gamma * (vol ** 2):
+            max_spread_around_reserved_price = 2 * (max_spread - q * self._gamma * (vol ** 2))
+            if max_spread_around_reserved_price <= self._gamma * (vol ** 2):
                 self._kappa = Decimal('Inf')
             else:
-                self._kappa = self._gamma / (Decimal.exp((2 * min_spread * self._gamma) / 2) - 1)
+                self._kappa = self._gamma / (Decimal.exp((max_spread_around_reserved_price * self._gamma - (vol * self._gamma) **2) / 2) - 1)
 
             self._latest_parameter_calculation_vol = vol
             self.logger().info(f"Gamma: {self._gamma:.5f} | Kappa: {self._kappa:.5f} | Sigma: {vol:.5f}")
