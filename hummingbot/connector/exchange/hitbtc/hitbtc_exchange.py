@@ -699,9 +699,10 @@ class HitbtcExchange(ExchangeBase):
             "tradeFee": "-0.000000005"
         }
         """
-        for order in self._in_flight_orders.values():
+        tracked_orders = list(self._in_flight_orders.values())
+        for order in tracked_orders:
             await order.get_exchange_order_id()
-        track_order = [o for o in self._in_flight_orders.values() if trade_msg["id"] == o.exchange_order_id]
+        track_order = [o for o in tracked_orders if trade_msg["id"] == o.exchange_order_id]
         if not track_order:
             return
         tracked_order = track_order[0]
