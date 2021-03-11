@@ -531,10 +531,10 @@ class HitbtcExchange(ExchangeBase):
                 order_was_cancelled = True
         if order_was_cancelled:
             self.logger().info(f"Successfully cancelled order {order_id} on {Constants.EXCHANGE_NAME}.")
+            self.stop_tracking_order(order_id)
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(self.current_timestamp, order_id))
             tracked_order.cancelled_event.set()
-            self.stop_tracking_order(order_id)
             return CancellationResult(order_id, True)
         else:
             self.logger().network(
@@ -662,10 +662,10 @@ class HitbtcExchange(ExchangeBase):
 
         if tracked_order.is_cancelled:
             self.logger().info(f"Successfully cancelled order {client_order_id}.")
+            self.stop_tracking_order(client_order_id)
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(self.current_timestamp, client_order_id))
             tracked_order.cancelled_event.set()
-            self.stop_tracking_order(client_order_id)
         elif tracked_order.is_failure:
             self.logger().info(f"The market order {client_order_id} has failed according to order status API. ")
             self.trigger_event(MarketEvent.OrderFailure,
