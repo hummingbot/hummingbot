@@ -9,6 +9,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.client.settings import CONNECTOR_SETTINGS, ConnectorType
 import logging
 import asyncio
+import requests
 
 from .async_utils import safe_ensure_future
 
@@ -53,4 +54,10 @@ class TradingPairFetcher:
 
         results = await safe_gather(*tasks, return_exceptions=True)
         self.trading_pairs = dict(zip(fetched_connectors, results))
+        # In case trading pair fetching returned timeout, using empty list
+        for connector, result in self.trading_pairs.items():
+            if isinstance(result, (asyncio.TimeoutError, requests.exceptions.RequestException)):
+                self.logger().error(f"Connector {connector} failed to retrieve its trading pairs. "
+                                    f"Trading pairs autocompletion won't work.")
+                self.trading_pairs[connector] = []
         self.ready = True
