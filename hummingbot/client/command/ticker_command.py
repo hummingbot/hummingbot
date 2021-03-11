@@ -2,6 +2,7 @@ import pandas as pd
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.event.events import PriceType
 from typing import TYPE_CHECKING
+import threading
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -12,6 +13,9 @@ class TickerCommand:
                live: bool = False,
                exchange: str = None,
                market: str = None):
+        if threading.current_thread() != threading.main_thread():
+            self.ev_loop.call_soon_threadsafe(self.ticker, live, exchange, market)
+            return
         safe_ensure_future(self.show_ticker(live, exchange, market))
 
     async def show_ticker(self,  # type: HummingbotApplication

@@ -30,7 +30,7 @@ class PnlCommand:
             open_order_markets: bool
             ):
         if threading.current_thread() != threading.main_thread():
-            self.ev_loop.call_soon_threadsafe(self.trades)
+            self.ev_loop.call_soon_threadsafe(self.pnl, days, market, open_order_markets)
             return
         safe_ensure_future(self.pnl_report(days, market, open_order_markets))
 
