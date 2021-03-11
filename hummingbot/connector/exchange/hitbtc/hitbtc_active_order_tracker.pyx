@@ -116,7 +116,7 @@ cdef class HitbtcActiveOrderTracker:
                   float(price),
                   float(self._active_bids[price]),
                   message.update_id]
-                 for price in sorted(self._active_bids.keys(), reverse=True)], dtype='float64', ndmin=2)
+                 for price in sorted(self._active_bids.keys())], dtype='float64', ndmin=2)
             np.ndarray[np.float64_t, ndim=2] asks = np.array(
                 [[message.timestamp,
                   float(price),
