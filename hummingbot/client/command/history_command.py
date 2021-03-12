@@ -14,7 +14,8 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.settings import (
     MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT,
     CONNECTOR_SETTINGS,
-    ConnectorType
+    ConnectorType,
+    DERIVATIVES
 )
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.user.user_balances import UserBalances
@@ -89,6 +90,8 @@ class HistoryCommand:
             if paper_balances is None:
                 return {}
             return {token: Decimal(str(bal)) for token, bal in paper_balances.items()}
+        elif "perpetual_finance" == market:
+            return await UserBalances.xdai_balances()
         else:
             gateway_eth_connectors = [cs.name for cs in CONNECTOR_SETTINGS.values() if cs.use_ethereum_wallet and
                                       cs.type == ConnectorType.Connector]
@@ -104,7 +107,7 @@ class HistoryCommand:
         current_time = get_timestamp()
         lines.extend(
             [f"\nStart Time: {datetime.fromtimestamp(start_time).strftime('%Y-%m-%d %H:%M:%S')}"] +
-            [f"Curent Time: {datetime.fromtimestamp(current_time).strftime('%Y-%m-%d %H:%M:%S')}"] +
+            [f"Current Time: {datetime.fromtimestamp(current_time).strftime('%Y-%m-%d %H:%M:%S')}"] +
             [f"Duration: {pd.Timedelta(seconds=int(current_time - start_time))}"]
         )
         self._notify("\n".join(lines))
@@ -141,6 +144,7 @@ class HistoryCommand:
 
         assets_columns = ["", "start", "current", "change"]
         assets_data = [
+            [f"{base:<17}", "-", "-", "-"] if market in DERIVATIVES else  # No base asset for derivatives because they are margined
             [f"{base:<17}",
              smart_round(perf.start_base_bal, precision),
              smart_round(perf.cur_base_bal, precision),
@@ -153,6 +157,7 @@ class HistoryCommand:
              smart_round(perf.start_price),
              smart_round(perf.cur_price),
              smart_round(perf.cur_price - perf.start_price)],
+            [f"{'Base asset %':<17}", "-", "-", "-"] if market in DERIVATIVES else  # No base asset for derivatives because they are margined
             [f"{'Base asset %':<17}",
              f"{perf.start_base_ratio_pct:.2%}",
              f"{perf.cur_base_ratio_pct:.2%}",

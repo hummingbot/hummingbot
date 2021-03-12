@@ -3,6 +3,7 @@ from hummingbot.strategy.strategy_base cimport StrategyBase
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.clock import Clock
 from hummingbot.core.clock cimport Clock
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 from .order_tracker import OrderTracker
 
@@ -37,6 +38,9 @@ cdef class StrategyPyBase(StrategyBase):
 
     def tick(self, timestamp: float):
         raise NotImplementedError
+
+    def cancel_order(self, market_trading_pair_tuple: MarketTradingPairTuple, order_id: str):
+        self.c_cancel_order(market_trading_pair_tuple, order_id)
 
     cdef c_did_create_buy_order(self, object order_created_event):
         self.did_create_buy_order(order_created_event)
@@ -84,4 +88,10 @@ cdef class StrategyPyBase(StrategyBase):
         self.did_complete_sell_order(order_completed_event)
 
     def did_complete_sell_order(self, order_completed_event):
+        pass
+
+    cdef c_did_complete_funding_payment(self, object funding_payment_completed_event):
+        self.did_complete_funding_payment(funding_payment_completed_event)
+
+    def did_complete_funding_payment(self, funding_payment_completed_event):
         pass

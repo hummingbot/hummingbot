@@ -91,6 +91,7 @@ class HummingbotApplication(*commands):
         self.kill_switch: Optional[KillSwitch] = None
         self._app_warnings: Deque[ApplicationWarning] = deque()
         self._trading_required: bool = True
+        self._last_started_strategy_file: Optional[str] = None
 
         self.trade_fill_db: Optional[SQLConnectionManager] = None
         self.markets_recorder: Optional[MarketsRecorder] = None
@@ -240,7 +241,7 @@ class HummingbotApplication(*commands):
                 if conn_setting.use_ethereum_wallet:
                     ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
                     # Todo: Hard coded this execption for now until we figure out how to handle all ethereum connectors.
-                    if connector_name in ["balancer", "uniswap"]:
+                    if connector_name in ["balancer", "uniswap", "perpetual_finance"]:
                         private_key = get_eth_wallet_private_key()
                         init_params.update(wallet_private_key=private_key, ethereum_rpc_url=ethereum_rpc_url)
                     else:
