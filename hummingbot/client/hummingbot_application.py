@@ -36,7 +36,6 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.client.config.security import Security
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.client.settings import CONNECTOR_SETTINGS, ConnectorType
 s_logger = None
 
@@ -96,9 +95,6 @@ class HummingbotApplication(*commands):
         self.trade_fill_db: Optional[SQLConnectionManager] = None
         self.markets_recorder: Optional[MarketsRecorder] = None
         self._script_iterator = None
-        # This is to start fetching trading pairs for auto-complete
-        TradingPairFetcher.get_instance()
-
         self._binance_connector = None
 
     @property

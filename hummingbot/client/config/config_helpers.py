@@ -1,5 +1,6 @@
 import logging
 from decimal import Decimal
+from functools import lru_cache
 import ruamel.yaml
 from os import (
     unlink
@@ -164,12 +165,13 @@ def get_eth_wallet_private_key() -> Optional[str]:
     return account.privateKey.hex()
 
 
+@lru_cache
 def get_erc20_token_addresses() -> Dict[str, List]:
     token_list_url = global_config_map.get("ethereum_token_list_url").value
     address_file_path = TOKEN_ADDRESSES_FILE_PATH
     token_list = {}
 
-    resp = requests.get(token_list_url, timeout=(0.5, 0.5))
+    resp = requests.get(token_list_url, timeout=3)
     decoded_resp = resp.json()
 
     for token in decoded_resp["tokens"]:
