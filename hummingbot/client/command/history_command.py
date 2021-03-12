@@ -90,6 +90,8 @@ class HistoryCommand:
             if paper_balances is None:
                 return {}
             return {token: Decimal(str(bal)) for token, bal in paper_balances.items()}
+        elif "perpetual_finance" == market:
+            return await UserBalances.xdai_balances()
         else:
             gateway_eth_connectors = [cs.name for cs in CONNECTOR_SETTINGS.values() if cs.use_ethereum_wallet and
                                       cs.type == ConnectorType.Connector]
