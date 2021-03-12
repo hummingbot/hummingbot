@@ -32,7 +32,6 @@ from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.connector.uniswap.uniswap_in_flight_order import UniswapInFlightOrder
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.config_helpers import get_erc20_token_addresses
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 
 s_logger = None
@@ -71,11 +70,9 @@ class UniswapConnector(ConnectorBase):
         """
         super().__init__()
         self._trading_pairs = trading_pairs
-        tokens = set()
+        self._tokens = set()
         for trading_pair in trading_pairs:
-            tokens.update(set(trading_pair.split("-")))
-        self._erc_20_token_list = self.token_list()
-        self._token_addresses = {t: l[0] for t, l in self._erc_20_token_list.items() if t in tokens}
+            self._tokens.update(set(trading_pair.split("-")))
         self._wallet_private_key = wallet_private_key
         self._ethereum_rpc_url = ethereum_rpc_url
         self._trading_required = trading_required
@@ -97,14 +94,16 @@ class UniswapConnector(ConnectorBase):
         return "uniswap"
 
     @staticmethod
-    def token_list():
-        return get_erc20_token_addresses()
-
-    @staticmethod
     async def fetch_trading_pairs() -> List[str]:
-        token_list = UniswapConnector.token_list()
+        token_list_url = global_config_map.get("ethereum_token_list_url").value
+        tokens = set()
+        async with aiohttp.ClientSession() as client:
+            resp = await client.get(token_list_url)
+            resp_json = await resp.json()
+        for token in resp_json["tokens"]:
+            tokens.add(token["symbol"])
         trading_pairs = []
-        for base, quote in it.permutations(token_list.keys(), 2):
+        for base, quote in it.permutations(tokens, 2):
             trading_pairs.append(f"{base}-{quote}")
         return trading_pairs
 
@@ -168,7 +167,7 @@ class UniswapConnector(ConnectorBase):
         """
         ret_val = {}
         resp = await self._api_request("post", "eth/allowances",
-                                       {"tokenList": "[" + ("".join(['"' + tok + '"' + "," for tok in self._token_addresses.keys()])).rstrip(",") + "]",
+                                       {"tokenList": "[" + (",".join(self._tokens)) + "]",
                                         "connector": self.name})
         for token, amount in resp["approvals"].items():
             ret_val[token] = Decimal(str(amount))
@@ -439,7 +438,7 @@ class UniswapConnector(ConnectorBase):
         """
         Checks if all tokens have allowance (an amount approved)
         """
-        return len(self._allowances.values()) == len(self._token_addresses.keys()) and \
+        return len(self._allowances.values()) == len(self._tokens) and \
             all(amount > s_decimal_0 for amount in self._allowances.values())
 
     @property
@@ -517,7 +516,7 @@ class UniswapConnector(ConnectorBase):
         remote_asset_names = set()
         resp_json = await self._api_request("post",
                                             "eth/balances",
-                                            {"tokenList": "[" + ("".join(['"' + tok + '"' + "," for tok in self._token_addresses.keys()])).rstrip(",") + "]"})
+                                            {"tokenList": "[" + ("".join(self._tokens)) + "]"})
         for token, bal in resp_json["balances"].items():
             self._account_available_balances[token] = Decimal(str(bal))
             self._account_balances[token] = Decimal(str(bal))
