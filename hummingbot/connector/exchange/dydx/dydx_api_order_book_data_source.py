@@ -1,19 +1,10 @@
 #!/usr/bin/env python
 
 import asyncio
-from decimal import Decimal
 from datetime import datetime
-
 import aiohttp
 import logging
-# import pandas as pd
-# import math
-
-import requests
-import cachetools.func
-
 from typing import AsyncIterable, Dict, List, Optional, Any
-
 import time
 import ujson
 import websockets
@@ -22,7 +13,7 @@ from websockets.exceptions import ConnectionClosed
 from hummingbot.connector.exchange.dydx.dydx_order_book import DydxOrderBook
 from hummingbot.connector.exchange.dydx.dydx_active_order_tracker import DydxActiveOrderTracker
 from hummingbot.connector.exchange.dydx.dydx_api_token_configuration_data_source import DydxAPITokenConfigurationDataSource
-from hummingbot.connector.exchange.dydx.dydx_utils import convert_from_exchange_trading_pair, convert_to_exchange_trading_pair, convert_v2_pair_to_v1
+from hummingbot.connector.exchange.dydx.dydx_utils import convert_from_exchange_trading_pair, convert_v2_pair_to_v1
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book import OrderBook
@@ -138,22 +129,6 @@ class DydxAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return
         finally:
             await ws.close()
-
-    @staticmethod
-    @cachetools.func.ttl_cache(ttl=10)
-    def get_mid_price(trading_pair: str) -> Optional[Decimal]:
-        exchange_pair: str = convert_to_exchange_trading_pair(trading_pair)
-        market_info_response = requests.get(url=DYDX_MARKET_INFO_URL.format(exchange_pair))
-        market_info = market_info_response.json()
-        base_decimals = market_info['market']['baseCurrency']['decimals']
-        quote_decimals = market_info['market']['quoteCurrency']['decimals']
-
-        resp = requests.get(url=DYDX_ORDERBOOK_URL.format(exchange_pair))
-        record = resp.json()
-        conversion_factor = Decimal(f"1e{base_decimals - quote_decimals}")
-        best_bid = Decimal(record["bids"][0]["price"]) * conversion_factor
-        best_ask = Decimal(record["asks"][0]["price"]) * conversion_factor
-        return (best_bid + best_ask) / 2
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:

@@ -45,7 +45,7 @@ async def main():
     # This init_logging() call is important, to skip over the missing config warnings.
     init_logging("hummingbot_logs.yml")
 
-    read_system_configs_from_yml()
+    await read_system_configs_from_yml()
 
     hb = HummingbotApplication.main_application()
 

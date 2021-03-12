@@ -1,18 +1,9 @@
 #!/usr/bin/env python
 
 import asyncio
-from decimal import Decimal
-
 import aiohttp
 import logging
-# import pandas as pd
-# import math
-
-import requests
-import cachetools.func
-
 from typing import AsyncIterable, Dict, List, Optional, Any
-
 import time
 import ujson
 import websockets
@@ -122,17 +113,6 @@ class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return
         finally:
             await ws.close()
-
-    @staticmethod
-    @cachetools.func.ttl_cache(ttl=10)
-    def get_mid_price(trading_pair: str) -> Optional[Decimal]:
-        resp = requests.get(url=LOOPRING_PRICE_URL, params={"market": trading_pair})
-        record = resp.json()
-        if record["resultInfo"]["code"] == 0:
-            data = record["data"]
-            mid_price = (Decimal(data[9]) + Decimal(data[10])) / 2
-
-            return mid_price
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
