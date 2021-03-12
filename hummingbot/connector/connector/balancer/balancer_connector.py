@@ -34,6 +34,7 @@ from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CE
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import get_erc20_token_addresses
 from hummingbot.core.utils.ethereum import check_transaction_exceptions
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 
 s_logger = None
 s_decimal_0 = Decimal("0")
@@ -83,6 +84,7 @@ class BalancerConnector(ConnectorBase):
         self._shared_client = None
         self._last_poll_timestamp = 0.0
         self._last_balance_poll_timestamp = time.time()
+        self._last_est_gas_cost_reported = 0
         self._in_flight_orders = {}
         self._allowances = {}
         self._status_polling_task = None
@@ -232,6 +234,9 @@ class BalancerConnector(ConnectorBase):
                     self.logger().info(f"Warning! [{index+1}/{len(exceptions)}] {side} order - {exceptions[index]}")
 
                 if price is not None and len(exceptions) == 0:
+                    # TODO standardize quote price object to include price, fee, token, is fee part of quote.
+                    fee_overrides_config_map["balancer_maker_fee_amount"].value = Decimal(str(gas_cost))
+                    fee_overrides_config_map["balancer_taker_fee_amount"].value = Decimal(str(gas_cost))
                     return Decimal(str(price))
         except asyncio.CancelledError:
             raise
@@ -316,9 +321,13 @@ class BalancerConnector(ConnectorBase):
             gas_cost = order_result.get("gasCost")
             self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, gas_price)
             tracked_order = self._in_flight_orders.get(order_id)
+
+            # update onchain balance
+            await self._update_balances()
+
             if tracked_order is not None:
                 self.logger().info(f"Created {trade_type.name} order {order_id} txHash: {hash} "
-                                   f"for {amount} {trading_pair}. Estimated Transaction Fee: {gas_cost} ETH "
+                                   f"for {amount} {trading_pair}. Estimated Gas Cost: {gas_cost} ETH "
                                    f" (gas limit: {gas_limit}, gas price: {gas_price})")
                 tracked_order.update_exchange_order_id(hash)
                 tracked_order.gas_price = gas_price

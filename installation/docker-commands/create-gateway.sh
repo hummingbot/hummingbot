@@ -141,10 +141,6 @@ prompt_ethereum_rpc_setup () {
 }
 prompt_ethereum_rpc_setup
 
-# prompt to setup balancer, uniswap
-prompt_ethereum_setup () {
-  read -p "   Do you want to setup Balancer/Uniswap/Perpetual Finance? [Y/N] >>> " PROCEED
-  if [[ "$PROCEED" == "Y" || "$PROCEED" == "y" ]]
 # prompt to setup ethereum token list
 prompt_token_list_source () {
   echo
