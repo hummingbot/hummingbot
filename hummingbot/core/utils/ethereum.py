@@ -3,7 +3,11 @@ import logging
 from hexbytes import HexBytes
 from web3 import Web3
 from web3.datastructures import AttributeDict
-from typing import Dict
+from typing import Dict, List
+import aiohttp
+from hummingbot.client.config.global_config_map import global_config_map
+import itertools as it
+from hummingbot.core.utils import async_ttl_cache
 
 
 def check_web3(ethereum_rpc_url: str) -> bool:
@@ -69,3 +73,18 @@ def check_transaction_exceptions(trade_data: dict) -> dict:
         exception_list.append(f"Insufficient {trade_token} allowance {trade_allowance}. Amount to trade: {amount}")
 
     return exception_list
+
+
+@async_ttl_cache(ttl=30)
+async def fetch_trading_pairs() -> List[str]:
+    token_list_url = global_config_map.get("ethereum_token_list_url").value
+    tokens = set()
+    async with aiohttp.ClientSession() as client:
+        resp = await client.get(token_list_url)
+        resp_json = await resp.json()
+    for token in resp_json["tokens"]:
+        tokens.add(token["symbol"])
+    trading_pairs = []
+    for base, quote in it.permutations(tokens, 2):
+        trading_pairs.append(f"{base}-{quote}")
+    return trading_pairs
