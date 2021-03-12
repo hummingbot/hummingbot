@@ -31,9 +31,8 @@ from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.connector.uniswap.uniswap_in_flight_order import UniswapInFlightOrder
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.core.utils.ethereum import check_transaction_exceptions
+from hummingbot.core.utils.ethereum import check_transaction_exceptions, fetch_trading_pairs
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
-from hummingbot.connector.connector.balancer.balancer_connector import BalancerConnector
 
 s_logger = None
 s_decimal_0 = Decimal("0")
@@ -97,7 +96,7 @@ class UniswapConnector(ConnectorBase):
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
-        return await BalancerConnector.fetch_trading_pairs()
+        return await fetch_trading_pairs()
 
     @property
     def limit_orders(self) -> List[LimitOrder]:

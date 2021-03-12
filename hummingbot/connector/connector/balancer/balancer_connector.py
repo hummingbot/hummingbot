@@ -7,7 +7,6 @@ import json
 import time
 import ssl
 import copy
-import itertools as it
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.network_iterator import NetworkStatus
@@ -32,7 +31,7 @@ from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.connector.balancer.balancer_in_flight_order import BalancerInFlightOrder
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.core.utils.ethereum import check_transaction_exceptions
+from hummingbot.core.utils.ethereum import check_transaction_exceptions, fetch_trading_pairs
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 
 s_logger = None
@@ -98,17 +97,7 @@ class BalancerConnector(ConnectorBase):
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
-        token_list_url = global_config_map.get("ethereum_token_list_url").value
-        tokens = set()
-        async with aiohttp.ClientSession() as client:
-            resp = await client.get(token_list_url)
-            resp_json = await resp.json()
-        for token in resp_json["tokens"]:
-            tokens.add(token["symbol"])
-        trading_pairs = []
-        for base, quote in it.permutations(tokens, 2):
-            trading_pairs.append(f"{base}-{quote}")
-        return trading_pairs
+        return await fetch_trading_pairs()
 
     @property
     def limit_orders(self) -> List[LimitOrder]:

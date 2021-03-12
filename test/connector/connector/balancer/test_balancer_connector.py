@@ -52,10 +52,10 @@ class BalancerConnectorUnitTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        # cls._gas_price_patcher = unittest.mock.patch(
-        #     "hummingbot.connector.connector.balancer.balancer_connector.get_gas_price")
-        # cls._gas_price_mock = cls._gas_price_patcher.start()
-        # cls._gas_price_mock.return_value = 50
+        cls._gas_price_patcher = unittest.mock.patch(
+            "hummingbot.connector.connector.balancer.balancer_connector.get_gas_price")
+        cls._gas_price_mock = cls._gas_price_patcher.start()
+        cls._gas_price_mock.return_value = 50
         cls.ev_loop = asyncio.get_event_loop()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.connector: BalancerConnector = BalancerConnector(
