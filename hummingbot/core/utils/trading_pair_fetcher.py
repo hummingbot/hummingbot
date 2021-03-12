@@ -4,7 +4,6 @@ from typing import (
     Any,
     Optional,
 )
-from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
 from hummingbot.client.settings import CONNECTOR_SETTINGS, ConnectorType
 import logging
