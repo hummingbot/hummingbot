@@ -167,7 +167,7 @@ class UniswapConnector(ConnectorBase):
         """
         ret_val = {}
         resp = await self._api_request("post", "eth/allowances",
-                                       {"tokenList": "[" + (",".join(self._tokens)) + "]",
+                                       {"tokenList": "[" + (",".join(["'" + t + "'" for t in self._tokens])) + "]",
                                         "connector": self.name})
         for token, amount in resp["approvals"].items():
             ret_val[token] = Decimal(str(amount))
@@ -532,7 +532,7 @@ class UniswapConnector(ConnectorBase):
         remote_asset_names = set()
         resp_json = await self._api_request("post",
                                             "eth/balances",
-                                            {"tokenList": "[" + ("".join(self._tokens)) + "]"})
+                                            {"tokenList": "[" + ("".join(["'" + t + "'" for t in self._tokens])) + "]"})
         for token, bal in resp_json["balances"].items():
             self._account_available_balances[token] = Decimal(str(bal))
             self._account_balances[token] = Decimal(str(bal))
