@@ -14,9 +14,6 @@ from typing import (
     List,
     Optional,
 )
-from decimal import Decimal
-import requests
-import cachetools.func
 import websockets
 from websockets.exceptions import ConnectionClosed
 
@@ -28,7 +25,6 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.okex.okex_order_book import OkexOrderBook
 from hummingbot.connector.exchange.okex.constants import (
     OKEX_SYMBOLS_URL,
-    OKEX_PRICE_URL,
     OKEX_DEPTH_URL,
     OKEX_WS_URI,
 )
@@ -80,16 +76,7 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                 all_markets.rename({"quote_volume_24h": "volume", "last": "price"},
                                    axis="columns", inplace=True)
-
                 return all_markets
-
-    @staticmethod
-    @cachetools.func.ttl_cache(ttl=10)
-    def get_mid_price(trading_pair: str) -> Optional[Decimal]:
-        resp = requests.get(url=OKEX_PRICE_URL.format(trading_pair=trading_pair))
-        record = resp.json()
-        if 'best_ask' in record and 'best_bid' in record:
-            return (Decimal(record["best_ask"]) + Decimal(record["best_bid"])) / Decimal("2")
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:

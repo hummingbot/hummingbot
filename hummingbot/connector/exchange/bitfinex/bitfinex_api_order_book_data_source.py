@@ -6,9 +6,6 @@ import aiohttp
 import asyncio
 import ujson
 import pandas as pd
-from decimal import Decimal
-import requests
-import cachetools.func
 from typing import (
     Any,
     AsyncIterable,
@@ -90,15 +87,6 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         # Dictionary that maps Order IDs to book enties (i.e. price, amount, and update_id the
         # way it is stored in Hummingbot order book, usually timestamp)
         self._tracked_book_entries: Dict[int, OrderBookRow] = {}
-
-    @staticmethod
-    @cachetools.func.ttl_cache(ttl=10)
-    def get_mid_price(trading_pair: str) -> Optional[Decimal]:
-        exchange_trading_pair = convert_to_exchange_trading_pair(trading_pair)
-        resp = requests.get(url=f"https://api-pub.bitfinex.com/v2/ticker/{exchange_trading_pair}")
-        record = resp.json()
-        result = (Decimal(record[0]) + Decimal(record[2])) / Decimal("2")
-        return result
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
