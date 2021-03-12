@@ -56,6 +56,4 @@ class TradingPairFetcher:
         try:
             self.trading_pairs[exchange_name] = await fetch_fn
         except (asyncio.TimeoutError, asyncio.CancelledError, requests.exceptions.RequestException):
-            self.logger().error(f"Connector {exchange_name} failed to retrieve its trading pairs. "
-                                f"Trading pairs autocompletion won't work.")
             self.trading_pairs[exchange_name] = []
