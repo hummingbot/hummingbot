@@ -35,6 +35,7 @@ def start(self):
         price_source_custom_api = c_map.get("price_source_custom_api").value
         filled_order_delay = c_map.get("filled_order_delay").value
         order_refresh_tolerance_pct = c_map.get("order_refresh_tolerance_pct").value / Decimal('100')
+        add_transaction_costs_to_orders = c_map.get("add_transaction_costs").value
 
         trading_pair: str = raw_trading_pair
         maker_assets: Tuple[str, str] = self._initialize_market_assets(exchange, [trading_pair])[0]
@@ -79,7 +80,7 @@ def start(self):
             order_refresh_time=order_refresh_time,
             order_refresh_tolerance_pct=order_refresh_tolerance_pct,
             filled_order_delay=filled_order_delay,
-            add_transaction_costs_to_orders=True,
+            add_transaction_costs_to_orders=add_transaction_costs_to_orders,
             logging_options=strategy_logging_options,
             asset_price_delegate=asset_price_delegate,
             price_type=price_type,
