@@ -539,6 +539,7 @@ class BalancerConnector(ConnectorBase):
             resp_json = await self._api_request("post",
                                                 "eth/balances",
                                                 {"tokenList": "[" + (",".join(['"' + t + '"' for t in self._tokens])) + "]"})
+
             for token, bal in resp_json["balances"].items():
                 self._account_available_balances[token] = Decimal(str(bal))
                 self._account_balances[token] = Decimal(str(bal))

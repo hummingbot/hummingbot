@@ -507,7 +507,7 @@ class UniswapConnector(ConnectorBase):
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
                 await safe_gather(
-                    self._update_balances(),
+                    self._update_balances(on_interval=True),
                     self._update_order_status(),
                 )
                 self._last_poll_timestamp = self.current_timestamp
@@ -520,31 +520,32 @@ class UniswapConnector(ConnectorBase):
                                       app_warning_msg="Could not fetch balances from Gateway API.")
                 await asyncio.sleep(0.5)
 
-    async def _update_balances(self):
+    async def _update_balances(self, on_interval = False):
         """
         Calls Eth API to update total and available balances.
         """
         last_tick = self._last_balance_poll_timestamp
         current_tick = self.current_timestamp
-        if (current_tick - last_tick) > self.UPDATE_BALANCE_INTERVAL:
+        if not on_interval or (current_tick - last_tick) > self.UPDATE_BALANCE_INTERVAL:
             self._last_balance_poll_timestamp = current_tick
-        local_asset_names = set(self._account_balances.keys())
-        remote_asset_names = set()
-        resp_json = await self._api_request("post",
-                                            "eth/balances",
-                                            {"tokenList": "[" + ("".join(['"' + t + '"' for t in self._tokens])) + "]"})
-        for token, bal in resp_json["balances"].items():
-            self._account_available_balances[token] = Decimal(str(bal))
-            self._account_balances[token] = Decimal(str(bal))
-            remote_asset_names.add(token)
+            local_asset_names = set(self._account_balances.keys())
+            remote_asset_names = set()
+            resp_json = await self._api_request("post",
+                                                "eth/balances",
+                                                {"tokenList": "[" + (",".join(['"' + t + '"' for t in self._tokens])) + "]"})
 
-        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-        for asset_name in asset_names_to_remove:
-            del self._account_available_balances[asset_name]
-            del self._account_balances[asset_name]
+            for token, bal in resp_json["balances"].items():
+                self._account_available_balances[token] = Decimal(str(bal))
+                self._account_balances[token] = Decimal(str(bal))
+                remote_asset_names.add(token)
 
-        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
-        self._in_flight_orders_snapshot_timestamp = self.current_timestamp
+            asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+            for asset_name in asset_names_to_remove:
+                del self._account_available_balances[asset_name]
+                del self._account_balances[asset_name]
+
+            self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
+            self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
     async def _http_client(self) -> aiohttp.ClientSession:
         """
