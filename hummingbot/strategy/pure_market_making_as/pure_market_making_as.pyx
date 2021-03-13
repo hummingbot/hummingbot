@@ -119,7 +119,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         self._max_spread = max_spread
         self._vol_to_spread_multiplier = vol_to_spread_multiplier
         self._inventory_risk_aversion = inventory_risk_aversion
-        self._avg_vol=AverageVolatilityIndicator(buffer_size, buffer_size)
+        self._avg_vol=AverageVolatilityIndicator(buffer_size, 3)
         self._buffer_sampling_period = buffer_sampling_period
         self._last_sampling_timestamp = 0
         self._kappa = kappa
@@ -396,8 +396,8 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         else:
             lines.extend(["", "  No active maker orders."])
 
-        volatility_pct = self._avg_vol.current_value / float(self.c_get_mid_price()) * 100.0
-        lines.extend(["", f"Avellaneda-Stoikov: Gamma= {self._gamma:.5E} | Kappa= {self._kappa:.5E} | Volatility= {volatility_pct:.3f}%"])
+        volatility_pct = self._avg_vol.current_value / float(self.get_price()) * 100.0
+        lines.extend(["", f"Avellaneda-Stoikov: Gamma= {self._gamma:.5E} | Kappa= {self._kappa:.5E} | Volatility= {volatility_pct:.3f}% | Time left fraction= {self._time_left/self._closing_time:.4f}"])
 
         warning_lines.extend(self.balance_warning([self._market_info]))
 
@@ -477,12 +477,14 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                     self.c_execute_orders_proposal(refresh_proposal)
                 if self.c_to_create_orders(proposal):
                     self.c_execute_orders_proposal(proposal)
+            else:
+                self.logger().info(f"Algorithm not ready...")
         finally:
             self._last_timestamp = timestamp
 
     cdef c_collect_market_variables(self, double timestamp):
         if timestamp - self._last_sampling_timestamp >= self._buffer_sampling_period:
-            self._avg_vol.add_sample(self.c_get_mid_price())
+            self._avg_vol.add_sample(self.get_price())
             self._last_sampling_timestamp = timestamp
         self._time_left = max(self._time_left - Decimal(timestamp - self._last_timestamp) * 1000, 0)
         if self._time_left == 0:
@@ -510,16 +512,16 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
 
         time_left_fraction = Decimal(str(self._time_left / self._closing_time))
 
-        mid_price = self.c_get_mid_price()
+        price = self.get_price()
         q = market.c_get_available_balance(self.base_asset) - Decimal(str(self.c_calculate_target_inventory()))
         vol = Decimal(str(self._avg_vol.current_value))
         mid_price_variance = vol ** 2
-        self._reserved_price = mid_price - (q * self._gamma * mid_price_variance * time_left_fraction)
+        self._reserved_price = price - (q * self._gamma * mid_price_variance * time_left_fraction)
 
-        min_limit_bid = min(mid_price * (1 - self._max_spread), mid_price - self._vol_to_spread_multiplier * vol)
-        max_limit_bid = mid_price * (1 - self._min_spread)
-        min_limit_ask = mid_price * (1 + self._min_spread)
-        max_limit_ask = max(mid_price * (1 + self._max_spread), mid_price + self._vol_to_spread_multiplier * vol)
+        min_limit_bid = min(price * (1 - self._max_spread), price - self._vol_to_spread_multiplier * vol)
+        max_limit_bid = price * (1 - self._min_spread)
+        min_limit_ask = price * (1 + self._min_spread)
+        max_limit_ask = max(price * (1 + self._max_spread), price + self._vol_to_spread_multiplier * vol)
 
         self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction + 2 * Decimal(1 + self._gamma / self._kappa).ln() / self._gamma
         self._optimal_ask = min(max(self._reserved_price + self._optimal_spread / 2,
@@ -528,10 +530,15 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         self._optimal_bid = min(max(self._reserved_price - self._optimal_spread / 2,
                                     min_limit_bid),
                                 max_limit_bid)
-        self.logger().info(f"bid={(mid_price-(self._reserved_price - self._optimal_spread / 2))/mid_price*100:.4f}% | "
-                           f"ask={((self._reserved_price + self._optimal_spread / 2)-mid_price)/mid_price*100:.4f}% | "
+        # This is not what the algorithm will use as proposed bid and ask. This is just the raw output.
+        # Optimal bid and optimal ask prices will be used
+        self.logger().info(f"bid={(price-(self._reserved_price - self._optimal_spread / 2)) / price * 100:.4f}% | "
+                           f"ask={((self._reserved_price + self._optimal_spread / 2) - price) / price * 100:.4f}% | "
+                           f"vol_based_bid/ask={self._vol_to_spread_multiplier * vol / price * 100:.4f}% | "
+                           f"opt_bid={(price-self._optimal_bid) / price * 100:.4f}% | "
+                           f"opt_ask={(self._optimal_ask-price) / price * 100:.4f}% | "
                            f"q={q:.4f} | "
-                           f"sigma2={mid_price_variance:.4f}")
+                           f"vol={vol:.4f}")
 
     cdef object c_calculate_target_inventory(self):
         cdef:
@@ -544,13 +551,13 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             object inventory_value
             object target_inventory_value
 
-        mid_price = self.c_get_mid_price()
+        price = self.get_price()
         base_asset_amount = market.get_balance(base_asset)
         quote_asset_amount = market.get_balance(quote_asset)
-        base_value = base_asset_amount * mid_price
+        base_value = base_asset_amount * price
         inventory_value = base_value + quote_asset_amount
         target_inventory_value = inventory_value * self._inventory_target_base_pct
-        return market.c_quantize_order_amount(trading_pair, Decimal(str(target_inventory_value / mid_price)))
+        return market.c_quantize_order_amount(trading_pair, Decimal(str(target_inventory_value / price)))
 
     cdef c_recalculate_parameters(self):
         cdef:
@@ -558,25 +565,25 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
 
         q = market.c_get_available_balance(self.base_asset) - self.c_calculate_target_inventory()
         vol = Decimal(str(self._avg_vol.current_value))
-        mid_price=self.c_get_mid_price()
+        price=self.get_price()
 
         if vol > 0 and q != 0:
             # Initially min_spread and max_spread defined by user will be used, but both of them will be modified by vol_to_spread_multiplier if vol too big
-            min_spread = max(self._min_spread * mid_price, self._vol_to_spread_multiplier * vol)
-            max_spread = max(self._max_spread * mid_price, self._vol_to_spread_multiplier * vol + (self._max_spread - self._min_spread) * mid_price)
+            min_spread = self._min_spread * price
+            max_spread = self._max_spread * price
 
+            # If volatility is too high, gamma -> 0. Is this desirable?
             self._gamma = self._inventory_risk_aversion * (max_spread - min_spread) / (2 * abs(q) * (vol ** 2)) / 2
 
-            # Want the minimum possible spread which ideally is 2*min_spread,
+            # Want the maximum possible spread which ideally is 2 * max_spread minus (the shift between reserved and price)/2,
             # but with restrictions to avoid negative kappa or division by 0
-            max_spread_around_reserved_price = 2 * (max_spread - q * self._gamma * (vol ** 2))
+            max_spread_around_reserved_price = 2 * max_spread - q * self._gamma * (vol ** 2)
             if max_spread_around_reserved_price <= self._gamma * (vol ** 2):
                 self._kappa = Decimal('Inf')
             else:
                 self._kappa = self._gamma / (Decimal.exp((max_spread_around_reserved_price * self._gamma - (vol * self._gamma) **2) / 2) - 1)
 
             self._latest_parameter_calculation_vol = vol
-            self.logger().info(f"Gamma: {self._gamma:.5f} | Kappa: {self._kappa:.5f} | Sigma: {vol:.5f}")
 
     cdef bint c_is_algorithm_ready(self):
         return self._avg_vol.is_sampling_buffer_full
@@ -980,7 +987,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
 
     def dump_debug_variables(self):
         market = self._market_info.market
-        mid_price = self.c_get_mid_price()
+        mid_price = self.get_price()
         spread = Decimal(str(self.c_get_spread()))
 
         best_ask = mid_price + spread / 2
