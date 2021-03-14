@@ -107,10 +107,10 @@ class UniswapConnector(ConnectorBase):
 
     async def initiate_pool(self) -> str:
         """
-        Initiate strategy. Skip initializing pool
+        Initiate strategy & auto-approve allowances for trading_pairs
         """
         try:
-            self.logger().info("Initializing Uniswap")
+            self.logger().info(f"Initializing Uniswap {self._trading_pairs[0]} strategy & auto-approved allowances")
             base, quote = self._trading_pairs[0].split("-")
             resp = await self._api_request("post", "eth/uniswap/start",
                                            {"base": base,
@@ -591,7 +591,7 @@ class UniswapConnector(ConnectorBase):
                 err_msg = f" Message: {parsed_response['error']}"
             raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.{err_msg}")
         if "error" in parsed_response:
-            raise Exception(f"Error: {parsed_response['error']}")
+            raise Exception(f"Error: {parsed_response['error']} {parsed_response['message']}")
 
         return parsed_response
 
