@@ -97,8 +97,8 @@ class DigifinexExchangeUnitTest(unittest.TestCase):
 
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.connector: DigifinexExchange = DigifinexExchange(
-            key=API_KEY,
-            secret=API_SECRET,
+            digifinex_api_key=API_KEY,
+            digifinex_secret_key=API_SECRET,
             trading_pairs=[cls.trading_pair],
             trading_required=True
         )
