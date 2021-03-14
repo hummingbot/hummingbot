@@ -30,8 +30,7 @@ class DigifinexRestApi:
         client = await self._http_client()
         if is_auth_required:
             request_id = digifinex_utils.RequestId.generate_request_id()
-            headers = self._auth.get_private_headers(path_url, request_id,
-                                                     digifinex_utils.get_ms_timestamp(), params)
+            headers = self._auth.get_private_headers(path_url, request_id, params)
         else:
             headers = {}
 
