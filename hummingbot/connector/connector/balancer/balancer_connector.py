@@ -108,10 +108,10 @@ class BalancerConnector(ConnectorBase):
 
     async def initiate_pool(self) -> str:
         """
-        Initiate to cache swap pools for token in trading_pairs
+        Initiate strategy & auto-approve allowances for trading_pairs
         """
         try:
-            self.logger().info(f"Initializing strategy and caching Balancer {self._trading_pairs[0]} swap pools ...")
+            self.logger().info(f"Initializing Balancer {self._trading_pairs[0]} strategy & auto-approved allowances")
             base, quote = self._trading_pairs[0].split("-")
             resp = await self._api_request("post", "eth/balancer/start",
                                            {"base": base,
@@ -597,7 +597,7 @@ class BalancerConnector(ConnectorBase):
                 err_msg = f" Message: {parsed_response['error']}"
             raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.{err_msg}")
         if "error" in parsed_response:
-            raise Exception(f"Error: {parsed_response['error']}")
+            raise Exception(f"Error: {parsed_response['error']} {parsed_response['message']}")
 
         return parsed_response
 
