@@ -1,6 +1,5 @@
 from hummingbot.script.script_base import ScriptBase
 from scripts.utils.candles import Candles
-from datetime import datetime
 
 
 class CandlesScript(ScriptBase):
@@ -13,16 +12,17 @@ class CandlesScript(ScriptBase):
         """
         super().__init__()
         self.candles = None
+        self.valid = False
 
     def on_tick(self):
         if self.candles is None:
             self.candles = Candles(self)
-            if not self.candles.init():
+            self.valid = self.candles.init()
+            if not self.valid:
                 raise RuntimeError('Failed to initialise candles')
 
-        new_candle = self.candles.on_tick(self.mid_price)
-        if new_candle is True:
-            candle = self.candles.one_minute_candles[-1]
-            dt = datetime.fromtimestamp(candle.Time)
-            t = dt.strftime('%H:%M:%S')
-            self.notify(f'{t} - Open: {candle.Open} High: {candle.High} Low: {candle.Low} Close: {candle.Close}')
+        if self.valid:
+            new_candle = self.candles.on_tick(self.mid_price)
+            if new_candle is True:
+                candle = self.candles.one_minute_candles[-1]
+                self.notify(candle.to_string())

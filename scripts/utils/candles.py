@@ -32,8 +32,13 @@ class Candle:
         self.Low = low
         self.Close = close
 
+    def to_string(self):
+        dt = datetime.fromtimestamp(self.Time)
+        t = dt.strftime('%H:%M:%S')
+        return f'{t} - Open: {self.Open} High: {self.High} Low: {self.Low} Close: {self.Close}'
 
-# merge two candles together, l is assumed to be earlier and r later
+
+# merge two candles together, left is assumed to be earlier and right later
 def merge_candles(left: Candle, right: Candle):
 
     tm = left.Time
@@ -49,6 +54,9 @@ def merge_candles(left: Candle, right: Candle):
 # main candles class
 class Candles:
 
+    # this max length should be a config var based on the range of the indicators we want to support
+    MAX_CANDLES = 100
+
     def __init__(self, script: ScriptBase):
         self.open = 0.0
         self.high = 0.0
@@ -59,10 +67,12 @@ class Candles:
 
     def init(self):
 
+        # initialise arrays of 1, 5 and 15 minute candles
         self.one_minute_candles = []
         self.five_minute_candles = []
         self.fifteen_minute_candles = []
 
+        # use the public API to get historical klines
         binance = BinanceClient('', '')
         symbol = self.script.pmm_market_info.trading_pair.replace('-', '')
 
@@ -71,7 +81,7 @@ class Candles:
         min_lines = 12 * 15 * 4
         start_time = f"{min_lines} minutes ago"
 
-        # klines
+        # get klines
         try:
             klines = binance.get_historical_klines(symbol = symbol, interval='1m', start_str=start_time)
         except Exception as ex:
@@ -91,17 +101,16 @@ class Candles:
 
         # pipe one minute candles into local arrays
         for line in klines:
-            ts = (line[0] / 1e3) + 60
             self.open = float(line[1])
             self.high = float(line[2])
             self.low = float(line[3])
             self.close = float(line[4])
-            self.add_one_minute_candle(ts, self.close)
+            self.add_one_minute_candle(self.close)
 
         return True
 
-    def add_one_minute_candle(self, ts, price):
-        # close current candle
+    def add_one_minute_candle(self, price):
+        # close current candle, start time is one minute ago
         candle = Candle(
             self.next_one_minute_timestamp - 60,
             self.open,
@@ -111,7 +120,7 @@ class Candles:
 
         # add to list
         self.one_minute_candles.append(candle)
-        while len(self.one_minute_candles) > 100:
+        while len(self.one_minute_candles) > self.MAX_CANDLES:
             self.one_minute_candles.pop(0)
 
         # start new candle
@@ -120,47 +129,45 @@ class Candles:
         self.low = price
         self.close = price
 
-        # set next minute stamp
-        self.next_one_minute_timestamp = round_time(ts, 60)
-
         # create 5 min candles
-        if ts >= self.next_five_minute_timestamp:
+        if self.next_one_minute_timestamp >= self.next_five_minute_timestamp:
             if len(self.one_minute_candles) > 5:
                 candle = self.one_minute_candles[-5]
-                for i in range(-4, -1):
+                for i in range(-4, 0):
                     candle = merge_candles(candle, self.one_minute_candles[i])
 
                 self.five_minute_candles.append(candle)
-                while len(self.five_minute_candles) > 100:
+                while len(self.five_minute_candles) > self.MAX_CANDLES:
                     self.five_minute_candles.pop(0)
 
-            self.next_five_minute_timestamp = round_time(ts, 5 * 60)
+            self.next_five_minute_timestamp += 5 * 60
 
         # create 15 min candles
-        if ts >= self.next_fifteen_minute_timestamp:
+        if self.next_one_minute_timestamp >= self.next_fifteen_minute_timestamp:
             if len(self.five_minute_candles) > 3:
                 candle = self.five_minute_candles[-3]
                 candle = merge_candles(candle, self.five_minute_candles[-2])
                 candle = merge_candles(candle, self.five_minute_candles[-1])
 
                 self.fifteen_minute_candles.append(candle)
-                while len(self.fifteen_minute_candles) > 100:
+                while len(self.fifteen_minute_candles) > self.MAX_CANDLES:
                     self.fifteen_minute_candles.pop(0)
 
-            self.next_fifteen_minute_timestamp = round_time(ts, 15 * 60)
+            self.next_fifteen_minute_timestamp += 15 * 60
+
+        # set next minute stamp
+        self.next_one_minute_timestamp += 60
 
     def on_tick(self, price):
         ts = datetime.timestamp(datetime.now())
         if ts >= self.next_one_minute_timestamp:
             # create new one min candle
-            self.add_one_minute_candle(ts, price)
+            self.add_one_minute_candle(price)
             return True
         else:
             # update prices
-            if price > self.high:
-                self.high = price
-            elif price < self.low:
-                self.low = price
-
+            self.high = max(self.high, price)
+            self.low = min(self.low, price)
             self.close = price
+
             return False
