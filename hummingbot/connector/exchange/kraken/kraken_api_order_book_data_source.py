@@ -26,7 +26,6 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.kraken.kraken_order_book import KrakenOrderBook
-import hummingbot.connector.exchange.kraken.kraken_constants as constants
 from hummingbot.connector.exchange.kraken.kraken_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair)
@@ -199,7 +198,6 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     await ws.send(ws_message)
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
-
                         msg_dict = {"trading_pair": convert_from_exchange_trading_pair(msg[-1]),
                                     "asks": msg[1].get("a", []) or msg[1].get("as", []) or [],
                                     "bids": msg[1].get("b", []) or msg[1].get("bs", []) or []}
@@ -254,8 +252,7 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
         # all_markets: pd.DataFrame = await self.get_active_exchange_markets()
         trading_pairs: List[str] = []
         for tp in self._trading_pairs:
-            base, quote = self.split_to_base_quote(convert_to_exchange_trading_pair(tp))
-            trading_pairs.append(f"{base}/{quote}")
+            trading_pairs.append(convert_to_exchange_trading_pair(tp, '/'))
 
         ws_message_dict: Dict[str, Any] = {"event": "subscribe",
                                            "pair": trading_pairs,
@@ -264,12 +261,3 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
         ws_message: str = ujson.dumps(ws_message_dict)
 
         return ws_message
-
-    @staticmethod
-    def split_to_base_quote(exchange_trading_pair: str) -> (Optional[str], Optional[str]):
-        base, quote = None, None
-        for quote_asset in constants.QUOTES:
-            if quote_asset == exchange_trading_pair[-len(quote_asset):]:
-                base, quote = exchange_trading_pair[:-len(quote_asset)], exchange_trading_pair[-len(quote_asset):]
-                break
-        return base, quote

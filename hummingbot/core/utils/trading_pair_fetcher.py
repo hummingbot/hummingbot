@@ -8,6 +8,7 @@ from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
 from hummingbot.client.settings import CONNECTOR_SETTINGS, ConnectorType
 import logging
+import asyncio
 
 from .async_utils import safe_ensure_future
 
@@ -47,7 +48,7 @@ class TradingPairFetcher:
             module = getattr(importlib.import_module(module_path), class_name)
             args = {}
             args = conn_setting.add_domain_parameter(args)
-            tasks.append(module.fetch_trading_pairs(**args))
+            tasks.append(asyncio.wait_for(asyncio.shield(module.fetch_trading_pairs(**args)), timeout=3))
             fetched_connectors.append(conn_setting.name)
 
         results = await safe_gather(*tasks, return_exceptions=True)

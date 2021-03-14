@@ -84,6 +84,8 @@ class BalanceCommand:
         if all_ex_limits is None:
             all_ex_limits = {}
 
+        exchanges_total = 0
+
         for exchange, bals in all_ex_bals.items():
             self._notify(f"\n{exchange}:")
             # df = await self.exchange_balances_df(bals, all_ex_limits.get(exchange, {}))
@@ -95,6 +97,9 @@ class BalanceCommand:
                 self._notify("\n".join(lines))
                 self._notify(f"\n  Total: $ {df['Total ($)'].sum():.0f}    "
                              f"Allocated: {allocated_total / df['Total ($)'].sum():.2%}")
+                exchanges_total += df['Total ($)'].sum()
+
+        self._notify(f"\n\nExchanges Total: $ {exchanges_total:.0f}    ")
 
         celo_address = global_config_map["celo_address"].value
         if celo_address is not None:
@@ -110,9 +115,15 @@ class BalanceCommand:
 
         eth_address = global_config_map["ethereum_wallet"].value
         if eth_address is not None:
-            df = await self.ethereum_balances_df()
-            lines = ["    " + line for line in df.to_string(index=False).split("\n")]
+            eth_df = await self.ethereum_balances_df()
+            lines = ["    " + line for line in eth_df.to_string(index=False).split("\n")]
             self._notify("\nethereum:")
+            self._notify("\n".join(lines))
+
+            # XDAI balances
+            xdai_df = await self.xdai_balances_df()
+            lines = ["    " + line for line in xdai_df.to_string(index=False).split("\n")]
+            self._notify("\nxdai:")
             self._notify("\n".join(lines))
 
     async def exchange_balances_df(self,  # type: HummingbotApplication
@@ -173,6 +184,16 @@ class BalanceCommand:
         else:
             eth_bal = UserBalances.ethereum_balance()
             rows.append({"Asset": "ETH", "Amount": round(eth_bal, 4)})
+        df = pd.DataFrame(data=rows, columns=["Asset", "Amount"])
+        df.sort_values(by=["Asset"], inplace=True)
+        return df
+
+    async def xdai_balances_df(self,  # type: HummingbotApplication
+                               ):
+        rows = []
+        bals = await UserBalances.xdai_balances()
+        for token, bal in bals.items():
+            rows.append({"Asset": token, "Amount": round(bal, 4)})
         df = pd.DataFrame(data=rows, columns=["Asset", "Amount"])
         df.sort_values(by=["Asset"], inplace=True)
         return df
