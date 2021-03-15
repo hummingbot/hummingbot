@@ -16,15 +16,15 @@ EXCHANGE_NAME = "idex"
 
 IDEX_BLOCKCHAINS = ('ETH', 'BSC')
 
-
-IDEX_REST_URL_FMT = "https://api-{blockchain}.idex.io"
-IDEX_WS_FEED_FMT = "wss://websocket-{blockchain}.idex.io/v1"
+# API Feed adjusted to sandbox url
+IDEX_REST_URL_FMT = "https://api-sandbox-{blockchain}.idex.io/"
+# WS Feed adjusted to sandbox url
+IDEX_WS_FEED_FMT = "wss://websocket-sandbox-{blockchain}.idex.io/v1"
 
 
 def validate_idex_contract_blockchain(value: str) -> Optional[str]:
     if value not in IDEX_BLOCKCHAINS:
         return f'Value {value} must be one of: {IDEX_BLOCKCHAINS}'
-
 
 KEYS = {
     "idex_api_key":

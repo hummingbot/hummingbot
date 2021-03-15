@@ -45,24 +45,6 @@ cdef class IdexActiveOrderTracker:
         """
         return self._active_bids
 
-    def volume_for_ask_price(self, price) -> float:
-        """
-        For a certain price, get the volume sum of all ask order book rows with that price
-        :returns: volume sum
-        """
-
-        # todo: Confirm "remaining_size as property name"
-        return sum([float(msg["remaining_size"]) for msg in self._active_asks[price].values()])
-
-    def volume_for_bid_price(self, price) -> float:
-        """
-        For a certain price, get the volume sum of all bid order book rows with that price
-        :returns: volume sum
-        """
-
-        # todo: Confirm "remaining_size as property name"
-        return sum([float(msg["remaining_size"]) for msg in self._active_bids[price].values()])
-
     def get_rates_and_quantities(self, entry) -> tuple:
         # price, size
         return float(entry[0]), float(entry[1])
@@ -85,8 +67,8 @@ cdef class IdexActiveOrderTracker:
             double timestamp = message.timestamp
             double amount = 0
 
-        bid_entries = content["bids"]
-        ask_entries = content["asks"]
+        bid_entries = content["data"]["b"]
+        ask_entries = content["data"]["a"]
 
         bids = s_empty_diff
         asks = s_empty_diff

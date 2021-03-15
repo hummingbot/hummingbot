@@ -59,35 +59,15 @@ class IdexAPIOrderBookDataSourceUnitTest(unittest.TestCase):
     def run_async(self, task):
         return self.ev_loop.run_until_complete(task)
 
-    # Test returns: Success
-    # Uses PropertyMock to mock the API URL. Serves more to validate the use of PropertyMock in functions
-    # with GET requests to the URL.
-    # The appropriate means of testing access to the global_config_map blockchain value should be discussed.
     def test_get_idex_rest_url(self):
-        with patch(self.REST_URL, new_callable=PropertyMock) as mocked_api_url:
-            # ETH URL
-            mocked_api_url.return_value = "https://api-eth.idex.io"
-            # mocked_REST_URL.assert_called_with(blockchain=global_config_map['idex_contract_blockchain'].value)
-            self.assertEqual("https://api-eth.idex.io", IdexAPIOrderBookDataSource.get_idex_rest_url())
-            # BSC URL
-            mocked_api_url.return_value = "https://api-bsc.idex.io"
-            # mocked_REST_URL.assert_called_with(blockchain=global_config_map['idex_contract_blockchain'].value)
-            self.assertEqual("https://api-bsc.idex.io", IdexAPIOrderBookDataSource.get_idex_rest_url())
+        # Calls blockchain default ("eth") in global_config[blockchain] if blockchain value is None
+        # Todo: test with user inputs and blockchain value to ensure ETH and BSC blockchain inputs work
+        self.assertEqual("https://api-sandbox-ETH.idex.io/", IdexAPIOrderBookDataSource.get_idex_rest_url())
 
-    # Test returns: Success
-    # Uses PropertyMock to mock the WebSocket Feed. Serves more to validate the use of PropertyMock in
-    # functions with GET requests to the URL.
-    # The appropriate means of testing access to the global_config_map blockchain value should be discussed.
     def test_get_idex_ws_feed(self):
-        with patch(self.WS_FEED, new_callable=PropertyMock) as mocked_WS_FEED:
-            # ETH URL
-            mocked_WS_FEED.return_value = "wss://websocket-eth.idex.io/v1"
-            # mocked_REST_URL.assert_called_with(blockchain=global_config_map['idex_contract_blockchain'].value)
-            self.assertEqual("wss://websocket-eth.idex.io/v1", IdexAPIOrderBookDataSource.get_idex_ws_feed())
-            # BSC URL
-            mocked_WS_FEED.return_value = "wss://websocket-bsc.idex.io/v1"
-            # mocked_REST_URL.assert_called_with(blockchain=global_config_map['idex_contract_blockchain'].value)
-            self.assertEqual("wss://websocket-bsc.idex.io/v1", IdexAPIOrderBookDataSource.get_idex_ws_feed())
+        # Calls blockchain default ("eth") in global_config[blockchain] if blockchain value is None
+        # Todo: test with user inputs and blockchain value to ensure ETH and BSC blockchain inputs work.
+        self.assertEqual("wss://websocket-sandbox-ETH.idex.io/v1", IdexAPIOrderBookDataSource.get_idex_ws_feed())
 
     # Test returns: Success
     # Uses PropertyMock to mock the API URL. Test confirms ability to fetch all trading pairs
@@ -100,8 +80,6 @@ class IdexAPIOrderBookDataSourceUnitTest(unittest.TestCase):
                 self.eth_order_book_data_source.fetch_trading_pairs())
             self.assertIn("UNI-ETH", trading_pairs)
             self.assertIn("LBA-ETH", trading_pairs)
-            # possible to use map to iterate through trading pairs list. However, commented out for readability.
-            # map(lambda sample_pair : self.assertIn(sample_pair, trading_pairs), self.eth_sample_pairs)
             # BSC URL
             mocked_api_url.return_value = "https://api-bsc.idex.io"
             trading_pairs: List[str] = self.run_async(
@@ -313,7 +291,7 @@ class IdexAPIOrderBookDataSourceUnitTest(unittest.TestCase):
         self.assertEqual(first_item.content['asks'], FixtureIdex.SNAPSHOT_1['asks'])
 
         # Validate the rest of the content
-        self.assertEqual(first_item.content['product_id'], self.eth_sample_pairs[0])
+        self.assertEqual(first_item.content['trading_pair'], self.eth_sample_pairs[0])
         self.assertEqual(first_item.content['sequence'], FixtureIdex.SNAPSHOT_1['sequence'])
 
     @patch(WS_FEED, new_callable=PropertyMock)
@@ -364,12 +342,9 @@ class IdexAPIOrderBookDataSourceUnitTest(unittest.TestCase):
             # Validate the actual content injected is dict type
             self.assertIsInstance(event.content, dict)
 
-    @patch(WS_FEED, new_callable=PropertyMock)
     @patch(PATCH_BASE_PATH.format(method='_inner_messages'))
-    def test_listen_for_trades(self, mock_inner_messages, mock_ws_feed):
+    def test_listen_for_trades(self, mock_inner_messages):
         timeout = 2
-
-        mock_ws_feed.return_value = "wss://websocket-eth.idex.io/v1"
 
         q = asyncio.Queue()
 

@@ -1,5 +1,6 @@
 import ujson
 import logging
+import time
 from typing import (
     Dict,
     List,
@@ -131,10 +132,10 @@ cdef class IdexOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         msg.update({
-            "exchange_order_id": msg.get("i"),
-            "trade_type": msg.get("s"),
-            "price": msg.get("p"),
-            "amount": msg.get("q"),
+            "exchange_order_id": msg.get("data").get("i"),
+            "trade_type": msg.get("data").get("s"),
+            "price": msg.get("data").get("p"),
+            "amount": msg.get("data").get("q"),
         })
         return IdexOrderBookMessage(
             message_type=OrderBookMessageType.TRADE,
