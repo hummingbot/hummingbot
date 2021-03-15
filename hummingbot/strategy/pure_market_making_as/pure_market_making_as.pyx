@@ -573,11 +573,10 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             max_spread = self._max_spread * price
 
             # If volatility is too high, gamma -> 0. Is this desirable?
-            self._gamma = self._inventory_risk_aversion * (max_spread - min_spread) / (2 * abs(q) * (vol ** 2)) / 2
+            self._gamma = self._inventory_risk_aversion * (max_spread - min_spread) / (2 * abs(q) * (vol ** 2))
 
-            # Want the maximum possible spread which ideally is 2 * max_spread minus (the shift between reserved and price)/2,
-            # but with restrictions to avoid negative kappa or division by 0
-            max_spread_around_reserved_price = 2 * max_spread - 2 * q * self._gamma * (vol ** 2)
+            # Want the maximum possible spread but with restrictions to avoid negative kappa or division by 0
+            max_spread_around_reserved_price = max_spread + min_spread
             if max_spread_around_reserved_price <= self._gamma * (vol ** 2):
                 self._kappa = Decimal('Inf')
             else:
