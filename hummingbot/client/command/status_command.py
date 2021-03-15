@@ -68,7 +68,7 @@ class StatusCommand:
 
         return "\n".join(lines)
 
-    async def strategy_status(self):
+    async def strategy_status(self, live: bool = False):
         paper_trade = "\n  Paper Trading ON: All orders are simulated, and no real orders are placed." if global_config_map.get("paper_trade_enabled").value \
             else ""
         app_warning = self.application_warning()
@@ -78,7 +78,7 @@ class StatusCommand:
         else:
             st_status = self.strategy.format_status()
         status = paper_trade + "\n" + st_status + "\n" + app_warning
-        if self._script_iterator is not None:
+        if self._script_iterator is not None and live is False:
             self._script_iterator.request_status()
         return status
 
@@ -128,7 +128,7 @@ class StatusCommand:
                     script_status = '\n Status from script would not appear here. ' \
                                     'Simply run the status command without "--live" to see script status.'
                     await self.cls_display_delay(
-                        await self.strategy_status() + script_status + "\n\n Press escape key to stop update.", 1
+                        await self.strategy_status(live=True) + script_status + "\n\n Press escape key to stop update.", 1
                     )
                 self._notify("Stopped live status display update.")
             else:
