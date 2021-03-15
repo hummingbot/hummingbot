@@ -10,7 +10,6 @@ from os.path import (
 )
 from collections import OrderedDict
 import json
-import requests
 from typing import (
     Any,
     Callable,
@@ -161,19 +160,6 @@ def get_eth_wallet_private_key() -> Optional[str]:
     private_key = Security._private_keys[ethereum_wallet]
     account = Account.privateKeyToAccount(private_key)
     return account.privateKey.hex()
-
-
-def get_erc20_token_addresses() -> Dict[str, List]:
-    token_list_url = global_config_map.get("ethereum_token_list_url").value
-    token_list = {}
-
-    resp = requests.get(token_list_url, timeout=3)
-    decoded_resp = resp.json()
-
-    for token in decoded_resp["tokens"]:
-        token_list[token["symbol"]] = [token["address"], token["decimals"]]
-
-    return token_list
 
 
 def _merge_dicts(*args: Dict[str, ConfigVar]) -> OrderedDict:
