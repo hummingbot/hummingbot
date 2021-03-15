@@ -70,7 +70,6 @@ async def main():
 
 if __name__ == "__main__":
     chdir_to_data_directory()
-    # This is to start fetching trading pairs for auto-complete
     if login_prompt():
         ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         ev_loop.run_until_complete(main())
