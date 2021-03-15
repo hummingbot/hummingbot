@@ -577,7 +577,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
 
             # Want the maximum possible spread which ideally is 2 * max_spread minus (the shift between reserved and price)/2,
             # but with restrictions to avoid negative kappa or division by 0
-            max_spread_around_reserved_price = 2 * max_spread - q * self._gamma * (vol ** 2)
+            max_spread_around_reserved_price = 2 * max_spread - 2 * q * self._gamma * (vol ** 2)
             if max_spread_around_reserved_price <= self._gamma * (vol ** 2):
                 self._kappa = Decimal('Inf')
             else:
