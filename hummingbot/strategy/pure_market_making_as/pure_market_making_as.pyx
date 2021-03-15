@@ -513,7 +513,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         time_left_fraction = Decimal(str(self._time_left / self._closing_time))
 
         price = self.get_price()
-        q = market.c_get_available_balance(self.base_asset) - Decimal(str(self.c_calculate_target_inventory()))
+        q = market.get_balance(self.base_asset) - Decimal(str(self.c_calculate_target_inventory()))
         vol = Decimal(str(self._avg_vol.current_value))
         mid_price_variance = vol ** 2
         self._reserved_price = price - (q * self._gamma * mid_price_variance * time_left_fraction)
@@ -563,7 +563,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         cdef:
             ExchangeBase market = self._market_info.market
 
-        q = market.c_get_available_balance(self.base_asset) - self.c_calculate_target_inventory()
+        q = market.get_balance(self.base_asset) - self.c_calculate_target_inventory()
         vol = Decimal(str(self._avg_vol.current_value))
         price=self.get_price()
 
