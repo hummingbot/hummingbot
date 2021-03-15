@@ -175,7 +175,7 @@ class AsyncBaseClient:
             self.session = ClientSession()
 
         if self.auth:
-            wallet = wallet or Account.from_key(self.auth.wallet_private_key).address
+            wallet = wallet or Account.from_key(self.auth._wallet_private_key).address
 
         url = settings.ws_api_url
         async with self.session.ws_connect(url) as ws:

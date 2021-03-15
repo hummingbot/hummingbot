@@ -185,7 +185,7 @@ class IdexExchange(ExchangeBase):
     async def _fetch_order(self, order_id: str):
         nonce = create_nonce()
         order = await self._client.trade.get_orders(
-            wallet=self._idex_auth.get_wallet().address,
+            wallet=self._idex_auth.new_wallet_object().address,
             nonce=str(nonce),
             orderId=order_id,
         )
@@ -220,7 +220,7 @@ class IdexExchange(ExchangeBase):
             timeInForceEnum = 0
             selfTradePreventionEnum = 0
 
-            byteArray = [
+            byteArray = [  # todo: deprecation warning
                 IdexAuth.number_to_be(orderVersion, 1),
                 nonce.bytes,
                 IdexAuth.base16_to_binary(walletBytes),
@@ -237,13 +237,14 @@ class IdexExchange(ExchangeBase):
                 IdexAuth.number_to_be(0, 8),  # unused
             ]
 
-            binary = IdexAuth.binary_concat_array(byteArray)
-            hash = IdexAuth.hash(binary, 'keccak', 'hex')
-            signature = self._idex_auth.sign_message_string(hash, IdexAuth.binary_to_base16(self._idex_auth.get_wallet().key))
+            binary = IdexAuth.binary_concat_array(byteArray)  # todo: deprecation warning
+            hash = IdexAuth.hash(binary, 'keccak', 'hex')  # todo: deprecation warning
+            # todo: deprecation warning
+            signature = self._idex_auth.sign_message_string(hash, IdexAuth.binary_to_base16(self._idex_auth.new_wallet_object().key))
 
             result = await self._client.trade.create_order(
                 parameters=RestRequestOrder(
-                    wallet=self._idex_auth.get_wallet().address,
+                    wallet=self._idex_auth.new_wallet_object().address,
                     clientOrderId=order_id,
                     market=market,
                     nonce=str(nonce),
@@ -336,16 +337,17 @@ class IdexExchange(ExchangeBase):
         walletBytes = self._idex_auth.get_wallet_bytes()
         byteArray = [
             nonce.bytes,
-            IdexAuth.base16_to_binary(walletBytes),
+            IdexAuth.base16_to_binary(walletBytes),  # todo: deprecation warning
             IdexAuth.encode("client:" + client_order_id),
         ]
-        binary = IdexAuth.binary_concat_array(byteArray)
-        hash = IdexAuth.hash(binary, 'keccak', 'hex')
+        binary = IdexAuth.binary_concat_array(byteArray)  # todo: deprecation warning
+        hash = IdexAuth.hash(binary, 'keccak', 'hex')  # todo: deprecation warning
         self.logger().info(f"Cancel order id: {client_order_id}")
-        signature = self._idex_auth.sign_message_string(hash, IdexAuth.binary_to_base16(self._idex_auth.get_wallet().key))
+        # todo: deprecation warning
+        signature = self._idex_auth.sign_message_string(hash, IdexAuth.binary_to_base16(self._idex_auth.new_wallet_object().key))
         await self._client.trade.cancel_order(
             parameters=RestRequestCancelOrder(
-                wallet=self._idex_auth.get_wallet().address,
+                wallet=self._idex_auth.new_wallet_object().address,
                 orderId="client:" + client_order_id,
                 nonce=str(nonce),
             ),
@@ -593,16 +595,17 @@ class IdexExchange(ExchangeBase):
         self.logger().info("CANCEL ALL")
         nonce = create_nonce()
         walletBytes = self._idex_auth.get_wallet_bytes()
-        byteArray = [
+        byteArray = [  # todo: deprecation warning
             nonce.bytes,
             IdexAuth.base16_to_binary(walletBytes),
         ]
-        binary = IdexAuth.binary_concat_array(byteArray)
-        hash = IdexAuth.hash(binary, 'keccak', 'hex')
-        signature = self._idex_auth.sign_message_string(hash, IdexAuth.binary_to_base16(self._idex_auth.get_wallet().key))
+        binary = IdexAuth.binary_concat_array(byteArray)  # todo: deprecation warning
+        hash = IdexAuth.hash(binary, 'keccak', 'hex')  # todo: deprecation warning
+        # todo: deprecation warning
+        signature = self._idex_auth.sign_message_string(hash, IdexAuth.binary_to_base16(self._idex_auth.new_wallet_object().key))
         await self._client.trade.cancel_order(
             parameters=RestRequestCancelAllOrders(
-                wallet=self._idex_auth.get_wallet().address,
+                wallet=self._idex_auth.new_wallet_object().address,
                 nonce=str(nonce),
             ),
             signature=signature
@@ -636,7 +639,7 @@ class IdexExchange(ExchangeBase):
 
         wallets = await self._client.user.wallets()
 
-        wallet_address = self._idex_auth.get_wallet().address
+        wallet_address = self._idex_auth.new_wallet_object().address
         is_wallet_associated = False
         for wallet in wallets:
             if wallet.address == wallet_address:
@@ -644,13 +647,14 @@ class IdexExchange(ExchangeBase):
 
         if is_wallet_associated is False:
             nonce = create_nonce()
-            byteArray = [
+            byteArray = [  # todo: deprecation warning
                 nonce.bytes,
                 IdexAuth.base16_to_binary(self._idex_auth.get_wallet_bytes()),
             ]
-            binary = IdexAuth.binary_concat_array(byteArray)
-            hash = IdexAuth.hash(binary, 'keccak', 'hex')
-            signature = self._idex_auth.sign_message_string(hash, IdexAuth.binary_to_base16(self._idex_auth.get_wallet().key))
+            binary = IdexAuth.binary_concat_array(byteArray)  # todo: deprecation warning
+            hash = IdexAuth.hash(binary, 'keccak', 'hex')  # todo: deprecation warning
+            # todo: deprecation warning
+            signature = self._idex_auth.sign_message_string(hash, IdexAuth.binary_to_base16(self._idex_auth.new_wallet_object().key))
             await self._client.user.associate_wallet(str(nonce), wallet_address=wallet_address, wallet_signature=signature)
 
         # for wallet in wallets:
@@ -674,7 +678,7 @@ class IdexExchange(ExchangeBase):
         :param currency: The currency (token) name
         :return: A balance for the given currency (token)
         """
-        wallet = self._idex_auth.get_wallet()
+        wallet = self._idex_auth.new_wallet_object()
         # print(f"get_balance: walletAddress: {wallet.address} currency: {currency}")
         return self._account_balances[wallet.address].get(currency, Decimal(0))
 
