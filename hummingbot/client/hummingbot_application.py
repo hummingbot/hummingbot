@@ -29,6 +29,7 @@ from hummingbot.client.config.config_helpers import (
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
 from hummingbot.core.utils.kill_switch import KillSwitch
+from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.notifier.telegram_notifier import TelegramNotifier
@@ -61,6 +62,8 @@ class HummingbotApplication(*commands):
         return cls._main_app
 
     def __init__(self):
+        # This is to start fetching trading pairs for auto-complete
+        TradingPairFetcher.get_instance()
         self.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         self.parser: ThrowingArgumentParser = load_parser(self)
         self.app = HummingbotCLI(

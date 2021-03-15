@@ -23,7 +23,6 @@ from hummingbot import (
 from hummingbot.client.ui import login_prompt
 from hummingbot.client.ui.stdout_redirection import patch_stdout
 from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 
 
 def detect_available_port(starting_port: int) -> int:
@@ -72,7 +71,6 @@ async def main():
 if __name__ == "__main__":
     chdir_to_data_directory()
     # This is to start fetching trading pairs for auto-complete
-    TradingPairFetcher.get_instance()
     if login_prompt():
         ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         ev_loop.run_until_complete(main())
