@@ -5,13 +5,16 @@ import uuid
 import hashlib
 
 from typing import Dict, Union, Tuple, Any
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urljoin
 
+import aiohttp
 from eth_account import Account
 from eth_account.messages import encode_defunct, SignableMessage
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexStr
 from web3 import Web3
+
+from hummingbot.connector.exchange.idex.idex_utils import get_idex_rest_url
 
 
 class IdexAuth:
@@ -165,6 +168,35 @@ class IdexAuth:
         }
 
     generate_auth_dict_for_delete = generate_auth_dict_for_post
+
+    async def _rest_get(self, url, headers=None, params=None):
+        async with aiohttp.ClientSession() as client:
+            async with client.get(url, headers=headers, params=params) as resp:
+                body = await resp.json()
+                return resp.status, body
+
+    async def fetch_ws_token(self):
+        """
+        Returns a single-use authentication token for access to private subscriptions in the WebSocket API.
+        HTTP Request: GET /v1/wsToken. Endpoint Security: User Data (HMAC header)
+        Returned token is valid for 15 minutes.
+        """
+        base_url = get_idex_rest_url()
+        path = '/v1/wsToken'
+        url = urljoin(base_url, path)
+
+        # check normal response
+        self.generate_nonce()
+        url_params = {
+            'nonce': self.get_nonce_str(),
+            'wallet': self.get_wallet_address(),
+        }
+        auth_dict = self.generate_auth_dict(http_method='GET', url=url, params=url_params)
+        _, response = await self._rest_get(
+            auth_dict['url'],  # url already has the encoded url params included
+            headers=auth_dict['headers'],
+        )
+        return response['token']
 
     # ----------------------------- Deprecated methods -----------------------------
 
