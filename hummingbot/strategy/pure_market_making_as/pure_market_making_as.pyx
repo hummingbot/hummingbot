@@ -13,7 +13,7 @@ from math import (
 import time
 import os
 from hummingbot.core.clock cimport Clock
-from hummingbot.core.event.events import TradeType, PriceType
+from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
@@ -30,16 +30,13 @@ from .data_types import (
     PriceSize
 )
 from .pure_market_making_as_order_tracker import PureMarketMakingASOrderTracker
-
-from .asset_price_delegate cimport AssetPriceDelegate
-from .asset_price_delegate import AssetPriceDelegate
-from .order_book_asset_price_delegate cimport OrderBookAssetPriceDelegate
 from ..__utils__.trailing_indicators.average_volatility import AverageVolatilityIndicator
 
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
 s_decimal_neg_one = Decimal(-1)
+s_decimal_one = Decimal(1)
 pmm_logger = None
 
 
@@ -69,8 +66,6 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                  filled_order_delay: float = 60.0,
                  inventory_target_base_pct: Decimal = s_decimal_zero,
                  add_transaction_costs_to_orders: bool = True,
-                 asset_price_delegate: AssetPriceDelegate = None,
-                 price_type: str = "mid_price",
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900,
                  hb_app_notification: bool = False,
@@ -82,7 +77,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                  kappa: Decimal = Decimal("0.1"),
                  gamma: Decimal = Decimal("0.5"),
                  eta: Decimal = Decimal("0.005"),
-                 closing_time: Decimal = Decimal("86400000"),
+                 closing_time: Decimal = Decimal("1"),
                  csv_path: str = '',
                  buffer_size: int = 30,
                  buffer_sampling_period: int = 60
@@ -98,8 +93,6 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         self._filled_order_delay = filled_order_delay
         self._inventory_target_base_pct = inventory_target_base_pct
         self._add_transaction_costs_to_orders = add_transaction_costs_to_orders
-        self._asset_price_delegate = asset_price_delegate
-        self._price_type = self.get_price_type(price_type)
         self._hb_app_notification = hb_app_notification
 
         self._cancel_timestamp = 0
@@ -119,7 +112,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         self._max_spread = max_spread
         self._vol_to_spread_multiplier = vol_to_spread_multiplier
         self._inventory_risk_aversion = inventory_risk_aversion
-        self._avg_vol=AverageVolatilityIndicator(buffer_size, 3)
+        self._avg_vol = AverageVolatilityIndicator(buffer_size, 1)
         self._buffer_sampling_period = buffer_sampling_period
         self._last_sampling_timestamp = 0
         self._kappa = kappa
@@ -222,18 +215,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         return self._market_info.trading_pair
 
     def get_price(self) -> float:
-        price_provider = self._asset_price_delegate or self._market_info
-        if self._price_type is PriceType.LastOwnTrade:
-            price = self._last_own_trade_price
-        elif self._price_type is PriceType.InventoryCost:
-            price = price_provider.get_price_by_type(PriceType.MidPrice)
-        else:
-            price = price_provider.get_price_by_type(self._price_type)
-
-        if price.is_nan():
-            price = price_provider.get_price_by_type(PriceType.MidPrice)
-
-        return price
+        return self.get_mid_price()
 
     def get_last_price(self) -> float:
         return self._market_info.get_last_price()
@@ -242,14 +224,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         return self.c_get_mid_price()
 
     cdef object c_get_mid_price(self):
-        cdef:
-            AssetPriceDelegate delegate = self._asset_price_delegate
-            object mid_price
-        if self._asset_price_delegate is not None:
-            mid_price = delegate.c_get_mid_price()
-        else:
-            mid_price = self._market_info.get_mid_price()
-        return mid_price
+        return self._market_info.get_mid_price()
 
     @property
     def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
@@ -276,14 +251,6 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
     @logging_options.setter
     def logging_options(self, int64_t logging_options):
         self._logging_options = logging_options
-
-    @property
-    def asset_price_delegate(self) -> AssetPriceDelegate:
-        return self._asset_price_delegate
-
-    @asset_price_delegate.setter
-    def asset_price_delegate(self, value):
-        self._asset_price_delegate = value
 
     @property
     def order_tracker(self):
@@ -343,25 +310,13 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
 
     def market_status_data_frame(self, market_trading_pair_tuples: List[MarketTradingPairTuple]) -> pd.DataFrame:
         markets_data = []
-        markets_columns = ["Exchange", "Market", "Best Bid", "Best Ask", f"Ref Price ({self._price_type.name})"]
-        if self._price_type is PriceType.LastOwnTrade and self._last_own_trade_price.is_nan():
-            markets_columns[-1] = "Ref Price (MidPrice)"
+        markets_columns = ["Exchange", "Market", "Best Bid", "Best Ask", f"Ref Price (MidPrice)"]
         markets_columns.append('Reserved Price')
         market_books = [(self._market_info.market, self._market_info.trading_pair)]
-        if type(self._asset_price_delegate) is OrderBookAssetPriceDelegate:
-            market_books.append((self._asset_price_delegate.market, self._asset_price_delegate.trading_pair))
         for market, trading_pair in market_books:
             bid_price = market.get_price(trading_pair, False)
             ask_price = market.get_price(trading_pair, True)
-            ref_price = float("nan")
-            if market == self._market_info.market and self._asset_price_delegate is None:
-                ref_price = self.get_price()
-            elif (
-                self._asset_price_delegate is not None
-                and market == self._asset_price_delegate.market
-                and self._price_type is not PriceType.LastOwnTrade
-            ):
-                ref_price = self._asset_price_delegate.get_price_by_type(self._price_type)
+            ref_price = self.get_price()
             markets_data.append([
                 market.display_name,
                 trading_pair,
@@ -434,8 +389,6 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         try:
             if not self._all_markets_ready:
                 self._all_markets_ready = all([mkt.ready for mkt in self._sb_markets])
-                if self._asset_price_delegate is not None and self._all_markets_ready:
-                    self._all_markets_ready = self._asset_price_delegate.ready
                 if not self._all_markets_ready:
                     # Markets not ready yet. Don't do anything.
                     if should_report_warnings:
@@ -576,11 +529,13 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             self._gamma = self._inventory_risk_aversion * (max_spread - min_spread) / (2 * abs(q) * (vol ** 2))
 
             # Want the maximum possible spread but with restrictions to avoid negative kappa or division by 0
-            max_spread_around_reserved_price = max_spread + min_spread
+            max_spread_around_reserved_price = max_spread * (2-self._inventory_risk_aversion) + min_spread * self._inventory_risk_aversion
             if max_spread_around_reserved_price <= self._gamma * (vol ** 2):
                 self._kappa = Decimal('Inf')
             else:
                 self._kappa = self._gamma / (Decimal.exp((max_spread_around_reserved_price * self._gamma - (vol * self._gamma) **2) / 2) - 1)
+
+            self._eta = self.c_calculate_eta()
 
             self._latest_parameter_calculation_vol = vol
 
@@ -970,19 +925,16 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             from hummingbot.client.hummingbot_application import HummingbotApplication
             HummingbotApplication.main_application()._notify(msg)
 
-    def get_price_type(self, price_type_str: str) -> PriceType:
-        if price_type_str == "mid_price":
-            return PriceType.MidPrice
-        elif price_type_str == "best_bid":
-            return PriceType.BestBid
-        elif price_type_str == "best_ask":
-            return PriceType.BestAsk
-        elif price_type_str == "last_price":
-            return PriceType.LastTrade
-        elif price_type_str == 'last_own_trade_price':
-            return PriceType.LastOwnTrade
+    cdef c_calculate_eta(self):
+        cdef:
+            object total_inventory_in_base
+            object q_where_to_decay_order_amount
+        if not self._parameters_based_on_spread:
+            return self._eta
         else:
-            raise ValueError(f"Unrecognized price type string {price_type_str}.")
+            total_inventory_in_base = self.c_calculate_target_inventory() / self._inventory_target_base_pct
+            q_where_to_decay_order_amount = total_inventory_in_base * (1 - self._inventory_risk_aversion)
+            return s_decimal_one / q_where_to_decay_order_amount
 
     def dump_debug_variables(self):
         market = self._market_info.market
