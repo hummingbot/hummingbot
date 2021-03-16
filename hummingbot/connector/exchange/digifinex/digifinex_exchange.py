@@ -346,7 +346,7 @@ class DigifinexExchange(ExchangeBase):
             raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
         if tracked_order.exchange_order_id is None:
             self.ev_loop.run_until_complete(tracked_order.get_exchange_order_id())
-        safe_ensure_future(self._execute_cancel(tracked_order.exchange_order_id))
+        safe_ensure_future(self._execute_cancel(tracked_order))
         return order_id
 
     async def _create_order(self,
@@ -453,7 +453,7 @@ class DigifinexExchange(ExchangeBase):
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
 
-    async def _execute_cancel(self, exchange_order_id: str) -> str:
+    async def _execute_cancel(self, o: DigifinexInFlightOrder) -> str:
         """
         Executes order cancellation process by first calling cancel-order API. The API result doesn't confirm whether
         the cancellation is successful, it simply states it receives the request.
@@ -465,17 +465,21 @@ class DigifinexExchange(ExchangeBase):
             await self._global.rest_api.request(
                 "post",
                 "spot/order/cancel",
-                {"order_id": exchange_order_id},
+                {"order_id": o.exchange_order_id},
                 True
             )
-            return exchange_order_id
+            if o.client_order_id in self._in_flight_orders:
+                self.trigger_event(MarketEvent.OrderCancelled,
+                                   OrderCancelledEvent(self.current_timestamp, o.client_order_id))
+                del self._in_flight_orders[o.client_order_id]
+            return o.exchange_order_id
         except asyncio.CancelledError:
             raise
         except Exception as e:
             self.logger().network(
-                f"Failed to cancel order {exchange_order_id}: {str(e)}",
+                f"Failed to cancel order {o.exchange_order_id}: {str(e)}",
                 exc_info=True,
-                app_warning_msg=f"Failed to cancel the order {exchange_order_id} on Digifinex. "
+                app_warning_msg=f"Failed to cancel the order {o.exchange_order_id} on Digifinex. "
                                 f"Check API key and network connection."
             )
 
@@ -701,16 +705,16 @@ class DigifinexExchange(ExchangeBase):
             #         True
             #     )
 
-            open_orders = await self.get_open_orders()
+            open_orders = list(self._in_flight_orders.values())
             for o in open_orders:
-                await self._execute_cancel(o.exchange_order_id)
+                await self._execute_cancel(o)
 
             for cl_order_id, tracked_order in self._in_flight_orders.items():
                 open_order = [o for o in open_orders if o.exchange_order_id == tracked_order.exchange_order_id]
                 if not open_order:
                     cancellation_results.append(CancellationResult(cl_order_id, True))
-                    self.trigger_event(MarketEvent.OrderCancelled,
-                                       OrderCancelledEvent(self.current_timestamp, cl_order_id))
+                    # self.trigger_event(MarketEvent.OrderCancelled,
+                    #                    OrderCancelledEvent(self.current_timestamp, cl_order_id))
                 else:
                     cancellation_results.append(CancellationResult(cl_order_id, False))
         except Exception:
