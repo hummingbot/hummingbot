@@ -37,21 +37,6 @@ inventory_target_base_pct: null
 # Whether to enable adding transaction costs to order price calculation (true/false).
 add_transaction_costs: null
 
-# The price source (current_market/external_market/custom_api).
-price_source: null
-
-# The price type (mid_price/last_price/last_own_trade_price/best_bid/best_ask/inventory_cost).
-price_type: null
-
-# An external exchange name (for external exchange pricing source).
-price_source_exchange: null
-
-# A trading pair for the external exchange, e.g. BTC-USDT (for external exchange pricing source).
-price_source_market: null
-
-# An external api that returns price (for custom_api pricing source).
-price_source_custom_api: null
-
 # Avellaneda - Stoikov algorithm parameters
 parameters_based_on_spread: null
 min_spread: null
@@ -60,7 +45,7 @@ vol_to_spread_multiplier: null
 inventory_risk_aversion: null
 kappa: null
 gamma: null
-eta: 0.005
+eta: null
 closing_time: null
 
 # Buffer size used to store historic samples and calculate volatility

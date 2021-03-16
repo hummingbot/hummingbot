@@ -17,9 +17,6 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         object _inventory_target_base_pct
         bint _order_optimization_enabled
         bint _add_transaction_costs_to_orders
-        object _asset_price_delegate
-        object _inventory_cost_price_delegate
-        object _price_type
         bint _hb_app_notification
 
         double _cancel_timestamp
@@ -73,4 +70,5 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
     cdef c_calculate_reserved_price_and_optimal_spread(self)
     cdef object c_calculate_target_inventory(self)
     cdef c_recalculate_parameters(self)
+    cdef object c_calculate_eta(self)
     cdef c_volatility_diff_from_last_parameter_calculation(self, double current_vol)
