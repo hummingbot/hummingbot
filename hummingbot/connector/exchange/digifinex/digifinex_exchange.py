@@ -499,7 +499,7 @@ class DigifinexExchange(ExchangeBase):
                 self.logger().error(str(e), exc_info=True)
                 self.logger().network("Unexpected error while fetching account updates.",
                                       exc_info=True,
-                                      app_warning_msg="Could not fetch account updates from Crypto.com. "
+                                      app_warning_msg="Could not fetch account updates from Digifinex. "
                                                       "Check API key and network connection.")
                 await asyncio.sleep(0.5)
 
@@ -717,7 +717,7 @@ class DigifinexExchange(ExchangeBase):
             self.logger().network(
                 "Failed to cancel all orders.",
                 exc_info=True,
-                app_warning_msg="Failed to cancel all orders on Crypto.com. Check API key and network connection."
+                app_warning_msg="Failed to cancel all orders on Digifinex. Check API key and network connection."
             )
         return cancellation_results
 
