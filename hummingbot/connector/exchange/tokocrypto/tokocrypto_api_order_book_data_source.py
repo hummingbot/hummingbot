@@ -83,11 +83,11 @@ class TokocryptoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             from hummingbot.connector.exchange.tokocrypto.tokocrypto_utils import convert_from_exchange_trading_pair
             async with aiohttp.ClientSession() as client:
-                url = EXCHANGE_INFO_URL.format(domain)
-                async with client.get(url, timeout=10) as response:
+                # url = EXCHANGE_INFO_URL.format(domain)
+                async with client.get(EXCHANGE_INFO_URL, timeout=10) as response:
                     if response.status == 200:
                         data = await response.json()
-                        raw_trading_pairs = [d["symbol"] for d in data["list"] if d["type"] == 1]
+                        raw_trading_pairs = [d["symbol"] for d in data["data"]["list"] if d["type"] == 1]
                         trading_pair_list: List[str] = []
                         for raw_trading_pair in raw_trading_pairs:
                             converted_trading_pair: Optional[str] = \
