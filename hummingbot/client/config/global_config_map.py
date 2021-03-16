@@ -155,7 +155,7 @@ main_config_map = {
                   prompt="Specify token list url of a list available on https://tokenlists.org/ >>> ",
                   type_str="str",
                   required_if=lambda: global_config_map["ethereum_wallet"].value is not None,
-                  default="https://wispy-bird-88a7.uniswap.workers.dev/?url=http://tokens.1inch.eth.link"),
+                  default="https://defi.cmc.eth.link/"),
     # Whether or not to invoke cancel_all on exit if marketing making on a open order book DEX (e.g. Radar Relay)
     "on_chain_cancel_on_exit":
         ConfigVar(key="on_chain_cancel_on_exit",

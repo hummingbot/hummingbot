@@ -3,13 +3,16 @@
 ########################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 5
+template_version: 6
 
 # Exchange trading fees, the values are in percentage value, e.g. 0.1 for 0.1%.
 # If the value is left blank, the default value (from corresponding market connector) will be used.
 
 binance_maker_fee:
 binance_taker_fee:
+
+beaxy_maker_fee:
+beaxy_taker_fee:
 
 coinbase_pro_maker_fee:
 coinbase_pro_taker_fee:
