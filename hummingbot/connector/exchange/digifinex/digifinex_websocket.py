@@ -62,6 +62,8 @@ class DigifinexWebsocket(RequestId):
     async def login(self):
         self.login_msg_id = await self._emit("server.auth", self._auth.generate_ws_signature())
         msg = await self._messages()
+        if msg is None:
+            raise ConnectionError('websocket auth failed: connection closed unexpectedly')
         if msg.get('error') is not None:
             raise ConnectionError(f'websocket auth failed: {msg}')
 
