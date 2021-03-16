@@ -111,7 +111,7 @@ pure_market_making_config_map = {
                   default="pure_market_making"),
     "exchange":
         ConfigVar(key="exchange",
-                  prompt="Enter your maker exchange name >>> ",
+                  prompt="Enter your maker spot connector >>> ",
                   validator=validate_exchange,
                   on_validated=exchange_on_validated,
                   prompt_on_new=True),

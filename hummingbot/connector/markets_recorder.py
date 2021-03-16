@@ -27,6 +27,7 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderExpiredEvent,
+    FundingPaymentCompletedEvent,
     MarketEvent,
     TradeFee
 )
@@ -38,6 +39,7 @@ from hummingbot.model.order import Order
 from hummingbot.model.order_status import OrderStatus
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
+from hummingbot.model.funding_payment import FundingPayment
 
 
 class MarketsRecorder:
@@ -75,6 +77,7 @@ class MarketsRecorder:
         self._fail_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_fail_order)
         self._complete_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_complete_order)
         self._expire_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_expire_order)
+        self._funding_payment_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_complete_funding_payment)
 
         self._event_pairs: List[Tuple[MarketEvent, SourceInfoEventForwarder]] = [
             (MarketEvent.BuyOrderCreated, self._create_order_forwarder),
@@ -84,7 +87,8 @@ class MarketsRecorder:
             (MarketEvent.OrderFailure, self._fail_order_forwarder),
             (MarketEvent.BuyOrderCompleted, self._complete_order_forwarder),
             (MarketEvent.SellOrderCompleted, self._complete_order_forwarder),
-            (MarketEvent.OrderExpired, self._expire_order_forwarder)
+            (MarketEvent.OrderExpired, self._expire_order_forwarder),
+            (MarketEvent.FundingPaymentCompleted, self._funding_payment_forwarder)
         ]
 
     @property
@@ -262,6 +266,30 @@ class MarketsRecorder:
         session.commit()
         market.add_trade_fills_from_market_recorder({TradeFillOrderDetails(trade_fill_record.market, trade_fill_record.exchange_trade_id, trade_fill_record.symbol)})
         self.append_to_csv(trade_fill_record)
+
+    def _did_complete_funding_payment(self,
+                                      event_tag: int,
+                                      market: ConnectorBase,
+                                      evt: FundingPaymentCompletedEvent):
+        if threading.current_thread() != threading.main_thread():
+            self._ev_loop.call_soon_threadsafe(self._did_complete_funding_payment, event_tag, market, evt)
+            return
+
+        session: Session = self.session
+        timestamp: float = evt.timestamp
+
+        # Try to find the funding payment has been recorded already.
+        payment_record: Optional[FundingPayment] = session.query(FundingPayment).filter(FundingPayment.timestamp == timestamp).one_or_none()
+        if payment_record is None:
+            funding_payment_record: FundingPayment = FundingPayment(timestamp=timestamp,
+                                                                    config_file_path=self.config_file_path,
+                                                                    market=market.display_name,
+                                                                    rate=evt.funding_rate,
+                                                                    symbol=evt.trading_pair,
+                                                                    amount=float(evt.amount))
+            session.add(funding_payment_record)
+            session.commit()
+            # self.append_to_csv(funding_payment_record)
 
     @staticmethod
     def _is_primitive_type(obj: object) -> bool:
