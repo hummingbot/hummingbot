@@ -107,15 +107,12 @@ class UniswapConnector(ConnectorBase):
 
     async def initiate_pool(self) -> str:
         """
-        Initiate strategy & auto-approve allowances for trading_pairs
+        Initiate connector and start caching paths for trading_pairs
         """
         try:
-            self.logger().info(f"Initializing Uniswap {self._trading_pairs[0]} strategy & auto-approved allowances")
-            base, quote = self._trading_pairs[0].split("-")
-            resp = await self._api_request("post", "eth/uniswap/start",
-                                           {"base": base,
-                                            "quote": quote
-                                            })
+            self.logger().info(f"Initializing Uniswap connector and paths for {self._trading_pairs} pairs.")
+            resp = await self._api_request("get", "eth/uniswap/start",
+                                           {"pairs": str(self._trading_pairs)})
             status = bool(str(resp["success"]))
             if bool(str(resp["success"])):
                 self._initiate_pool_status = status

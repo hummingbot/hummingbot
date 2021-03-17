@@ -108,15 +108,12 @@ class BalancerConnector(ConnectorBase):
 
     async def initiate_pool(self) -> str:
         """
-        Initiate strategy & auto-approve allowances for trading_pairs
+        Initiate connector and cache pools
         """
         try:
-            self.logger().info(f"Initializing Balancer {self._trading_pairs[0]} strategy & auto-approved allowances")
-            base, quote = self._trading_pairs[0].split("-")
-            resp = await self._api_request("post", "eth/balancer/start",
-                                           {"base": base,
-                                            "quote": quote
-                                            })
+            self.logger().info(f"Initializing Balancer connector and caching pools for {self._trading_pairs}.")
+            resp = await self._api_request("get", "eth/balancer/start",
+                                           {"pairs": str(self._trading_pairs)})
             status = bool(str(resp["success"]))
             if bool(str(resp["success"])):
                 self._initiate_pool_status = status
