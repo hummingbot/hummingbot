@@ -10,7 +10,7 @@ from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 
 from .idex_api_user_stream_data_source import IdexAPIUserStreamDataSource
 from .idex_auth import IdexAuth
-from .utils import EXCHANGE_NAME
+from idex_utils import EXCHANGE_NAME
 
 
 class IdexUserStreamTracker(UserStreamTracker):
@@ -40,6 +40,7 @@ class IdexUserStreamTracker(UserStreamTracker):
             )
         return self._data_source
 
+    # TODO: elliott-- recall considering getting rid of utils, if so we can localize this
     @property
     def exchange_name(self) -> str:
         return EXCHANGE_NAME
