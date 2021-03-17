@@ -86,10 +86,7 @@ class HistoryCommand:
         if market in self.markets and self.markets[market].ready:
             return self.markets[market].get_all_balances()
         elif "Paper" in market:
-            paper_balances = global_config_map["paper_trade_account_balance"].value
-            if paper_balances is None:
-                return {}
-            return {token: Decimal(str(bal)) for token, bal in paper_balances.items()}
+            return self.markets[market[:-11]].get_all_balances()
         elif "perpetual_finance" == market:
             return await UserBalances.xdai_balances()
         else:
@@ -156,7 +153,7 @@ class HistoryCommand:
             [f"{trading_pair + ' price':<17}",
              smart_round(perf.start_price),
              smart_round(perf.cur_price),
-             smart_round(perf.cur_price - perf.start_price)],
+             smart_round(Decimal(str(perf.cur_price - perf.start_price)))],
             [f"{'Base asset %':<17}", "-", "-", "-"] if market in DERIVATIVES else  # No base asset for derivatives because they are margined
             [f"{'Base asset %':<17}",
              f"{perf.start_base_ratio_pct:.2%}",

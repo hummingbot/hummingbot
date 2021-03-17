@@ -160,6 +160,12 @@ cdef class OrderBookMarketOrderFillListener(EventListener):
         order_book = self._market.order_books[event_object.trading_pair]
         order_book.record_filled_order(event_object)
 
+cdef dict PaperTradeExchange_account_balances
+
+cdef c_reset_paper_trade_account_balance():
+    global PaperTradeExchange_account_balances
+    PaperTradeExchange_account_balances = {}
+
 
 cdef class PaperTradeExchange(ExchangeBase):
     TRADE_EXECUTION_DELAY = 5.0
@@ -172,11 +178,25 @@ cdef class PaperTradeExchange(ExchangeBase):
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
     MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
 
+    property account_balances:
+        def __get__(self):
+            if PaperTradeExchange_account_balances is None or self.name not in PaperTradeExchange_account_balances:
+                return None
+            else:
+                return PaperTradeExchange_account_balances[self.name]
+
+        def __set__(self, balance):
+            global PaperTradeExchange_account_balances
+            if PaperTradeExchange_account_balances is None:
+                PaperTradeExchange_account_balances = {}
+            PaperTradeExchange_account_balances[self.name] = balance
+
     def __init__(self, order_book_tracker: OrderBookTracker, config: MarketConfig, target_market: type):
         order_book_tracker.data_source.order_book_create_function = lambda: CompositeOrderBook()
         self._order_book_tracker = order_book_tracker
         super(ExchangeBase, self).__init__()
-        self._account_balances = {}
+        if self.account_balances is None:
+            self.account_balances = {}
         self._account_available_balances = {}
         self._paper_trade_market_initialized = False
         self._trading_pairs = {}
@@ -289,7 +309,7 @@ cdef class PaperTradeExchange(ExchangeBase):
 
     @property
     def available_balances(self) -> Dict[str, Decimal]:
-        _available_balances = self._account_balances.copy()
+        _available_balances = self.account_balances.copy()
         for trading_pair_str, balance in _available_balances.items():
             _available_balances[trading_pair_str] -= self.on_hold_balances[trading_pair_str]
         return _available_balances
@@ -310,13 +330,13 @@ cdef class PaperTradeExchange(ExchangeBase):
         return NetworkStatus.CONNECTED
 
     cdef c_set_balance(self, str currency, object balance):
-        self._account_balances[currency.upper()] = Decimal(balance)
+        self.account_balances[currency.upper()] = Decimal(balance)
 
     cdef object c_get_balance(self, str currency):
-        if currency.upper() not in self._account_balances:
+        if currency.upper() not in self.account_balances:
             self.logger().warning(f"Account balance does not have asset {currency.upper()}.")
             return Decimal(0.0)
-        return self._account_balances[currency.upper()]
+        return self.account_balances[currency.upper()]
 
     cdef c_tick(self, double timestamp):
         ExchangeBase.c_tick(self, timestamp)
@@ -457,6 +477,7 @@ cdef class PaperTradeExchange(ExchangeBase):
 
         # Calculate the base currency acquired, including fees.
         total_base_acquired = Decimal(sum(row.amount for row in buy_entries))
+        total_base_acquired -= total_base_acquired * config.buy_fees_amount
 
         self.c_set_balance(quote_asset, quote_balance - total_quote_needed)
         self.c_set_balance(base_asset, base_balance + total_base_acquired)
@@ -964,7 +985,7 @@ cdef class PaperTradeExchange(ExchangeBase):
         return self.c_get_available_balance(currency)
 
     def get_all_balances(self) -> Dict[str, Decimal]:
-        return self._account_balances.copy()
+        return self.account_balances.copy()
 
     # <editor-fold desc="Python wrapper for cdef functions">
     def match_trade_to_limit_orders(self, event_object: OrderBookTradeEvent):
@@ -1005,6 +1026,10 @@ cdef class PaperTradeExchange(ExchangeBase):
 
     def get_taker_order_type(self):
         return OrderType.LIMIT
+
+    @staticmethod
+    def reset_paper_trade_account_balance():
+        c_reset_paper_trade_account_balance()
 
     async def trigger_event_async(self,
                                   event_tag,

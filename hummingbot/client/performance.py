@@ -144,12 +144,12 @@ async def calculate_performance_metrics(exchange: str,
     perf.num_sells = len(sells)
     perf.num_trades = perf.num_buys + perf.num_sells
 
-    perf.b_vol_base = Decimal(str(sum(b.amount for b in buys)))
-    perf.s_vol_base = Decimal(str(sum(s.amount for s in sells))) * Decimal("-1")
+    perf.b_vol_base = Decimal(str(sum(Decimal(b.amount) for b in buys)))
+    perf.s_vol_base = Decimal(str(sum(Decimal(s.amount) for s in sells))) * Decimal("-1")
     perf.tot_vol_base = perf.b_vol_base + perf.s_vol_base
 
-    perf.b_vol_quote = Decimal(str(sum(b.amount * b.price for b in buys))) * Decimal("-1")
-    perf.s_vol_quote = Decimal(str(sum(s.amount * s.price for s in sells)))
+    perf.b_vol_quote = Decimal(str(sum(Decimal(b.amount) * Decimal(b.price) for b in buys) * Decimal("-1")))
+    perf.s_vol_quote = Decimal(str(sum(Decimal(s.amount) * Decimal(s.price) for s in sells)))
     perf.tot_vol_quote = perf.b_vol_quote + perf.s_vol_quote
 
     perf.avg_b_price = divide(perf.b_vol_quote, perf.b_vol_base)
@@ -164,10 +164,10 @@ async def calculate_performance_metrics(exchange: str,
     perf.start_base_bal = perf.cur_base_bal - perf.tot_vol_base
     perf.start_quote_bal = perf.cur_quote_bal - perf.tot_vol_quote
 
-    perf.start_price = Decimal(str(trades[0].price))
+    perf.start_price = Decimal(trades[0].price)
     perf.cur_price = await get_last_price(exchange.replace("_PaperTrade", ""), trading_pair)
     if perf.cur_price is None:
-        perf.cur_price = Decimal(str(trades[-1].price))
+        perf.cur_price = Decimal(trades[-1].price)
     perf.start_base_ratio_pct = divide(perf.start_base_bal * perf.start_price,
                                        (perf.start_base_bal * perf.start_price) + perf.start_quote_bal)
     perf.cur_base_ratio_pct = divide(perf.cur_base_bal * perf.cur_price,
@@ -175,7 +175,7 @@ async def calculate_performance_metrics(exchange: str,
 
     perf.hold_value = (perf.start_base_bal * perf.cur_price) + perf.start_quote_bal
     perf.cur_value = (perf.cur_base_bal * perf.cur_price) + perf.cur_quote_bal
-    perf.trade_pnl = perf.cur_value - perf.hold_value
+    perf.total_pnl = perf.cur_value - perf.hold_value
 
     # Handle trade_pnl differently for derivatives
     if derivative:
@@ -201,7 +201,7 @@ async def calculate_performance_metrics(exchange: str,
             if trade.trade_fee.get("percent") is not None and trade.trade_fee["percent"] > 0:
                 if quote not in perf.fees:
                     perf.fees[quote] = s_decimal_0
-                perf.fees[quote] += Decimal(trade.price * trade.amount * trade.trade_fee["percent"])
+                perf.fees[quote] += Decimal(trade.price) * Decimal(trade.amount) * Decimal(trade.trade_fee["percent"])
             for flat_fee in trade.trade_fee.get("flat_fees", []):
                 if flat_fee["asset"] not in perf.fees:
                     perf.fees[flat_fee["asset"]] = s_decimal_0
@@ -224,8 +224,8 @@ async def calculate_performance_metrics(exchange: str,
             if last_price is not None:
                 perf.fee_in_quote += fee_amount * last_price
 
-    perf.total_pnl = perf.trade_pnl - perf.fee_in_quote
-    perf.return_pct = divide(perf.total_pnl, perf.hold_value)
+    perf.trade_pnl = perf.total_pnl + perf.fee_in_quote
+    perf.return_pct = divide(perf.cur_value, perf.hold_value) - 1
 
     return perf
 

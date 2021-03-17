@@ -16,8 +16,8 @@ s_decimal_0 = Decimal(0)
 def calculate_trade_asset_delta_with_fees(trade: TradeFill) -> Tuple[Decimal, Decimal]:
     trade_fee: Dict[str, any] = trade.trade_fee
     total_flat_fees: Decimal = s_decimal_0
-    amount: Decimal = Decimal(str(trade.amount))
-    price: Decimal = Decimal(str(trade.price))
+    amount: Decimal = Decimal(trade.amount)
+    price: Decimal = Decimal(trade.price)
     for flat_fee in trade_fee["flat_fees"]:
         if isinstance(flat_fee, dict):
             flat_fee_currency = flat_fee["asset"]

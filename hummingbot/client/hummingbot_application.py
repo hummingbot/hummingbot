@@ -231,7 +231,9 @@ class HummingbotApplication(*commands):
                     connector = create_paper_trade_market(connector_name, trading_pairs)
                 except Exception:
                     raise
-                paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
+                paper_balances = connector.get_all_balances()
+                if paper_balances is None or len(paper_balances) == 0:
+                    paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
                 for asset, balance in paper_trade_account_balance.items():
                     connector.set_balance(asset, balance)
             else:

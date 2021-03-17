@@ -26,3 +26,7 @@ def create_paper_trade_market(exchange_name: str, trading_pairs: List[str]):
     return PaperTradeExchange(obt_class(**conn_setting.add_domain_parameter(obt_params)),
                               MarketConfig.default_config(),
                               get_connector_class(exchange_name))
+
+
+def reset_paper_trade_account_balance():
+    PaperTradeExchange.reset_paper_trade_account_balance()

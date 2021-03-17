@@ -14,6 +14,8 @@ from hummingbot.client.performance import smart_round
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 import pandas as pd
 from decimal import Decimal
+from hummingbot.connector.exchange.paper_trade import reset_paper_trade_account_balance
+import time
 from typing import TYPE_CHECKING, Dict, Optional, List
 
 if TYPE_CHECKING:
@@ -70,11 +72,36 @@ class BalanceCommand:
                     return
                 asset = args[0].upper()
                 amount = float(args[1])
-                paper_balances = dict(config_var.value) if config_var.value else {}
-                paper_balances[asset] = amount
-                config_var.value = paper_balances
-                self._notify(f"Paper balance for {asset} token set to {amount}")
-                save_to_yml(file_path, config_map)
+                safe_ensure_future(self.set_paper_balance(asset, amount))
+
+    async def set_paper_balance(self, asset, amount):
+        self.app.clear_input()
+        self.placeholder_mode = True
+        self.app.hide_input = True
+
+        answer = await self.app.prompt(prompt="Setting a new paper balance on runtime requires to clear the current trading history. Would you like to do proceed (Yes/No)? >>> ")
+        if answer.lower() in ("yes", "y"):
+            config_map = global_config_map
+            file_path = GLOBAL_CONFIG_PATH
+            config_var = config_map["paper_trade_account_balance"]
+            paper_balances = dict(config_var.value) if config_var.value else {}
+            paper_balances[asset] = amount
+            config_var.value = paper_balances
+            save_to_yml(file_path, config_map)
+            self._notify(f"Paper balance for {asset} token set to {amount}")
+
+            # Reset paper trade exchange class account balance to reflect the new balance on strategy start
+            reset_paper_trade_account_balance()
+
+            # Set new app init time to clear current trading history because the account balance has changed which will lead to wrong performance calculations
+            self._main_app.init_time = time.time()
+            self._notify("The trading history has been cleared!")
+        else:
+            self._notify("Your current paper balance has not been changed!")
+
+        self.app.hide_input = False
+        self.placeholder_mode = False
+        self.app.change_prompt(prompt=">>> ")
 
     async def show_balances(self):
         total_col_name = f'Total ({RateOracle.global_token_symbol})'

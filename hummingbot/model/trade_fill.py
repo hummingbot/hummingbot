@@ -1,11 +1,10 @@
 #!/usr/bin/env python
-import numpy
 import pandas as pd
 from typing import (
     Any,
     Dict,
     List,
-    Optional,
+    Optional
 )
 from sqlalchemy import (
     Column,
@@ -14,7 +13,6 @@ from sqlalchemy import (
     Integer,
     Index,
     BigInteger,
-    Float,
     JSON
 )
 from sqlalchemy.orm import (
@@ -49,8 +47,8 @@ class TradeFill(HummingbotBase):
     order_id = Column(Text, ForeignKey("Order.id"), nullable=False)
     trade_type = Column(Text, nullable=False)
     order_type = Column(Text, nullable=False)
-    price = Column(Float, nullable=False)
-    amount = Column(Float, nullable=False)
+    price = Column(Text, nullable=False)
+    amount = Column(Text, nullable=False)
     leverage = Column(Integer, nullable=False, default=1)
     trade_fee = Column(JSON, nullable=False)
     exchange_trade_id = Column(Text, nullable=False)
@@ -157,8 +155,8 @@ class TradeFill(HummingbotBase):
         return {
             "market": trade_fill.market,
             "trade_id": trade_fill.exchange_trade_id,
-            "price": numpy.format_float_positional(trade_fill.price),
-            "quantity": numpy.format_float_positional(trade_fill.amount),
+            "price": trade_fill.price,
+            "quantity": trade_fill.amount,
             "symbol": trade_fill.symbol,
             "trade_timestamp": trade_fill.timestamp,
             "trade_type": trade_fill.trade_type,
