@@ -97,7 +97,7 @@ class RateOracle(NetworkBase):
 
     @classmethod
     async def global_value(cls, token: str, amount: Decimal) -> Decimal:
-        rate = cls.global_rate(token)
+        rate = await cls.global_rate(token)
         rate = Decimal("0") if rate is None else rate
         return amount * rate
 

@@ -56,7 +56,7 @@ def rate_oracle_source_on_validated(value: str):
 
 
 def global_token_on_validated(value: str):
-    RateOracle.global_token = value
+    RateOracle.global_token = value.upper()
 
 
 def global_token_symbol_on_validated(value: str):
