@@ -128,23 +128,32 @@ class RateOracle(NetworkBase):
     async def get_binance_prices(cls) -> Dict[str, Decimal]:
         results = {}
         client = await cls._http_client()
-        async with client.request("GET", cls.binance_price_url) as resp:
-            records = await resp.json()
-            for record in records:
-                trading_pair = binance_convert_from_exchange_pair(record["symbol"])
-                if trading_pair and record["bidPrice"] is not None and record["askPrice"] is not None:
-                    results[trading_pair] = (Decimal(record["bidPrice"]) + Decimal(record["askPrice"])) / Decimal("2")
+        try:
+            async with client.request("GET", cls.binance_price_url) as resp:
+                records = await resp.json()
+                for record in records:
+                    trading_pair = binance_convert_from_exchange_pair(record["symbol"])
+                    if trading_pair and record["bidPrice"] is not None and record["askPrice"] is not None:
+                        results[trading_pair] = (Decimal(record["bidPrice"]) + Decimal(record["askPrice"])) / Decimal("2")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            cls.logger().error("Unexpected error while retrieving rates from Binance.")
         return results
 
     @classmethod
     @async_ttl_cache(ttl=30, maxsize=1)
     async def get_coingecko_prices(cls, vs_currency: str) -> Dict[str, Decimal]:
-        print("getting coingecko prices")
         results = {}
         tasks = [cls.get_coingecko_prices_by_page(vs_currency, i) for i in range(1, 5)]
         task_results = await safe_gather(*tasks, return_exceptions=True)
         for task_result in task_results:
-            results.update(task_result)
+            if isinstance(task_result, Exception):
+                cls.logger().error("Unexpected error while retrieving rates from Coingecko. "
+                                   "Check the log file for more info.")
+                break
+            else:
+                results.update(task_result)
         return results
 
     @classmethod
