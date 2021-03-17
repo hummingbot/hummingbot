@@ -476,7 +476,7 @@ class TestIdexAuthIntegration(unittest.TestCase):
 
             ('string', ''),  # 10 - Client order id or empty string
             ('uint8', 0),  # 11 - Order time in force enum value
-            ('uint8', 0),  # 12 - Order self-trade prevention enum value  Unused, always should be 0
+            ('uint8', 0),  # 12 - Order self-trade prevention enum value
             ('uint64', 0),  # 13 - Unused, always should be 0
         )
         wallet_signature = self.idex_auth.wallet_sign(signature_parameters)

@@ -3,6 +3,7 @@ import hmac
 import string
 import uuid
 import hashlib
+from enum import Enum
 
 from typing import Dict, Union, Tuple, Any
 from urllib.parse import urlencode, urljoin
@@ -14,7 +15,41 @@ from eth_account.signers.local import LocalAccount
 from eth_typing import HexStr
 from web3 import Web3
 
-from hummingbot.connector.exchange.idex.idex_utils import get_idex_rest_url
+from hummingbot.connector.exchange.idex.idex_utils import get_idex_rest_url, get_idex_blockchain
+
+
+class HashVersionEnum(Enum):  # Blockchain
+    ETH = 1
+    BSC = 2
+
+
+class OrderTypeEnum(Enum):
+    market = 0
+    limit = 1
+    limitMaker = 2
+    stopLoss = 3
+    stopLossLimit = 4
+    takeProfit = 5
+    takeProfitLimit = 6
+
+
+class OrderSideEnum(Enum):
+    buy = 0
+    sell = 1
+
+
+class OrderTimeInForce(Enum):
+    gtc = 0  # good_til_canceled
+    # gtt = 1  # good_til_time (unused)
+    ioc = 2  # Immediate_or_cancel
+    fok = 3  # fill_or_kill
+
+
+class OrderSelfTradePreventionEnum(Enum):
+    dc = 0  # Decrement_and_cancel
+    co = 1  # Cancel_oldest
+    cn = 2  # Cancel_newest
+    cb = 3  # Cancel_both
 
 
 class IdexAuth:
@@ -222,6 +257,54 @@ class IdexAuth:
             headers=auth_dict['headers'],
         )
         return response['token']
+
+    def build_signature_params_for_order(
+            self,
+            market: str,
+            order_type: OrderTypeEnum,
+            order_side: OrderSideEnum,
+            order_quantity: str,
+            quantity_in_quote: bool,
+            price: str = '',
+            stop_price: str = '',
+            client_order_id: str = '',
+            time_in_force: OrderTimeInForce = OrderTimeInForce.gtc,
+            selftrade_prevention: OrderSelfTradePreventionEnum = OrderSelfTradePreventionEnum.dc,
+    ) -> Tuple[Tuple[str, Any], ...]:
+        """
+        Helper method to build the Solidity Keccay signature tuple necessary to create a new order
+        See idex doc: https://docs.idex.io/#associate-wallet
+        :param market: Market symbol. e.g. "ETH-USDC"
+        :param order_type: One of OrderTypeEnum. e.g. OrderTypeEnum.limitMaker
+        :param order_side: either OrderSideEnum.buy or OrderSideEnum.sell
+        :param order_quantity: order quantity in base or quote terms as a string (e.g. "100.00000000")
+        :param quantity_in_quote: false if order_quantity in base terms; true if order quantity in quote terms
+        :param price: Optional. order price or empty string if market order
+        :param stop_price: Optional. order stop price or empty string if not a stop loss or take profit order
+        :param client_order_id: Optional. Client-specified order id, maximum of 40 bytes, or empty string
+        :param time_in_force: Optional. One of OrderTimeInForce. Default: OrderTimeInForce.gtc
+        :param selftrade_prevention: Optional. One of OrderSelfTradePreventionEnum.
+               Default: OrderSelfTradePreventionEnum.dc
+        :return: tuple of signature parameters
+        """
+        hash_version = HashVersionEnum[get_idex_blockchain()]
+        signature_parameters = (
+            ('uint8', hash_version.value),  # 0 - The signature hash version is 1 for Ethereum, 2 for BSC
+            ('uint128', self.get_nonce_int()),  # 1 - Nonce
+            ('address', self.get_wallet_address()),  # 2 - Signing wallet address
+            ('string', market),  # 3 - Market symbol (e.g. ETH-USDC)
+            ('uint8', order_type.value),  # 4 - Order type enum value
+            ('uint8', order_side.value),  # 5 - Order side enum value
+            ('string', order_quantity),  # 6 - Order quantity in base or quote terms
+            ('bool', quantity_in_quote),  # 7 - true if order quantity in quote terms, false if is in base terms
+            ('string', price),  # 8 - Order price or empty string if market order
+            ('string', stop_price),  # 9 - Order stop price or empty string if not a stop loss or take profit order
+            ('string', client_order_id),  # 10 - Client order id or empty string
+            ('uint8', time_in_force.value),  # 11 - Order time in force enum value
+            ('uint8', selftrade_prevention.value),  # 12 - Order self-trade prevention enum value
+            ('uint64', 0),  # 13 - Unused, always should be 0
+        )
+        return signature_parameters
 
     # ----------------------------- Deprecated methods -----------------------------
 
