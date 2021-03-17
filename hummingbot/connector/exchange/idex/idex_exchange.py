@@ -254,6 +254,9 @@ class IdexExchange(ExchangeBase):
                 data = await response.json()
                 return data
 
+    async def post_order(self, params) -> Dict[str, Any]:
+        pass # TODO Brian: Implement
+
     async def get_balance(self) -> Dict[Dict[str, Any]]:
         """ Requests current balances of all assets through API. Returns json data with balance details """
 
@@ -273,114 +276,80 @@ class IdexExchange(ExchangeBase):
                 return data
 
     async def _create_order(self,
-                            side: OrderSide,
+                            trade_type: TradeType,
                             order_id: str,
                             trading_pair: str,
                             amount: Decimal,
-                            order_type=OrderType.MARKET,
-                            price: Decimal = s_decimal_NaN):
+                            order_type: OrderType,
+                            price: Decimal):
+        """
+        Calls create-order API end point to place an order, starts tracking the order and triggers order created event.
+        :param trade_type: BUY or SELL
+        :param order_id: Internal order id (also called client_order_id)
+        :param trading_pair: The market to place order
+        :param amount: The order amount (in base token value)
+        :param order_type: The order type (MARKET, LIMIT, etc..)
+        :param price: The order price
+        """
 
+        if not order_type.is_limit_type():
+            raise Exception(f"Unsupported order type: {order_type}")
+        trading_rule = self._trading_rules[trading_pair]  # TODO: Implement _trading_rules_polling_loop()
+
+        amount = self.quantize_order_amount(trading_pair, amount)
+        price = self.quantize_order_price(trading_pair, price)
+        if amount < trading_rule.min_order_size:       # TODO: Implement _trading_rules_polling_loop()
+            raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
+                             f"{trading_rule.min_order_size}.")
+
+        api_params = {
+                      "market": trading_pair,
+                      "type": order_type.name,
+                      "side": trade_type.name,
+                      "quantity": f"{amount:f}",
+                      "price": f"{price:f}",
+                      "clientOrderId": order_id
+                      }
+        self.start_tracking_order(order_id,
+                                  None,
+                                  trading_pair,
+                                  trade_type,
+                                  price,
+                                  amount,
+                                  order_type
+                                  )
         try:
-            orderVersion = 1
-            market = await to_idex_pair(trading_pair)
-            if order_type == OrderType.MARKET:
-                typeEnum = 0
-            elif order_type == OrderType.LIMIT:
-                typeEnum = 1
-            elif order_type == OrderType.LIMIT_MAKER:
-                typeEnum = 2
-            else:
-                raise Exception(order_type + " is not a valid order type")
-
-            nonce = create_nonce()
-            walletBytes = self._idex_auth.get_wallet_bytes()
-            price = round_to_8_decimals(price)  # TODO precision
-            sideEnum = 0 if (side == 'buy') else 1
-            amountEnum = 0  # base quantity
-            amountString = round_to_8_decimals(amount)  # TODO self.amount_to_precision(symbol, amount)
-            timeInForceEnum = 0
-            selfTradePreventionEnum = 0
-
-            byteArray = [  # todo: deprecation warning
-                IdexAuth.number_to_be(orderVersion, 1),
-                nonce.bytes,
-                IdexAuth.base16_to_binary(walletBytes),
-                IdexAuth.encode(market),
-                IdexAuth.number_to_be(typeEnum, 1),
-                IdexAuth.number_to_be(sideEnum, 1),
-                IdexAuth.encode(amountString),
-                IdexAuth.number_to_be(amountEnum, 1),
-                IdexAuth.encode(price),
-                IdexAuth.encode(''),  # stopPrice
-                IdexAuth.encode(order_id),  # clientOrderId
-                IdexAuth.number_to_be(timeInForceEnum, 1),
-                IdexAuth.number_to_be(selfTradePreventionEnum, 1),
-                IdexAuth.number_to_be(0, 8),  # unused
-            ]
-
-            binary = IdexAuth.binary_concat_array(byteArray)  # todo: deprecation warning
-            hash = IdexAuth.hash(binary, 'keccak', 'hex')  # todo: deprecation warning
-            # todo: deprecation warning
-            signature = self._idex_auth.sign_message_string(hash, IdexAuth.binary_to_base16(self._idex_auth.new_wallet_object().key))
-
-            result = await self._client.trade.create_order(
-                parameters=RestRequestOrder(
-                    wallet=self._idex_auth.new_wallet_object().address,
-                    clientOrderId=order_id,
-                    market=market,
-                    nonce=str(nonce),
-                    quantity=round_to_8_decimals(amount),
-                    type=to_idex_order_type(order_type),
-                    timeInForce='gtc',
-                    price=price,
-                    side=side,
-                    selfTradePrevention='dc'
-                ),
-                signature=signature
-            )
-
-            self.start_tracking_order(
-                order_id,  # client_order_id
-                result.orderId,  # exchange_order_id
-                market,
-                TradeType.BUY if (side == 'buy') else TradeType.SELL,
-                price,
-                amount,
-                order_type
-            )
-
-            print(f"....................CREATED ORDER.......: {result}")
-            if result.status != "rejected" and result.status != "cancelled":
-                event_tag = MarketEvent.BuyOrderCreated if side == "buy" else MarketEvent.SellOrderCreated
-                event_class = BuyOrderCreatedEvent if side == "buy" else SellOrderCreatedEvent
-                self.trigger_event(
-                    event_tag,
-                    event_class(
-                        self.current_timestamp,
-                        order_type,
-                        trading_pair,
-                        amount,
-                        price,
-                        order_id
-                    )
-                )
+            order_result = await self.post_order() #TODO: ID required params for post_order and create post_order()
+            exchange_order_id = order_result["orderId"]
+            tracked_order = self._in_flight_orders.get(order_id)
+            if tracked_order is not None:
+                self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
+                                   f"{amount} {trading_pair}.")
+                tracked_order.update_exchange_order_id(exchange_order_id)
+            event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
+            event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
+            self.trigger_event(event_tag,
+                               event_class(
+                                   self.current_timestamp,
+                                   order_type,
+                                   trading_pair,
+                                   amount,
+                                   price,
+                                   order_id
+                               ))
         except asyncio.CancelledError:
             raise
         except Exception as e:
             self.stop_tracking_order(order_id)
             self.logger().network(
-                f"Error submitting {side} {order_type.name} order to Idex for "
+                f"Error submitting {trade_type.name} {order_type.name} order to Idex for "
                 f"{amount} {trading_pair} "
                 f"{price}.",
                 exc_info=True,
                 app_warning_msg=str(e)
             )
-            self.trigger_event(
-                MarketEvent.OrderFailure,
-                MarketOrderFailureEvent(
-                    self.current_timestamp, order_id, order_type
-                )
-            )
+        self.trigger_event(MarketEvent.OrderFailure,
+                           MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
         return Decimal(0.00000001)
@@ -525,7 +494,7 @@ class IdexExchange(ExchangeBase):
         result = {
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": account_balance_status,
-            # "trading_rule_initialized": len(self._trading_rules) > 0, # TODO: Implement _trading_rules_polling_task
+            # "trading_rule_initialized": len(self._trading_rules) > 0,
             "user_stream_initialized": self._user_stream_tracker.data_source.last_recv_time > 0 if self._trading_required else True,
         }
         return result

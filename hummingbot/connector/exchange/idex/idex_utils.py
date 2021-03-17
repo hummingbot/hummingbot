@@ -83,11 +83,9 @@ def get_idex_ws_feed():
             _IDEX_WS_FEED = _IDEX_WS_FEED_PROD_ETH if get_idex_blockchain() == 'ETH' else _IDEX_WS_FEED_PROD_BSC
     return _IDEX_WS_FEED
 
-
 def validate_idex_contract_blockchain(value: str) -> Optional[str]:
     if value not in IDEX_BLOCKCHAINS:
         return f'Value {value} must be one of: {IDEX_BLOCKCHAINS}'
-
 
 KEYS = {
     "idex_api_key":
