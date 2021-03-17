@@ -9,12 +9,8 @@ from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 
 
 class IdexInFlightOrder(InFlightOrderBase):
-    """
-    TODO: Test it
-    """
-
     def __init__(self,
-                 order_id: str,
+                 client_order_id: str,
                  exchange_order_id: str,
                  trading_pair: str,
                  order_type: OrderType,
@@ -23,7 +19,6 @@ class IdexInFlightOrder(InFlightOrderBase):
                  amount: Decimal,
                  initial_state: str = "open"):
         """
-
         :param order_id:
         :param exchange_order_id:
         :param trading_pair:
@@ -34,7 +29,7 @@ class IdexInFlightOrder(InFlightOrderBase):
         :param initial_state:  open, partiallyFilled, filled, canceled, rejected
         """
         super().__init__(
-            order_id,
+            client_order_id,
             exchange_order_id,
             trading_pair,
             order_type,
@@ -43,7 +38,7 @@ class IdexInFlightOrder(InFlightOrderBase):
             amount,
             initial_state,
         )
-        self.trade_id_set = set()
+        self.fill_id_set = set()
         self.cancelled_event = asyncio.Event()
 
     @property
@@ -86,21 +81,21 @@ class IdexInFlightOrder(InFlightOrderBase):
         # result.last_state = data["last_state"]
         return result
 
-    def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
+    def update_with_fill_update(self, fill_update: Dict[str, Any]) -> bool:
         """
-        Updates the in flight order with trade update (from private/get-order-detail end point)
+        Updates the in flight order with fill update (from private/get-order-detail end point)
         return: True if the order gets updated otherwise False
         """
-        trade_id = trade_update["tradeId"]
-        # trade_update["orderId"] is type int
-        if str(trade_update["order_id"]) != self.order_id or trade_id in self.trade_id_set:
-            # trade already recorded
+        fill_id = fill_update["fillId"]
+        # fill_update["orderId"] is type int
+        if str(fill_update["orderId"]) != self.exchange_order_id or fill_id in self.fill_id_set:
+            # fill already recorded
             return False
-        self.trade_id_set.add(trade_id)
-        self.executed_amount_base += Decimal(str(trade_update["executedQuantity"]))
-        self.fee_paid += Decimal(str(trade_update["fee"]))
-        self.executed_amount_quote += (Decimal(str(trade_update["price"])) *
-                                       Decimal(str(trade_update["executedQuantity"])))
+        self.fill_id_set.add(fill_id)
+        self.executed_amount_base += Decimal(str(fill_update["quantity"]))
+        self.fee_paid += Decimal(str(fill_update["fee"]))
+        self.executed_amount_quote += (Decimal(str(fill_update["price"])) *
+                                       Decimal(str(fill_update["quantity"])))
         if not self.fee_asset:
-            self.fee_asset = trade_update["fee_currency"]
+            self.fee_asset = fill_update["feeAsset"]
         return True

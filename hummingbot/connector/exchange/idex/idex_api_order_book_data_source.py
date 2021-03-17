@@ -22,7 +22,6 @@ from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerE
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.client.config.global_config_map import global_config_map
 
 # import with change to get_last_traded_prices
 from hummingbot.core.utils.async_utils import safe_gather  # todo alf: only one request needed for many trade_pairs ?
@@ -30,7 +29,7 @@ from hummingbot.core.utils.async_utils import safe_gather  # todo alf: only one 
 from hummingbot.connector.exchange.idex.idex_active_order_tracker import IdexActiveOrderTracker
 from hummingbot.connector.exchange.idex.idex_order_book_tracker_entry import IdexOrderBookTrackerEntry
 from hummingbot.connector.exchange.idex.idex_order_book import IdexOrderBook
-from hummingbot.connector.exchange.idex.idex_utils import IDEX_REST_URL_FMT, IDEX_WS_FEED_FMT
+from hummingbot.connector.exchange.idex.idex_utils import get_idex_rest_url, get_idex_ws_feed
 
 MAX_RETRIES = 20
 NaN = float("nan")
@@ -54,29 +53,11 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def __init__(self, trading_pairs: List[str]):
         super().__init__(trading_pairs)
 
-    @classmethod
-    def get_idex_rest_url(cls) -> str:
-        if cls._IDEX_REST_URL is None:
-            cls._IDEX_REST_URL = IDEX_REST_URL_FMT.format(
-                blockchain=global_config_map["idex_contract_blockchain"].value or global_config_map[
-                    "idex_contract_blockchain"].default
-            )
-        return cls._IDEX_REST_URL
-
-    @classmethod
-    def get_idex_ws_feed(cls) -> str:
-        if cls._IDEX_WS_FEED is None:
-            cls._IDEX_WS_FEED = IDEX_WS_FEED_FMT.format(
-                blockchain=global_config_map["idex_contract_blockchain"].value or global_config_map[
-                    "idex_contract_blockchain"].default
-            )
-        return cls._IDEX_WS_FEED
-
     # Found last trading price in Idex API. Utilized safe_gather to complete all tasks and append last trade prices
     # for all trading pairs on results list.
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
-        base_url: str = cls.get_idex_rest_url()
+        base_url: str = get_idex_rest_url()
         tasks = [cls.get_last_traded_price(t_pair, base_url) for t_pair in trading_pairs]
         results = await safe_gather(*tasks)
         return {t_pair: result for t_pair, result in zip(trading_pairs, results)}
@@ -96,7 +77,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @cachetools.func.ttl_cache(ttl=10)
     async def get_mid_price(cls, trading_pair: str) -> Optional[Decimal]:
         async with aiohttp.ClientSession() as client:
-            base_url: str = cls.get_idex_rest_url()
+            base_url: str = get_idex_rest_url()
             ticker_url: str = f"{base_url}/v1/tickers?market={trading_pair}"
             resp = await client.get(ticker_url)
             market = await resp.json()
@@ -110,7 +91,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             async with aiohttp.ClientSession() as client:
                 # ensure IDEX_REST_URL has appropriate blockchain imported (ETH or BSC)
-                base_url: str = IdexAPIOrderBookDataSource.get_idex_rest_url()
+                base_url: str = get_idex_rest_url()
                 async with client.get(f"{base_url}/v1/tickers", timeout=5) as response:
                     if response.status == 200:
                         markets = await response.json()
@@ -133,7 +114,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :returns: Response from the rest API
         """
         # idex level 2 order book is sufficient to provide required data
-        base_url: str = IdexAPIOrderBookDataSource.get_idex_rest_url()
+        base_url: str = get_idex_rest_url()
         product_order_book_url: str = f"{base_url}/v1/orderbook?market={trading_pair}&level=2"
         async with client.get(product_order_book_url) as response:
             response: aiohttp.ClientResponse = response
@@ -258,7 +239,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 trading_pairs: List[str] = self._trading_pairs
-                async with websockets.connect(self.get_idex_ws_feed()) as ws:
+                async with websockets.connect(get_idex_ws_feed()) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     subscription_request: Dict[str, Any] = {
                         "method": "subscribe",
@@ -316,7 +297,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 trading_pairs: List[str] = self._trading_pairs
-                async with websockets.connect(self.get_idex_ws_feed()) as ws:
+                async with websockets.connect(get_idex_ws_feed()) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     subscription_request: Dict[str, Any] = {
                         "method": "subscribe",
