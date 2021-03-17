@@ -138,7 +138,7 @@ class BalanceCommand:
                 continue
             avai = Decimal(ex_avai_balances.get(token.upper(), 0)) if ex_avai_balances is not None else Decimal(0)
             allocated = f"{(bal - avai) / bal:.0%}"
-            rate = await RateOracle.get_token_value_async(token)
+            rate = await RateOracle.global_rate(token)
             rate = Decimal("0") if rate is None else rate
             global_value = rate * bal
             allocated_total += rate * (bal - avai)

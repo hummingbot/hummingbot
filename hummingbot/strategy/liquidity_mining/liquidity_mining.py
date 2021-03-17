@@ -15,11 +15,12 @@ from .data_types import Proposal, PriceSize
 from hummingbot.core.event.events import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.utils.estimate_fee import estimate_fee
-from hummingbot.core.utils.market_price import usd_value
 from hummingbot.strategy.pure_market_making.inventory_skew_calculator import (
     calculate_bid_ask_ratios_from_base_asset_ratio
 )
 from hummingbot.connector.parrot import get_campaign_summary
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
+
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
 s_decimal_nan = Decimal("NaN")
@@ -192,15 +193,16 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
     async def miner_status_df(self) -> pd.DataFrame:
         data = []
+        g_sym = RateOracle.global_token_symbol
         columns = ["Market", "Payout", "Reward/wk", "Liquidity", "Yield/yr", "Max spread"]
         campaigns = await get_campaign_summary(self._exchange.display_name, list(self._market_infos.keys()))
         for market, campaign in campaigns.items():
-            reward_usd = await usd_value(campaign.payout_asset, campaign.reward_per_wk)
+            reward = await RateOracle.global_value(campaign.payout_asset, campaign.reward_per_wk)
             data.append([
                 market,
                 campaign.payout_asset,
-                f"${reward_usd:.0f}",
-                f"${campaign.liquidity_usd:.0f}",
+                f"{g_sym}{reward:.0f}",
+                f"{g_sym}{campaign.liquidity_usd:.0f}",
                 f"{campaign.apy:.2%}",
                 f"{campaign.spread_max:.2%}%"
             ])
