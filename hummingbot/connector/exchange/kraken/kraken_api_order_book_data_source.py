@@ -11,14 +11,10 @@ from typing import (
     List,
     Optional
 )
-from decimal import Decimal
 import time
 import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
-
-import requests
-import cachetools.func
 
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -129,21 +125,6 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return
         finally:
             await ws.close()
-
-    @staticmethod
-    @cachetools.func.ttl_cache(ttl=10)
-    def get_mid_price(trading_pair: str) -> Optional[Decimal]:
-        from hummingbot.connector.exchange.kraken.kraken_utils import convert_to_exchange_trading_pair
-
-        KRAKEN_PRICE_URL = "https://api.kraken.com/0/public/Ticker?pair="
-        k_pair = convert_to_exchange_trading_pair(trading_pair)
-        resp = requests.get(url=KRAKEN_PRICE_URL + k_pair)
-        resp_json = resp.json()
-        if len(resp_json["error"]) == 0:
-            for record in resp_json["result"]:  # assume only one pair is received
-                record = resp_json["result"][record]
-                result = (Decimal(record["a"][0]) + Decimal(record["b"][0])) / Decimal("2")
-            return result
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
