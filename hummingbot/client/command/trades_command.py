@@ -63,7 +63,8 @@ class TradesCommand:
             self._notify(f"There is no trade on {market}.")
             return
         data = []
-        columns = ["Time", " Side", " Price", "Amount", f" Amount ({g_sym})"]
+        amount_g_col_name = f" Amount ({g_sym})"
+        columns = ["Time", " Side", " Price", "Amount", amount_g_col_name]
         trades = sorted(trades, key=lambda x: (x.trading_pair, x.timestamp))
         fees = {}  # a dict of token and total fee amount
         fee_usd = 0
@@ -86,5 +87,5 @@ class TradesCommand:
         lines.extend(["    " + line for line in df.to_string(index=False).split("\n")])
         self._notify("\n" + "\n".join(lines))
         fee_text = ",".join(k + ": " + f"{v:.4f}" for k, v in fees.items())
-        self._notify(f"\n  Total traded: {g_sym} {df[' Amount ({g_sym})'].sum():.0f}    "
+        self._notify(f"\n  Total traded: {g_sym} {df[amount_g_col_name].sum():.0f}    "
                      f"Fees: {fee_text} ({g_sym} {fee_usd:.2f})")
