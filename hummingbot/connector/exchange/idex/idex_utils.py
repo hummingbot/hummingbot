@@ -1,9 +1,12 @@
 from typing import Optional
 
+import typing
+
 from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.core.event.events import OrderType, TradeType
 
 
 CENTRALIZED = False
@@ -83,9 +86,57 @@ def get_idex_ws_feed():
             _IDEX_WS_FEED = _IDEX_WS_FEED_PROD_ETH if get_idex_blockchain() == 'ETH' else _IDEX_WS_FEED_PROD_BSC
     return _IDEX_WS_FEED
 
+
 def validate_idex_contract_blockchain(value: str) -> Optional[str]:
     if value not in IDEX_BLOCKCHAINS:
         return f'Value {value} must be one of: {IDEX_BLOCKCHAINS}'
+
+
+HB_ORDER_TYPE_MAP = {
+    OrderType.MARKET: "market",
+    OrderType.LIMIT: "limit",
+    OrderType.LIMIT_MAKER: "limitMaker",
+}
+
+
+def to_idex_order_type(
+        order_type: typing.Literal[
+            OrderType.MARKET,
+            OrderType.LIMIT,
+            OrderType.LIMIT_MAKER]):
+    return HB_ORDER_TYPE_MAP[order_type]
+
+
+IDEX_ORDER_TYPE_MAP = {
+    "market": OrderType.MARKET,
+    "limit": OrderType.LIMIT,
+    "limitMaker": OrderType.LIMIT_MAKER,
+}
+
+
+def from_idex_order_type(order_type: str):
+    return IDEX_ORDER_TYPE_MAP[order_type]
+
+
+IDEX_TRADE_TYPE_MAP = {
+    "buy": TradeType.BUY,
+    "sell": TradeType.SELL,
+}
+
+
+def from_idex_trade_type(side: str):
+    return IDEX_TRADE_TYPE_MAP[side]
+
+
+HB_TRADE_TYPE_MAP = {
+    TradeType.BUY: "buy",
+    TradeType.SELL: "sell",
+}
+
+
+def to_idex_trade_type(trade_type: str):
+    return HB_TRADE_TYPE_MAP[trade_type]
+
 
 KEYS = {
     "idex_api_key":

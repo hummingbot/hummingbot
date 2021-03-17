@@ -29,15 +29,15 @@ from .types.enums import OrderStatus
 from .client.exceptions import ResourceNotFoundError
 
 from .client.asyncio import AsyncIdexClient
-from .idex_auth import IdexAuth
+from .idex_auth import IdexAuth, OrderTypeEnum, OrderSideEnum, OrderTimeInForce, OrderSelfTradePreventionEnum
 from .idex_in_flight_order import IdexInFlightOrder
 from .idex_order_book_tracker import IdexOrderBookTracker
 from .idex_user_stream_tracker import IdexUserStreamTracker
-from .idex_utils import get_idex_rest_url, get_idex_ws_feed
+from .idex_utils import get_idex_rest_url, get_idex_ws_feed, to_idex_order_type, from_idex_order_type, \
+    from_idex_trade_type, to_idex_trade_type, EXCHANGE_NAME
 from .types.rest.request import RestRequestCancelOrder, RestRequestCancelAllOrders, RestRequestOrder, OrderSide
 from .types.websocket.response import WebSocketResponseTradeShort, \
     WebSocketResponseOrderShort
-from .utils import to_idex_pair, to_idex_order_type, create_id, create_nonce, EXCHANGE_NAME, round_to_8_decimals
 
 s_decimal_0 = Decimal("0.0")
 
@@ -255,7 +255,39 @@ class IdexExchange(ExchangeBase):
                 return data
 
     async def post_order(self, params) -> Dict[str, Any]:
-        pass # TODO Brian: Implement
+
+        rest_url = get_idex_rest_url()
+        url = f"{rest_url}/v1/orders"
+        params.update({
+            "nonce": self._idex_auth.get_nonce_str(),
+            "wallet": self._idex_auth.get_wallet_address()
+        })
+        signature_parameters = self._idex_auth.build_signature_params_for_order(
+                            # TODO Brian: Did not include: stop_price, time_in_force, and selftrade_prevention. Add later as required.
+                            market=params["market"],
+                            order_type=OrderTypeEnum[params["type"]],
+                            order_side=OrderTypeEnum[params["side"]],
+                            order_quantity=params["quantity"],
+                            # I believe this will always be false as the order quantity need only be taken in base terms
+                            quantity_in_quote=False,
+                            price=params["price"],
+                            client_order_id=params["clientOrderId"],
+        )
+        wallet_signature = self._idex_auth.wallet_sign(signature_parameters)
+
+        body = {
+            "parameters": params,
+            "signature": wallet_signature
+        }
+
+        auth_dict = self._idex_auth.generate_auth_dict(url=url, body=body, wallet_signature=wallet_signature)
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(auth_dict["url"], body=auth_dict["body"], headers=auth_dict["headers"]) as response:
+                if response.status != 200:
+                    raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {response}")
+                data = await response.json()
+                return data
 
     async def get_balance(self) -> Dict[Dict[str, Any]]:
         """ Requests current balances of all assets through API. Returns json data with balance details """
@@ -296,6 +328,9 @@ class IdexExchange(ExchangeBase):
             raise Exception(f"Unsupported order type: {order_type}")
         trading_rule = self._trading_rules[trading_pair]  # TODO: Implement _trading_rules_polling_loop()
 
+        idex_order_type = to_idex_order_type(order_type)
+        idex_trade_type = to_idex_trade_type(trade_type)
+
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
         if amount < trading_rule.min_order_size:       # TODO: Implement _trading_rules_polling_loop()
@@ -304,8 +339,8 @@ class IdexExchange(ExchangeBase):
 
         api_params = {
                       "market": trading_pair,
-                      "type": order_type.name,
-                      "side": trade_type.name,
+                      "type": idex_order_type,
+                      "side": idex_trade_type,
                       "quantity": f"{amount:f}",
                       "price": f"{price:f}",
                       "clientOrderId": order_id
@@ -319,7 +354,7 @@ class IdexExchange(ExchangeBase):
                                   order_type
                                   )
         try:
-            order_result = await self.post_order() #TODO: ID required params for post_order and create post_order()
+            order_result = await self.post_order(api_params) #TODO: ID required params for post_order and create post_order()
             exchange_order_id = order_result["orderId"]
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
