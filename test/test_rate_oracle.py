@@ -19,10 +19,10 @@ class RateOracleTest(unittest.TestCase):
         asyncio.get_event_loop().run_until_complete(self._test_get_rate_coingecko())
 
     async def _test_get_rate_coingecko(self):
-        rates = await RateOracle.get_coingecko_prices_by_page(1)
+        rates = await RateOracle.get_coingecko_prices_by_page("USD", 1)
         print(rates)
         self.assertGreater(len(rates), 100)
-        rates = await RateOracle.get_coingecko_prices()
+        rates = await RateOracle.get_coingecko_prices("USD")
         print(rates)
         self.assertGreater(len(rates), 700)
 
