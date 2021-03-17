@@ -31,7 +31,7 @@ class RateCommand:
                         ):
         pair = pair.upper()
         self._notify(f"Source: {RateOracle.source.name}")
-        rate = await RateOracle.get_rate_async(pair)
+        rate = await RateOracle.rate_async(pair)
         if rate is None:
             self._notify("Rate is not available.")
             return
@@ -43,7 +43,7 @@ class RateCommand:
                                ):
         token = token.upper()
         self._notify(f"Source: {RateOracle.source.name}")
-        rate = await RateOracle.get_token_value_async(token)
+        rate = await RateOracle.global_rate(token)
         if rate is None:
             self._notify("Rate is not available.")
             return

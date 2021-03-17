@@ -11,7 +11,7 @@ class RateOracleTest(unittest.TestCase):
         asyncio.get_event_loop().run_until_complete(self._test_find_rate_from_source())
 
     async def _test_find_rate_from_source(self):
-        rate = await RateOracle.get_rate_async("BTC-USDT")
+        rate = await RateOracle.rate_async("BTC-USDT")
         print(rate)
         self.assertGreater(rate, 100)
 
@@ -32,15 +32,15 @@ class RateOracleTest(unittest.TestCase):
         asyncio.get_event_loop().run_until_complete(oracle.get_ready())
         print(oracle.prices)
         self.assertGreater(len(oracle.prices), 0)
-        rate = oracle.get_rate("SCRT-USDT")
+        rate = oracle.rate("SCRT-USDT")
         print(f"rate SCRT-USDT: {rate}")
         self.assertGreater(rate, 0)
-        rate1 = oracle.get_rate("BTC-USDT")
+        rate1 = oracle.rate("BTC-USDT")
         print(f"rate BTC-USDT: {rate1}")
         self.assertGreater(rate1, 100)
         # wait for 5 s to check rate again
         asyncio.get_event_loop().run_until_complete(asyncio.sleep(5))
-        rate2 = oracle.get_rate("BTC-USDT")
+        rate2 = oracle.rate("BTC-USDT")
         print(f"rate BTC-USDT: {rate2}")
         self.assertNotEqual(0, rate2)
         oracle.stop()

@@ -20,7 +20,6 @@ from hummingbot.core.utils import async_ttl_cache
 class RateOracleSource(Enum):
     binance = 0
     coingecko = 1
-    kucoin = 2
 
 
 class RateOracle(NetworkBase):
@@ -82,19 +81,25 @@ class RateOracle(NetworkBase):
     def update_interval(self) -> float:
         return 1.0
 
-    def get_rate(self, pair: str) -> Decimal:
+    def rate(self, pair: str) -> Decimal:
         return find_rate(self._prices, pair)
 
     @classmethod
-    async def get_rate_async(cls, pair: str) -> Decimal:
+    async def rate_async(cls, pair: str) -> Decimal:
         prices = await cls.get_prices()
         return find_rate(prices, pair)
 
     @classmethod
-    async def get_token_value_async(cls, token: str) -> Decimal:
+    async def global_rate(cls, token: str) -> Decimal:
         prices = await cls.get_prices()
         pair = token + "-" + cls.global_token
         return find_rate(prices, pair)
+
+    @classmethod
+    async def global_value(cls, token: str, amount: Decimal) -> Decimal:
+        rate = cls.global_rate(token)
+        rate = Decimal("0") if rate is None else rate
+        return amount * rate
 
     async def fetch_price_loop(self):
         while True:
@@ -115,6 +120,8 @@ class RateOracle(NetworkBase):
             return await cls.get_binance_prices()
         elif cls.source == RateOracleSource.coingecko:
             return await cls.get_coingecko_prices(cls.global_token)
+        else:
+            raise NotImplementedError
 
     @classmethod
     @async_ttl_cache(ttl=1, maxsize=1)
