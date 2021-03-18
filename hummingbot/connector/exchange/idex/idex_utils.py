@@ -141,7 +141,7 @@ HB_TRADE_TYPE_MAP = {
 }
 
 
-def to_idex_trade_type(trade_type: str):
+def to_idex_trade_type(trade_type: TradeType):
     return HB_TRADE_TYPE_MAP[trade_type]
 
 
@@ -181,3 +181,6 @@ KEYS = {
                   is_secure=True,
                   is_connect_key=False),
 }
+
+
+DEBUG = False
