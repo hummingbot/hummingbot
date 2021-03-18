@@ -327,17 +327,22 @@ class AmmArbStrategy(StrategyPyBase):
                 if self._market_info_1.market.name in ETH_WALLET_CONNECTORS and \
                         "WETH" not in self._market_info_1.trading_pair.split("-"):
                     self._market_1_quote_eth_rate = await self.request_rate_in_eth(self._market_info_1.quote_asset)
+                    self.logger().warning(f"Estimate conversion rate - "
+                                          f"{self._market_info_1.quote_asset}:ETH = {self._market_1_quote_eth_rate} ")
+
                 if self._market_info_2.market.name in ETH_WALLET_CONNECTORS and \
                         "WETH" not in self._market_info_2.trading_pair.split("-"):
                     self._market_2_quote_eth_rate = await self.request_rate_in_eth(self._market_info_2.quote_asset)
+                    self.logger().warning(f"Estimate conversion rate - "
+                                          f"{self._market_info_2.quote_asset}:ETH = {self._market_2_quote_eth_rate} ")
                 await asyncio.sleep(60 * 5)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
                 self.logger().error(str(e), exc_info=True)
-                self.logger().network("Unexpected error while fetching account updates.",
+                self.logger().network("Unexpected error while fetching ETH conversion rate.",
                                       exc_info=True,
-                                      app_warning_msg="Could not fetch balances from Gateway API.")
+                                      app_warning_msg="Could not fetch ETH conversion rate from Gateway API.")
                 await asyncio.sleep(0.5)
 
     async def request_rate_in_eth(self, quote: str) -> int:

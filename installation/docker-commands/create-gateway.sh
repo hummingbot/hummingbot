@@ -49,6 +49,14 @@ else
       echo "  Required: server_cert.pem, server_key.pem, ca_cert.pem"
       prompt_hummingbot_data_path
     fi
+
+    # get log folder path
+    if [ -d "$FOLDER/hummingbot_logs" ]; then
+      LOG_PATH=$FOLDER/hummingbot_logs
+    else
+      echo "‼️  hummingbot_logs directory missing from path $FOLDER"
+      prompt_hummingbot_data_path
+    fi
   fi
 fi
 }
@@ -98,10 +106,10 @@ read_global_config
 
 # prompt to setup balancer, uniswap
 prompt_ethereum_setup () {
-  read -p "   Do you want to setup Balancer or Uniswap? [Y/N] >>> " PROCEED
+  read -p "   Do you want to setup Balancer/Uniswap/Perpetual Finance? [Y/N] >>> " PROCEED
   if [[ "$PROCEED" == "Y" || "$PROCEED" == "y" ]]
   then
-    echo "ℹ️  Retrieving Balancer/Uniswap config from Hummingbot config file ... "
+    echo "ℹ️  Retrieving config from Hummingbot config file ... "
     ETHEREUM_SETUP=true
     echo
   fi
@@ -168,6 +176,9 @@ fi
 }
 prompt_password
 
+# Get GMT offset from local system time
+GMT_OFFSET=$(date +%z)
+
 # Check available open port for Gateway
 PORT=5000
 LIMIT=$((PORT+1000))
@@ -195,6 +206,7 @@ printf "%30s %5s\n" "Balancer Subgraph:" "$REACT_APP_SUBGRAPH_URL"
 printf "%30s %5s\n" "Balancer Exchange Proxy:" "$EXCHANGE_PROXY"
 printf "%30s %5s\n" "Uniswap Router:" "$UNISWAP_ROUTER"
 printf "%30s %5s\n" "Terra Chain:" "$TERRA"
+printf "%30s %5s\n" "Gateway Log Path:" "$LOG_PATH"
 printf "%30s %5s\n" "Gateway Cert Path:" "$CERT_PATH"
 printf "%30s %5s\n" "Gateway Port:" "$PORT"
 echo
@@ -240,7 +252,9 @@ create_instance () {
  -p 127.0.0.1:$PORT:$PORT \
  --env-file $ENV_FILE \
  -e CERT_PASSPHRASE="$PASSWORD" \
+ -e GMT_OFFSET="$GMT_OFFSET" \
  --mount "type=bind,source=$CERT_PATH,destination=/usr/src/app/certs/" \
+ --mount "type=bind,source=$LOG_PATH,destination=/usr/src/app/logs/" \
  coinalpha/gateway-api:$GATEWAY_TAG
 }
 

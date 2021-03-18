@@ -2,7 +2,7 @@
 ###       Perpetual market making strategy config         ###
 ########################################################
 
-template_version: 3
+template_version: 4
 strategy: null
 
 # derivative and token parameters.
@@ -58,6 +58,9 @@ ts_activation_spread: null
 
 # Callback rate for trailing stop
 ts_callback_rate: null
+
+# Spread from position entry price to place a stop-loss order to close position
+stop_loss_spread: null
 
 # OrderType to use for closing positions when using Trailing stop feature
 close_position_order_type: null

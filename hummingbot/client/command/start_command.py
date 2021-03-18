@@ -68,9 +68,11 @@ class StartCommand:
         if not is_valid:
             return
 
-        init_logging("hummingbot_logs.yml",
-                     override_log_level=log_level.upper() if log_level else None,
-                     strategy_file_path=self.strategy_file_name)
+        if self._last_started_strategy_file != self.strategy_file_name:
+            init_logging("hummingbot_logs.yml",
+                         override_log_level=log_level.upper() if log_level else None,
+                         strategy_file_path=self.strategy_file_name)
+            self._last_started_strategy_file = self.strategy_file_name
 
         # If macOS, disable App Nap.
         if platform.system() == "Darwin":

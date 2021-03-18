@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from typing import Optional, Dict, AsyncIterable
 
 import aiohttp
@@ -62,12 +63,14 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         try:
             while True:
                 try:
-                    raw_msg: str = await asyncio.wait_for(client.recv(), timeout=60.0)
+                    raw_msg: str = await asyncio.wait_for(client.recv(), timeout=50.0)
+                    self._last_recv_time = time.time()
                     yield raw_msg
                 except asyncio.TimeoutError:
                     try:
+                        self._last_recv_time = time.time()
                         pong_waiter = await client.ping()
-                        await asyncio.wait_for(pong_waiter, timeout=60.0)
+                        await asyncio.wait_for(pong_waiter, timeout=50.0)
                     except asyncio.TimeoutError:
                         raise
         except asyncio.TimeoutError:
