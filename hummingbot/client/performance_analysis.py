@@ -94,7 +94,7 @@ def calculate_asset_delta_from_trades(current_strategy_name: str,
                 asset_stats[quote_asset]["spent"] += quote_delta
 
         market_trading_pair_stats[market_trading_pair_tuple] = {
-            "starting_quote_rate": Decimal(repr(queried_trades[0].price)),
+            "starting_quote_rate": Decimal(queried_trades[0].price),
             "asset": asset_stats,
             "trade_count": len(queried_trades)
         }

@@ -91,8 +91,8 @@ class TestTradePerformanceAnalysis(unittest.TestCase):
                 "order_id": f"{i}_{market_trading_pair_tuple.trading_pair}",
                 "trade_type": trade_data[0],
                 "order_type": order_type,
-                "price": float(trade_data[1]),
-                "amount": float(trade_data[2]),
+                "price": trade_data[1],
+                "amount": trade_data[2],
                 "trade_fee": TradeFee.to_json(TradeFee(0.01)),
                 "exchange_trade_id": f"{i}_{market_trading_pair_tuple.trading_pair}"
             }
