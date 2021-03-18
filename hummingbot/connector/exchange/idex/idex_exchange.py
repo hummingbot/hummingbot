@@ -15,6 +15,7 @@ import ujson
 from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 # from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.event.events import OrderType, OrderCancelledEvent, TradeType, TradeFee, MarketEvent, \
@@ -34,7 +35,7 @@ from .idex_in_flight_order import IdexInFlightOrder
 from .idex_order_book_tracker import IdexOrderBookTracker
 from .idex_user_stream_tracker import IdexUserStreamTracker
 from .idex_utils import get_idex_rest_url, get_idex_ws_feed, to_idex_order_type, from_idex_order_type, \
-    from_idex_trade_type, to_idex_trade_type, EXCHANGE_NAME
+    from_idex_trade_type, to_idex_trade_type, EXCHANGE_NAME, get_new_client_order_id, get_idex_blockchain
 from .types.rest.request import RestRequestCancelOrder, RestRequestCancelAllOrders, RestRequestOrder, OrderSide
 from .types.websocket.response import WebSocketResponseTradeShort, \
     WebSocketResponseOrderShort
@@ -84,6 +85,50 @@ class IdexExchange(ExchangeBase):
         self._last_poll_timestamp = 0
 
     @property
+    def name(self) -> str:
+        return EXCHANGE_NAME
+
+    @property
+    def order_books(self) -> Dict[str, OrderBook]:
+        return self._order_book_tracker.order_books
+
+    @property
+    def trading_rules(self) -> Dict[str, TradingRule]:
+        return self._trading_rules
+
+    @property
+    def in_flight_orders(self) -> Dict[str, IdexInFlightOrder]:
+        return self._in_flight_orders
+
+    @property
+    def status_dict(self) -> Dict[str, bool]:
+        """
+        A dictionary of statuses of various connector's components.
+        """
+        return {
+            "order_books_initialized": self._order_book_tracker.ready,
+            "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
+            "trading_rule_initialized": len(self._trading_rules) > 0,
+            "user_stream_initialized":
+                self._user_stream_tracker.data_source.last_recv_time > 0 if self._trading_required else True,
+        }
+
+    @property
+    def ready(self) -> bool:
+        """
+        :return True when all statuses pass, this might take 5-10 seconds for all the connector's components and
+        services to be ready.
+        """
+        return all(self.status_dict.values())
+
+    @property
+    def limit_orders(self) -> List[LimitOrder]:
+        return [
+            in_flight_order.to_limit_order()
+            for in_flight_order in self._in_flight_orders.values()
+        ]
+
+    @property
     def tracking_states(self) -> Dict[str, any]:
         """
         :return active in-flight orders in json format, is used to save in sqlite db.
@@ -94,33 +139,59 @@ class IdexExchange(ExchangeBase):
             if not value.is_done
         }
 
+    # TODO Brian: the from_json() function needs to be reworked in idex_in_flight_order
+    def restore_tracking_states(self, saved_states: Dict[str, any]):
+        """
+        Restore in-flight orders from saved tracking states, this is so the connector can pick up on where it left off
+        when it disconnects.
+        :param saved_states: The saved tracking_states.
+        """
+        self._in_flight_orders.update({
+            key: IdexInFlightOrder.from_json(value)
+            for key, value in saved_states.items()
+        })
+
     def supported_order_types(self) -> List[OrderType]:
-        # TODO: Validate against
         """
-        0	Market
-        1	Limit
-        2	Limit maker
-        3	Stop loss
-        4	Stop loss limit
-        5	Take profit
-        6	Take profit limit
-        :return:
+        :return a list of OrderType supported by this connector.
+        Note that Market order type is no longer required and will not be used.
         """
-        return [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+
+    def start(self, clock: Clock, timestamp: float):
+        """
+        This function is called automatically by the clock.
+        """
+        super().start(clock, timestamp)
+
+    def stop(self, clock: Clock):
+        """
+        This function is called automatically by the clock.
+        """
+        super().stop(clock)
+
+    async def start_network(self):
+        await self.stop_network()
+        self._order_book_tracker.start()
+        if self._trading_required:
+            self._status_polling_task = safe_ensure_future(self._status_polling_loop())
+            self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
+            self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
+
+    async def stop_network(self):
+        self._order_book_tracker.stop()
+
+        if self._status_polling_task is not None:
+            self._status_polling_task.cancel()
+        if self._user_stream_tracker_task is not None:
+            self._user_stream_tracker_task.cancel()
+        if self._user_stream_event_listener_task is not None:
+            self._user_stream_event_listener_task.cancel()
+        self._status_polling_task = self._user_stream_tracker_task = self._user_stream_event_listener_task = None
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
         return self._order_book_tracker.order_books
-
-    @property
-    def limit_orders(self) -> List[LimitOrder]:
-        """
-        TODO: Validate
-        """
-        return [
-            in_flight_order.to_limit_order()
-            for in_flight_order in self._in_flight_orders.values()
-        ]
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         """
@@ -131,92 +202,73 @@ class IdexExchange(ExchangeBase):
         """
         pass
 
-    async def execute_buy(self,
-                          order_id: str,
-                          trading_pair: str,
-                          amount: Decimal,
-                          order_type: OrderType,
-                          price: Optional[Decimal] = s_decimal_NaN):
-        return await self._create_order(
-            "buy",
-            order_id,
-            trading_pair,
-            amount,
-            order_type,
-            price
-        )
-
-    async def execute_sell(self,
-                           order_id: str,
-                           trading_pair: str,
-                           amount: Decimal,
-                           order_type: OrderType,
-                           price: Optional[Decimal] = s_decimal_NaN):
-        return await self._create_order(
-            "sell",
-            order_id,
-            trading_pair,
-            amount,
-            order_type,
-            price
-        )
-
-    def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET, price: Decimal = s_decimal_NaN,
-            **kwargs):
-        order_id = create_id()
-        safe_ensure_future(self._create_order(
-            "buy",
-            order_id,
-            trading_pair,
-            amount,
-            order_type,
-            price
-        ))
+    def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+            price: Decimal = s_decimal_NaN, **kwargs) -> str:
+        """
+        Buys an amount of base asset (of the given trading pair). This function returns immediately.
+        To see an actual order, you'll have to wait for BuyOrderCreatedEvent.
+        :param trading_pair: The market (e.g. BTC-USDT) to buy from
+        :param amount: The amount in base token value
+        :param order_type: The order type
+        :param price: The price (note: this is no longer optional)
+        :returns A new internal order id
+        """
+        order_id: str = get_new_client_order_id(True, trading_pair)
+        safe_ensure_future(self._create_order(TradeType.BUY, order_id, trading_pair, amount, order_type, price))
         return order_id
 
     # def amount_to_precision(self, symbol, amount):
         # return self.decimal_to_precision(amount, TRUNCATE, self.markets[symbol]['precision']['amount'],
     # self.precisionMode, self.paddingMode)
 
-    def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET, price: Decimal = s_decimal_NaN,
-             **kwargs):
-        order_id = create_id()
-        safe_ensure_future(self._create_order(
-            "sell",
-            order_id,
-            trading_pair,
-            amount,
-            order_type,
-            price
-        ))
+    def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+             price: Decimal = s_decimal_NaN, **kwargs) -> str:
+        """
+        Sells an amount of base asset (of the given trading pair). This function returns immediately.
+        To see an actual order, you'll have to wait for SellOrderCreatedEvent.
+        :param trading_pair: The market (e.g. BTC-USDT) to sell from
+        :param amount: The amount in base token value
+        :param order_type: The order type
+        :param price: The price (note: this is no longer optional)
+        :returns A new internal order id
+        """
+        order_id: str = get_new_client_order_id(False, trading_pair)
+        safe_ensure_future(self._create_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price))
         return order_id
 
-    async def _api_request(self,
-                           http_method: str,
-                           path_url: str = "",
-                           data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def cancel(self, trading_pair: str, order_id: str):
+        """
+        Cancel an order. This function returns immediately.
+        To get the cancellation result, you'll have to wait for OrderCancelledEvent.
+        :param trading_pair: The market (e.g. BTC-USDT) of the order.
+        :param order_id: The internal order id (also called client_order_id)
+        """
 
-        """ A wrapper for submitting API requests to Idex. Returns json data from the endpoints """
+        safe_ensure_future(self._execute_cancel(trading_pair, order_id))
+        return order_id
+
+    async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
         """
-        rest_url = get_idex_rest_url()
-        url = f"{rest_url}{path_url}"
-        data_str = "" if data is None else json.dumps(data)
-        async with aiohttp.ClientSession() as session:
-            if http_method == "GET":
-                auth_dict = self._idex_auth.generate_auth_dict_for_get(url)
-                async with session.get(auth_dict["url"], headers=auth_dict["headers"]) as response:
-                    if response.status != 200:
-                        raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {data}")
-                    data = await response.json()
-                    return data
-            elif http_method == "POST" or "DELETE":
-                auth_dict = self._idex_auth.generate_auth_dict_for_post(
-                    url=url, body=data_str, wallet_signature=self._idex_auth.get_wallet_address())
-                # TODO Brian: adjust to wallet signature
-                async with session.get(auth_dict["url"], headers=auth_dict["headers"]) as response:
-                    data = await response.json()
-                    return data
+        Executes order cancellation process by first calling cancel-order API. The API result doesn't confirm whether
+        the cancellation is successful, it simply states it receives the request.
+        :param trading_pair: The market trading pair
+        :param order_id: The internal order id
+        order.last_state to change to CANCELED
         """
+        try:
+            tracked_order = self._in_flight_orders.get(order_id)
+            if tracked_order is None:
+                raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
+            await self.delete_order(trading_pair, order_id)
+            return order_id
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().network(
+                f"Failed to cancel order {order_id}: {str(e)}",
+                exc_info=True,
+                app_warning_msg=f"Failed to cancel the order {order_id} on Idex. "
+                                f"Check API key and network connection.")
 
 # API Calls
 
@@ -226,7 +278,7 @@ class IdexExchange(ExchangeBase):
         rest_url = get_idex_rest_url()
         url = f"{rest_url}/v1/orders/"
         params = {
-            "nonce": self._idex_auth.get_nonce_str(),
+            "nonce": self._idex_auth.generate_nonce(),
             "wallet": self._idex_auth.get_wallet_address()
         }
         auth_dict = self._idex_auth.generate_auth_dict(http_method="GET", url=url, params=params)
@@ -259,7 +311,7 @@ class IdexExchange(ExchangeBase):
         rest_url = get_idex_rest_url()
         url = f"{rest_url}/v1/orders"
         params.update({
-            "nonce": self._idex_auth.get_nonce_str(),
+            "nonce": self._idex_auth.generate_nonce(),
             "wallet": self._idex_auth.get_wallet_address()
         })
         signature_parameters = self._idex_auth.build_signature_params_for_order(
@@ -280,7 +332,7 @@ class IdexExchange(ExchangeBase):
             "signature": wallet_signature
         }
 
-        auth_dict = self._idex_auth.generate_auth_dict(url=url, body=body, wallet_signature=wallet_signature)
+        auth_dict = self._idex_auth.generate_auth_dict_for_post(url=url, body=body, wallet_signature=wallet_signature)
 
         async with aiohttp.ClientSession() as session:
             async with session.post(auth_dict["url"], body=auth_dict["body"], headers=auth_dict["headers"]) as response:
@@ -289,7 +341,36 @@ class IdexExchange(ExchangeBase):
                 data = await response.json()
                 return data
 
-    async def get_balance(self) -> Dict[Dict[str, Any]]:
+    async def delete_order(self, trading_pair: str, order_id: str):
+        rest_url = get_idex_rest_url()
+        url = f"{rest_url}/v1/orders"
+        params = {
+            "nonce": self._idex_auth.generate_nonce(),
+            "wallet": self._idex_auth.get_wallet_address(),
+            "orderId": order_id
+        }
+
+        signature_parameters = self._idex_auth.build_signature_params_for_cancel_order(
+            market=trading_pair,
+            order_type=OrderTypeEnum[params["type"]],
+        )
+        wallet_signature = self._idex_auth.wallet_sign(signature_parameters)
+
+        body = {
+            "parameters": params,
+            "signature": wallet_signature
+        }
+
+        auth_dict = self._idex_auth.generate_auth_dict_for_delete(url=url, body=body, wallet_signature=wallet_signature)
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(auth_dict["url"], body=auth_dict["body"], headers=auth_dict["headers"]) as response:
+                if response.status != 200:
+                    raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {response}")
+                data = await response.json()
+                return data
+
+    async def get_balances_from_api(self) -> Dict[Dict[str, Any]]:
         """ Requests current balances of all assets through API. Returns json data with balance details """
 
         rest_url = get_idex_rest_url()
@@ -297,7 +378,6 @@ class IdexExchange(ExchangeBase):
         params = {
             "nonce": self._idex_auth.get_nonce_str(),
             "wallet": self._idex_auth.get_wallet_address(),
-            "asset": self._trading_pairs
         }
         auth_dict = self._idex_auth.generate_auth_dict(http_method="GET", url=url, params=params)
         async with aiohttp.ClientSession() as session:
@@ -354,7 +434,7 @@ class IdexExchange(ExchangeBase):
                                   order_type
                                   )
         try:
-            order_result = await self.post_order(api_params) #TODO: ID required params for post_order and create post_order()
+            order_result = await self.post_order(api_params)
             exchange_order_id = order_result["orderId"]
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
@@ -416,41 +496,6 @@ class IdexExchange(ExchangeBase):
     def cancel(self, trading_pair: str, order_id: str):
         safe_ensure_future(self._cancel_order(trading_pair, order_id))
 
-    async def _cancel_order(self, trading_pair: str, client_order_id: str):
-        # market = await to_idex_pair(trading_pair)
-        nonce = create_nonce()
-        walletBytes = self._idex_auth.get_wallet_bytes()
-        byteArray = [
-            nonce.bytes,
-            IdexAuth.base16_to_binary(walletBytes),  # todo: deprecation warning
-            IdexAuth.encode("client:" + client_order_id),
-        ]
-        binary = IdexAuth.binary_concat_array(byteArray)  # todo: deprecation warning
-        hash = IdexAuth.hash(binary, 'keccak', 'hex')  # todo: deprecation warning
-        self.logger().info(f"Cancel order id: {client_order_id}")
-        # todo: deprecation warning
-        signature = self._idex_auth.sign_message_string(hash, IdexAuth.binary_to_base16(self._idex_auth.new_wallet_object().key))
-        await self._client.trade.cancel_order(
-            parameters=RestRequestCancelOrder(
-                wallet=self._idex_auth.new_wallet_object().address,
-                orderId="client:" + client_order_id,
-                nonce=str(nonce),
-            ),
-            signature=signature
-        )
-        # TODO confirm order was cancelled
-        tracked_order = self._in_flight_orders.get(client_order_id)
-        self.trigger_event(
-            MarketEvent.OrderCancelled,
-            OrderCancelledEvent(
-                self.current_timestamp,
-                client_order_id
-            )
-        )
-        tracked_order.cancelled_event.set()
-        self.stop_tracking_order(client_order_id)
-        return client_order_id
-
     def get_order_book(self, trading_pair: str) -> OrderBook:
         if trading_pair not in self._order_book_tracker.order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
@@ -467,28 +512,6 @@ class IdexExchange(ExchangeBase):
             self.logger().info(f"Failed network status check.... {e}")
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
-
-    async def start_network(self):
-        await self.stop_network()
-        self._order_book_tracker.start()
-        if self._trading_required:
-            self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
-            self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
-
-    async def stop_network(self):
-        self._order_book_tracker.stop()
-
-        if self._status_polling_task is not None:
-            self._status_polling_task.cancel()
-        if self._user_stream_tracker_task is not None:
-            self._user_stream_tracker_task.cancel()
-        if self._user_stream_event_listener_task is not None:
-            self._user_stream_event_listener_task.cancel()
-        # TODO: Implement
-        # if self._trading_rules_polling_task is not None:
-        #     self._trading_rules_polling_task.cancel()
-        self._status_polling_task = self._user_stream_tracker_task = self._user_stream_event_listener_task = None
 
     async def _status_polling_loop(self):
         """ Periodically update user balances and order status via REST API. Fallback measure for ws API updates. """
@@ -701,11 +724,11 @@ class IdexExchange(ExchangeBase):
 
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
-        account_info = await self.get_balance()
-        for account in account_info:
-            asset_name = account["asset"]
-            self._account_available_balances[asset_name] = Decimal(str(account["availableForTrade"]))
-            self._account_balances[asset_name] = Decimal(str(account["quantity"]))
+        balance_info = await self.get_balances_from_api()
+        for balance in balance_info:
+            asset_name = balance["asset"]
+            self._account_available_balances[asset_name] = Decimal(str(balance["availableForTrade"]))
+            self._account_balances[asset_name] = Decimal(str(balance["quantity"]))
             remote_asset_names.add(asset_name)
 
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)

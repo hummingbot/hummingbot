@@ -81,6 +81,29 @@ class IdexInFlightOrder(InFlightOrderBase):
         # result.last_state = data["last_state"]
         return result
 
+    @classmethod
+    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
+        """
+        :param data: json data from API
+        :return: formatted InFlightOrder
+        """
+        retval = CryptoComInFlightOrder(
+            data["client_order_id"],
+            data["exchange_order_id"],
+            data["trading_pair"],
+            getattr(OrderType, data["order_type"]),
+            getattr(TradeType, data["trade_type"]),
+            Decimal(data["price"]),
+            Decimal(data["amount"]),
+            data["last_state"]
+        )
+        retval.executed_amount_base = Decimal(data["executed_amount_base"])
+        retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
+        retval.fee_asset = data["fee_asset"]
+        retval.fee_paid = Decimal(data["fee_paid"])
+        retval.last_state = data["last_state"]
+        return retval
+
     def update_with_fill_update(self, fill_update: Dict[str, Any]) -> bool:
         """
         Updates the in flight order with fill update (from private/get-order-detail end point)

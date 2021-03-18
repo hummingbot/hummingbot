@@ -7,6 +7,7 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 
 CENTRALIZED = False
@@ -17,6 +18,7 @@ EXAMPLE_PAIR = "IDEX-ETH"
 
 DEFAULT_FEES = [0.1, 0.2]
 
+HBOT_BROKER_ID = "HBOT-"
 
 EXCHANGE_NAME = "idex"
 
@@ -90,6 +92,11 @@ def get_idex_ws_feed():
 def validate_idex_contract_blockchain(value: str) -> Optional[str]:
     if value not in IDEX_BLOCKCHAINS:
         return f'Value {value} must be one of: {IDEX_BLOCKCHAINS}'
+
+
+def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
+    side = "B" if is_buy else "S"
+    return f"{HBOT_BROKER_ID}{side}-{trading_pair}-{get_tracking_nonce()}"
 
 
 HB_ORDER_TYPE_MAP = {

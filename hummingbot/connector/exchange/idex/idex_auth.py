@@ -306,6 +306,26 @@ class IdexAuth:
         )
         return signature_parameters
 
+    def build_signature_params_for_cancel_order(
+            self,
+            market: str,
+            client_order_id: str = '',
+    ) -> Tuple[Tuple[str, Any], ...]:
+        """
+        Helper method to build the Solidity Keccay signature tuple necessary to cancel an order
+        See idex doc: https://docs.idex.io/#associate-wallet
+        :param market: Market symbol. e.g. "ETH-USDC"
+        :param client_order_id: Optional. Client-specified order id, maximum of 40 bytes, or empty string
+        :return: tuple of signature parameters
+        """
+        signature_parameters = (
+            ('uint128', self.get_nonce_int()),
+            ('address', self.get_wallet_address()),
+            ('string', client_order_id),
+            ('string', market),
+        )
+        return signature_parameters
+
     # ----------------------------- Deprecated methods -----------------------------
 
     @classmethod
