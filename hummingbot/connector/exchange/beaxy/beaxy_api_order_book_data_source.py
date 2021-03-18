@@ -5,13 +5,10 @@ import aiohttp
 import asyncio
 import json
 import ujson
-import cachetools.func
 from typing import Any, AsyncIterable, Optional, List, Dict
-from decimal import Decimal
-
 import pandas as pd
 import websockets
-import requests
+
 
 from websockets.exceptions import ConnectionClosed
 from hummingbot.logger import HummingbotLogger
@@ -111,16 +108,6 @@ class BeaxyAPIOrderBookDataSource(OrderBookTrackerDataSource):
             # Do nothing if the request fails -- there will be no autocomplete for beaxy trading pairs
             pass
         return []
-
-    @staticmethod
-    @cachetools.func.ttl_cache(ttl=10)
-    def get_mid_price(trading_pair: str) -> Optional[Decimal]:
-
-        symbol = trading_pair_to_symbol(trading_pair)
-        resp = requests.get(url=BeaxyConstants.PublicApi.RATE_URL.format(symbol=symbol))
-        record = resp.json()
-
-        return (Decimal(record['bid']) + Decimal(record['ask'])) / Decimal('2')
 
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
