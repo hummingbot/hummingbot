@@ -113,7 +113,7 @@ class BalancerConnector(ConnectorBase):
         try:
             self.logger().info(f"Initializing Balancer connector and caching pools for {self._trading_pairs}.")
             resp = await self._api_request("get", "eth/balancer/start",
-                                           {"pairs": str(self._trading_pairs)})
+                                           {"pairs": json.dumps(self._trading_pairs)})
             status = bool(str(resp["success"]))
             if bool(str(resp["success"])):
                 self._initiate_pool_status = status
