@@ -29,7 +29,7 @@ from .data_types import (
     Proposal,
     PriceSize
 )
-from .pure_market_making_as_order_tracker import PureMarketMakingASOrderTracker
+from ..order_tracker cimport OrderTracker
 from ..__utils__.trailing_indicators.average_volatility import AverageVolatilityIndicator
 
 
@@ -40,7 +40,7 @@ s_decimal_one = Decimal(1)
 pmm_logger = None
 
 
-cdef class PureMarketMakingASStrategy(StrategyBase):
+cdef class FieldfareMMStrategy(StrategyBase):
     OPTION_LOG_CREATE_ORDER = 1 << 3
     OPTION_LOG_MAKER_ORDER_FILLED = 1 << 4
     OPTION_LOG_STATUS_REPORT = 1 << 5
@@ -78,12 +78,12 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                  gamma: Decimal = Decimal("0.5"),
                  eta: Decimal = Decimal("0.005"),
                  closing_time: Decimal = Decimal("1"),
-                 csv_path: str = '',
+                 debug_csv_path: str = '',
                  buffer_size: int = 30,
                  buffer_sampling_period: int = 60
                  ):
         super().__init__()
-        self._sb_order_tracker = PureMarketMakingASOrderTracker()
+        self._sb_order_tracker = OrderTracker()
         self._market_info = market_info
         self._order_amount = order_amount
         self._order_optimization_enabled = order_optimization_enabled
@@ -125,9 +125,9 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         self._optimal_spread = s_decimal_zero
         self._optimal_ask = s_decimal_zero
         self._optimal_bid = s_decimal_zero
-        self._csv_path = csv_path
+        self._debug_csv_path = debug_csv_path
         try:
-            os.unlink(self._csv_path)
+            os.unlink(self._debug_csv_path)
         except FileNotFoundError:
             pass
 
@@ -410,20 +410,20 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                          self.c_volatility_diff_from_last_parameter_calculation(self._avg_vol.current_value) > (self._vol_to_spread_multiplier - 1)):
                     self.c_recalculate_parameters()
                 self.c_calculate_reserved_price_and_optimal_spread()
-                self.dump_debug_variables()
 
                 proposal = None
                 if self._create_timestamp <= self._current_timestamp:
                     # 1. Create base order proposals
                     proposal = self.c_create_base_proposal()
                     # 2. Apply functions that modify orders amount
-                    self.c_apply_order_amount_modifiers(proposal)
+                    self.c_apply_order_amount_eta_transformation(proposal)
                     # 3. Apply functions that modify orders price
                     self.c_apply_order_price_modifiers(proposal)
                     # 4. Apply budget constraint, i.e. can't buy/sell more than what you have.
                     self.c_apply_budget_constraint(proposal)
 
                 self.c_cancel_active_orders(proposal)
+                self.dump_debug_variables()
                 refresh_proposal = self.c_aged_order_refresh()
                 # Firstly restore cancelled aged order
                 if refresh_proposal is not None:
@@ -521,13 +521,14 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         price=self.get_price()
 
         if vol > 0 and q != 0:
-            # Initially min_spread and max_spread defined by user will be used, but both of them will be modified by vol_to_spread_multiplier if vol too big
             min_spread = self._min_spread * price
             max_spread = self._max_spread * price
 
-            # If volatility is too high, gamma -> 0. Is this desirable?
+            # GAMMA
+            # If q or vol are close to 0, gamma will -> Inf. Is this desirable?
             self._gamma = self._inventory_risk_aversion * (max_spread - min_spread) / (2 * abs(q) * (vol ** 2))
 
+            # KAPPA
             # Want the maximum possible spread but with restrictions to avoid negative kappa or division by 0
             max_spread_around_reserved_price = max_spread * (2-self._inventory_risk_aversion) + min_spread * self._inventory_risk_aversion
             if max_spread_around_reserved_price <= self._gamma * (vol ** 2):
@@ -535,7 +536,10 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             else:
                 self._kappa = self._gamma / (Decimal.exp((max_spread_around_reserved_price * self._gamma - (vol * self._gamma) **2) / 2) - 1)
 
-            self._eta = self.c_calculate_eta()
+            # ETA
+            total_inventory_in_base = self.c_calculate_target_inventory() / self._inventory_target_base_pct
+            q_where_to_decay_order_amount = total_inventory_in_base * (1 - self._inventory_risk_aversion)
+            self._eta = s_decimal_one / q_where_to_decay_order_amount
 
             self._latest_parameter_calculation_vol = vol
 
@@ -677,7 +681,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             for i, proposed in enumerate(proposal.sells):
                 proposal.sells[i].price = market.c_quantize_order_price(self.trading_pair, higher_sell_price)
 
-    cdef c_apply_order_amount_modifiers(self, object proposal):
+    cdef c_apply_order_amount_eta_transformation(self, object proposal):
         cdef:
             ExchangeBase market = self._market_info.market
             str trading_pair = self._market_info.trading_pair
@@ -925,17 +929,6 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
             from hummingbot.client.hummingbot_application import HummingbotApplication
             HummingbotApplication.main_application()._notify(msg)
 
-    cdef c_calculate_eta(self):
-        cdef:
-            object total_inventory_in_base
-            object q_where_to_decay_order_amount
-        if not self._parameters_based_on_spread:
-            return self._eta
-        else:
-            total_inventory_in_base = self.c_calculate_target_inventory() / self._inventory_target_base_pct
-            q_where_to_decay_order_amount = total_inventory_in_base * (1 - self._inventory_risk_aversion)
-            return s_decimal_one / q_where_to_decay_order_amount
-
     def dump_debug_variables(self):
         market = self._market_info.market
         mid_price = self.get_price()
@@ -945,7 +938,7 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         new_ask = self._reserved_price + self._optimal_spread / 2
         best_bid = mid_price - spread / 2
         new_bid = self._reserved_price - self._optimal_spread / 2
-        if not os.path.exists(self._csv_path):
+        if not os.path.exists(self._debug_csv_path):
             df_header = pd.DataFrame([('mid_price',
                                        'spread',
                                        'reserved_price',
@@ -960,12 +953,13 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                                        'mid_price std_dev',
                                        'gamma',
                                        'kappa',
+                                       'eta',
                                        'current_vol_to_calculation_vol',
                                        'inventory_target_pct',
                                        'min_spread',
                                        'max_spread',
                                        'vol_to_spread_multiplier')])
-            df_header.to_csv(self._csv_path, mode='a', header=False, index=False)
+            df_header.to_csv(self._debug_csv_path, mode='a', header=False, index=False)
         df = pd.DataFrame([(mid_price,
                             spread,
                             self._reserved_price,
@@ -980,9 +974,10 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
                             self._avg_vol.current_value,
                             self._gamma,
                             self._kappa,
+                            self._eta,
                             self.c_volatility_diff_from_last_parameter_calculation(self._avg_vol.current_value),
                             self.inventory_target_base_pct,
                             self._min_spread,
                             self._max_spread,
                             self._vol_to_spread_multiplier)])
-        df.to_csv(self._csv_path, mode='a', header=False, index=False)
+        df.to_csv(self._debug_csv_path, mode='a', header=False, index=False)

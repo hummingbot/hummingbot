@@ -7,10 +7,10 @@ from hummingbot import data_path
 import os.path
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.pure_market_making_as import (
-    PureMarketMakingASStrategy,
+from hummingbot.strategy.fieldfare_mm import (
+    FieldfareMMStrategy,
 )
-from hummingbot.strategy.pure_market_making_as.pure_market_making_as_config_map import pure_market_making_as_config_map as c_map
+from hummingbot.strategy.fieldfare_mm.fieldfare_mm_config_map import fieldfare_mm_config_map as c_map
 from decimal import Decimal
 import pandas as pd
 
@@ -37,7 +37,7 @@ def start(self):
         maker_data = [self.markets[exchange], trading_pair] + list(maker_assets)
         self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
 
-        strategy_logging_options = PureMarketMakingASStrategy.OPTION_LOG_ALL
+        strategy_logging_options = FieldfareMMStrategy.OPTION_LOG_ALL
         parameters_based_on_spread = c_map.get("parameters_based_on_spread").value
         min_spread = c_map.get("min_spread").value / Decimal(100)
         max_spread = c_map.get("max_spread").value / Decimal(100)
@@ -52,11 +52,11 @@ def start(self):
         closing_time = c_map.get("closing_time").value * Decimal(3600 * 24 * 1e3)
         buffer_size = c_map.get("buffer_size").value
         buffer_sampling_period = c_map.get("buffer_sampling_period").value
-        csv_path = os.path.join(data_path(),
-                                HummingbotApplication.main_application().strategy_file_name.rsplit('.', 1)[0] +
-                                f"_{pd.Timestamp.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv")
+        debug_csv_path = os.path.join(data_path(),
+                                      HummingbotApplication.main_application().strategy_file_name.rsplit('.', 1)[0] +
+                                      f"_{pd.Timestamp.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv")
 
-        self.strategy = PureMarketMakingASStrategy(
+        self.strategy = FieldfareMMStrategy(
             market_info=MarketTradingPairTuple(*maker_data),
             order_amount=order_amount,
             order_optimization_enabled=order_optimization_enabled,
@@ -76,7 +76,7 @@ def start(self):
             gamma=gamma,
             eta=eta,
             closing_time=closing_time,
-            csv_path=csv_path,
+            debug_csv_path=debug_csv_path,
             buffer_size=buffer_size,
             buffer_sampling_period=buffer_sampling_period,
         )

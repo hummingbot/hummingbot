@@ -1,5 +1,5 @@
 ########################################################
-###       Pure market making strategy config         ###
+###       Fieldfare market making strategy config    ###
 ########################################################
 
 template_version: 1
@@ -51,6 +51,3 @@ closing_time: null
 # Buffer size used to store historic samples and calculate volatility
 buffer_size: 60
 buffer_sampling_period: 1
-
-# For more detailed information, see:
-# https://docs.hummingbot.io/strategies/pure-market-making/#configuration-parameters

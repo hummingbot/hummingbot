@@ -5,7 +5,7 @@ from hummingbot.strategy.strategy_base cimport StrategyBase
 from ..__utils__.trailing_indicators.average_volatility import AverageVolatilityIndicator
 
 
-cdef class PureMarketMakingASStrategy(StrategyBase):
+cdef class FieldfareMMStrategy(StrategyBase):
     cdef:
         object _market_info
         object _minimum_spread
@@ -46,16 +46,15 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
         object _optimal_bid
         object _optimal_ask
         double _latest_parameter_calculation_vol
-        str _csv_path
+        str _debug_csv_path
         object _avg_vol
 
     cdef object c_get_mid_price(self)
     cdef object c_create_base_proposal(self)
     cdef tuple c_get_adjusted_available_balance(self, list orders)
     cdef c_apply_order_price_modifiers(self, object proposal)
-    cdef c_apply_order_amount_modifiers(self, object proposal)
+    cdef c_apply_order_amount_eta_transformation(self, object proposal)
     cdef c_apply_budget_constraint(self, object proposal)
-
     cdef c_apply_order_optimization(self, object proposal)
     cdef c_apply_add_transaction_costs(self, object proposal)
     cdef bint c_is_within_tolerance(self, list current_prices, list proposal_prices)
@@ -70,5 +69,4 @@ cdef class PureMarketMakingASStrategy(StrategyBase):
     cdef c_calculate_reserved_price_and_optimal_spread(self)
     cdef object c_calculate_target_inventory(self)
     cdef c_recalculate_parameters(self)
-    cdef object c_calculate_eta(self)
     cdef c_volatility_diff_from_last_parameter_calculation(self, double current_vol)
