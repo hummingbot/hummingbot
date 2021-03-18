@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-
 import os.path
 import pandas as pd
+from shutil import move
 import asyncio
 from sqlalchemy.orm import (
     Session,
@@ -14,7 +14,7 @@ from typing import (
     List,
     Optional,
     Tuple,
-    Union
+    Union,
 )
 
 from hummingbot import data_path
@@ -27,16 +27,19 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderExpiredEvent,
+    FundingPaymentCompletedEvent,
     MarketEvent,
     TradeFee
 )
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.utils import TradeFillOrderDetails
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.order_status import OrderStatus
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
+from hummingbot.model.funding_payment import FundingPayment
 
 
 class MarketsRecorder:
@@ -58,6 +61,15 @@ class MarketsRecorder:
         self._markets: List[ConnectorBase] = markets
         self._config_file_path: str = config_file_path
         self._strategy_name: str = strategy_name
+        # Internal collection of trade fills in connector will be used for remote/local history reconciliation
+        for market in self._markets:
+            trade_fills = self.get_trades_for_config(self._config_file_path, 2000)
+            market.add_trade_fills_from_market_recorder({TradeFillOrderDetails(tf.market,
+                                                                               tf.exchange_trade_id,
+                                                                               tf.symbol) for tf in trade_fills})
+
+            exchange_order_ids = self.get_orders_for_config_and_market(self._config_file_path, market, True, 2000)
+            market.add_exchange_order_ids_from_market_recorder({o.exchange_order_id: o.id for o in exchange_order_ids})
 
         self._create_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_create_order)
         self._fill_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_fill_order)
@@ -65,6 +77,7 @@ class MarketsRecorder:
         self._fail_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_fail_order)
         self._complete_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_complete_order)
         self._expire_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_expire_order)
+        self._funding_payment_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_complete_funding_payment)
 
         self._event_pairs: List[Tuple[MarketEvent, SourceInfoEventForwarder]] = [
             (MarketEvent.BuyOrderCreated, self._create_order_forwarder),
@@ -74,7 +87,8 @@ class MarketsRecorder:
             (MarketEvent.OrderFailure, self._fail_order_forwarder),
             (MarketEvent.BuyOrderCompleted, self._complete_order_forwarder),
             (MarketEvent.SellOrderCompleted, self._complete_order_forwarder),
-            (MarketEvent.OrderExpired, self._expire_order_forwarder)
+            (MarketEvent.OrderExpired, self._expire_order_forwarder),
+            (MarketEvent.FundingPaymentCompleted, self._funding_payment_forwarder)
         ]
 
     @property
@@ -107,14 +121,22 @@ class MarketsRecorder:
             for event_pair in self._event_pairs:
                 market.remove_listener(event_pair[0], event_pair[1])
 
-    def get_orders_for_config_and_market(self, config_file_path: str, market: ConnectorBase) -> List[Order]:
+    def get_orders_for_config_and_market(self, config_file_path: str, market: ConnectorBase,
+                                         with_exchange_order_id_present: Optional[bool] = False,
+                                         number_of_rows: Optional[int] = None) -> List[Order]:
         session: Session = self.session
+        filters = [Order.config_file_path == config_file_path,
+                   Order.market == market.display_name]
+        if with_exchange_order_id_present:
+            filters.append(Order.exchange_order_id.isnot(None))
         query: Query = (session
                         .query(Order)
-                        .filter(Order.config_file_path == config_file_path,
-                                Order.market == market.display_name)
+                        .filter(*filters)
                         .order_by(Order.creation_timestamp))
-        return query.all()
+        if number_of_rows is None:
+            return query.all()
+        else:
+            return query.limit(number_of_rows).all()
 
     def get_trades_for_config(self, config_file_path: str, number_of_rows: Optional[int] = None) -> List[TradeFill]:
         session: Session = self.session
@@ -182,14 +204,18 @@ class MarketsRecorder:
                                     creation_timestamp=timestamp,
                                     order_type=evt.type.name,
                                     amount=float(evt.amount),
+                                    leverage=evt.leverage if evt.leverage else 1,
                                     price=float(evt.price) if evt.price == evt.price else 0,
+                                    position=evt.position if evt.position else "NILL",
                                     last_status=event_type.name,
-                                    last_update_timestamp=timestamp)
+                                    last_update_timestamp=timestamp,
+                                    exchange_order_id=evt.exchange_order_id)
         order_status: OrderStatus = OrderStatus(order=order_record,
                                                 timestamp=timestamp,
                                                 status=event_type.name)
         session.add(order_record)
         session.add(order_status)
+        market.add_exchange_order_ids_from_market_recorder({evt.exchange_order_id: evt.order_id})
         self.save_market_states(self._config_file_path, market, no_commit=True)
         session.commit()
 
@@ -230,27 +256,78 @@ class MarketsRecorder:
                                                  order_type=evt.order_type.name,
                                                  price=float(evt.price) if evt.price == evt.price else 0,
                                                  amount=float(evt.amount),
+                                                 leverage=evt.leverage if evt.leverage else 1,
                                                  trade_fee=TradeFee.to_json(evt.trade_fee),
-                                                 exchange_trade_id=evt.exchange_trade_id)
+                                                 exchange_trade_id=evt.exchange_trade_id,
+                                                 position=evt.position if evt.position else "NILL",)
         session.add(order_status)
         session.add(trade_fill_record)
         self.save_market_states(self._config_file_path, market, no_commit=True)
         session.commit()
+        market.add_trade_fills_from_market_recorder({TradeFillOrderDetails(trade_fill_record.market, trade_fill_record.exchange_trade_id, trade_fill_record.symbol)})
         self.append_to_csv(trade_fill_record)
 
+    def _did_complete_funding_payment(self,
+                                      event_tag: int,
+                                      market: ConnectorBase,
+                                      evt: FundingPaymentCompletedEvent):
+        if threading.current_thread() != threading.main_thread():
+            self._ev_loop.call_soon_threadsafe(self._did_complete_funding_payment, event_tag, market, evt)
+            return
+
+        session: Session = self.session
+        timestamp: float = evt.timestamp
+
+        # Try to find the funding payment has been recorded already.
+        payment_record: Optional[FundingPayment] = session.query(FundingPayment).filter(FundingPayment.timestamp == timestamp).one_or_none()
+        if payment_record is None:
+            funding_payment_record: FundingPayment = FundingPayment(timestamp=timestamp,
+                                                                    config_file_path=self.config_file_path,
+                                                                    market=market.display_name,
+                                                                    rate=evt.funding_rate,
+                                                                    symbol=evt.trading_pair,
+                                                                    amount=float(evt.amount))
+            session.add(funding_payment_record)
+            session.commit()
+            # self.append_to_csv(funding_payment_record)
+
+    @staticmethod
+    def _is_primitive_type(obj: object) -> bool:
+        return not hasattr(obj, '__dict__')
+
+    @staticmethod
+    def _is_protected_method(method_name: str) -> bool:
+        return method_name.startswith('_')
+
+    @staticmethod
+    def _csv_matches_header(file_path: str, header: tuple) -> bool:
+        df = pd.read_csv(file_path, header=None)
+        return tuple(df.iloc[0].values) == header
+
     def append_to_csv(self, trade: TradeFill):
-        csv_file = "trades_" + trade.config_file_path[:-4] + ".csv"
-        csv_path = os.path.join(data_path(), csv_file)
+        csv_filename = "trades_" + trade.config_file_path[:-4] + ".csv"
+        csv_path = os.path.join(data_path(), csv_filename)
+
+        field_names = ("id",)   # id field should be first
+        field_names += tuple(attr for attr in dir(trade) if (not self._is_protected_method(attr) and
+                                                             self._is_primitive_type(getattr(trade, attr)) and
+                                                             (attr not in field_names)))
+        field_data = tuple(getattr(trade, attr) for attr in field_names)
+
+        # adding extra field "age"
         # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
-        age = "n/a"
-        if "//" not in trade.order_id:
-            age = pd.Timestamp(int(trade.timestamp / 1e3 - int(trade.order_id[-16:]) / 1e6), unit='s').strftime('%H:%M:%S')
+        age = pd.Timestamp(int(trade.timestamp / 1e3 - int(trade.order_id[-16:]) / 1e6), unit='s').strftime(
+            '%H:%M:%S') if "//" not in trade.order_id else "n/a"
+        field_names += ("age",)
+        field_data += (age,)
+
+        if(os.path.exists(csv_path) and (not self._csv_matches_header(csv_path, field_names))):
+            move(csv_path, csv_path[:-4] + '_old_' + pd.Timestamp.utcnow().strftime("%Y%m%d-%H%M%S") + ".csv")
+
         if not os.path.exists(csv_path):
-            df_header = pd.DataFrame([["Config File", "Strategy", "Exchange", "Timestamp", "Market", "Base", "Quote",
-                                       "Trade", "Type", "Price", "Amount", "Fee", "Age", "Order ID", "Exchange Trade ID"]])
+            df_header = pd.DataFrame([field_names])
             df_header.to_csv(csv_path, mode='a', header=False, index=False)
-        df = pd.DataFrame([[trade.config_file_path, trade.strategy, trade.market, trade.timestamp, trade.symbol, trade.base_asset, trade.quote_asset,
-                            trade.trade_type, trade.order_type, trade.price, trade.amount, trade.trade_fee, age, trade.order_id, trade.exchange_trade_id]])
+        df = pd.DataFrame([field_data])
         df.to_csv(csv_path, mode='a', header=False, index=False)
 
     def _update_order_status(self,

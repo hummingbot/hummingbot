@@ -19,24 +19,30 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 
 ![RED](https://via.placeholder.com/15/f03c15/?text=+) RED - Connector is broken and unusable
 
-OKEx is reportedly being investigated by Chinese authorities and has stopped withdrawals.
 
 ## Supported centralized exchanges
 
 | logo | id | name | ver | doc | status |
 |:---:|:---:|:---:|:---:|:---:|:---:|
-| <img src="https://i.ibb.co/m0YDQLd/Screen-Shot-2019-03-14-at-10-53-42-AM.png" alt="Binance" width="90" /> | binance | [Binance](https://www.binance.com/) | 3 | [API](https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) | Connector is working properly
-| <img src="https://i.ibb.co/h9JdGDW/cbp.jpg" alt="Coinbase Pro" width="90" /> | coinbase_pro | [Coinbase Pro](https://pro.coinbase.com/) | * | [API](https://docs.pro.coinbase.com/) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
-|<img src="assets/huobi_logo.png" alt="Huobi Global" width="90" />| huobi | [Huobi Global](https://www.hbg.com) | 1 | [API](https://huobiapi.github.io/docs/spot/v1/en/) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
-|<img src="assets/bittrex_logo.png" alt="Bittrex Global" width="90" height="30" />| bittrex | [Bittrex Global](https://global.bittrex.com/) | 3 | [API](https://bittrex.github.io/api/v3) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
-| <img src="assets/liquid_logo.png" alt="Liquid" width="90" /> | liquid | [Liquid](https://www.liquid.com/) | 2 | [API](https://developers.liquid.com/) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
-| <img src="assets/kucoin_logo.png" alt="KuCoin" width="90" /> | kucoin | [KuCoin](https://www.kucoin.com/) | 1 | [API](https://docs.kucoin.com/#general) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
-| <img src="assets/kraken_logo.png" alt="Kraken" width="90" /> | kraken | [Kraken](https://www.kraken.com/) | 1 | [API](https://www.kraken.com/features/api) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
-| <img src="assets/eterbase_logo.png" alt="Eterbase" width="90" /> | eterbase | [Eterbase](https://www.eterbase.com/) | * | [API](https://developers.eterbase.exchange/?version=latest) | ![RED](https://via.placeholder.com/15/f03c15/?text=+) |
-| <img src="assets/cryptocom_logo.png" alt="Crypto.com" width="90" /> | crypto_com | [Crypto.com](https://crypto.com/exchange) | 2 | [API](https://exchange-docs.crypto.com/#introduction) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
-| <img src="assets/bitfinex_logo.png" alt="Bitfinex" width="90" /> | bitfinex | [Bitfinex](https://www.bitfinex.com/) | 2 | [API](https://docs.bitfinex.com/docs/introduction) | ![GREEN](https://via.placeholder.com/15/008000/?text=+)  |
-| <img src="assets/okex_logo.png" alt="OKEx" width="90" /> | okex | [OKEx](https://www.okex.com/) | 2 | [API](https://www.okex.com/docs/en/) | ![RED](https://via.placeholder.com/15/f03c15/?text=+) |
-| <img src="assets/dydx_logo.png" alt="DyDx" width="90" /> | dy/dx | [dy/dx](https://dydx.exchange/) | 1 | [API](https://docs.dydx.exchange/) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="assets/beaxy_logo.png" alt="Beaxy" width="90" /> | beaxy | [Beaxy](https://beaxy.com/) | 2 | [API](https://beaxyapiv2trading.docs.apiary.io/) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="https://i.ibb.co/m0YDQLd/Screen-Shot-2019-03-14-at-10-53-42-AM.png" alt="Binance" width="90" /> | binance | [Binance](https://www.binance.com/) | 3 | [API](https://github.com/binance/binance-spot-api-docs/blob/master/rest-api.md) |![GREEN](https://via.placeholder.com/15/008000/?text=+) | 
+| <img src="assets/binanceus_logo.png" alt="Binance US" width="90" /> | binance_us | [Binance US](https://www.binance.com/) | 3 | [API](https://github.com/binance-us/binance-official-api-docs/blob/master/rest-api.md) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="assets/binance_perpetual_logo.png" alt="Binance Perpetual" width="90" /> | binance_perpetual | [Binance Futures](https://www.binance.com/) | 1 | [API](https://binance-docs.github.io/apidocs/futures/en/) |![GREEN](https://via.placeholder.com/15/008000/?text=+) |
+|<img src="assets/bittrex_logo.png" alt="Bittrex Global" width="90" height="30" />| bittrex | [Bittrex Global](https://global.bittrex.com/) | 3 | [API](https://bittrex.github.io/api/v3) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="assets/bitfinex_logo.png" alt="Bitfinex" width="90" /> | bitfinex | [Bitfinex](https://www.bitfinex.com/) | 2 | [API](https://docs.bitfinex.com/docs/introduction) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+)  |
+| <img src="assets/bitmax_logo.png" alt="BitMax" width="90" /> | bitmax | [BitMax](https://bitmax.io/en/global-digital-asset-platform) | 1 | [API](https://bitmax-exchange.github.io/bitmax-pro-api/#bitmax-pro-api-documentation) |![GREEN](https://via.placeholder.com/15/008000/?text=+)  |
+| <img src="assets/blocktane_logo.png" alt="Blocktane" width="90" /> | blocktane | [Blocktane](https://blocktane.io/) | 2 | [API](https://blocktane.io/api) |![GREEN](https://via.placeholder.com/15/008000/?text=+)  |
+| <img src="https://i.ibb.co/h9JdGDW/cbp.jpg" alt="Coinbase Pro" width="90" /> | coinbase_pro | [Coinbase Pro](https://pro.coinbase.com/) | * | [API](https://docs.pro.coinbase.com/) |![GREEN](https://via.placeholder.com/15/008000/?text=+) |
+| <img src="assets/cryptocom_logo.png" alt="Crypto.com" width="90" /> | crypto_com | [Crypto.com](https://crypto.com/exchange) | 2 | [API](https://exchange-docs.crypto.com/#introduction) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="assets/dydx_logo.png" alt="DyDx" width="90" /> | dydx | [dy/dx](https://dydx.exchange/) | 1 | [API](https://docs.dydx.exchange/) |![GREEN](https://via.placeholder.com/15/008000/?text=+) |
+| <img src="assets/eterbase_logo.png" alt="Eterbase" width="90" /> | eterbase | [Eterbase](https://www.eterbase.com/) | * | [API](https://developers.eterbase.exchange/?version=latest) |![RED](https://via.placeholder.com/15/f03c15/?text=+) |
+|<img src="assets/huobi_logo.png" alt="Huobi Global" width="90" />| huobi | [Huobi Global](https://www.hbg.com) | 1 | [API](https://huobiapi.github.io/docs/spot/v1/en/) |![GREEN](https://via.placeholder.com/15/008000/?text=+) |
+| <img src="assets/kucoin_logo.png" alt="KuCoin" width="90" /> | kucoin | [KuCoin](https://www.kucoin.com/) | 1 | [API](https://docs.kucoin.com/#general) |![GREEN](https://via.placeholder.com/15/008000/?text=+) |
+| <img src="assets/kraken_logo.png" alt="Kraken" width="90" /> | kraken | [Kraken](https://www.kraken.com/) | 1 | [API](https://www.kraken.com/features/api) |![GREEN](https://via.placeholder.com/15/008000/?text=+) |
+| <img src="assets/liquid_logo.png" alt="Liquid" width="90" /> | liquid | [Liquid](https://www.liquid.com/) | 2 | [API](https://developers.liquid.com/) |![GREEN](https://via.placeholder.com/15/008000/?text=+) |
+| <img src="assets/okex_logo.png" alt="OKEx" width="90" /> | okex | [OKEx](https://www.okex.com/) | 3 | [API](https://www.okex.com/docs/en/) |![GREEN](https://via.placeholder.com/15/008000/?text=+) |
+| <img src="assets/probit_global_logo.png" alt="Probit Global" width="90" /> | probit | [Probit Global](https://www.probit.com/en-us/) | 1 | [API](https://docs-en.probit.com/docs) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="assets/probit_korea_logo.png" alt="Probit Korea" width="90" /> | probit_kr | [Probit Korea](https://www.probit.kr/en-us/) | 1 | [API](https://docs-en.probit.com/docs) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 
 
 ## Supported decentralized exchanges
@@ -46,16 +52,17 @@ OKEx is reportedly being investigated by Chinese authorities and has stopped wit
 | <img src="https://i.ibb.co/1sPt940/Screen-Shot-2019-06-06-at-17-50-04.png" alt="Bamboo Relay" width="90" /> | bamboo_relay | [Bamboo Relay](https://bamboorelay.com/) | 3 | [API](https://sra.bamboorelay.com/) | [dex@bamboorelay.com](mailto:dex@bamboorelay.com) | ![RED](https://via.placeholder.com/15/f03c15/?text=+) |
 |<img src="assets/dolomite_logo.png" alt="Dolomite" width="90" />| dolomite | [Dolomite](https://dolomite.io/) | 1 | [API](https://docs.dolomite.io/) | [corey@dolomite.io](mailto:corey@dolomite.io) | ![RED](https://via.placeholder.com/15/f03c15/?text=+) |
 | <img src="assets/radar_logo.png" alt="Radar Relay" width="90" height="30" /> | radar_relay | [Radar Relay](https://radarrelay.com/) | 2 | [API](https://developers.radarrelay.com/api/trade-api) | | ![unavailable](https://via.placeholder.com/15/f03c15/?text=+) |
-| <img src="assets/loopring_logo.png" alt="Loopring" width="90" /> | loopring | [Loopring](https://loopring.io/) | * | [API](https://docs.loopring.io/en/) | | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="assets/loopring_logo.png" alt="Loopring" width="90" /> | loopring | [Loopring](https://loopring.io/) | 3 | [API](https://docs3.loopring.io/en/) | | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 
 
 ## Supported protocol exchanges
 | logo | id | name | ver | doc| status |
 |:---:|:---:|:---:|:---:|:---:|:--:|
-| <img src="assets/celo_logo.svg" alt="Celo" width="90" /> | celo | [Celo](https://celo.org/) | * | [SDK](https://celo.org/developers) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
-| <img src="assets/balancer_logo.svg" alt="Balancer" width="90" height="30" /> | balancer | [Balancer](https://balancer.finance/) | * | [SDK](https://docs.balancer.finance/) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
-| <img src="assets/terra_logo.png" alt="Terra" width="90" /> | terra | [Terra](https://terra.money/) | * | [SDK](https://docs.terra.money/) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
-| <img src="assets/uniswap_logo.svg" alt="Uniswap" width="90" height="30" /> | uniswap | [Uniswap](https://uniswap.org/) | * | [SDK](https://uniswap.org/docs/v2/) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="assets/celo_logo.svg" alt="Celo" width="90" /> | celo | [Celo](https://terra.money/) | * | [SDK](https://celo.org/developers) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
+| <img src="assets/balancer_logo.svg" alt="Balancer" width="90" height="30" /> | balancer | [Balancer](https://balancer.finance/) | * | [SDK](https://docs.balancer.finance/) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
+| <img src="assets/perpetual_finance_logo.png" alt="Perpetual Protocol" width="90" /> | perpetual_finance | [Perpetual Protocol](https://perp.fi/) | * | [SDK](https://docs.perp.fi/) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="assets/terra_logo.png" alt="Terra" width="90" /> | terra | [Terra](https://terra.money/) | * | [SDK](https://docs.terra.money/) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
+| <img src="assets/uniswap_logo.svg" alt="Uniswap" width="90" height="30" /> | uniswap | [Uniswap](https://uniswap.org/) | * | [SDK](https://uniswap.org/docs/v2/) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
 
 
 
@@ -65,7 +72,7 @@ OKEx is reportedly being investigated by Chinese authorities and has stopped wit
 
 - [Website](https://hummingbot.io)
 - [Documentation](https://docs.hummingbot.io)
-- [FAQs](https://docs.hummingbot.io/resources/faq/)
+- [FAQs](https://hummingbot.zendesk.com/hc/en-us/categories/900001272063-Hummingbot-FAQs)
 
 ### Install Hummingbot
 

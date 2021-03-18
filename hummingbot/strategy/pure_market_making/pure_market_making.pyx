@@ -36,6 +36,7 @@ from .asset_price_delegate import AssetPriceDelegate
 from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
 from .inventory_skew_calculator import calculate_total_order_size
 from .order_book_asset_price_delegate cimport OrderBookAssetPriceDelegate
+from .inventory_cost_price_delegate import InventoryCostPriceDelegate
 
 
 NaN = float("nan")
@@ -82,6 +83,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                  bid_order_optimization_depth: Decimal = s_decimal_zero,
                  add_transaction_costs_to_orders: bool = False,
                  asset_price_delegate: AssetPriceDelegate = None,
+                 inventory_cost_price_delegate: InventoryCostPriceDelegate = None,
                  price_type: str = "mid_price",
                  take_if_crossed: bool = False,
                  price_ceiling: Decimal = s_decimal_neg_one,
@@ -123,6 +125,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._bid_order_optimization_depth = bid_order_optimization_depth
         self._add_transaction_costs_to_orders = add_transaction_costs_to_orders
         self._asset_price_delegate = asset_price_delegate
+        self._inventory_cost_price_delegate = inventory_cost_price_delegate
         self._price_type = self.get_price_type(price_type)
         self._take_if_crossed = take_if_crossed
         self._price_ceiling = price_ceiling
@@ -347,16 +350,17 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._order_override = value
 
     def get_price(self) -> float:
-        if self._asset_price_delegate is not None:
-            price_provider = self._asset_price_delegate
-        else:
-            price_provider = self._market_info
+        price_provider = self._asset_price_delegate or self._market_info
         if self._price_type is PriceType.LastOwnTrade:
             price = self._last_own_trade_price
+        elif self._price_type is PriceType.InventoryCost:
+            price = price_provider.get_price_by_type(PriceType.MidPrice)
         else:
             price = price_provider.get_price_by_type(self._price_type)
+
         if price.is_nan():
             price = price_provider.get_price_by_type(PriceType.MidPrice)
+
         return price
 
     def get_last_price(self) -> float:
@@ -417,6 +421,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @asset_price_delegate.setter
     def asset_price_delegate(self, value):
         self._asset_price_delegate = value
+
+    @property
+    def inventory_cost_price_delegate(self) -> AssetPriceDelegate:
+        return self._inventory_cost_price_delegate
+
+    @inventory_cost_price_delegate.setter
+    def inventory_cost_price_delegate(self, value):
+        self._inventory_cost_price_delegate = value
 
     @property
     def order_tracker(self):
@@ -550,9 +562,18 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             bid_price = market.get_price(trading_pair, False)
             ask_price = market.get_price(trading_pair, True)
             ref_price = float("nan")
-            if market == self._market_info.market and self._asset_price_delegate is None:
+            if market == self._market_info.market and self._inventory_cost_price_delegate is not None:
+                # We're using inventory_cost, show it's price
+                ref_price = self._inventory_cost_price_delegate.get_price()
+                if ref_price is None:
+                    ref_price = self.get_price()
+            elif market == self._market_info.market and self._asset_price_delegate is None:
                 ref_price = self.get_price()
-            elif market == self._asset_price_delegate.market and self._price_type is not PriceType.LastOwnTrade:
+            elif (
+                self._asset_price_delegate is not None
+                and market == self._asset_price_delegate.market
+                and self._price_type is not PriceType.LastOwnTrade
+            ):
                 ref_price = self._asset_price_delegate.get_price_by_type(self._price_type)
             markets_data.append([
                 market.display_name,
@@ -648,7 +669,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             # asset_mid_price = self.c_set_mid_price(market_info)
             if self._create_timestamp <= self._current_timestamp:
                 # 1. Create base order proposals
-                proposal =self.c_create_base_proposal()
+                proposal = self.c_create_base_proposal()
                 # 2. Apply functions that limit numbers of buys and sells proposal
                 self.c_apply_order_levels_modifiers(proposal)
                 # 3. Apply functions that modify orders price
@@ -678,6 +699,18 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             list buys = []
             list sells = []
 
+        buy_reference_price = sell_reference_price = self.get_price()
+
+        if self._inventory_cost_price_delegate is not None:
+            inventory_cost_price = self._inventory_cost_price_delegate.get_price()
+            if inventory_cost_price is not None:
+                # Only limit sell price. Buy are always allowed.
+                sell_reference_price = max(inventory_cost_price, sell_reference_price)
+            else:
+                base_balance = float(market.get_balance(self._market_info.base_asset))
+                if base_balance > 0:
+                    raise RuntimeError("Initial inventory price is not set while inventory_cost feature is active.")
+
         # First to check if a customized order override is configured, otherwise the proposal will be created according
         # to order spread, amount, and levels setting.
         order_override = self._order_override
@@ -685,14 +718,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             for key, value in order_override.items():
                 if str(value[0]) in ["buy", "sell"]:
                     if str(value[0]) == "buy":
-                        price = self.get_price() * (Decimal("1") - Decimal(str(value[1])) / Decimal("100"))
+                        price = buy_reference_price * (Decimal("1") - Decimal(str(value[1])) / Decimal("100"))
                         price = market.c_quantize_order_price(self.trading_pair, price)
                         size = Decimal(str(value[2]))
                         size = market.c_quantize_order_amount(self.trading_pair, size)
                         if size > 0 and price > 0:
                             buys.append(PriceSize(price, size))
                     elif str(value[0]) == "sell":
-                        price = self.get_price() * (Decimal("1") + Decimal(str(value[1])) / Decimal("100"))
+                        price = sell_reference_price * (Decimal("1") + Decimal(str(value[1])) / Decimal("100"))
                         price = market.c_quantize_order_price(self.trading_pair, price)
                         size = Decimal(str(value[2]))
                         size = market.c_quantize_order_amount(self.trading_pair, size)
@@ -700,14 +733,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                             sells.append(PriceSize(price, size))
         else:
             for level in range(0, self._buy_levels):
-                price = self.get_price() * (Decimal("1") - self._bid_spread - (level * self._order_level_spread))
+                price = buy_reference_price * (Decimal("1") - self._bid_spread - (level * self._order_level_spread))
                 price = market.c_quantize_order_price(self.trading_pair, price)
                 size = self._order_amount + (self._order_level_amount * level)
                 size = market.c_quantize_order_amount(self.trading_pair, size)
                 if size > 0:
                     buys.append(PriceSize(price, size))
             for level in range(0, self._sell_levels):
-                price = self.get_price() * (Decimal("1") + self._ask_spread + (level * self._order_level_spread))
+                price = sell_reference_price * (Decimal("1") + self._ask_spread + (level * self._order_level_spread))
                 price = market.c_quantize_order_price(self.trading_pair, price)
                 size = self._order_amount + (self._order_level_amount * level)
                 size = market.c_quantize_order_amount(self.trading_pair, size)
@@ -946,6 +979,9 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                         f"({market_info.trading_pair}) Maker sell order of "
                         f"{order_filled_event.amount} {market_info.base_asset} filled."
                     )
+
+            if self._inventory_cost_price_delegate is not None:
+                self._inventory_cost_price_delegate.process_order_fill_event(order_filled_event)
 
     cdef c_did_complete_buy_order(self, object order_completed_event):
         cdef:
@@ -1229,5 +1265,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             return PriceType.LastTrade
         elif price_type_str == 'last_own_trade_price':
             return PriceType.LastOwnTrade
+        elif price_type_str == 'inventory_cost':
+            return PriceType.InventoryCost
         else:
             raise ValueError(f"Unrecognized price type string {price_type_str}.")

@@ -6,9 +6,6 @@ import aiohttp
 import asyncio
 import ujson
 import pandas as pd
-from decimal import Decimal
-import requests
-import cachetools.func
 from typing import (
     Any,
     AsyncIterable,
@@ -92,35 +89,22 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._tracked_book_entries: Dict[int, OrderBookRow] = {}
 
     @staticmethod
-    @cachetools.func.ttl_cache(ttl=10)
-    def get_mid_price(trading_pair: str) -> Optional[Decimal]:
-        exchange_trading_pair = convert_to_exchange_trading_pair(trading_pair)
-        resp = requests.get(url=f"https://api-pub.bitfinex.com/v2/ticker/{exchange_trading_pair}")
-        record = resp.json()
-        result = (Decimal(record[0]) + Decimal(record[2])) / Decimal("2")
-        return result
-
-    @staticmethod
     async def fetch_trading_pairs() -> List[str]:
         try:
             async with aiohttp.ClientSession() as client:
                 async with client.get("https://api-pub.bitfinex.com/v2/conf/pub:list:pair:exchange", timeout=10) as response:
                     if response.status == 200:
                         data = await response.json()
-                        raw_trading_pairs: List[Dict[str, any]] = list((filter(
-                            lambda trading_pair: True if ":" not in trading_pair else False,
-                            data[0]
-                        )))
                         trading_pair_list: List[str] = []
-                        for raw_trading_pair in raw_trading_pairs:
+                        for trading_pair in data[0]:
                             # change the following line accordingly
                             converted_trading_pair: Optional[str] = \
-                                convert_from_exchange_trading_pair(raw_trading_pair)
+                                convert_from_exchange_trading_pair(trading_pair)
                             if converted_trading_pair is not None:
                                 trading_pair_list.append(converted_trading_pair)
                             else:
                                 logging.getLogger(__name__).info(f"Could not parse the trading pair "
-                                                                 f"{raw_trading_pair}, skipping it...")
+                                                                 f"{trading_pair}, skipping it...")
                         return trading_pair_list
         except Exception:
             # Do nothing if the request fails -- there will be no autocomplete available
