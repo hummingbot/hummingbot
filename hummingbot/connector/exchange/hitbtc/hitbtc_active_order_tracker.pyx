@@ -1,9 +1,7 @@
 # distutils: language=c++
 # distutils: sources=hummingbot/core/cpp/OrderBookEntry.cpp
-
 import logging
 import numpy as np
-
 from decimal import Decimal
 from typing import Dict
 from hummingbot.logger import HummingbotLogger
@@ -51,6 +49,7 @@ cdef class HitbtcActiveOrderTracker:
     cdef tuple c_convert_diff_message_to_np_arrays(self, object message):
         cdef:
             dict content = message.content
+            list content_keys = list(content.keys())
             list bid_entries = []
             list ask_entries = []
             str order_id
@@ -61,8 +60,10 @@ cdef class HitbtcActiveOrderTracker:
             double timestamp = message.timestamp
             double amount = 0
 
-        bid_entries = content["bid"]
-        ask_entries = content["ask"]
+        if "bids" in content_keys:
+            bid_entries = content["bid"]
+        if "asks" in content_keys:
+            ask_entries = content["ask"]
 
         bids = s_empty_diff
         asks = s_empty_diff

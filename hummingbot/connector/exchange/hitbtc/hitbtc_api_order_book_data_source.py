@@ -8,7 +8,6 @@ from typing import Optional, List, Dict, Any
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-# from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
 from .hitbtc_constants import Constants
 from .hitbtc_active_order_tracker import HitbtcActiveOrderTracker
@@ -60,7 +59,7 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
             # Filter out unmatched pairs so nothing breaks
             return [sym for sym in trading_pairs if sym is not None]
         except Exception:
-            # Do nothing if the request fails -- there will be no autocomplete for huobi trading pairs
+            # Do nothing if the request fails -- there will be no autocomplete for HitBTC trading pairs
             pass
         return []
 

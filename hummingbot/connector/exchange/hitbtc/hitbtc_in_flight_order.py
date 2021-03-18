@@ -49,15 +49,6 @@ class HitbtcInFlightOrder(InFlightOrderBase):
     def is_cancelled(self) -> bool:
         return self.last_state in {"canceled", "expired"}
 
-    # @property
-    # def order_type_description(self) -> str:
-    #     """
-    #     :return: Order description string . One of ["limit buy" / "limit sell" / "market buy" / "market sell"]
-    #     """
-    #     order_type = "market" if self.order_type is OrderType.MARKET else "limit"
-    #     side = "buy" if self.trade_type == TradeType.BUY else "sell"
-    #     return f"{order_type} {side}"
-
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
         """
