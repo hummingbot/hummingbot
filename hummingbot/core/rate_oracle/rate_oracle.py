@@ -3,6 +3,7 @@ import logging
 from typing import (
     Dict,
     Optional,
+    List
 )
 from decimal import Decimal
 import aiohttp
@@ -29,10 +30,12 @@ class RateOracle(NetworkBase):
     _logger: Optional[HummingbotLogger] = None
     _shared_instance: "RateOracle" = None
     _shared_client: Optional[aiohttp.ClientSession] = None
+    _cgecko_supported_vs_tokens: List[str] = []
 
     binance_price_url = "https://api.binance.com/api/v3/ticker/bookTicker"
     coingecko_usd_price_url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency={}&order=market_cap_desc" \
                               "&per_page=250&page={}&sparkline=false"
+    coingecko_supported_vs_tokens_url = "https://api.coingecko.com/api/v3/simple/supported_vs_currencies"
 
     @classmethod
     def get_instance(cls) -> "RateOracle":
@@ -145,6 +148,13 @@ class RateOracle(NetworkBase):
     @async_ttl_cache(ttl=30, maxsize=1)
     async def get_coingecko_prices(cls, vs_currency: str) -> Dict[str, Decimal]:
         results = {}
+        if not cls._cgecko_supported_vs_tokens:
+            client = await cls._http_client()
+            async with client.request("GET", cls.coingecko_supported_vs_tokens_url) as resp:
+                records = await resp.json()
+                cls._cgecko_supported_vs_tokens = records
+        if vs_currency.lower() not in cls._cgecko_supported_vs_tokens:
+            vs_currency = "usd"
         tasks = [cls.get_coingecko_prices_by_page(vs_currency, i) for i in range(1, 5)]
         task_results = await safe_gather(*tasks, return_exceptions=True)
         for task_result in task_results:
