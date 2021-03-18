@@ -6,7 +6,6 @@ from dateutil.parser import parse as dateparse
 from typing import (
     Any,
     Dict,
-    List,
     Optional,
     Tuple,
 )
@@ -21,7 +20,7 @@ TRADING_PAIR_SPLITTER = re.compile(Constants.TRADING_PAIR_SPLITTER)
 
 CENTRALIZED = True
 
-EXAMPLE_PAIR = "ETH-USDT"
+EXAMPLE_PAIR = "BTC-USD"
 
 DEFAULT_FEES = [0.1, 0.25]
 
@@ -30,24 +29,6 @@ class HitbtcAPIError(IOError):
     def __init__(self, error_payload: Dict[str, Any]):
         super().__init__(str(error_payload))
         self.error_payload = error_payload
-
-
-# deeply merge two dictionaries
-def merge_dicts(source: Dict, destination: Dict) -> Dict:
-    for key, value in source.items():
-        if isinstance(value, dict):
-            # get node or create one
-            node = destination.setdefault(key, {})
-            merge_dicts(value, node)
-        else:
-            destination[key] = value
-
-    return destination
-
-
-# join paths
-def join_paths(*paths: List[str]) -> str:
-    return "/".join(paths)
 
 
 # convert date string to timestamp
@@ -98,10 +79,6 @@ def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
     base_str = f"{base[0]}{base[-1]}"
     quote_str = f"{quote[0]}{quote[-1]}"
     return f"{Constants.HBOT_BROKER_ID}-{side}-{base_str}{quote_str}-{get_tracking_nonce()}"
-
-
-def get_api_reason(code: str) -> str:
-    return Constants.API_REASONS.get(int(code), code)
 
 
 def retry_sleep_time(try_count: int) -> float:
