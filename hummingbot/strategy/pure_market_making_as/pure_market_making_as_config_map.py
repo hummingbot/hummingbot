@@ -34,19 +34,19 @@ def validate_exchange_trading_pair(value: str) -> Optional[str]:
     return validate_market_trading_pair(exchange, value)
 
 
-def order_amount_prompt() -> str:
+async def order_amount_prompt() -> str:
     exchange = pure_market_making_as_config_map["exchange"].value
     trading_pair = pure_market_making_as_config_map["market"].value
     base_asset, quote_asset = trading_pair.split("-")
-    min_amount = minimum_order_amount(exchange, trading_pair)
+    min_amount = await minimum_order_amount(exchange, trading_pair)
     return f"What is the amount of {base_asset} per order? (minimum {min_amount}) >>> "
 
 
-def validate_order_amount(value: str) -> Optional[str]:
+async def validate_order_amount(value: str) -> Optional[str]:
     try:
         exchange = pure_market_making_as_config_map["exchange"].value
         trading_pair = pure_market_making_as_config_map["market"].value
-        min_amount = minimum_order_amount(exchange, trading_pair)
+        min_amount = await minimum_order_amount(exchange, trading_pair)
         if Decimal(value) < min_amount:
             return f"Order amount must be at least {min_amount}."
     except Exception:
@@ -156,7 +156,7 @@ pure_market_making_as_config_map = {
                   type_str="decimal",
                   required_if=lambda: not pure_market_making_as_config_map.get("parameters_based_on_spread").value,
                   validator=lambda v: validate_decimal(v, 0, 1, inclusive=True),
-                  default=Decimal("0.005")),
+                  prompt_on_new=True),
     "closing_time":
         ConfigVar(key="closing_time",
                   prompt="Enter algorithm closing time in days. "
