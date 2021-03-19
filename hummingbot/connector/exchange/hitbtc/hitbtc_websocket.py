@@ -16,7 +16,10 @@ from typing import (
 from websockets.exceptions import ConnectionClosed
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.hitbtc.hitbtc_auth import HitbtcAuth
-from hummingbot.connector.exchange.hitbtc.hitbtc_utils import RequestId
+from hummingbot.connector.exchange.hitbtc.hitbtc_utils import (
+    RequestId,
+    HitbtcAPIError,
+)
 
 # reusable websocket class
 # ToDo: We should eventually remove this class, and instantiate web socket connection normally (see Binance for example)
@@ -50,7 +53,7 @@ class HitbtcWebsocket(RequestId):
             json_msg = json.loads(raw_msg_str)
             if json_msg.get("result") is not True:
                 err_msg = json_msg.get('error', {}).get('message')
-                raise Exception(f"Failed to authenticate to websocket - {err_msg}.")
+                raise HitbtcAPIError({"error": f"Failed to authenticate to websocket - {err_msg}."})
 
         return self._client
 
@@ -68,10 +71,10 @@ class HitbtcWebsocket(RequestId):
                 try:
                     raw_msg_str: str = await asyncio.wait_for(self._client.recv(), timeout=Constants.MESSAGE_TIMEOUT)
                     try:
-                        raw_msg = json.loads(raw_msg_str)
+                        msg = json.loads(raw_msg_str)
                         # HitBTC doesn't support ping or heartbeat messages.
                         # Can handle them here if that changes - use `safe_ensure_future`.
-                        yield raw_msg
+                        yield msg
                     except ValueError:
                         continue
                 except asyncio.TimeoutError:

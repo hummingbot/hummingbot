@@ -12,6 +12,7 @@ from hummingbot.core.data_type.user_stream_tracker_data_source import UserStream
 from hummingbot.logger import HummingbotLogger
 from .hitbtc_constants import Constants
 from .hitbtc_auth import HitbtcAuth
+from .hitbtc_utils import HitbtcAPIError
 from .hitbtc_websocket import HitbtcWebsocket
 
 
@@ -27,6 +28,7 @@ class HitbtcAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     def __init__(self, hitbtc_auth: HitbtcAuth, trading_pairs: Optional[List[str]] = []):
         self._hitbtc_auth: HitbtcAuth = hitbtc_auth
+        self._ws_trade: HitbtcWebsocket = None
         self._trading_pairs = trading_pairs
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
@@ -43,13 +45,13 @@ class HitbtcAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
 
         try:
-            ws = HitbtcWebsocket(self._hitbtc_auth)
+            self._ws_trade = HitbtcWebsocket(self._hitbtc_auth)
 
-            await ws.connect()
+            await self._ws_trade.connect()
 
-            await ws.subscribe(Constants.WS_SUB["USER_ORDERS_TRADES"], None, {})
+            await self._ws_trade.subscribe(Constants.WS_SUB["USER_ORDERS_TRADES"], None, {})
 
-            async for msg in ws.on_message():
+            async for msg in self._ws_trade.on_message():
                 self._last_recv_time = time.time()
 
                 if msg.get("params") is None:
@@ -58,7 +60,7 @@ class HitbtcAPIUserStreamDataSource(UserStreamTrackerDataSource):
         except Exception as e:
             raise e
         finally:
-            await ws.disconnect()
+            await self._ws_trade.disconnect()
             await asyncio.sleep(5)
 
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue) -> AsyncIterable[Any]:
@@ -74,6 +76,9 @@ class HitbtcAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 async for msg in self._listen_to_orders_trades_balances():
                     output.put_nowait(msg)
             except asyncio.CancelledError:
+                raise
+            except HitbtcAPIError as e:
+                self.logger().error(e.error_payload.get('error'), exc_info=True)
                 raise
             except Exception:
                 self.logger().error(
