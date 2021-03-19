@@ -81,44 +81,23 @@ class IdexInFlightOrder(InFlightOrderBase):
         # result.last_state = data["last_state"]
         return result
 
-    @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        """
-        :param data: json data from API
-        :return: formatted InFlightOrder
-        """
-        retval = CryptoComInFlightOrder(
-            data["client_order_id"],
-            data["exchange_order_id"],
-            data["trading_pair"],
-            getattr(OrderType, data["order_type"]),
-            getattr(TradeType, data["trade_type"]),
-            Decimal(data["price"]),
-            Decimal(data["amount"]),
-            data["last_state"]
-        )
-        retval.executed_amount_base = Decimal(data["executed_amount_base"])
-        retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
-        retval.fee_asset = data["fee_asset"]
-        retval.fee_paid = Decimal(data["fee_paid"])
-        retval.last_state = data["last_state"]
-        return retval
-
     def update_with_fill_update(self, fill_update: Dict[str, Any]) -> bool:
         """
         Updates the in flight order with fill update (from private/get-order-detail end point)
         return: True if the order gets updated otherwise False
         """
-        fill_id = fill_update["fillId"]
-        # fill_update["orderId"] is type int
-        if str(fill_update["orderId"]) != self.exchange_order_id or fill_id in self.fill_id_set:
+        fill_id = fill_update["i"] if ["i"] in fill_update else fill_update.get("fillId")
+        if fill_id in self.fill_id_set:
             # fill already recorded
             return False
         self.fill_id_set.add(fill_id)
-        self.executed_amount_base += Decimal(str(fill_update["quantity"]))
-        self.fee_paid += Decimal(str(fill_update["fee"]))
-        self.executed_amount_quote += (Decimal(str(fill_update["price"])) *
-                                       Decimal(str(fill_update["quantity"])))
+        self.executed_amount_base += Decimal(str(fill_update["q"] if ["q"] in fill_update else
+                                                 fill_update.get("quantity")))
+        self.fee_paid += Decimal(str(fill_update["f"] if ["f"] in fill_update else fill_update.get("fee")))
+        self.executed_amount_quote += (Decimal(str(fill_update["p"] if ["p"] in fill_update else
+                                                   fill_update.get("price"))) *
+                                       Decimal(str(fill_update["q"] in fill_update if ["q"] else
+                                                   fill_update.get("quantity"))))
         if not self.fee_asset:
-            self.fee_asset = fill_update["feeAsset"]
+            self.fee_asset = fill_update["a"] if ["a"] in fill_update else fill_update.get("feeAsset")
         return True
