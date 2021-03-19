@@ -22,6 +22,7 @@ connector_status = {
     'kucoin': 'green',
     'liquid': 'green',
     'loopring': 'yellow',
+    'mandala': 'green',
     'okex': 'green',
     'perpetual_finance': 'yellow',
     'probit': 'yellow',

@@ -51,6 +51,7 @@ def main():
         "hummingbot.connector.exchange.crypto_com",
         "hummingbot.connector.exchange.kucoin",
         "hummingbot.connector.exchange.loopring",
+        "hummingbot.connector.exchange.mandala",
         "hummingbot.connector.exchange.okex",
         "hummingbot.connector.exchange.liquid",
         "hummingbot.connector.exchange.dolomite",
