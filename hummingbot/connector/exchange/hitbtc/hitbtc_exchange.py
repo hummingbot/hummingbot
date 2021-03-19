@@ -573,19 +573,8 @@ class HitbtcExchange(ExchangeBase):
         """
         Calls REST API to update total and available balances.
         """
-        local_asset_names = set(self._account_balances.keys())
-        remote_asset_names = set()
         account_info = await self._api_request("GET", Constants.ENDPOINT["USER_BALANCES"], is_auth_required=True)
-        for account in account_info:
-            asset_name = account["currency"]
-            self._account_available_balances[asset_name] = Decimal(str(account["available"]))
-            self._account_balances[asset_name] = Decimal(str(account["reserved"])) + Decimal(str(account["available"]))
-            remote_asset_names.add(asset_name)
-
-        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-        for asset_name in asset_names_to_remove:
-            del self._account_available_balances[asset_name]
-            del self._account_balances[asset_name]
+        self._process_balance_message(account_info)
 
     async def _update_order_status(self):
         """
@@ -746,6 +735,20 @@ class HitbtcExchange(ExchangeBase):
                                            tracked_order.fee_paid,
                                            tracked_order.order_type))
             self.stop_tracking_order(tracked_order.client_order_id)
+
+    def _process_balance_message(self, balance_update):
+        local_asset_names = set(self._account_balances.keys())
+        remote_asset_names = set()
+        for account in balance_update:
+            asset_name = account["currency"]
+            self._account_available_balances[asset_name] = Decimal(str(account["available"]))
+            self._account_balances[asset_name] = Decimal(str(account["reserved"])) + Decimal(str(account["available"]))
+            remote_asset_names.add(asset_name)
+
+        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+        for asset_name in asset_names_to_remove:
+            del self._account_available_balances[asset_name]
+            del self._account_balances[asset_name]
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
