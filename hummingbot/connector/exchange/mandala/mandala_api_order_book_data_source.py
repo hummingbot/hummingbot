@@ -180,10 +180,10 @@ class MandalaAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 url = BINANCE_STREAM_URL.format(self._domain)
                 if "mdx" in self._trading_pairs:
                     ws_path: str = "/".join([f"{convert_to_mandala_exchange_trading_pair(trading_pair).lower()}@trade"
-                                         for trading_pair in self._trading_pairs])
+                                            for trading_pair in self._trading_pairs])
                     url = MANDALA_STREAM_URL
                 stream_url: str = f"{url}/{ws_path}"
-                print('listen_for_trades',stream_url)
+                print('listen_for_trades', stream_url)
                 async with websockets.connect(stream_url) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     async for raw_msg in self._inner_messages(ws):
@@ -206,10 +206,10 @@ class MandalaAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 url = BINANCE_STREAM_URL.format(self._domain)
                 if "mdx" in self._trading_pairs:
                     ws_path: str = "/".join([f"{convert_to_mandala_exchange_trading_pair(trading_pair).lower()}@depth"
-                                         for trading_pair in self._trading_pairs])
+                                            for trading_pair in self._trading_pairs])
                     url = MANDALA_STREAM_URL
                 stream_url: str = f"{url}/{ws_path}"
-                print('listen_for_order_book_diffs',stream_url)
+                print('listen_for_order_book_diffs', stream_url)
                 async with websockets.connect(stream_url) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     async for raw_msg in self._inner_messages(ws):

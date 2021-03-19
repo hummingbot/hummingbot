@@ -1,5 +1,6 @@
 # coding=utf-8
 
+import asyncio
 import hashlib
 import hmac
 import requests
@@ -617,8 +618,7 @@ class Client(object):
         )
         return kline[0][0]
 
-    async def get_historical_klines(self, symbol, interval, start_str, end_str=None,
-                              limit=500):
+    async def get_historical_klines(self, symbol, interval, start_str, end_str=None, limit=500):
         """Get Historical Klines from Mandala
 
         See dateparser docs for valid start and end string formats http://dateparser.readthedocs.io/en/latest/
