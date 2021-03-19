@@ -178,7 +178,7 @@ cdef class PaperTradeExchange(ExchangeBase):
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
     MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
 
-    property account_balances:
+    property _account_balances:
         def __get__(self):
             if PaperTradeExchange_account_balances is None or self.name not in PaperTradeExchange_account_balances:
                 return None
@@ -195,8 +195,8 @@ cdef class PaperTradeExchange(ExchangeBase):
         order_book_tracker.data_source.order_book_create_function = lambda: CompositeOrderBook()
         self._order_book_tracker = order_book_tracker
         super(ExchangeBase, self).__init__()
-        if self.account_balances is None:
-            self.account_balances = {}
+        if self._account_balances is None:
+            self._account_balances = {}
         self._account_available_balances = {}
         self._paper_trade_market_initialized = False
         self._trading_pairs = {}
@@ -309,7 +309,7 @@ cdef class PaperTradeExchange(ExchangeBase):
 
     @property
     def available_balances(self) -> Dict[str, Decimal]:
-        _available_balances = self.account_balances.copy()
+        _available_balances = self._account_balances.copy()
         for trading_pair_str, balance in _available_balances.items():
             _available_balances[trading_pair_str] -= self.on_hold_balances[trading_pair_str]
         return _available_balances
@@ -330,13 +330,13 @@ cdef class PaperTradeExchange(ExchangeBase):
         return NetworkStatus.CONNECTED
 
     cdef c_set_balance(self, str currency, object balance):
-        self.account_balances[currency.upper()] = Decimal(balance)
+        self._account_balances[currency.upper()] = Decimal(balance)
 
     cdef object c_get_balance(self, str currency):
-        if currency.upper() not in self.account_balances:
+        if currency.upper() not in self._account_balances:
             self.logger().warning(f"Account balance does not have asset {currency.upper()}.")
             return Decimal(0.0)
-        return self.account_balances[currency.upper()]
+        return self._account_balances[currency.upper()]
 
     cdef c_tick(self, double timestamp):
         ExchangeBase.c_tick(self, timestamp)
@@ -985,7 +985,7 @@ cdef class PaperTradeExchange(ExchangeBase):
         return self.c_get_available_balance(currency)
 
     def get_all_balances(self) -> Dict[str, Decimal]:
-        return self.account_balances.copy()
+        return self._account_balances.copy()
 
     # <editor-fold desc="Python wrapper for cdef functions">
     def match_trade_to_limit_orders(self, event_object: OrderBookTradeEvent):
