@@ -3,10 +3,7 @@ class Constants:
     EXCHANGE_NAME = "hitbtc"
     REST_URL = "https://api.hitbtc.com/api/2"
     REST_URL_AUTH = "/api/2"
-    # WS_PRIVATE_URL = "wss://stream.crypto.com/v2/user"
     WS_PRIVATE_URL = "wss://api.hitbtc.com/api/2/ws/trading"
-    WS_PRIVATE_ACCT_URL = "wss://api.hitbtc.com/api/2/ws/account"
-    # WS_PUBLIC_URL = "wss://stream.crypto.com/v2/market"
     WS_PUBLIC_URL = "wss://api.hitbtc.com/api/2/ws/public"
 
     HBOT_BROKER_ID = "refzzz48"
@@ -36,6 +33,7 @@ class Constants:
         "ORDERS_UPDATE": "updateOrderbook",
         "TRADES_SNAPSHOT": "snapshotTrades",
         "TRADES_UPDATE": "updateTrades",
+        "USER_BALANCE": "getTradingBalance",
         "USER_ORDERS": "activeOrders",
         "USER_TRADES": "report",
     }

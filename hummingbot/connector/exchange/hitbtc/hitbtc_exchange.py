@@ -835,6 +835,7 @@ class HitbtcExchange(ExchangeBase):
                 account_balances: list = event_message.get("result", None)
 
                 if method not in event_methods and account_balances is None:
+                    self.logger().error(f"Unexpected message in user stream: {event_message}.", exc_info=True)
                     continue
                 if method == Constants.WS_METHODS["USER_TRADES"]:
                     await self._process_trade_message(params)
