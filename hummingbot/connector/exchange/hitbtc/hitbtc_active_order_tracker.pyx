@@ -60,9 +60,9 @@ cdef class HitbtcActiveOrderTracker:
             double timestamp = message.timestamp
             double amount = 0
 
-        if "bids" in content_keys:
+        if "bid" in content_keys:
             bid_entries = content["bid"]
-        if "asks" in content_keys:
+        if "ask" in content_keys:
             ask_entries = content["ask"]
 
         bids = s_empty_diff
