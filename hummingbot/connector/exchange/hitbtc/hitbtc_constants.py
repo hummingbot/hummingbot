@@ -5,6 +5,7 @@ class Constants:
     REST_URL_AUTH = "/api/2"
     # WS_PRIVATE_URL = "wss://stream.crypto.com/v2/user"
     WS_PRIVATE_URL = "wss://api.hitbtc.com/api/2/ws/trading"
+    WS_PRIVATE_ACCT_URL = "wss://api.hitbtc.com/api/2/ws/account"
     # WS_PUBLIC_URL = "wss://stream.crypto.com/v2/market"
     WS_PUBLIC_URL = "wss://api.hitbtc.com/api/2/ws/public"
 

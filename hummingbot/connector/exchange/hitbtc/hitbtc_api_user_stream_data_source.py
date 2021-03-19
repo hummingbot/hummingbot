@@ -29,6 +29,7 @@ class HitbtcAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def __init__(self, hitbtc_auth: HitbtcAuth, trading_pairs: Optional[List[str]] = []):
         self._hitbtc_auth: HitbtcAuth = hitbtc_auth
         self._ws_trade: HitbtcWebsocket = None
+        self._ws_accts: HitbtcWebsocket = None
         self._trading_pairs = trading_pairs
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
@@ -39,23 +40,50 @@ class HitbtcAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def last_recv_time(self) -> float:
         return self._last_recv_time
 
+    # ---- UNCOMMENT FOR ACCT WS -------------------->
+    async def _ws_request_balances(self):
+        await self._ws_accts.request("getBalance")
+        balance_response = None
+        async for msg in self._ws_accts.on_message():
+            balance_response = msg
+            break
+        return balance_response
+    # <-------------------- UNCOMMENT FOR ACCT WS ----
+
     async def _listen_to_orders_trades_balances(self) -> AsyncIterable[Any]:
         """
         Subscribe to active orders via web socket
         """
 
         try:
+            # ---- UNCOMMENT FOR ACCT WS -------------------->
+            # self._ws_accts = HitbtcWebsocket(self._hitbtc_auth, ws_acct=True)
+            # <-------------------- UNCOMMENT FOR ACCT WS ----
             self._ws_trade = HitbtcWebsocket(self._hitbtc_auth)
 
+            # ---- UNCOMMENT FOR ACCT WS -------------------->
+            # await self._ws_accts.connect()
+            # <-------------------- UNCOMMENT FOR ACCT WS ----
             await self._ws_trade.connect()
 
             await self._ws_trade.subscribe(Constants.WS_SUB["USER_ORDERS_TRADES"], None, {})
 
+            # ---- UNCOMMENT FOR ACCT WS -------------------->
+            # event_methods = [
+            #     Constants.WS_METHODS["USER_ORDERS"],
+            #     Constants.WS_METHODS["USER_TRADES"],
+            # ]
+            # <-------------------- UNCOMMENT FOR ACCT WS ----
+
             async for msg in self._ws_trade.on_message():
                 self._last_recv_time = time.time()
 
-                if msg.get("params") is None:
+                if msg.get("params", msg.get("result", None)) is None:
                     continue
+                # ---- UNCOMMENT FOR ACCT WS -------------------->
+                # elif msg.get("method", None) in event_methods:
+                #     yield await self._ws_request_balances()
+                # <-------------------- UNCOMMENT FOR ACCT WS ----
                 yield msg
         except Exception as e:
             raise e

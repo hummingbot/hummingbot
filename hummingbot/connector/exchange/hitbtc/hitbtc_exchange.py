@@ -832,14 +832,17 @@ class HitbtcExchange(ExchangeBase):
                 ]
                 method: str = event_message.get("method", None)
                 params: str = event_message.get("params", None)
+                account_balances: list = event_message.get("result", None)
 
-                if params is None or method not in event_methods:
+                if method not in event_methods and account_balances is None:
                     continue
                 if method == Constants.WS_METHODS["USER_TRADES"]:
                     await self._process_trade_message(params)
                 elif method == Constants.WS_METHODS["USER_ORDERS"]:
                     for order_msg in params:
                         self._process_order_message(order_msg)
+                elif isinstance(account_balances, list) and "currency" in account_balances[0]:
+                    self._process_balance_message(account_balances)
             except asyncio.CancelledError:
                 raise
             except Exception:
