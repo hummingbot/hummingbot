@@ -6,9 +6,39 @@ class FixtureIdex:
     MARKETS = None
 
     # General User Info
-    BALANCES = None
+    BALANCES = [
+        {
+            "asset": "UNI",
+            "quantity": "38192.94678100",
+            "availableForTrade": "26710.66678121",
+            "locked": "11482.28000000",
+            "usdValue": "38188.22"
+        },
+        {
+            "asset": "QNT",
+            "quantity": "374.94348200",
+            "availableForTrade": "110.86384321",
+            "locked": "264.07963879",
+            "usdValue": "388.22"
+        },
+    ]
 
-    TRADE_FEES = None
+    # Trade fees found in the exchange api request
+    TRADE_FEES = {
+        "timeZone": "UTC",
+        "serverTime": 1590408000000,
+        "ethereumDepositContractAddress": "0x...",
+        "ethUsdPrice": "206.46",
+        "gasPrice": 7,
+        "volume24hUsd": "10416227.98",
+        "makerFeeRate": "0.001",
+        "takerFeeRate": "0.002",
+        "makerTradeMinimum": "0.15000000",
+        "takerTradeMinimum": "0.05000000",
+        "withdrawalMinimum": "0.04000000"
+    }
+
+    ORDERS_STATUS = []
 
     LISTEN_KEY = None
 
@@ -185,34 +215,3 @@ class FixtureIdex:
             "u": 921943
         }
     })
-
-    SELL_MARKET_ORDER = None
-
-    WS_AFTER_SELL_1 = None
-
-    WS_AFTER_SELL_2 = None
-
-    BUY_LIMIT_ORDER = None
-
-    SELL_LIMIT_ORDER = None
-
-    LIMIT_MAKER_ERROR = None
-
-    GET_DEPOSIT_INFO = None
-
-    OPEN_BUY_ORDER = None
-
-    OPEN_SELL_ORDER = None
-
-    CANCEL_ORDER = None
-
-    LINKETH_SNAP = None
-    ZRXETH_SNAP = None
-
-    ORDER_BUY_PRECISION = None
-
-    ORDER_BUY_PRECISION_GET = None
-
-    ORDER_SELL_PRECISION = None
-
-    ORDER_SELL_PRECISION_GET = None

@@ -58,12 +58,10 @@ class IdexInFlightOrder(InFlightOrderBase):
         """
         :param data: json data from API
         :return: formatted InFlightOrder
-
-        TODO: Validate it
         """
         result = IdexInFlightOrder(
             data["orderId"],
-            "",
+            data["exchangeOrderId"],
             data["market"],
             from_idex_order_type(data["type"]),
             from_idex_trade_type(data["side"]),
@@ -71,14 +69,11 @@ class IdexInFlightOrder(InFlightOrderBase):
             Decimal(data["executedQuantity"]),
             data["status"]
         )
-
-        # TODO: How to normalize fills array
-        # TODO: Take gas into account, just add together
-        # result.executed_amount_base = Decimal(data["executed_amount_base"])
-        # result.executed_amount_quote = Decimal(data["executed_amount_quote"])
-        # result.fee_asset = data["fee_asset"] # Asset is always same
-        # result.fee_paid = Decimal(data["fee_paid"]) # Sum it
-        # result.last_state = data["last_state"]
+        result.executed_amount_base = Decimal(data["executed_amount_base"])
+        result.executed_amount_quote = Decimal(data["executed_amount_quote"])
+        result.fee_asset = data["fee_asset"]
+        result.fee_paid = Decimal(data["fee_paid"])  # TODO: Account for gas
+        result.last_state = data["last_state"]
         return result
 
     def update_with_fill_update(self, fill_update: Dict[str, Any]) -> bool:

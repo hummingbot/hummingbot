@@ -5,7 +5,6 @@ import typing
 from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.event.events import OrderType, TradeType
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
@@ -24,6 +23,8 @@ EXCHANGE_NAME = "idex"
 
 IDEX_BLOCKCHAINS = ('ETH', 'BSC')
 
+
+'''
 # API Feed adjusted to sandbox url
 IDEX_REST_URL_FMT = "https://api-sandbox-{blockchain}.idex.io/"
 # WS Feed adjusted to sandbox url
@@ -87,6 +88,7 @@ def get_idex_ws_feed():
         else:
             _IDEX_WS_FEED = _IDEX_WS_FEED_PROD_ETH if get_idex_blockchain() == 'ETH' else _IDEX_WS_FEED_PROD_BSC
     return _IDEX_WS_FEED
+'''
 
 
 def validate_idex_contract_blockchain(value: str) -> Optional[str]:

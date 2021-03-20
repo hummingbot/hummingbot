@@ -41,10 +41,7 @@ class IdexAPIOrderBookDataSourceUnitTest(unittest.TestCase):
         "BTCB-BNB"
     ]
 
-    REST_URL: str = 'hummingbot.connector.exchange.idex.idex_api_order_book_data_source.' \
-                    'IdexAPIOrderBookDataSource._IDEX_REST_URL'
-    WS_FEED: str = 'hummingbot.connector.exchange.idex.idex_api_order_book_data_source.' \
-                   'IdexAPIOrderBookDataSource._IDEX_WS_FEED'
+    RESOLVE_PATH: str = 'hummingbot.connector.exchange.idex.idex_resolve.{method}'
     GET_MOCK: str = 'aiohttp.ClientSession.get'
 
     PATCH_BASE_PATH = \
@@ -58,7 +55,7 @@ class IdexAPIOrderBookDataSourceUnitTest(unittest.TestCase):
 
     def run_async(self, task):
         return self.ev_loop.run_until_complete(task)
-
+    '''
     def test_get_idex_rest_url(self):
         # Calls blockchain default ("eth") in global_config[blockchain] if blockchain value is None
         # Todo: test with user inputs and blockchain value to ensure ETH and BSC blockchain inputs work
@@ -68,24 +65,16 @@ class IdexAPIOrderBookDataSourceUnitTest(unittest.TestCase):
         # Calls blockchain default ("eth") in global_config[blockchain] if blockchain value is None
         # Todo: test with user inputs and blockchain value to ensure ETH and BSC blockchain inputs work.
         self.assertEqual("wss://websocket-sandbox-ETH.idex.io/v1", IdexAPIOrderBookDataSource.get_idex_ws_feed())
-
+    '''
     # Test returns: Success
     # Uses PropertyMock to mock the API URL. Test confirms ability to fetch all trading pairs
     # on both exchanges (ETH, BSC).
     def test_fetch_trading_pairs(self):
-        with patch(self.REST_URL, new_callable=PropertyMock) as mocked_api_url:
-            # ETH URL
-            mocked_api_url.return_value = "https://api-eth.idex.io"
-            trading_pairs: List[str] = self.run_async(
-                self.eth_order_book_data_source.fetch_trading_pairs())
-            self.assertIn("UNI-ETH", trading_pairs)
-            self.assertIn("LBA-ETH", trading_pairs)
-            # BSC URL
-            mocked_api_url.return_value = "https://api-bsc.idex.io"
-            trading_pairs: List[str] = self.run_async(
-                self.bsc_order_book_data_source.fetch_trading_pairs())
-            self.assertIn("EOS-USDT", trading_pairs)
-            self.assertIn("BTCB-BNB", trading_pairs)
+        # ETH URL
+        trading_pairs: List[str] = self.run_async(
+            self.eth_order_book_data_source.fetch_trading_pairs())
+        self.assertIn("UNI-ETH", trading_pairs)
+        self.assertIn("LBA-ETH", trading_pairs)
 
     def test_get_last_traded_price(self):
         with patch(self.GET_MOCK, new_callable=AsyncMock) as mocked_get:
@@ -96,7 +85,7 @@ class IdexAPIOrderBookDataSourceUnitTest(unittest.TestCase):
                     self.eth_order_book_data_source.get_last_traded_price(t_pair, "https://api-eth.idex.io"))
                 self.assertEqual(0.01780000, last_traded_price)
 
-    @patch(REST_URL, new_callable=PropertyMock)
+    @patch(RESOLVE_PATH.format(method='get_idex_rest_url'))
     @patch(GET_MOCK, new_callable=AsyncMock)
     def test_get_last_traded_prices(self, mocked_get, mocked_api_url):
         # ETH URL
@@ -114,7 +103,7 @@ class IdexAPIOrderBookDataSourceUnitTest(unittest.TestCase):
         self.assertEqual({"EOS-USDT": 0.01780000,
                           "BTCB-BNB": 0.01780000}, last_traded_prices)
 
-    @patch(REST_URL, new_callable=PropertyMock)
+    @patch(RESOLVE_PATH.format(method='get_idex_rest_url'))
     @patch(GET_MOCK, new_callable=AsyncMock)
     def test_get_mid_price(self, mocked_get, mocked_api_url):
         # ETH URL
@@ -137,7 +126,7 @@ class IdexAPIOrderBookDataSourceUnitTest(unittest.TestCase):
     # @unittest.skip("failing aiohttp response context manager mocks")
     # @patch(REST_URL, new_callable=PropertyMock)
     # @patch(GET_MOCK, new_callable=AsyncMock)
-    @patch(REST_URL, new_callable=PropertyMock)
+    @patch(RESOLVE_PATH.format(method='get_idex_rest_url'))
     @patch('aiohttp.ClientResponse.json')
     def test_get_snapshot(self, mocked_json, mocked_api_url):
 
@@ -160,7 +149,7 @@ class IdexAPIOrderBookDataSourceUnitTest(unittest.TestCase):
         snapshot = snapshot.result()
         self.assertEqual(FixtureIdex.ORDER_BOOK_LEVEL2, snapshot)
 
-    @patch(REST_URL, new_callable=PropertyMock)
+    @patch(RESOLVE_PATH.format(method='get_idex_rest_url'))
     @patch(PATCH_BASE_PATH.format(method='get_snapshot'))
     def test_get_new_order_book(self, mock_get_snapshot, mocked_api_url):
 
@@ -182,7 +171,7 @@ class IdexAPIOrderBookDataSourceUnitTest(unittest.TestCase):
         # Ensure the number of bids / asks provided in the snapshot are equal to the respective number of orderbook rows
         self.assertEqual(len(orderbook.snapshot[0].index), len(FixtureIdex.SNAPSHOT_2["bids"]))
 
-    @patch(REST_URL, new_callable=PropertyMock)
+    @patch(RESOLVE_PATH.format(method='get_idex_rest_url'))
     @patch(PATCH_BASE_PATH.format(method='get_snapshot'))
     def test_get_tracking_pairs(self, mock_get_snapshot, mocked_api_url):
 
@@ -212,7 +201,7 @@ class IdexAPIOrderBookDataSourceUnitTest(unittest.TestCase):
         for trading_pair, order_book_tracker_entry in zip(self.eth_sample_pairs, tracking_pairs.values()):
             self.assertEqual(order_book_tracker_entry.trading_pair, trading_pair)
 
-    @patch(REST_URL, new_callable=PropertyMock)
+    @patch(RESOLVE_PATH.format(method='get_idex_rest_url'))
     @patch(PATCH_BASE_PATH.format(method='get_snapshot'))
     def test_listen_for_order_book_snapshots(self, mock_get_snapshot, mock_api_url):
         """
@@ -294,7 +283,7 @@ class IdexAPIOrderBookDataSourceUnitTest(unittest.TestCase):
         self.assertEqual(first_item.content['trading_pair'], self.eth_sample_pairs[0])
         self.assertEqual(first_item.content['sequence'], FixtureIdex.SNAPSHOT_1['sequence'])
 
-    @patch(WS_FEED, new_callable=PropertyMock)
+    @patch(RESOLVE_PATH.format(method='get_idex_ws_feed'))
     @patch(PATCH_BASE_PATH.format(method='_inner_messages'))
     def test_listen_for_order_book_diffs(self, mock_inner_messages, mock_ws_feed):
         timeout = 2

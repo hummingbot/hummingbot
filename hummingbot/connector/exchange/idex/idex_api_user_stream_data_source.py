@@ -13,7 +13,7 @@ import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-from hummingbot.connector.exchange.idex.idex_utils import get_idex_ws_feed
+from hummingbot.connector.exchange.idex.idex_resolve import get_idex_ws_feed
 from hummingbot.connector.exchange.idex.idex_order_book import IdexOrderbook
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger

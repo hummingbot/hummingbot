@@ -15,7 +15,7 @@ from eth_account.signers.local import LocalAccount
 from eth_typing import HexStr
 from web3 import Web3
 
-from hummingbot.connector.exchange.idex.idex_utils import get_idex_rest_url, get_idex_blockchain
+from hummingbot.connector.exchange.idex.idex_resolve import get_idex_rest_url, get_idex_blockchain
 
 
 class HashVersionEnum(Enum):  # Blockchain

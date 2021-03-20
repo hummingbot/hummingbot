@@ -29,7 +29,7 @@ from hummingbot.core.utils.async_utils import safe_gather  # todo alf: only one 
 from hummingbot.connector.exchange.idex.idex_active_order_tracker import IdexActiveOrderTracker
 from hummingbot.connector.exchange.idex.idex_order_book_tracker_entry import IdexOrderBookTrackerEntry
 from hummingbot.connector.exchange.idex.idex_order_book import IdexOrderBook
-from hummingbot.connector.exchange.idex.idex_utils import get_idex_rest_url, get_idex_ws_feed
+from hummingbot.connector.exchange.idex.idex_resolve import get_idex_rest_url, get_idex_ws_feed
 
 MAX_RETRIES = 20
 NaN = float("nan")

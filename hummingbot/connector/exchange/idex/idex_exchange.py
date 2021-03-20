@@ -1,4 +1,3 @@
-# import json
 import math
 import time
 import asyncio
@@ -29,10 +28,9 @@ from hummingbot.connector.exchange.idex.idex_in_flight_order import IdexInFlight
 from hummingbot.connector.exchange.idex.idex_order_book_tracker import IdexOrderBookTracker
 from hummingbot.connector.exchange.idex.idex_user_stream_tracker import IdexUserStreamTracker
 from hummingbot.connector.exchange.idex.idex_utils import (
-    get_idex_rest_url, to_idex_order_type, to_idex_trade_type, EXCHANGE_NAME, get_new_client_order_id, DEBUG
+    to_idex_order_type, to_idex_trade_type, EXCHANGE_NAME, get_new_client_order_id, DEBUG
 )
-
-s_decimal_0 = Decimal("0.0")
+from hummingbot.connector.exchange.idex.idex_resolve import get_idex_rest_url
 
 
 class IdexExchange(ExchangeBase):
@@ -78,14 +76,17 @@ class IdexExchange(ExchangeBase):
 
     @property
     def trading_rules(self) -> Dict[str, TradingRule]:
+        """Returns the trading rules associated with Idex orders/trades"""
         return self._trading_rules
 
     @property
     def name(self) -> str:
+        """Returns the exchange name"""
         return EXCHANGE_NAME
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
+        """Returns the order books of all tracked trading pairs"""
         return self._order_book_tracker.order_books
 
     @property
@@ -111,7 +112,7 @@ class IdexExchange(ExchangeBase):
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
-        """ Returns a list of active limit orders being tracked """
+        """Returns a list of active limit orders being tracked"""
         return [
             in_flight_order.to_limit_order()
             for in_flight_order in self._in_flight_orders.values()
@@ -119,6 +120,7 @@ class IdexExchange(ExchangeBase):
 
     @property
     def in_flight_orders(self) -> Dict[str, IdexInFlightOrder]:
+        """ Returns a list of all active orders being tracked """
         return self._in_flight_orders
 
     @property
@@ -132,7 +134,6 @@ class IdexExchange(ExchangeBase):
             if not value.is_done
         }
 
-    # TODO Brian: the from_json() function needs to be reworked in idex_in_flight_order
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         """
         Restore in-flight orders from saved tracking states, this is so the connector can pick up on where it left off
@@ -165,13 +166,16 @@ class IdexExchange(ExchangeBase):
 
     @staticmethod
     def get_order_price_quantum(trading_pair: str, price: Decimal) -> Decimal:
-        """ Provides the Idex standard minimum price increment across all trading pairs """
+        """Provides the Idex standard minimum price increment across all trading pairs"""
         return Decimal(0.00000001)
 
     @staticmethod
     def get_order_size_quantum(trading_pair: str, order_size: Decimal) -> Decimal:
-        """ Provides the Idex standard minimum order increment across all trading pairs """
+        """Provides the Idex standard minimum order increment across all trading pairs"""
         return Decimal(0.00000001)
+
+    def get_price(self, trading_pair: str, is_buy: bool) -> Decimal:
+        return self.c_get_price(trading_pair, is_buy)
 
     async def start_network(self):
         await self.stop_network()
@@ -220,10 +224,6 @@ class IdexExchange(ExchangeBase):
         safe_ensure_future(self._create_order(TradeType.BUY, order_id, trading_pair, amount, order_type, price))
         return order_id
 
-    # def amount_to_precision(self, symbol, amount):
-        # return self.decimal_to_precision(amount, TRUNCATE, self.markets[symbol]['precision']['amount'],
-    # self.precisionMode, self.paddingMode)
-
     def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
              price: Decimal = s_decimal_NaN, **kwargs) -> str:
         """
@@ -235,7 +235,7 @@ class IdexExchange(ExchangeBase):
         :param price: The price (note: this is no longer optional)
         :returns A new internal order id
         """
-        order_id: str = get_new_client_order_id(False, trading_pair) #TODO: get client order id
+        order_id: str = get_new_client_order_id(False, trading_pair)
         safe_ensure_future(self._create_order(TradeType.SELL, order_id, trading_pair, amount, order_type, price))
         return order_id
 
@@ -247,10 +247,10 @@ class IdexExchange(ExchangeBase):
         :param order_id: The internal order id (also called client_order_id)
         """
 
-        safe_ensure_future(self._execute_cancel(trading_pair, order_id))
-        return order_id
+        order_cancellation = safe_ensure_future(self._execute_cancel(trading_pair, order_id))
+        return order_cancellation
 
-    async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
+    async def _execute_cancel(self, trading_pair: str, client_order_id: str) -> str:
         """
         Executes order cancellation process by first calling cancel-order API. The API result doesn't confirm whether
         the cancellation is successful, it simply states it receives the request.
@@ -259,11 +259,11 @@ class IdexExchange(ExchangeBase):
         order.last_state to change to CANCELED
         """
         try:
-            tracked_order = self._in_flight_orders.get(order_id)
+            tracked_order = self._in_flight_orders.get(client_order_id)
             if tracked_order is None:
-                raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
-            order_cancellation = await self.delete_order(trading_pair, order_id)
-            return order_id # TODO: get cancel return json
+                raise ValueError(f"Failed to cancel order - {client_order_id}. Order not found.")
+            order_cancellation = await self.delete_order(trading_pair, client_order_id)
+            return order_cancellation
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -277,7 +277,7 @@ class IdexExchange(ExchangeBase):
 
     @staticmethod
     async def get_ping():
-        """ Requests status of current connection. """
+        """Requests status of current connection."""
 
         rest_url = get_idex_rest_url()
         url = f"{rest_url}/v1/ping/"
@@ -287,8 +287,8 @@ class IdexExchange(ExchangeBase):
                     raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {response}")
         return
 
-    async def get_orders(self) -> List[Dict[str, Any]]:
-        """ Requests status of all active orders. Returns json data of all orders associated with wallet address """
+    async def list_orders(self) -> List[Dict[str, Any]]:
+        """Requests status of all active orders. Returns json data of all orders associated with wallet address"""
 
         rest_url = get_idex_rest_url()
         url = f"{rest_url}/v1/orders/"
@@ -305,7 +305,7 @@ class IdexExchange(ExchangeBase):
                 return data
 
     async def get_order(self, exchange_order_id: str) -> Dict[str, Any]:
-        """ Requests order information through API with exchange orderId. Returns json data with order details """
+        """Requests order information through API with exchange orderId. Returns json data with order details"""
 
         rest_url = get_idex_rest_url()
         url = f"{rest_url}/v1/orders/?orderId={exchange_order_id}"
@@ -322,6 +322,7 @@ class IdexExchange(ExchangeBase):
                 return data
 
     async def post_order(self, params) -> Dict[str, Any]:
+        """Posts an order request to the Idex API. Returns json data with order details"""
 
         rest_url = get_idex_rest_url()
         url = f"{rest_url}/v1/orders"
@@ -357,8 +358,11 @@ class IdexExchange(ExchangeBase):
                 return data
 
     async def delete_order(self, trading_pair: str, order_id: str):
-        # order_id is optional to allow the cancel_all method the ability to cancel all orders associated with a
-        # wallet at once by not providing the order_id
+        """
+        Deletes an order or all orders associated with a wallet from the Idex API.
+        Returns json data with order id confirming deletion
+        """
+
         rest_url = get_idex_rest_url()
         url = f"{rest_url}/v1/orders"
         params = {
@@ -389,7 +393,7 @@ class IdexExchange(ExchangeBase):
                 return data
 
     async def get_balances_from_api(self) -> Dict[Dict[str, Any]]:
-        """ Requests current balances of all assets through API. Returns json data with balance details """
+        """Requests current balances of all assets through API. Returns json data with balance details"""
 
         rest_url = get_idex_rest_url()
         url = f"{rest_url}/v1/balances/"
@@ -444,7 +448,7 @@ class IdexExchange(ExchangeBase):
             "clientOrderId": order_id
         }
         self.start_tracking_order(order_id,
-                                  None, # TODO Brian: fix this type - str type not None (make optional)
+                                  "",
                                   trading_pair,
                                   trade_type,
                                   price,
@@ -515,7 +519,7 @@ class IdexExchange(ExchangeBase):
         return self._order_book_tracker.order_books[trading_pair]
 
     async def _status_polling_loop(self):
-        """ Periodically update user balances and order status via REST API. Fallback measure for ws API updates. """
+        """Periodically update user balances and order status via REST API. Fallback measure for ws API updates."""
 
         while True:
             try:
@@ -604,10 +608,9 @@ class IdexExchange(ExchangeBase):
 
         client_order_id = update_msg["c"] if "c" in update_msg else update_msg.get("clientOrderId")
         # I think this should address that cumbersome dictionary iteration
-        track_order = self._in_flight_orders.get(client_order_id)
-        if not track_order:
+        tracked_order = self._in_flight_orders.get(client_order_id)
+        if not tracked_order:
             return
-        tracked_order = track_order[0]  # Not sure if this line is necessary. I don't know why crypto.com included it. track_order should be an object.
         for fill_msg in update_msg["F"] if "F" in update_msg else update_msg.get("fills"):
             updated = tracked_order.update_with_trade_update(fill_msg)
             if not updated:
@@ -745,10 +748,8 @@ class IdexExchange(ExchangeBase):
                     continue
                 event_type, event_data = event_message['type'], event_message['data']
                 if event_type == 'orders':
-                    self._process_fill_message(event_data)
+                    await self._process_fill_message(event_data)
                     self._process_order_message(event_data)
-                # Do not need trades. Trade subscription removed from api_user_steam_data_source since it is
-                # a public subscription already used by api_order_book_data_source.
                 elif event_type == 'balances':
                     asset_name = event_data['a']
                     # q	quantity	string	Total quantity of the asset held by the wallet on the exchange
