@@ -204,7 +204,7 @@ class BambooRelayAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             if "motd" in msg:
                                 self._motd_done = True
                                 self.logger().info(f"Bamboo Relay API MOTD: {msg['motd']}")
-                                if "announcements" in msg and len(msg["announcements"]):
+                                if "announcements" in msg and msg["announcements"]:
                                     for announcement in msg["announcements"]:
                                         self.logger().info(f"Announcement: {announcement}")
                         except Exception:
