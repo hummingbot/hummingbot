@@ -13,6 +13,7 @@ connector_status = {
     'blocktane': 'green',
     'celo': 'green',
     'coinbase_pro': 'green',
+    'coinzoom': 'yellow',
     'crypto_com': 'yellow',
     'dydx': 'green',
     'eterbase': 'red',
