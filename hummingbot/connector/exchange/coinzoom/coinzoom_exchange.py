@@ -72,19 +72,21 @@ class CoinzoomExchange(ExchangeBase):
     def __init__(self,
                  coinzoom_api_key: str,
                  coinzoom_secret_key: str,
+                 coinzoom_username: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True
                  ):
         """
         :param coinzoom_api_key: The API key to connect to private CoinZoom APIs.
         :param coinzoom_secret_key: The API secret.
+        :param coinzoom_username: The ZoomMe Username.
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
         """
         super().__init__()
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._coinzoom_auth = CoinzoomAuth(coinzoom_api_key, coinzoom_secret_key)
+        self._coinzoom_auth = CoinzoomAuth(coinzoom_api_key, coinzoom_secret_key, coinzoom_username)
         self._order_book_tracker = CoinzoomOrderBookTracker(trading_pairs=trading_pairs)
         self._user_stream_tracker = CoinzoomUserStreamTracker(self._coinzoom_auth, trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
@@ -741,8 +743,9 @@ class CoinzoomExchange(ExchangeBase):
         remote_asset_names = set()
         for account in balance_update:
             asset_name = account["currency"]
-            self._account_available_balances[asset_name] = Decimal(str(account["available"]))
-            self._account_balances[asset_name] = Decimal(str(account["reserved"])) + Decimal(str(account["available"]))
+            total_bal = Decimal(str(account["totalBalance"]))
+            self._account_available_balances[asset_name] = total_bal + Decimal(str(account["reservedBalance"]))
+            self._account_balances[asset_name] = total_bal
             remote_asset_names.add(asset_name)
 
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)

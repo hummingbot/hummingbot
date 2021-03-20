@@ -5,6 +5,7 @@ import unittest
 import aiohttp
 import conf
 import logging
+from async_timeout import timeout
 from os.path import join, realpath
 from typing import Dict, Any
 from hummingbot.connector.exchange.coinzoom.coinzoom_auth import CoinzoomAuth
@@ -22,20 +23,25 @@ class TestAuth(unittest.TestCase):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         api_key = conf.coinzoom_api_key
         secret_key = conf.coinzoom_secret_key
-        cls.auth = CoinzoomAuth(api_key, secret_key)
+        api_username = conf.coinzoom_username
+        cls.auth = CoinzoomAuth(api_key, secret_key, api_username)
 
     async def rest_auth(self) -> Dict[Any, Any]:
         endpoint = Constants.ENDPOINT['USER_BALANCES']
-        headers = self.auth.get_headers("GET", f"{Constants.REST_URL_AUTH}/{endpoint}", None)
+        headers = self.auth.get_headers()
         response = await aiohttp.ClientSession().get(f"{Constants.REST_URL}/{endpoint}", headers=headers)
         return await response.json()
 
     async def ws_auth(self) -> Dict[Any, Any]:
         ws = CoinzoomWebsocket(self.auth)
         await ws.connect()
-        await ws.subscribe(Constants.WS_SUB["USER_ORDERS_TRADES"], None, {})
-        async for response in ws.on_message():
-            return response
+        user_ws_streams = {stream_key: {} for stream_key in Constants.WS_SUB["USER_ORDERS_TRADES"]}
+        async with timeout(30):
+            await ws.subscribe(user_ws_streams)
+            async for response in ws.on_message():
+                if ws.is_subscribed:
+                    return True
+        return False
 
     def test_rest_auth(self):
         result = self.ev_loop.run_until_complete(self.rest_auth())
@@ -44,12 +50,5 @@ class TestAuth(unittest.TestCase):
         assert "currency" in result[0].keys()
 
     def test_ws_auth(self):
-        try:
-            response = self.ev_loop.run_until_complete(self.ws_auth())
-            no_errors = True
-        except Exception:
-            no_errors = False
-        assert no_errors is True
-        if 'result' not in response:
-            print(f"Unexpected response for API call: {response}")
-        assert response['result'] is True
+        subscribed = self.ev_loop.run_until_complete(self.ws_auth())
+        assert subscribed is True
