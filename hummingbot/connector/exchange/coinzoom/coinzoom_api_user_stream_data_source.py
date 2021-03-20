@@ -10,13 +10,13 @@ from typing import (
 )
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from .hitbtc_constants import Constants
-from .hitbtc_auth import HitbtcAuth
-from .hitbtc_utils import HitbtcAPIError
-from .hitbtc_websocket import HitbtcWebsocket
+from .coinzoom_constants import Constants
+from .coinzoom_auth import CoinzoomAuth
+from .coinzoom_utils import CoinzoomAPIError
+from .coinzoom_websocket import CoinzoomWebsocket
 
 
-class HitbtcAPIUserStreamDataSource(UserStreamTrackerDataSource):
+class CoinzoomAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     _logger: Optional[HummingbotLogger] = None
 
@@ -26,9 +26,9 @@ class HitbtcAPIUserStreamDataSource(UserStreamTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, hitbtc_auth: HitbtcAuth, trading_pairs: Optional[List[str]] = []):
-        self._hitbtc_auth: HitbtcAuth = hitbtc_auth
-        self._ws: HitbtcWebsocket = None
+    def __init__(self, coinzoom_auth: CoinzoomAuth, trading_pairs: Optional[List[str]] = []):
+        self._coinzoom_auth: CoinzoomAuth = coinzoom_auth
+        self._ws: CoinzoomWebsocket = None
         self._trading_pairs = trading_pairs
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
@@ -48,7 +48,7 @@ class HitbtcAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
 
         try:
-            self._ws = HitbtcWebsocket(self._hitbtc_auth)
+            self._ws = CoinzoomWebsocket(self._coinzoom_auth)
 
             await self._ws.connect()
 
@@ -87,7 +87,7 @@ class HitbtcAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     output.put_nowait(msg)
             except asyncio.CancelledError:
                 raise
-            except HitbtcAPIError as e:
+            except CoinzoomAPIError as e:
                 self.logger().error(e.error_payload.get('error'), exc_info=True)
                 raise
             except Exception:

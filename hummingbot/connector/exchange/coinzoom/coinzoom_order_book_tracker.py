@@ -2,7 +2,7 @@
 import asyncio
 import bisect
 import logging
-from hummingbot.connector.exchange.hitbtc.hitbtc_constants import Constants
+from hummingbot.connector.exchange.coinzoom.coinzoom_constants import Constants
 import time
 
 from collections import defaultdict, deque
@@ -10,13 +10,13 @@ from typing import Optional, Dict, List, Deque
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.connector.exchange.hitbtc.hitbtc_order_book_message import HitbtcOrderBookMessage
-from hummingbot.connector.exchange.hitbtc.hitbtc_active_order_tracker import HitbtcActiveOrderTracker
-from hummingbot.connector.exchange.hitbtc.hitbtc_api_order_book_data_source import HitbtcAPIOrderBookDataSource
-from hummingbot.connector.exchange.hitbtc.hitbtc_order_book import HitbtcOrderBook
+from hummingbot.connector.exchange.coinzoom.coinzoom_order_book_message import CoinzoomOrderBookMessage
+from hummingbot.connector.exchange.coinzoom.coinzoom_active_order_tracker import CoinzoomActiveOrderTracker
+from hummingbot.connector.exchange.coinzoom.coinzoom_api_order_book_data_source import CoinzoomAPIOrderBookDataSource
+from hummingbot.connector.exchange.coinzoom.coinzoom_order_book import CoinzoomOrderBook
 
 
-class HitbtcOrderBookTracker(OrderBookTracker):
+class CoinzoomOrderBookTracker(OrderBookTracker):
     _logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -26,7 +26,7 @@ class HitbtcOrderBookTracker(OrderBookTracker):
         return cls._logger
 
     def __init__(self, trading_pairs: Optional[List[str]] = None,):
-        super().__init__(HitbtcAPIOrderBookDataSource(trading_pairs), trading_pairs)
+        super().__init__(CoinzoomAPIOrderBookDataSource(trading_pairs), trading_pairs)
 
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
@@ -34,10 +34,10 @@ class HitbtcOrderBookTracker(OrderBookTracker):
         self._order_book_trade_stream: asyncio.Queue = asyncio.Queue()
         self._process_msg_deque_task: Optional[asyncio.Task] = None
         self._past_diffs_windows: Dict[str, Deque] = {}
-        self._order_books: Dict[str, HitbtcOrderBook] = {}
-        self._saved_message_queues: Dict[str, Deque[HitbtcOrderBookMessage]] = \
+        self._order_books: Dict[str, CoinzoomOrderBook] = {}
+        self._saved_message_queues: Dict[str, Deque[CoinzoomOrderBookMessage]] = \
             defaultdict(lambda: deque(maxlen=1000))
-        self._active_order_trackers: Dict[str, HitbtcActiveOrderTracker] = defaultdict(HitbtcActiveOrderTracker)
+        self._active_order_trackers: Dict[str, CoinzoomActiveOrderTracker] = defaultdict(CoinzoomActiveOrderTracker)
         self._order_book_stream_listener_task: Optional[asyncio.Task] = None
         self._order_book_trade_listener_task: Optional[asyncio.Task] = None
 
@@ -52,20 +52,20 @@ class HitbtcOrderBookTracker(OrderBookTracker):
         """
         Update an order book with changes from the latest batch of received messages
         """
-        past_diffs_window: Deque[HitbtcOrderBookMessage] = deque()
+        past_diffs_window: Deque[CoinzoomOrderBookMessage] = deque()
         self._past_diffs_windows[trading_pair] = past_diffs_window
 
         message_queue: asyncio.Queue = self._tracking_message_queues[trading_pair]
-        order_book: HitbtcOrderBook = self._order_books[trading_pair]
-        active_order_tracker: HitbtcActiveOrderTracker = self._active_order_trackers[trading_pair]
+        order_book: CoinzoomOrderBook = self._order_books[trading_pair]
+        active_order_tracker: CoinzoomActiveOrderTracker = self._active_order_trackers[trading_pair]
 
         last_message_timestamp: float = time.time()
         diff_messages_accepted: int = 0
 
         while True:
             try:
-                message: HitbtcOrderBookMessage = None
-                saved_messages: Deque[HitbtcOrderBookMessage] = self._saved_message_queues[trading_pair]
+                message: CoinzoomOrderBookMessage = None
+                saved_messages: Deque[CoinzoomOrderBookMessage] = self._saved_message_queues[trading_pair]
                 # Process saved messages first if there are any
                 if len(saved_messages) > 0:
                     message = saved_messages.popleft()
@@ -87,7 +87,7 @@ class HitbtcOrderBookTracker(OrderBookTracker):
                         diff_messages_accepted = 0
                     last_message_timestamp = now
                 elif message.type is OrderBookMessageType.SNAPSHOT:
-                    past_diffs: List[HitbtcOrderBookMessage] = list(past_diffs_window)
+                    past_diffs: List[CoinzoomOrderBookMessage] = list(past_diffs_window)
                     # only replay diffs later than snapshot, first update active order with snapshot then replay diffs
                     replay_position = bisect.bisect_right(past_diffs, message)
                     replay_diffs = past_diffs[replay_position:]

@@ -9,20 +9,20 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from .hitbtc_constants import Constants
-from .hitbtc_active_order_tracker import HitbtcActiveOrderTracker
-from .hitbtc_order_book import HitbtcOrderBook
-from .hitbtc_websocket import HitbtcWebsocket
-from .hitbtc_utils import (
+from .coinzoom_constants import Constants
+from .coinzoom_active_order_tracker import CoinzoomActiveOrderTracker
+from .coinzoom_order_book import CoinzoomOrderBook
+from .coinzoom_websocket import CoinzoomWebsocket
+from .coinzoom_utils import (
     str_date_to_ts,
     convert_to_exchange_trading_pair,
     convert_from_exchange_trading_pair,
     api_call_with_retries,
-    HitbtcAPIError,
+    CoinzoomAPIError,
 )
 
 
-class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
+class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
     _logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -59,7 +59,7 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
             # Filter out unmatched pairs so nothing breaks
             return [sym for sym in trading_pairs if sym is not None]
         except Exception:
-            # Do nothing if the request fails -- there will be no autocomplete for HitBTC trading pairs
+            # Do nothing if the request fails -- there will be no autocomplete for CoinZoom trading pairs
             pass
         return []
 
@@ -73,7 +73,7 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
             orderbook_response: Dict[Any] = await api_call_with_retries("GET", Constants.ENDPOINT["ORDER_BOOK"],
                                                                         params={"limit": 150, "symbols": ex_pair})
             return orderbook_response[ex_pair]
-        except HitbtcAPIError as e:
+        except CoinzoomAPIError as e:
             err = e.error_payload.get('error', e.error_payload)
             raise IOError(
                 f"Error fetching OrderBook for {trading_pair} at {Constants.EXCHANGE_NAME}. "
@@ -82,12 +82,12 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair)
         snapshot_timestamp: float = time.time()
-        snapshot_msg: OrderBookMessage = HitbtcOrderBook.snapshot_message_from_exchange(
+        snapshot_msg: OrderBookMessage = CoinzoomOrderBook.snapshot_message_from_exchange(
             snapshot,
             snapshot_timestamp,
             metadata={"trading_pair": trading_pair})
         order_book = self.order_book_create_function()
-        active_order_tracker: HitbtcActiveOrderTracker = HitbtcActiveOrderTracker()
+        active_order_tracker: CoinzoomActiveOrderTracker = CoinzoomActiveOrderTracker()
         bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
         order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
         return order_book
@@ -98,7 +98,7 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         while True:
             try:
-                ws = HitbtcWebsocket()
+                ws = CoinzoomWebsocket()
                 await ws.connect()
 
                 for pair in self._trading_pairs:
@@ -116,7 +116,7 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     for trade in trades_data["data"]:
                         trade: Dict[Any] = trade
                         trade_timestamp: int = str_date_to_ts(trade["timestamp"])
-                        trade_msg: OrderBookMessage = HitbtcOrderBook.trade_message_from_exchange(
+                        trade_msg: OrderBookMessage = CoinzoomOrderBook.trade_message_from_exchange(
                             trade,
                             trade_timestamp,
                             metadata={"trading_pair": pair})
@@ -136,7 +136,7 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         while True:
             try:
-                ws = HitbtcWebsocket()
+                ws = CoinzoomWebsocket()
                 await ws.connect()
 
                 order_book_methods = [
@@ -157,9 +157,9 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     timestamp: int = str_date_to_ts(order_book_data["timestamp"])
                     pair: str = convert_from_exchange_trading_pair(order_book_data["symbol"])
 
-                    order_book_msg_cls = (HitbtcOrderBook.diff_message_from_exchange
+                    order_book_msg_cls = (CoinzoomOrderBook.diff_message_from_exchange
                                           if method == Constants.WS_METHODS['ORDERS_UPDATE'] else
-                                          HitbtcOrderBook.snapshot_message_from_exchange)
+                                          CoinzoomOrderBook.snapshot_message_from_exchange)
 
                     orderbook_msg: OrderBookMessage = order_book_msg_cls(
                         order_book_data,
@@ -188,7 +188,7 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     try:
                         snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair)
                         snapshot_timestamp: int = str_date_to_ts(snapshot["timestamp"])
-                        snapshot_msg: OrderBookMessage = HitbtcOrderBook.snapshot_message_from_exchange(
+                        snapshot_msg: OrderBookMessage = CoinzoomOrderBook.snapshot_message_from_exchange(
                             snapshot,
                             snapshot_timestamp,
                             metadata={"trading_pair": trading_pair}

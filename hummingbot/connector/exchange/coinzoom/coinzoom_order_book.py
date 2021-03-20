@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import logging
-from hummingbot.connector.exchange.hitbtc.hitbtc_constants import Constants
+from hummingbot.connector.exchange.coinzoom.coinzoom_constants import Constants
 
 from sqlalchemy.engine import RowProxy
 from typing import (
@@ -13,12 +13,12 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage, OrderBookMessageType
 )
-from hummingbot.connector.exchange.hitbtc.hitbtc_order_book_message import HitbtcOrderBookMessage
+from hummingbot.connector.exchange.coinzoom.coinzoom_order_book_message import CoinzoomOrderBookMessage
 
 _logger = None
 
 
-class HitbtcOrderBook(OrderBook):
+class CoinzoomOrderBook(OrderBook):
     @classmethod
     def logger(cls) -> HummingbotLogger:
         global _logger
@@ -35,13 +35,13 @@ class HitbtcOrderBook(OrderBook):
         Convert json snapshot data into standard OrderBookMessage format
         :param msg: json snapshot data from live web socket stream
         :param timestamp: timestamp attached to incoming data
-        :return: HitbtcOrderBookMessage
+        :return: CoinzoomOrderBookMessage
         """
 
         if metadata:
             msg.update(metadata)
 
-        return HitbtcOrderBookMessage(
+        return CoinzoomOrderBookMessage(
             message_type=OrderBookMessageType.SNAPSHOT,
             content=msg,
             timestamp=timestamp
@@ -53,9 +53,9 @@ class HitbtcOrderBook(OrderBook):
         *used for backtesting
         Convert a row of snapshot data into standard OrderBookMessage format
         :param record: a row of snapshot data from the database
-        :return: HitbtcOrderBookMessage
+        :return: CoinzoomOrderBookMessage
         """
-        return HitbtcOrderBookMessage(
+        return CoinzoomOrderBookMessage(
             message_type=OrderBookMessageType.SNAPSHOT,
             content=record.json,
             timestamp=record.timestamp
@@ -70,13 +70,13 @@ class HitbtcOrderBook(OrderBook):
         Convert json diff data into standard OrderBookMessage format
         :param msg: json diff data from live web socket stream
         :param timestamp: timestamp attached to incoming data
-        :return: HitbtcOrderBookMessage
+        :return: CoinzoomOrderBookMessage
         """
 
         if metadata:
             msg.update(metadata)
 
-        return HitbtcOrderBookMessage(
+        return CoinzoomOrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
             content=msg,
             timestamp=timestamp
@@ -88,9 +88,9 @@ class HitbtcOrderBook(OrderBook):
         *used for backtesting
         Convert a row of diff data into standard OrderBookMessage format
         :param record: a row of diff data from the database
-        :return: HitbtcOrderBookMessage
+        :return: CoinzoomOrderBookMessage
         """
-        return HitbtcOrderBookMessage(
+        return CoinzoomOrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
             content=record.json,
             timestamp=record.timestamp
@@ -104,7 +104,7 @@ class HitbtcOrderBook(OrderBook):
         """
         Convert a trade data into standard OrderBookMessage format
         :param record: a trade data from the database
-        :return: HitbtcOrderBookMessage
+        :return: CoinzoomOrderBookMessage
         """
 
         if metadata:
@@ -117,7 +117,7 @@ class HitbtcOrderBook(OrderBook):
             "amount": msg.get("quantity"),
         })
 
-        return HitbtcOrderBookMessage(
+        return CoinzoomOrderBookMessage(
             message_type=OrderBookMessageType.TRADE,
             content=msg,
             timestamp=timestamp
@@ -129,9 +129,9 @@ class HitbtcOrderBook(OrderBook):
         *used for backtesting
         Convert a row of trade data into standard OrderBookMessage format
         :param record: a row of trade data from the database
-        :return: HitbtcOrderBookMessage
+        :return: CoinzoomOrderBookMessage
         """
-        return HitbtcOrderBookMessage(
+        return CoinzoomOrderBookMessage(
             message_type=OrderBookMessageType.TRADE,
             content=record.json,
             timestamp=record.timestamp

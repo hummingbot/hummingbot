@@ -9,8 +9,8 @@ from os.path import join, realpath
 from typing import Dict, Optional, List
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent, TradeType
-from hummingbot.connector.exchange.hitbtc.hitbtc_order_book_tracker import HitbtcOrderBookTracker
-from hummingbot.connector.exchange.hitbtc.hitbtc_api_order_book_data_source import HitbtcAPIOrderBookDataSource
+from hummingbot.connector.exchange.coinzoom.coinzoom_order_book_tracker import CoinzoomOrderBookTracker
+from hummingbot.connector.exchange.coinzoom.coinzoom_api_order_book_data_source import CoinzoomAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
@@ -19,8 +19,8 @@ sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
-class HitbtcOrderBookTrackerUnitTest(unittest.TestCase):
-    order_book_tracker: Optional[HitbtcOrderBookTracker] = None
+class CoinzoomOrderBookTrackerUnitTest(unittest.TestCase):
+    order_book_tracker: Optional[CoinzoomOrderBookTracker] = None
     events: List[OrderBookEvent] = [
         OrderBookEvent.TradeEvent
     ]
@@ -32,7 +32,7 @@ class HitbtcOrderBookTrackerUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        cls.order_book_tracker: HitbtcOrderBookTracker = HitbtcOrderBookTracker(cls.trading_pairs)
+        cls.order_book_tracker: CoinzoomOrderBookTracker = CoinzoomOrderBookTracker(cls.trading_pairs)
         cls.order_book_tracker.start()
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
 
@@ -96,7 +96,7 @@ class HitbtcOrderBookTrackerUnitTest(unittest.TestCase):
 
     def test_api_get_last_traded_prices(self):
         prices = self.ev_loop.run_until_complete(
-            HitbtcAPIOrderBookDataSource.get_last_traded_prices(["BTC-USD", "LTC-BTC"]))
+            CoinzoomAPIOrderBookDataSource.get_last_traded_prices(["BTC-USD", "LTC-BTC"]))
         for key, value in prices.items():
             print(f"{key} last_trade_price: {value}")
         self.assertGreater(prices["BTC-USD"], 1000)

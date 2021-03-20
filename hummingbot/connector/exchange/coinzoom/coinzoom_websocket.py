@@ -4,7 +4,7 @@ import copy
 import logging
 import websockets
 import json
-from hummingbot.connector.exchange.hitbtc.hitbtc_constants import Constants
+from hummingbot.connector.exchange.coinzoom.coinzoom_constants import Constants
 
 
 from typing import (
@@ -15,17 +15,17 @@ from typing import (
 )
 from websockets.exceptions import ConnectionClosed
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.hitbtc.hitbtc_auth import HitbtcAuth
-from hummingbot.connector.exchange.hitbtc.hitbtc_utils import (
+from hummingbot.connector.exchange.coinzoom.coinzoom_auth import CoinzoomAuth
+from hummingbot.connector.exchange.coinzoom.coinzoom_utils import (
     RequestId,
-    HitbtcAPIError,
+    CoinzoomAPIError,
 )
 
 # reusable websocket class
 # ToDo: We should eventually remove this class, and instantiate web socket connection normally (see Binance for example)
 
 
-class HitbtcWebsocket(RequestId):
+class CoinzoomWebsocket(RequestId):
     _logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -35,8 +35,8 @@ class HitbtcWebsocket(RequestId):
         return cls._logger
 
     def __init__(self,
-                 auth: Optional[HitbtcAuth] = None):
-        self._auth: Optional[HitbtcAuth] = auth
+                 auth: Optional[CoinzoomAuth] = None):
+        self._auth: Optional[CoinzoomAuth] = auth
         self._isPrivate = True if self._auth is not None else False
         self._WS_URL = Constants.WS_PRIVATE_URL if self._isPrivate else Constants.WS_PUBLIC_URL
         self._client: Optional[websockets.WebSocketClientProtocol] = None
@@ -54,7 +54,7 @@ class HitbtcWebsocket(RequestId):
             json_msg = json.loads(raw_msg_str)
             if json_msg.get("result") is not True:
                 err_msg = json_msg.get('error', {}).get('message')
-                raise HitbtcAPIError({"error": f"Failed to authenticate to websocket - {err_msg}."})
+                raise CoinzoomAPIError({"error": f"Failed to authenticate to websocket - {err_msg}."})
 
         return self._client
 
@@ -73,7 +73,7 @@ class HitbtcWebsocket(RequestId):
                     raw_msg_str: str = await asyncio.wait_for(self._client.recv(), timeout=Constants.MESSAGE_TIMEOUT)
                     try:
                         msg = json.loads(raw_msg_str)
-                        # HitBTC doesn't support ping or heartbeat messages.
+                        # CoinZoom doesn't support ping or heartbeat messages.
                         # Can handle them here if that changes - use `safe_ensure_future`.
                         yield msg
                     except ValueError:
