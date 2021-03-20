@@ -85,7 +85,7 @@ class UserBalances:
         for exchange in exchanges:
             tasks.append(self.update_exchange_balance(exchange))
         results = await safe_gather(*tasks)
-        return {ex: err_msg for ex, err_msg in zip(exchanges, results)}
+        return dict(zip(exchanges, results))
 
     async def all_balances_all_exchanges(self) -> Dict[str, Dict[str, Decimal]]:
         await self.update_exchanges()

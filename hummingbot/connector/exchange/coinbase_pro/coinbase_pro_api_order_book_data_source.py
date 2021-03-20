@@ -56,7 +56,7 @@ class CoinbaseProAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
         tasks = [cls.get_last_traded_price(t_pair) for t_pair in trading_pairs]
         results = await safe_gather(*tasks)
-        return {t_pair: result for t_pair, result in zip(trading_pairs, results)}
+        return dict(zip(trading_pairs, results))
 
     @classmethod
     async def get_last_traded_price(cls, trading_pair: str) -> float:
