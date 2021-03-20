@@ -28,9 +28,16 @@ from hummingbot.connector.exchange.idex.idex_in_flight_order import IdexInFlight
 from hummingbot.connector.exchange.idex.idex_order_book_tracker import IdexOrderBookTracker
 from hummingbot.connector.exchange.idex.idex_user_stream_tracker import IdexUserStreamTracker
 from hummingbot.connector.exchange.idex.idex_utils import (
-    to_idex_order_type, to_idex_trade_type, EXCHANGE_NAME, get_new_client_order_id, DEBUG
+    to_idex_order_type, to_idex_trade_type, EXCHANGE_NAME, get_new_client_order_id, DEBUG,
+    ETH_GAS_LIMIT, BSC_GAS_LIMIT, HUMMINGBOT_GAS_LOOKUP
 )
-from hummingbot.connector.exchange.idex.idex_resolve import get_idex_rest_url
+from hummingbot.connector.exchange.idex.idex_resolve import (
+    get_idex_rest_url, get_idex_blockchain,
+)
+from hummingbot.core.utils import eth_gas_station_lookup, async_ttl_cache
+
+s_decimal_0 = Decimal("0.0")
+
 
 
 class IdexExchange(ExchangeBase):
@@ -73,6 +80,7 @@ class IdexExchange(ExchangeBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._last_poll_timestamp = 0
+        self._exchange_info = None  # stores info about the exchange. Periodically polled from GET /v1/exchange
 
     @property
     def trading_rules(self) -> Dict[str, TradingRule]:
@@ -268,9 +276,9 @@ class IdexExchange(ExchangeBase):
             raise
         except Exception as e:
             self.logger().network(
-                f"Failed to cancel order {order_id}: {str(e)}",
+                f"Failed to cancel order {client_order_id}: {str(e)}",
                 exc_info=True,
-                app_warning_msg=f"Failed to cancel the order {order_id} on Idex. "
+                app_warning_msg=f"Failed to cancel the order {client_order_id} on Idex. "
                                 f"Check API key and network connection.")
 
 # API Calls
@@ -409,6 +417,16 @@ class IdexExchange(ExchangeBase):
                 data = await response.json()
                 return data
 
+    async def get_exchange_info_from_api(self) -> Dict[Dict[str, Any]]:
+        """Requests basic info about idex exchange. We are mostly interested in the gas price in gwei"""
+        rest_url = get_idex_rest_url()
+        url = f"{rest_url}/v1/exchange"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status != 200:
+                    raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}")
+                return await response.json()
+
     async def _create_order(self,
                             trade_type: TradeType,
                             order_id: str,
@@ -528,6 +546,7 @@ class IdexExchange(ExchangeBase):
                 await safe_gather(
                     self._update_balances(),
                     self._update_order_status(),
+                    self._update_exchange_info()
                 )
                 self._last_poll_timestamp = self.current_timestamp
             except asyncio.CancelledError:
@@ -548,7 +567,25 @@ class IdexExchange(ExchangeBase):
                 amount: Decimal,
                 price: Decimal = s_decimal_NaN) -> TradeFee:
         # TODO: Need a check on this estimate_fee call. 2nd param should return True if order is a maker (limit orders).
-        return estimate_fee(EXCHANGE_NAME, order_type == order_type.is_limit_type())
+        is_maker = order_type is OrderType.LIMIT_MAKER
+        percent_fees: Decimal = estimate_fee(EXCHANGE_NAME, is_maker).percent
+        if is_maker:
+            return TradeFee(percent=percent_fees)
+        # for taker idex v1 collects additional gas fee, collected in the asset received by the taker
+        flat_fees = []
+        blockchain = get_idex_blockchain()  # either ETH or BSC
+        gas_limit = ETH_GAS_LIMIT if blockchain == 'ETH' else BSC_GAS_LIMIT
+        if HUMMINGBOT_GAS_LOOKUP:
+            # resolve gas price from hummingbot's eth_gas_station_lookup
+            # conf to be ON for hummingbot to resolve gas price: global_config_map["ethgasstation_gas_enabled"]
+            gas_amount = eth_gas_station_lookup.get_gas_price(in_gwei=False) * gas_limit
+            flat_fees = [(blockchain, gas_amount)]
+        elif self._exchange_info and 'gasPrice' in self._exchange_info:
+            # or resolve gas price from idex exchange endpoint
+            gas_price = self._exchange_info['gasPrice'] / Decimal("1e9")
+            gas_amount = gas_price * gas_limit
+            flat_fees = [(blockchain, gas_amount)]
+        return TradeFee(percent=percent_fees, flat_fees=flat_fees)
 
     async def _update_order_status(self):
         """
@@ -676,9 +713,9 @@ class IdexExchange(ExchangeBase):
                             f"failed to cancel order with error: "
                             f"{repr(client_order_id)}"
                         )
-        except Exception:
+        except Exception as e:
             self.logger().network(
-                f"Unexpected error cancelling orders.",
+                f"Unexpected error cancelling orders. Error: {str(e)}",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order on Idex. Check API key and network connection."
             )
@@ -718,6 +755,11 @@ class IdexExchange(ExchangeBase):
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
+
+    @async_ttl_cache(ttl=60 * 10, maxsize=1)
+    async def _update_exchange_info(self):
+        """Call REST API to update basic exchange info"""
+        self._exchange_info = await self.get_exchange_info_from_api()
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:
