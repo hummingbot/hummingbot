@@ -20,7 +20,7 @@ def start(self):
     self._initialize_markets([(spot_connector, [spot_market]), (derivative_connector, [derivative_market])])
     base_1, quote_1 = spot_market.split("-")
     base_2, quote_2 = derivative_market.split("-")
-    self.assets = set([base_1, quote_1, base_2, quote_2])
+    self.assets = {base_1, quote_1, base_2, quote_2}
 
     spot_market_info = MarketTradingPairTuple(self.markets[spot_connector], spot_market, base_1, quote_1)
     derivative_market_info = MarketTradingPairTuple(self.markets[derivative_connector], derivative_market, base_2, quote_2)

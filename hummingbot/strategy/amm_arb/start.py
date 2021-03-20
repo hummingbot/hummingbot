@@ -18,7 +18,7 @@ def start(self):
     self._initialize_markets([(connector_1, [market_1]), (connector_2, [market_2])])
     base_1, quote_1 = market_1.split("-")
     base_2, quote_2 = market_2.split("-")
-    self.assets = set([base_1, quote_1, base_2, quote_2])
+    self.assets = {base_1, quote_1, base_2, quote_2}
 
     market_info_1 = MarketTradingPairTuple(self.markets[connector_1], market_1, base_1, quote_1)
     market_info_2 = MarketTradingPairTuple(self.markets[connector_2], market_2, base_2, quote_2)
