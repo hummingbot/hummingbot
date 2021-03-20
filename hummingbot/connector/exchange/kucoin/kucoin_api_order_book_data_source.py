@@ -219,7 +219,7 @@ class KucoinWSConnectionIterator:
                                   f"Trading pairs = {self.trading_pairs}.")
             raise
 
-    async def __aiter__(self) -> AsyncIterable[Dict[str, any]]:
+    def __aiter__(self) -> AsyncIterable[Dict[str, any]]:
         if self._websocket is not None:
             raise EnvironmentError("Iterator already in use.")
 
