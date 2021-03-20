@@ -231,7 +231,7 @@ def get_strategy_starter_file(strategy: str) -> Callable:
     try:
         strategy_module = __import__(f"hummingbot.strategy.{strategy}.start",
                                      fromlist=[f"hummingbot.strategy.{strategy}"])
-        return getattr(strategy_module, "start")
+        return strategy_module.start
     except Exception as e:
         logging.getLogger().error(e, exc_info=True)
 

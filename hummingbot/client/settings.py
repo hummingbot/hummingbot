@@ -138,15 +138,15 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
                     name=domain,
                     type=parent.type,
                     centralised=parent.centralised,
-                    example_pair=getattr(util_module, "OTHER_DOMAINS_EXAMPLE_PAIR")[domain],
+                    example_pair=util_module.OTHER_DOMAINS_EXAMPLE_PAIR[domain],
                     use_ethereum_wallet=parent.use_ethereum_wallet,
                     fee_type=parent.fee_type,
                     fee_token=parent.fee_token,
-                    default_fees=getattr(util_module, "OTHER_DOMAINS_DEFAULT_FEES")[domain],
-                    config_keys=getattr(util_module, "OTHER_DOMAINS_KEYS")[domain],
+                    default_fees=util_module.OTHER_DOMAINS_DEFAULT_FEES[domain],
+                    config_keys=util_module.OTHER_DOMAINS_KEYS[domain],
                     is_sub_domain=True,
                     parent_name=parent.name,
-                    domain_parameter=getattr(util_module, "OTHER_DOMAINS_PARAMETER")[domain],
+                    domain_parameter=util_module.OTHER_DOMAINS_PARAMETER[domain],
                     use_eth_gas_lookup=parent.use_eth_gas_lookup
                 )
     return connector_settings

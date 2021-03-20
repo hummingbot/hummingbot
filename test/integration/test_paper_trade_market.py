@@ -263,15 +263,15 @@ class PaperTradeExchangeTest(unittest.TestCase):
         self.market.sell("ETH-USDT", 10, OrderType.LIMIT, 100)
         self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         self.assertEqual(starting_base_balance - 10, self.market.get_balance("ETH"),
-                          msg="ETH Balance was not updated.")
+                         msg="ETH Balance was not updated.")
         self.assertEqual(starting_quote_balance + 1000, self.market.get_balance("USDT"),
-                          msg="USDT Balance was not updated.")
+                         msg="USDT Balance was not updated.")
         self.market.buy("ETH-USDT", 1, OrderType.LIMIT, 500)
         self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         self.assertEqual(11, self.market.get_balance("ETH"),
-                          msg="ETH Balance was not updated.")
+                         msg="ETH Balance was not updated.")
         self.assertEqual(1500, self.market.get_balance("USDT"),
-                          msg="USDT Balance was not updated.")
+                         msg="USDT Balance was not updated.")
 
     def test_bid_limit_order_trade_match(self):
         """
