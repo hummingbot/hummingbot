@@ -1,10 +1,9 @@
 # A single source of truth for constant variables related to the exchange
 class Constants:
     EXCHANGE_NAME = "coinzoom"
-    REST_URL = "https://api.coinzoom.com/api/2"
-    REST_URL_AUTH = "/api/2"
-    WS_PRIVATE_URL = "wss://api.coinzoom.com/api/2/ws/trading"
-    WS_PUBLIC_URL = "wss://api.coinzoom.com/api/2/ws/public"
+    REST_URL = "https://api.stage.coinzoom.com/api/v1/public"
+    WS_PRIVATE_URL = "wss://api.stage.coinzoom.com/api/v1/public/market/data/stream"
+    WS_PUBLIC_URL = "wss://api.stage.coinzoom.com/api/v1/public/market/data/stream"
 
     HBOT_BROKER_ID = "refzzz48"
 
@@ -18,13 +17,13 @@ class Constants:
         "ORDER_DELETE": "order/{id}",
         "ORDER_STATUS": "order/{id}",
         "USER_ORDERS": "order",
-        "USER_BALANCES": "trading/balance",
+        "USER_BALANCES": "ledger/list",
     }
 
     WS_SUB = {
-        "TRADES": "Trades",
+        "TRADES": "TradeSummaryRequest",
         "ORDERS": "Orderbook",
-        "USER_ORDERS_TRADES": "Reports",
+        "USER_ORDERS_TRADES": ["OrderUpdateRequest"],
 
     }
 
@@ -52,6 +51,3 @@ class Constants:
     UPDATE_ORDER_STATUS_INTERVAL = 60.0
     # 10 minute interval to update trading rules, these would likely never change whilst running.
     INTERVAL_TRADING_RULES = 600
-
-    # Trading pair splitter regex
-    TRADING_PAIR_SPLITTER = r"^(\w+)(BTC|BCH|DAI|DDRST|EOSDT|EOS|ETH|EURS|IDRT|PAX|BUSD|GUSD|TUSD|USDC|USDT|USD)$"

@@ -39,6 +39,7 @@ logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 API_KEY = conf.coinzoom_api_key
 API_SECRET = conf.coinzoom_secret_key
+API_USERNAME = conf.coinzoom_username
 
 
 class CoinzoomExchangeUnitTest(unittest.TestCase):
@@ -68,6 +69,7 @@ class CoinzoomExchangeUnitTest(unittest.TestCase):
         cls.connector: CoinzoomExchange = CoinzoomExchange(
             coinzoom_api_key=API_KEY,
             coinzoom_secret_key=API_SECRET,
+            coinzoom_username=API_USERNAME,
             trading_pairs=[cls.trading_pair],
             trading_required=True
         )
@@ -351,7 +353,7 @@ class CoinzoomExchangeUnitTest(unittest.TestCase):
                 self.connector.remove_listener(event_tag, self.event_logger)
             # Clear the event loop
             self.event_logger.clear()
-            new_connector = CoinzoomExchange(API_KEY, API_SECRET, [self.trading_pair], True)
+            new_connector = CoinzoomExchange(API_KEY, API_SECRET, API_USERNAME, [self.trading_pair], True)
             for event_tag in self.events:
                 new_connector.add_listener(event_tag, self.event_logger)
             recorder.stop()

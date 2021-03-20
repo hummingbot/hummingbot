@@ -1,13 +1,11 @@
 import aiohttp
 import asyncio
 import random
-import re
 from dateutil.parser import parse as dateparse
 from typing import (
     Any,
     Dict,
     Optional,
-    Tuple,
 )
 
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
@@ -15,8 +13,6 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
 from .coinzoom_constants import Constants
 
-
-TRADING_PAIR_SPLITTER = re.compile(Constants.TRADING_PAIR_SPLITTER)
 
 CENTRALIZED = True
 
@@ -48,27 +44,14 @@ class RequestId:
         return get_tracking_nonce()
 
 
-def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
-    try:
-        m = TRADING_PAIR_SPLITTER.match(trading_pair)
-        return m.group(1), m.group(2)
-    # Exceptions are now logged as warnings in trading pair fetcher
-    except Exception:
-        return None
-
-
 def convert_from_exchange_trading_pair(ex_trading_pair: str) -> Optional[str]:
-    regex_match = split_trading_pair(ex_trading_pair)
-    if regex_match is None:
-        return None
-    # CoinZoom uses uppercase (BTCUSDT)
-    base_asset, quote_asset = split_trading_pair(ex_trading_pair)
-    return f"{base_asset.upper()}-{quote_asset.upper()}"
+    # CoinZoom uses uppercase (BTC/USDT)
+    return ex_trading_pair.replace("/", "-")
 
 
 def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
     # CoinZoom uses uppercase (BTCUSDT)
-    return hb_trading_pair.replace("-", "").upper()
+    return hb_trading_pair.replace("-", "/").upper()
 
 
 def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
@@ -150,6 +133,12 @@ KEYS = {
     "coinzoom_secret_key":
         ConfigVar(key="coinzoom_secret_key",
                   prompt=f"Enter your {Constants.EXCHANGE_NAME} secret key >>> ",
+                  required_if=using_exchange("coinzoom"),
+                  is_secure=True,
+                  is_connect_key=True),
+    "coinzoom_username":
+        ConfigVar(key="coinzoom_username",
+                  prompt=f"Enter your {Constants.EXCHANGE_NAME} ZoomMe username >>> ",
                   required_if=using_exchange("coinzoom"),
                   is_secure=True,
                   is_connect_key=True),

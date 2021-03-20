@@ -20,13 +20,14 @@ logging.basicConfig(level=METRICS_LOG_LEVEL)
 class CoinzoomUserStreamTrackerUnitTest(unittest.TestCase):
     api_key = conf.coinzoom_api_key
     api_secret = conf.coinzoom_secret_key
+    api_username = conf.coinzoom_username
 
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.trading_pairs = ["BTC-USD"]
         cls.user_stream_tracker: CoinzoomUserStreamTracker = CoinzoomUserStreamTracker(
-            coinzoom_auth=CoinzoomAuth(cls.api_key, cls.api_secret),
+            coinzoom_auth=CoinzoomAuth(cls.api_key, cls.api_secret, cls.api_username),
             trading_pairs=cls.trading_pairs)
         cls.user_stream_tracker_task: asyncio.Task = safe_ensure_future(cls.user_stream_tracker.start())
 
