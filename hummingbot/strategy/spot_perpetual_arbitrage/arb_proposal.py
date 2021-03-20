@@ -72,11 +72,8 @@ class ArbProposal:
         """
         funding_info = self.derivative_market_info.market.get_funding_info(self.derivative_market_info.trading_pair)
         funding_payment_span = self.derivative_market_info.market._funding_payment_span
-        if self.timestamp > (funding_info["nextFundingTime"] - funding_payment_span[0]) and \
-           self.timestamp < (funding_info["nextFundingTime"] + funding_payment_span[1]):
-            return True
-        else:
-            return False
+        return bool(self.timestamp > (funding_info["nextFundingTime"] - funding_payment_span[0]) and \
+           self.timestamp < (funding_info["nextFundingTime"] + funding_payment_span[1]))
 
     async def proposed_spot_deriv_arb(self):
         """
