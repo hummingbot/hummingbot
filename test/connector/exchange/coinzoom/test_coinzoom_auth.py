@@ -7,10 +7,10 @@ import conf
 import logging
 from os.path import join, realpath
 from typing import Dict, Any
-from hummingbot.connector.exchange.hitbtc.hitbtc_auth import HitbtcAuth
-from hummingbot.connector.exchange.hitbtc.hitbtc_websocket import HitbtcWebsocket
+from hummingbot.connector.exchange.coinzoom.coinzoom_auth import CoinzoomAuth
+from hummingbot.connector.exchange.coinzoom.coinzoom_websocket import CoinzoomWebsocket
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.connector.exchange.hitbtc.hitbtc_constants import Constants
+from hummingbot.connector.exchange.coinzoom.coinzoom_constants import Constants
 
 sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 logging.basicConfig(level=METRICS_LOG_LEVEL)
@@ -20,9 +20,9 @@ class TestAuth(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        api_key = conf.hitbtc_api_key
-        secret_key = conf.hitbtc_secret_key
-        cls.auth = HitbtcAuth(api_key, secret_key)
+        api_key = conf.coinzoom_api_key
+        secret_key = conf.coinzoom_secret_key
+        cls.auth = CoinzoomAuth(api_key, secret_key)
 
     async def rest_auth(self) -> Dict[Any, Any]:
         endpoint = Constants.ENDPOINT['USER_BALANCES']
@@ -31,7 +31,7 @@ class TestAuth(unittest.TestCase):
         return await response.json()
 
     async def ws_auth(self) -> Dict[Any, Any]:
-        ws = HitbtcWebsocket(self.auth)
+        ws = CoinzoomWebsocket(self.auth)
         await ws.connect()
         await ws.subscribe(Constants.WS_SUB["USER_ORDERS_TRADES"], None, {})
         async for response in ws.on_message():

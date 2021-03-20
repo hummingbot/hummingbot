@@ -11,12 +11,12 @@ from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType,
 )
-from .hitbtc_utils import (
+from .coinzoom_utils import (
     convert_from_exchange_trading_pair,
 )
 
 
-class HitbtcOrderBookMessage(OrderBookMessage):
+class CoinzoomOrderBookMessage(OrderBookMessage):
     def __new__(
         cls,
         message_type: OrderBookMessageType,
@@ -30,7 +30,7 @@ class HitbtcOrderBookMessage(OrderBookMessage):
                 raise ValueError("timestamp must not be None when initializing snapshot messages.")
             timestamp = content["timestamp"]
 
-        return super(HitbtcOrderBookMessage, cls).__new__(
+        return super(CoinzoomOrderBookMessage, cls).__new__(
             cls, message_type, content, timestamp=timestamp, *args, **kwargs
         )
 

@@ -14,7 +14,7 @@ from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 s_decimal_0 = Decimal(0)
 
 
-class HitbtcInFlightOrder(InFlightOrderBase):
+class CoinzoomInFlightOrder(InFlightOrderBase):
     def __init__(self,
                  client_order_id: str,
                  exchange_order_id: Optional[str],
@@ -55,7 +55,7 @@ class HitbtcInFlightOrder(InFlightOrderBase):
         :param data: json data from API
         :return: formatted InFlightOrder
         """
-        retval = HitbtcInFlightOrder(
+        retval = CoinzoomInFlightOrder(
             data["client_order_id"],
             data["exchange_order_id"],
             data["trading_pair"],

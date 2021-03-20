@@ -35,28 +35,28 @@ from hummingbot.core.event.events import (
     TradeFee
 )
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.exchange.hitbtc.hitbtc_order_book_tracker import HitbtcOrderBookTracker
-from hummingbot.connector.exchange.hitbtc.hitbtc_user_stream_tracker import HitbtcUserStreamTracker
-from hummingbot.connector.exchange.hitbtc.hitbtc_auth import HitbtcAuth
-from hummingbot.connector.exchange.hitbtc.hitbtc_in_flight_order import HitbtcInFlightOrder
-from hummingbot.connector.exchange.hitbtc.hitbtc_utils import (
+from hummingbot.connector.exchange.coinzoom.coinzoom_order_book_tracker import CoinzoomOrderBookTracker
+from hummingbot.connector.exchange.coinzoom.coinzoom_user_stream_tracker import CoinzoomUserStreamTracker
+from hummingbot.connector.exchange.coinzoom.coinzoom_auth import CoinzoomAuth
+from hummingbot.connector.exchange.coinzoom.coinzoom_in_flight_order import CoinzoomInFlightOrder
+from hummingbot.connector.exchange.coinzoom.coinzoom_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
     get_new_client_order_id,
     aiohttp_response_with_errors,
     retry_sleep_time,
     str_date_to_ts,
-    HitbtcAPIError,
+    CoinzoomAPIError,
 )
-from hummingbot.connector.exchange.hitbtc.hitbtc_constants import Constants
+from hummingbot.connector.exchange.coinzoom.coinzoom_constants import Constants
 from hummingbot.core.data_type.common import OpenOrder
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
 
 
-class HitbtcExchange(ExchangeBase):
+class CoinzoomExchange(ExchangeBase):
     """
-    HitbtcExchange connects with HitBTC exchange and provides order book pricing, user account tracking and
+    CoinzoomExchange connects with CoinZoom exchange and provides order book pricing, user account tracking and
     trading functionality.
     """
     ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
@@ -70,28 +70,28 @@ class HitbtcExchange(ExchangeBase):
         return ctce_logger
 
     def __init__(self,
-                 hitbtc_api_key: str,
-                 hitbtc_secret_key: str,
+                 coinzoom_api_key: str,
+                 coinzoom_secret_key: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True
                  ):
         """
-        :param hitbtc_api_key: The API key to connect to private HitBTC APIs.
-        :param hitbtc_secret_key: The API secret.
+        :param coinzoom_api_key: The API key to connect to private CoinZoom APIs.
+        :param coinzoom_secret_key: The API secret.
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
         """
         super().__init__()
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._hitbtc_auth = HitbtcAuth(hitbtc_api_key, hitbtc_secret_key)
-        self._order_book_tracker = HitbtcOrderBookTracker(trading_pairs=trading_pairs)
-        self._user_stream_tracker = HitbtcUserStreamTracker(self._hitbtc_auth, trading_pairs)
+        self._coinzoom_auth = CoinzoomAuth(coinzoom_api_key, coinzoom_secret_key)
+        self._order_book_tracker = CoinzoomOrderBookTracker(trading_pairs=trading_pairs)
+        self._user_stream_tracker = CoinzoomUserStreamTracker(self._coinzoom_auth, trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
-        self._in_flight_orders = {}  # Dict[client_order_id:str, HitbtcInFlightOrder]
+        self._in_flight_orders = {}  # Dict[client_order_id:str, CoinzoomInFlightOrder]
         self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
         self._status_polling_task = None
@@ -101,7 +101,7 @@ class HitbtcExchange(ExchangeBase):
 
     @property
     def name(self) -> str:
-        return "hitbtc"
+        return "coinzoom"
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -112,7 +112,7 @@ class HitbtcExchange(ExchangeBase):
         return self._trading_rules
 
     @property
-    def in_flight_orders(self) -> Dict[str, HitbtcInFlightOrder]:
+    def in_flight_orders(self) -> Dict[str, CoinzoomInFlightOrder]:
         return self._in_flight_orders
 
     @property
@@ -161,7 +161,7 @@ class HitbtcExchange(ExchangeBase):
         :param saved_states: The saved tracking_states.
         """
         self._in_flight_orders.update({
-            key: HitbtcInFlightOrder.from_json(value)
+            key: CoinzoomInFlightOrder.from_json(value)
             for key, value in saved_states.items()
         })
 
@@ -322,8 +322,8 @@ class HitbtcExchange(ExchangeBase):
         # Generate auth headers if needed.
         headers: dict = {"Content-Type": "application/x-www-form-urlencoded"}
         if is_auth_required:
-            headers: dict = self._hitbtc_auth.get_headers(method, f"{Constants.REST_URL_AUTH}/{endpoint}",
-                                                          params)
+            headers: dict = self._coinzoom_auth.get_headers(method, f"{Constants.REST_URL_AUTH}/{endpoint}",
+                                                            params)
         # Build request coro
         response_coro = shared_client.request(method=method.upper(), url=url, headers=headers,
                                               params=qs_params, data=req_form,
@@ -339,9 +339,9 @@ class HitbtcExchange(ExchangeBase):
                 return await self._api_request(method=method, endpoint=endpoint, params=params,
                                                is_auth_required=is_auth_required, try_count=try_count)
             else:
-                raise HitbtcAPIError({"error": parsed_response, "status": http_status})
+                raise CoinzoomAPIError({"error": parsed_response, "status": http_status})
         if "error" in parsed_response:
-            raise HitbtcAPIError(parsed_response)
+            raise CoinzoomAPIError(parsed_response)
         return parsed_response
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):
@@ -435,7 +435,7 @@ class HitbtcExchange(ExchangeBase):
                       "price": f"{price:f}",
                       "quantity": f"{amount:f}",
                       "clientOrderId": order_id,
-                      # Without strict validate, HitBTC might adjust order prices/sizes.
+                      # Without strict validate, CoinZoom might adjust order prices/sizes.
                       "strictValidate": "true",
                       }
         if order_type is OrderType.LIMIT_MAKER:
@@ -459,7 +459,7 @@ class HitbtcExchange(ExchangeBase):
                                event_cls(self.current_timestamp, order_type, trading_pair, amount, price, order_id))
         except asyncio.CancelledError:
             raise
-        except HitbtcAPIError as e:
+        except CoinzoomAPIError as e:
             error_reason = e.error_payload.get('error', {}).get('message')
             self.stop_tracking_order(order_id)
             self.logger().network(
@@ -482,7 +482,7 @@ class HitbtcExchange(ExchangeBase):
         """
         Starts tracking an order by simply adding it into _in_flight_orders dictionary.
         """
-        self._in_flight_orders[order_id] = HitbtcInFlightOrder(
+        self._in_flight_orders[order_id] = CoinzoomInFlightOrder(
             client_order_id=order_id,
             exchange_order_id=exchange_order_id,
             trading_pair=trading_pair,
@@ -505,7 +505,7 @@ class HitbtcExchange(ExchangeBase):
         """
         Executes order cancellation process by first calling cancel-order API. The API result doesn't confirm whether
         the cancellation is successful, it simply states it receives the request.
-        :param trading_pair: The market trading pair (Unused during cancel on HitBTC)
+        :param trading_pair: The market trading pair (Unused during cancel on CoinZoom)
         :param order_id: The internal order id
         order.last_state to change to CANCELED
         """
@@ -523,7 +523,7 @@ class HitbtcExchange(ExchangeBase):
             order_was_cancelled = True
         except asyncio.CancelledError:
             raise
-        except HitbtcAPIError as e:
+        except CoinzoomAPIError as e:
             err = e.error_payload.get('error', e.error_payload)
             self._order_not_found_records[order_id] = self._order_not_found_records.get(order_id, 0) + 1
             if err.get('code') == 20002 and \
@@ -596,7 +596,7 @@ class HitbtcExchange(ExchangeBase):
             responses = await safe_gather(*tasks, return_exceptions=True)
             for response, tracked_order in zip(responses, tracked_orders):
                 client_order_id = tracked_order.client_order_id
-                if isinstance(response, HitbtcAPIError):
+                if isinstance(response, CoinzoomAPIError):
                     err = response.error_payload.get('error', response.error_payload)
                     if err.get('code') == 20002:
                         self._order_not_found_records[client_order_id] = \
@@ -822,7 +822,7 @@ class HitbtcExchange(ExchangeBase):
     async def _user_stream_event_listener(self):
         """
         Listens to message in _user_stream_tracker.user_stream queue. The messages are put in by
-        HitbtcAPIUserStreamDataSource.
+        CoinzoomAPIUserStreamDataSource.
         """
         async for event_message in self._iter_user_event_queue():
             try:

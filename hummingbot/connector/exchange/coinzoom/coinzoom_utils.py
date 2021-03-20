@@ -13,7 +13,7 @@ from typing import (
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
-from .hitbtc_constants import Constants
+from .coinzoom_constants import Constants
 
 
 TRADING_PAIR_SPLITTER = re.compile(Constants.TRADING_PAIR_SPLITTER)
@@ -25,7 +25,7 @@ EXAMPLE_PAIR = "BTC-USD"
 DEFAULT_FEES = [0.1, 0.25]
 
 
-class HitbtcAPIError(IOError):
+class CoinzoomAPIError(IOError):
     def __init__(self, error_payload: Dict[str, Any]):
         super().__init__(str(error_payload))
         self.error_payload = error_payload
@@ -61,13 +61,13 @@ def convert_from_exchange_trading_pair(ex_trading_pair: str) -> Optional[str]:
     regex_match = split_trading_pair(ex_trading_pair)
     if regex_match is None:
         return None
-    # HitBTC uses uppercase (BTCUSDT)
+    # CoinZoom uses uppercase (BTCUSDT)
     base_asset, quote_asset = split_trading_pair(ex_trading_pair)
     return f"{base_asset.upper()}-{quote_asset.upper()}"
 
 
 def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-    # HitBTC uses uppercase (BTCUSDT)
+    # CoinZoom uses uppercase (BTCUSDT)
     return hb_trading_pair.replace("-", "").upper()
 
 
@@ -136,21 +136,21 @@ async def api_call_with_retries(method,
             return await api_call_with_retries(method=method, endpoint=endpoint, params=params,
                                                shared_client=shared_client, try_count=try_count)
         else:
-            raise HitbtcAPIError({"error": parsed_response, "status": http_status})
+            raise CoinzoomAPIError({"error": parsed_response, "status": http_status})
     return parsed_response
 
 
 KEYS = {
-    "hitbtc_api_key":
-        ConfigVar(key="hitbtc_api_key",
+    "coinzoom_api_key":
+        ConfigVar(key="coinzoom_api_key",
                   prompt=f"Enter your {Constants.EXCHANGE_NAME} API key >>> ",
-                  required_if=using_exchange("hitbtc"),
+                  required_if=using_exchange("coinzoom"),
                   is_secure=True,
                   is_connect_key=True),
-    "hitbtc_secret_key":
-        ConfigVar(key="hitbtc_secret_key",
+    "coinzoom_secret_key":
+        ConfigVar(key="coinzoom_secret_key",
                   prompt=f"Enter your {Constants.EXCHANGE_NAME} secret key >>> ",
-                  required_if=using_exchange("hitbtc"),
+                  required_if=using_exchange("coinzoom"),
                   is_secure=True,
                   is_connect_key=True),
 }

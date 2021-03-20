@@ -33,15 +33,15 @@ from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.connector.markets_recorder import MarketsRecorder
-from hummingbot.connector.exchange.hitbtc.hitbtc_exchange import HitbtcExchange
+from hummingbot.connector.exchange.coinzoom.coinzoom_exchange import CoinzoomExchange
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
-API_KEY = conf.hitbtc_api_key
-API_SECRET = conf.hitbtc_secret_key
+API_KEY = conf.coinzoom_api_key
+API_SECRET = conf.coinzoom_secret_key
 
 
-class HitbtcExchangeUnitTest(unittest.TestCase):
+class CoinzoomExchangeUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
@@ -52,7 +52,7 @@ class HitbtcExchangeUnitTest(unittest.TestCase):
         MarketEvent.OrderCancelled,
         MarketEvent.OrderFailure
     ]
-    connector: HitbtcExchange
+    connector: CoinzoomExchange
     event_logger: EventLogger
     trading_pair = "BTC-USD"
     base_token, quote_token = trading_pair.split("-")
@@ -65,13 +65,13 @@ class HitbtcExchangeUnitTest(unittest.TestCase):
         cls.ev_loop = asyncio.get_event_loop()
 
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.connector: HitbtcExchange = HitbtcExchange(
-            hitbtc_api_key=API_KEY,
-            hitbtc_secret_key=API_SECRET,
+        cls.connector: CoinzoomExchange = CoinzoomExchange(
+            coinzoom_api_key=API_KEY,
+            coinzoom_secret_key=API_SECRET,
             trading_pairs=[cls.trading_pair],
             trading_required=True
         )
-        print("Initializing Hitbtc market... this will take about a minute.")
+        print("Initializing Coinzoom market... this will take about a minute.")
         cls.clock.add_iterator(cls.connector)
         cls.stack: contextlib.ExitStack = contextlib.ExitStack()
         cls._clock = cls.stack.enter_context(cls.clock)
@@ -351,7 +351,7 @@ class HitbtcExchangeUnitTest(unittest.TestCase):
                 self.connector.remove_listener(event_tag, self.event_logger)
             # Clear the event loop
             self.event_logger.clear()
-            new_connector = HitbtcExchange(API_KEY, API_SECRET, [self.trading_pair], True)
+            new_connector = CoinzoomExchange(API_KEY, API_SECRET, [self.trading_pair], True)
             for event_tag in self.events:
                 new_connector.add_listener(event_tag, self.event_logger)
             recorder.stop()

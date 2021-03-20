@@ -5,9 +5,9 @@ from base64 import b64encode
 from typing import Dict, Any
 
 
-class HitbtcAuth():
+class CoinzoomAuth():
     """
-    Auth class required by HitBTC API
+    Auth class required by CoinZoom API
     Learn more at https://exchange-docs.crypto.com/#digital-signature
     """
     def __init__(self, api_key: str, secret_key: str):
@@ -44,7 +44,7 @@ class HitbtcAuth():
     def generate_auth_dict_ws(self,
                               nonce: int):
         """
-        Generates an authentication params for HitBTC websockets login
+        Generates an authentication params for CoinZoom websockets login
         :return: a dictionary of auth params
         """
         return {
@@ -61,7 +61,7 @@ class HitbtcAuth():
                     url,
                     params) -> Dict[str, Any]:
         """
-        Generates authentication headers required by HitBTC
+        Generates authentication headers required by CoinZoom
         :return: a dictionary of auth headers
         """
         payload = self.generate_payload(method, url, params)

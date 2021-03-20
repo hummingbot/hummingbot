@@ -15,13 +15,13 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.connector.exchange.hitbtc.hitbtc_api_user_stream_data_source import \
-    HitbtcAPIUserStreamDataSource
-from hummingbot.connector.exchange.hitbtc.hitbtc_auth import HitbtcAuth
-from hummingbot.connector.exchange.hitbtc.hitbtc_constants import Constants
+from hummingbot.connector.exchange.coinzoom.coinzoom_api_user_stream_data_source import \
+    CoinzoomAPIUserStreamDataSource
+from hummingbot.connector.exchange.coinzoom.coinzoom_auth import CoinzoomAuth
+from hummingbot.connector.exchange.coinzoom.coinzoom_constants import Constants
 
 
-class HitbtcUserStreamTracker(UserStreamTracker):
+class CoinzoomUserStreamTracker(UserStreamTracker):
     _cbpust_logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -31,10 +31,10 @@ class HitbtcUserStreamTracker(UserStreamTracker):
         return cls._bust_logger
 
     def __init__(self,
-                 hitbtc_auth: Optional[HitbtcAuth] = None,
+                 coinzoom_auth: Optional[CoinzoomAuth] = None,
                  trading_pairs: Optional[List[str]] = []):
         super().__init__()
-        self._hitbtc_auth: HitbtcAuth = hitbtc_auth
+        self._coinzoom_auth: CoinzoomAuth = coinzoom_auth
         self._trading_pairs: List[str] = trading_pairs
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[UserStreamTrackerDataSource] = None
@@ -48,8 +48,8 @@ class HitbtcUserStreamTracker(UserStreamTracker):
         :return: OrderBookTrackerDataSource
         """
         if not self._data_source:
-            self._data_source = HitbtcAPIUserStreamDataSource(
-                hitbtc_auth=self._hitbtc_auth,
+            self._data_source = CoinzoomAPIUserStreamDataSource(
+                coinzoom_auth=self._coinzoom_auth,
                 trading_pairs=self._trading_pairs
             )
         return self._data_source
