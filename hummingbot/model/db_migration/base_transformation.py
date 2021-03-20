@@ -13,7 +13,7 @@ class DatabaseTransformation(ABC):
 
     @abstractmethod
     def apply(self, db_handle):
-        pass
+        raise NotImplementedError
 
     @property
     @abstractmethod
