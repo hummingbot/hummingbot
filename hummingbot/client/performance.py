@@ -145,7 +145,7 @@ async def calculate_performance_metrics(exchange: str,
     # Seperate buy an sell trades
     buys = [t for t in trades if t.trade_type.upper() == "BUY"]
     sells = [t for t in trades if t.trade_type.upper() == "SELL"]
-    
+
     # Amount of trades
     perf.num_buys = len(buys)
     perf.num_sells = len(sells)
@@ -173,10 +173,10 @@ async def calculate_performance_metrics(exchange: str,
         if type(trade) is TradeFill:
             if trade.trade_fee.get("percent") is not None and trade.trade_fee["percent"] > 0:
                 asset = base if trade.trade_type.upper() == "BUY" else quote
-                    
+
                 if asset not in perf.fees:
                     perf.fees[asset] = s_decimal_0
-                
+
                 if asset == base:
                     perf.fees[base] += Decimal(trade.amount) * Decimal(trade.trade_fee["percent"])
                 else:
@@ -190,19 +190,19 @@ async def calculate_performance_metrics(exchange: str,
         else:  # assume this is Trade object
             if trade.trade_fee.percent > 0:
                 asset = "base" if trade.trade_type.upper() == "BUY" else "quote"
-                    
+
                 if asset not in perf.fees:
                     perf.fees[asset] = s_decimal_0
-                
+
                 if asset == base:
                     perf.fees[base] += Decimal(trade.amount) * Decimal(trade.trade_fee.percent)
                 else:
                     perf.fees[quote] += Decimal(trade.price) * Decimal(trade.amount) * Decimal(trade.trade_fee.percent)
-            
+
             for flat_fee in trade.trade_fee.flat_fees:
                 if flat_fee[0] not in perf.fees:
                     perf.fees[flat_fee[0]] = s_decimal_0
-            
+
                 perf.fees[flat_fee[0]] += flat_fee[1]
 
     for fee_token, fee_amount in perf.fees.items():
@@ -232,13 +232,13 @@ async def calculate_performance_metrics(exchange: str,
     perf.cur_base_ratio_pct = divide(perf.cur_base_bal * perf.cur_price,
                                      (perf.cur_base_bal * perf.cur_price) + perf.cur_quote_bal)
 
-    # Total 
+    # Total
     perf.hold_value = (perf.start_base_bal * perf.cur_price) + perf.start_quote_bal
     perf.cur_value = (perf.cur_base_bal * perf.cur_price) + perf.cur_quote_bal
     perf.total_pnl = perf.cur_value - perf.hold_value
     perf.trade_pnl = perf.total_pnl + perf.fee_in_quote
     perf.return_pct = divide(perf.cur_value, perf.hold_value) - 1
-    
+
     # Handle trade_pnl differently for derivatives
     if derivative:
         buys_copy, sells_copy = aggregate_position_order(buys.copy(), sells.copy())

@@ -463,10 +463,10 @@ cdef class PaperTradeExchange(ExchangeBase):
         config = self._config
         order_book = self.order_books[trading_pair]
         buy_entries = order_book.simulate_buy(amount)
-        
+
         # Calculate the quote currency needed
         total_quote_needed = Decimal(sum(row.price * row.amount for row in buy_entries))
-        
+
         if total_quote_needed > quote_balance:
             self.logger().warning(f"Insufficient {quote_asset} balance available for buy order. "
                                   f"{quote_balance} {quote_asset} available vs. "
@@ -483,16 +483,16 @@ cdef class PaperTradeExchange(ExchangeBase):
         total_base_fees = Decimal("0")
         total_quote_fees = Decimal("0")
         trade_fee: TradeFee = estimate_fee(self.name, False)
-        
+
         if config.buy_fees_asset is AssetType.BASE_CURRENCY:
             total_base_fees = total_base_acquired * trade_fee.percent
 
             for flat_fee in trade_fee.flat_fees:
                 if flat_fee[0] == base_asset:
                     total_base_fees += Decimal(flat_fee[1])
-        else: 
+        else:
             total_quote_fees = total_quote_needed * trade_fee.percent
-            
+
             for flat_fee in trade_fee.flat_fees:
                 if flat_fee[0] == quote_asset:
                     total_quote_fees += Decimal(flat_fee[1])
@@ -557,9 +557,9 @@ cdef class PaperTradeExchange(ExchangeBase):
             for flat_fee in trade_fee.flat_fees:
                 if flat_fee[0] == base_asset:
                     total_base_fees += Decimal(flat_fee[1])
-        else: 
+        else:
             total_quote_fees = total_quote_acquired * trade_fee.percent
-            
+
             for flat_fee in trade_fee.flat_fees:
                 if flat_fee[0] == quote_asset:
                     total_quote_fees += Decimal(flat_fee[1])
@@ -651,16 +651,16 @@ cdef class PaperTradeExchange(ExchangeBase):
         total_base_fees = Decimal("0")
         total_quote_fees = Decimal("0")
         trade_fee: TradeFee = estimate_fee(self.name, False)
-        
+
         if config.buy_fees_asset is AssetType.BASE_CURRENCY:
             total_base_fees = base_asset_traded * trade_fee.percent
 
             for flat_fee in trade_fee.flat_fees:
                 if flat_fee[0] == base_asset:
                     total_base_fees += Decimal(flat_fee[1])
-        else: 
+        else:
             total_quote_fees = quote_asset_traded * trade_fee.percent
-            
+
             for flat_fee in trade_fee.flat_fees:
                 if flat_fee[0] == quote_asset:
                     total_quote_fees += Decimal(flat_fee[1])
@@ -736,9 +736,9 @@ cdef class PaperTradeExchange(ExchangeBase):
             for flat_fee in trade_fee.flat_fees:
                 if flat_fee[0] == base_asset:
                     total_base_fees += Decimal(flat_fee[1])
-        else: 
+        else:
             total_quote_fees = quote_asset_traded * trade_fee.percent
-            
+
             for flat_fee in trade_fee.flat_fees:
                 if flat_fee[0] == quote_asset:
                     total_quote_fees += Decimal(flat_fee[1])
