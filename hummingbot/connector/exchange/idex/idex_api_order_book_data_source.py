@@ -258,12 +258,12 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             trade_timestamp: float = pd.Timestamp(msg["data"]["t"], unit="ms").timestamp()
                             trade_msg: OrderBookMessage = IdexOrderBook.trade_message_from_exchange(msg,
                                                                                                     trade_timestamp)
-
                             output.put_nowait(trade_msg)
                         elif msg_type == "subscriptions":
                             self.logger().info("subscription to trade received")
                         else:
                             raise ValueError(f"Unrecognized Idex WebSocket message received - {msg}")
+                        await asyncio.sleep(0.001)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -273,6 +273,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     app_warning_msg=f'{"Unexpected error with Websocket connection. Retrying in 30 seconds..."}'
                                     f'{"Check network connection."}'
                 )
+                await asyncio.sleep(30.0)
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
@@ -322,6 +323,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             self.logger().info("subscription to l2orderbook received")
                         else:
                             raise ValueError(f"Unrecognized Idex WebSocket message received - {msg}")
+                        await asyncio.sleep(0.001)
             except asyncio.CancelledError:
                 raise
             except Exception:

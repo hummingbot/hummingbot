@@ -15,7 +15,8 @@ from typing import (
     Optional
 )
 
-from hummingbot.core.event.events import TradeType
+from hummingbot.core.data_type.order_book import OrderBook
+# from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.connector.exchange.idex.idex_api_order_book_data_source import IdexAPIOrderBookDataSource
@@ -97,6 +98,7 @@ class IdexOrderBookTracker(OrderBookTracker):
                     messages_queued = 0
 
                 last_message_timestamp = now
+                await asyncio.sleep(0.001)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -156,8 +158,8 @@ class IdexOrderBookTracker(OrderBookTracker):
                     for diff_message in replay_diffs:
                         d_bids, d_asks = active_order_tracker.convert_diff_message_to_order_book_row(diff_message)
                         order_book.apply_diffs(d_bids, d_asks, diff_message.update_id)
-
                     self.logger().debug("Processed order book snapshot for %s.", trading_pair)
+                await asyncio.sleep(0.001)
             except asyncio.CancelledError:
                 raise
             except Exception:

@@ -2,7 +2,7 @@
 import datetime
 import math
 from os.path import join, realpath
-import sys
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent, TradeType
@@ -22,7 +22,6 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 
 class IdexOrderBookTrackerUnitTest(unittest.TestCase):

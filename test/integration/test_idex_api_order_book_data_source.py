@@ -1,10 +1,14 @@
+import itertools
+from os.path import join, realpath
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 import asyncio
 import inspect
 import unittest
 import aiohttp
+import logging
 
 from typing import List
-from unittest.mock import patch, PropertyMock, AsyncMock
+from unittest.mock import patch, AsyncMock
 
 from decimal import Decimal
 
@@ -293,11 +297,13 @@ class IdexAPIOrderBookDataSourceUnitTest(unittest.TestCase):
         q = asyncio.Queue()
 
         #  Socket events receiving in the order from top to bottom
-        mocked_socket_responses = [
-            FixtureIdex.WS_PRICE_LEVEL_UPDATE_1,
-            FixtureIdex.WS_PRICE_LEVEL_UPDATE_2,
-            FixtureIdex.WS_SUBSCRIPTION_SUCCESS
-        ]
+        mocked_socket_responses = itertools.cycle(
+            [
+                FixtureIdex.WS_PRICE_LEVEL_UPDATE_1,
+                FixtureIdex.WS_PRICE_LEVEL_UPDATE_2,
+                FixtureIdex.WS_SUBSCRIPTION_SUCCESS
+            ]
+        )
 
         mock_inner_messages.return_value = self.AsyncIterator(seq=mocked_socket_responses)
 
@@ -338,10 +344,12 @@ class IdexAPIOrderBookDataSourceUnitTest(unittest.TestCase):
         q = asyncio.Queue()
 
         #  Socket events receiving in the order from top to bottom
-        mocked_socket_responses = [
-            FixtureIdex.WS_TRADE_1,
-            FixtureIdex.WS_TRADE_2
-        ]
+        mocked_socket_responses = itertools.cycle(
+            [
+                FixtureIdex.WS_TRADE_1,
+                FixtureIdex.WS_TRADE_2
+            ]
+        )
 
         mock_inner_messages.return_value = self.AsyncIterator(seq=mocked_socket_responses)
 
@@ -374,3 +382,12 @@ class IdexAPIOrderBookDataSourceUnitTest(unittest.TestCase):
 
             # Validate the actual content injected is dict type
             self.assertIsInstance(event.content, dict)
+
+
+def main():
+    logging.basicConfig(level=logging.INFO)
+    unittest.main()
+
+
+if __name__ == "__main__":
+    main()
