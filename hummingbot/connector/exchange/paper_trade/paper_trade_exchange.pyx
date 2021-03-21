@@ -42,6 +42,7 @@ from hummingbot.core.event.events import (
     MarketEvent,
     OrderType,
     TradeType,
+    TradeFee,
     BuyOrderCompletedEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
@@ -462,9 +463,10 @@ cdef class PaperTradeExchange(ExchangeBase):
         config = self._config
         order_book = self.order_books[trading_pair]
         buy_entries = order_book.simulate_buy(amount)
-        # Calculate the quote currency needed, including fees.
+        
+        # Calculate the quote currency needed
         total_quote_needed = Decimal(sum(row.price * row.amount for row in buy_entries))
-
+        
         if total_quote_needed > quote_balance:
             self.logger().warning(f"Insufficient {quote_asset} balance available for buy order. "
                                   f"{quote_balance} {quote_asset} available vs. "
@@ -475,19 +477,32 @@ cdef class PaperTradeExchange(ExchangeBase):
             )
             return
 
-        # Calculate the base currency acquired, including fees.
+        # Calculate the base currency acquired minus fees.
         total_base_acquired = Decimal(sum(row.amount for row in buy_entries))
-        total_base_acquired -= total_base_acquired * config.buy_fees_amount
 
-        self.c_set_balance(quote_asset, quote_balance - total_quote_needed)
-        self.c_set_balance(base_asset, base_balance + total_base_acquired)
+        total_base_fees = Decimal("0")
+        total_quote_fees = Decimal("0")
+        trade_fee: TradeFee = estimate_fee(self.name, False)
+        
+        if config.buy_fees_asset is AssetType.BASE_CURRENCY:
+            total_base_fees = total_base_acquired * trade_fee.percent
 
-        # add fee
-        fees = estimate_fee(self.name, False)
+            for flat_fee in trade_fee.flat_fees:
+                if flat_fee[0] == base_asset:
+                    total_base_fees += Decimal(flat_fee[1])
+        else: 
+            total_quote_fees = total_quote_needed * trade_fee.percent
+            
+            for flat_fee in trade_fee.flat_fees:
+                if flat_fee[0] == quote_asset:
+                    total_quote_fees += Decimal(flat_fee[1])
+
+        self.c_set_balance(quote_asset, quote_balance - total_quote_needed - total_quote_fees)
+        self.c_set_balance(base_asset, base_balance + total_base_acquired - total_base_fees)
 
         order_filled_events = OrderFilledEvent.order_filled_events_from_order_book_rows(
             self._current_timestamp, order_id, trading_pair, TradeType.BUY, OrderType.MARKET,
-            fees, buy_entries
+            trade_fee, buy_entries
         )
 
         for order_filled_event in order_filled_events:
@@ -502,7 +517,7 @@ cdef class PaperTradeExchange(ExchangeBase):
                                    base_asset if config.buy_fees_asset is AssetType.BASE_CURRENCY else quote_asset,
                                    total_base_acquired,
                                    total_quote_needed,
-                                   s_decimal_0,
+                                   total_base_fees if config.buy_fees_asset is AssetType.BASE_CURRENCY else total_quote_fees,
                                    OrderType.MARKET))
 
     cdef c_execute_sell(self, str order_id, str trading_pair_str, object amount):
@@ -515,7 +530,11 @@ cdef class PaperTradeExchange(ExchangeBase):
         base_asset = self._trading_pairs[trading_pair_str].base_asset
         base_asset_amount = self.c_get_balance(base_asset)
 
-        if amount > base_asset_amount:
+        order_book = self.order_books[trading_pair_str]
+        sell_entries = order_book.simulate_sell(amount)
+        total_base_needed = Decimal(sum(row.amount for row in sell_entries))
+
+        if total_base_needed > base_asset_amount:
             self.logger().warning(f"Insufficient {base_asset} balance available for sell order. "
                                   f"{base_asset_amount} {base_asset} available vs. "
                                   f"{amount} {base_asset} required for the order.")
@@ -525,29 +544,32 @@ cdef class PaperTradeExchange(ExchangeBase):
             )
             return
 
-        order_book = self.order_books[trading_pair_str]
-
-        # Calculate the base currency used, including fees.
-        sold_amount = amount
-        fee_amount = amount * config.sell_fees_amount
-        if config.sell_fees_asset is AssetType.BASE_CURRENCY:
-            sold_amount -= fee_amount
-        sell_entries = order_book.simulate_sell(sold_amount)
-
         # Calculate the quote currency acquired, including fees.
-        acquired_amount = Decimal(sum(row.price * row.amount for row in sell_entries))
+        total_quote_acquired = Decimal(sum(row.price * row.amount for row in sell_entries))
 
-        self.c_set_balance(quote_asset,
-                           quote_asset_amount + acquired_amount)
-        self.c_set_balance(base_asset,
-                           base_asset_amount - amount)
+        total_base_fees = Decimal("0")
+        total_quote_fees = Decimal("0")
+        trade_fee: TradeFee = estimate_fee(self.name, False)
 
-        # add fee
-        fees = estimate_fee(self.name, False)
+        if config.sell_fees_asset is AssetType.BASE_CURRENCY:
+            total_base_fees = total_base_needed * trade_fee.percent
+
+            for flat_fee in trade_fee.flat_fees:
+                if flat_fee[0] == base_asset:
+                    total_base_fees += Decimal(flat_fee[1])
+        else: 
+            total_quote_fees = total_quote_acquired * trade_fee.percent
+            
+            for flat_fee in trade_fee.flat_fees:
+                if flat_fee[0] == quote_asset:
+                    total_quote_fees += Decimal(flat_fee[1])
+
+        self.c_set_balance(quote_asset, quote_asset_amount + total_quote_acquired - total_quote_fees)
+        self.c_set_balance(base_asset, base_asset_amount - total_base_needed - total_base_fees)
 
         order_filled_events = OrderFilledEvent.order_filled_events_from_order_book_rows(
             self._current_timestamp, order_id, trading_pair_str, TradeType.SELL,
-            OrderType.MARKET, fees, sell_entries
+            OrderType.MARKET, trade_fee, sell_entries
         )
 
         for order_filled_event in order_filled_events:
@@ -560,9 +582,9 @@ cdef class PaperTradeExchange(ExchangeBase):
                                     base_asset,
                                     quote_asset,
                                     base_asset if config.sell_fees_asset is AssetType.BASE_CURRENCY else quote_asset,
-                                    sold_amount,
-                                    acquired_amount,
-                                    fee_amount,
+                                    total_base_needed,
+                                    total_quote_acquired,
+                                    total_base_fees if config.sell_fees_asset is AssetType.BASE_CURRENCY else total_quote_fees,
                                     OrderType.MARKET))
 
     cdef c_process_market_orders(self):
@@ -625,15 +647,29 @@ cdef class PaperTradeExchange(ExchangeBase):
                                  )
             return
 
-        # Adjust the market balances according to the trade done.
-        self.c_set_balance(quote_asset, self.c_get_balance(quote_asset) - quote_asset_traded)
-        self.c_set_balance(base_asset, self.c_get_balance(base_asset) + base_asset_traded)
+        config = self._config
+        total_base_fees = Decimal("0")
+        total_quote_fees = Decimal("0")
+        trade_fee: TradeFee = estimate_fee(self.name, False)
+        
+        if config.buy_fees_asset is AssetType.BASE_CURRENCY:
+            total_base_fees = base_asset_traded * trade_fee.percent
 
-        # add fee
-        fees = estimate_fee(self.name, True)
+            for flat_fee in trade_fee.flat_fees:
+                if flat_fee[0] == base_asset:
+                    total_base_fees += Decimal(flat_fee[1])
+        else: 
+            total_quote_fees = quote_asset_traded * trade_fee.percent
+            
+            for flat_fee in trade_fee.flat_fees:
+                if flat_fee[0] == quote_asset:
+                    total_quote_fees += Decimal(flat_fee[1])
+
+        # Adjust the market balances according to the trade done.
+        self.c_set_balance(quote_asset, self.c_get_balance(quote_asset) - quote_asset_traded - total_quote_fees)
+        self.c_set_balance(base_asset, self.c_get_balance(base_asset) + base_asset_traded - total_base_fees)
 
         # Emit the trade and order completed events.
-        config = self._config
         self.c_trigger_event(
             self.ORDER_FILLED_EVENT_TAG,
             OrderFilledEvent(
@@ -644,7 +680,7 @@ cdef class PaperTradeExchange(ExchangeBase):
                 OrderType.LIMIT,
                 <object> cpp_limit_order_ptr.getPrice(),
                 <object> cpp_limit_order_ptr.getQuantity(),
-                fees
+                trade_fee
             ))
 
         self.c_trigger_event(
@@ -657,7 +693,7 @@ cdef class PaperTradeExchange(ExchangeBase):
                 base_asset if config.buy_fees_asset is AssetType.BASE_CURRENCY else quote_asset,
                 base_asset_traded,
                 quote_asset_traded,
-                s_decimal_0,
+                total_base_fees if config.buy_fees_asset is AssetType.BASE_CURRENCY else total_quote_fees,
                 OrderType.LIMIT
             ))
         self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)
@@ -689,15 +725,29 @@ cdef class PaperTradeExchange(ExchangeBase):
                                  )
             return
 
-        # Adjust the market balances according to the trade done.
-        self.c_set_balance(quote_asset, self.c_get_balance(quote_asset) + quote_asset_traded)
-        self.c_set_balance(base_asset, self.c_get_balance(base_asset) - base_asset_traded)
+        config = self._config
+        total_base_fees = Decimal("0")
+        total_quote_fees = Decimal("0")
+        trade_fee: TradeFee = estimate_fee(self.name, False)
 
-        # add fee
-        fees = estimate_fee(self.name, True)
+        if config.sell_fees_asset is AssetType.BASE_CURRENCY:
+            total_base_fees = base_asset_traded * trade_fee.percent
+
+            for flat_fee in trade_fee.flat_fees:
+                if flat_fee[0] == base_asset:
+                    total_base_fees += Decimal(flat_fee[1])
+        else: 
+            total_quote_fees = quote_asset_traded * trade_fee.percent
+            
+            for flat_fee in trade_fee.flat_fees:
+                if flat_fee[0] == quote_asset:
+                    total_quote_fees += Decimal(flat_fee[1])
+
+        # Adjust the market balances according to the trade done.
+        self.c_set_balance(quote_asset, self.c_get_balance(quote_asset) + quote_asset_traded - total_quote_fees)
+        self.c_set_balance(base_asset, self.c_get_balance(base_asset) - base_asset_traded - total_base_fees)
 
         # Emit the trade and order completed events.
-        config = self._config
         self.c_trigger_event(
             self.ORDER_FILLED_EVENT_TAG,
             OrderFilledEvent(
@@ -708,7 +758,7 @@ cdef class PaperTradeExchange(ExchangeBase):
                 OrderType.LIMIT,
                 <object> cpp_limit_order_ptr.getPrice(),
                 <object> cpp_limit_order_ptr.getQuantity(),
-                fees
+                trade_fee
             ))
 
         self.c_trigger_event(
@@ -721,7 +771,7 @@ cdef class PaperTradeExchange(ExchangeBase):
                 base_asset if config.sell_fees_asset is AssetType.BASE_CURRENCY else quote_asset,
                 base_asset_traded,
                 quote_asset_traded,
-                s_decimal_0,
+                total_base_fees if config.sell_fees_asset is AssetType.BASE_CURRENCY else total_quote_fees,
                 OrderType.LIMIT
             ))
         self.c_delete_limit_order(limit_orders_map_ptr, map_it_ptr, orders_it)

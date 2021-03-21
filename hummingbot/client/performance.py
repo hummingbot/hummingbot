@@ -44,6 +44,8 @@ class PerformanceMetrics:
     cur_value: Decimal = s_decimal_0
     trade_pnl: Decimal = s_decimal_0
 
+    fee_amount_quote: Decimal = s_decimal_0
+    fee_amount_base: Decimal = s_decimal_0
     fee_in_quote: Decimal = s_decimal_0
     total_pnl: Decimal = s_decimal_0
     return_pct: Decimal = s_decimal_0
@@ -135,15 +137,21 @@ async def calculate_performance_metrics(exchange: str,
 
     base, quote = trading_pair.split("-")
     perf = PerformanceMetrics()
-    buys = [t for t in trades if t.trade_type.upper() == "BUY"]
-    sells = [t for t in trades if t.trade_type.upper() == "SELL"]
+
     derivative = False
     if trades and type(trades[0]) == TradeFill and "NILL" not in [t.position for t in trades]:
         derivative = True
+
+    # Seperate buy an sell trades
+    buys = [t for t in trades if t.trade_type.upper() == "BUY"]
+    sells = [t for t in trades if t.trade_type.upper() == "SELL"]
+    
+    # Amount of trades
     perf.num_buys = len(buys)
     perf.num_sells = len(sells)
     perf.num_trades = perf.num_buys + perf.num_sells
 
+    # Trade volumes
     perf.b_vol_base = Decimal(str(sum(Decimal(b.amount) for b in buys)))
     perf.s_vol_base = Decimal(str(sum(Decimal(s.amount) for s in sells))) * Decimal("-1")
     perf.tot_vol_base = perf.b_vol_base + perf.s_vol_base
@@ -152,6 +160,7 @@ async def calculate_performance_metrics(exchange: str,
     perf.s_vol_quote = Decimal(str(sum(Decimal(s.amount) * Decimal(s.price) for s in sells)))
     perf.tot_vol_quote = perf.b_vol_quote + perf.s_vol_quote
 
+    # Average prices
     perf.avg_b_price = divide(perf.b_vol_quote, perf.b_vol_base)
     perf.avg_s_price = divide(perf.s_vol_quote, perf.s_vol_base)
     perf.avg_tot_price = divide(abs(perf.b_vol_quote) + abs(perf.s_vol_quote),
@@ -159,11 +168,61 @@ async def calculate_performance_metrics(exchange: str,
     perf.avg_b_price = abs(perf.avg_b_price)
     perf.avg_s_price = abs(perf.avg_s_price)
 
-    perf.cur_base_bal = current_balances.get(base, 0)
-    perf.cur_quote_bal = current_balances.get(quote, 0)
-    perf.start_base_bal = perf.cur_base_bal - perf.tot_vol_base
-    perf.start_quote_bal = perf.cur_quote_bal - perf.tot_vol_quote
+    # Fees
+    for trade in trades:
+        if type(trade) is TradeFill:
+            if trade.trade_fee.get("percent") is not None and trade.trade_fee["percent"] > 0:
+                asset = base if trade.trade_type.upper() == "BUY" else quote
+                    
+                if asset not in perf.fees:
+                    perf.fees[asset] = s_decimal_0
+                
+                if asset == base:
+                    perf.fees[base] += Decimal(trade.amount) * Decimal(trade.trade_fee["percent"])
+                else:
+                    perf.fees[quote] += Decimal(trade.price) * Decimal(trade.amount) * Decimal(trade.trade_fee["percent"])
 
+            for flat_fee in trade.trade_fee.get("flat_fees", []):
+                if flat_fee["asset"] not in perf.fees:
+                    perf.fees[flat_fee["asset"]] = s_decimal_0
+
+                perf.fees[flat_fee["asset"]] += Decimal(flat_fee["amount"])
+        else:  # assume this is Trade object
+            if trade.trade_fee.percent > 0:
+                asset = "base" if trade.trade_type.upper() == "BUY" else "quote"
+                    
+                if asset not in perf.fees:
+                    perf.fees[asset] = s_decimal_0
+                
+                if asset == base:
+                    perf.fees[base] += Decimal(trade.amount) * Decimal(trade.trade_fee.percent)
+                else:
+                    perf.fees[quote] += Decimal(trade.price) * Decimal(trade.amount) * Decimal(trade.trade_fee.percent)
+            
+            for flat_fee in trade.trade_fee.flat_fees:
+                if flat_fee[0] not in perf.fees:
+                    perf.fees[flat_fee[0]] = s_decimal_0
+            
+                perf.fees[flat_fee[0]] += flat_fee[1]
+
+    for fee_token, fee_amount in perf.fees.items():
+        if fee_token == quote:
+            perf.fee_in_quote += fee_amount
+            perf.fee_amount_quote += fee_amount
+        else:
+            if fee_token == base:
+                perf.fee_amount_base += fee_amount
+            last_price = await get_last_price(exchange, f"{fee_token}-{quote}")
+            if last_price is not None:
+                perf.fee_in_quote += fee_amount * last_price
+
+    # Start and current balances
+    perf.cur_base_bal = current_balances.get(base, Decimal("0"))
+    perf.cur_quote_bal = current_balances.get(quote, Decimal("0"))
+    perf.start_base_bal = perf.cur_base_bal - perf.tot_vol_base + perf.fee_amount_base
+    perf.start_quote_bal = perf.cur_quote_bal - perf.tot_vol_quote + perf.fee_amount_quote
+
+    # Ratio
     perf.start_price = Decimal(trades[0].price)
     perf.cur_price = await get_last_price(exchange.replace("_PaperTrade", ""), trading_pair)
     if perf.cur_price is None:
@@ -173,10 +232,13 @@ async def calculate_performance_metrics(exchange: str,
     perf.cur_base_ratio_pct = divide(perf.cur_base_bal * perf.cur_price,
                                      (perf.cur_base_bal * perf.cur_price) + perf.cur_quote_bal)
 
+    # Total 
     perf.hold_value = (perf.start_base_bal * perf.cur_price) + perf.start_quote_bal
     perf.cur_value = (perf.cur_base_bal * perf.cur_price) + perf.cur_quote_bal
     perf.total_pnl = perf.cur_value - perf.hold_value
-
+    perf.trade_pnl = perf.total_pnl + perf.fee_in_quote
+    perf.return_pct = divide(perf.cur_value, perf.hold_value) - 1
+    
     # Handle trade_pnl differently for derivatives
     if derivative:
         buys_copy, sells_copy = aggregate_position_order(buys.copy(), sells.copy())
@@ -195,37 +257,6 @@ async def calculate_performance_metrics(exchange: str,
                 break
 
         perf.trade_pnl = Decimal(str(sum(derivative_pnl(long, short))))
-
-    for trade in trades:
-        if type(trade) is TradeFill:
-            if trade.trade_fee.get("percent") is not None and trade.trade_fee["percent"] > 0:
-                if quote not in perf.fees:
-                    perf.fees[quote] = s_decimal_0
-                perf.fees[quote] += Decimal(trade.price) * Decimal(trade.amount) * Decimal(trade.trade_fee["percent"])
-            for flat_fee in trade.trade_fee.get("flat_fees", []):
-                if flat_fee["asset"] not in perf.fees:
-                    perf.fees[flat_fee["asset"]] = s_decimal_0
-                perf.fees[flat_fee["asset"]] += Decimal(flat_fee["amount"])
-        else:  # assume this is Trade object
-            if trade.trade_fee.percent > 0:
-                if quote not in perf.fees:
-                    perf.fees[quote] = s_decimal_0
-                perf.fees[quote] += (trade.price * trade.order_amount) * trade.trade_fee.percent
-            for flat_fee in trade.trade_fee.flat_fees:
-                if flat_fee[0] not in perf.fees:
-                    perf.fees[flat_fee[0]] = s_decimal_0
-                perf.fees[flat_fee[0]] += flat_fee[1]
-
-    for fee_token, fee_amount in perf.fees.items():
-        if fee_token == quote:
-            perf.fee_in_quote += fee_amount
-        else:
-            last_price = await get_last_price(exchange, f"{fee_token}-{quote}")
-            if last_price is not None:
-                perf.fee_in_quote += fee_amount * last_price
-
-    perf.trade_pnl = perf.total_pnl + perf.fee_in_quote
-    perf.return_pct = divide(perf.cur_value, perf.hold_value) - 1
 
     return perf
 
