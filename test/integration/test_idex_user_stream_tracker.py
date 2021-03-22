@@ -36,11 +36,11 @@ import time
 logging.basicConfig(level=logging.DEBUG)
 
 
-class IdexOrderBookTrackerUnitTest(unittest.TestCase):
+class IdexUserStreamTrackerUnitTest(unittest.TestCase):
     # order_book_tracker: Optional[IdexOrderBookTracker] = None
-    IDEX_SECRET_KEY = "tkDey53dr1ZlyM2tzUAu82l+nhgzxCJl"
     IDEX_API_KEY = "889fe7dd-ea60-4bf4-86f8-4eec39146510"
-    IDEX_PRIVATE_KEY = "0227070369c04f55c66988ee3b272f8ae297cf7967ca7bad6d2f71f72072e18d"  # compromised
+    IDEX_SECRET_KEY = "tkDey53dr1ZlyM2tzUAu82l+nhgzxCJl"
+    IDEX_PRIVATE_KEY = "0227070369c04f55c66988ee3b272f8ae297cf7967ca7bad6d2f71f72072e18d"  # don't commit me please
 
     # IDEX_API_KEY = ""
     # IDEX_SECRET_KEY = ""
@@ -53,12 +53,12 @@ class IdexOrderBookTrackerUnitTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        IDEX_API_KEY = "tkDey53dr1ZlyM2tzUAu82l+nhgzxCJl"
-        IDEX_SECRET_KEY = "889fe7dd-ea60-4bf4-86f8-4eec39146510"
+        IDEX_API_KEY = "889fe7dd-ea60-4bf4-86f8-4eec39146510"
+        IDEX_SECRET_KEY = "tkDey53dr1ZlyM2tzUAu82l+nhgzxCJl"
         IDEX_PRIVATE_KEY = "0227070369c04f55c66988ee3b272f8ae297cf7967ca7bad6d2f71f72072e18d"  # don't commit me please
         #
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        cls.coinbase_pro_auth = IdexAuth(IDEX_API_KEY, IDEX_SECRET_KEY, IDEX_PRIVATE_KEY)
+        cls.idex_auth = IdexAuth(IDEX_API_KEY, IDEX_SECRET_KEY, IDEX_PRIVATE_KEY)
         cls.trading_pairs = ["DIL-ETH"]
         cls.user_stream_tracker: IdexUserStreamTracker = IdexUserStreamTracker(idex_auth=cls.idex_auth, trading_pairs=cls.trading_pairs)
         cls.user_stream_tracker_task: asyncio.Task = safe_ensure_future(cls.user_stream_tracker.start())

@@ -8,6 +8,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 
+
 from hummingbot.connector.exchange.idex.idex_api_user_stream_data_source import IdexAPIUserStreamDataSource
 from hummingbot.connector.exchange.idex.idex_auth import IdexAuth
 from hummingbot.connector.exchange.idex.idex_utils import EXCHANGE_NAME

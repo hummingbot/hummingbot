@@ -172,8 +172,8 @@ class IdexAuth:
         # https://docs.idex.io/?javascript#get-authentication-token
         return {
             "headers": {
-                "IDEX-API-Key": self.api_key,
-                "IDEX-HMAC-Signature": self.sign(params)
+                "IDEX-API-Key": self._api_key,
+                "IDEX-HMAC-Signature": self.hmac_sign(params)
             },
             "url": url
         }
@@ -232,6 +232,8 @@ class IdexAuth:
     async def _rest_get(self, url, headers=None, params=None):
         async with aiohttp.ClientSession() as client:
             async with client.get(url, headers=headers, params=params) as resp:
+                if resp.status != 200:
+                    raise IOError(f"Error fetching data from {url}. HTTP status is {resp.status}")
                 body = await resp.json()
                 return resp.status, body
 
@@ -251,9 +253,9 @@ class IdexAuth:
             'nonce': self.get_nonce_str(),
             'wallet': self.get_wallet_address(),
         }
-        auth_dict = self.generate_auth_dict(http_method='GET', url=url, params=url_params)
+        auth_dict = self.generate_auth_dict_for_ws(url=url, params=url_params)
         _, response = await self._rest_get(
-            auth_dict['url'],  # url already has the encoded url params included
+            url=auth_dict['url'],  # url already has the encoded url params included
             headers=auth_dict['headers'],
         )
         return response['token']
