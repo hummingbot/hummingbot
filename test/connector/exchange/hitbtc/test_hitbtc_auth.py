@@ -27,7 +27,9 @@ class TestAuth(unittest.TestCase):
     async def rest_auth(self) -> Dict[Any, Any]:
         endpoint = Constants.ENDPOINT['USER_BALANCES']
         headers = self.auth.get_headers("GET", f"{Constants.REST_URL_AUTH}/{endpoint}", None)
-        response = await aiohttp.ClientSession().get(f"{Constants.REST_URL}/{endpoint}", headers=headers)
+        http_client = aiohttp.ClientSession()
+        response = await http_client.get(f"{Constants.REST_URL}/{endpoint}", headers=headers)
+        await http_client.close()
         return await response.json()
 
     async def ws_auth(self) -> Dict[Any, Any]:
@@ -44,12 +46,7 @@ class TestAuth(unittest.TestCase):
         assert "currency" in result[0].keys()
 
     def test_ws_auth(self):
-        try:
-            response = self.ev_loop.run_until_complete(self.ws_auth())
-            no_errors = True
-        except Exception:
-            no_errors = False
-        assert no_errors is True
+        response = self.ev_loop.run_until_complete(self.ws_auth())
         if 'result' not in response:
             print(f"Unexpected response for API call: {response}")
         assert response['result'] is True
