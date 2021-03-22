@@ -62,6 +62,7 @@ debug.log
 
 # Environment
 /env
+.env
 
 # Documentation build dir
 /documentation/site/
