@@ -263,7 +263,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             self.logger().info("subscription to trade received")
                         else:
                             raise ValueError(f"Unrecognized Idex WebSocket message received - {msg}")
-                        await asyncio.sleep(0.001)
+                        await asyncio.sleep(0)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -323,7 +323,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             self.logger().info("subscription to l2orderbook received")
                         else:
                             raise ValueError(f"Unrecognized Idex WebSocket message received - {msg}")
-                        await asyncio.sleep(0.001)
+                        await asyncio.sleep(0)
             except asyncio.CancelledError:
                 raise
             except Exception:

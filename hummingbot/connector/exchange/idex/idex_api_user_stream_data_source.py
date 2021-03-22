@@ -127,6 +127,7 @@ class IdexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                             pass
                         else:
                             raise ValueError(f"Unrecognized idex Websocket message received - {msg}")
+                        await asyncio.sleep(0)
             except asyncio.CancelledError:
                 raise
             except Exception:

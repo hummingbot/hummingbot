@@ -39,7 +39,6 @@ from hummingbot.core.utils import eth_gas_station_lookup, async_ttl_cache
 s_decimal_0 = Decimal("0.0")
 
 
-
 class IdexExchange(ExchangeBase):
 
     name: str = EXCHANGE_NAME
@@ -70,7 +69,7 @@ class IdexExchange(ExchangeBase):
         self._user_stream_tracker = IdexUserStreamTracker(self._idex_auth, trading_pairs)
         self._user_stream_tracker_task = None
         self._ev_loop = asyncio.get_event_loop()
-        self._shared_client = None
+        self._shared_client: Optional[aiohttp.ClientSession] = None
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
         self._in_flight_orders = {}  # Dict[client_order_id:str, idexComInFlightOrder]
@@ -141,6 +140,14 @@ class IdexExchange(ExchangeBase):
             for key, value in self._in_flight_orders.items()
             if not value.is_done
         }
+
+    async def _http_client(self) -> aiohttp.ClientSession:
+        """
+        :returns: Shared client session instance
+        """
+        if self._shared_client is None:
+            self._shared_client = aiohttp.ClientSession()
+        return self._shared_client
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         """
@@ -281,18 +288,17 @@ class IdexExchange(ExchangeBase):
                 app_warning_msg=f"Failed to cancel the order {client_order_id} on Idex. "
                                 f"Check API key and network connection.")
 
-# API Calls
+    # API Calls
 
-    @staticmethod
-    async def get_ping():
+    async def get_ping(self):
         """Requests status of current connection."""
 
         rest_url = get_idex_rest_url()
         url = f"{rest_url}/v1/ping/"
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
-                if response.status != 200:
-                    raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {response}")
+        session: aiohttp.ClientSession = await self._http_client()
+        async with session.get(url) as response:
+            if response.status != 200:
+                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {response}")
         return
 
     async def list_orders(self) -> List[Dict[str, Any]]:
@@ -305,12 +311,12 @@ class IdexExchange(ExchangeBase):
             "wallet": self._idex_auth.get_wallet_address()
         }
         auth_dict = self._idex_auth.generate_auth_dict(http_method="GET", url=url, params=params)
-        async with aiohttp.ClientSession() as session:
-            async with session.get(auth_dict["url"], headers=auth_dict["headers"]) as response:
-                if response.status != 200:
-                    raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {response}")
-                data = await response.json()
-                return data
+        session: aiohttp.ClientSession = await self._http_client()
+        async with session.get(auth_dict["url"], headers=auth_dict["headers"]) as response:
+            if response.status != 200:
+                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {response}")
+            data = await response.json()
+            return data
 
     async def get_order(self, exchange_order_id: str) -> Dict[str, Any]:
         """Requests order information through API with exchange orderId. Returns json data with order details"""
@@ -322,12 +328,12 @@ class IdexExchange(ExchangeBase):
             "wallet": self._idex_auth.get_wallet_address()
         }
         auth_dict = self._idex_auth.generate_auth_dict(http_method="GET", url=url, params=params)
-        async with aiohttp.ClientSession() as session:
-            async with session.get(auth_dict["url"], headers=auth_dict["headers"]) as response:
-                if response.status != 200:
-                    raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {response}")
-                data = await response.json()
-                return data
+        session: aiohttp.ClientSession = await self._http_client()
+        async with session.get(auth_dict["url"], headers=auth_dict["headers"]) as response:
+            if response.status != 200:
+                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {response}")
+            data = await response.json()
+            return data
 
     async def post_order(self, params) -> Dict[str, Any]:
         """Posts an order request to the Idex API. Returns json data with order details"""
@@ -357,13 +363,12 @@ class IdexExchange(ExchangeBase):
         }
 
         auth_dict = self._idex_auth.generate_auth_dict_for_post(url=url, body=body, wallet_signature=wallet_signature)
-
-        async with aiohttp.ClientSession() as session:
-            async with session.post(auth_dict["url"], body=auth_dict["body"], headers=auth_dict["headers"]) as response:
-                if response.status != 200:
-                    raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {response}")
-                data = await response.json()
-                return data
+        session: aiohttp.ClientSession = await self._http_client()
+        async with session.post(auth_dict["url"], body=auth_dict["body"], headers=auth_dict["headers"]) as response:
+            if response.status != 200:
+                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {response}")
+            data = await response.json()
+            return data
 
     async def delete_order(self, trading_pair: str, order_id: str):
         """
@@ -392,13 +397,12 @@ class IdexExchange(ExchangeBase):
         }
 
         auth_dict = self._idex_auth.generate_auth_dict_for_delete(url=url, body=body, wallet_signature=wallet_signature)
-
-        async with aiohttp.ClientSession() as session:
-            async with session.post(auth_dict["url"], body=auth_dict["body"], headers=auth_dict["headers"]) as response:
-                if response.status != 200:
-                    raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {response}")
-                data = await response.json()
-                return data
+        session: aiohttp.ClientSession = await self._http_client()
+        async with session.post(auth_dict["url"], body=auth_dict["body"], headers=auth_dict["headers"]) as response:
+            if response.status != 200:
+                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {response}")
+            data = await response.json()
+            return data
 
     async def get_balances_from_api(self) -> List[Dict[str, Any]]:
         """Requests current balances of all assets through API. Returns json data with balance details"""
@@ -410,22 +414,22 @@ class IdexExchange(ExchangeBase):
             "wallet": self._idex_auth.get_wallet_address(),
         }
         auth_dict = self._idex_auth.generate_auth_dict(http_method="GET", url=url, params=params)
-        async with aiohttp.ClientSession() as session:
-            async with session.get(auth_dict["url"], headers=auth_dict["headers"]) as response:
-                if response.status != 200:
-                    raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {response}")
-                data = await response.json()
-                return data
+        session: aiohttp.ClientSession = await self._http_client()
+        async with session.get(auth_dict["url"], headers=auth_dict["headers"]) as response:
+            if response.status != 200:
+                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {response}")
+            data = await response.json()
+            return data
 
     async def get_exchange_info_from_api(self) -> Dict[str, Any]:
         """Requests basic info about idex exchange. We are mostly interested in the gas price in gwei"""
         rest_url = get_idex_rest_url()
         url = f"{rest_url}/v1/exchange"
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
-                if response.status != 200:
-                    raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}")
-                return await response.json()
+        session: aiohttp.ClientSession = await self._http_client()
+        async with session.get(url) as response:
+            if response.status != 200:
+                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}")
+            return await response.json()
 
     async def _create_order(self,
                             trade_type: TradeType,
