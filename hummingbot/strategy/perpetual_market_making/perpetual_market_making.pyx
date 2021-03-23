@@ -555,7 +555,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
     cdef c_apply_initial_settings(self, str trading_pair, object position, int64_t leverage):
         cdef:
             ExchangeBase market = self._market_info.market
-        market.set_margin(trading_pair, leverage)
+        market.set_leverage(trading_pair, leverage)
         market.set_position_mode(position)
 
     cdef c_tick(self, double timestamp):
@@ -922,14 +922,12 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
             object base_size_total = Decimal("0")
 
         quote_balance = market.c_get_available_balance(self.quote_asset)
-        funding_rate = market.get_funding_rate(self.trading_pair)
         trading_fees = market.c_get_fee(self.base_asset, self.quote_asset, OrderType.LIMIT, TradeType.BUY,
                                         s_decimal_zero, s_decimal_zero)
 
         for buy in proposal.buys:
             order_size = buy.size * buy.price
-            funding_amount = order_size * funding_rate if funding_rate > s_decimal_zero else s_decimal_zero
-            quote_size = (order_size / self._leverage) + (order_size * trading_fees.percent) + funding_amount
+            quote_size = (order_size / self._leverage) + (order_size * trading_fees.percent)
             if quote_balance < quote_size_total + quote_size:
                 self.logger().info(f"Insufficient balance: Buy order (price: {buy.price}, size: {buy.size}) is omitted, {self.quote_asset} available balance: {quote_balance - quote_size_total}.")
                 self.logger().warning("You are also at a possible risk of being liquidated if there happens to be an open loss.")
@@ -939,8 +937,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         proposal.buys = [o for o in proposal.buys if o.size > 0]
         for sell in proposal.sells:
             order_size = sell.size * sell.price
-            funding_amount = order_size * funding_rate if funding_rate < s_decimal_zero else s_decimal_zero
-            quote_size = (order_size / self._leverage) + (order_size * trading_fees.percent) + funding_amount
+            quote_size = (order_size / self._leverage) + (order_size * trading_fees.percent)
             if quote_balance < quote_size_total + quote_size:
                 self.logger().info(f"Insufficient balance: Sell order (price: {sell.price}, size: {sell.size}) is omitted, {self.quote_asset} available balance: {quote_balance - quote_size_total}.")
                 self.logger().warning("You are also at a possible risk of being liquidated if there happens to be an open loss.")

@@ -35,19 +35,19 @@ def validate_exchange_trading_pair(value: str) -> Optional[str]:
     return validate_market_trading_pair(exchange, value)
 
 
-def order_amount_prompt() -> str:
+async def order_amount_prompt() -> str:
     exchange = pure_market_making_config_map["exchange"].value
     trading_pair = pure_market_making_config_map["market"].value
     base_asset, quote_asset = trading_pair.split("-")
-    min_amount = minimum_order_amount(exchange, trading_pair)
+    min_amount = await minimum_order_amount(exchange, trading_pair)
     return f"What is the amount of {base_asset} per order? (minimum {min_amount}) >>> "
 
 
-def validate_order_amount(value: str) -> Optional[str]:
+async def validate_order_amount(value: str) -> Optional[str]:
     try:
         exchange = pure_market_making_config_map["exchange"].value
         trading_pair = pure_market_making_config_map["market"].value
-        min_amount = minimum_order_amount(exchange, trading_pair)
+        min_amount = await minimum_order_amount(exchange, trading_pair)
         if Decimal(value) < min_amount:
             return f"Order amount must be at least {min_amount}."
     except Exception:
@@ -111,7 +111,7 @@ pure_market_making_config_map = {
                   default="pure_market_making"),
     "exchange":
         ConfigVar(key="exchange",
-                  prompt="Enter your maker exchange name >>> ",
+                  prompt="Enter your maker spot connector >>> ",
                   validator=validate_exchange,
                   on_validated=exchange_on_validated,
                   prompt_on_new=True),
