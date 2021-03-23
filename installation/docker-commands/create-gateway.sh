@@ -106,10 +106,10 @@ read_global_config
 
 # prompt to setup balancer, uniswap
 prompt_ethereum_setup () {
-  read -p "   Do you want to setup Balancer or Uniswap? [Y/N] >>> " PROCEED
+  read -p "   Do you want to setup Balancer/Uniswap/Perpetual Finance? [Y/N] >>> " PROCEED
   if [[ "$PROCEED" == "Y" || "$PROCEED" == "y" ]]
   then
-    echo "ℹ️  Retrieving Balancer/Uniswap config from Hummingbot config file ... "
+    echo "ℹ️  Retrieving config from Hummingbot config file ... "
     ETHEREUM_SETUP=true
     echo
   fi

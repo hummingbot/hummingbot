@@ -95,7 +95,7 @@ class ConnectorSetting(NamedTuple):
 
 
 def _create_connector_settings() -> Dict[str, ConnectorSetting]:
-    connector_exceptions = ["paper_trade"]
+    connector_exceptions = ["paper_trade", "eterbase"]
     connector_settings = {}
     package_dir = Path(__file__).resolve().parent.parent.parent
     type_dirs = [f for f in scandir(f'{str(package_dir)}/hummingbot/connector') if f.is_dir()]

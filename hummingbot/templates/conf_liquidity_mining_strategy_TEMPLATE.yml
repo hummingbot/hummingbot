@@ -2,7 +2,7 @@
 ###        Liquidity Mining strategy config          ###
 ########################################################
 
-template_version: 1
+template_version: 3
 strategy: null
 
 # The exchange to run this strategy.
@@ -20,6 +20,9 @@ order_amount: null
 
 # The spread from mid price to place bid and ask orders, enter 1 to indicate 1%
 spread: null
+
+# Whether to enable Inventory skew feature (true/false).
+inventory_skew_enabled: null
 
 # The target base asset percentage for all markets, enter 50 to indicate 50% target
 target_base_pct: null
@@ -45,6 +48,12 @@ avg_volatility_period: null
 
 # The multiplier used to convert average volatility to spread, enter 1 for 1 to 1 conversion
 volatility_to_spread_multiplier: null
+
+# The maximum value for spread, enter 1 to indicate 1% or -1 to ignore this setting
+max_spread: null
+
+# The maximum life time of your orders in seconds
+max_order_age: null
 
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/liquidity-mining/#configuration-parameters
