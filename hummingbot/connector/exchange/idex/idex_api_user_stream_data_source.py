@@ -16,6 +16,7 @@ from websockets.exceptions import ConnectionClosed
 from hummingbot.connector.exchange.idex.idex_resolve import get_idex_ws_feed
 from hummingbot.connector.exchange.idex.idex_order_book import IdexOrderBook
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 # from .client.asyncio import AsyncIdexClient
 from .idex_auth import IdexAuth
@@ -118,9 +119,8 @@ class IdexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                             output.put_nowait(msg)
 
                         elif msg_type in ["ping"]:
-                            # NOTE: ping every 3 min, closed if no pong after 10 min
-                            pong_waiter = await ws.ping()
-                            await pong_waiter
+                            # server sends ping every 3 minutes, must receive a pong within a 10 minute period
+                            safe_ensure_future(ws.pong())
 
                         elif msg_type in ["received", "activate", "subscriptions"]:
                             # these messages are not needed to track the order book
