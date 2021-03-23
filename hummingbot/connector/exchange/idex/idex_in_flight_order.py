@@ -81,18 +81,18 @@ class IdexInFlightOrder(InFlightOrderBase):
         Updates the in flight order with fill update (from private/get-order-detail end point)
         return: True if the order gets updated otherwise False
         """
-        fill_id = fill_update["i"] if ["i"] in fill_update else fill_update.get("fillId")
+        fill_id = fill_update["i"] if "i" in fill_update else fill_update.get("i")
         if fill_id in self.fill_id_set:
             # fill already recorded
             return False
         self.fill_id_set.add(fill_id)
-        self.executed_amount_base += Decimal(str(fill_update["q"] if ["q"] in fill_update else
+        self.executed_amount_base += Decimal(str(fill_update["q"] if "q" in fill_update else
                                                  fill_update.get("quantity")))
-        self.fee_paid += Decimal(str(fill_update["f"] if ["f"] in fill_update else fill_update.get("fee")))
-        self.executed_amount_quote += (Decimal(str(fill_update["p"] if ["p"] in fill_update else
+        self.fee_paid += Decimal(str(fill_update["f"] if "f" in fill_update else fill_update.get("fee")))
+        self.executed_amount_quote += (Decimal(str(fill_update["p"] if "p" in fill_update else
                                                    fill_update.get("price"))) *
-                                       Decimal(str(fill_update["q"] in fill_update if ["q"] else
+                                       Decimal(str(fill_update["q"] if "q" in fill_update else
                                                    fill_update.get("quantity"))))
         if not self.fee_asset:
-            self.fee_asset = fill_update["a"] if ["a"] in fill_update else fill_update.get("feeAsset")
+            self.fee_asset = fill_update["a"] if "a" in fill_update else fill_update.get("feeAsset")
         return True

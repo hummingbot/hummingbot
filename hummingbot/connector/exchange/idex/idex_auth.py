@@ -1,5 +1,6 @@
 import json
 import hmac
+import logging
 import string
 import uuid
 import hashlib
@@ -16,6 +17,9 @@ from eth_typing import HexStr
 from web3 import Web3
 
 from hummingbot.connector.exchange.idex.idex_resolve import get_idex_rest_url, get_idex_blockchain
+from hummingbot.logger import HummingbotLogger
+
+ia_logger = None
 
 
 class HashVersionEnum(Enum):  # Blockchain
@@ -55,6 +59,13 @@ class OrderSelfTradePreventionEnum(Enum):
 class IdexAuth:
 
     HEX_DIGITS_SET = set(string.hexdigits)
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        global ia_logger
+        if ia_logger is None:
+            ia_logger = logging.getLogger(__name__)
+        return ia_logger
 
     def __init__(self, api_key: str, secret_key: str, wallet_private_key: str = None):
         self._api_key = api_key
@@ -203,7 +214,6 @@ class IdexAuth:
     def generate_auth_dict_for_post(
             self,
             url: str,
-            params: Dict[str, any],
             body: Dict[str, any],
             wallet_signature: str = None) -> Dict[str, any]:
         body = body or {}
@@ -289,6 +299,7 @@ class IdexAuth:
                Default: OrderSelfTradePreventionEnum.dc
         :return: tuple of signature parameters
         """
+
         hash_version = HashVersionEnum[get_idex_blockchain()]
         signature_parameters = (
             ('uint8', hash_version.value),  # 0 - The signature hash version is 1 for Ethereum, 2 for BSC
@@ -310,7 +321,7 @@ class IdexAuth:
 
     def build_signature_params_for_cancel_order(
             self,
-            market: str,
+            market: str = '',
             client_order_id: str = '',
     ) -> Tuple[Tuple[str, Any], ...]:
         """
@@ -320,6 +331,11 @@ class IdexAuth:
         :param client_order_id: Optional. Client-specified order id, maximum of 40 bytes, or empty string
         :return: tuple of signature parameters
         """
+        self.logger().info(f"Nonce-S: {self.get_nonce_int(), type(self.get_nonce_int())}")
+        self.logger().info(f"Wallet-S: {self.get_wallet_address(), type(self.get_wallet_address())}")
+        self.logger().info(f"ClientID-S: {client_order_id, type(client_order_id)}")
+        self.logger().info(f"Market-S: {market, type(market)}")
+
         signature_parameters = (
             ('uint128', self.get_nonce_int()),
             ('address', self.get_wallet_address()),

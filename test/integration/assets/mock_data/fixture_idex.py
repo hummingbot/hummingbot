@@ -215,3 +215,143 @@ class FixtureIdex:
             "u": 921943
         }
     })
+
+    # Group A
+    BUY_MARKET_ORDER = {
+            "market": "DIL-ETH",
+            "orderId": "92782120-a775-11ea-aa55-4da1cc97a06d",
+            "clientOrderId": "10001",
+            "wallet": "0xA71C4aeeAabBBB8D2910F41C2ca3964b81F7310d",
+            "time": 1590394500000,
+            "status": "active",
+            "type": "market",
+            "side": "buy",
+            "originalQuantity": "0.02000000",
+            "executedQuantity": "0.00000000",
+            "selfTradePrevention": "dc"
+        }
+
+    SELL_MARKET_ORDER = {
+            "market": "DIL-ETH",
+            "orderId": "92782120-a775-11ea-aa55-4da1cc97a06d",
+            "clientOrderId": "10001",
+            "wallet": "0xA71C4aeeAabBBB8D2910F41C2ca3964b81F7310d",
+            "time": 1590394500000,
+            "status": "active",
+            "type": "market",
+            "side": "sell",
+            "originalQuantity": "0.02000000",
+            "executedQuantity": "0.00000000",
+            "selfTradePrevention": "dc"
+        }
+
+    # Group A
+    WS_AFTER_MARKET_BUY_2 = {
+        "type": "orders",
+        "data": {
+            "m": "ETH-USDC",
+            "i": "92782120-a775-11ea-aa55-4da1cc97a06d",
+            "c": "10001",
+            "w": "0xA71C4aeeAabBBB8D2910F41C2ca3964b81F7310d",
+            "t": 1590394700000,
+            "T": 1590394700000,
+            "x": "fill",
+            "X": "filled",
+            "u": 71228108,
+            "o": "market",
+            "S": "buy",
+            "q": "0.02000000",
+            "z": "0.02000000",
+            "Z": "0.02000000",
+            "v": "12.00200000",
+            "F": [
+                {
+                    "i": "974480d0-a776-11ea-895b-bfcbb5bdaa50",
+                    "p": "12.00200000",
+                    "q": "0.02000000",
+                    "Q": "19.58344815",
+                    "t": 1590394700000,
+                    "s": "sell",
+                    "u": 981372,
+                    "f": "0.00756017",
+                    "a": "ETH",
+                    "l": "taker",
+                    "T": "0x01d28c33271cf1dd0eb04249617d3092f24bd9bad77ffb57a0316c3ce5425158",
+                    "S": "mined"
+                },
+                ...
+            ]
+        }
+    }
+
+    # Group B
+    OPEN_BUY_LIMIT_ORDER = {
+        "market": "ETH-USDC",
+        "orderId": "3a9ef9c0-a779-11ea-907d-23e999279287",
+        "clientOrderId": "10001",
+        "wallet": "0xA71C4aeeAabBBB8D2910F41C2ca3964b81F7310d",
+        "time": 1590394500000,
+        "status": "active",
+        "type": "limit",
+        "side": "buy",
+        "originalQuantity": "0.02000000",
+        "executedQuantity": "0.00000000",
+        "cumulativeQuoteQuantity": "0.00000000",
+        "price": "190.00000000",
+    }
+
+    # Group B
+    OPEN_SELL_LIMIT_ORDER = {
+        "market": "ETH-USDC",
+        "orderId": "3a9ef9c0-a779-11ea-907d-23e999279287",
+        "clientOrderId": "10001",
+        "wallet": "0xA71C4aeeAabBBB8D2910F41C2ca3964b81F7310d",
+        "time": 1590394500000,
+        "status": "active",
+        "type": "limit",
+        "side": "sell",
+        "originalQuantity": "0.02000000",
+        "executedQuantity": "0.00000000",
+        "cumulativeQuoteQuantity": "0.00000000",
+        "price": "190.00000000",
+    }
+
+    # Group B
+    WS_ORDER_OPEN = {
+        "type": "orders",
+        "data": {
+            "m": "DIL-ETH",
+            "i": "3a9ef9c0-a779-11ea-907d-23e999279287",
+            "c": "10001",
+            "w": "0xA71C4aeeAabBBB8D2910F41C2ca3964b81F7310d",
+            "t": 1590394500000,
+            "T": 1590394500000,
+            "x": "new",
+            "X": "active",
+            "o": "limit",
+            "S": "buy",
+            "q": "0.02000000",
+            "z": "0.00000000",
+            "V": "dc",
+        }
+    }
+
+    # Group B
+    WS_ORDER_CANCELLED = {
+        "type": "orders",
+        "data": {
+            "m": "DIL-ETH",
+            "i": "3a9ef9c0-a779-11ea-907d-23e999279287",
+            "c": "10001",
+            "w": "0xA71C4aeeAabBBB8D2910F41C2ca3964b81F7310d",
+            "t": 1590394500000,
+            "T": 1590394500000,
+            "x": "cancelled",
+            "X": "cancelled",
+            "o": "market",
+            "S": "buy",
+            "q": "0.02000000",
+            "z": "0.00000000",
+            "V": "dc",
+        }
+    }

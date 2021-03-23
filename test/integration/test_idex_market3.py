@@ -2,6 +2,8 @@
 from os.path import join, realpath
 import sys;
 
+from hummingbot.logger import HummingbotLogger
+
 sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 import asyncio
@@ -59,11 +61,13 @@ from unittest import mock
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 # API_SECRET length must be multiple of 4 otherwise base64.b64decode will fail
 API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
-API_KEY = "XXXX" if API_MOCK_ENABLED else conf.idex_api_key
-API_SECRET = "YYYY" if API_MOCK_ENABLED else conf.idex_secret_key
-API_PASSPHRASE = "ZZZZ" if API_MOCK_ENABLED else conf.idex_passphrase
+IDEX_API_KEY = "889fe7dd-ea60-4bf4-86f8-4eec39146510"
+IDEX_SECRET_KEY = "tkDey53dr1ZlyM2tzUAu82l+nhgzxCJl"
+IDEX_PRIVATE_KEY = "0227070369c04f55c66988ee3b272f8ae297cf7967ca7bad6d2f71f72072e18d"
 API_BASE_URL = "https://api-eth.idex.io/"
-WS_BASE_URL = "wss://websocket-eth.idex.io/v1"
+WS_BASE_URL = "wss://websocket-eth.idex.io/v1/"
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 class IdexExchangeUnitTest(unittest.TestCase):
@@ -78,17 +82,26 @@ class IdexExchangeUnitTest(unittest.TestCase):
         MarketEvent.OrderFailure
     ]
 
+    _test_logger: Optional[HummingbotLogger] = None
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        if cls._test_logger is None:
+            cls._test_logger = logging.getLogger(__name__)
+        return cls._test_logger
+
     market: IdexExchange
     market_logger: EventLogger
     stack: contextlib.ExitStack
+    trading_pair = "DIL-ETH"
+    base_token, quote_token = trading_pair.split("-")
 
     @classmethod
     def setUpClass(cls):
         cls.ev_loop = asyncio.get_event_loop()
-        trading_pair = "UNI-ETH"
         if API_MOCK_ENABLED:
             cls.web_app = HummingWebApp.get_instance()
-            cls.web_app.add_host_to_mock(API_BASE_URL, ["/v1/ping", "/v1/time"])   # Check if any ignored paths are required
+            cls.web_app.add_host_to_mock(API_BASE_URL, [])
             cls.web_app.start()
             cls.ev_loop.run_until_complete(cls.web_app.wait_til_started())
             cls._patcher = mock.patch("aiohttp.client.URL")
@@ -97,23 +110,23 @@ class IdexExchangeUnitTest(unittest.TestCase):
             cls.web_app.update_response("get", API_BASE_URL, "/v1/balances", FixtureIdex.BALANCES)
             cls.web_app.update_response("get", API_BASE_URL, "/v1/exchange", FixtureIdex.TRADE_FEES)
             cls.web_app.update_response("get", API_BASE_URL, "/v1/orders", FixtureIdex.ORDERS_STATUS)
+            cls.web_app.update_response("delete", API_BASE_URL, "/v1/orders", FixtureIdex.CANCEL)
 
             HummingWsServerFactory.start_new_server(WS_BASE_URL)
             cls._ws_patcher = unittest.mock.patch("websockets.connect", autospec=True)
             cls._ws_mock = cls._ws_patcher.start()
             cls._ws_mock.side_effect = HummingWsServerFactory.reroute_ws_connect
 
-            cls._t_nonce_patcher = unittest.mock.patch(
-                "hummingbot.core.utils.tracking_nonce.get_tracking_nonce")
+            cls._t_nonce_patcher = unittest.mock.patch("hummingbot.core.utils.tracking_nonce.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: IdexExchange = IdexExchange(
-            API_KEY,
-            API_SECRET,
-            API_PASSPHRASE,
-            trading_pairs=[trading_pair]
+            idex_api_key=IDEX_API_KEY,
+            idex_api_secret_key=IDEX_SECRET_KEY,
+            idex_wallet_private_key=IDEX_PRIVATE_KEY,
+            trading_pairs=[cls.trading_pair]
         )
-        print("Initializing Liquid market... this will take about a minute.")
+        print("Initializing Idex market... this will take about a minute.")
         cls.clock.add_iterator(cls.market)
         cls.stack: contextlib.ExitStack = contextlib.ExitStack()
         cls._clock = cls.stack.enter_context(cls.clock)
@@ -129,11 +142,13 @@ class IdexExchangeUnitTest(unittest.TestCase):
             cls._t_nonce_patcher.stop()
 
     @classmethod
-    async def wait_til_ready(cls):
+    async def wait_til_ready(cls, market=None):
+        if market is None:
+            market= cls.market
         while True:
             now = time.time()
             next_iteration = now // 1.0 + 1
-            if cls.market.ready:
+            if market.ready:
                 break
             else:
                 await cls._clock.run_til(next_iteration)
@@ -161,46 +176,41 @@ class IdexExchangeUnitTest(unittest.TestCase):
             now = time.time()
             next_iteration = now // 1.0 + 1
             await self._clock.run_til(next_iteration)
+            await asyncio.sleep(1.0)
         return future.result()
 
     def run_parallel(self, *tasks):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
-    # TODO Brian: Holding tight on fee testing until get_fee method is confirmed implemented.
-    """
+    '''
     def test_get_fee(self):
-        maker_buy_trade_fee: TradeFee = self.market.get_fee("BTC", "USD", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
-                                                            Decimal(4000))
-        self.assertGreater(maker_buy_trade_fee.percent, 0)
-        self.assertEqual(len(maker_buy_trade_fee.flat_fees), 0)
-        taker_buy_trade_fee: TradeFee = self.market.get_fee("BTC", "USD", OrderType.LIMIT, TradeType.BUY, Decimal(1))
-        self.assertGreater(taker_buy_trade_fee.percent, 0)
-        self.assertEqual(len(taker_buy_trade_fee.flat_fees), 0)
-        sell_trade_fee: TradeFee = self.market.get_fee("BTC", "USD", OrderType.LIMIT_MAKER, TradeType.SELL, Decimal(1),
-                                                       Decimal(4000))
-        self.assertGreater(sell_trade_fee.percent, 0)
-        self.assertEqual(len(sell_trade_fee.flat_fees), 0)
-    
+        limit_fee: TradeFee = self.market.get_fee("ETH", "USDC", OrderType.LIMIT_MAKER, TradeType.BUY, 1, 1)
+        self.assertGreater(limit_fee.percent, 0)
+        self.assertEqual(len(limit_fee.flat_fees), 0)
+        market_fee: TradeFee = self.market.get_fee("ETH", "USDC", OrderType.LIMIT, TradeType.BUY, 1)
+        self.assertGreater(market_fee.percent, 0)
+        self.assertEqual(len(market_fee.flat_fees), 0)
+
     def test_fee_overrides_config(self):
-        fee_overrides_config_map["liquid_taker_fee"].value = None
+        fee_overrides_config_map["coinbase_pro_taker_fee"].value = None
         taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
-        self.assertAlmostEqual(Decimal("0.001"), taker_fee.percent)
-        fee_overrides_config_map["liquid_taker_fee"].value = Decimal('0.2')
+        self.assertAlmostEqual(Decimal("0.005"), taker_fee.percent)
+        fee_overrides_config_map["coinbase_pro_taker_fee"].value = Decimal('0.2')
         taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.002"), taker_fee.percent)
-        fee_overrides_config_map["liquid_maker_fee"].value = None
-        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
-        self.assertAlmostEqual(Decimal("0.001"), maker_fee.percent)
-        fee_overrides_config_map["liquid_maker_fee"].value = Decimal('0.5')
+        fee_overrides_config_map["coinbase_pro_maker_fee"].value = None
         maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
-    """
+        fee_overrides_config_map["coinbase_pro_maker_fee"].value = Decimal('0.75')
+        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.0075"), maker_fee.percent)
+    '''
 
-    def place_order(self, is_buy, trading_pair, amount, order_type, price, nonce, fixture_resp, fixture_ws):
+    def _place_order(self, is_buy, trading_pair, amount, order_type, price, nonce, fixture_resp, fixture_ws):
         order_id, exchange_order_id = None, None
         if API_MOCK_ENABLED:
             self._t_nonce_mock.return_value = nonce
@@ -208,7 +218,7 @@ class IdexExchangeUnitTest(unittest.TestCase):
             resp = fixture_resp.copy()
             exchange_order_id = resp["id"]
             resp["side"] = side
-            self.web_app.update_response("post", API_BASE_URL, "/v1/orders", resp)
+            self.web_app.update_response("post", API_BASE_URL, "v1/orders", resp)
         if is_buy:
             order_id = self.market.buy(trading_pair, amount, order_type, price)
         else:
@@ -220,94 +230,24 @@ class IdexExchangeUnitTest(unittest.TestCase):
             HummingWsServerFactory.send_json_threadsafe(WS_BASE_URL, resp, delay=0.1)
         return order_id, exchange_order_id
 
-    def cancel_order(self, trading_pair, order_id, exchange_order_id, fixture_ws):
+    def _cancel_order(self, trading_pair, order_id, exchange_order_id, fixture_ws):
         if API_MOCK_ENABLED:
-            self.web_app.update_response("delete", API_BASE_URL, f"/v1/orders/{exchange_order_id}", exchange_order_id)
+            self.web_app.update_response("delete", API_BASE_URL, f"v1/orders/{exchange_order_id}", exchange_order_id)
         self.market.cancel(trading_pair, order_id)
         if API_MOCK_ENABLED:
             resp = fixture_ws.copy()
             resp["orderId"] = exchange_order_id
             HummingWsServerFactory.send_json_threadsafe(WS_BASE_URL, resp, delay=0.1)
 
-    def test_limit_maker_rejections(self):
-        if API_MOCK_ENABLED:
-            return
-        trading_pair = "UNI-ETH"
-
-        # Try to put a buy limit maker order that is going to match, this should trigger an order failure event.
-        price: Decimal = self.market.get_price(trading_pair, True) * Decimal('1.02')
-        price: Decimal = self.market.quantize_order_price(trading_pair, price)
-        amount = self.market.quantize_order_amount(trading_pair, Decimal("0.02"))
-        order_id = self.market.buy(trading_pair, amount, OrderType.LIMIT_MAKER, price)
-        [order_failure_event] = self.run_parallel(self.market_logger.wait_for(MarketOrderFailureEvent))
-        self.assertEqual(order_id, order_failure_event.order_id)
-
-        self.market_logger.clear()
-
-        # Try to put a sell limit maker order that is going to match, this should trigger an order failure event.
-        price: Decimal = self.market.get_price(trading_pair, True) * Decimal('0.98')
-        price: Decimal = self.market.quantize_order_price(trading_pair, price)
-        amount = self.market.quantize_order_amount(trading_pair, Decimal("0.02"))
-
-        order_id = self.market.sell(trading_pair, amount, OrderType.LIMIT_MAKER, price)
-        [order_failure_event] = self.run_parallel(self.market_logger.wait_for(MarketOrderFailureEvent))
-        self.assertEqual(order_id, order_failure_event.order_id)
-
-    def test_limit_makers_unfilled(self):
-        if API_MOCK_ENABLED:
-            return
-        trading_pair = "ETH-USDC"
-        bid_price: Decimal = self.market.get_price(trading_pair, True) * Decimal("0.5")
-        ask_price: Decimal = self.market.get_price(trading_pair, False) * 2
-        amount: Decimal = 10 / bid_price
-        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
-
-        # Intentionally setting invalid price to prevent getting filled
-        quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price * Decimal("0.7"))
-        quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price * Decimal("1.5"))
-
-        order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
-                                                   quantize_bid_price,
-                                                   10001, FixtureCoinbasePro.OPEN_BUY_LIMIT_ORDER,
-                                                   FixtureCoinbasePro.WS_ORDER_OPEN)
-        [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
-        order_created_event: BuyOrderCreatedEvent = order_created_event
-        self.assertEqual(order_id, order_created_event.order_id)
-
-        order_id_2, exch_order_id_2 = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
-                                                       quantize_ask_price, 10002,
-                                                       FixtureCoinbasePro.OPEN_SELL_LIMIT_ORDER,
-                                                       FixtureCoinbasePro.WS_ORDER_OPEN)
-        [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
-        order_created_event: BuyOrderCreatedEvent = order_created_event
-        self.assertEqual(order_id_2, order_created_event.order_id)
-
-        self.run_parallel(asyncio.sleep(1))
-
-        if API_MOCK_ENABLED:
-            self.web_app.update_response("delete", API_BASE_URL, f"/orders/{exch_order_id}", exch_order_id)
-            self.web_app.update_response("delete", API_BASE_URL, f"/orders/{exch_order_id_2}", exch_order_id_2)
-        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
-        if API_MOCK_ENABLED:
-            resp = FixtureCoinbasePro.WS_ORDER_CANCELLED.copy()
-            resp["order_id"] = exch_order_id
-            HummingWsServerFactory.send_json_threadsafe(WS_BASE_URL, resp, delay=0.1)
-            resp = FixtureCoinbasePro.WS_ORDER_CANCELLED.copy()
-            resp["order_id"] = exch_order_id_2
-            HummingWsServerFactory.send_json_threadsafe(WS_BASE_URL, resp, delay=0.11)
-        for cr in cancellation_results:
-            self.assertEqual(cr.success, True)
-
-    # NOTE that orders of non-USD pairs (including USDC pairs) are LIMIT only
+    '''
     def test_limit_taker_buy(self):
-        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
-        trading_pair = "ETH-USDC"
+        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.05"))
+        trading_pair = "DIL-ETH"
         price: Decimal = self.market.get_price(trading_pair, True)
-        amount: Decimal = Decimal("0.02")
+        amount: Decimal = Decimal("1.5")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
-
-        order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT, price, 10001,
-                                       FixtureCoinbasePro.BUY_MARKET_ORDER, FixtureCoinbasePro.WS_AFTER_MARKET_BUY_2)
+        order_id, _ = self._place_order(True, trading_pair, amount, OrderType.LIMIT, price, 10001,
+                                        FixtureIdex.BUY_MARKET_ORDER, FixtureIdex.WS_AFTER_MARKET_BUY_2)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         order_completed_event: BuyOrderCompletedEvent = order_completed_event
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
@@ -318,24 +258,23 @@ class IdexExchangeUnitTest(unittest.TestCase):
         self.assertTrue([evt.order_type == OrderType.LIMIT_MAKER for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertAlmostEqual(quantized_amount, order_completed_event.base_asset_amount)
-        self.assertEqual("ETH", order_completed_event.base_asset)
-        self.assertEqual("USDC", order_completed_event.quote_asset)
+        self.assertEqual("DIL", order_completed_event.base_asset)
+        self.assertEqual("ETH", order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
         self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
         # Reset the logs
         self.market_logger.clear()
-
-    # NOTE that orders of non-USD pairs (including USDC pairs) are LIMIT only
+    '''
     def test_limit_taker_sell(self):
-        trading_pair = "ETH-USDC"
+        trading_pair = "DIL-ETH"
         price: Decimal = self.market.get_price(trading_pair, False)
-        amount: Decimal = Decimal("0.02")
+        amount: Decimal = Decimal("1.5")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        order_id, _ = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT, price, 10001,
-                                       FixtureCoinbasePro.BUY_MARKET_ORDER, FixtureCoinbasePro.WS_AFTER_MARKET_BUY_2)
+        order_id, _ = self._place_order(False, trading_pair, quantized_amount, OrderType.LIMIT, price, 10001,
+                                        FixtureIdex.BUY_MARKET_ORDER, FixtureIdex.WS_AFTER_MARKET_BUY_2)
         [order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         order_completed_event: SellOrderCompletedEvent = order_completed_event
         trade_events = [t for t in self.market_logger.event_log if isinstance(t, OrderFilledEvent)]
@@ -345,8 +284,8 @@ class IdexExchangeUnitTest(unittest.TestCase):
         self.assertTrue([evt.order_type == OrderType.LIMIT_MAKER for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertAlmostEqual(quantized_amount, order_completed_event.base_asset_amount)
-        self.assertEqual("ETH", order_completed_event.base_asset)
-        self.assertEqual("USDC", order_completed_event.quote_asset)
+        self.assertEqual("DIL", order_completed_event.base_asset)
+        self.assertEqual("ETH", order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
         self.assertTrue(any([isinstance(event, SellOrderCreatedEvent) and event.order_id == order_id
@@ -354,28 +293,31 @@ class IdexExchangeUnitTest(unittest.TestCase):
         # Reset the logs
         self.market_logger.clear()
 
+    '''
     def test_cancel_order(self):
-        trading_pair = "ETH-USDC"
+        trading_pair = "DIL-ETH"
 
         current_bid_price: Decimal = self.market.get_price(trading_pair, True)
-        amount: Decimal = Decimal("0.2")
-        self.assertGreater(self.market.get_balance("ETH"), amount)
+        amount: Decimal = Decimal("1.5")
+        self.assertGreater(self.market.get_balance("DIL"), amount)
 
         bid_price: Decimal = current_bid_price - Decimal("0.1") * current_bid_price
         quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
+        self.logger().info(f"quantized amount:{quantized_amount}")
 
-        order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
-                                                   quantize_bid_price, 10001, FixtureCoinbasePro.OPEN_BUY_LIMIT_ORDER,
-                                                   FixtureCoinbasePro.WS_ORDER_OPEN)
+        order_id, exchange_order_id = self._place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
+                                                        quantize_bid_price, 10001, FixtureIdex.OPEN_BUY_LIMIT_ORDER,
+                                                        FixtureIdex.WS_ORDER_OPEN)
 
-        self.cancel_order(trading_pair, order_id, exch_order_id, FixtureCoinbasePro.WS_ORDER_CANCELLED)
+        self._cancel_order(trading_pair, order_id, exchange_order_id, FixtureIdex.WS_ORDER_CANCELLED)
         [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
         order_cancelled_event: OrderCancelledEvent = order_cancelled_event
         self.assertEqual(order_cancelled_event.order_id, order_id)
 
+    
     def test_cancel_all(self):
-        trading_pair = "ETH-USDC"
+        trading_pair = "DIL-ETH"
         bid_price: Decimal = self.market.get_price(trading_pair, True) * Decimal("0.5")
         ask_price: Decimal = self.market.get_price(trading_pair, False) * 2
         amount: Decimal = 10 / bid_price
@@ -385,33 +327,32 @@ class IdexExchangeUnitTest(unittest.TestCase):
         quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price * Decimal("0.7"))
         quantize_ask_price: Decimal = self.market.quantize_order_price(trading_pair, ask_price * Decimal("1.5"))
 
-        _, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
-                                            quantize_bid_price,
-                                            10001, FixtureCoinbasePro.OPEN_BUY_LIMIT_ORDER,
-                                            FixtureCoinbasePro.WS_ORDER_OPEN)
-        _, exch_order_id_2 = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
-                                              quantize_ask_price, 10002, FixtureCoinbasePro.OPEN_SELL_LIMIT_ORDER,
-                                              FixtureCoinbasePro.WS_ORDER_OPEN)
+        _, exchange_order_id = self._place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
+                                                 quantize_bid_price, 10001, FixtureIdex.OPEN_BUY_LIMIT_ORDER,
+                                                 FixtureIdex.WS_ORDER_OPEN)
+        _, exchange_order_id_2 = self._place_order(False, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
+                                                   quantize_ask_price, 10002, FixtureIdex.OPEN_SELL_LIMIT_ORDER,
+                                                   FixtureIdex.WS_ORDER_OPEN)
         self.run_parallel(asyncio.sleep(1))
 
         if API_MOCK_ENABLED:
-            self.web_app.update_response("delete", API_BASE_URL, f"/orders/{exch_order_id}", exch_order_id)
-            self.web_app.update_response("delete", API_BASE_URL, f"/orders/{exch_order_id_2}", exch_order_id_2)
+            self.web_app.update_response("delete", API_BASE_URL, f"/orders/{exchange_order_id}", exchange_order_id)
+            self.web_app.update_response("delete", API_BASE_URL, f"/orders/{exchange_order_id_2}", exchange_order_id_2)
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
         if API_MOCK_ENABLED:
-            resp = FixtureCoinbasePro.WS_ORDER_CANCELLED.copy()
-            resp["order_id"] = exch_order_id
+            resp = FixtureIdex.WS_ORDER_CANCELLED.copy()
+            resp["orderId"] = exchange_order_id
             HummingWsServerFactory.send_json_threadsafe(WS_BASE_URL, resp, delay=0.1)
-            resp = FixtureCoinbasePro.WS_ORDER_CANCELLED.copy()
-            resp["order_id"] = exch_order_id_2
+            resp = FixtureIdex.WS_ORDER_CANCELLED.copy()
+            resp["orderId"] = exchange_order_id_2
             HummingWsServerFactory.send_json_threadsafe(WS_BASE_URL, resp, delay=0.11)
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
 
     @unittest.skipUnless(any("test_list_orders" in arg for arg in sys.argv), "List order test requires manual action.")
     def test_list_orders(self):
-        self.assertGreater(self.market.get_balance("ETH"), Decimal("0.1"))
-        trading_pair = "ETH-USDC"
+        self.assertGreater(self.market.get_balance("DIL"), Decimal("0.1"))
+        trading_pair = "DIL-ETH"
         amount: Decimal = Decimal("0.02")
         quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
@@ -429,7 +370,7 @@ class IdexExchangeUnitTest(unittest.TestCase):
     def test_orders_saving_and_restoration(self):
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
-        trading_pair: str = "ETH-USDC"
+        trading_pair: str = "DIL-ETH"
         sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
         order_id: Optional[str] = None
         recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
@@ -446,10 +387,9 @@ class IdexExchangeUnitTest(unittest.TestCase):
             amount: Decimal = Decimal("0.02")
             quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-            order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
-                                                       quantize_bid_price, 10001,
-                                                       FixtureCoinbasePro.OPEN_BUY_LIMIT_ORDER,
-                                                       FixtureCoinbasePro.WS_ORDER_OPEN)
+            order_id, exchange_order_id = self._place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
+                                                            quantize_bid_price, 10001, FixtureIdex.OPEN_BUY_LIMIT_ORDER,
+                                                            FixtureIdex.WS_ORDER_OPEN)
             [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
             order_created_event: BuyOrderCreatedEvent = order_created_event
             self.assertEqual(order_id, order_created_event.order_id)
@@ -473,11 +413,11 @@ class IdexExchangeUnitTest(unittest.TestCase):
             self.clock.remove_iterator(self.market)
             for event_tag in self.events:
                 self.market.remove_listener(event_tag, self.market_logger)
-            self.market: CoinbaseProExchange = CoinbaseProExchange(
-                coinbase_pro_api_key=API_KEY,
-                coinbase_pro_secret_key=API_SECRET,
-                coinbase_pro_passphrase=API_PASSPHRASE,
-                trading_pairs=["ETH-USDC"]
+            self.market: IdexExchange = IdexExchange(
+                idex_api_key=IDEX_API_KEY,
+                idex_api_secret_key=IDEX_SECRET_KEY,
+                idex_wallet_private_key=IDEX_PRIVATE_KEY,
+                trading_pairs=[trading_pair]
             )
             for event_tag in self.events:
                 self.market.add_listener(event_tag, self.market_logger)
@@ -493,7 +433,7 @@ class IdexExchangeUnitTest(unittest.TestCase):
             self.assertEqual(1, len(self.market.tracking_states))
 
             # Cancel the order and verify that the change is saved.
-            self.cancel_order(trading_pair, order_id, exch_order_id, FixtureCoinbasePro.WS_ORDER_CANCELLED)
+            self._cancel_order(trading_pair, order_id, exchange_order_id, FixtureIdex.WS_ORDER_CANCELLED)
             self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
             order_id = None
             self.assertEqual(0, len(self.market.limit_orders))
@@ -502,7 +442,7 @@ class IdexExchangeUnitTest(unittest.TestCase):
             self.assertEqual(0, len(saved_market_states.saved_state))
         finally:
             if order_id is not None:
-                self.cancel_order(trading_pair, order_id, exch_order_id, FixtureCoinbasePro.WS_ORDER_CANCELLED)
+                self._cancel_order(trading_pair, order_id, exchange_order_id, FixtureIdex.WS_ORDER_CANCELLED)
                 self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
@@ -519,7 +459,7 @@ class IdexExchangeUnitTest(unittest.TestCase):
     def test_order_fill_record(self):
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
-        trading_pair: str = "ETH-USDC"
+        trading_pair: str = "DIL-ETH"
         sql: SQLConnectionManager = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
         order_id: Optional[str] = None
         recorder: MarketsRecorder = MarketsRecorder(sql, [self.market], config_path, strategy_name)
@@ -529,9 +469,9 @@ class IdexExchangeUnitTest(unittest.TestCase):
             # Try to buy 0.04 ETH from the exchange, and watch for completion event.
             price: Decimal = self.market.get_price(trading_pair, True)
             amount: Decimal = Decimal("0.02")
-            order_id, exch_order_id = self.place_order(True, trading_pair, amount, OrderType.LIMIT, price,
-                                                       10001, FixtureCoinbasePro.BUY_MARKET_ORDER,
-                                                       FixtureCoinbasePro.WS_AFTER_MARKET_BUY_2)
+            order_id, exchange_order_id = self._place_order(True, trading_pair, amount, OrderType.LIMIT, price, 10001,
+                                                            FixtureIdex.BUY_MARKET_ORDER,
+                                                            FixtureIdex.WS_AFTER_MARKET_BUY_2)
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
             # Reset the logs
@@ -540,9 +480,9 @@ class IdexExchangeUnitTest(unittest.TestCase):
             # Try to sell back the same amount of ETH to the exchange, and watch for completion event.
             price: Decimal = self.market.get_price(trading_pair, False)
             amount = buy_order_completed_event.base_asset_amount
-            order_id, exch_order_id = self.place_order(False, trading_pair, amount, OrderType.LIMIT, price,
-                                                       10002, FixtureCoinbasePro.SELL_MARKET_ORDER,
-                                                       FixtureCoinbasePro.WS_AFTER_MARKET_BUY_2)
+            order_id, exchange_order_id = self._place_order(False, trading_pair, amount, OrderType.LIMIT, price, 10002,
+                                                            FixtureIdex.SELL_MARKET_ORDER,
+                                                            FixtureIdex.WS_AFTER_MARKET_BUY_2)
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 
             # Query the persisted trade logs
@@ -557,12 +497,12 @@ class IdexExchangeUnitTest(unittest.TestCase):
 
         finally:
             if order_id is not None:
-                self.cancel_order(trading_pair, order_id, exch_order_id, FixtureCoinbasePro.WS_ORDER_CANCELLED)
+                self._cancel_order(trading_pair, order_id, exchange_order_id, FixtureIdex.WS_ORDER_CANCELLED)
                 self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
             os.unlink(self.db_path)
-
+    '''
 
 if __name__ == "__main__":
     logging.getLogger("hummingbot.core.event.event_reporter").setLevel(logging.WARNING)

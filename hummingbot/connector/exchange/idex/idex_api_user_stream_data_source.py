@@ -24,6 +24,7 @@ from .idex_auth import IdexAuth
 
 class IdexAPIUserStreamDataSource(UserStreamTrackerDataSource):
     MAX_RETRIES = 20
+    PING_TIMEOUT = 10.0
     MESSAGE_TIMEOUT = 30.0
 
     _logger: Optional[HummingbotLogger] = None
@@ -122,9 +123,10 @@ class IdexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                             # server sends ping every 3 minutes, must receive a pong within a 10 minute period
                             safe_ensure_future(ws.pong())
 
-                        elif msg_type in ["received", "activate", "subscriptions"]:
-                            # these messages are not needed to track the order book
-                            pass
+                        elif msg_type in ["subscriptions"]:
+                            subscriptions = msg.get("subscriptions")
+                            for subscription in subscriptions:
+                                self.logger().info("subscription to %s received", subscription['name'])
                         else:
                             raise ValueError(f"Unrecognized idex Websocket message received - {msg}")
                         await asyncio.sleep(0)
