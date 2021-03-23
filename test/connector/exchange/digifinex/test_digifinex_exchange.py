@@ -528,6 +528,3 @@ class DigifinexExchangeUnitTest(unittest.TestCase):
             recorder.stop()
             # sql._engine.dispose()
             # os.unlink(self.db_path)
-
-
-unittest.main()
