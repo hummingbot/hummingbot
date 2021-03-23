@@ -23,6 +23,7 @@ from hummingbot.client.settings import (
     ethereum_gas_station_required,
     required_exchanges,
 )
+import hummingbot.client.settings as settings
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.kill_switch import KillSwitch
 from typing import TYPE_CHECKING
@@ -30,6 +31,9 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.eth_gas_station_lookup import EthGasStationLookup
 from hummingbot.script.script_iterator import ScriptIterator
 from hummingbot.connector.connector_status import get_connector_status, warning_messages
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.command.rate_command import RateCommand
+from hummingbot.client.config.config_validators import validate_bool
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -59,15 +63,16 @@ class StartCommand:
     async def start_check(self,  # type: HummingbotApplication
                           log_level: Optional[str] = None,
                           restore: Optional[bool] = False):
-
         if self.strategy_task is not None and not self.strategy_task.done():
             self._notify('The bot is already running - please run "stop" first')
             return
 
+        if settings.required_rate_oracle:
+            if not (await self.confirm_oracle_conversion_rate()):
+                return
         is_valid = await self.status_check_all(notify_success=False)
         if not is_valid:
             return
-
         if self._last_started_strategy_file != self.strategy_file_name:
             init_logging("hummingbot_logs.yml",
                          override_log_level=log_level.upper() if log_level else None,
@@ -155,3 +160,28 @@ class StartCommand:
                 await self.wait_till_ready(self.kill_switch.start)
         except Exception as e:
             self.logger().error(str(e), exc_info=True)
+
+    async def confirm_oracle_conversion_rate(self,  # type: HummingbotApplication
+                                             ) -> bool:
+        try:
+            result = False
+            self.app.clear_input()
+            self.placeholder_mode = True
+            self.app.hide_input = True
+            for pair in settings.rate_oracle_pairs:
+                msg = await RateCommand.oracle_rate_msg(pair)
+                self._notify("\nRate Oracle:\n" + msg)
+            config = ConfigVar(key="confirm_oracle_conversion_rate",
+                               type_str="bool",
+                               prompt="Please confirm if the above oracle source and rates are correct for this "
+                                      "strategy (Yes/No)  >>> ",
+                               required_if=lambda: True,
+                               validator=lambda v: validate_bool(v))
+            await self.prompt_a_config(config)
+            if config.value:
+                result = True
+        finally:
+            self.placeholder_mode = False
+            self.app.hide_input = False
+            self.app.change_prompt(prompt=">>> ")
+        return result
