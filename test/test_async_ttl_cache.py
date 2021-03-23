@@ -9,14 +9,10 @@ class AsyncTTLCacheUnitTest(unittest.TestCase):
 
     @async_ttl_cache(ttl=3, maxsize=1)
     async def get_timestamp(self):
-        timestamp = time.time()
-        print(f"timestamp: {timestamp}")
-        return timestamp
+        return time.time()
 
     def test_async_ttl_cache(self):
         ret_1 = asyncio.get_event_loop().run_until_complete(self.get_timestamp())
-        for i in range(0, 100):
-            asyncio.get_event_loop().run_until_complete(self.get_timestamp())
         ret_2 = asyncio.get_event_loop().run_until_complete(self.get_timestamp())
         self.assertEqual(ret_1, ret_2)
         time.sleep(2)
