@@ -773,7 +773,7 @@ class IdexExchange(ExchangeBase):
                 raise
             except Exception as e:
                 if DEBUG:
-                    print(f"_iter_user_event_queue Error: {e}")
+                    self.logger().debug(f"_iter_user_event_queue Error: {e}")
                 self.logger().network(
                     "Unknown error. Retrying after 1 seconds.",
                     exc_info=True,
@@ -790,7 +790,7 @@ class IdexExchange(ExchangeBase):
             try:
                 if 'type' not in event_message or 'data' not in event_message:
                     if DEBUG:
-                        self.logger().debug('unknown event received:', event_message)
+                        self.logger().debug('unknown event received: %s', event_message)
                     continue
                 event_type, event_data = event_message['type'], event_message['data']
                 if event_type == 'orders':

@@ -24,12 +24,13 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 
 # import with change to get_last_traded_prices
-from hummingbot.core.utils.async_utils import safe_gather  # todo alf: only one request needed for many trade_pairs ?
+from hummingbot.core.utils.async_utils import safe_gather
 
 from hummingbot.connector.exchange.idex.idex_active_order_tracker import IdexActiveOrderTracker
 from hummingbot.connector.exchange.idex.idex_order_book_tracker_entry import IdexOrderBookTrackerEntry
 from hummingbot.connector.exchange.idex.idex_order_book import IdexOrderBook
 from hummingbot.connector.exchange.idex.idex_resolve import get_idex_rest_url, get_idex_ws_feed
+from hummingbot.connector.exchange.idex.idex_utils import DEBUG
 
 MAX_RETRIES = 20
 NaN = float("nan")
@@ -250,6 +251,8 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
                         msg_type: str = msg.get("type", None)
+                        if DEBUG:
+                            self.logger().debug('<<<<< ws msg: %s', msg)
                         if msg_type is None:
                             raise ValueError(f"Idex Websocket message does not contain a type - {msg}")
                         elif msg_type == "error":
@@ -309,6 +312,8 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
                         msg_type: str = msg.get("type", None)
+                        if DEBUG:
+                            self.logger().debug('<<<<< ws msg: %s', msg)
                         if msg_type is None:
                             raise ValueError(f"Idex WebSocket message does not contain a type - {msg}")
                         elif msg_type == "error":
@@ -342,6 +347,8 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     for trading_pair in self._trading_pairs:
                         try:
                             snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
+                            if DEBUG:
+                                self.logger().debug('<<<<< aiohttp snapshot response: %s', snapshot)
                             snapshot_timestamp: float = time.time()
                             snapshot_msg: OrderBookMessage = IdexOrderBook.snapshot_message_from_exchange(
                                 snapshot,

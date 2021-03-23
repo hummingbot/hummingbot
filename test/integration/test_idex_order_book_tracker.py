@@ -23,6 +23,33 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 
+from hummingbot.logger import struct_logger
+import hummingbot.connector.exchange.idex.idex_resolve
+
+
+# Set log level for this test
+# LOG_LEVEL = logging.DEBUG
+LOG_LEVEL = logging.INFO
+LOG_FORMAT = "%(levelname)s - %(filename)s:%(lineno)s - %(funcName)s(): %(message)s"
+
+
+_logger = None
+
+
+def logger():
+    global _logger
+
+    def setup_logging():
+        logging.basicConfig(level=LOG_LEVEL, format=LOG_FORMAT)
+        logging.addLevelName(struct_logger.EVENT_LOG_LEVEL, "EVENT_LOG")
+        logging.addLevelName(struct_logger.METRICS_LOG_LEVEL, "METRIC_LOG")
+        logging.getLogger("hummingbot.core.event.event_reporter").setLevel(logging.DEBUG)
+
+    if _logger is None:
+        setup_logging()
+        _logger = logging.getLogger(__name__)
+    return _logger
+
 
 class IdexOrderBookTrackerUnitTest(unittest.TestCase):
 
@@ -37,13 +64,25 @@ class IdexOrderBookTrackerUnitTest(unittest.TestCase):
         "PIP-ETH"
     ]
 
+    logger = None
+
     @classmethod
     def setUpClass(cls):
+        # force the use of the ETH sandbox
+        hummingbot.connector.exchange.idex.idex_resolve._IS_IDEX_SANDBOX = True
+        hummingbot.connector.exchange.idex.idex_resolve._IDEX_BLOCKCHAIN = 'ETH'
+        cls.logger = logger()
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
+        cls.ev_loop.set_debug(True)
         cls.order_book_tracker: IdexOrderBookTracker = IdexOrderBookTracker(trading_pairs=cls.eth_sample_pairs)
 
         cls.order_book_tracker_task: asyncio.Task = safe_ensure_future(cls.order_book_tracker.start())
-        cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
+        cls.ev_loop.run_until_complete(
+            asyncio.wait_for(
+                cls.wait_til_tracker_ready(),
+                timeout=5 * 60  # timeout to force tests termination on failure
+            )
+        )
 
     @classmethod
     async def wait_til_tracker_ready(cls):
@@ -127,7 +166,6 @@ class IdexOrderBookTrackerUnitTest(unittest.TestCase):
 
 
 def main():
-    logging.basicConfig(level=logging.INFO)
     unittest.main()
 
 
