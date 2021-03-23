@@ -5,8 +5,6 @@ import math
 import time
 import asyncio
 import logging
-# import conf
-from hummingbot import logger
 import unittest
 from typing import Dict, Optional, List
 from hummingbot.core.event.event_logger import EventLogger
