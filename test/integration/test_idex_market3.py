@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 from os.path import join, realpath
-import sys;
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 from hummingbot.logger import HummingbotLogger
-
-sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 import asyncio
 import contextlib
@@ -18,23 +16,23 @@ from typing import (
     Optional
 )
 import unittest
-import math
+# import math
 from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
 from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    BuyOrderCreatedEvent,
-    MarketOrderFailureEvent,
+    # BuyOrderCompletedEvent,
+    # BuyOrderCreatedEvent,
+    # MarketOrderFailureEvent,
     MarketEvent,
-    OrderCancelledEvent,
-    OrderFilledEvent,
+    # OrderCancelledEvent,
+    # OrderFilledEvent,
     OrderType,
-    SellOrderCompletedEvent,
-    SellOrderCreatedEvent,
-    TradeFee,
-    TradeType,
+    # SellOrderCompletedEvent,
+    # SellOrderCreatedEvent,
+    # TradeFee,
+    # TradeType,
 )
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.utils.async_utils import (
@@ -42,17 +40,18 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
+import hummingbot.connector.exchange.idex.idex_resolve
 from hummingbot.connector.exchange.idex.idex_exchange import IdexExchange
-from hummingbot.connector.exchange.idex.idex_utils import HBOT_BROKER_ID
-from hummingbot.connector.markets_recorder import MarketsRecorder
-from hummingbot.model.market_state import MarketState
-from hummingbot.model.order import Order
-from hummingbot.model.sql_connection_manager import (
-    SQLConnectionManager,
-    SQLConnectionType
-)
-from hummingbot.model.trade_fill import TradeFill
-from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
+# from hummingbot.connector.exchange.idex.idex_utils import HBOT_BROKER_ID
+# from hummingbot.connector.markets_recorder import MarketsRecorder
+# from hummingbot.model.market_state import MarketState
+# from hummingbot.model.order import Order
+# from hummingbot.model.sql_connection_manager import (
+#     SQLConnectionManager,
+#     SQLConnectionType
+# )
+# from hummingbot.model.trade_fill import TradeFill
+# from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from test.integration.humming_web_app import HummingWebApp
 from test.integration.assets.mock_data.fixture_idex import FixtureIdex
 from test.integration.humming_ws_server import HummingWsServerFactory
@@ -99,6 +98,9 @@ class IdexExchangeUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.ev_loop = asyncio.get_event_loop()
+        # force the use of the ETH sandbox
+        hummingbot.connector.exchange.idex.idex_resolve._IS_IDEX_SANDBOX = True
+        hummingbot.connector.exchange.idex.idex_resolve._IDEX_BLOCKCHAIN = 'ETH'
         if API_MOCK_ENABLED:
             cls.web_app = HummingWebApp.get_instance()
             cls.web_app.add_host_to_mock(API_BASE_URL, [])
@@ -130,7 +132,12 @@ class IdexExchangeUnitTest(unittest.TestCase):
         cls.clock.add_iterator(cls.market)
         cls.stack: contextlib.ExitStack = contextlib.ExitStack()
         cls._clock = cls.stack.enter_context(cls.clock)
-        cls.ev_loop.run_until_complete(cls.wait_til_ready())
+        cls.ev_loop.run_until_complete(
+            asyncio.wait_for(
+                cls.wait_til_ready(),
+                timeout=5 * 60
+            )
+        )
         print("Ready.")
 
     @classmethod
@@ -144,7 +151,7 @@ class IdexExchangeUnitTest(unittest.TestCase):
     @classmethod
     async def wait_til_ready(cls, market=None):
         if market is None:
-            market= cls.market
+            market = cls.market
         while True:
             now = time.time()
             next_iteration = now // 1.0 + 1
@@ -265,8 +272,8 @@ class IdexExchangeUnitTest(unittest.TestCase):
         self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
                              for event in self.market_logger.event_log]))
         # Reset the logs
-        self.market_logger.clear()    
-    
+        self.market_logger.clear()
+
     def test_limit_taker_sell(self):
         trading_pair = "DIL-ETH"
         price: Decimal = self.market.get_price(trading_pair, False)
@@ -292,7 +299,7 @@ class IdexExchangeUnitTest(unittest.TestCase):
                              for event in self.market_logger.event_log]))
         # Reset the logs
         self.market_logger.clear()
-    
+
     def test_cancel_order(self):
         trading_pair = "DIL-ETH"
 
@@ -330,7 +337,7 @@ class IdexExchangeUnitTest(unittest.TestCase):
         _, exchange_order_id_2 = self._place_order(False, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
                                                    quantize_ask_price, 10002, FixtureIdex.OPEN_SELL_LIMIT_ORDER,
                                                    FixtureIdex.WS_ORDER_OPEN)
-        #self.run_parallel(asyncio.sleep(1))
+        # self.run_parallel(asyncio.sleep(1))
 
         if API_MOCK_ENABLED:
             self.web_app.update_response("delete", API_BASE_URL, f"/orders/{exchange_order_id}", exchange_order_id)
@@ -505,6 +512,7 @@ class IdexExchangeUnitTest(unittest.TestCase):
             recorder.stop()
             os.unlink(self.db_path)
     '''
+
 
 if __name__ == "__main__":
     logging.getLogger("hummingbot.core.event.event_reporter").setLevel(logging.WARNING)
