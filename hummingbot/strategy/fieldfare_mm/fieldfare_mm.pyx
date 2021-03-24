@@ -352,7 +352,7 @@ cdef class FieldfareMMStrategy(StrategyBase):
             lines.extend(["", "  No active maker orders."])
 
         volatility_pct = self._avg_vol.current_value / float(self.get_price()) * 100.0
-        lines.extend(["", f"  fieldfare_mm parameters:",
+        lines.extend(["", f"  Strategy parameters:",
                       f"    risk_factor(\u03B3)= {self._gamma:.5E}",
                       f"    order_book_depth_factor(\u03BA)= {self._kappa:.5E}",
                       f"    volatility= {volatility_pct:.3f}%",
