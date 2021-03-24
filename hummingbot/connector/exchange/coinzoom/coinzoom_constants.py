@@ -10,7 +10,7 @@ class Constants:
     WS_PRIVATE_URL = "wss://api.stage.coinzoom.com/api/v1/public/market/data/stream"
     WS_PUBLIC_URL = "wss://api.stage.coinzoom.com/api/v1/public/market/data/stream"
 
-    HBOT_BROKER_ID = "refzzz48"
+    HBOT_BROKER_ID = "CZ_API_HBOT"
 
     ENDPOINT = {
         # Public Endpoints
@@ -20,14 +20,14 @@ class Constants:
         "ORDER_CREATE": "orders/new",
         "ORDER_DELETE": "orders/cancel",
         "ORDER_STATUS": "orders/list",
-        "USER_ORDERS": "order",
+        "USER_ORDERS": "orders/list",
         "USER_BALANCES": "ledger/list",
     }
 
     WS_SUB = {
         "TRADES": "TradeSummaryRequest",
         "ORDERS": "OrderBookRequest",
-        "USER_ORDERS_TRADES": ["OrderUpdateRequest"],
+        "USER_ORDERS_TRADES": "OrderUpdateRequest",
 
     }
 

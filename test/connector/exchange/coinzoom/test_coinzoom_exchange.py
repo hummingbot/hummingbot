@@ -10,6 +10,7 @@ import os
 from typing import List
 import conf
 import math
+from async_timeout import timeout
 
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
@@ -88,14 +89,15 @@ class CoinzoomExchangeUnitTest(unittest.TestCase):
     async def wait_til_ready(cls, connector = None):
         if connector is None:
             connector = cls.connector
-        while True:
-            now = time.time()
-            next_iteration = now // 1.0 + 1
-            if connector.ready:
-                break
-            else:
-                await cls._clock.run_til(next_iteration)
-            await asyncio.sleep(1.0)
+        async with timeout(90):
+            while True:
+                now = time.time()
+                next_iteration = now // 1.0 + 1
+                if connector.ready:
+                    break
+                else:
+                    await cls._clock.run_til(next_iteration)
+                await asyncio.sleep(1.0)
 
     def setUp(self):
         self.db_path: str = realpath(join(__file__, "../connector_test.sqlite"))
@@ -208,6 +210,7 @@ class CoinzoomExchangeUnitTest(unittest.TestCase):
     def test_limit_makers_unfilled(self):
         price = self.connector.get_price(self.trading_pair, True) * Decimal("0.8")
         price = self.connector.quantize_order_price(self.trading_pair, price)
+        price_quantum = self.connector.get_order_price_quantum(self.trading_pair, price)
         amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0001"))
         self.ev_loop.run_until_complete(asyncio.sleep(1))
         self.ev_loop.run_until_complete(self.connector._update_balances())
@@ -219,8 +222,7 @@ class CoinzoomExchangeUnitTest(unittest.TestCase):
         self.assertEqual(cl_order_id, order_created_event.order_id)
         # check available quote balance gets updated, we need to wait a bit for the balance message to arrive
         taker_fee = self.connector.estimate_fee_pct(False)
-        quote_amount = ((price * amount))
-        quote_amount = ((price * amount) * (Decimal("1") + taker_fee))
+        quote_amount = (math.ceil(((price * amount) * (Decimal("1") + taker_fee)) / price_quantum) * price_quantum)
         expected_quote_bal = quote_bal - quote_amount
         self.ev_loop.run_until_complete(asyncio.sleep(1))
         self.ev_loop.run_until_complete(self.connector._update_balances())
@@ -269,7 +271,7 @@ class CoinzoomExchangeUnitTest(unittest.TestCase):
         sell_id = self._place_order(False, amount, OrderType.LIMIT, ask_price, 2)
 
         self.ev_loop.run_until_complete(asyncio.sleep(1))
-        asyncio.ensure_future(self.connector.cancel_all(5))
+        asyncio.ensure_future(self.connector.cancel_all(15))
         self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
         self.ev_loop.run_until_complete(asyncio.sleep(1))
         cancel_events = [t for t in self.event_logger.event_log if isinstance(t, OrderCancelledEvent)]
