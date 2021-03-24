@@ -23,6 +23,7 @@ cdef class ArbitrageStrategy(StrategyBase):
         object _exchange_rate_conversion
         int _failed_order_tolerance
         bint _cool_off_logged
+        bint _use_oracle_conversion_rate
         object _secondary_to_primary_base_conversion_rate
         object _secondary_to_primary_quote_conversion_rate
         bint _hb_app_notification
