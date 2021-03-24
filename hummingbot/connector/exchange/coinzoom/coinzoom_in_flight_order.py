@@ -72,47 +72,88 @@ class CoinzoomInFlightOrder(InFlightOrderBase):
         retval.last_state = data["last_state"]
         return retval
 
-    def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
+    def update_with_order_update(self, order_update: Dict[str, Any]) -> bool:
         """
-        Updates the in flight order with trade update (from private/get-order-detail end point)
+        Updates the in flight order with order update (from private/get-order-detail end point)
         return: True if the order gets updated otherwise False
-        Example Trade:
-        {
-            "id": "4345697765",
-            "clientOrderId": "53b7cf917963464a811a4af426102c19",
-            "symbol": "ETHBTC",
-            "side": "sell",
-            "status": "filled",
-            "type": "limit",
-            "timeInForce": "GTC",
-            "quantity": "0.001",
-            "price": "0.053868",
-            "cumQuantity": "0.001",
-            "postOnly": false,
-            "createdAt": "2017-10-20T12:20:05.952Z",
-            "updatedAt": "2017-10-20T12:20:38.708Z",
-            "reportType": "trade",
-        }
-        ... Trade variables are only included after fills.
-        {
-            "tradeQuantity": "0.001",
-            "tradePrice": "0.053868",
-            "tradeId": 55051694,
-            "tradeFee": "-0.000000005"
-        }
+        Example Orders:
+            REST request
+            {
+                "id" : "977f82aa-23dc-4c8b-982c-2ee7d2002882",
+                "clientOrderId" : null,
+                "symbol" : "BTC/USD",
+                "orderType" : "LIMIT",
+                "orderSide" : "BUY",
+                "quantity" : 0.1,
+                "price" : 54570,
+                "payFeesWithZoomToken" : false,
+                "orderStatus" : "PARTIALLY_FILLED",
+                "timestamp" : "2021-03-24T04:07:26.260253Z",
+                "executions" :
+                [
+                    {
+                        "id" : "38761582-2b37-4e27-a561-434981d21a96",
+                        "executionType" : "PARTIAL_FILL",
+                        "orderStatus" : "PARTIALLY_FILLED",
+                        "lastPrice" : 54570,
+                        "averagePrice" : 54570,
+                        "lastQuantity" : 0.01,
+                        "leavesQuantity" : 0.09,
+                        "cumulativeQuantity" : 0.01,
+                        "rejectReason" : null,
+                        "timestamp" : "2021-03-24T04:07:44.503222Z"
+                    }
+                ]
+            }
+            WS request
+            {
+                'id': '4eb3f26c-91bd-4bd2-bacb-15b2f432c452',
+                'orderId': '962a2a54-fbcf-4d89-8f37-a8854020a823',
+                'symbol': 'BTC/USD', 'orderType': 'LIMIT',
+                'orderSide': 'BUY',
+                'price': 5000,
+                'quantity': 0.001,
+                'executionType': 'CANCEL',
+                'orderStatus': 'CANCELLED',
+                'lastQuantity': 0,
+                'leavesQuantity': 0,
+                'cumulativeQuantity': 0,
+                'transactTime': '2021-03-23T19:06:51.155520Z'
+            }
         """
-        self.executed_amount_base = Decimal(str(trade_update["cumQuantity"]))
+        if 'cumulativeQuantity' not in order_update and 'executions' not in order_update:
+            return False
+
+        trades = order_update.get('executions')
+        if trades is not None:
+            new_trades = False
+            for trade in trades:
+                trade_id = str(trade["timestamp"])
+                if trade_id not in self.trade_id_set:
+                    self.trade_id_set.add(trade_id)
+                    # Add executed amounts
+                    executed_price = Decimal(str(trade.get("lastPrice", "0")))
+                    self.executed_amount_base += Decimal(str(trade["lastQuantity"]))
+                    self.executed_amount_quote += executed_price * self.executed_amount_base
+                    # Set new trades flag
+                    new_trades = True
+            if not new_trades:
+                # trades already recorded
+                return False
+        else:
+            trade_id = str(order_update["transactTime"])
+            if trade_id in self.trade_id_set:
+                # trade already recorded
+                return False
+            self.trade_id_set.add(trade_id)
+            # Set executed amounts
+            executed_price = Decimal(str(order_update.get("price", "0")))
+            self.executed_amount_base = Decimal(str(order_update["cumulativeQuantity"]))
+            self.executed_amount_quote = executed_price * self.executed_amount_base
         if self.executed_amount_base <= s_decimal_0:
             # No trades executed yet.
             return False
-        trade_id = trade_update["updatedAt"]
-        if trade_id in self.trade_id_set:
-            # trade already recorded
-            return False
-        self.trade_id_set.add(trade_id)
-        self.fee_paid += Decimal(str(trade_update.get("tradeFee", "0")))
-        self.executed_amount_quote += (Decimal(str(trade_update.get("tradePrice", "0"))) *
-                                       Decimal(str(trade_update.get("tradeQuantity", "0"))))
+        self.fee_paid += order_update.get("trade_fee") * self.executed_amount_base
         if not self.fee_asset:
             self.fee_asset = self.quote_asset
         return True
