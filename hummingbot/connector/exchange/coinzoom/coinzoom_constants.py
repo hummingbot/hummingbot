@@ -17,9 +17,9 @@ class Constants:
         "TICKER": "marketwatch/ticker",
         "SYMBOL": "instruments",
         "ORDER_BOOK": "marketwatch/orderbook/{trading_pair}/150/2",
-        "ORDER_CREATE": "order",
-        "ORDER_DELETE": "order/{id}",
-        "ORDER_STATUS": "order/{id}",
+        "ORDER_CREATE": "orders/new",
+        "ORDER_DELETE": "orders/cancel",
+        "ORDER_STATUS": "orders/list",
         "USER_ORDERS": "order",
         "USER_BALANCES": "ledger/list",
     }
