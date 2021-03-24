@@ -16,23 +16,22 @@ from typing import (
     Optional
 )
 import unittest
-# import math
+import math
 from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
 from hummingbot.core.event.events import (
-    # BuyOrderCompletedEvent,
-    # BuyOrderCreatedEvent,
-    # MarketOrderFailureEvent,
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketOrderFailureEvent,
     MarketEvent,
-    # OrderCancelledEvent,
-    # OrderFilledEvent,
-    OrderType,
-    # SellOrderCompletedEvent,
-    # SellOrderCreatedEvent,
-    # TradeFee,
-    # TradeType,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeFee,
+    TradeType, OrderType,
 )
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.utils.async_utils import (
@@ -42,16 +41,15 @@ from hummingbot.core.utils.async_utils import (
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 import hummingbot.connector.exchange.idex.idex_resolve
 from hummingbot.connector.exchange.idex.idex_exchange import IdexExchange
-# from hummingbot.connector.exchange.idex.idex_utils import HBOT_BROKER_ID
-# from hummingbot.connector.markets_recorder import MarketsRecorder
-# from hummingbot.model.market_state import MarketState
-# from hummingbot.model.order import Order
-# from hummingbot.model.sql_connection_manager import (
-#     SQLConnectionManager,
-#     SQLConnectionType
-# )
-# from hummingbot.model.trade_fill import TradeFill
-# from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
+from hummingbot.connector.markets_recorder import MarketsRecorder
+from hummingbot.model.market_state import MarketState
+from hummingbot.model.order import Order
+from hummingbot.model.sql_connection_manager import (
+     SQLConnectionManager,
+     SQLConnectionType
+)
+from hummingbot.model.trade_fill import TradeFill
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from test.integration.humming_web_app import HummingWebApp
 from test.integration.assets.mock_data.fixture_idex import FixtureIdex
 from test.integration.humming_ws_server import HummingWsServerFactory
@@ -60,9 +58,9 @@ from unittest import mock
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 # API_SECRET length must be multiple of 4 otherwise base64.b64decode will fail
 API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
-IDEX_API_KEY = "889fe7dd-ea60-4bf4-86f8-4eec39146510"
-IDEX_SECRET_KEY = "tkDey53dr1ZlyM2tzUAu82l+nhgzxCJl"
-IDEX_PRIVATE_KEY = "0227070369c04f55c66988ee3b272f8ae297cf7967ca7bad6d2f71f72072e18d"
+IDEX_API_KEY = ""
+IDEX_SECRET_KEY = ""
+IDEX_PRIVATE_KEY = ""
 API_BASE_URL = "https://api-eth.idex.io/"
 WS_BASE_URL = "wss://websocket-eth.idex.io/v1/"
 
@@ -189,33 +187,33 @@ class IdexExchangeUnitTest(unittest.TestCase):
     def run_parallel(self, *tasks):
         return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
-    '''
+    # Both fee tests pass, but I don't think they fully account for the gas cost calculated in the idex_exchange.
+
     def test_get_fee(self):
-        limit_fee: TradeFee = self.market.get_fee("ETH", "USDC", OrderType.LIMIT_MAKER, TradeType.BUY, 1, 1)
+        limit_fee: TradeFee = self.market.get_fee("DIL", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, 1, 1)
         self.assertGreater(limit_fee.percent, 0)
         self.assertEqual(len(limit_fee.flat_fees), 0)
-        market_fee: TradeFee = self.market.get_fee("ETH", "USDC", OrderType.LIMIT, TradeType.BUY, 1)
+        market_fee: TradeFee = self.market.get_fee("DIL", "ETH", OrderType.LIMIT, TradeType.BUY, 1)
         self.assertGreater(market_fee.percent, 0)
-        self.assertEqual(len(market_fee.flat_fees), 0)
+        self.assertEqual(len(market_fee.flat_fees), 1)
 
     def test_fee_overrides_config(self):
-        fee_overrides_config_map["coinbase_pro_taker_fee"].value = None
-        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
-                                                  Decimal('0.1'))
-        self.assertAlmostEqual(Decimal("0.005"), taker_fee.percent)
-        fee_overrides_config_map["coinbase_pro_taker_fee"].value = Decimal('0.2')
-        taker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
+        fee_overrides_config_map["idex_taker_fee"].value = None
+        taker_fee: TradeFee = self.market.get_fee("DIL", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.002"), taker_fee.percent)
-        fee_overrides_config_map["coinbase_pro_maker_fee"].value = None
-        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
+        fee_overrides_config_map["idex_taker_fee"].value = Decimal('0.75')
+        taker_fee: TradeFee = self.market.get_fee("DIL", "ETH", OrderType.LIMIT, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
-        self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
-        fee_overrides_config_map["coinbase_pro_maker_fee"].value = Decimal('0.75')
-        maker_fee: TradeFee = self.market.get_fee("LINK", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
+        self.assertAlmostEqual(Decimal("0.0075"), taker_fee.percent)
+        fee_overrides_config_map["idex_maker_fee"].value = None
+        maker_fee: TradeFee = self.market.get_fee("DIL", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
+                                                  Decimal('0.1'))
+        self.assertAlmostEqual(Decimal("0.001"), maker_fee.percent)
+        fee_overrides_config_map["idex_maker_fee"].value = Decimal('0.75')
+        maker_fee: TradeFee = self.market.get_fee("DIL", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.0075"), maker_fee.percent)
-    '''
 
     def _place_order(self, is_buy, trading_pair, amount, order_type, price, nonce, fixture_resp, fixture_ws):
         order_id, exchange_order_id = None, None
@@ -246,7 +244,6 @@ class IdexExchangeUnitTest(unittest.TestCase):
             resp["orderId"] = exchange_order_id
             HummingWsServerFactory.send_json_threadsafe(WS_BASE_URL, resp, delay=0.1)
 
-    '''
     def test_limit_taker_buy(self):
         self.assertGreater(self.market.get_balance("ETH"), Decimal("0.05"))
         trading_pair = "DIL-ETH"
@@ -318,8 +315,7 @@ class IdexExchangeUnitTest(unittest.TestCase):
         [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
         order_cancelled_event: OrderCancelledEvent = order_cancelled_event
         self.assertEqual(order_cancelled_event.order_id, order_id)
-
-    '''
+    
     def test_cancel_all(self):
         trading_pair = "DIL-ETH"
         bid_price: Decimal = self.market.get_price(trading_pair, True) * Decimal("0.5")
@@ -353,8 +349,7 @@ class IdexExchangeUnitTest(unittest.TestCase):
         for cr in cancellation_results:
             self.logger().info(f"Cancellation Result: {cr.success}")
             self.assertEqual(cr.success, True)
-
-    '''
+    
     @unittest.skipUnless(any("test_list_orders" in arg for arg in sys.argv), "List order test requires manual action.")
     def test_list_orders(self):
         self.assertGreater(self.market.get_balance("DIL"), Decimal("0.1"))
@@ -439,6 +434,7 @@ class IdexExchangeUnitTest(unittest.TestCase):
             self.assertEqual(1, len(self.market.tracking_states))
             self.logger().info("About to start the cancel!")
             # Cancel the order and verify that the change is saved.
+
             self._cancel_order(trading_pair, order_id, exchange_order_id, FixtureIdex.WS_ORDER_CANCELLED)
             self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
             order_id = None
@@ -462,8 +458,6 @@ class IdexExchangeUnitTest(unittest.TestCase):
                 self.ev_loop.run_until_complete(asyncio.sleep(1))
                 print(order_book.last_trade_price)
                 self.assertFalse(math.isnan(order_book.last_trade_price))
-
-
 
     def test_order_fill_record(self):
         config_path: str = "test_config"
@@ -511,8 +505,6 @@ class IdexExchangeUnitTest(unittest.TestCase):
 
             recorder.stop()
             os.unlink(self.db_path)
-    '''
-
 
 if __name__ == "__main__":
     logging.getLogger("hummingbot.core.event.event_reporter").setLevel(logging.WARNING)

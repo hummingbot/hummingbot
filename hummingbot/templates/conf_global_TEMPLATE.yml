@@ -52,6 +52,9 @@ ftx_api_key: null
 ftx_secret_key: null
 ftx_subaccount_name: null
 
+idex_api_key: null
+idex_secret_key: null
+
 huobi_api_key: null
 huobi_secret_key: null
 

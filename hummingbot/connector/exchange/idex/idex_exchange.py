@@ -602,7 +602,7 @@ class IdexExchange(ExchangeBase):
                 order_side: TradeType,
                 amount: Decimal,
                 price: Decimal = s_decimal_NaN) -> TradeFee:
-        # TODO: Need a check on this estimate_fee call. 2nd param should return True if order is a maker (limit orders).
+        # TODO: Need a check on this estimate_fee call. 2nd param should return True if order is a taker.
         is_maker = order_type is OrderType.LIMIT_MAKER
         percent_fees: Decimal = estimate_fee(EXCHANGE_NAME, is_maker).percent
         if is_maker:
