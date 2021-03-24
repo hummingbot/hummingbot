@@ -20,6 +20,7 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.arbitrage.arbitrage_market_pair import ArbitrageMarketPair
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 
 NaN = float("nan")
 s_decimal_0 = Decimal(0)
@@ -49,6 +50,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                  status_report_interval: float = 60.0,
                  next_trade_delay_interval: float = 15.0,
                  failed_order_tolerance: int = 1,
+                 use_oracle_conversion_rate: bool = False,
                  secondary_to_primary_base_conversion_rate: Decimal = Decimal("1"),
                  secondary_to_primary_quote_conversion_rate: Decimal = Decimal("1"),
                  hb_app_notification: bool = False):
@@ -75,7 +77,7 @@ cdef class ArbitrageStrategy(StrategyBase):
         self._failed_order_tolerance = failed_order_tolerance
         self._cool_off_logged = False
         self._current_profitability = ()
-
+        self._use_oracle_conversion_rate = use_oracle_conversion_rate
         self._secondary_to_primary_base_conversion_rate = secondary_to_primary_base_conversion_rate
         self._secondary_to_primary_quote_conversion_rate = secondary_to_primary_quote_conversion_rate
 
@@ -390,7 +392,14 @@ cdef class ArbitrageStrategy(StrategyBase):
         if market_info == self._market_pairs[0].first:
             return Decimal("1")
         elif market_info == self._market_pairs[0].second:
-            return self._secondary_to_primary_quote_conversion_rate / self._secondary_to_primary_base_conversion_rate
+            if not self._use_oracle_conversion_rate:
+                return self._secondary_to_primary_quote_conversion_rate / self._secondary_to_primary_base_conversion_rate
+            else:
+                quote_pair = f"{self._market_pairs[0].second.quote_asset}-{self._market_pairs[0].first.quote_asset}"
+                base_pair = f"{self._market_pairs[0].second.base_asset}-{self._market_pairs[0].first.base_asset}"
+                quote_rate = RateOracle.get_instance().rate(quote_pair)
+                base_rate = RateOracle.get_instance().rate(base_pair)
+                return quote_rate / base_rate
 
     cdef tuple c_find_best_profitable_amount(self, object buy_market_trading_pair_tuple, object sell_market_trading_pair_tuple):
         """

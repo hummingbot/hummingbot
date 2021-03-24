@@ -31,7 +31,7 @@ class RateCommand:
                         pair: str,
                         ):
         try:
-            msg = RateCommand.oracle_rate_msg(pair)
+            msg = await RateCommand.oracle_rate_msg(pair)
         except OracleRateUnavailable:
             msg = "Rate is not available."
         self._notify(msg)
