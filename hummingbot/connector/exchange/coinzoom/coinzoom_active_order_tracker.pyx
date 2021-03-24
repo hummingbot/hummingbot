@@ -135,14 +135,14 @@ cdef class CoinzoomActiveOrderTracker:
 
         return bids, asks
 
-    # Is this method actually used?
-    cdef np.ndarray[np.float64_t, ndim=1] c_convert_trade_message_to_np_array(self, object message):
-        cdef:
-            double trade_type_value = 1.0 if message.content[4] == "BUY" else 2.0
-            list content = message.content
+    # This method doesn't seem to be used anywhere at all
+    # cdef np.ndarray[np.float64_t, ndim=1] c_convert_trade_message_to_np_array(self, object message):
+    #     cdef:
+    #         double trade_type_value = 1.0 if message.content[4] == "BUY" else 2.0
+    #         list content = message.content
 
-        return np.array([message.timestamp, trade_type_value, float(content[1]), float(content[2])],
-                        dtype="float64")
+    #     return np.array([message.timestamp, trade_type_value, float(content[1]), float(content[2])],
+    #                     dtype="float64")
 
     def convert_diff_message_to_order_book_row(self, message):
         np_bids, np_asks = self.c_convert_diff_message_to_np_arrays(message)
