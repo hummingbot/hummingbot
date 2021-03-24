@@ -47,6 +47,11 @@ class CoinzoomOrderBookMessage(OrderBookMessage):
     def trading_pair(self) -> str:
         return self.content["trading_pair"]
 
+    # The `asks` and `bids` properties are only used in the methods below.
+    # They are all replaced or unused in this connector:
+    #     OrderBook.restore_from_snapshot_and_diffs
+    #     OrderBookTracker._track_single_book
+    #     MockAPIOrderBookDataSource.get_tracking_pairs
     @property
     def asks(self):
         raise NotImplementedError(Constants.EXCHANGE_NAME + " order book uses active_order_tracker.")
