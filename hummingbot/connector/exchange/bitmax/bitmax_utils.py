@@ -49,7 +49,8 @@ def derive_order_id(user_uid: str, cl_order_id: str, ts: int) -> str:
 def gen_exchange_order_id(userUid: str, client_order_id: str) -> Tuple[str, int]:
     """
     Generates the exchange order id based on user uid and client order id.
-    :param user_uid: user uid
+    :param user_uid: user uid,
+    :param client_order_id: client order id used for local order tracking
     :return: order id of length 32
     """
     time = get_ms_timestamp()
