@@ -64,9 +64,9 @@ def exchange_on_validated(value: str):
 
 def on_validated_parameters_based_on_spread(value: str):
     if value == 'True':
-        fieldfare_mm_config_map.get("gamma").value = None
-        fieldfare_mm_config_map.get("kappa").value = None
-        fieldfare_mm_config_map.get("eta").value = None
+        fieldfare_mm_config_map.get("risk_factor").value = None
+        fieldfare_mm_config_map.get("order_book_depth_factor").value = None
+        fieldfare_mm_config_map.get("order_amount_shape_factor").value = None
 
 
 fieldfare_mm_config_map = {
@@ -137,23 +137,26 @@ fieldfare_mm_config_map = {
                   required_if=lambda: fieldfare_mm_config_map.get("parameters_based_on_spread").value,
                   validator=lambda v: validate_decimal(v, 0, 1, inclusive=False),
                   prompt_on_new=True),
-    "kappa":
-        ConfigVar(key="kappa",
-                  prompt="Enter order book depth variable (kappa) >>> ",
+    "order_book_depth_factor":
+        ConfigVar(key="order_book_depth_factor",
+                  printable_key="order_book_depth_factor(\u03BA)",
+                  prompt="Enter order book depth factor (\u03BA) >>> ",
                   type_str="decimal",
                   required_if=lambda: not fieldfare_mm_config_map.get("parameters_based_on_spread").value,
                   validator=lambda v: validate_decimal(v, 0, 1e10, inclusive=False),
                   prompt_on_new=True),
-    "gamma":
-        ConfigVar(key="gamma",
-                  prompt="Enter risk factor (gamma) >>> ",
+    "risk_factor":
+        ConfigVar(key="risk_factor",
+                  printable_key="risk_factor(\u03B3)",
+                  prompt="Enter risk factor (\u03B3) >>> ",
                   type_str="decimal",
                   required_if=lambda: not fieldfare_mm_config_map.get("parameters_based_on_spread").value,
                   validator=lambda v: validate_decimal(v, 0, 1e10, inclusive=False),
                   prompt_on_new=True),
-    "eta":
-        ConfigVar(key="eta",
-                  prompt="Enter order amount shape factor (eta) >>> ",
+    "order_amount_shape_factor":
+        ConfigVar(key="order_amount_shape_factor",
+                  printable_key="order_amount_shape_factor(\u03B7)",
+                  prompt="Enter order amount shape factor (\u03B7) >>> ",
                   type_str="decimal",
                   required_if=lambda: not fieldfare_mm_config_map.get("parameters_based_on_spread").value,
                   validator=lambda v: validate_decimal(v, 0, 1, inclusive=True),
@@ -165,7 +168,7 @@ fieldfare_mm_config_map = {
                          " (fractional quantities are allowed i.e. 1.27 days) >>> ",
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, 0, 10, inclusive=False),
-                  default=Decimal("1")),
+                  default=Decimal("0.041666667")),
     "order_refresh_time":
         ConfigVar(key="order_refresh_time",
                   prompt="How often do you want to cancel and replace bids and asks "

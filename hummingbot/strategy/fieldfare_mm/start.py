@@ -44,11 +44,11 @@ def start(self):
         vol_to_spread_multiplier = c_map.get("vol_to_spread_multiplier").value
         inventory_risk_aversion = c_map.get("inventory_risk_aversion").value
         if parameters_based_on_spread:
-            gamma = kappa = eta = -1
+            risk_factor = order_book_depth_factor = order_amount_shape_factor = -1
         else:
-            kappa = c_map.get("kappa").value
-            gamma = c_map.get("gamma").value
-            eta = c_map.get("eta").value
+            order_book_depth_factor = c_map.get("order_book_depth_factor").value
+            risk_factor = c_map.get("risk_factor").value
+            order_amount_shape_factor = c_map.get("order_amount_shape_factor").value
         closing_time = c_map.get("closing_time").value * Decimal(3600 * 24 * 1e3)
         buffer_size = c_map.get("buffer_size").value
         buffer_sampling_period = c_map.get("buffer_sampling_period").value
@@ -71,10 +71,10 @@ def start(self):
             min_spread=min_spread,
             max_spread=max_spread,
             vol_to_spread_multiplier=vol_to_spread_multiplier,
-            inventory_risk_aversion = inventory_risk_aversion,
-            kappa=kappa,
-            gamma=gamma,
-            eta=eta,
+            inventory_risk_aversion=inventory_risk_aversion,
+            order_book_depth_factor=order_book_depth_factor,
+            risk_factor=risk_factor,
+            order_amount_shape_factor=order_amount_shape_factor,
             closing_time=closing_time,
             debug_csv_path=debug_csv_path,
             buffer_size=buffer_size,

@@ -43,9 +43,9 @@ min_spread: null
 max_spread: null
 vol_to_spread_multiplier: null
 inventory_risk_aversion: null
-kappa: null
-gamma: null
-eta: null
+order_book_depth_factor: null
+risk_factor: null
+order_amount_shape_factor: null
 closing_time: null
 
 # Buffer size used to store historic samples and calculate volatility
