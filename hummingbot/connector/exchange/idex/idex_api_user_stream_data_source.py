@@ -77,7 +77,6 @@ class IdexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             try:
                 async with websockets.connect(IDEX_WS_FEED) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
-                    await asyncio.sleep(1.0)  # idex docs: avoid rate-limit (`TOO_MANY_REQUESTS`) errors
                     subscribe_request: Dict[str, any] = {
                         "method": "subscribe",
                         "markets": self._trading_pairs,
